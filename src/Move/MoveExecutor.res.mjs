@@ -213,7 +213,7 @@ function axisAndDirection(move) {
         case "L" :
           return [
             "X",
-            -1
+            1
           ];
         case "F" :
           return [
@@ -223,7 +223,7 @@ function axisAndDirection(move) {
         case "R" :
           return [
             "X",
-            1
+            -1
           ];
         case "B" :
           return [
@@ -241,7 +241,7 @@ function axisAndDirection(move) {
         case "M" :
           return [
             "X",
-            -1
+            1
           ];
         case "E" :
           return [
@@ -259,7 +259,7 @@ function axisAndDirection(move) {
         case "X" :
           return [
             "X",
-            1
+            -1
           ];
         case "Y" :
           return [
@@ -317,14 +317,6 @@ function affectsSticker(size, move, sticker) {
   }
 }
 
-function isFixedCentre(size, row, col) {
-  if (size % 2 === 1 && row === (size / 2 | 0)) {
-    return col === (size / 2 | 0);
-  } else {
-    return false;
-  }
-}
-
 function copyState(state) {
   return {
     size: state.size,
@@ -345,22 +337,7 @@ function applyQuarter(state, move, direction) {
       for (let col = 0; col < size; ++col) {
         let sourceIndex = (row * size | 0) + col | 0;
         let sticker = faceToSticker(size, face, row, col);
-        let fixedCentre = isFixedCentre(size, row, col);
-        let rotate = false;
         if (affectsSticker(size, move, sticker)) {
-          let tmp;
-          switch (move.TAG) {
-            case "FaceTurn" :
-            case "SliceTurn" :
-              tmp = !fixedCentre;
-              break;
-            case "Rotation" :
-              tmp = true;
-              break;
-          }
-          rotate = tmp;
-        }
-        if (rotate) {
           let target = rotateSticker(size, sticker, axis, rotationDirection);
           let match$1 = stickerToFacelet(size, target);
           let targetFacelets = output.facelets[StateTypes.storageIndex(match$1[0])];
@@ -608,7 +585,6 @@ export {
   axisAndDirection,
   depthFromFace,
   affectsSticker,
-  isFixedCentre,
   copyState,
   applyQuarter,
   normalizeTurns,

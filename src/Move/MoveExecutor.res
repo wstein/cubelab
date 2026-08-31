@@ -89,8 +89,8 @@ let axisAndDirection = move =>
   switch move {
   | FaceTurn(face, _) =>
     switch face {
-    | R => (X, 1)
-    | L => (X, -1)
+    | R => (X, -1)
+    | L => (X, 1)
     | U => (Y, -1)
     | D => (Y, 1)
     | F => (Z, -1)
@@ -98,13 +98,13 @@ let axisAndDirection = move =>
     }
   | SliceTurn(slice) =>
     switch slice {
-    | M => (X, -1)
+    | M => (X, 1)
     | E => (Y, 1)
     | S => (Z, -1)
     }
   | Rotation(axis) =>
     switch axis {
-    | X => (X, 1)
+    | X => (X, -1)
     | Y => (Y, -1)
     | Z => (Z, -1)
     }
@@ -137,9 +137,6 @@ let affectsSticker = (~size: int, move: baseMove, sticker: sticker) =>
     }
   }
 
-let isFixedCentre = (~size: int, ~row: int, ~col: int) =>
-  size % 2 == 1 && row == size / 2 && col == size / 2
-
 let copyState = (state: StateTypes.cubeState): StateTypes.cubeState => {
   size: state.size,
   facelets: state.facelets->Array.map(facelets => facelets->Array.map(value => value)),
@@ -161,14 +158,7 @@ let applyQuarter = (
       for col in 0 to size - 1 {
         let sourceIndex = row * size + col
         let sticker = faceToSticker(~size, face, ~row, ~col)
-        let fixedCentre = isFixedCentre(~size, ~row, ~col)
-        let rotate =
-          affectsSticker(~size, move, sticker) &&
-          switch move {
-          | Rotation(_) => true
-          | _ => !fixedCentre
-          }
-        if rotate {
+        if affectsSticker(~size, move, sticker) {
           let target = rotateSticker(~size, sticker, axis, ~direction=rotationDirection)
           let (targetFace, targetRow, targetCol) = stickerToFacelet(~size, target)
           let targetFacelets = Belt.Array.getUnsafe(

@@ -52,12 +52,12 @@ test("wide, slice, inner-layer, and rotation moves are internally consistent", (
   assert.equal(compact(3, "x x x x y y y y z z z z"), solved(3));
 });
 
-test("slice turns preserve fixed centres while rotations move them", () => {
+test("slice turns and rotations carry centre stickers through their geometric layers", () => {
   const centreIndices = [4, 13, 22, 31, 40, 49];
   const afterSlice = compact(3, "M E S");
   const afterRotation = compact(3, "x");
   const solvedState = solved(3);
-  assert.deepEqual(
+  assert.notDeepEqual(
     centreIndices.map((index) => afterSlice[index]),
     centreIndices.map((index) => solvedState[index]),
   );
