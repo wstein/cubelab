@@ -14,6 +14,7 @@ test("the static shell declares size-scoped cubie and Orbit64 cards", () => {
 test("the Vanilla DOM client wires reachability-aware outputs", () => {
   assert.match(client, /PieceReducer\.reduce\(parsed\._0\)/);
   assert.match(client, /Orbit64Codec\.encode\(pieces\._0\)/);
+  assert.match(client, /Orbit64Codec\.decodeState\(value\)/);
   assert.match(client, /card\.hidden =/);
   assert.match(client, /copy\.disabled = !copyable/);
 });

@@ -44,6 +44,12 @@ if (root) {
 
   const parseState = (value: string): Result<CubeState> => {
     if (value === "") return StateTypes.solved(size) as Result<CubeState>;
+    if (size === 3 && /^[A-Za-z0-9_-]{12}$/.test(value)) {
+      const orbit = Orbit64Codec.decodeState(value) as Result<CubeState, unknown>;
+      return orbit.TAG === "Ok"
+        ? orbit
+        : {TAG: "Error", _0: Orbit64Codec.describeError(orbit._0)};
+    }
     if (value.includes("\n")) {
       const faceNet = NetCodec.parse(size, value) as Result<CubeState>;
       if (faceNet.TAG === "Ok") return faceNet;
