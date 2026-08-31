@@ -42,28 +42,36 @@ if (root) {
     }
   };
 
-  const parseState = (value: string): Result<CubeState> => {
-    if (value === "") return StateTypes.solved(size) as Result<CubeState>;
-    if (size === 3 && /^[A-Za-z0-9_-]{12}$/.test(value)) {
-      const orbit = Orbit64Codec.decodeState(value) as Result<CubeState, unknown>;
+  const parseState = (inputValue: string): Result<CubeState> => {
+    const compact = inputValue.trim();
+    if (compact === "") return StateTypes.solved(size) as Result<CubeState>;
+    if ((size === 2 || size === 3) && compact.startsWith("cp:")) {
+      const pieces = PieceReducer.parseState(size, compact) as Result<CubeState, unknown>;
+      return pieces.TAG === "Ok"
+        ? pieces
+        : {TAG: "Error", _0: PieceReducer.describeError(pieces._0)};
+    }
+    if (size === 3 && /^[A-Za-z0-9_-]{12}$/.test(compact)) {
+      const orbit = Orbit64Codec.decodeState(compact) as Result<CubeState, unknown>;
       return orbit.TAG === "Ok"
         ? orbit
         : {TAG: "Error", _0: Orbit64Codec.describeError(orbit._0)};
     }
-    if (value.includes("\n")) {
-      const faceNet = NetCodec.parse(size, value) as Result<CubeState>;
+    if (inputValue.includes("\n")) {
+      const net = inputValue.trimEnd();
+      const faceNet = NetCodec.parse(size, net) as Result<CubeState>;
       if (faceNet.TAG === "Ok") return faceNet;
-      const colourNet = ColorCodec.parseNet(scheme(), size, value) as Result<CubeState>;
+      const colourNet = ColorCodec.parseNet(scheme(), size, net) as Result<CubeState>;
       return colourNet.TAG === "Ok"
         ? colourNet
-        : (MoveExecutor.parseAndApply(size, value) as Result<CubeState>);
+        : (MoveExecutor.parseAndApply(size, inputValue) as Result<CubeState>);
     }
-    const facelets = FaceletCodec.parse(size, value) as Result<CubeState>;
+    const facelets = FaceletCodec.parse(size, compact) as Result<CubeState>;
     if (facelets.TAG === "Ok") return facelets;
-    const colours = ColorCodec.parseCompact(scheme(), size, value) as Result<CubeState>;
+    const colours = ColorCodec.parseCompact(scheme(), size, compact) as Result<CubeState>;
     return colours.TAG === "Ok"
       ? colours
-      : (MoveExecutor.parseAndApply(size, value) as Result<CubeState>);
+      : (MoveExecutor.parseAndApply(size, inputValue) as Result<CubeState>);
   };
 
   const setOutput = (key: string, value: string, copyable = true) => {
@@ -71,17 +79,6 @@ if (root) {
     if (output) output.textContent = value;
     const copy = root.querySelector<HTMLButtonElement>(`[data-copy="${key}"]`);
     if (copy) copy.disabled = !copyable;
-  };
-
-  const renderPieces = (pieces: PieceState): string => {
-    const coordinates = [
-      `cp: ${pieces.cp.join(" ")}`,
-      `co: ${pieces.co.join(" ")}`,
-    ];
-    if (pieces.size === 3) {
-      coordinates.push(`ep: ${pieces.ep.join(" ")}`, `eo: ${pieces.eo.join(" ")}`);
-    }
-    return coordinates.join("; ");
   };
 
   const updateCardVisibility = () => {
@@ -97,7 +94,7 @@ if (root) {
 
   const update = () => {
     updateCardVisibility();
-    const value = input.value.trim();
+    const value = input.value;
     const parsed = parseState(value);
     if (parsed.TAG === "Error") {
       status.textContent = "Parse error";
@@ -110,7 +107,7 @@ if (root) {
       return;
     }
 
-    status.textContent = value === "" ? "Solved default" : "Input converted";
+    status.textContent = value.trim() === "" ? "Solved default" : "Input converted";
     status.classList.remove("error");
     error.hidden = true;
     setOutput("facelets", FaceletCodec.render(parsed._0));
@@ -134,7 +131,14 @@ if (root) {
         );
         if (size === 3) setOutput("orbit64", "Unavailable — invalid piece state", false);
       } else {
-        setOutput("pieces", renderPieces(pieces._0));
+        const renderedPieces = PieceReducer.render(pieces._0) as Result<string, unknown>;
+        setOutput(
+          "pieces",
+          renderedPieces.TAG === "Ok"
+            ? renderedPieces._0
+            : `Unavailable — ${PieceReducer.describeError(renderedPieces._0)}`,
+          renderedPieces.TAG === "Ok",
+        );
         if (size === 3) {
           const orbit = Orbit64Codec.encode(pieces._0) as Result<string, unknown>;
           setOutput(

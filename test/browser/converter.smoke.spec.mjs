@@ -21,6 +21,29 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
     "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB",
   );
 
+  await input.fill(
+    [
+      "      W W W",
+      "      W W W",
+      "      W W W",
+      "O O O G G G R R R B B B",
+      "O O O G G G R R R B B B",
+      "O O O G G G R R R B B B",
+      "      Y Y Y",
+      "      Y Y Y",
+      "      Y Y Y",
+    ].join("\n"),
+  );
+  await expect(page.locator("[data-status]")).toHaveText("Input converted");
+  await expect(page.locator('[data-output="orbit64"]')).toHaveText("AAAAAAAAAAAA");
+
+  await input.fill(
+    "cp: 0 1 2 3 4 5 6 7; co: 0 0 0 0 0 0 0 0; " +
+      "ep: 0 1 2 3 4 5 6 7 8 9 10 11; eo: 0 0 0 0 0 0 0 0 0 0 0 0",
+  );
+  await expect(page.locator("[data-status]")).toHaveText("Input converted");
+  await expect(page.locator('[data-output="orbit64"]')).toHaveText("AAAAAAAAAAAA");
+
   await page.locator('[data-size="2"]').click();
   await expect(page.locator('[data-title="pieces"]')).toHaveText("2×2 CP / CO");
   await expect(page.locator('[data-output="pieces"]')).not.toContainText("ep:");
