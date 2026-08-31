@@ -11,7 +11,9 @@ Implemented state codecs:
 
 - compact URFDLB facelets;
 - canonical ASCII cube nets;
-- compact colours and colour nets using Western, Japanese, or custom schemes.
+- compact colours and colour nets using Western, Japanese, or custom schemes;
+- strict 2×2 CP/CO and centre-normalized 3×3 CP/CO/EP/EO coordinates;
+- normative 12-character Orbit64 encoding for complete 3×3 cubie states.
 
 The move parser implements the SiGN/LGN structure used by the project: outer, inner,
 wide, slice, and rotation moves; arbitrary repetition suffixes; groups; commutators;
@@ -23,7 +25,9 @@ The geometry executor applies the parsed AST to a solved or supplied canonical s
 It supports 2×2×2 through 5×5×5 outer, inner, wide, and whole-cube moves, plus 3×3×3
 `M/E/S`. Composite notation is expanded with a 100,000-move safety limit. Sticker
 movement uses an explicit fixed-frame 3D coordinate mapping; odd-cube fixed centres stay
-anchored for slice moves and participate only in whole-cube rotations.
+in the fixed world frame while their stickers follow slice-layer and whole-cube
+rotations. The 3×3 piece reducer virtually restores the solved centre orientation before
+extracting cubie coordinates, then validates permutation parity and orientation sums.
 
 Custom colour mappings use six distinct uppercase ASCII letters in `U,L,F,R,B,D`
 order. Parsers validate exact sticker counts and canonical net geometry.
@@ -31,25 +35,27 @@ order. Parsers validate exact sticker counts and canonical net geometry.
 ## Installation
 
 ```sh
-npm install
+bun install
 ```
 
 ## Build
 
-- Build: `npm run res:build`
-- Clean: `npm run res:clean`
-- Build & watch: `npm run res:dev`
+- Production build: `bun run build`
+- ReScript build: `bun run res:build`
+- ReScript watch mode: `bun run res:dev`
+- Production preview: `bun run preview`
 
 ## Quality checks
 
 ```sh
-npm run format:check
-npm run lint
-npm test
+bun run format:check
+bun run lint
+bun run test
 ```
 
-## Run
+The browser smoke test requires Playwright's Chromium binary once per machine:
 
 ```sh
-node src/Demo.res.mjs
+bunx playwright install chromium
+bun run test:browser
 ```
