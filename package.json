@@ -8,7 +8,12 @@
     "test": "rescript && node --test test/*.test.mjs",
     "res:build": "rescript",
     "res:clean": "rescript clean",
-    "res:dev": "rescript watch"
+    "res:dev": "rescript watch",
+    "astro:dev": "astro dev",
+    "astro:build": "astro build",
+    "astro:preview": "astro preview",
+    "build": "rescript && astro build",
+    "preview": "astro preview"
   },
   "keywords": [
     "rescript"
@@ -16,6 +21,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "astro": "^7.2.10",
     "rescript": "12.3.1"
   }
 }

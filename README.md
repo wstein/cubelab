@@ -4,6 +4,9 @@ Cube Rosetta converts Rubik's Cube algorithms and state representations for 2×2
 through 5×5×5 cubes. The implementation uses a canonical facelet model with strict,
 bidirectional codecs.
 
+The web interface uses static Astro markup and a small Vanilla DOM controller. It has
+no React, virtual DOM, or client-island runtime dependency.
+
 Implemented state codecs:
 
 - compact URFDLB facelets;

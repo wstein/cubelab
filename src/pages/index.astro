@@ -1,0 +1,106 @@
+---
+import "../styles/global.css";
+
+const cards = [
+  ["facelets", "Compact Facelets", "Kociemba URFDLB row-major convention"],
+  ["net", "Standard 2D Net", "Canonical U / L-F-R-B / D cross layout"],
+  ["colours", "Compact Colours", "Facelets mapped through the active colour scheme"],
+  ["colour-net", "Colour 2D Net", "Canonical cross layout using colour letters"],
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta
+      name="description"
+      content="Convert Rubik's Cube states between facelets, ASCII nets, and colour notation."
+    />
+    <title>Cube Rosetta — Cube State Converter</title>
+  </head>
+  <body>
+    <main class="container" data-converter>
+      <header class="site-header">
+        <span class="badge-tag">2×2×2 — 5×5×5</span>
+        <h1 class="title-gradient">Cube Rosetta</h1>
+        <p class="subtitle">Convert cube states into strict, copy-ready notation.</p>
+      </header>
+
+      <section class="toolbar" aria-label="Converter settings">
+        <div class="toolbar-group">
+          <span class="panel-label">Puzzle size</span>
+          <div class="segmented-control" data-size-control>
+            {[2, 3, 4, 5].map((size) => (
+              <button
+                type="button"
+                class:list={["segmented-btn", {active: size === 3}]}
+                data-size={size}
+                aria-pressed={size === 3 ? "true" : "false"}
+              >
+                {size}×{size}×{size}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div class="toolbar-group">
+          <label class="panel-label" for="scheme">Colour scheme</label>
+          <select id="scheme" class="select-control" data-scheme>
+            <option value="Western">Western (BOY)</option>
+            <option value="Japanese">Japanese</option>
+            <option value="Custom">Custom</option>
+          </select>
+          <label class="visually-hidden" for="custom-scheme">Custom mapping in U,L,F,R,B,D order</label>
+          <input
+            id="custom-scheme"
+            class="select-control custom-scheme-input"
+            data-custom-scheme
+            value="WOGRBY"
+            maxlength="6"
+            spellcheck="false"
+            aria-label="Custom mapping in U,L,F,R,B,D order"
+            hidden
+          />
+        </div>
+      </section>
+
+      <section class="input-panel">
+        <div class="input-header">
+          <label class="panel-label" for="cube-input">Cube state</label>
+          <span class="sniffer-badge" data-status aria-live="polite">Solved default</span>
+        </div>
+        <textarea
+          id="cube-input"
+          class="cube-textarea"
+          data-input
+          placeholder="Paste compact facelets, compact colours, or a canonical net. Leave blank for solved."
+          spellcheck="false"
+        ></textarea>
+        <div class="error-banner" data-error role="alert" hidden></div>
+      </section>
+
+      <section class="outputs-grid" aria-label="Converted state formats">
+        {cards.map(([key, title, provenance]) => (
+          <article class="output-card">
+            <header class="card-header">
+              <h2 class="card-title" data-title={key}>{title}</h2>
+              <button type="button" class="copy-btn" data-copy={key}>Copy</button>
+            </header>
+            <div class="card-body">
+              <pre class="code-display"><code data-output={key}>—</code></pre>
+              <p class="provenance-tag">{provenance}</p>
+            </div>
+          </article>
+        ))}
+      </section>
+
+      <footer class="footer">Pure ReScript codecs · Vanilla Astro interface</footer>
+    </main>
+
+    <script>
+      import "../client/converter";
+    </script>
+  </body>
+</html>
