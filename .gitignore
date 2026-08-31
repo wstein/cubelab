@@ -3,6 +3,9 @@
 /lib/
 /dist/
 /.astro/
+/test-results/
+/playwright-report/
+/blob-report/
 .bsb.lock
 .merlin
 cube-notation-converter-spec.md
