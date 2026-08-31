@@ -1,8 +1,17 @@
-# ReScript Project Template
+# Cube Rosetta
 
-- [Installation](../../README.md)
+Cube Rosetta converts Rubik's Cube algorithms and state representations for 2×2×2
+through 5×5×5 cubes. The implementation uses a canonical facelet model with strict,
+bidirectional codecs.
 
-Official ReScript starter template.
+Implemented state codecs:
+
+- compact URFDLB facelets;
+- canonical ASCII cube nets;
+- compact colours and colour nets using Western, Japanese, or custom schemes.
+
+Custom colour mappings use six distinct uppercase ASCII letters in `U,L,F,R,B,D`
+order. Parsers validate exact sticker counts and canonical net geometry.
 
 ## Installation
 
@@ -15,6 +24,14 @@ npm install
 - Build: `npm run res:build`
 - Clean: `npm run res:clean`
 - Build & watch: `npm run res:dev`
+
+## Quality checks
+
+```sh
+npm run format:check
+npm run lint
+npm test
+```
 
 ## Run
 

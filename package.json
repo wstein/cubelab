@@ -2,6 +2,10 @@
   "name": "cube-rosetta",
   "version": "0.0.0",
   "scripts": {
+    "format": "rescript format src/*.res src/State/*.res",
+    "format:check": "rescript format -c",
+    "lint": "rescript format -c && rescript",
+    "test": "rescript && node --test test/*.test.mjs",
     "res:build": "rescript",
     "res:clean": "rescript clean",
     "res:dev": "rescript watch"
