@@ -1,12 +1,15 @@
 import * as ColorCodec from "../State/ColorCodec.res.mjs";
 import * as FaceletCodec from "../State/FaceletCodec.res.mjs";
 import * as NetCodec from "../State/NetCodec.res.mjs";
+import * as Orbit64Codec from "../State/Orbit64Codec.res.mjs";
+import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import * as StateTypes from "../State/StateTypes.res.mjs";
 import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 
-type Result<T> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: StateError | string};
+type Result<T, E = StateError | string> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: E};
 type StateError = {_0?: string; TAG: string; actual?: number; character?: string; expected?: number; index?: number};
 type CubeState = {size: number; facelets: string[][]};
+type PieceState = {size: number; cp: number[]; co: number[]; ep: number[]; eo: number[]};
 type Scheme = "Western" | "Japanese" | {TAG: "Custom"; _0: string};
 
 const root = document.querySelector<HTMLElement>("[data-converter]");
@@ -57,12 +60,37 @@ if (root) {
       : (MoveExecutor.parseAndApply(size, value) as Result<CubeState>);
   };
 
-  const setOutput = (key: string, value: string) => {
+  const setOutput = (key: string, value: string, copyable = true) => {
     const output = root.querySelector<HTMLElement>(`[data-output="${key}"]`);
     if (output) output.textContent = value;
+    const copy = root.querySelector<HTMLButtonElement>(`[data-copy="${key}"]`);
+    if (copy) copy.disabled = !copyable;
+  };
+
+  const renderPieces = (pieces: PieceState): string => {
+    const coordinates = [
+      `cp: ${pieces.cp.join(" ")}`,
+      `co: ${pieces.co.join(" ")}`,
+    ];
+    if (pieces.size === 3) {
+      coordinates.push(`ep: ${pieces.ep.join(" ")}`, `eo: ${pieces.eo.join(" ")}`);
+    }
+    return coordinates.join("; ");
+  };
+
+  const updateCardVisibility = () => {
+    root.querySelectorAll<HTMLElement>("[data-output-card]").forEach((card) => {
+      const supportedSizes = card.dataset.sizes;
+      card.hidden = supportedSizes !== undefined && !supportedSizes.split(",").includes(String(size));
+    });
+    const pieceTitle = root.querySelector<HTMLElement>('[data-title="pieces"]');
+    if (pieceTitle) {
+      pieceTitle.textContent = size === 2 ? "2×2 CP / CO" : "3×3 CP / CO / EP / EO";
+    }
   };
 
   const update = () => {
+    updateCardVisibility();
     const value = input.value.trim();
     const parsed = parseState(value);
     if (parsed.TAG === "Error") {
@@ -70,7 +98,9 @@ if (root) {
       status.classList.add("error");
       error.textContent = describeError(parsed._0);
       error.hidden = false;
-      for (const key of ["facelets", "net", "colours", "colour-net"]) setOutput(key, "—");
+      for (const key of ["facelets", "net", "colours", "colour-net", "pieces", "orbit64"]) {
+        setOutput(key, "—", false);
+      }
       return;
     }
 
@@ -81,8 +111,34 @@ if (root) {
     setOutput("net", NetCodec.render(parsed._0));
     const colours = ColorCodec.renderCompact(scheme(), parsed._0) as Result<string>;
     const colourNet = ColorCodec.renderNet(scheme(), parsed._0) as Result<string>;
-    setOutput("colours", colours.TAG === "Ok" ? colours._0 : "—");
-    setOutput("colour-net", colourNet.TAG === "Ok" ? colourNet._0 : "—");
+    setOutput("colours", colours.TAG === "Ok" ? colours._0 : "—", colours.TAG === "Ok");
+    setOutput(
+      "colour-net",
+      colourNet.TAG === "Ok" ? colourNet._0 : "—",
+      colourNet.TAG === "Ok",
+    );
+
+    if (size === 2 || size === 3) {
+      const pieces = PieceReducer.reduce(parsed._0) as Result<PieceState, unknown>;
+      if (pieces.TAG === "Error") {
+        setOutput(
+          "pieces",
+          `Unavailable — ${PieceReducer.describeError(pieces._0)}`,
+          false,
+        );
+        if (size === 3) setOutput("orbit64", "Unavailable — invalid piece state", false);
+      } else {
+        setOutput("pieces", renderPieces(pieces._0));
+        if (size === 3) {
+          const orbit = Orbit64Codec.encode(pieces._0) as Result<string, unknown>;
+          setOutput(
+            "orbit64",
+            orbit.TAG === "Ok" ? orbit._0 : `Unavailable — ${Orbit64Codec.describeError(orbit._0)}`,
+            orbit.TAG === "Ok",
+          );
+        }
+      }
+    }
   };
 
   root.querySelectorAll<HTMLButtonElement>("[data-size]").forEach((button) => {
@@ -111,7 +167,7 @@ if (root) {
     button.addEventListener("click", async () => {
       const key = button.dataset.copy;
       const output = key ? root.querySelector<HTMLElement>(`[data-output="${key}"]`) : null;
-      if (!output || output.textContent === "—") return;
+      if (button.disabled || !output || output.textContent === "—") return;
       await navigator.clipboard.writeText(output.textContent ?? "");
       button.textContent = "Copied";
       button.classList.add("copied");

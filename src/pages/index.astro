@@ -2,10 +2,34 @@
 import "../styles/global.css";
 
 const cards = [
-  ["facelets", "Compact Facelets", "Kociemba URFDLB row-major convention"],
-  ["net", "Standard 2D Net", "Canonical U / L-F-R-B / D cross layout"],
-  ["colours", "Compact Colours", "Facelets mapped through the active colour scheme"],
-  ["colour-net", "Colour 2D Net", "Canonical cross layout using colour letters"],
+  {
+    key: "facelets",
+    title: "Compact Facelets",
+    provenance: "Kociemba URFDLB row-major convention",
+  },
+  {key: "net", title: "Standard 2D Net", provenance: "Canonical U / L-F-R-B / D cross layout"},
+  {
+    key: "colours",
+    title: "Compact Colours",
+    provenance: "Facelets mapped through the active colour scheme",
+  },
+  {
+    key: "colour-net",
+    title: "Colour 2D Net",
+    provenance: "Canonical cross layout using colour letters",
+  },
+  {
+    key: "pieces",
+    title: "3×3 CP / CO / EP / EO",
+    provenance: "Kociemba piece order · canonical centre frame",
+    sizes: "2,3",
+  },
+  {
+    key: "orbit64",
+    title: "Orbit64",
+    provenance: "Normative v1 · 72-bit mixed radix · Base64URL",
+    sizes: "3",
+  },
 ];
 ---
 
@@ -16,7 +40,7 @@ const cards = [
     <meta name="viewport" content="width=device-width" />
     <meta
       name="description"
-      content="Convert Rubik's Cube states between facelets, ASCII nets, and colour notation."
+      content="Convert Rubik's Cube states between facelets, ASCII nets, colour notation, cubie coordinates, and Orbit64."
     />
     <title>Cube Rosetta — Cube State Converter</title>
   </head>
@@ -68,7 +92,7 @@ const cards = [
 
       <section class="input-panel">
         <div class="input-header">
-        <label class="panel-label" for="cube-input">Algorithm or cube state</label>
+          <label class="panel-label" for="cube-input">Algorithm or cube state</label>
           <span class="sniffer-badge" data-status aria-live="polite">Solved default</span>
         </div>
         <textarea
@@ -82,8 +106,8 @@ const cards = [
       </section>
 
       <section class="outputs-grid" aria-label="Converted state formats">
-        {cards.map(([key, title, provenance]) => (
-          <article class="output-card">
+        {cards.map(({key, title, provenance, sizes}) => (
+          <article class="output-card" data-output-card={key} data-sizes={sizes}>
             <header class="card-header">
               <h2 class="card-title" data-title={key}>{title}</h2>
               <button type="button" class="copy-btn" data-copy={key}>Copy</button>
