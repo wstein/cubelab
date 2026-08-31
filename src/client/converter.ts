@@ -2,8 +2,9 @@ import * as ColorCodec from "../State/ColorCodec.res.mjs";
 import * as FaceletCodec from "../State/FaceletCodec.res.mjs";
 import * as NetCodec from "../State/NetCodec.res.mjs";
 import * as StateTypes from "../State/StateTypes.res.mjs";
+import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 
-type Result<T> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: StateError};
+type Result<T> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: StateError | string};
 type StateError = {_0?: string; TAG: string; actual?: number; character?: string; expected?: number; index?: number};
 type CubeState = {size: number; facelets: string[][]};
 type Scheme = "Western" | "Japanese" | {TAG: "Custom"; _0: string};
@@ -23,7 +24,8 @@ if (root) {
       ? {TAG: "Custom", _0: customScheme.value.toUpperCase()}
       : (schemeSelect.value as "Western" | "Japanese");
 
-  const describeError = (reason: StateError): string => {
+  const describeError = (reason: StateError | string): string => {
+    if (typeof reason === "string") return reason;
     switch (reason.TAG) {
       case "InvalidLength":
         return `Invalid length: expected ${reason.expected}, received ${reason.actual}.`;
@@ -41,14 +43,18 @@ if (root) {
     if (value === "") return StateTypes.solved(size) as Result<CubeState>;
     if (value.includes("\n")) {
       const faceNet = NetCodec.parse(size, value) as Result<CubeState>;
-      return faceNet.TAG === "Ok"
-        ? faceNet
-        : (ColorCodec.parseNet(scheme(), size, value) as Result<CubeState>);
+      if (faceNet.TAG === "Ok") return faceNet;
+      const colourNet = ColorCodec.parseNet(scheme(), size, value) as Result<CubeState>;
+      return colourNet.TAG === "Ok"
+        ? colourNet
+        : (MoveExecutor.parseAndApply(size, value) as Result<CubeState>);
     }
     const facelets = FaceletCodec.parse(size, value) as Result<CubeState>;
-    return facelets.TAG === "Ok"
-      ? facelets
-      : (ColorCodec.parseCompact(scheme(), size, value) as Result<CubeState>);
+    if (facelets.TAG === "Ok") return facelets;
+    const colours = ColorCodec.parseCompact(scheme(), size, value) as Result<CubeState>;
+    return colours.TAG === "Ok"
+      ? colours
+      : (MoveExecutor.parseAndApply(size, value) as Result<CubeState>);
   };
 
   const setOutput = (key: string, value: string) => {
@@ -68,7 +74,7 @@ if (root) {
       return;
     }
 
-    status.textContent = value === "" ? "Solved default" : "State detected";
+    status.textContent = value === "" ? "Solved default" : "Input converted";
     status.classList.remove("error");
     error.hidden = true;
     setOutput("facelets", FaceletCodec.render(parsed._0));
