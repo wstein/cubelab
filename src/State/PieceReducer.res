@@ -11,6 +11,7 @@ type pieceState = {
 
 type pieceError =
   | UnsupportedSize(int)
+  | InvalidSyntax(string)
   | InvalidFaceletState(string)
   | InvalidPiece(string)
   | InvalidPermutation(string)
@@ -97,6 +98,7 @@ let describeError = error =>
       `Piece coordinates are unavailable for ${label}×${label}×${label}.`
     }
   | InvalidFaceletState(message)
+  | InvalidSyntax(message)
   | InvalidPiece(message)
   | InvalidPermutation(message)
   | InvalidOrientation(message)
@@ -415,3 +417,96 @@ let reconstruct = (pieces: pieceState): result<cubeState, pieceError> => {
   | ReductionFailure(error) => Error(error)
   }
 }
+
+let renderValues = values => values->Array.map(value => value->Int.toString)->Array.join(" ")
+
+let render = (pieces: pieceState): result<string, pieceError> =>
+  switch validate(pieces) {
+  | Error(error) => Error(error)
+  | Ok() => {
+      let corners = `cp: ${renderValues(pieces.cp)}; co: ${renderValues(pieces.co)}`
+      if pieces.size == 2 {
+        Ok(corners)
+      } else {
+        Ok(`${corners}; ep: ${renderValues(pieces.ep)}; eo: ${renderValues(pieces.eo)}`)
+      }
+    }
+  }
+
+let parseField = (field, expectedLabel) => {
+  let parts = field->String.split(":")
+  if parts->Array.length != 2 || Belt.Array.getUnsafe(parts, 0)->String.trim != expectedLabel {
+    throw(
+      ReductionFailure(
+        InvalidSyntax(`Expected the '${expectedLabel}:' coordinate field in canonical order.`),
+      ),
+    )
+  }
+  let valueText = Belt.Array.getUnsafe(parts, 1)->String.trim
+  if valueText == "" {
+    []
+  } else {
+    valueText
+    ->String.split(" ")
+    ->Array.filter(value => value != "")
+    ->Array.map(value =>
+      switch Int.fromString(value) {
+      | Some(value) => value
+      | None =>
+        throw(
+          ReductionFailure(
+            InvalidSyntax(`'${value}' is not a valid integer in the '${expectedLabel}' field.`),
+          ),
+        )
+      }
+    )
+  }
+}
+
+let parse = (~size: int, input: string): result<pieceState, pieceError> => {
+  try {
+    if size != 2 && size != 3 {
+      throw(ReductionFailure(UnsupportedSize(size)))
+    }
+    let fields = input->String.trim->String.split(";")
+    let expectedFields = if size == 2 {
+      2
+    } else {
+      4
+    }
+    if fields->Array.length != expectedFields {
+      throw(
+        ReductionFailure(
+          InvalidSyntax(
+            `A ${size->Int.toString}×${size->Int.toString} cubie state requires ${expectedFields->Int.toString} coordinate fields.`,
+          ),
+        ),
+      )
+    }
+    let pieces = {
+      size,
+      cp: parseField(Belt.Array.getUnsafe(fields, 0), "cp"),
+      co: parseField(Belt.Array.getUnsafe(fields, 1), "co"),
+      ep: if size == 3 {
+        parseField(Belt.Array.getUnsafe(fields, 2), "ep")
+      } else {
+        []
+      },
+      eo: if size == 3 {
+        parseField(Belt.Array.getUnsafe(fields, 3), "eo")
+      } else {
+        []
+      },
+    }
+    validateOrThrow(pieces)
+    Ok(pieces)
+  } catch {
+  | ReductionFailure(error) => Error(error)
+  }
+}
+
+let parseState = (~size: int, input: string): result<cubeState, pieceError> =>
+  switch parse(~size, input) {
+  | Error(error) => Error(error)
+  | Ok(pieces) => reconstruct(pieces)
+  }

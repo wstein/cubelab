@@ -89,3 +89,34 @@ test("reduction rejects impossible centre and piece arrangements", () => {
   duplicateCorner.facelets[0][3] = "D";
   assert.equal(PieceReducer.reduce(duplicateCorner)._0.TAG, "InvalidPiece");
 });
+
+test("copy-ready cubie syntax strictly round-trips 2x2 and 3x3 states", () => {
+  for (const [size, algorithm] of [[2, "R U F'"], [3, "[R, U] F2 D'"]]) {
+    const state = apply(size, algorithm);
+    const pieces = reduce(state);
+    const rendered = PieceReducer.render(pieces);
+    assert.equal(rendered.TAG, "Ok");
+    const parsed = PieceReducer.parse(size, rendered._0);
+    assert.equal(parsed.TAG, "Ok");
+    assert.deepEqual(parsed._0, pieces);
+    assert.deepEqual(reduce(PieceReducer.parseState(size, rendered._0)._0), pieces);
+  }
+});
+
+test("cubie syntax rejects wrong fields and unreachable coordinates", () => {
+  assert.equal(PieceReducer.parse(3, "cp: 0; co: 0")._0.TAG, "InvalidSyntax");
+  assert.equal(
+    PieceReducer.parse(
+      2,
+      "co: 0 0 0 0 0 0 0 0; cp: 0 1 2 3 4 5 6 7",
+    )._0.TAG,
+    "InvalidSyntax",
+  );
+  assert.equal(
+    PieceReducer.parse(
+      2,
+      "cp: 0 1 2 3 4 5 6 7; co: 1 0 0 0 0 0 0 0",
+    )._0.TAG,
+    "InvalidOrientation",
+  );
+});
