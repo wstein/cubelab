@@ -17,6 +17,7 @@ function normalizeCharacter(character) {
     case "′" :
     case "‵" :
       return "'";
+    case "‑" :
     case "–" :
     case "—" :
     case "−" :

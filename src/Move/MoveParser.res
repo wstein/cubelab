@@ -124,12 +124,20 @@ let faceFromCharacter = character =>
   | _ => None
   }
 
-let validateRange = (parser, range, ~wide: bool, ~start: int) => {
+let validateRange = (parser, range, ~wide: bool, ~explicitRange: bool, ~start: int) => {
   if range.from_ < 1 || range.to_ < range.from_ || range.to_ > parser.size {
     fail(parser, "Layer range is outside the selected cube.", ~start, ~end_=parser.cursor)
   }
   if wide && (range.from_ < 1 || range.to_ < 2 || range.to_ >= parser.size) {
     fail(parser, "Wide moves must turn between 2 and N-1 layers.", ~start, ~end_=parser.cursor)
+  }
+  if explicitRange && range.from_ < 2 {
+    fail(
+      parser,
+      "Explicit ranged moves must start at layer 2 or deeper.",
+      ~start,
+      ~end_=parser.cursor,
+    )
   }
 }
 
@@ -195,7 +203,7 @@ let parseBaseMove = parser => {
         | (None, None, false) => {from_: 1, to_: 1}
         | _ => fail(parser, "Invalid layer-range move.", ~start, ~end_=parser.cursor)
         }
-        validateRange(parser, range, ~wide, ~start)
+        validateRange(parser, range, ~wide, ~explicitRange=rangeEnd != None, ~start)
         FaceTurn(face, range)
       }
     }

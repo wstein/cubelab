@@ -18,7 +18,7 @@ const rejects = (size, input, message) => {
 };
 
 test("normalization preserves source length while replacing common Unicode aliases", () => {
-  const input = "Ｒ".replace("Ｒ", "R") + "’\u00a0（U–D）";
+  const input = "Ｒ".replace("Ｒ", "R") + "’\u00a0（U‑D）";
   const normalized = MoveNormalizer.normalize(input);
   assert.equal(normalized, "R' (U-D)");
   assert.equal(normalized.length, input.length);
@@ -66,6 +66,7 @@ test("comments and timing annotations separate units without changing spans", ()
 test("rejects unsupported dimensions, invalid ranges, and malformed grammar with spans", () => {
   rejects(4, "M", /only on 3×3×3/);
   rejects(3, "3Rw", /between 2 and N-1/);
+  rejects(4, "1-2Rw", /must start at layer 2/);
   rejects(2, "Rw", /between 2 and N-1/);
   rejects(3, "RUR", /separated by whitespace/);
   rejects(3, "[R U]", /requires ',' or ':'/);

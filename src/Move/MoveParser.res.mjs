@@ -172,12 +172,15 @@ function faceFromCharacter(character) {
   }
 }
 
-function validateRange(parser, range, wide, start) {
+function validateRange(parser, range, wide, explicitRange, start) {
   if (range.from_ < 1 || range.to_ < range.from_ || range.to_ > parser.size) {
     fail(parser, "Layer range is outside the selected cube.", start, parser.cursor);
   }
   if (wide && (range.from_ < 1 || range.to_ < 2 || range.to_ >= parser.size)) {
-    return fail(parser, "Wide moves must turn between 2 and N-1 layers.", start, parser.cursor);
+    fail(parser, "Wide moves must turn between 2 and N-1 layers.", start, parser.cursor);
+  }
+  if (explicitRange && range.from_ < 2) {
+    return fail(parser, "Explicit ranged moves must start at layer 2 or deeper.", start, parser.cursor);
   }
 }
 
@@ -255,7 +258,7 @@ function parseBaseMove(parser) {
       if (exit$1 === 3) {
         range = fail(parser, "Invalid layer-range move.", start, parser.cursor);
       }
-      validateRange(parser, range, wide, start);
+      validateRange(parser, range, wide, rangeEnd !== undefined, start);
       return {
         TAG: "FaceTurn",
         _0: face,
