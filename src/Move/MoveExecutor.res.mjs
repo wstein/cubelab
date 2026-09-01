@@ -368,6 +368,9 @@ function applyStep(state, step) {
 }
 
 function pushStep(steps, move, turns) {
+  if (normalizeTurns(turns) === 0) {
+    return;
+  }
   if (steps.length >= 100000) {
     throw {
       RE_EXN_ID: ExpansionFailure,
@@ -378,13 +381,28 @@ function pushStep(steps, move, turns) {
       Error: new Error()
     };
   }
-  if (normalizeTurns(turns) !== 0) {
-    steps.push({
+  steps.push({
+    step: {
       move: move,
       turns: turns
-    });
-    return;
+    }
+  });
+}
+
+function pushPause(steps) {
+  if (steps.length >= 100000) {
+    throw {
+      RE_EXN_ID: ExpansionFailure,
+      _1: {
+        TAG: "ExpansionLimitExceeded",
+        _0: 100000
+      },
+      Error: new Error()
+    };
   }
+  steps.push({
+    step: undefined
+  });
 }
 
 function expandSequence(steps, units, direction) {
@@ -427,7 +445,7 @@ function expandConjugate(steps, left, right, direction) {
 function expandUnit(steps, unit, direction) {
   let match = unit.desc;
   if (typeof match !== "object") {
-    return;
+    return pushPause(steps);
   }
   switch (match.TAG) {
     case "Move" :
@@ -463,7 +481,7 @@ function expandUnit(steps, unit, direction) {
   }
 }
 
-function expand(alg) {
+function expandTimeline(alg) {
   try {
     let steps = [];
     expandSequence(steps, alg, 1);
@@ -481,6 +499,28 @@ function expand(alg) {
     }
     throw error;
   }
+}
+
+function expand(alg) {
+  let error = expandTimeline(alg);
+  if (error.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: error._0
+    };
+  }
+  let steps = [];
+  error._0.forEach(entry => {
+    let step = entry.step;
+    if (step !== undefined) {
+      steps.push(step);
+      return;
+    }
+  });
+  return {
+    TAG: "Ok",
+    _0: steps
+  };
 }
 
 function validateState(state) {
@@ -603,11 +643,13 @@ export {
   normalizeTurns,
   applyStep,
   pushStep,
+  pushPause,
   expandSequence,
   expandRepeated,
   expandCommutator,
   expandConjugate,
   expandUnit,
+  expandTimeline,
   expand,
   validateState,
   applyAlg,

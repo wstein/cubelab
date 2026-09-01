@@ -20,6 +20,10 @@ type step = {
   turns: int,
 }
 
+type timelineEntry = {
+  step: option<step>,
+}
+
 exception ExpansionFailure(executionError)
 
 let maxExpandedMoves = 100000
@@ -194,12 +198,19 @@ let applyStep = (state: StateTypes.cubeState, step: step): StateTypes.cubeState 
 }
 
 let pushStep = (steps, move, turns) => {
+  if normalizeTurns(turns) != 0 {
+    if steps->Array.length >= maxExpandedMoves {
+      throw(ExpansionFailure(ExpansionLimitExceeded(maxExpandedMoves)))
+    }
+    steps->Array.push({step: Some({move, turns})})
+  }
+}
+
+let pushPause = steps => {
   if steps->Array.length >= maxExpandedMoves {
     throw(ExpansionFailure(ExpansionLimitExceeded(maxExpandedMoves)))
   }
-  if normalizeTurns(turns) != 0 {
-    steps->Array.push({move, turns})
-  }
+  steps->Array.push({step: None})
 }
 
 let rec expandSequence = (steps, units: array<locatedUnit>, ~direction: int) => {
@@ -253,7 +264,8 @@ and expandConjugate = (steps, left, right, ~direction) => {
 and expandUnit = (steps, unit: locatedUnit, ~direction: int) =>
   switch unit.desc {
   | Move(move, turns) => pushStep(steps, move, turns * direction)
-  | Pause | BlockComment(_) => ()
+  | Pause => pushPause(steps)
+  | BlockComment(_) => ()
   | Group(units, repeat) => expandRepeated(steps, units, repeat, ~direction)
   | Commutator(left, right, repeat) => {
       let repetitions = if repeat < 0 {
@@ -289,13 +301,28 @@ and expandUnit = (steps, unit: locatedUnit, ~direction: int) =>
     }
   }
 
-let expand = (alg: alg): result<array<step>, executionError> =>
+let expandTimeline = (alg: alg): result<array<timelineEntry>, executionError> =>
   try {
     let steps = []
     expandSequence(steps, alg, ~direction=1)
     Ok(steps)
   } catch {
   | ExpansionFailure(error) => Error(error)
+  }
+
+let expand = (alg: alg): result<array<step>, executionError> =>
+  switch expandTimeline(alg) {
+  | Error(error) => Error(error)
+  | Ok(entries) => {
+      let steps = []
+      entries->Array.forEach(entry =>
+        switch entry.step {
+        | Some(step) => steps->Array.push(step)
+        | None => ()
+        }
+      )
+      Ok(steps)
+    }
   }
 
 let validateState = (state: StateTypes.cubeState): result<unit, executionError> => {

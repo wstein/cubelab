@@ -273,6 +273,12 @@ body {
   box-shadow: 0 0 10px var(--accent-glow);
 }
 
+.move-token.pause {
+  border-style: dashed;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
 .playback-scrubber {
   width: 100%;
   accent-color: var(--accent-primary);

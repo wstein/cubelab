@@ -7,13 +7,14 @@ import type {LowercaseMode, NotationDialect} from "./store";
 type Result<T, E> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: E};
 type ParseError = {message: string};
 type ExpansionError = {TAG: "InvalidState"; _0: string} | {TAG: "ExpansionLimitExceeded"; _0: number};
+export type TimelineEntry = {step?: MoveStep};
 
 export const MAX_PLAYBACK_STEPS = 500;
 
 export type AlgorithmTimeline = {
   alg: unknown[];
   finalState: CubeState;
-  steps: MoveStep[];
+  steps: TimelineEntry[];
   labels: string[];
   states: CubeState[] | null;
 };
@@ -42,7 +43,7 @@ export const formatStep = (step: MoveStep): string => {
   return `${family}${turns === 2 ? "2" : turns === 3 ? "'" : ""}`;
 };
 
-export const stepSignature = (step: MoveStep): string => JSON.stringify(step);
+export const stepSignature = (entry: TimelineEntry): string => JSON.stringify(entry);
 
 export const isSingleStepExtension = (
   previous: AlgorithmTimeline | null,
@@ -51,6 +52,7 @@ export const isSingleStepExtension = (
   && previous.states !== null
   && next.states !== null
   && next.steps.length === previous.steps.length + 1
+  && next.steps.at(-1)?.step !== undefined
   && previous.steps.every((step, index) => stepSignature(step) === stepSignature(next.steps[index]));
 
 export const evaluateAlgorithm = (
@@ -65,7 +67,7 @@ export const evaluateAlgorithm = (
   >;
   if (parsed.TAG === "Error") return {TAG: "Error", _0: parsed._0.message};
 
-  const expanded = MoveExecutor.expand(parsed._0) as Result<MoveStep[], ExpansionError>;
+  const expanded = MoveExecutor.expandTimeline(parsed._0) as Result<TimelineEntry[], ExpansionError>;
   if (expanded.TAG === "Error") {
     return expanded._0.TAG === "ExpansionLimitExceeded"
       ? {TAG: "Error", _0: `Expanded algorithms may not exceed ${expanded._0._0} moves.`}
@@ -76,8 +78,8 @@ export const evaluateAlgorithm = (
   if (solved.TAG === "Error") return {TAG: "Error", _0: "Cube size must be between 2 and 5."};
   let state = solved._0;
   const states = expanded._0.length <= MAX_PLAYBACK_STEPS ? [state] : null;
-  for (const step of expanded._0) {
-    state = MoveExecutor.applyStep(state, step) as CubeState;
+  for (const entry of expanded._0) {
+    if (entry.step) state = MoveExecutor.applyStep(state, entry.step) as CubeState;
     states?.push(state);
   }
   return {
@@ -86,7 +88,7 @@ export const evaluateAlgorithm = (
       alg: parsed._0,
       finalState: state,
       steps: expanded._0,
-      labels: expanded._0.map(formatStep),
+      labels: expanded._0.map((entry) => entry.step ? formatStep(entry.step) : "Pause"),
       states,
     },
   };

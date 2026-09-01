@@ -71,9 +71,10 @@ net, or colour net. Invalid input leaves the last valid 3D state visible and mar
 the input status as invalid.
 
 For algorithm input, the client expands composite AST nodes into a canonical step
-timeline and caches state 0 through state N. The viewport provides start/end jumps,
-animated forward and inverse steps, play/pause, 0.5×/1×/2× speeds, looping, a range
-scrubber, and clickable move tokens. Text codecs update only when a move commits, so
+timeline, retains internal pauses as timed state-neutral steps, and caches state 0
+through state N. The viewport provides start/end jumps, animated forward and inverse
+steps, play/pause, 0.5×/1×/2× speeds, looping, a range scrubber, and clickable move or
+pause tokens. Text codecs update only when a move commits, so
 they always describe an exact canonical state rather than a fractional animation.
 
 Playback caches at most 500 expanded steps. Algorithms above that limit still execute

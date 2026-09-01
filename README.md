@@ -26,7 +26,8 @@ The
 interactive viewport renders the resulting canonical state as either a stickered
 Standard cube or a stickerless Speedcube. Drag or touch to orbit, scroll to zoom,
 and use the URL hash to share the active input and settings. Parsed algorithms expose
-an expanded move ribbon, scrubber, forward/reverse stepping, play/pause, speed, and
+an expanded step ribbon—including state-neutral pause nodes—plus a scrubber,
+forward/reverse stepping, play/pause, speed, and
 loop controls. A single move appended while typing animates from the preceding state;
 larger pastes snap directly to their final state.
 
@@ -82,7 +83,7 @@ rotations. The 3×3 piece reducer virtually restores the solved centre orientati
 before extracting cubie coordinates, then validates permutation parity and orientation
 sums.
 
-Interactive playback caches canonical states for at most 500 expanded moves. Longer
+Interactive playback caches canonical states for at most 500 expanded steps. Longer
 algorithms still convert completely, but their tape controls are disabled to keep
 browser memory bounded.
 

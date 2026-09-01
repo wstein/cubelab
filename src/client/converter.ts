@@ -323,6 +323,7 @@ if (root) {
         button.type = "button";
         button.className = "move-token";
         button.textContent = label;
+        button.classList.toggle("pause", activeTimeline.steps[index].step === undefined);
         button.dataset.moveIndex = String(index + 1);
         button.setAttribute("aria-label", `Go to move ${index + 1}: ${label}`);
         moveRibbon.append(button);
@@ -332,7 +333,7 @@ if (root) {
     playbackLimit.textContent = activeTimeline.states === null
       ? `Final conversion is available; playback is limited to ${MAX_PLAYBACK_STEPS} expanded moves.`
       : "";
-    playbackPosition.textContent = `Move ${activeIndex} of ${activeTimeline.steps.length}`;
+    playbackPosition.textContent = `Step ${activeIndex} of ${activeTimeline.steps.length}`;
     scrubber.max = String(activeTimeline.steps.length);
     scrubber.value = String(activeIndex);
     scrubber.disabled = !playable;
@@ -380,7 +381,13 @@ if (root) {
       return generation === playbackGeneration;
     }
     const stepIndex = direction > 0 ? activeIndex : bounded;
-    const sourceStep = activeTimeline.steps[stepIndex];
+    const sourceStep = activeTimeline.steps[stepIndex].step;
+    if (!sourceStep) {
+      await new Promise((resolve) => window.setTimeout(resolve, 280 / playbackSpeed));
+      if (generation !== playbackGeneration) return false;
+      renderTimelineIndex(bounded);
+      return true;
+    }
     const animatedStep: MoveStep = direction > 0
       ? sourceStep
       : {...sourceStep, turns: -sourceStep.turns};
