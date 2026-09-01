@@ -154,9 +154,7 @@ test("the viewport layers a projected motion HUD over the persistent WebGL canva
   assert.match(viewport, /orbit to view back/);
   assert.match(viewport, /setTurnGuide\(nextGuide\)/);
   assert.match(viewport, /varying float vGuideLayer/);
-  assert.match(viewport, /varying float vOrientationAnchor/);
-  assert.match(viewport, /vec3 neutralSticker = min\(vec3\(0\.62\) \* light/);
-  assert.match(viewport, /\(1\.0 - vOrientationAnchor\) \* sticker/);
+  assert.match(viewport, /vec3 muted = mix\(colour, vec3\(luminance\), 0\.18\) \* 0\.86/);
   assert.match(viewport, /setMilestone\(nextMilestone\)/);
   assert.match(viewport, /smoothOrbitTo/);
   assert.match(viewport, /uMilestoneCubies\[20\]/);

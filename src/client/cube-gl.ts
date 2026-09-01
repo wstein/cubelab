@@ -77,7 +77,6 @@ const vertexShaderSource = `
   varying float vTargetFocus;
   varying float vMilestoneFocus;
   varying float vGuideLayer;
-  varying float vOrientationAnchor;
 
   vec3 rotateAround(vec3 value, vec3 axis, float angle) {
     float cosine = cos(angle);
@@ -111,11 +110,6 @@ const vertexShaderSource = `
     vGuideLayer = uGuideActive
       * step(uGuideRange.x, guideCoordinate)
       * step(guideCoordinate, uGuideRange.y);
-    float centredAxes = (1.0 - step(0.08, abs(aCubie.x)))
-      + (1.0 - step(0.08, abs(aCubie.y)))
-      + (1.0 - step(0.08, abs(aCubie.z)));
-    float radialCoordinate = max(max(abs(aCubie.x), abs(aCubie.y)), abs(aCubie.z));
-    vOrientationAnchor = step(1.9, centredAxes) * step(0.4, radialCoordinate);
     gl_Position = uProjection * position;
   }
 `;
@@ -130,7 +124,6 @@ const fragmentShaderSource = `
   varying float vTargetFocus;
   varying float vMilestoneFocus;
   varying float vGuideLayer;
-  varying float vOrientationAnchor;
   uniform float uSpeedStyle;
   uniform float uFocusActive;
   uniform float uFocusTime;
@@ -154,11 +147,10 @@ const fragmentShaderSource = `
     vec3 rolledSheen = vColour.rgb * vSheen * (0.45 + 0.55 * rimDiffuse);
     vec3 colour = min(vColour.rgb * light + rolledSheen + vec3(specular), vec3(1.0));
     float selected = max(max(max(vSourceFocus, vTargetFocus), vMilestoneFocus), vGuideLayer);
+    float luminance = dot(colour, vec3(0.299, 0.587, 0.114));
+    vec3 muted = mix(colour, vec3(luminance), 0.18) * 0.86;
     float focusMode = max(uFocusActive, uGuideActive);
-    float sticker = 1.0 - body;
-    float deEmphasized = focusMode * (1.0 - selected) * (1.0 - vOrientationAnchor) * sticker;
-    vec3 neutralSticker = min(vec3(0.62) * light + vec3(specular * 0.35), vec3(0.82));
-    colour = mix(colour, neutralSticker, deEmphasized * 0.92);
+    colour = mix(colour, muted, focusMode * (1.0 - selected));
 
     float fresnel = pow(1.0 - max(dot(normal, view), 0.0), 2.2);
     float pulse = 0.82 + 0.18 * sin(uFocusTime * 4.0);

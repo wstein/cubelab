@@ -42,9 +42,7 @@ group without opening a tooltip. The Academy compares the canonical states immed
 before and after that sequence, selects the phase-relevant edge or corner it advances,
 and locates the same physical piece in the currently displayed timeline state. In the 3D
 viewport, the source cubie receives a cyan emissive rim, its centre-relative destination
-receives an amber ghost treatment, and unrelated stickers become a lit neutral gray.
-The six centre stickers remain coloured as orientation anchors, and the black cubie body
-retains its ordinary lighting so the cube never collapses into a dark silhouette.
+receives an amber ghost treatment, and unrelated cubies are temporarily desaturated.
 Destination lookup follows the live centre frame, so the focus remains correct through
 explicit `x`, `y`, and `z` teaching regrips.
 
