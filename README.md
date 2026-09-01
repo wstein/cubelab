@@ -105,6 +105,10 @@ The [beginner tutorial solver](docs/beginner-solver.md) accepts any recognized 3
 works through seven verified Layer-by-Layer goals, and refuses to return a solution unless
 the complete generated sequence solves all 54 facelets on replay.
 
+The [CFOP Academy solver](docs/cfop-academy.md) provides a four-stage, two-look CFOP
+foundation. It keeps the white cross and first-two-layer work on the bottom, explicitly
+labels its staged F2L teaching path, and applies the same exact replay verification.
+
 Converter, Beginner Academy, and Alg Workbench are views in a
 [single-page workspace](docs/workspace.md). The WebGL viewport and tape player stay
 mounted across tab switches, and the selected view is preserved in the URL hash.
