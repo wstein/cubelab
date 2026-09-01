@@ -4,8 +4,9 @@ Cube Rosetta converts Rubik's Cube algorithms and state representations for 2×2
 through 5×5×5 cubes. The implementation uses a canonical facelet model with strict,
 bidirectional codecs.
 
-The web interface uses static Astro markup and a small Vanilla DOM controller. It
-has no React, virtual DOM, or client-island runtime dependency.
+The web interface uses static Astro markup, a small Vanilla DOM controller,
+and a render-on-demand native WebGL preview. It has no React, virtual DOM,
+client-island, or 3D framework runtime dependency.
 
 Implemented state codecs:
 
@@ -14,6 +15,12 @@ Implemented state codecs:
 - compact colours and colour nets using Western, Japanese, or custom schemes;
 - strict 2×2 CP/CO and centre-normalized 3×3 CP/CO/EP/EO coordinates;
 - normative 12-character Orbit64 encoding for complete 3×3 cubie states.
+
+The input badge identifies the recognized source format, including algorithms,
+Orbit64, cubie coordinates, compact facelets/colours, and canonical nets. The
+interactive viewport renders the resulting canonical state as either a stickered
+Standard cube or a stickerless Speedcube. Drag or touch to orbit, scroll to zoom,
+and use the URL hash to share the active input and settings.
 
 The move parser implements the SiGN/LGN structure used by the project: outer, inner,
 wide, slice, and rotation moves; arbitrary repetition suffixes; groups; commutators;

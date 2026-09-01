@@ -1,5 +1,6 @@
 ---
 import "../styles/global.css";
+import CubeViewport from "../Components/CubeViewport.astro";
 
 const cards = [
   {
@@ -52,6 +53,8 @@ const cards = [
         <p class="subtitle">Convert cube states into strict, copy-ready notation.</p>
       </header>
 
+      <section class="studio">
+        <div class="studio-controls">
       <section class="toolbar" aria-label="Converter settings">
         <div class="toolbar-group">
           <span class="panel-label">Puzzle size</span>
@@ -128,11 +131,38 @@ const cards = [
           Lowercase moves use modern SiGN wide turns by default (<code>r = Rw</code>).
           Use <code>2R</code> for a portable single inner-layer turn.
         </p>
+        <div class="preset-row" aria-label="Example algorithms">
+          <span class="preset-label">Quick load</span>
+          <button type="button" class="preset-chip" data-preset="">Solved</button>
+          <button
+            type="button"
+            class="preset-chip"
+            data-preset="M2 E2 S2"
+            data-preset-size="3"
+          >Checkerboard</button>
+          <button
+            type="button"
+            class="preset-chip"
+            data-preset="R U R' U' R' F R2 U' R' U' R U R' F'"
+            data-preset-size="3"
+          >T-Perm</button>
+          <button
+            type="button"
+            class="preset-chip"
+            data-preset="(R U R' U')6"
+            data-preset-size="3"
+          >Sexy ×6</button>
+        </div>
         <div class="notation-banner" data-lowercase-banner role="status" hidden>
           <span data-lowercase-message></span>
           <button type="button" class="notation-action" data-switch-lowercase></button>
         </div>
         <div class="error-banner" data-error role="alert" hidden></div>
+      </section>
+        </div>
+        <div class="studio-viewport">
+          <CubeViewport />
+        </div>
       </section>
 
       <section class="outputs-grid" aria-label="Converted state formats">

@@ -55,7 +55,7 @@ body {
 }
 
 .container {
-  max-width: 1180px;
+  max-width: 1380px;
   margin: 0 auto;
   padding: 2rem 1.5rem 4rem;
 }
@@ -97,6 +97,130 @@ body {
   color: var(--text-secondary);
   max-width: 650px;
   margin: 0 auto;
+}
+
+/* Converter studio */
+.studio {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
+  align-items: start;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.studio-controls {
+  min-width: 0;
+}
+
+.studio-controls .input-panel {
+  margin-bottom: 0;
+}
+
+.studio-viewport {
+  min-width: 0;
+}
+
+.viewport-panel {
+  position: sticky;
+  top: 1.5rem;
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  contain: layout paint;
+}
+
+.viewport-header,
+.viewport-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+}
+
+.viewport-header {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.viewport-title {
+  margin-top: 0.1rem;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.viewport-stage {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  min-height: 300px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(99, 102, 241, 0.13), transparent 58%),
+    rgba(0, 0, 0, 0.28);
+}
+
+.cube-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  outline: none;
+  touch-action: none;
+}
+
+.cube-canvas:active {
+  cursor: grabbing;
+}
+
+.cube-canvas:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent-primary);
+}
+
+.viewport-hint {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 0.85rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.45);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  pointer-events: none;
+}
+
+.viewport-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.viewport-footer {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.viewport-status {
+  color: var(--text-muted);
+  font: 500 0.75rem var(--font-mono);
+}
+
+.viewport-control {
+  padding: 0.35rem 0.7rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: 600 0.8rem var(--font-sans);
+}
+
+.viewport-control:hover {
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
 }
 
 /* Controls Toolbar */
@@ -250,6 +374,36 @@ body {
   font-family: var(--font-mono);
 }
 
+.preset-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+
+.preset-label {
+  margin-right: 0.15rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.preset-chip {
+  padding: 0.28rem 0.6rem;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 999px;
+  color: #c7d2fe;
+  cursor: pointer;
+  font: 500 0.75rem var(--font-sans);
+}
+
+.preset-chip:hover {
+  background: rgba(99, 102, 241, 0.18);
+}
+
 .notation-banner {
   display: flex;
   align-items: center;
@@ -325,6 +479,7 @@ body {
   flex-direction: column;
   overflow: hidden;
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  contain: layout paint;
 }
 
 .output-card:hover {
@@ -404,6 +559,7 @@ body {
   white-space: pre;
   line-height: 1.45;
   flex: 1;
+  min-height: 7rem;
 }
 
 .provenance-tag {
@@ -458,4 +614,41 @@ body {
   padding: 2rem 0;
   color: var(--text-muted);
   font-size: 0.875rem;
+}
+
+@media (max-width: 767px) {
+  .container {
+    padding: 1.25rem 1rem 3rem;
+  }
+
+  .site-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .studio {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studio-viewport {
+    order: -1;
+  }
+
+  .viewport-panel {
+    position: static;
+  }
+
+  .viewport-stage {
+    min-height: 0;
+  }
+
+  .toolbar {
+    align-items: flex-start;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+
+  .toolbar-group {
+    flex: 0 0 auto;
+  }
 }

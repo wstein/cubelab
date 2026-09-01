@@ -5,13 +5,22 @@ import * as Orbit64Codec from "../State/Orbit64Codec.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import * as StateTypes from "../State/StateTypes.res.mjs";
 import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
+import {createCubeViewport, type CubePalette, type CubeStyle} from "./cube-gl";
+import {
+  createStore,
+  readHash,
+  synchronizeHash,
+  type AppState,
+  type LowercaseMode,
+  type SchemeName,
+} from "./store";
 
 type Result<T, E = StateError | string> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: E};
 type StateError = {_0?: string; TAG: string; actual?: number; character?: string; expected?: number; index?: number};
 type CubeState = {size: number; facelets: string[][]};
 type PieceState = {size: number; cp: number[]; co: number[]; ep: number[]; eo: number[]};
 type Scheme = "Western" | "Japanese" | {TAG: "Custom"; _0: string};
-type LowercaseMode = "Wide" | "InnerSlice";
+type RecognizedInput = {state: CubeState; label: string};
 
 const root = document.querySelector<HTMLElement>("[data-converter]");
 
@@ -25,8 +34,18 @@ if (root) {
   const lowercaseBanner = root.querySelector<HTMLElement>("[data-lowercase-banner]")!;
   const lowercaseMessage = root.querySelector<HTMLElement>("[data-lowercase-message]")!;
   const switchLowercase = root.querySelector<HTMLButtonElement>("[data-switch-lowercase]")!;
-  let size = 3;
-  let lowercaseMode: LowercaseMode = "Wide";
+  const canvas = root.querySelector<HTMLCanvasElement>("[data-cube-canvas]")!;
+  const viewportFallback = root.querySelector<HTMLElement>("[data-viewport-fallback]")!;
+  const viewportStatus = root.querySelector<HTMLElement>("[data-viewport-status]")!;
+  const initialState = readHash(window.location.hash);
+  const store = createStore(initialState);
+  let size = initialState.size;
+  let lowercaseMode: LowercaseMode = initialState.lowercaseMode;
+  let cubeStyle: CubeStyle = initialState.cubeStyle;
+  const viewport = createCubeViewport(canvas, (message) => {
+    viewportFallback.textContent = `${message} Text conversions remain fully functional.`;
+    viewportFallback.hidden = false;
+  });
 
   const scheme = (): Scheme =>
     schemeSelect.value === "Custom"
@@ -48,42 +67,47 @@ if (root) {
     }
   };
 
-  const parseAlgorithm = (value: string): Result<CubeState> =>
-    MoveExecutor.parseAndApplyWithLowercaseMode(
+  const recognize = (result: Result<CubeState>, label: string): Result<RecognizedInput> =>
+    result.TAG === "Ok" ? {TAG: "Ok", _0: {state: result._0, label}} : result;
+
+  const parseAlgorithm = (value: string): Result<RecognizedInput> =>
+    recognize(MoveExecutor.parseAndApplyWithLowercaseMode(
       size,
       lowercaseMode,
       value,
-    ) as Result<CubeState>;
+    ) as Result<CubeState>, `Algorithm · ${size >= 4 && lowercaseMode === "InnerSlice" ? "Legacy" : "SiGN"}`);
 
-  const parseState = (inputValue: string): Result<CubeState> => {
+  const parseState = (inputValue: string): Result<RecognizedInput> => {
     const compact = inputValue.trim();
-    if (compact === "") return StateTypes.solved(size) as Result<CubeState>;
+    if (compact === "") {
+      return recognize(StateTypes.solved(size) as Result<CubeState>, "Solved default");
+    }
     if ((size === 2 || size === 3) && compact.startsWith("cp:")) {
       const pieces = PieceReducer.parseState(size, compact) as Result<CubeState, unknown>;
       return pieces.TAG === "Ok"
-        ? pieces
+        ? {TAG: "Ok", _0: {state: pieces._0, label: "Cubie coordinates"}}
         : {TAG: "Error", _0: PieceReducer.describeError(pieces._0)};
     }
     if (size === 3 && /^[A-Za-z0-9_-]{12}$/.test(compact)) {
       const orbit = Orbit64Codec.decodeState(compact) as Result<CubeState, unknown>;
       return orbit.TAG === "Ok"
-        ? orbit
+        ? {TAG: "Ok", _0: {state: orbit._0, label: "Orbit64"}}
         : {TAG: "Error", _0: Orbit64Codec.describeError(orbit._0)};
     }
     if (inputValue.includes("\n")) {
       const net = inputValue.trimEnd();
       const faceNet = NetCodec.parse(size, net) as Result<CubeState>;
-      if (faceNet.TAG === "Ok") return faceNet;
+      if (faceNet.TAG === "Ok") return recognize(faceNet, "Facelet net");
       const colourNet = ColorCodec.parseNet(scheme(), size, net) as Result<CubeState>;
       return colourNet.TAG === "Ok"
-        ? colourNet
+        ? recognize(colourNet, "Colour net")
         : parseAlgorithm(inputValue);
     }
     const facelets = FaceletCodec.parse(size, compact) as Result<CubeState>;
-    if (facelets.TAG === "Ok") return facelets;
+    if (facelets.TAG === "Ok") return recognize(facelets, "Compact facelets");
     const colours = ColorCodec.parseCompact(scheme(), size, compact) as Result<CubeState>;
     return colours.TAG === "Ok"
-      ? colours
+      ? recognize(colours, "Compact colours")
       : parseAlgorithm(inputValue);
   };
 
@@ -155,16 +179,20 @@ if (root) {
       for (const key of ["facelets", "net", "colours", "colour-net", "pieces", "orbit64"]) {
         setOutput(key, "—", false);
       }
+      viewportStatus.textContent = `${size}×${size} · Invalid input`;
       return;
     }
 
-    status.textContent = value.trim() === "" ? "Solved default" : "Input converted";
+    status.textContent = parsed._0.label;
     status.classList.remove("error");
     error.hidden = true;
-    setOutput("facelets", FaceletCodec.render(parsed._0));
-    setOutput("net", NetCodec.render(parsed._0));
-    const colours = ColorCodec.renderCompact(scheme(), parsed._0) as Result<string>;
-    const colourNet = ColorCodec.renderNet(scheme(), parsed._0) as Result<string>;
+    const palette: CubePalette = schemeSelect.value === "Japanese" ? "Japanese" : "Western";
+    viewport?.setScene(parsed._0.state, palette, cubeStyle);
+    viewportStatus.textContent = `${size}×${size} · ${parsed._0.label}`;
+    setOutput("facelets", FaceletCodec.render(parsed._0.state));
+    setOutput("net", NetCodec.render(parsed._0.state));
+    const colours = ColorCodec.renderCompact(scheme(), parsed._0.state) as Result<string>;
+    const colourNet = ColorCodec.renderNet(scheme(), parsed._0.state) as Result<string>;
     setOutput("colours", colours.TAG === "Ok" ? colours._0 : "—", colours.TAG === "Ok");
     setOutput(
       "colour-net",
@@ -173,7 +201,7 @@ if (root) {
     );
 
     if (size === 2 || size === 3) {
-      const pieces = PieceReducer.reduce(parsed._0) as Result<PieceState, unknown>;
+      const pieces = PieceReducer.reduce(parsed._0.state) as Result<PieceState, unknown>;
       if (pieces.TAG === "Error") {
         setOutput(
           "pieces",
@@ -202,39 +230,79 @@ if (root) {
     }
   };
 
+  let updateFrame: number | null = null;
+  const scheduleUpdate = () => {
+    if (updateFrame !== null) return;
+    updateFrame = window.requestAnimationFrame(() => {
+      updateFrame = null;
+      update();
+    });
+  };
+
+  const applyAppState = (state: AppState) => {
+    size = state.size;
+    lowercaseMode = state.lowercaseMode;
+    cubeStyle = state.cubeStyle;
+    if (input.value !== state.input) input.value = state.input;
+    if (schemeSelect.value !== state.scheme) schemeSelect.value = state.scheme;
+    if (customScheme.value !== state.customScheme) customScheme.value = state.customScheme;
+    customScheme.hidden = state.scheme !== "Custom";
+
+    root.querySelectorAll<HTMLButtonElement>("[data-size]").forEach((button) => {
+      const active = Number(button.dataset.size) === state.size;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    root.querySelectorAll<HTMLButtonElement>("[data-cube-style]").forEach((button) => {
+      const active = button.dataset.cubeStyle === state.cubeStyle;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    scheduleUpdate();
+  };
+
   root.querySelectorAll<HTMLButtonElement>("[data-size]").forEach((button) => {
     button.addEventListener("click", () => {
-      size = Number(button.dataset.size);
-      root.querySelectorAll<HTMLButtonElement>("[data-size]").forEach((candidate) => {
-        const active = candidate === button;
-        candidate.classList.toggle("active", active);
-        candidate.setAttribute("aria-pressed", String(active));
-      });
-      update();
+      store.patch({size: Number(button.dataset.size)});
     });
   });
 
   root.querySelectorAll<HTMLButtonElement>("[data-lowercase-mode]").forEach((button) => {
     button.addEventListener("click", () => {
-      lowercaseMode = button.dataset.lowercaseMode as LowercaseMode;
-      update();
+      store.patch({lowercaseMode: button.dataset.lowercaseMode as LowercaseMode});
     });
   });
 
   switchLowercase.addEventListener("click", () => {
-    lowercaseMode = lowercaseMode === "Wide" ? "InnerSlice" : "Wide";
-    update();
+    store.patch({lowercaseMode: lowercaseMode === "Wide" ? "InnerSlice" : "Wide"});
   });
 
   schemeSelect.addEventListener("change", () => {
-    customScheme.hidden = schemeSelect.value !== "Custom";
-    update();
+    store.patch({scheme: schemeSelect.value as SchemeName});
   });
   customScheme.addEventListener("input", () => {
     customScheme.value = customScheme.value.toUpperCase();
-    update();
+    store.patch({customScheme: customScheme.value});
   });
-  input.addEventListener("input", update);
+  input.addEventListener("input", () => store.patch({input: input.value}));
+
+  root.querySelectorAll<HTMLButtonElement>("[data-cube-style]").forEach((button) => {
+    button.addEventListener("click", () => {
+      store.patch({cubeStyle: button.dataset.cubeStyle as CubeStyle});
+    });
+  });
+  root.querySelector<HTMLButtonElement>("[data-reset-camera]")!.addEventListener("click", () => {
+    viewport?.resetCamera();
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const presetSize = button.dataset.presetSize;
+      store.patch({
+        input: button.dataset.preset ?? "",
+        ...(presetSize ? {size: Number(presetSize)} : {}),
+      });
+    });
+  });
 
   root.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -251,5 +319,16 @@ if (root) {
     });
   });
 
-  update();
+  const unsubscribe = store.subscribe(applyAppState);
+  const stopHashSync = synchronizeHash(store, window);
+  applyAppState(initialState);
+  window.addEventListener(
+    "pagehide",
+    () => {
+      unsubscribe();
+      stopHashSync();
+      viewport?.dispose();
+    },
+    {once: true},
+  );
 }

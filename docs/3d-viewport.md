@@ -45,6 +45,22 @@ restores the documented isometric view. WebGL initialization and context-loss
 failures are reported to the surrounding interface without affecting any text
 codec.
 
+## Application integration
+
+One observable application state contains the selected size, raw input, colour
+scheme, lowercase dialect, and cube style. Store notifications are coalesced into
+one `requestAnimationFrame`, so text cards and the viewport update from the same
+parse result during the next browser paint.
+
+The input badge reports the successful branch of the deterministic parser cascade:
+algorithm, Orbit64, cubie coordinates, compact facelets, compact colours, facelet
+net, or colour net. Invalid input leaves the last valid 3D state visible and marks
+both status areas as invalid.
+
+Shareable settings are written to the URL hash after 300 milliseconds without
+adding browser-history entries. Hash input is validated, and imported text is
+limited to 20,000 characters before it reaches the parser.
+
 ## Provenance and licensing
 
 The physical design vocabulary was informed by the Standard and Speed looks in

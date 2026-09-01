@@ -9,8 +9,8 @@ type GeometryResult = {TAG: "Ok"; _0: GeometryMesh} | {TAG: "Error"; _0: string}
 type Mat4 = Float32Array;
 
 const DEFAULT_YAW = -0.62;
-const DEFAULT_PITCH = -0.48;
-const DEFAULT_DISTANCE = 6.4;
+const DEFAULT_PITCH = 0.48;
+const DEFAULT_DISTANCE = 7.2;
 const FLOATS_PER_VERTEX = 10;
 
 const vertexShaderSource = `
@@ -172,6 +172,7 @@ const createProgram = (gl: WebGLRenderingContext): WebGLProgram => {
 };
 
 export type CubeViewport = {
+  setScene: (state: CubeState, palette: CubePalette, style: CubeStyle) => void;
   setState: (state: CubeState, palette: CubePalette) => void;
   setStyle: (style: CubeStyle) => void;
   resetCamera: () => void;
@@ -340,6 +341,12 @@ export const createCubeViewport = (
   intersectionObserver.observe(canvas);
 
   return {
+    setScene(nextState, nextPalette, nextStyle) {
+      state = nextState;
+      palette = nextPalette;
+      style = nextStyle;
+      upload();
+    },
     setState(nextState, nextPalette) {
       state = nextState;
       palette = nextPalette;

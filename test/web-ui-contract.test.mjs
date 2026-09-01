@@ -4,6 +4,11 @@ import test from "node:test";
 
 const page = await readFile(new URL("../src/pages/index.astro", import.meta.url), "utf8");
 const client = await readFile(new URL("../src/client/converter.ts", import.meta.url), "utf8");
+const viewport = await readFile(new URL("../src/client/cube-gl.ts", import.meta.url), "utf8");
+const viewportComponent = await readFile(
+  new URL("../src/Components/CubeViewport.astro", import.meta.url),
+  "utf8",
+);
 
 test("the static shell declares size-scoped cubie and Orbit64 cards", () => {
   assert.match(page, /key: "pieces"[\s\S]*sizes: "2,3"/);
@@ -12,7 +17,7 @@ test("the static shell declares size-scoped cubie and Orbit64 cards", () => {
 });
 
 test("the Vanilla DOM client wires reachability-aware outputs", () => {
-  assert.match(client, /PieceReducer\.reduce\(parsed\._0\)/);
+  assert.match(client, /PieceReducer\.reduce\(parsed\._0\.state\)/);
   assert.match(client, /PieceReducer\.parseState\(size, compact\)/);
   assert.match(client, /PieceReducer\.render\(pieces\._0\)/);
   assert.match(client, /Orbit64Codec\.encode\(pieces\._0\)/);
@@ -30,4 +35,22 @@ test("the web UI exposes an explicit lowercase mode without heuristic switching"
   assert.match(client, /parseAndApplyWithLowercaseMode/);
   assert.match(client, /Mixed Rw and r notation detected/);
   assert.doesNotMatch(client, /lowercaseMode\s*=.*signals/);
+});
+
+test("the studio connects recognized input and one canonical state to WebGL", () => {
+  assert.match(page, /<CubeViewport \/>/);
+  assert.match(page, /data-preset="M2 E2 S2"/);
+  assert.match(viewportComponent, /data-cube-canvas/);
+  assert.match(client, /label: "Orbit64"/);
+  assert.match(client, /label: "Cubie coordinates"/);
+  assert.match(client, /"Compact facelets"/);
+  assert.match(client, /"Compact colours"/);
+  assert.match(client, /viewport\?\.setScene\(parsed\._0\.state/);
+});
+
+test("the viewport renders on demand and pauses while off screen", () => {
+  assert.match(viewport, /requestAnimationFrame\(render\)/);
+  assert.match(viewport, /new IntersectionObserver/);
+  assert.match(viewport, /bufferSubData/);
+  assert.doesNotMatch(viewport, /requestAnimationFrame\(render\)[\s\S]{0,100}requestAnimationFrame/);
 });

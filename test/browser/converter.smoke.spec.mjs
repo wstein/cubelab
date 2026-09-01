@@ -14,9 +14,10 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await expect(page.locator('[data-output="orbit64"]')).toHaveText("AAAAAAAAAAAA");
   await expect(piecesCard).toBeVisible();
   await expect(orbitCard).toBeVisible();
+  await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-webgl", "ready");
 
   await input.fill("AAAAAAAAAAAA");
-  await expect(page.locator("[data-status]")).toHaveText("Input converted");
+  await expect(page.locator("[data-status]")).toHaveText("Orbit64");
   await expect(page.locator('[data-output="facelets"]')).toHaveText(
     "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB",
   );
@@ -34,14 +35,14 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
       "      Y Y Y",
     ].join("\n"),
   );
-  await expect(page.locator("[data-status]")).toHaveText("Input converted");
+  await expect(page.locator("[data-status]")).toHaveText("Colour net");
   await expect(page.locator('[data-output="orbit64"]')).toHaveText("AAAAAAAAAAAA");
 
   await input.fill(
     "cp: 0 1 2 3 4 5 6 7; co: 0 0 0 0 0 0 0 0; " +
       "ep: 0 1 2 3 4 5 6 7 8 9 10 11; eo: 0 0 0 0 0 0 0 0 0 0 0 0",
   );
-  await expect(page.locator("[data-status]")).toHaveText("Input converted");
+  await expect(page.locator("[data-status]")).toHaveText("Cubie coordinates");
   await expect(page.locator('[data-output="orbit64"]')).toHaveText("AAAAAAAAAAAA");
 
   await page.locator('[data-size="2"]').click();
@@ -61,10 +62,12 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   );
 
   await input.fill("2R");
+  await expect(page.locator("[data-status]")).toHaveText("Algorithm · SiGN");
+  await expect(page.locator('[data-output="facelets"]')).not.toHaveText("—");
   const innerSliceState = await page.locator('[data-output="facelets"]').textContent();
   await input.fill("r");
+  await expect(page.locator('[data-output="facelets"]')).not.toHaveText(innerSliceState ?? "");
   const modernWideState = await page.locator('[data-output="facelets"]').textContent();
-  expect(modernWideState).not.toBe(innerSliceState);
   await expect(lowercaseBanner).toContainText("modern SiGN wide turns");
 
   await input.fill("Rw U2 r'");
@@ -81,11 +84,50 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await page.locator('[data-lowercase-mode="Wide"]').click();
   await expect(page.locator('[data-output="facelets"]')).toHaveText(modernWideState ?? "");
 
+  await page.locator('[data-cube-style="Speed"]').click();
+  await expect(page.locator('[data-cube-style="Speed"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-webgl", "ready");
+  await page.locator("[data-reset-camera]").click();
+
   await page.locator('[data-size="3"]').click();
   await expect(lowercaseControls).toBeHidden();
   await input.fill("U");
-  await expect(page.locator("[data-status]")).toHaveText("Input converted");
+  await expect(page.locator("[data-status]")).toHaveText("Algorithm · SiGN");
   await expect(page.locator('[data-output="pieces"]')).toContainText("cp: 3 0 1 2");
   await expect(page.locator('[data-output="orbit64"]')).toHaveText("AcIufRZj-AAA");
   expect(pageErrors).toEqual([]);
+});
+
+test("restores shareable studio state and quick-load presets", async ({page}) => {
+  await page.goto("/#size=4&alg=Rw+U2&style=Speed&lowercase=InnerSlice");
+  const input = page.locator("[data-input]");
+  await expect(input).toHaveValue("Rw U2");
+  await expect(page.locator('[data-size="4"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-cube-style="Speed"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-lowercase-mode="InnerSlice"]')).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(page.locator("[data-status]")).toHaveText("Algorithm · Legacy");
+
+  await input.fill("r U2");
+  await expect.poll(() => page.evaluate(() => window.location.hash)).toContain("alg=r+U2");
+  await page.reload();
+  await expect(input).toHaveValue("r U2");
+  await expect(page.locator("[data-status]")).toHaveText("Algorithm · Legacy");
+
+  await page.getByRole("button", {name: "Checkerboard"}).click();
+  await expect(page.locator('[data-size="3"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(input).toHaveValue("M2 E2 S2");
+  await expect(page.locator("[data-status]")).toHaveText("Algorithm · SiGN");
+});
+
+test("places the visualizer before controls on mobile", async ({page}) => {
+  await page.setViewportSize({width: 390, height: 844});
+  await page.goto("/");
+  const viewport = await page.locator("[data-viewport-panel]").boundingBox();
+  const inputPanel = await page.locator(".input-panel").boundingBox();
+  expect(viewport).not.toBeNull();
+  expect(inputPanel).not.toBeNull();
+  expect(viewport.y).toBeLessThan(inputPanel.y);
 });
