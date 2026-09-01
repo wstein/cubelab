@@ -29,6 +29,22 @@ Western and Japanese palettes are represented directly. Custom output symbols
 do not encode RGB meaning, so custom schemes use the Western physical palette
 in the viewport.
 
+## Renderer lifecycle
+
+The native WebGL renderer uploads the mesh to one interleaved vertex buffer.
+Capacity is allocated for the selected size's largest Speed mesh, then state
+and style changes reuse it through `bufferSubData`.
+
+Rendering is scheduled only after a state, style, camera, visibility, or size
+change. There is no perpetual animation loop. An `IntersectionObserver`
+suppresses work while the viewport is off screen, and the backing canvas
+clamps device pixel ratio to 2.
+
+Pointer drag changes the orbit camera, the wheel controls distance, and reset
+restores the documented isometric view. WebGL initialization and context-loss
+failures are reported to the surrounding interface without affecting any text
+codec.
+
 ## Provenance and licensing
 
 The physical design vocabulary was informed by the Standard and Speed looks in

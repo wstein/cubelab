@@ -1,0 +1,31 @@
+<section class="viewport-panel" data-viewport-panel aria-labelledby="viewport-title">
+  <header class="viewport-header">
+    <div>
+      <span class="panel-label">Interactive preview</span>
+      <h2 id="viewport-title" class="viewport-title">3D cube state</h2>
+    </div>
+    <button type="button" class="viewport-control" data-reset-camera>Reset view</button>
+  </header>
+  <div class="viewport-stage" data-viewport-stage>
+    <canvas
+      class="cube-canvas"
+      data-cube-canvas
+      aria-label="Interactive three-dimensional cube preview. Drag to rotate and scroll to zoom."
+    ></canvas>
+    <div class="viewport-fallback" data-viewport-fallback role="status" hidden>
+      WebGL is unavailable. Text conversions remain fully functional.
+    </div>
+    <span class="viewport-hint">Drag to rotate · Scroll to zoom</span>
+  </div>
+  <div class="viewport-footer">
+    <div class="segmented-control" aria-label="Cube surface style">
+      <button type="button" class="segmented-btn active" data-cube-style="Standard" aria-pressed="true">
+        Standard
+      </button>
+      <button type="button" class="segmented-btn" data-cube-style="Speed" aria-pressed="false">
+        Speedcube
+      </button>
+    </div>
+    <span class="viewport-status" data-viewport-status>3×3 · Solved</span>
+  </div>
+</section>
