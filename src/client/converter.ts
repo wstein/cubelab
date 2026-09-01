@@ -1265,8 +1265,7 @@ if (root) {
       const supportsOrientation = connectionState.device.capabilities.orientation;
       smartCubeOrientation.hidden = !supportsOrientation;
       smartCubeOrientation.disabled = !supportsOrientation;
-      if (supportsOrientation) setSmartCubeOrientationTracking(true);
-      else setSmartCubeOrientationTracking(false);
+      setSmartCubeOrientationTracking(false);
     } else {
       smartCubeOrientation.hidden = true;
       smartCubeBattery.hidden = true;
@@ -1323,15 +1322,27 @@ if (root) {
   const loadSmartCubeManager = async (): Promise<SmartCubeManager> => {
     if (smartCubeManager) return smartCubeManager;
     if (!smartCubeManagerLoading) {
-      smartCubeManagerLoading = import("./smart-cube/index").then(({createSmartCubeManager}) => {
-        // Capability is checked once, inside the explicit Connect gesture. Avoid
-        // repeatedly touching navigator.bluetooth in permission-blocked embeds.
-        const manager = createSmartCubeManager({isBluetoothAvailable: () => true});
-        manager.subscribeState(renderSmartCubeConnection);
-        manager.subscribeEvents(handleSmartCubeEvent);
-        smartCubeManager = manager;
-        return manager;
-      });
+      smartCubeManagerLoading = import("./smart-cube/index")
+        .then(({createSmartCubeManager}) => {
+          // Capability is checked once, inside the explicit Connect gesture. Avoid
+          // repeatedly touching navigator.bluetooth in permission-blocked embeds.
+          const manager = createSmartCubeManager({isBluetoothAvailable: () => true});
+          manager.subscribeState(renderSmartCubeConnection);
+          manager.subscribeEvents(handleSmartCubeEvent);
+          smartCubeManager = manager;
+          clearSmartCubeChunkReload();
+          return manager;
+        })
+        .catch((reason: unknown) => {
+          smartCubeManagerLoading = null;
+          if (!isStaleDynamicModuleError(reason)) throw reason;
+          if (!smartCubeChunkReloadAttempted()) {
+            markSmartCubeChunkReloadAttempted();
+            window.location.reload();
+            return new Promise<SmartCubeManager>(() => {});
+          }
+          throw new Error("The smart-cube module could not load. Reload Cube Rosetta and try again.");
+        });
     }
     return smartCubeManagerLoading;
   };
@@ -1834,6 +1845,31 @@ if (root) {
     smartCubeStatus.textContent = message;
     smartCubeStatus.title = message;
   };
+  const smartCubeChunkReloadKey = "cube-rosetta:smart-cube-chunk-reload";
+  const isStaleDynamicModuleError = (reason: unknown) =>
+    /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed/i
+      .test(reason instanceof Error ? reason.message : String(reason));
+  const smartCubeChunkReloadAttempted = () => {
+    try {
+      return sessionStorage.getItem(smartCubeChunkReloadKey) === "attempted";
+    } catch {
+      return false;
+    }
+  };
+  const markSmartCubeChunkReloadAttempted = () => {
+    try {
+      sessionStorage.setItem(smartCubeChunkReloadKey, "attempted");
+    } catch {}
+  };
+  const clearSmartCubeChunkReload = () => {
+    try {
+      sessionStorage.removeItem(smartCubeChunkReloadKey);
+    } catch {}
+  };
+  if (smartCubeChunkReloadAttempted()) {
+    showBluetoothUnavailable("Cube Rosetta was updated while this page was open. Click Connect cube again.");
+    smartCubeDock.dataset.phase = "disconnected";
+  }
   const bluetoothChooserWasCancelled = (reason: unknown) => {
     if (!(reason instanceof DOMException) || reason.name !== "NotFoundError") return false;
     return /(?:chooser|request).*(?:cancelled|canceled)|user cancelled|no (?:bluetooth )?device (?:was )?selected/i

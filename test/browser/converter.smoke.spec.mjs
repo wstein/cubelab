@@ -207,6 +207,45 @@ test("reports blocked Bluetooth without opening the device chooser", async ({pag
   expect(await page.evaluate(() => window.__bluetoothRequestCount)).toBe(0);
 });
 
+test("recovers once from a stale lazy smart-cube chunk", async ({page}) => {
+  let chunkRequests = 0;
+  await page.route("**/_astro/smart-cube.*.js", async (route) => {
+    chunkRequests += 1;
+    if (chunkRequests === 1) await route.abort();
+    else await route.continue();
+  });
+  await page.addInitScript(() => {
+    window.__bluetoothRequestCount = 0;
+    Object.defineProperty(navigator, "bluetooth", {
+      configurable: true,
+      value: {
+        getAvailability: async () => true,
+        requestDevice: async () => {
+          window.__bluetoothRequestCount += 1;
+          throw new DOMException("User cancelled the requestDevice() chooser.", "NotFoundError");
+        },
+      },
+    });
+    Object.defineProperty(navigator, "brave", {
+      configurable: true,
+      value: {isBrave: async () => false},
+    });
+  });
+
+  await page.goto("/");
+  await Promise.all([
+    page.waitForEvent("load"),
+    page.locator("[data-smart-cube-connect]").click(),
+  ]);
+  await expect(page.locator("[data-smart-cube-status]")).toContainText(
+    "updated while this page was open",
+  );
+
+  await page.locator("[data-smart-cube-connect]").click();
+  await expect.poll(() => page.evaluate(() => window.__bluetoothRequestCount)).toBe(1);
+  expect(chunkRequests).toBe(2);
+});
+
 test("plays, steps, and seeks an expanded algorithm timeline", async ({page}) => {
   await page.goto("/");
   const input = page.locator("[data-input]");

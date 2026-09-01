@@ -164,6 +164,11 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /appendRecordedMove/);
   assert.match(client, /assessSmartCubeMove/);
   assert.match(client, /viewport\?\.setDeviceOrientation/);
+  assert.match(
+    client,
+    /smartCubeOrientation\.disabled = !supportsOrientation;[\s\S]{0,100}setSmartCubeOrientationTracking\(false\)/,
+  );
+  assert.doesNotMatch(client, /supportsOrientation\) setSmartCubeOrientationTracking\(true\)/);
   assert.match(viewport, /setDeviceOrientation\(orientation\)/);
 });
 
