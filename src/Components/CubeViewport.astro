@@ -66,13 +66,35 @@
     />
     <div class="playback-controls">
       <div class="playback-transport" role="group" aria-label="Playback transport">
-        <button type="button" class="transport-btn" data-playback-start aria-label="Jump to start">|◀</button>
-        <button type="button" class="transport-btn transport-sequence" data-playback-sequence-back aria-label="Previous sequence" title="Play one algorithm sequence backward">«</button>
-        <button type="button" class="transport-btn" data-playback-back aria-label="Previous move">◀</button>
-        <button type="button" class="transport-btn transport-primary" data-playback-toggle aria-label="Play algorithm">▶</button>
-        <button type="button" class="transport-btn" data-playback-forward aria-label="Next move">▶</button>
-        <button type="button" class="transport-btn transport-sequence" data-playback-sequence-forward aria-label="Next sequence" title="Play one algorithm sequence forward">»</button>
-        <button type="button" class="transport-btn" data-playback-end aria-label="Jump to end">▶|</button>
+        <button type="button" class="transport-btn" data-playback-start aria-label="Jump to start" title="Jump to start">
+          <span class="transport-icon" aria-hidden="true"><i class="transport-bar"></i><i class="transport-triangle left"></i></span>
+        </button>
+        <button type="button" class="transport-btn transport-sequence" data-playback-sequence-back aria-label="Previous sequence" title="Play one algorithm sequence backward">
+          <span class="transport-icon" aria-hidden="true"><i class="transport-triangle left"></i><i class="transport-triangle left"></i></span>
+        </button>
+        <button type="button" class="transport-btn" data-playback-back aria-label="Previous move" title="Previous move">
+          <span class="transport-icon" aria-hidden="true"><i class="transport-triangle left"></i></span>
+        </button>
+        <button type="button" class="transport-btn transport-play" data-playback-rewind aria-label="Rewind algorithm" title="Play continuously backward">
+          <span class="transport-icon transport-direction" aria-hidden="true"><i class="transport-triangle left"></i><i class="transport-bar"></i></span>
+          <span class="transport-icon transport-pause" aria-hidden="true"><i class="transport-bar"></i><i class="transport-bar"></i></span>
+        </button>
+        <button type="button" class="transport-btn transport-stop" data-playback-stop aria-label="Stop playback" title="Stop playback" disabled>
+          <span class="transport-icon" aria-hidden="true"><i class="transport-square"></i></span>
+        </button>
+        <button type="button" class="transport-btn transport-play transport-primary" data-playback-toggle aria-label="Play algorithm" title="Play continuously forward">
+          <span class="transport-icon transport-direction" aria-hidden="true"><i class="transport-bar"></i><i class="transport-triangle right"></i></span>
+          <span class="transport-icon transport-pause" aria-hidden="true"><i class="transport-bar"></i><i class="transport-bar"></i></span>
+        </button>
+        <button type="button" class="transport-btn" data-playback-forward aria-label="Next move" title="Next move">
+          <span class="transport-icon" aria-hidden="true"><i class="transport-triangle right"></i></span>
+        </button>
+        <button type="button" class="transport-btn transport-sequence" data-playback-sequence-forward aria-label="Next sequence" title="Play one algorithm sequence forward">
+          <span class="transport-icon" aria-hidden="true"><i class="transport-triangle right"></i><i class="transport-triangle right"></i></span>
+        </button>
+        <button type="button" class="transport-btn" data-playback-end aria-label="Jump to end" title="Jump to end">
+          <span class="transport-icon" aria-hidden="true"><i class="transport-triangle right"></i><i class="transport-bar"></i></span>
+        </button>
       </div>
       <div class="playback-options">
         <div

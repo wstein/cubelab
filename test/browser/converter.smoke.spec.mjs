@@ -187,6 +187,18 @@ test("plays, reverses, and seeks an expanded algorithm timeline", async ({page})
   await expect(position).toHaveText("Move 0 of 2");
   await expect(facelets).toHaveText(solved);
 
+  const stop = page.getByRole("button", {name: "Stop playback"});
+  await expect(stop).toBeDisabled();
+  await page.getByRole("button", {name: "0.5×"}).click();
+  await page.getByRole("button", {name: "Play algorithm"}).click();
+  await expect(stop).toBeEnabled();
+  await stop.click();
+  await expect(stop).toBeDisabled();
+  await expect(position).not.toHaveText("Move 2 of 2");
+  await page.getByRole("button", {name: "1×"}).click();
+  await page.locator("[data-playback-scrubber]").fill("0");
+  await expect(position).toHaveText("Move 0 of 2");
+
   await page.getByRole("button", {name: "Next move"}).click();
   await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-animating", "true");
   await expect(position).toHaveText("Move 1 of 2");
@@ -199,6 +211,14 @@ test("plays, reverses, and seeks an expanded algorithm timeline", async ({page})
   await page.getByRole("button", {name: "Play algorithm"}).click();
   await expect(position).toHaveText("Move 2 of 2");
   await expect(facelets).toHaveText(finalState ?? "");
+
+  await page.getByRole("button", {name: "Rewind algorithm"}).click();
+  await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-animating", "true");
+  await expect(position).toHaveText("Move 0 of 2");
+  await expect(facelets).toHaveText(solved);
+
+  await page.getByRole("button", {name: "Play algorithm"}).click();
+  await expect(position).toHaveText("Move 2 of 2");
 
   await page.getByRole("button", {name: "Jump to start"}).click();
   await page.locator("[data-playback-scrubber]").fill("2");

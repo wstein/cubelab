@@ -105,6 +105,8 @@ if (root) {
   const moveRibbon = root.querySelector<HTMLElement>("[data-move-ribbon]")!;
   const playbackPosition = root.querySelector<HTMLElement>("[data-playback-position]")!;
   const scrubber = root.querySelector<HTMLInputElement>("[data-playback-scrubber]")!;
+  const playbackRewind = root.querySelector<HTMLButtonElement>("[data-playback-rewind]")!;
+  const playbackStop = root.querySelector<HTMLButtonElement>("[data-playback-stop]")!;
   const playbackToggle = root.querySelector<HTMLButtonElement>("[data-playback-toggle]")!;
   const sequenceBack = root.querySelector<HTMLButtonElement>("[data-playback-sequence-back]")!;
   const sequenceForward = root.querySelector<HTMLButtonElement>("[data-playback-sequence-forward]")!;
@@ -394,6 +396,7 @@ if (root) {
   let coachedPlayback = true;
   let looping = false;
   let playing = false;
+  let playbackDirection: -1 | 1 = 1;
   let playbackGeneration = 0;
   let lastLabel = "";
   let focusedGroup: HTMLElement | null = null;
@@ -711,6 +714,8 @@ if (root) {
     root.querySelector<HTMLButtonElement>("[data-playback-back]")!.disabled = !playable || activeIndex === 0;
     sequenceBack.disabled = !playable
       || planSequenceStep(activeTimeline.steps, activeIndex, -1) === null;
+    playbackRewind.disabled = !playable;
+    playbackStop.disabled = !playable || !playing;
     playbackToggle.disabled = !playable;
     root.querySelector<HTMLButtonElement>("[data-playback-forward]")!.disabled =
       !playable || activeIndex === activeTimeline.steps.length;
@@ -718,8 +723,14 @@ if (root) {
       || planSequenceStep(activeTimeline.steps, activeIndex, 1) === null;
     root.querySelector<HTMLButtonElement>("[data-playback-end]")!.disabled =
       !playable || activeIndex === activeTimeline.steps.length;
-    playbackToggle.textContent = playing ? "Ⅱ" : "▶";
-    playbackToggle.setAttribute("aria-label", playing ? "Pause algorithm" : "Play algorithm");
+    const rewinding = playing && playbackDirection === -1;
+    const forwarding = playing && playbackDirection === 1;
+    playbackRewind.classList.toggle("is-playing", rewinding);
+    playbackToggle.classList.toggle("is-playing", forwarding);
+    playbackRewind.classList.toggle("transport-primary", rewinding);
+    playbackToggle.classList.toggle("transport-primary", !rewinding);
+    playbackRewind.setAttribute("aria-label", rewinding ? "Pause rewind" : "Rewind algorithm");
+    playbackToggle.setAttribute("aria-label", forwarding ? "Pause algorithm" : "Play algorithm");
     moveRibbon.querySelectorAll<HTMLButtonElement>("[data-move-index]").forEach((button) => {
       const moveIndex = Number(button.dataset.moveIndex);
       button.classList.toggle("completed", moveIndex <= activeIndex);
@@ -931,19 +942,24 @@ if (root) {
     showNextSequencePurpose();
   };
 
-  const play = async () => {
+  const play = async (direction: -1 | 1) => {
     if (!activeTimeline?.states || activeTimeline.steps.length === 0) return;
     stopPlayback();
     playing = true;
+    playbackDirection = direction;
     const generation = playbackGeneration;
-    if (activeIndex === activeTimeline.steps.length) renderTimelineIndex(0);
+    if (direction === 1 && activeIndex === activeTimeline.steps.length) renderTimelineIndex(0);
+    if (direction === -1 && activeIndex === 0) renderTimelineIndex(activeTimeline.steps.length);
     updatePlaybackUi();
     while (playing && generation === playbackGeneration && activeTimeline) {
-      if (activeIndex === activeTimeline.steps.length) {
+      const atBoundary = direction === 1
+        ? activeIndex === activeTimeline.steps.length
+        : activeIndex === 0;
+      if (atBoundary) {
         if (!looping) break;
-        renderTimelineIndex(0);
+        renderTimelineIndex(direction === 1 ? 0 : activeTimeline.steps.length);
       }
-      if (!(await transitionTo(activeIndex + 1, generation))) return;
+      if (!(await transitionTo(activeIndex + direction, generation))) return;
     }
     if (generation === playbackGeneration) {
       playing = false;
@@ -1408,9 +1424,14 @@ if (root) {
     void executeSingleMove(-1);
   });
   sequenceBack.addEventListener("click", () => void executeSequence(-1));
+  playbackRewind.addEventListener("click", () => {
+    if (playing && playbackDirection === -1) stopPlayback();
+    else void play(-1);
+  });
+  playbackStop.addEventListener("click", stopPlayback);
   playbackToggle.addEventListener("click", () => {
-    if (playing) stopPlayback();
-    else void play();
+    if (playing && playbackDirection === 1) stopPlayback();
+    else void play(1);
   });
   root.querySelector<HTMLButtonElement>("[data-playback-forward]")!.addEventListener("click", () => {
     void executeSingleMove(1);
