@@ -302,7 +302,24 @@ body {
   border: 1px solid rgba(129, 140, 248, 0.28);
   border-radius: 6px;
   background: rgba(99, 102, 241, 0.055);
-  cursor: help;
+  cursor: default;
+  outline: none;
+  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.move-group:hover,
+.move-group.focused,
+.move-group:focus-visible {
+  border-color: rgba(103, 232, 249, 0.82);
+  background: rgba(34, 211, 238, 0.12);
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.18);
+}
+
+.move-group:hover .move-token,
+.move-group.focused .move-token,
+.move-group:focus-visible .move-token {
+  border-color: rgba(103, 232, 249, 0.35);
+  color: #cffafe;
 }
 
 .move-token {
@@ -333,12 +350,12 @@ body {
   min-height: 1px;
 }
 
-.timeline-gap.sequence-gap {
-  width: 0.2rem;
-}
-
 .timeline-gap.step-gap {
   width: 0.65rem;
+}
+
+.timeline-gap.pause-gap {
+  width: 0.2rem;
 }
 
 .playback-scrubber {

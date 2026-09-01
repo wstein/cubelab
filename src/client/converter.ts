@@ -35,6 +35,7 @@ import {
   type NotationDialect,
   type SchemeName,
 } from "./store";
+import {focusForPiece, selectTutorialPiece} from "./tutorial-focus";
 
 type Result<T, E = StateError | string> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: E};
 type StateError = {_0?: string; TAG: string; actual?: number; character?: string; expected?: number; index?: number};
@@ -326,6 +327,32 @@ if (root) {
   let playing = false;
   let playbackGeneration = 0;
   let lastLabel = "";
+  let focusedGroup: HTMLElement | null = null;
+  let focusedPiece: string | null = null;
+
+  const clearTutorialFocus = () => {
+    focusedGroup?.classList.remove("focused");
+    focusedGroup = null;
+    focusedPiece = null;
+    viewport?.setFocus(null);
+  };
+
+  const refreshTutorialFocus = () => {
+    if (!focusedPiece || !activeTimeline?.states) {
+      viewport?.setFocus(null);
+      return;
+    }
+    const displayed = activeTimeline.states[activeIndex];
+    viewport?.setFocus(displayed ? focusForPiece(displayed, focusedPiece) : null);
+  };
+
+  const activateTutorialFocus = (group: HTMLElement, piece: string | null) => {
+    focusedGroup?.classList.remove("focused");
+    focusedGroup = group;
+    focusedPiece = piece;
+    group.classList.add("focused");
+    refreshTutorialFocus();
+  };
 
   const resetAcademy = () => {
     tutorialPhases = [];
@@ -410,17 +437,37 @@ if (root) {
     if (!activeTimeline) return;
     const playable = activeTimeline.states !== null && activeTimeline.steps.length > 0;
     if (rebuild) {
+      clearTutorialFocus();
       moveRibbon.replaceChildren();
       let currentGroupId: number | undefined;
       let groupContainer: HTMLSpanElement | null = null;
       let groupEntries: AlgorithmTimeline["steps"] = [];
       const finishGroup = () => {
         if (!groupContainer) return;
+        const container = groupContainer;
+        const entries = [...groupEntries];
         const groupIndex = activeTimeline.steps.indexOf(groupEntries[0]);
         const phase = tutorialPhases.find((item) => groupIndex >= item.start && groupIndex < item.end);
         const description = describeTimelineGroup(groupEntries, phase);
-        groupContainer.title = description;
-        groupContainer.setAttribute("aria-label", `Algorithm sequence purpose: ${description}`);
+        container.setAttribute("aria-label", `Algorithm sequence purpose: ${description}`);
+        container.tabIndex = 0;
+        const onlyRotations = entries.every((entry) =>
+          entry.step === undefined || entry.step.move.TAG === "Rotation"
+        );
+        const before = activeTimeline?.states?.[groupIndex];
+        const after = activeTimeline?.states?.[groupIndex + entries.length];
+        const piece = phase && before && after && !onlyRotations
+          ? selectTutorialPiece(before, after, phase.number)
+          : null;
+        if (piece) container.dataset.focusPiece = piece;
+        container.addEventListener("mouseenter", () => activateTutorialFocus(container, piece));
+        container.addEventListener("mouseleave", () => {
+          if (focusedGroup === container) clearTutorialFocus();
+        });
+        container.addEventListener("focus", () => activateTutorialFocus(container, piece));
+        container.addEventListener("blur", () => {
+          if (focusedGroup === container) clearTutorialFocus();
+        });
       };
       activeTimeline.labels.forEach((label, index) => {
         const entry = activeTimeline!.steps[index];
@@ -440,12 +487,13 @@ if (root) {
           groupEntries.push(entry);
         }
         if (isPause) {
+          if (entry.durationMs !== undefined && entry.durationMs < 1_000) return;
           const gap = document.createElement("span");
-          gap.className = entry.durationMs !== undefined && entry.durationMs >= 1_000
-            ? "timeline-gap step-gap"
-            : "timeline-gap sequence-gap";
+          gap.className = entry.durationMs === undefined
+            ? "timeline-gap pause-gap"
+            : "timeline-gap step-gap";
           gap.setAttribute("aria-hidden", "true");
-          (groupContainer ?? moveRibbon).append(gap);
+          moveRibbon.append(gap);
           return;
         }
         const button = document.createElement("button");
@@ -499,6 +547,7 @@ if (root) {
     if (!activeTimeline?.states) return;
     activeIndex = Math.max(0, Math.min(index, activeTimeline.steps.length));
     renderState(activeTimeline.states[activeIndex], status.textContent ?? "Algorithm");
+    refreshTutorialFocus();
     updatePlaybackUi();
   };
 

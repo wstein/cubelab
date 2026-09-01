@@ -329,13 +329,18 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(page.locator("[data-beginner-solution]")).toContainText("@1.2s");
   const firstTimelineGroup = page.locator("[data-move-ribbon] .move-group").first();
   await expect(firstTimelineGroup).toBeVisible();
-  await expect(firstTimelineGroup).toHaveAttribute("title", /white cross edge/);
+  await expect(firstTimelineGroup).not.toHaveAttribute("title", /.+/);
   await expect(firstTimelineGroup).toHaveAttribute(
     "aria-label",
     /^Algorithm sequence purpose: .+$/,
   );
+  await firstTimelineGroup.hover();
+  await expect(firstTimelineGroup).toHaveClass(/focused/);
+  await expect(canvas).toHaveAttribute("data-focus-piece", /.+/);
+  await page.locator("[data-playback-position]").hover();
+  await expect(canvas).not.toHaveAttribute("data-focus-piece", /.+/);
   await expect(page.locator("[data-move-ribbon] .move-token.pause")).toHaveCount(0);
-  await expect(page.locator("[data-move-ribbon] .timeline-gap.sequence-gap").first()).toBeVisible();
+  await expect(page.locator("[data-move-ribbon] .timeline-gap.sequence-gap")).toHaveCount(0);
   await expect(page.locator("[data-move-ribbon] .timeline-gap.step-gap").first()).toBeVisible();
 
   await page.getByRole("button", {name: "Next move"}).click();

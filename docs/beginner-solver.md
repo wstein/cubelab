@@ -32,7 +32,19 @@ is replaced—not compounded—by a single `@1.2s` phase pause. Step 7 retains i
 0.5-second sequence pause. These pauses are state-neutral timeline nodes and scale
 with the player's selected 0.5×/1×/2× speed. The reported move count excludes comments,
 pauses, and `x`/`y`/`z` whole-cube regrips; only face and slice layer turns count as moves.
-Rotations and both pause classes remain independently addressable tape steps.
+Rotations and both pause classes remain independently addressable tape steps. The ribbon
+shows Academy-generated spacing only for the seven phase boundaries; the shorter
+inter-sequence delay remains intentionally invisible so adjacent teaching algorithms
+stay compact. A user-authored undated pause (`.`) remains a small semantic gap.
+
+Hovering or keyboard-focusing a parenthesized sequence highlights the complete ribbon
+group without opening a tooltip. The Academy compares the canonical states immediately
+before and after that sequence, selects the phase-relevant edge or corner it advances,
+and locates the same physical piece in the currently displayed timeline state. In the 3D
+viewport, the source cubie receives a cyan emissive rim, its centre-relative destination
+receives an amber ghost treatment, and unrelated cubies are temporarily desaturated.
+Destination lookup follows the live centre frame, so the focus remains correct through
+explicit `x`, `y`, and `z` teaching regrips.
 
 ## Solving strategy
 
