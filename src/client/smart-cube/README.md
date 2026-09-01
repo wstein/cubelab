@@ -29,6 +29,13 @@ viewport integration lazy-loads this module from the Connect button, records phy
 algorithm editor, renders live facelets through every converter, tracks optional gyro orientation,
 and advances Academy timelines only when the expected physical move matches.
 
+Three-by-three slice, wide, and single-inner-layer lesson moves are matched through the outer-face
+packets that the hardware can actually report (`M = x' R L'`, `Rw = x L`, and their axis variants).
+Composite packets may arrive in either face order; half turns may arrive directly or as two quarter
+turns in either direction. Their implicit physical reorientation is carried into later hints.
+GoCube gyro samples are restored to wire axes at the transport boundary, then changed into viewport
+axes only after relative-pose calibration so pitch, yaw, and roll cannot be cross-coupled.
+
 The public boundary remains small:
 
 ```ts

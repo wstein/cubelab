@@ -62,7 +62,10 @@ const hasBalancedFacelets = (facelets: string): boolean =>
   facelets.length === 54
   && [..."URFDLB"].every((face) => facelets.split(face).length - 1 === 9);
 
-export const normalizeTransportEvent = (event: TransportEvent): SmartCubeEvent | null => {
+export const normalizeTransportEvent = (
+  event: TransportEvent,
+  protocolId = "",
+): SmartCubeEvent | null => {
   switch (event.type) {
     case "MOVE":
       if (!/^[URFDLB](?:2|')?$/.test(event.move)) return null;
@@ -77,10 +80,23 @@ export const normalizeTransportEvent = (event: TransportEvent): SmartCubeEvent |
       };
     case "GYRO":
       if (!Object.values(event.quaternion).every(Number.isFinite)) return null;
+      // The pinned GoCube transport maps wire (x,y,z,w) to (x,-z,-y,w).
+      // Undo that presentation mapping here. The viewport applies the measured
+      // sensor basis after calculating the relative rotation, where a change of
+      // basis is mathematically valid and cannot swap pitch with roll.
+      const quaternion = protocolId === "gocube"
+        ? {
+          x: event.quaternion.x,
+          y: -event.quaternion.z,
+          z: -event.quaternion.y,
+          w: event.quaternion.w,
+        }
+        : event.quaternion;
       return {
         type: "orientation",
         timestamp: event.timestamp,
-        quaternion: event.quaternion,
+        quaternion,
+        coordinateFrame: protocolId === "gocube" ? "gocube-wire" : "viewport",
         ...(event.velocity ? {angularVelocity: event.velocity} : {}),
       };
     case "BATTERY":
@@ -227,7 +243,7 @@ export const createSmartCubeManager = (
       eventSubscription = transport.events$.subscribe({
         next(rawEvent) {
           if (connection !== transport) return;
-          const event = normalizeTransportEvent(rawEvent);
+          const event = normalizeTransportEvent(rawEvent, transport.protocol.id);
           if (!event) return;
           publishEvent(event);
           if (event.type === "disconnected") {

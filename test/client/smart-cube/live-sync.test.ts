@@ -17,6 +17,20 @@ const face = (name: "R" | "U" | "F" | "B") => ({
   step: {move: {TAG: "FaceTurn" as const, _0: name, _1: {from_: 1, to_: 1}}, turns: 1},
 });
 
+const assessSequence = (
+  steps: Parameters<typeof assessSmartCubeMove>[0],
+  labels: string[],
+  packets: string[],
+) => {
+  let progress = null;
+  let result: ReturnType<typeof assessSmartCubeMove> | null = null;
+  for (const packet of packets) {
+    result = assessSmartCubeMove(steps, labels, 0, packet, progress);
+    progress = result.status === "partial" ? result.progress : null;
+  }
+  return result;
+};
+
 describe("smart cube live synchronization", () => {
   const steps = [
     {step: {move: {TAG: "Rotation" as const, _0: "X" as const}, turns: 2}},
@@ -34,13 +48,18 @@ describe("smart cube live synchronization", () => {
     expect(nextExpectedSmartCubeMove(steps, labels, steps.length)).toBeNull();
   });
 
-  test("distinguishes matched, mismatched, unsupported, and complete Academy turns", () => {
+  test("distinguishes matched, mismatched, composite, and complete Academy turns", () => {
     expect(assessSmartCubeMove(steps, labels, 0, "r").status).toBe("matched");
     expect(assessSmartCubeMove(steps, labels, 0, "U")).toMatchObject({
       status: "mismatch",
       received: "U",
     });
-    expect(assessSmartCubeMove(steps, labels, 4, "L").status).toBe("unsupported");
+    const sliceStart = assessSmartCubeMove(steps, labels, 4, "R2");
+    expect(sliceStart.status).toBe("partial");
+    if (sliceStart.status === "partial") {
+      expect(assessSmartCubeMove(steps, labels, 4, "L2", sliceStart.progress).status)
+        .toBe("matched");
+    }
     expect(assessSmartCubeMove(steps, labels, steps.length, "R").status).toBe("complete");
   });
 
@@ -109,7 +128,7 @@ describe("smart cube live synchronization", () => {
     expect(first).toMatchObject({
       status: "partial",
       received: "R",
-      progress: {timelineIndex: 0, quarterTurn: "R"},
+      progress: {timelineIndex: 0, receivedMoves: ["R"]},
     });
     if (first.status !== "partial") return;
     expect(assessSmartCubeMove(halfSteps, ["R2"], 0, "R", first.progress))
@@ -122,6 +141,58 @@ describe("smart cube live synchronization", () => {
     if (counterClockwise.status !== "partial") return;
     expect(assessSmartCubeMove(halfSteps, ["R2"], 0, "R'", counterClockwise.progress))
       .toMatchObject({status: "matched", completedHalfTurn: true});
+  });
+
+  test("detects M, E, and S from either order of their reported outer faces", () => {
+    const cases = [
+      {
+        step: {step: {move: {TAG: "SliceTurn" as const, _0: "M" as const}, turns: 1}},
+        label: "M",
+        forward: ["R", "L'"],
+      },
+      {
+        step: {step: {move: {TAG: "SliceTurn" as const, _0: "E" as const}, turns: 1}},
+        label: "E",
+        forward: ["U", "D'"],
+      },
+      {
+        step: {step: {move: {TAG: "SliceTurn" as const, _0: "S" as const}, turns: 1}},
+        label: "S",
+        forward: ["F'", "B"],
+      },
+    ];
+    for (const entry of cases) {
+      expect(assessSequence([entry.step], [entry.label], entry.forward)?.status).toBe("matched");
+      expect(assessSequence([entry.step], [entry.label], [...entry.forward].reverse())?.status)
+        .toBe("matched");
+    }
+  });
+
+  test("accepts slice half turns in both physical directions and interleaved face order", () => {
+    const middle = [{step: {move: {TAG: "SliceTurn" as const, _0: "M" as const}, turns: 2}}];
+    expect(assessSequence(middle, ["M2"], ["R2", "L2"])?.status).toBe("matched");
+    expect(assessSequence(middle, ["M2"], ["L2", "R2"])?.status).toBe("matched");
+    expect(assessSequence(middle, ["M2"], ["R", "L", "R", "L"])?.status).toBe("matched");
+    expect(assessSequence(middle, ["M2"], ["R'", "L'", "R'", "L'"])?.status)
+      .toBe("matched");
+  });
+
+  test("detects wide and inner turns and carries their implicit regrip forward", () => {
+    const wideThenUp = [
+      {step: {move: {TAG: "FaceTurn" as const, _0: "R" as const, _1: {from_: 1, to_: 2}}, turns: 1}},
+      face("U"),
+    ];
+    expect(nextExpectedSmartCubeMove(wideThenUp, ["Rw", "U"], 0))
+      .toEqual({timelineIndex: 0, token: "Rw"});
+    expect(assessSmartCubeMove(wideThenUp, ["Rw", "U"], 0, "L").status).toBe("matched");
+    expect(nextExpectedSmartCubeMove(wideThenUp, ["Rw", "U"], 1))
+      .toEqual({timelineIndex: 1, token: "F"});
+
+    const inner = [{
+      step: {move: {TAG: "FaceTurn" as const, _0: "R" as const, _1: {from_: 2, to_: 2}}, turns: 1},
+    }];
+    expect(assessSequence(inner, ["2R"], ["R'", "L"])?.status).toBe("matched");
+    expect(assessSequence(inner, ["2R"], ["L", "R'"])?.status).toBe("matched");
   });
 
   test("records normalized moves without joining line comments", () => {

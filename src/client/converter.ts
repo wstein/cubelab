@@ -58,6 +58,7 @@ import {
   assessSmartCubeMove,
   isLastPhysicalMoveInRange,
   nextExpectedSmartCubeMove,
+  nextSmartCubeProgressMoves,
   type SmartCubeHalfTurnProgress,
   type SmartCubeMoveAssessment,
 } from "./smart-cube/live-sync";
@@ -472,7 +473,10 @@ if (root) {
   let smartCubeRenderedState: CubeState | null = null;
   let smartCubeStateSyncPending = false;
   let smartCubeOrientationTracking = false;
-  let latestSmartCubeOrientation: SmartCubeOrientationEvent["quaternion"] | null = null;
+  let latestSmartCubeOrientation: Pick<
+    SmartCubeOrientationEvent,
+    "quaternion" | "coordinateFrame"
+  > | null = null;
   let smartCubeMovesInFlight = 0;
   let smartCubeMoveQueue = Promise.resolve();
   type QueuedSmartCubeMove = {move: string; state: CubeState | null};
@@ -1325,14 +1329,15 @@ if (root) {
       viewport?.setTurnPreview(turnTransform(size, physicalStep));
       viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
     }
-    const halfway = smartCubeHalfTurnProgress?.timelineIndex === expected.timelineIndex
-      ? smartCubeHalfTurnProgress.quarterTurn
+    const progress = smartCubeHalfTurnProgress?.timelineIndex === expected.timelineIndex
+      ? smartCubeHalfTurnProgress
       : null;
-    smartCubeStatus.textContent = halfway
-      ? `${smartCubeDeviceName} · ${expected.token} halfway`
+    const nextPackets = progress ? nextSmartCubeProgressMoves(progress).join(" or ") : "";
+    smartCubeStatus.textContent = progress
+      ? `${smartCubeDeviceName} · ${expected.token} in progress`
       : `${smartCubeDeviceName} · Waiting for ${expected.token}`;
-    coachStatus.textContent = halfway
-      ? `${halfway} detected. Repeat ${halfway} to complete ${expected.token}.`
+    coachStatus.textContent = progress
+      ? `${progress.receivedMoves.join(" ")} detected. Complete ${expected.token} with ${nextPackets}.`
       : `Next physical move: ${expected.token}. Waiting for the smart cube.`;
     updatePlaybackUi();
   };
@@ -1342,8 +1347,9 @@ if (root) {
   ): Promise<void> => {
     smartCubeHalfTurnProgress = assessment.progress;
     await animateSmartCubeMove(assessment.received);
-    smartCubeStatus.textContent = `${smartCubeDeviceName} · ${assessment.expected.token} halfway`;
-    coachStatus.textContent = `${assessment.received} detected. Repeat ${assessment.received} to complete ${assessment.expected.token}.`;
+    const nextPackets = nextSmartCubeProgressMoves(assessment.progress).join(" or ");
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · ${assessment.expected.token} in progress`;
+    coachStatus.textContent = `${assessment.received} detected. Complete ${assessment.expected.token} with ${nextPackets}.`;
     signalSmartCubeFeedback("correct");
   };
 
@@ -1351,18 +1357,18 @@ if (root) {
     assessment: Extract<SmartCubeMoveAssessment, {status: "mismatch"}>,
     move: string,
   ): Promise<void> => {
-    const halfTurn = smartCubeHalfTurnProgress;
-    smartCubeHalfTurnProgress = null;
+    const progress = smartCubeHalfTurnProgress;
     recordSmartCubeMistake(assessment.expected.token, assessment.received);
     await animateSmartCubeMove(move);
 
     if (
-      halfTurn?.timelineIndex === assessment.expected.timelineIndex
-      && quarterTurnsCancel(halfTurn.quarterTurn, assessment.received)
+      progress?.timelineIndex === assessment.expected.timelineIndex
+      && quarterTurnsCancel(progress.receivedMoves.at(-1) ?? "", assessment.received)
     ) {
+      smartCubeHalfTurnProgress = null;
       signalSmartCubeFeedback("deviation");
       smartCubeStatus.textContent = `${smartCubeDeviceName} · ${assessment.expected.token} attempt cancelled`;
-      coachStatus.textContent = `${halfTurn.quarterTurn} followed by ${assessment.received} returned to the starting state. Retry ${assessment.expected.token}.`;
+      coachStatus.textContent = `${progress.receivedMoves.at(-1)} followed by ${assessment.received} returned to the starting state. Retry ${assessment.expected.token}.`;
       return;
     }
 
@@ -1581,7 +1587,12 @@ if (root) {
       autoOrbitButton.setAttribute("aria-pressed", "false");
       autoOrbitButton.classList.remove("active");
       viewport?.setAutoOrbit(false);
-      if (latestSmartCubeOrientation) viewport?.setDeviceOrientation(latestSmartCubeOrientation);
+      if (latestSmartCubeOrientation) {
+        viewport?.setDeviceOrientation(
+          latestSmartCubeOrientation.quaternion,
+          latestSmartCubeOrientation.coordinateFrame,
+        );
+      }
     } else {
       viewport?.setDeviceOrientation(null);
     }
@@ -1692,8 +1703,13 @@ if (root) {
         smartCubeBattery.textContent = `🔋 ${Math.round(event.level)}%`;
         break;
       case "orientation":
-        latestSmartCubeOrientation = event.quaternion;
-        if (smartCubeOrientationTracking) viewport?.setDeviceOrientation(event.quaternion);
+        latestSmartCubeOrientation = {
+          quaternion: event.quaternion,
+          coordinateFrame: event.coordinateFrame,
+        };
+        if (smartCubeOrientationTracking) {
+          viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
+        }
         break;
       case "hardware":
         if (event.orientationSupported === false) {

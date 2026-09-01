@@ -61,6 +61,20 @@ describe("smart cube event normalization", () => {
       quaternion: {x: Number.NaN, y: 0, z: 0, w: 1},
     })).toBeNull();
   });
+
+  test("restores GoCube wire axes before viewport-relative calibration", () => {
+    const normalized = normalizeTransportEvent({
+      type: "GYRO",
+      timestamp: 20,
+      // smartcube-web-bluetooth currently emits wire (x,y,z) as (x,-z,-y).
+      quaternion: {x: 0.1, y: -0.3, z: -0.2, w: 0.9},
+    }, "gocube");
+    expect(normalized).toMatchObject({
+      type: "orientation",
+      coordinateFrame: "gocube-wire",
+      quaternion: {x: 0.1, y: 0.2, z: 0.3, w: 0.9},
+    });
+  });
 });
 
 type Observer = {

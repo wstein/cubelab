@@ -371,6 +371,7 @@ export const cameraTween = (start: number, target: number, progress: number): nu
 };
 
 export type OrientationQuaternion = {x: number; y: number; z: number; w: number};
+export type OrientationCoordinateFrame = "viewport" | "gocube-wire";
 
 const normalizedQuaternion = (quaternion: OrientationQuaternion): OrientationQuaternion => {
   const length = Math.hypot(quaternion.x, quaternion.y, quaternion.z, quaternion.w) || 1;
@@ -405,6 +406,27 @@ export const relativeQuaternion = (
     w: from.w,
   }));
 };
+
+/**
+ * Re-expresses a relative GoCube sensor rotation in viewport axes.
+ *
+ * Hardware captures establish a world-frame delta and the calibrated GoCube
+ * basis `right=-x, up=+y, front=-z`, with rotation direction inverted. Their
+ * combined effect on the relative quaternion is (x,-y,z,w). Applying it after
+ * the delta is essential: applying the improper component mapping to both
+ * absolute samples reverses multiplication order and visibly swaps axes.
+ */
+export const orientationInViewportFrame = (
+  quaternion: OrientationQuaternion,
+  frame: OrientationCoordinateFrame,
+): OrientationQuaternion => frame === "gocube-wire"
+  ? normalizedQuaternion({
+    x: quaternion.x,
+    y: -quaternion.y,
+    z: quaternion.z,
+    w: quaternion.w,
+  })
+  : normalizedQuaternion(quaternion);
 
 export const matrixFromQuaternion = (quaternion: OrientationQuaternion): Mat4 => {
   const {x, y, z, w} = normalizedQuaternion(quaternion);
@@ -466,7 +488,10 @@ export type CubeViewport = {
   setMilestone: (milestone: MilestoneFocus | null) => void;
   setTurnGuide: (guide: TurnGuide | null) => void;
   smoothOrbitTo: (yaw: number, pitch: number, duration?: number) => Promise<void>;
-  setDeviceOrientation: (orientation: OrientationQuaternion | null) => void;
+  setDeviceOrientation: (
+    orientation: OrientationQuaternion | null,
+    frame?: OrientationCoordinateFrame,
+  ) => void;
   setAutoOrbit: (enabled: boolean) => void;
   resetCamera: () => void;
   dispose: () => void;
@@ -552,6 +577,7 @@ export const createCubeViewport = (
   let cameraGeneration = 0;
   let deviceOrientationBase: OrientationQuaternion | null = null;
   let deviceOrientation: OrientationQuaternion | null = null;
+  let deviceOrientationFrame: OrientationCoordinateFrame = "viewport";
   canvas.dataset.autoOrbitState = "off";
   const overlay = overlayCanvas.getContext("2d");
 
@@ -936,7 +962,10 @@ export const createCubeViewport = (
     gl.enableVertexAttribArray(sheen);
     gl.vertexAttribPointer(sheen, 1, gl.FLOAT, false, byteStride, 13 * 4);
     const relativeOrientation = deviceOrientationBase && deviceOrientation
-      ? relativeQuaternion(deviceOrientationBase, deviceOrientation)
+      ? orientationInViewportFrame(
+        relativeQuaternion(deviceOrientationBase, deviceOrientation),
+        deviceOrientationFrame,
+      )
       : undefined;
     const matrices = cameraMatrices(width / height, yaw, pitch, distance, relativeOrientation);
     gl.uniformMatrix4fv(modelView, false, matrices.modelView);
@@ -1271,15 +1300,18 @@ export const createCubeViewport = (
       requestRender();
     },
     smoothOrbitTo,
-    setDeviceOrientation(orientation) {
+    setDeviceOrientation(orientation, coordinateFrame = "viewport") {
       if (!orientation) {
         deviceOrientationBase = null;
         deviceOrientation = null;
+        deviceOrientationFrame = "viewport";
         delete canvas.dataset.deviceOrientation;
         requestRender();
         return;
       }
       const normalized = normalizedQuaternion(orientation);
+      if (deviceOrientationFrame !== coordinateFrame) deviceOrientationBase = null;
+      deviceOrientationFrame = coordinateFrame;
       if (!deviceOrientationBase) deviceOrientationBase = normalized;
       deviceOrientation = normalized;
       cancelCamera();
@@ -1303,6 +1335,7 @@ export const createCubeViewport = (
     resetCamera() {
       deviceOrientationBase = null;
       deviceOrientation = null;
+      deviceOrientationFrame = "viewport";
       delete canvas.dataset.deviceOrientation;
       cancelCamera();
       stopInertia();

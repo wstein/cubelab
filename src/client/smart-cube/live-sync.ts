@@ -5,9 +5,11 @@ export type ExpectedSmartCubeMove = {
   token: string;
 };
 
+/** Progress through the outer-face packets that represent one logical move. */
 export type SmartCubeHalfTurnProgress = {
   timelineIndex: number;
-  quarterTurn: string;
+  receivedMoves: string[];
+  remainingSequences: string[][];
 };
 
 export type SmartCubeMoveAssessment =
@@ -38,6 +40,14 @@ export const appendRecordedMove = (source: string, move: string): string => {
 };
 
 type RotationStep = {axis: "X" | "Y" | "Z"; turns: number};
+type PhysicalComponent = {face: string; turns: number};
+type PhysicalMovePlan = ExpectedSmartCubeMove & {
+  sequences: string[][];
+  implicitRotation: RotationStep | null;
+  skip: boolean;
+};
+
+const normalizedTurns = (turns: number): number => ((turns % 4) + 4) % 4;
 
 const rotateFaceOnce = (axis: RotationStep["axis"], face: string): string => {
   if (axis === "X") {
@@ -53,7 +63,7 @@ const physicalFaceInFixedFrame = (face: string, rotations: RotationStep[]): stri
   let mapped = face;
   for (let index = rotations.length - 1; index >= 0; index -= 1) {
     const rotation = rotations[index];
-    const inverseTurns = ((-rotation.turns % 4) + 4) % 4;
+    const inverseTurns = normalizedTurns(-rotation.turns);
     for (let turn = 0; turn < inverseTurns; turn += 1) {
       mapped = rotateFaceOnce(rotation.axis, mapped);
     }
@@ -61,23 +71,188 @@ const physicalFaceInFixedFrame = (face: string, rotations: RotationStep[]): stri
   return mapped;
 };
 
-const physicalTokenForStep = (
+const faceToken = (face: string, turns: number): string => {
+  const normalized = normalizedTurns(turns);
+  return `${face}${normalized === 2 ? "2" : normalized === 3 ? "'" : ""}`;
+};
+
+/** A half turn may be one `R2` packet or two quarter packets in either direction. */
+const packetForms = (component: PhysicalComponent): string[][] => {
+  const turns = normalizedTurns(component.turns);
+  if (turns === 0) return [[]];
+  if (turns === 2) {
+    return [
+      [`${component.face}2`],
+      [component.face, component.face],
+      [`${component.face}'`, `${component.face}'`],
+    ];
+  }
+  return [[faceToken(component.face, turns)]];
+};
+
+const interleave = (left: string[], right: string[]): string[][] => {
+  if (left.length === 0) return [[...right]];
+  if (right.length === 0) return [[...left]];
+  return [
+    ...interleave(left.slice(1), right).map((tail) => [left[0], ...tail]),
+    ...interleave(left, right.slice(1)).map((tail) => [right[0], ...tail]),
+  ];
+};
+
+const uniqueSequences = (sequences: string[][]): string[][] => {
+  const seen = new Set<string>();
+  return sequences.filter((sequence) => {
+    const key = sequence.join("\u0000");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const packetSequences = (components: PhysicalComponent[]): string[][] => {
+  let sequences: string[][] = [[]];
+  for (const component of components) {
+    const forms = packetForms(component);
+    sequences = sequences.flatMap((existing) =>
+      forms.flatMap((form) => interleave(existing, form))
+    );
+  }
+  return uniqueSequences(sequences);
+};
+
+const faceAxis = (face: string): RotationStep => {
+  if (face === "R") return {axis: "X", turns: 1};
+  if (face === "L") return {axis: "X", turns: -1};
+  if (face === "U") return {axis: "Y", turns: 1};
+  if (face === "D") return {axis: "Y", turns: -1};
+  if (face === "F") return {axis: "Z", turns: 1};
+  return {axis: "Z", turns: -1};
+};
+
+const oppositeFace = (face: string): string =>
+  ({U: "D", R: "L", F: "B", D: "U", L: "R", B: "F"} as Record<string, string>)[face] ?? face;
+
+const sliceDefinition = (slice: "M" | "E" | "S"): {
+  components: PhysicalComponent[];
+  rotation: RotationStep;
+} => {
+  if (slice === "M") {
+    // M = x' R L'
+    return {
+      components: [{face: "R", turns: 1}, {face: "L", turns: -1}],
+      rotation: {axis: "X", turns: -1},
+    };
+  }
+  if (slice === "E") {
+    // E = y' U D'
+    return {
+      components: [{face: "U", turns: 1}, {face: "D", turns: -1}],
+      rotation: {axis: "Y", turns: -1},
+    };
+  }
+  // S = z F' B
+  return {
+    components: [{face: "F", turns: -1}, {face: "B", turns: 1}],
+    rotation: {axis: "Z", turns: 1},
+  };
+};
+
+const physicalPlanForStep = (
   step: NonNullable<TimelineEntry["step"]>,
   rotations: RotationStep[],
   fallback: string,
-): string => {
-  if (step.move.TAG !== "FaceTurn") return fallback;
-  if (step.move._1.from_ !== 1 || step.move._1.to_ !== 1) return fallback;
-  const face = physicalFaceInFixedFrame(step.move._0, rotations);
-  const turns = ((step.turns % 4) + 4) % 4;
-  return `${face}${turns === 2 ? "2" : turns === 3 ? "'" : ""}`;
+  timelineIndex: number,
+): PhysicalMovePlan => {
+  const mapComponents = (components: PhysicalComponent[]): PhysicalComponent[] =>
+    components.map((component) => ({
+      face: physicalFaceInFixedFrame(component.face, rotations),
+      turns: component.turns * step.turns,
+    }));
+
+  if (step.move.TAG === "SliceTurn") {
+    const definition = sliceDefinition(step.move._0);
+    return {
+      timelineIndex,
+      token: fallback,
+      sequences: packetSequences(mapComponents(definition.components)),
+      implicitRotation: {
+        axis: definition.rotation.axis,
+        turns: definition.rotation.turns * step.turns,
+      },
+      skip: false,
+    };
+  }
+
+  if (step.move.TAG !== "FaceTurn") {
+    return {timelineIndex, token: fallback, sequences: [], implicitRotation: null, skip: false};
+  }
+
+  const face = step.move._0;
+  const {from_, to_} = step.move._1;
+  if (from_ === 1 && to_ === 1) {
+    const physicalFace = physicalFaceInFixedFrame(face, rotations);
+    const token = faceToken(physicalFace, step.turns);
+    return {
+      timelineIndex,
+      token,
+      sequences: packetSequences([{face: physicalFace, turns: step.turns}]),
+      implicitRotation: null,
+      skip: false,
+    };
+  }
+
+  const rotation = faceAxis(face);
+  if (from_ === 1 && to_ === 2) {
+    // Rw=x L, Lw=x' R, Uw=y D, Dw=y' U, Fw=z B, Bw=z' F.
+    const physicalFace = physicalFaceInFixedFrame(oppositeFace(face), rotations);
+    return {
+      timelineIndex,
+      token: fallback,
+      sequences: packetSequences([{face: physicalFace, turns: step.turns}]),
+      implicitRotation: {axis: rotation.axis, turns: rotation.turns * step.turns},
+      skip: false,
+    };
+  }
+
+  if (from_ === 2 && to_ === 2) {
+    const definition = sliceDefinition(
+      face === "R" || face === "L" ? "M" : face === "U" || face === "D" ? "E" : "S",
+    );
+    const direction = face === "R" || face === "U" || face === "B" ? -1 : 1;
+    return {
+      timelineIndex,
+      token: fallback,
+      sequences: packetSequences(mapComponents(definition.components.map((component) => ({
+        ...component,
+        turns: component.turns * direction,
+      })))),
+      implicitRotation: {
+        axis: definition.rotation.axis,
+        turns: definition.rotation.turns * direction * step.turns,
+      },
+      skip: false,
+    };
+  }
+
+  if (from_ === 1 && to_ >= 3) {
+    // A full-width turn is only a physical reorientation; no face encoder fires.
+    return {
+      timelineIndex,
+      token: fallback,
+      sequences: [],
+      implicitRotation: {axis: rotation.axis, turns: rotation.turns * step.turns},
+      skip: true,
+    };
+  }
+
+  return {timelineIndex, token: fallback, sequences: [], implicitRotation: null, skip: false};
 };
 
-export const nextExpectedSmartCubeMove = (
+const nextExpectedSmartCubePlan = (
   steps: TimelineEntry[],
   labels: string[],
   current: number,
-): ExpectedSmartCubeMove | null => {
+): PhysicalMovePlan | null => {
   const rotations: RotationStep[] = [];
   for (let index = 0; index < steps.length; index += 1) {
     const step = steps[index]?.step;
@@ -86,13 +261,23 @@ export const nextExpectedSmartCubeMove = (
       rotations.push({axis: step.move._0, turns: step.turns});
       continue;
     }
-    if (index < Math.max(0, current)) continue;
-    return {
-      timelineIndex: index,
-      token: physicalTokenForStep(step, rotations, labels[index] ?? ""),
-    };
+    const plan = physicalPlanForStep(step, rotations, labels[index] ?? "", index);
+    if (index < Math.max(0, current) || plan.skip) {
+      if (plan.implicitRotation) rotations.push(plan.implicitRotation);
+      continue;
+    }
+    return plan;
   }
   return null;
+};
+
+export const nextExpectedSmartCubeMove = (
+  steps: TimelineEntry[],
+  labels: string[],
+  current: number,
+): ExpectedSmartCubeMove | null => {
+  const plan = nextExpectedSmartCubePlan(steps, labels, current);
+  return plan ? {timelineIndex: plan.timelineIndex, token: plan.token} : null;
 };
 
 export const assessSmartCubeMove = (
@@ -102,34 +287,40 @@ export const assessSmartCubeMove = (
   received: string,
   halfTurnProgress: SmartCubeHalfTurnProgress | null = null,
 ): SmartCubeMoveAssessment => {
-  const expected = nextExpectedSmartCubeMove(steps, labels, current);
-  if (!expected) return {status: "complete"};
+  const plan = nextExpectedSmartCubePlan(steps, labels, current);
+  if (!plan) return {status: "complete"};
+  const expected = {timelineIndex: plan.timelineIndex, token: plan.token};
   const actual = canonicalSmartCubeMove(received);
-  const expectedToken = canonicalSmartCubeMove(expected.token);
-  if (!/^[URFDLB](?:2|')?$/.test(expectedToken)) {
+  if (plan.sequences.length === 0) {
     return {status: "unsupported", expected, received: actual};
   }
-  if (actual === expectedToken) {
-    return {status: "matched", expected, completedHalfTurn: false};
+
+  const continuing = halfTurnProgress?.timelineIndex === plan.timelineIndex;
+  const candidates = continuing ? halfTurnProgress.remainingSequences : plan.sequences;
+  const remaining = uniqueSequences(
+    candidates
+      .filter((sequence) => sequence[0] === actual)
+      .map((sequence) => sequence.slice(1)),
+  );
+  if (remaining.length === 0) return {status: "mismatch", expected, received: actual};
+  if (remaining.some((sequence) => sequence.length === 0)) {
+    return {status: "matched", expected, completedHalfTurn: continuing};
   }
-  const expectedHalfTurn = expectedToken.match(/^([URFDLB])2$/);
-  const receivedQuarterTurn = actual.match(/^([URFDLB])(')?$/);
-  if (expectedHalfTurn && receivedQuarterTurn && expectedHalfTurn[1] === receivedQuarterTurn[1]) {
-    const sameExpected = halfTurnProgress?.timelineIndex === expected.timelineIndex;
-    if (sameExpected && halfTurnProgress.quarterTurn === actual) {
-      return {status: "matched", expected, completedHalfTurn: true};
-    }
-    if (!sameExpected) {
-      return {
-        status: "partial",
-        expected,
-        received: actual,
-        progress: {timelineIndex: expected.timelineIndex, quarterTurn: actual},
-      };
-    }
-  }
-  return {status: "mismatch", expected, received: actual};
+  return {
+    status: "partial",
+    expected,
+    received: actual,
+    progress: {
+      timelineIndex: plan.timelineIndex,
+      receivedMoves: [...(continuing ? halfTurnProgress.receivedMoves : []), actual],
+      remainingSequences: remaining,
+    },
+  };
 };
+
+export const nextSmartCubeProgressMoves = (
+  progress: SmartCubeHalfTurnProgress,
+): string[] => [...new Set(progress.remainingSequences.map((sequence) => sequence[0]).filter(Boolean))];
 
 export const isLastPhysicalMoveInRange = (
   steps: TimelineEntry[],

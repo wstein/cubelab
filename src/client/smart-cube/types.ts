@@ -36,6 +36,8 @@ export type SmartCubeMoveEvent = EventBase & {
 export type SmartCubeOrientationEvent = EventBase & {
   type: "orientation";
   quaternion: {x: number; y: number; z: number; w: number};
+  /** Coordinate system used by the quaternion before viewport calibration. */
+  coordinateFrame: "viewport" | "gocube-wire";
   angularVelocity?: {x: number; y: number; z: number};
 };
 

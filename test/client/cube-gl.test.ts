@@ -14,6 +14,7 @@ import {
   focusCameraTarget,
   matrixFromQuaternion,
   multiplyQuaternions,
+  orientationInViewportFrame,
   relativeQuaternion,
   vboCapacityFloats,
 } from "../../src/client/cube-gl";
@@ -159,6 +160,26 @@ describe("cube viewport math", () => {
     expect(roll[4]).toBeCloseTo(-1);
     expect(roll[5]).toBeCloseTo(0);
     expect([...roll].every(Number.isFinite)).toBe(true);
+  });
+
+  test("keeps GoCube sensor y and z on distinct viewport axes", () => {
+    const half = Math.sqrt(0.5);
+    const aroundSensorY = orientationInViewportFrame(
+      {x: 0, y: half, z: 0, w: half},
+      "gocube-wire",
+    );
+    const aroundSensorZ = orientationInViewportFrame(
+      {x: 0, y: 0, z: half, w: half},
+      "gocube-wire",
+    );
+    expect(aroundSensorY.x).toBeCloseTo(0);
+    expect(aroundSensorY.y).toBeCloseTo(-half);
+    expect(aroundSensorY.z).toBeCloseTo(0);
+    expect(aroundSensorY.w).toBeCloseTo(half);
+    expect(aroundSensorZ.x).toBeCloseTo(0);
+    expect(aroundSensorZ.y).toBeCloseTo(0);
+    expect(aroundSensorZ.z).toBeCloseTo(half);
+    expect(aroundSensorZ.w).toBeCloseTo(half);
   });
 
   test("calibrates the first hardware quaternion without discarding later roll", () => {
