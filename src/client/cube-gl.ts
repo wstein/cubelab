@@ -391,23 +391,74 @@ export const createCubeViewport = (
     requestRender();
   };
 
+  let velocityYaw = 0;
+  let velocityPitch = 0;
+  let lastMoveTime = 0;
+  let inertiaFrame: number | null = null;
+
+  const stopInertia = () => {
+    if (inertiaFrame !== null) {
+      window.cancelAnimationFrame(inertiaFrame);
+      inertiaFrame = null;
+    }
+  };
+
+  const stepInertia = () => {
+    inertiaFrame = null;
+    if (disposed || dragging) return;
+    yaw += velocityYaw;
+    pitch = Math.max(-1.35, Math.min(1.35, pitch + velocityPitch));
+    velocityYaw *= 0.92;
+    velocityPitch *= 0.92;
+    requestRender();
+    if (Math.abs(velocityYaw) > 0.0001 || Math.abs(velocityPitch) > 0.0001) {
+      inertiaFrame = window.requestAnimationFrame(stepInertia);
+    } else {
+      velocityYaw = 0;
+      velocityPitch = 0;
+    }
+  };
+
   const pointerDown = (event: PointerEvent) => {
+    stopInertia();
     dragging = true;
     previousX = event.clientX;
     previousY = event.clientY;
+    lastMoveTime = performance.now();
+    velocityYaw = 0;
+    velocityPitch = 0;
     canvas.setPointerCapture(event.pointerId);
   };
   const pointerMove = (event: PointerEvent) => {
     if (!dragging) return;
-    yaw += (event.clientX - previousX) * 0.009;
-    pitch = Math.max(-1.35, Math.min(1.35, pitch + (event.clientY - previousY) * 0.009));
+    const now = performance.now();
+    const dt = Math.max(1, now - lastMoveTime);
+    lastMoveTime = now;
+    const dx = (event.clientX - previousX) * 0.009;
+    const dy = (event.clientY - previousY) * 0.009;
+    yaw += dx;
+    pitch = Math.max(-1.35, Math.min(1.35, pitch + dy));
     previousX = event.clientX;
     previousY = event.clientY;
+    const weight = Math.min(1, dt / 25);
+    const targetVx = (dx / dt) * 16.67;
+    const targetVy = (dy / dt) * 16.67;
+    velocityYaw = velocityYaw * (1 - weight) + targetVx * weight;
+    velocityPitch = velocityPitch * (1 - weight) + targetVy * weight;
     requestRender();
   };
   const pointerUp = (event: PointerEvent) => {
+    if (!dragging) return;
     dragging = false;
     if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    const elapsed = performance.now() - lastMoveTime;
+    if (elapsed > 90) {
+      velocityYaw = 0;
+      velocityPitch = 0;
+    } else if (Math.abs(velocityYaw) > 0.0002 || Math.abs(velocityPitch) > 0.0002) {
+      stopInertia();
+      inertiaFrame = window.requestAnimationFrame(stepInertia);
+    }
   };
   const wheel = (event: WheelEvent) => {
     event.preventDefault();
@@ -498,6 +549,9 @@ export const createCubeViewport = (
     animateTurn,
     cancelTurn,
     resetCamera() {
+      stopInertia();
+      velocityYaw = 0;
+      velocityPitch = 0;
       yaw = DEFAULT_YAW;
       pitch = DEFAULT_PITCH;
       distance = DEFAULT_DISTANCE;
@@ -505,6 +559,7 @@ export const createCubeViewport = (
     },
     dispose() {
       disposed = true;
+      stopInertia();
       cancelTurn();
       if (frame !== null) window.cancelAnimationFrame(frame);
       resizeObserver.disconnect();
