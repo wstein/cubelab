@@ -59,23 +59,14 @@ function groupedSequence(alg) {
   if (alg.length === 0) {
     return [];
   } else {
-    return [
-      {
+    return [{
         desc: {
           TAG: "Group",
           _0: alg,
           _1: 1
         },
         loc: generatedLoc
-      },
-      {
-        desc: {
-          TAG: "TimedPause",
-          _0: 0.5
-        },
-        loc: generatedLoc
-      }
-    ];
+      }];
   }
 }
 

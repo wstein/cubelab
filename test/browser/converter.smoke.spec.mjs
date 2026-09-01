@@ -329,13 +329,13 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(page.locator("[data-beginner-solution]")).toContainText("// STEP 1: White Cross");
   await expect(page.locator("[data-beginner-solution]")).toContainText("(");
   await expect(page.locator("[data-beginner-solution]")).toContainText("x2");
-  await expect(page.locator("[data-beginner-solution]")).toContainText("@0.5s");
+  await expect(page.locator("[data-beginner-solution]")).not.toContainText("@0.5s");
   await expect(page.locator("[data-beginner-solution]")).toContainText("@1.5s");
   await expect(page.locator("[data-move-ribbon] .move-group").first()).toBeVisible();
   await expect(page.locator("[data-move-ribbon] .move-token.pause").first()).toHaveText("│");
   await expect(page.locator("[data-move-ribbon] .move-token.pause").first()).toHaveAttribute(
     "title",
-    "Pause for 0.5 seconds",
+    "Pause for 1.5 seconds",
   );
 
   await page.getByRole("button", {name: "Next move"}).click();

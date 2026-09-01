@@ -59,7 +59,7 @@ let groupedSequence = (alg: alg): alg =>
   if alg->Array.length == 0 {
     []
   } else {
-    [located(Group(alg, 1)), located(TimedPause(0.5))]
+    [located(Group(alg, 1))]
   }
 
 let faceIndex = face =>

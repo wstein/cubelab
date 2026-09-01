@@ -94,19 +94,19 @@ test("emits seven truthful beginner phases and replay-verifies the final state",
   assert.equal((serialized.match(/STEP [1-7]:/g) ?? []).length, 7);
   assert.match(serialized, /\([^)]*\)/);
   assert.match(serialized, /\b[xyz](?:2|')?\b/);
-  assert.match(serialized, /@0\.5s/);
+  assert.doesNotMatch(serialized, /@0\.5s/);
   assert.match(serialized, /@1\.5s/);
   assert.doesNotMatch(MoveTransform.serialize(solution.phases[0].alg), /\bx2\b/);
   assert.doesNotMatch(MoveTransform.serialize(solution.phases[1].alg), /\bx2\b/);
-  assert.ok(MoveTransform.serialize(solution.phases[2].alg).startsWith("(x2) @0.5s"));
-  assert.ok(MoveTransform.serialize(solution.phases[6].alg).endsWith("(x2) @0.5s"));
+  assert.ok(MoveTransform.serialize(solution.phases[2].alg).startsWith("(x2)"));
+  assert.ok(MoveTransform.serialize(solution.phases[6].alg).endsWith("(x2)"));
   solution.phases.forEach((phase, index) => {
     phase.alg.forEach((unit, unitIndex) => {
-      if (unit.desc.TAG === "Group") {
-        assert.equal(phase.alg[unitIndex + 1]?.desc.TAG, "TimedPause");
-        assert.equal(phase.alg[unitIndex + 1]?.desc._0, 0.5);
-      }
       assert.notEqual(unit.desc.TAG, "Move", "teaching moves must belong to a grouped sequence");
+      if (unit.desc.TAG === "TimedPause") {
+        assert.equal(unitIndex, phase.alg.length - 1);
+        assert.equal(unit.desc._0, 1.5);
+      }
     });
     if (index < solution.phases.length - 1) {
       assert.equal(phase.alg.at(-1).desc.TAG, "TimedPause");
