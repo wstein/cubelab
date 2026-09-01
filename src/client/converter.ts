@@ -32,6 +32,7 @@ import {
   planSequenceStep,
   planTimelineClick,
   physicalMoveProgress,
+  stateSnapshotTimeline,
   timelineHoverEnabled,
   tutorialSequenceDescription,
   type AlgorithmTimeline,
@@ -855,12 +856,19 @@ if (root) {
 
   const selectedTutorialMethod = (): TutorialMethod => academyMethod;
 
+  const isSolvedState = (state: CubeState): boolean => {
+    const solved = StateTypes.solved(state.size) as Result<CubeState, unknown>;
+    return solved.TAG === "Ok" && FaceletCodec.render(state) === FaceletCodec.render(solved._0);
+  };
+
   const updateAcademySolveButton = () => {
     const method = selectedTutorialMethod();
     academySolve.disabled = academySolveBusy || activeRecognized === null || size !== 3;
     academySolve.textContent = savedTutorialSolutions.has(method)
       ? "Regenerate solution"
-      : "Generate verified solution";
+      : activeRecognized && isSolvedState(activeRecognized.state)
+        ? "Show solved phases"
+        : "Generate verified solution";
   };
 
   const resetAcademy = () => {
@@ -890,7 +898,9 @@ if (root) {
         ? `${academy.label} Academy is available for 3×3 states.`
         : recognized === null
           ? "Enter a valid 3×3 state to begin."
-          : `Ready to teach the recognized ${recognized.label.toLowerCase()} state.`;
+          : isSolvedState(recognized.state)
+            ? "This cube is already solved. Every Academy phase is satisfied at 0 HTM; load a scramble for a non-zero tutorial."
+            : `Ready to teach the recognized ${recognized.label.toLowerCase()} state.`;
     });
     updateAcademySolveButton();
   };
@@ -1084,6 +1094,12 @@ if (root) {
         (groupContainer ?? moveRibbon).append(button);
       });
       finishGroup();
+      if (activeTimeline.labels.length === 0) {
+        const empty = document.createElement("span");
+        empty.className = "timeline-empty";
+        empty.textContent = "State snapshot · no moves to play";
+        moveRibbon.append(empty);
+      }
     }
     playbackLimit.hidden = activeTimeline.states !== null;
     playbackLimit.textContent = activeTimeline.states === null
@@ -1943,10 +1959,11 @@ if (root) {
     updateTransformAvailability(recognized.timeline !== undefined);
     if (!recognized.timeline || !recognized.timelineKey) {
       stopPlayback();
-      activeTimeline = null;
+      activeTimeline = stateSnapshotTimeline(recognized.state);
       activeTimelineKey = null;
-      playback.hidden = true;
+      activeIndex = 0;
       renderState(recognized.state, recognized.label);
+      updatePlaybackUi(true);
       lastLabel = recognized.label;
       return;
     }
@@ -2313,9 +2330,12 @@ if (root) {
       const executionCount = tutorialPhaseExecutionCount(phase);
       const metrics = document.createElement("span");
       metrics.className = "academy-phase-metrics";
-      metrics.textContent = executionCount === moveCount
-        ? `${moveCount} HTM`
-        : `${moveCount} HTM · ${executionCount} ETM`;
+      metrics.textContent = executionCount === 0
+        ? "Already satisfied · 0 HTM"
+        : executionCount === moveCount
+          ? `${moveCount} HTM`
+          : `${moveCount} HTM · ${executionCount} ETM`;
+      button.classList.toggle("satisfied", executionCount === 0);
       button.dataset.phaseMoveCount = String(moveCount);
       button.dataset.phaseExecutionCount = String(executionCount);
       button.append(title, instruction, metrics);
@@ -2374,7 +2394,9 @@ if (root) {
     const executionMetric = executionCount === solution.moveCount
       ? `${solution.moveCount} HTM`
       : `${solution.moveCount} HTM · ${executionCount} ETM`;
-    academy.status.textContent = `Verified ${academy.label} solution · ${executionMetric} · ${academy.phaseCount} phases${benchmark}`;
+    academy.status.textContent = solution.moveCount === 0
+      ? `Already solved · 0 HTM · all ${academy.phaseCount} ${academy.label} phases are satisfied. Load Practice scramble for a guided solve.`
+      : `Verified ${academy.label} solution · ${executionMetric} · ${academy.phaseCount} phases${benchmark}`;
     coachingControls.hidden = false;
 
     const timeline = buildTimeline(initialState, solution.alg);

@@ -292,6 +292,15 @@ export type AlgorithmTimeline = {
   states: CubeState[] | null;
 };
 
+/** A canonical state has a tape position even when it has no source moves. */
+export const stateSnapshotTimeline = (state: CubeState): AlgorithmTimeline => ({
+  alg: [],
+  finalState: state,
+  steps: [],
+  labels: [],
+  states: [state],
+});
+
 const normalizedTurns = (turns: number): number => ((turns % 4) + 4) % 4;
 
 export const formatStep = (step: MoveStep): string => {

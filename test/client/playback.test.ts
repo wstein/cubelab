@@ -14,11 +14,22 @@ import {
   planSequenceStep,
   planTimelineClick,
   physicalMoveProgress,
+  stateSnapshotTimeline,
   tutorialSequenceDescription,
   timelineHoverEnabled,
 } from "../../src/client/playback";
 
 describe("algorithm playback timeline", () => {
+  test("keeps a zero-step tape position for canonical state input", () => {
+    const state = StateTypes.solved(3)._0;
+    expect(stateSnapshotTimeline(state)).toMatchObject({
+      finalState: state,
+      steps: [],
+      labels: [],
+      states: [state],
+    });
+  });
+
   test("describes the purpose of Academy groups instead of repeating their moves", () => {
     const rotation = {step: {move: {TAG: "Rotation", _0: "X"}, turns: 2}};
     const insertion = {step: {move: {TAG: "FaceTurn", _0: "R", _1: {from_: 1, to_: 1}}, turns: 1}};

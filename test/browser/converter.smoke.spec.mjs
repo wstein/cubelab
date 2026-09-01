@@ -329,7 +329,9 @@ test("plays, steps, and seeks an expanded algorithm timeline", async ({page}) =>
   await expect(facelets).toHaveText(finalState ?? "");
 
   await input.fill("");
-  await expect(page.locator("[data-playback]")).toBeHidden();
+  await expect(page.locator("[data-playback]")).toBeVisible();
+  await expect(position).toHaveText("Move 0 of 0");
+  await expect(page.locator("[data-playback-play]")).toBeDisabled();
   await input.fill("R");
   await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-animating", "true");
   await expect(position).toHaveText("Move 1 of 1");
@@ -736,6 +738,33 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(page).toHaveURL(/tab=workbench/);
 
   await expect(page.locator("[data-practice-scramble]").locator("xpath=parent::*")).toHaveClass(/preset-row/);
+});
+
+test("explains solved Academy input and solves a scrambled compact-facelet state", async ({page}) => {
+  await page.goto("/#size=3&tab=academy&method=beginner");
+  const input = page.locator("[data-input]");
+  const status = page.locator("[data-beginner-status]");
+
+  await expect(status).toContainText("already solved");
+  await page.getByRole("button", {name: "Show solved phases"}).click();
+  await expect(status).toContainText("Already solved · 0 HTM");
+  await expect(page.locator("[data-beginner-phase].satisfied")).toHaveCount(7);
+  await expect(page.locator("[data-playback]")).toBeVisible();
+  await expect(page.locator("[data-playback-position]")).toHaveText("Move 0 of 0");
+
+  await input.fill("R U R' U'");
+  const scrambledFacelets = await page.locator('[data-output="facelets"]').textContent();
+  expect(scrambledFacelets).toBeTruthy();
+  await input.fill(scrambledFacelets ?? "");
+  await expect(page.locator("[data-status]")).toHaveText("Compact facelets");
+  await expect(page.getByRole("button", {name: "Generate verified solution"})).toBeEnabled();
+  await page.getByRole("button", {name: "Generate verified solution"}).click();
+  await expect(status).toContainText("Verified Beginner LBL solution");
+  await expect(status).not.toContainText("0 HTM");
+  const moveCounts = await page.locator("[data-beginner-phase]").evaluateAll((phases) =>
+    phases.map((phase) => Number(phase.getAttribute("data-phase-move-count")))
+  );
+  expect(moveCounts.some((count) => count > 0)).toBe(true);
 });
 
 test("opens CFOP Academy and builds its four replay-verified stages", async ({page}) => {

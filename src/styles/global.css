@@ -480,6 +480,11 @@ body {
   scrollbar-width: thin;
 }
 
+.timeline-empty {
+  color: var(--text-muted);
+  font: 500 0.72rem var(--font-mono);
+}
+
 .move-group {
   display: inline-flex;
   flex: 0 0 auto;
@@ -1431,6 +1436,14 @@ body {
   background: rgba(99, 102, 241, 0.13);
   border-color: rgba(129, 140, 248, 0.5);
   color: #e0e7ff;
+}
+
+.academy-phase.satisfied {
+  border-color: rgba(52, 211, 153, 0.24);
+}
+
+.academy-phase.satisfied .academy-phase-metrics {
+  color: #6ee7b7;
 }
 
 .academy-phase strong,
