@@ -701,102 +701,88 @@ export const createCubeViewport = (
         const halfTurn = Math.abs(turnGuide.step.turns) % 4 === 2;
         if (turnGuide.style === "Chevrons") {
           const surfacePaths = turnSurfaceArrowPaths(transform, turnGuide.step, state?.size ?? 3);
-          const scoredFaces = surfacePaths.map(({normal, points}) => ({
-            key: normal.join(","),
-            score: surfaceFacingScore(
+          const visibleFaces = surfacePaths.filter(({normal, points}) => {
+            const facing = surfaceFacingScore(
               normal,
               points[Math.floor(points.length / 2)],
               matrices.modelView,
-            ),
-          }));
-          const bestFace = scoredFaces.reduce((best, face) =>
-            face.score > best.score ? face : best,
-          {key: "", score: -Infinity});
-          const projectedPaths = surfacePaths
-            .filter(({normal}) => normal.join(",") === bestFace.key)
-            .map(({points}) => points
-              .map((point) => transformTurnPoint(point, activeTurn))
-              .map((point) => projectPoint(point, matrices.modelView, matrices.projection, width, height))
-              .filter(({inFront}) => inFront))
-            .filter((points) => points.length > 2);
-          if (projectedPaths.length === 0) return;
+            );
+            return facing > 0.05;
+          });
+          if (visibleFaces.length === 0) return;
+
           overlay.save();
           overlay.lineCap = "round";
           overlay.lineJoin = "round";
-          projectedPaths.forEach((points) => {
-            const first = points[0];
-            const last = points.at(-1)!;
-            overlay.shadowColor = "rgba(34, 211, 238, 0.72)";
-            overlay.shadowBlur = 13 * dpr;
-            overlay.strokeStyle = "rgba(3, 8, 18, 0.92)";
-            overlay.lineWidth = 22 * dpr;
-            traceProjected(overlay, points);
+
+          const allProjectedFaces: Array<ProjectedPoint[]> = [];
+
+          visibleFaces.forEach(({points}) => {
+            const projected = points
+              .map((point) => transformTurnPoint(point, activeTurn))
+              .map((point) => projectPoint(point, matrices.modelView, matrices.projection, width, height))
+              .filter(({inFront}) => inFront);
+            if (projected.length < 3) return;
+            allProjectedFaces.push(projected);
+
+            // Subtle glowing guide rail along the layer surface
+            overlay.shadowColor = "rgba(34, 211, 238, 0.5)";
+            overlay.shadowBlur = 6 * dpr;
+            overlay.strokeStyle = "rgba(103, 232, 249, 0.38)";
+            overlay.lineWidth = 2 * dpr;
+            traceProjected(overlay, projected);
             overlay.stroke();
-            const gradient = overlay.createLinearGradient(first.x, first.y, last.x, last.y);
-            gradient.addColorStop(0, "#38bdf8");
-            gradient.addColorStop(0.55, "#22d3ee");
-            gradient.addColorStop(1, "#a5f3fc");
-            overlay.strokeStyle = gradient;
-            overlay.lineWidth = 16 * dpr;
-            traceProjected(overlay, points);
-            overlay.stroke();
-            overlay.shadowBlur = 3 * dpr;
-            overlay.strokeStyle = "rgba(6, 24, 42, 0.82)";
-            overlay.lineWidth = 9 * dpr;
-            traceProjected(overlay, points);
-            overlay.stroke();
-            const chevronOffsets = halfTurn ? [0.2, 0.38, 0.62, 0.8] : [0.18, 0.45, 0.72];
-            chevronOffsets.forEach((offset, index) => {
-              const reverse = halfTurn && index < chevronOffsets.length / 2;
-              const travel = (now * 0.00024) % 0.18;
-              const moving = Math.max(0.06, Math.min(0.94, reverse ? offset - travel : offset + travel));
-              const pointIndex = Math.max(1, Math.min(points.length - 1, Math.round(moving * (points.length - 1))));
+
+            // Animated chevrons flowing seamlessly along the surface
+            const numChevrons = 5;
+            const flowSpeed = 0.00045;
+            for (let i = 0; i < numChevrons; i++) {
+              const baseOffset = i / numChevrons;
+              const flow = (now * flowSpeed + baseOffset) % 1.0;
+              const progress = Math.max(0.04, Math.min(0.96, flow));
+              const idx = Math.max(1, Math.min(projected.length - 1, Math.round(progress * (projected.length - 1))));
+              const prev = projected[idx - 1];
+              const curr = projected[idx];
+
+              // Pulsing brightness based on position on face
+              const edgeFade = Math.sin(progress * Math.PI);
+              const alpha = Math.max(0.2, edgeFade * 0.95);
+
               drawChevron(
                 overlay,
-                reverse ? points[pointIndex] : points[pointIndex - 1],
-                reverse ? points[pointIndex - 1] : points[pointIndex],
-                8 * dpr,
-                "rgba(207, 250, 254, 0.96)",
+                prev,
+                curr,
+                11 * dpr,
+                `rgba(165, 243, 252, ${alpha})`,
               );
-            });
-            drawArrowhead(overlay, points.at(-2)!, last, 23 * dpr, "rgba(3, 8, 18, 0.94)");
-            drawArrowhead(overlay, points.at(-2)!, last, 17 * dpr, "#a5f3fc");
-            if (halfTurn) {
-              drawArrowhead(overlay, points[1], first, 23 * dpr, "rgba(3, 8, 18, 0.94)");
-              drawArrowhead(overlay, points[1], first, 17 * dpr, "#38bdf8");
             }
           });
           overlay.restore();
-          const labelPath = projectedPaths[Math.floor(projectedPaths.length / 2)];
-          const anchor = labelPath[Math.floor(labelPath.length * 0.52)];
-          const first = labelPath[0];
-          const last = labelPath.at(-1)!;
-          const pathLength = Math.max(1, Math.hypot(last.x - first.x, last.y - first.y));
-          let normalX = -(last.y - first.y) / pathLength;
-          let normalY = (last.x - first.x) / pathLength;
-          const outsideX = anchor.x - width / 2;
-          const outsideY = anchor.y - height / 2;
-          if (normalX * outsideX + normalY * outsideY < 0) {
-            normalX *= -1;
-            normalY *= -1;
+
+          if (allProjectedFaces.length > 0) {
+            const primaryPath = allProjectedFaces[0];
+            const anchor = primaryPath[Math.floor(primaryPath.length * 0.5)];
+            const first = primaryPath[0];
+            const last = primaryPath.at(-1)!;
+            const pathLength = Math.max(1, Math.hypot(last.x - first.x, last.y - first.y));
+            let normalX = -(last.y - first.y) / pathLength;
+            let normalY = (last.x - first.x) / pathLength;
+            const outsideX = anchor.x - width / 2;
+            const outsideY = anchor.y - height / 2;
+            if (normalX * outsideX + normalY * outsideY < 0) {
+              normalX *= -1;
+              normalY *= -1;
+            }
+            const badgeX = anchor.x + normalX * 42 * dpr;
+            const badgeY = anchor.y + normalY * 42 * dpr;
+            drawBadge(
+              overlay,
+              motionLabel(turnGuide.label, turnGuide.step),
+              badgeX,
+              badgeY,
+              dpr,
+            );
           }
-          const badgeX = anchor.x + normalX * 54 * dpr;
-          const badgeY = anchor.y + normalY * 54 * dpr;
-          overlay.save();
-          overlay.strokeStyle = "rgba(103, 232, 249, 0.62)";
-          overlay.lineWidth = 1.5 * dpr;
-          overlay.beginPath();
-          overlay.moveTo(anchor.x + normalX * 13 * dpr, anchor.y + normalY * 13 * dpr);
-          overlay.lineTo(anchor.x + normalX * 36 * dpr, anchor.y + normalY * 36 * dpr);
-          overlay.stroke();
-          overlay.restore();
-          drawBadge(
-            overlay,
-            motionLabel(turnGuide.label, turnGuide.step),
-            badgeX,
-            badgeY,
-            dpr,
-          );
         } else {
           const points = turnArcPoints(transform, turnGuide.step)
             .map((point) => transformTurnPointForCubie(
