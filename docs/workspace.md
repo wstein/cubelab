@@ -1,0 +1,28 @@
+# Single-page workspace
+
+Cube Rosetta uses three client-side workspace views over one canonical state:
+
+- **Converter** presents the six size-aware state formats and copy controls.
+- **Beginner Academy** generates and explains a seven-phase 3×3 LBL tutorial.
+- **Alg Workbench** contains transformations and the state-verified NISS helper.
+
+The tabs are visibility controls, not routes or hydrated framework components. The page
+contains one `CubeViewport` instance outside the changing left-hand panels, so switching
+views does not recreate the WebGL context, mesh buffers, camera, or tape player. The
+active tab is stored as `tab=converter|beginner|workbench` in the URL hash alongside the
+current input and settings.
+
+## Shared-state behavior
+
+The puzzle size, notation settings, input, recognized cube state, viewport style, and
+playback timeline remain shared. Tab-only state changes do not reparse the input or reset
+playback. Editing the source or changing a conversion setting intentionally rebuilds the
+recognized state and clears any generated tutorial.
+
+Beginner solutions use `buildTimeline(initialState, solutionAlg)`, so playback begins at
+the user's recognized scramble rather than incorrectly applying the solution to a solved
+cube. Phase buttons seek within that same timeline. The displayed/copyable tutorial uses
+line comments, while structured phase metadata remains separate from notation parsing.
+
+Practice scramble is located in **Quick load**, not among algebraic transformations. It
+remains a random-turn practice sequence and is not labeled as an official WCA scramble.

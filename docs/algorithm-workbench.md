@@ -85,6 +85,7 @@ transform, serializes the result, and switches to modern explicit notation befor
 normal conversion/playback update. This avoids stale-frame transformations while typing
 and prevents Ruwix post-face digits from changing the meaning of canonical `F2` output.
 
-The practice action remains available for every supported size. Transform output is
+The practice action sits in the shared **Quick load** row and remains available for every
+supported size; it is not grouped with algebraic transforms. Transform output is
 bounded to 20,000 characters, matching the shareable-input import limit; oversized
 results fail visibly without replacing the original source.

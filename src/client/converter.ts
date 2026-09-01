@@ -5,9 +5,11 @@ import * as Orbit64Codec from "../State/Orbit64Codec.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import * as StateTypes from "../State/StateTypes.res.mjs";
 import * as MoveCompatibility from "../Move/MoveCompatibility.res.mjs";
+import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 import * as MoveNiss from "../Move/MoveNiss.res.mjs";
 import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
+import * as BeginnerSolver from "../Solver/BeginnerSolver.res.mjs";
 import {
   createCubeViewport,
   turnTransform,
@@ -17,6 +19,7 @@ import {
 } from "./cube-gl";
 import {
   evaluateAlgorithm,
+  buildTimeline,
   isSingleStepExtension,
   MAX_PLAYBACK_STEPS,
   type AlgorithmTimeline,
@@ -26,6 +29,7 @@ import {
   readHash,
   synchronizeHash,
   type AppState,
+  type ActiveTab,
   type LowercaseMode,
   type NotationDialect,
   type SchemeName,
@@ -44,6 +48,9 @@ type RecognizedInput = {
   timeline?: AlgorithmTimeline;
   timelineKey?: string;
 };
+type BeginnerPhase = {number: number; title: string; instruction: string; alg: unknown[]};
+type BeginnerSolution = {phases: BeginnerPhase[]; alg: unknown[]; moveCount: number};
+type TutorialPhaseRange = BeginnerPhase & {start: number; end: number};
 
 const root = document.querySelector<HTMLElement>("[data-converter]");
 
@@ -75,14 +82,24 @@ if (root) {
   const nissVerify = root.querySelector<HTMLButtonElement>("[data-niss-verify]")!;
   const nissLoad = root.querySelector<HTMLButtonElement>("[data-niss-load]")!;
   const nissResult = root.querySelector<HTMLOutputElement>("[data-niss-result]")!;
+  const beginnerSolve = root.querySelector<HTMLButtonElement>("[data-beginner-solve]")!;
+  const beginnerStatus = root.querySelector<HTMLElement>("[data-beginner-status]")!;
+  const beginnerCurrent = root.querySelector<HTMLElement>("[data-beginner-current]")!;
+  const beginnerPhases = root.querySelector<HTMLElement>("[data-beginner-phases]")!;
+  const beginnerCopy = root.querySelector<HTMLButtonElement>("[data-beginner-copy]")!;
+  const beginnerSolution = root.querySelector<HTMLElement>("[data-beginner-solution]")!;
   const initialState = readHash(window.location.hash);
   const store = createStore(initialState);
   let size = initialState.size;
   let lowercaseMode: LowercaseMode = initialState.lowercaseMode;
   let notationDialect: NotationDialect = initialState.notationDialect;
   let cubeStyle: CubeStyle = initialState.cubeStyle;
+  let activeTab: ActiveTab = initialState.activeTab;
   let inverseScramble = "";
   let verifiedNissSolution = "";
+  let activeRecognized: RecognizedInput | null = null;
+  let tutorialPhases: TutorialPhaseRange[] = [];
+  let commentedBeginnerSolution = "";
   const viewport = createCubeViewport(canvas, (message) => {
     viewportFallback.textContent = `${message} Text conversions remain fully functional.`;
     viewportFallback.hidden = false;
@@ -230,7 +247,7 @@ if (root) {
     if (pieceTitle) {
       pieceTitle.textContent = size === 2 ? "2×2 CP / CO" : "3×3 CP / CO / EP / EO";
     }
-    nissPanel.hidden = size !== 3;
+    nissPanel.hidden = size !== 3 || activeTab !== "workbench";
   };
 
   const resetNissResult = () => {
@@ -305,6 +322,40 @@ if (root) {
   let playing = false;
   let playbackGeneration = 0;
   let lastLabel = "";
+
+  const resetAcademy = () => {
+    tutorialPhases = [];
+    commentedBeginnerSolution = "";
+    beginnerPhases.replaceChildren();
+    beginnerCurrent.hidden = true;
+    beginnerCopy.disabled = true;
+    beginnerSolution.hidden = true;
+    beginnerSolution.textContent = "";
+  };
+
+  const updateAcademySource = (recognized: RecognizedInput | null) => {
+    activeRecognized = recognized;
+    resetAcademy();
+    beginnerSolve.disabled = recognized === null || size !== 3;
+    beginnerStatus.classList.remove("error");
+    beginnerStatus.textContent = size !== 3
+      ? "Beginner Academy is available for 3×3 states."
+      : recognized === null
+        ? "Enter a valid 3×3 state to begin."
+        : `Ready to teach the recognized ${recognized.label.toLowerCase()} state.`;
+  };
+
+  const updateTutorialUi = () => {
+    if (tutorialPhases.length === 0) return;
+    const current = tutorialPhases.find((phase) =>
+      phase.end > phase.start && activeIndex >= phase.start && activeIndex < phase.end
+    ) ?? (activeIndex === 0 ? tutorialPhases[0] : tutorialPhases.at(-1))!;
+    beginnerCurrent.hidden = false;
+    beginnerCurrent.textContent = `Step ${current.number}: ${current.title} — ${current.instruction}`;
+    beginnerPhases.querySelectorAll<HTMLElement>("[data-beginner-phase]").forEach((button) => {
+      button.classList.toggle("active", Number(button.dataset.beginnerPhase) === current.number);
+    });
+  };
 
   const compatibilityLabels: Record<keyof CompatibilityResult, string> = {
     wca: "WCA tokens",
@@ -394,6 +445,7 @@ if (root) {
       block: "nearest",
       inline: "nearest",
     });
+    updateTutorialUi();
   };
 
   const stopPlayback = () => {
@@ -472,6 +524,7 @@ if (root) {
   };
 
   const synchronizePlayback = (recognized: RecognizedInput) => {
+    updateAcademySource(recognized);
     updateNissSource(recognized);
     updateCompatibility(recognized);
     updateTransformAvailability(recognized.timeline !== undefined);
@@ -523,6 +576,7 @@ if (root) {
     updateDialectUi();
     const parsed = parseState(input.value);
     if (parsed.TAG === "Error") {
+      updateAcademySource(null);
       updateNissSource(null);
       updateCompatibility(null);
       updateTransformAvailability(false);
@@ -552,11 +606,21 @@ if (root) {
     });
   };
 
+  let appStateApplied = false;
   const applyAppState = (state: AppState) => {
+    const conversionChanged = !appStateApplied
+      || size !== state.size
+      || lowercaseMode !== state.lowercaseMode
+      || notationDialect !== state.notationDialect
+      || cubeStyle !== state.cubeStyle
+      || input.value !== state.input
+      || schemeSelect.value !== state.scheme
+      || customScheme.value !== state.customScheme;
     size = state.size;
     lowercaseMode = state.lowercaseMode;
     notationDialect = state.notationDialect;
     cubeStyle = state.cubeStyle;
+    activeTab = state.activeTab;
     if (input.value !== state.input) input.value = state.input;
     if (schemeSelect.value !== state.scheme) schemeSelect.value = state.scheme;
     if (customScheme.value !== state.customScheme) customScheme.value = state.customScheme;
@@ -572,8 +636,23 @@ if (root) {
       button.classList.toggle("active", active);
       button.setAttribute("aria-pressed", String(active));
     });
-    scheduleUpdate();
+    root.querySelectorAll<HTMLButtonElement>("[data-workspace-tab]").forEach((button) => {
+      const active = button.dataset.workspaceTab === activeTab;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+    });
+    root.querySelectorAll<HTMLElement>("[data-workspace-panel]").forEach((panel) => {
+      panel.hidden = panel.dataset.workspacePanel !== activeTab;
+    });
+    appStateApplied = true;
+    if (conversionChanged) scheduleUpdate();
   };
+
+  root.querySelectorAll<HTMLButtonElement>("[data-workspace-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      store.patch({activeTab: button.dataset.workspaceTab as ActiveTab});
+    });
+  });
 
   root.querySelectorAll<HTMLButtonElement>("[data-size]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -598,15 +677,21 @@ if (root) {
   });
 
   schemeSelect.addEventListener("change", () => {
+    updateAcademySource(null);
     store.patch({scheme: schemeSelect.value as SchemeName});
+    scheduleUpdate();
   });
   customScheme.addEventListener("input", () => {
     customScheme.value = customScheme.value.toUpperCase();
+    updateAcademySource(null);
     store.patch({customScheme: customScheme.value});
+    scheduleUpdate();
   });
   input.addEventListener("input", () => {
     updateTransformAvailability(false);
+    updateAcademySource(null);
     store.patch({input: input.value});
+    scheduleUpdate();
   });
 
   const commitTransformedAlgorithm = (value: string) => {
@@ -724,6 +809,86 @@ if (root) {
 
   nissLoad.addEventListener("click", () => {
     if (verifiedNissSolution !== "") commitTransformedAlgorithm(verifiedNissSolution);
+  });
+
+  const presentBeginnerSolution = (initialState: CubeState, solution: BeginnerSolution) => {
+    let cursor = 0;
+    tutorialPhases = solution.phases.map((phase) => {
+      const expanded = MoveExecutor.expand(phase.alg) as Result<unknown[], unknown>;
+      const count = expanded.TAG === "Ok" ? expanded._0.length : 0;
+      const range = {...phase, start: cursor, end: cursor + count};
+      cursor += count;
+      return range;
+    });
+    beginnerPhases.replaceChildren();
+    tutorialPhases.forEach((phase) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "academy-phase";
+      button.dataset.beginnerPhase = String(phase.number);
+      button.dataset.beginnerPhaseStart = String(phase.start);
+      const title = document.createElement("strong");
+      title.textContent = `Step ${phase.number}: ${phase.title}`;
+      const instruction = document.createElement("span");
+      instruction.textContent = phase.instruction;
+      button.append(title, instruction);
+      beginnerPhases.append(button);
+    });
+    commentedBeginnerSolution = solution.phases.map((phase) => {
+      const moves = MoveTransform.serialize(phase.alg);
+      return `// STEP ${phase.number}: ${phase.title}\n// ${phase.instruction}\n${moves || "// Already complete"}`;
+    }).join("\n\n");
+    beginnerSolution.textContent = commentedBeginnerSolution;
+    beginnerSolution.hidden = false;
+    beginnerCopy.disabled = false;
+    beginnerStatus.classList.remove("error");
+    beginnerStatus.textContent = `Verified beginner solution · ${solution.moveCount} moves · 7 phases`;
+
+    const timeline = buildTimeline(initialState, solution.alg);
+    if (timeline.TAG === "Error") {
+      beginnerStatus.textContent = timeline._0;
+      beginnerStatus.classList.add("error");
+      return;
+    }
+    stopPlayback();
+    activeTimeline = timeline._0;
+    activeTimelineKey = null;
+    activeIndex = 0;
+    lastLabel = "Beginner tutorial";
+    renderState(initialState, lastLabel);
+    updatePlaybackUi(true);
+  };
+
+  beginnerSolve.addEventListener("click", () => {
+    if (size !== 3 || activeRecognized === null) return;
+    const initialState = activeRecognized.state;
+    beginnerSolve.disabled = true;
+    beginnerStatus.classList.remove("error");
+    beginnerStatus.textContent = "Building and replay-verifying the seven beginner phases…";
+    window.setTimeout(() => {
+      const result = BeginnerSolver.solve(initialState) as Result<BeginnerSolution, unknown>;
+      beginnerSolve.disabled = false;
+      if (result.TAG === "Error") {
+        beginnerStatus.textContent = BeginnerSolver.describeError(result._0);
+        beginnerStatus.classList.add("error");
+        return;
+      }
+      presentBeginnerSolution(initialState, result._0);
+    }, 0);
+  });
+
+  beginnerPhases.addEventListener("click", (event) => {
+    const button = (event.target as Element).closest<HTMLButtonElement>("[data-beginner-phase-start]");
+    if (button) void seek(Number(button.dataset.beginnerPhaseStart), false);
+  });
+
+  beginnerCopy.addEventListener("click", async () => {
+    if (commentedBeginnerSolution === "") return;
+    await navigator.clipboard.writeText(commentedBeginnerSolution);
+    beginnerCopy.textContent = "Copied";
+    window.setTimeout(() => {
+      beginnerCopy.textContent = "Copy commented solution";
+    }, 1500);
   });
 
   root.querySelectorAll<HTMLButtonElement>("[data-cube-style]").forEach((button) => {

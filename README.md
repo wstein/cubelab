@@ -105,6 +105,10 @@ The [beginner tutorial solver](docs/beginner-solver.md) accepts any recognized 3
 works through seven verified Layer-by-Layer goals, and refuses to return a solution unless
 the complete generated sequence solves all 54 facelets on replay.
 
+Converter, Beginner Academy, and Alg Workbench are views in a
+[single-page workspace](docs/workspace.md). The WebGL viewport and tape player stay
+mounted across tab switches, and the selected view is preserved in the URL hash.
+
 The input panel exposes the complete mirror and coordinate-rotation suite alongside
 Invert, Simplify, and Practice scramble actions. State-format input disables algebraic
 actions, and every generated algorithm is serialized into explicit modern notation

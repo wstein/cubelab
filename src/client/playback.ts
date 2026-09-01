@@ -56,6 +56,35 @@ export const isSingleStepExtension = (
   && next.steps.at(-1)?.step !== undefined
   && previous.steps.every((step, index) => stepSignature(step) === stepSignature(next.steps[index]));
 
+export const buildTimeline = (
+  initialState: CubeState,
+  alg: unknown[],
+): Result<AlgorithmTimeline, string> => {
+  const expanded = MoveExecutor.expandTimeline(alg) as Result<ExpandedEntry[], ExpansionError>;
+  if (expanded.TAG === "Error") {
+    return expanded._0.TAG === "ExpansionLimitExceeded"
+      ? {TAG: "Error", _0: `Expanded algorithms may not exceed ${expanded._0._0} moves.`}
+      : {TAG: "Error", _0: expanded._0._0};
+  }
+  const playbackEntries = expanded._0.filter((entry) => entry.comment === undefined);
+  let state = initialState;
+  const states = playbackEntries.length <= MAX_PLAYBACK_STEPS ? [state] : null;
+  for (const entry of playbackEntries) {
+    if (entry.step) state = MoveExecutor.applyStep(state, entry.step) as CubeState;
+    states?.push(state);
+  }
+  return {
+    TAG: "Ok",
+    _0: {
+      alg,
+      finalState: state,
+      steps: playbackEntries,
+      labels: playbackEntries.map((entry) => entry.step ? formatStep(entry.step) : "Pause"),
+      states,
+    },
+  };
+};
+
 export const evaluateAlgorithm = (
   size: number,
   lowercaseMode: LowercaseMode,
@@ -68,30 +97,7 @@ export const evaluateAlgorithm = (
   >;
   if (parsed.TAG === "Error") return {TAG: "Error", _0: parsed._0.message};
 
-  const expanded = MoveExecutor.expandTimeline(parsed._0) as Result<ExpandedEntry[], ExpansionError>;
-  if (expanded.TAG === "Error") {
-    return expanded._0.TAG === "ExpansionLimitExceeded"
-      ? {TAG: "Error", _0: `Expanded algorithms may not exceed ${expanded._0._0} moves.`}
-      : {TAG: "Error", _0: expanded._0._0};
-  }
-
   const solved = StateTypes.solved(size) as Result<CubeState, unknown>;
   if (solved.TAG === "Error") return {TAG: "Error", _0: "Cube size must be between 2 and 5."};
-  const playbackEntries = expanded._0.filter((entry) => entry.comment === undefined);
-  let state = solved._0;
-  const states = playbackEntries.length <= MAX_PLAYBACK_STEPS ? [state] : null;
-  for (const entry of playbackEntries) {
-    if (entry.step) state = MoveExecutor.applyStep(state, entry.step) as CubeState;
-    states?.push(state);
-  }
-  return {
-    TAG: "Ok",
-    _0: {
-      alg: parsed._0,
-      finalState: state,
-      steps: playbackEntries,
-      labels: playbackEntries.map((entry) => entry.step ? formatStep(entry.step) : "Pause"),
-      states,
-    },
-  };
+  return buildTimeline(solved._0, parsed._0);
 };

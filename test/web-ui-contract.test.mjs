@@ -84,6 +84,24 @@ test("the web UI exposes a state-verified 3x3 NISS helper", () => {
   assert.match(client, /MoveNiss\.describeError/);
 });
 
+test("the SPA workspace keeps one viewport beside three URL-addressable views", () => {
+  assert.match(page, /data-workspace-tab="converter"/);
+  assert.match(page, /data-workspace-tab="beginner"/);
+  assert.match(page, /data-workspace-tab="workbench"/);
+  assert.equal((page.match(/<CubeViewport \/>/g) ?? []).length, 1);
+  assert.match(page, /data-beginner-solve/);
+  assert.match(page, /data-beginner-phases/);
+  assert.match(page, /data-beginner-copy/);
+  assert.match(client, /BeginnerSolver\.solve/);
+  assert.match(client, /buildTimeline\(initialState, solution\.alg\)/);
+  assert.match(client, /store\.patch\(\{activeTab:/);
+});
+
+test("practice scramble is a Quick load action rather than a transform", () => {
+  assert.match(page, /class="preset-chip practice"[\s\S]*data-practice-scramble/);
+  assert.doesNotMatch(page, /class="transform-btn practice"/);
+});
+
 test("the studio connects recognized input and one canonical state to WebGL", () => {
   assert.match(page, /<CubeViewport \/>/);
   assert.match(page, /data-preset="M2 E2 S2"/);

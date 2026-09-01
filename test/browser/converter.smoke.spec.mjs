@@ -218,6 +218,7 @@ test("plays internal pauses without changing the canonical cube state", async ({
 
 test("applies algorithm workbench actions and generates size-aware practice scrambles", async ({page}) => {
   await page.goto("/");
+  await page.getByRole("button", {name: "Alg Workbench"}).click();
   const input = page.locator("[data-input]");
   const invert = page.getByRole("button", {name: "Invert"});
 
@@ -267,6 +268,7 @@ test("applies algorithm workbench actions and generates size-aware practice scra
 
 test("recombines and replay-verifies NISS work before loading it", async ({page}) => {
   await page.goto("/");
+  await page.getByRole("button", {name: "Alg Workbench"}).click();
   const input = page.locator("[data-input]");
   await input.fill("R U");
 
@@ -286,4 +288,35 @@ test("recombines and replay-verifies NISS work before loading it", async ({page}
   await page.getByRole("button", {name: "Recombine and verify"}).click();
   await expect(page.locator("[data-niss-result]")).toContainText("does not solve");
   await expect(page.getByRole("button", {name: "Load verified solution"})).toBeDisabled();
+});
+
+test("switches SPA workspaces without remounting the viewport and teaches a solution", async ({page}) => {
+  await page.goto("/");
+  const input = page.locator("[data-input]");
+  const canvas = page.locator("[data-cube-canvas]");
+  await canvas.evaluate((element) => element.setAttribute("data-persistence-probe", "mounted"));
+  await input.fill("R U R' U'");
+
+  await page.getByRole("button", {name: "Beginner Academy"}).click();
+  await expect(page.locator("[data-workspace-panel='beginner']")).toBeVisible();
+  await expect(page.locator("[data-workspace-panel='converter']")).toBeHidden();
+  await expect(canvas).toHaveAttribute("data-persistence-probe", "mounted");
+  await expect(page).toHaveURL(/tab=beginner/);
+
+  await page.getByRole("button", {name: "Teach me this solution"}).click();
+  await expect(page.locator("[data-beginner-status]")).toContainText("Verified beginner solution");
+  await expect(page.locator("[data-beginner-phase]")).toHaveCount(7);
+  await expect(page.locator("[data-playback-position]")).toHaveText(/Step 0 of \d+/);
+  await expect(page.locator("[data-beginner-solution]")).toContainText("// STEP 1: White Cross");
+
+  await page.getByRole("button", {name: "Next move"}).click();
+  await expect(page.locator("[data-beginner-current]")).toContainText("Step 1: White Cross");
+
+  await page.getByRole("button", {name: "Alg Workbench"}).click();
+  await expect(page.locator("[data-workspace-panel='workbench']").first()).toBeVisible();
+  await expect(page.locator("[data-workspace-panel='beginner']")).toBeHidden();
+  await expect(canvas).toHaveAttribute("data-persistence-probe", "mounted");
+  await expect(page).toHaveURL(/tab=workbench/);
+
+  await expect(page.locator("[data-practice-scramble]").locator("xpath=parent::*")).toHaveClass(/preset-row/);
 });

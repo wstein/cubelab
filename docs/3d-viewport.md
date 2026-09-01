@@ -77,6 +77,10 @@ steps, play/pause, 0.5×/1×/2× speeds, looping, a range scrubber, and clickabl
 pause tokens. Text codecs update only when a move commits, so
 they always describe an exact canonical state rather than a fractional animation.
 
+The viewport is mounted once beside the Converter, Beginner Academy, and Alg Workbench
+panels. Client-side tab changes only toggle the left-hand view, preserving the WebGL
+context, camera, geometry buffers, and current tape position.
+
 Playback caches at most 500 expanded steps. Algorithms above that limit still execute
 through the normal 100,000-step safety boundary and display their final conversion,
 but do not retain hundreds of intermediate cube states. When editing at the current

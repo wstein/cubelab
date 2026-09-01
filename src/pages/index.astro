@@ -53,6 +53,18 @@ const cards = [
         <p class="subtitle">Convert cube states into strict, copy-ready notation.</p>
       </header>
 
+      <nav class="workspace-tabs" aria-label="Cube Rosetta workspace">
+        <button type="button" class="workspace-tab active" data-workspace-tab="converter" aria-selected="true">
+          🔄 Converter
+        </button>
+        <button type="button" class="workspace-tab" data-workspace-tab="beginner" aria-selected="false">
+          🎓 Beginner Academy
+        </button>
+        <button type="button" class="workspace-tab" data-workspace-tab="workbench" aria-selected="false">
+          ⚡ Alg Workbench
+        </button>
+      </nav>
+
       <section class="studio">
         <div class="studio-controls">
       <section class="toolbar" aria-label="Converter settings">
@@ -149,7 +161,7 @@ const cards = [
           placeholder="Paste an algorithm, compact facelets, compact colours, or a canonical net. Leave blank for solved."
           spellcheck="false"
         ></textarea>
-        <div class="transform-row" aria-label="Algorithm transformations">
+        <div class="transform-row" data-workspace-panel="workbench" aria-label="Algorithm transformations" hidden>
           <span class="transform-label">Transforms</span>
           <button type="button" class="transform-btn" data-alg-transform="invert" disabled>↶ Invert</button>
           <button type="button" class="transform-btn" data-alg-transform="simplify" disabled>⚡ Simplify</button>
@@ -159,14 +171,8 @@ const cards = [
           <button type="button" class="transform-btn" data-alg-transform="rotate-x" disabled>↻ Rotate x</button>
           <button type="button" class="transform-btn" data-alg-transform="rotate-y" disabled>↻ Rotate y</button>
           <button type="button" class="transform-btn" data-alg-transform="rotate-z" disabled>↻ Rotate z</button>
-          <button
-            type="button"
-            class="transform-btn practice"
-            data-practice-scramble
-            title="Random-turn practice sequence; not an official WCA scramble"
-          >Practice scramble</button>
         </div>
-        <details class="niss-panel" data-niss-panel>
+        <details class="niss-panel" data-niss-panel data-workspace-panel="workbench" hidden>
           <summary>NISS helper (3×3 FMC)</summary>
           <p class="niss-help">
             Record normal-side moves as <code>N</code> and inverse-side moves as
@@ -207,7 +213,7 @@ const cards = [
           Use <code>2R</code> for a portable single inner-layer turn. Unicode Ruwix
           subscripts such as <code>R₂'</code> are recognized directly; ambiguous plaintext
           such as <code>R2'</code> requires Ruwix suffix mode.
-          Practice scrambles are for local testing and are not official WCA sequences.
+          Practice scramble is quick-load testing only, not official WCA scramble data.
         </p>
         <div class="compatibility-strip" data-compatibility hidden>
           <span class="compatibility-label">Source compatibility</span>
@@ -240,6 +246,12 @@ const cards = [
             data-preset="(R U R' U')6"
             data-preset-size="3"
           >Sexy ×6</button>
+          <button
+            type="button"
+            class="preset-chip practice"
+            data-practice-scramble
+            title="Random-turn practice sequence; not an official WCA scramble"
+          >Practice scramble</button>
         </div>
         <div class="notation-banner" data-lowercase-banner role="status" hidden>
           <span data-lowercase-message></span>
@@ -247,13 +259,36 @@ const cards = [
         </div>
         <div class="error-banner" data-error role="alert" hidden></div>
       </section>
+
+      <section class="academy-panel" data-workspace-panel="beginner" aria-labelledby="academy-title" hidden>
+        <header class="feature-header">
+          <div>
+            <span class="panel-label">Seven-step Layer-by-Layer method</span>
+            <h2 id="academy-title">Beginner Academy</h2>
+          </div>
+          <button type="button" class="academy-solve-btn" data-beginner-solve disabled>
+            Teach me this solution
+          </button>
+        </header>
+        <p class="academy-intro">
+          Enter any valid 3×3 state or scramble above. The solver places white on the
+          bottom, verifies all seven phase goals, and loads the result into the persistent
+          tape player.
+        </p>
+        <div class="academy-status" data-beginner-status aria-live="polite">
+          Enter a valid 3×3 state to begin.
         </div>
-        <div class="studio-viewport">
-          <CubeViewport />
+        <div class="academy-current" data-beginner-current hidden></div>
+        <div class="academy-phases" data-beginner-phases></div>
+        <div class="academy-solution-actions">
+          <button type="button" class="transform-btn" data-beginner-copy disabled>
+            Copy commented solution
+          </button>
         </div>
+        <pre class="academy-solution" data-beginner-solution hidden></pre>
       </section>
 
-      <section class="outputs-grid" aria-label="Converted state formats">
+      <section class="outputs-grid" data-workspace-panel="converter" aria-label="Converted state formats">
         {cards.map(({key, title, provenance, sizes}) => (
           <article class="output-card" data-output-card={key} data-sizes={sizes}>
             <header class="card-header">
@@ -266,6 +301,11 @@ const cards = [
             </div>
           </article>
         ))}
+      </section>
+        </div>
+        <div class="studio-viewport">
+          <CubeViewport />
+        </div>
       </section>
 
       <footer class="footer">Pure ReScript codecs · Vanilla Astro interface</footer>

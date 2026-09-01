@@ -1,7 +1,8 @@
 import {describe, expect, test} from "bun:test";
 
 import * as FaceletCodec from "../../src/State/FaceletCodec.res.mjs";
-import {evaluateAlgorithm, formatStep, isSingleStepExtension, MAX_PLAYBACK_STEPS} from "../../src/client/playback";
+import * as StateTypes from "../../src/State/StateTypes.res.mjs";
+import {buildTimeline, evaluateAlgorithm, formatStep, isSingleStepExtension, MAX_PLAYBACK_STEPS} from "../../src/client/playback";
 
 describe("algorithm playback timeline", () => {
   test("expands composite algorithms into labeled canonical states", () => {
@@ -51,6 +52,20 @@ describe("algorithm playback timeline", () => {
     if (result.TAG === "Ok") {
       expect(result._0.steps).toHaveLength(MAX_PLAYBACK_STEPS + 1);
       expect(result._0.states).toBeNull();
+    }
+  });
+
+  test("builds a solution timeline from an arbitrary recognized state", () => {
+    const initial = evaluateAlgorithm(3, "Wide", "Modern", "R U");
+    const solution = evaluateAlgorithm(3, "Wide", "Modern", "U' R'");
+    expect(initial.TAG).toBe("Ok");
+    expect(solution.TAG).toBe("Ok");
+    if (initial.TAG !== "Ok" || solution.TAG !== "Ok") return;
+    const timeline = buildTimeline(initial._0.finalState, solution._0.alg);
+    expect(timeline.TAG).toBe("Ok");
+    if (timeline.TAG === "Ok") {
+      expect(FaceletCodec.render(timeline._0.finalState)).toBe(FaceletCodec.render(StateTypes.solved(3)._0));
+      expect(timeline._0.labels).toEqual(["U'", "R'"]);
     }
   });
 });
