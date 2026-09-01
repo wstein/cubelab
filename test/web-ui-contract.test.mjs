@@ -162,6 +162,9 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(viewportComponent, /data-smart-cube-sync/);
   assert.match(viewportComponent, /data-smart-cube-orientation/);
   assert.match(viewportComponent, /data-smart-cube-disconnect/);
+  assert.match(viewportComponent, /data-smart-cube-sound/);
+  assert.match(viewportComponent, /data-smart-cube-mistakes/);
+  assert.match(viewportComponent, /data-smart-cube-reroute/);
   assert.match(client, /import\("\.\/smart-cube\/index"\)/);
   assert.ok(
     client.indexOf('smartCubeConnect.addEventListener("click"')
@@ -178,6 +181,11 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /if \(!isFallbackCall\) return null/);
   assert.match(client, /enable-experimental-web-platform-features/);
   assert.match(client, /assessSmartCubeMove/);
+  assert.match(client, /assessSmartCubeRecovery/);
+  assert.match(client, /smartCubeRecoveryPrompt/);
+  assert.match(client, /signalSmartCubeFeedback/);
+  assert.match(viewport, /turnGuide\.tone === "recovery"/);
+  assert.match(viewport, /turnGuideTone/);
   assert.match(client, /viewport\?\.setDeviceOrientation/);
   assert.match(client, /const waitForSmartCubeMove/);
   assert.match(client, /Next physical move:/);
@@ -186,7 +194,7 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /applyPartialHalfTurn/);
   assert.match(client, /completedHalfTurn/);
   assert.match(client, /Repeat .* to complete/);
-  assert.match(client, /if \(continueCoaching\) waitForSmartCubeMove\(\);\s*else renderSmartCubeLiveState\(\);/);
+  assert.match(client, /if \(continueCoaching \|\| smartCubeRecovery \|\| handledByRecovery\) waitForSmartCubeMove\(\);/);
   assert.doesNotMatch(
     client,
     /\.finally\(\(\) => \{\s*smartCubeMovesInFlight -= 1;\s*if \(smartCubeMovesInFlight === 0\) renderSmartCubeLiveState\(\);/,

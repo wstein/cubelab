@@ -60,6 +60,18 @@ import {
   type SmartCubeHalfTurnProgress,
   type SmartCubeMoveAssessment,
 } from "./smart-cube/live-sync";
+import {
+  createSmartCubeAudioFeedback,
+  readSmartCubeSoundPreference,
+  writeSmartCubeSoundPreference,
+} from "./smart-cube/audio-feedback";
+import {
+  assessSmartCubeRecovery,
+  beginSmartCubeRecovery,
+  quarterTurnsCancel,
+  smartCubeRecoveryPrompt,
+  type SmartCubeRecoveryState,
+} from "./smart-cube/deviation-verifier";
 import type {
   SmartCubeConnectionState,
   SmartCubeEvent,
@@ -155,6 +167,9 @@ if (root) {
   const smartCubeDock = root.querySelector<HTMLElement>("[data-smart-cube-dock]")!;
   const smartCubeStatus = root.querySelector<HTMLElement>("[data-smart-cube-status]")!;
   const smartCubeBattery = root.querySelector<HTMLElement>("[data-smart-cube-battery]")!;
+  const smartCubeMistakes = root.querySelector<HTMLElement>("[data-smart-cube-mistakes]")!;
+  const smartCubeReroute = root.querySelector<HTMLButtonElement>("[data-smart-cube-reroute]")!;
+  const smartCubeSound = root.querySelector<HTMLButtonElement>("[data-smart-cube-sound]")!;
   const smartCubeSync = root.querySelector<HTMLButtonElement>("[data-smart-cube-sync]")!;
   const smartCubeOrientation = root.querySelector<HTMLButtonElement>("[data-smart-cube-orientation]")!;
   const smartCubeDisconnect = root.querySelector<HTMLButtonElement>("[data-smart-cube-disconnect]")!;
@@ -424,7 +439,7 @@ if (root) {
   let focusedGroup: HTMLElement | null = null;
   let focusedPiece: string | null = null;
   let guidedToken: HTMLElement | null = null;
-  let activeTurnGuide: {step: MoveStep; label: string} | null = null;
+  let activeTurnGuide: {step: MoveStep; label: string; tone?: "normal" | "recovery"} | null = null;
   let previewedMoveIndex: number | null = null;
   let hoverPreviewCursor: number | null = null;
   let hoverPreviewGeneration = 0;
@@ -434,6 +449,7 @@ if (root) {
   let smartCubeManagerLoading: Promise<SmartCubeManager> | null = null;
   let smartCubeConnected = false;
   let smartCubeDeviceName = "Smart cube";
+  let smartCubeLedFeedback = false;
   let smartCubeLiveState: CubeState | null = null;
   let smartCubeStateSyncPending = false;
   let smartCubeOrientationTracking = false;
@@ -443,6 +459,15 @@ if (root) {
   let suppressNextSmartCubeExtension = false;
   let smartCubeCoachingWaiting = false;
   let smartCubeHalfTurnProgress: SmartCubeHalfTurnProgress | null = null;
+  let smartCubeRecovery: SmartCubeRecoveryState | null = null;
+  const smartCubeMistakeLog: Array<{expected: string; received: string; timestamp: number}> = [];
+  let storedSoundPreference = true;
+  try {
+    storedSoundPreference = readSmartCubeSoundPreference(window.localStorage);
+  } catch {
+    storedSoundPreference = true;
+  }
+  const smartCubeAudio = createSmartCubeAudioFeedback(storedSoundPreference);
 
   const viewportPalette = (): CubePalette =>
     schemeSelect.value === "Japanese" ? "Japanese" : "Western";
@@ -564,6 +589,7 @@ if (root) {
   const clearTurnGuide = (mode: "immediate" | "hold" | "restore" = "immediate") => {
     const generation = ++hoverPreviewGeneration;
     guidedToken?.classList.remove("turn-guided");
+    guidedToken?.classList.remove("recovery-guided");
     guidedToken = null;
     activeTurnGuide = null;
     viewport?.setTurnGuide(null);
@@ -1165,11 +1191,78 @@ if (root) {
     if (transform && viewport) await viewport.animateTurn(transform, 120);
   };
 
+  const updateSmartCubeSoundUi = () => {
+    const enabled = smartCubeAudio.isEnabled();
+    smartCubeSound.classList.toggle("active", enabled);
+    smartCubeSound.setAttribute("aria-pressed", String(enabled));
+    smartCubeSound.textContent = enabled ? "Sound on" : "Sound off";
+  };
+  updateSmartCubeSoundUi();
+
+  const updateSmartCubeMistakeUi = () => {
+    const count = smartCubeMistakeLog.length;
+    smartCubeMistakes.hidden = count === 0;
+    smartCubeMistakes.textContent = `${count} ${count === 1 ? "slip" : "slips"}`;
+    smartCubeReroute.hidden = !smartCubeConnected || count < 3 || smartCubeLiveState === null;
+  };
+
+  const recordSmartCubeMistake = (expected: string, received: string) => {
+    smartCubeMistakeLog.push({expected, received, timestamp: Date.now()});
+    updateSmartCubeMistakeUi();
+  };
+
+  const showSmartCubeRecoveryGuide = () => {
+    if (!smartCubeRecovery) return;
+    const undo = smartCubeRecovery.undoMoves[0];
+    const step = smartCubeStep(undo);
+    smartCubeCoachingWaiting = true;
+    smartCubeDock.dataset.recovery = "true";
+    const token = moveRibbon.querySelector<HTMLButtonElement>(
+      `[data-move-index="${smartCubeRecovery.expected.timelineIndex + 1}"]`,
+    );
+    if (token) {
+      guidedToken = token;
+      token.classList.add("recovery-guided");
+      token.scrollIntoView({block: "nearest", inline: "nearest"});
+    }
+    if (step) {
+      activeTurnGuide = {step, label: `Undo ${undo}`, tone: "recovery"};
+      viewport?.setTurnPreview(turnTransform(size, step));
+      viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
+    }
+    const prompt = smartCubeRecoveryPrompt(smartCubeRecovery);
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · Undo ${undo}`;
+    coachStatus.textContent = prompt;
+    updatePlaybackUi();
+  };
+
+  const clearSmartCubeRecovery = () => {
+    smartCubeRecovery = null;
+    delete smartCubeDock.dataset.recovery;
+  };
+
+  const signalSmartCubeFeedback = (
+    cue: "correct" | "deviation" | "realigned" | "milestone",
+  ) => {
+    smartCubeAudio.play(cue);
+    if (!smartCubeLedFeedback || !smartCubeManager) return;
+    const milestone = cue === "milestone";
+    if (cue !== "deviation" && !milestone) return;
+    void smartCubeManager.flashLed(milestone ? "green" : "amber", milestone ? 1000 : 500)
+      .catch(() => {
+        // Hardware feedback is supplemental; visual recovery must remain uninterrupted.
+      });
+  };
+
   const waitForSmartCubeMove = () => {
     if (!smartCubeConnected || !activeTimeline?.states) return;
     clearTutorialFocus();
     clearTurnGuide();
     stopPlayback();
+    if (smartCubeRecovery) {
+      showSmartCubeRecoveryGuide();
+      return;
+    }
     const expected = nextExpectedSmartCubeMove(
       activeTimeline.steps,
       activeTimeline.labels,
@@ -1222,6 +1315,72 @@ if (root) {
     }
     smartCubeStatus.textContent = `${smartCubeDeviceName} · ${assessment.expected.token} halfway`;
     coachStatus.textContent = `${assessment.received} detected. Repeat ${assessment.received} to complete ${assessment.expected.token}.`;
+    signalSmartCubeFeedback("correct");
+  };
+
+  const applySmartCubeMismatch = async (
+    assessment: Extract<SmartCubeMoveAssessment, {status: "mismatch"}>,
+    move: string,
+  ): Promise<void> => {
+    const halfTurn = smartCubeHalfTurnProgress;
+    smartCubeHalfTurnProgress = null;
+    recordSmartCubeMistake(assessment.expected.token, assessment.received);
+    await animateSmartCubeMove(move);
+    renderSmartCubeLiveState();
+
+    if (
+      halfTurn?.timelineIndex === assessment.expected.timelineIndex
+      && quarterTurnsCancel(halfTurn.quarterTurn, assessment.received)
+    ) {
+      signalSmartCubeFeedback("deviation");
+      smartCubeStatus.textContent = `${smartCubeDeviceName} · ${assessment.expected.token} attempt cancelled`;
+      coachStatus.textContent = `${halfTurn.quarterTurn} followed by ${assessment.received} returned to the starting state. Retry ${assessment.expected.token}.`;
+      return;
+    }
+
+    smartCubeRecovery = beginSmartCubeRecovery(assessment.expected, assessment.received);
+    signalSmartCubeFeedback("deviation");
+    if (smartCubeRecovery) {
+      const undo = smartCubeRecovery.undoMoves[0];
+      smartCubeStatus.textContent = `${smartCubeDeviceName} · Slip: undo ${undo}`;
+      coachStatus.textContent = smartCubeRecoveryPrompt(smartCubeRecovery);
+    } else {
+      smartCubeStatus.textContent = `Expected ${assessment.expected.token}, received ${assessment.received}`;
+      coachStatus.textContent = `Physical move mismatch. Expected ${assessment.expected.token}; received ${assessment.received}.`;
+    }
+  };
+
+  const applySmartCubeRecoveryMove = async (move: string): Promise<boolean> => {
+    if (!smartCubeRecovery) return false;
+    const assessment = assessSmartCubeRecovery(smartCubeRecovery, move);
+    await animateSmartCubeMove(move);
+    renderSmartCubeLiveState();
+
+    if (assessment.status === "realigned") {
+      const expected = smartCubeRecovery.expected.token;
+      clearSmartCubeRecovery();
+      signalSmartCubeFeedback("realigned");
+      smartCubeStatus.textContent = `${smartCubeDeviceName} · Back on track`;
+      coachStatus.textContent = `Back on track. Now turn ${expected}.`;
+      return true;
+    }
+
+    if (assessment.status === "unsupported") {
+      signalSmartCubeFeedback("deviation");
+      smartCubeStatus.textContent = `${smartCubeDeviceName} · Unsupported recovery move ${assessment.received}`;
+      return true;
+    }
+
+    smartCubeRecovery = assessment.state;
+    if (assessment.status === "extended") {
+      recordSmartCubeMistake(assessment.state.expected.token, assessment.received);
+      signalSmartCubeFeedback("deviation");
+    } else {
+      signalSmartCubeFeedback("correct");
+    }
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · Undo ${assessment.state.undoMoves[0]}`;
+    coachStatus.textContent = smartCubeRecoveryPrompt(assessment.state);
+    return true;
   };
 
   const applyWaitingTimelineMove = async (move: string): Promise<boolean> => {
@@ -1248,10 +1407,7 @@ if (root) {
       return true;
     }
     if (assessment.status === "mismatch") {
-      smartCubeHalfTurnProgress = null;
-      smartCubeStatus.textContent = `Expected ${assessment.expected.token}, received ${assessment.received}`;
-      coachStatus.textContent = `Physical move mismatch. Expected ${assessment.expected.token}; received ${assessment.received}.`;
-      await animateSmartCubeMove(move);
+      await applySmartCubeMismatch(assessment, move);
       return true;
     }
     const moveIndex = assessment.expected.timelineIndex;
@@ -1260,6 +1416,7 @@ if (root) {
     await animateSmartCubeMove(move);
     renderTimelineIndex(moveIndex + 1);
     smartCubeStatus.textContent = `${smartCubeDeviceName} · ${move} matched`;
+    signalSmartCubeFeedback("correct");
     return true;
   };
 
@@ -1278,6 +1435,7 @@ if (root) {
       positions: phaseMilestonePositions(state, phaseNumber),
       label: `✦ ${label}`,
     });
+    signalSmartCubeFeedback("milestone");
     window.setTimeout(() => viewport?.setMilestone(null), 650);
   };
 
@@ -1311,10 +1469,7 @@ if (root) {
       return true;
     }
     if (assessment.status === "mismatch") {
-      smartCubeHalfTurnProgress = null;
-      smartCubeStatus.textContent = `Expected ${assessment.expected.token}, received ${assessment.received}`;
-      coachStatus.textContent = `Physical move mismatch. Expected ${assessment.expected.token}; received ${assessment.received}.`;
-      await animateSmartCubeMove(move);
+      await applySmartCubeMismatch(assessment, move);
       return true;
     }
 
@@ -1336,6 +1491,8 @@ if (root) {
         : `${phase.title} complete`;
       pulseSmartCubeMilestone(label, phaseState, phaseFocusNumber(phase));
       smartCubeStatus.textContent = `${smartCubeDeviceName} · ${label}`;
+    } else {
+      signalSmartCubeFeedback("correct");
     }
     return true;
   };
@@ -1345,16 +1502,17 @@ if (root) {
     clearTutorialFocus();
     clearTurnGuide();
     stopPlayback();
-    const handledByAcademy = await applyAcademySmartCubeMove(move);
-    const handledByTimeline = !handledByAcademy && continueCoaching
+    const handledByRecovery = await applySmartCubeRecoveryMove(move);
+    const handledByAcademy = !handledByRecovery && await applyAcademySmartCubeMove(move);
+    const handledByTimeline = !handledByRecovery && !handledByAcademy && continueCoaching
       ? await applyWaitingTimelineMove(move)
       : false;
-    if (handledByAcademy || handledByTimeline) {
+    if (handledByRecovery || handledByAcademy || handledByTimeline) {
       // During coached playback, renderTimelineIndex already installed the
       // exact post-move state. The cached facelet report may still describe
       // the pre-move cube (especially for move-only or delayed-state
       // protocols), so drawing it here would snap the animation backwards.
-      if (continueCoaching) waitForSmartCubeMove();
+      if (continueCoaching || smartCubeRecovery || handledByRecovery) waitForSmartCubeMove();
       else renderSmartCubeLiveState();
       return;
     }
@@ -1412,7 +1570,12 @@ if (root) {
     smartCubeDisconnect.disabled = connectionState.phase === "disconnecting";
     smartCubeStatus.textContent = connectionState.message;
     if (connected && connectionState.device) {
+      if (!wasConnected) {
+        smartCubeMistakeLog.length = 0;
+        clearSmartCubeRecovery();
+      }
       smartCubeDeviceName = connectionState.device.name;
+      smartCubeLedFeedback = connectionState.device.capabilities.led;
       smartCubeStatus.textContent = `${connectionState.device.brandName} · ${connectionState.device.name} · Live sync`;
       const supportsOrientation = connectionState.device.capabilities.orientation;
       const supportsFacelets = connectionState.device.capabilities.facelets;
@@ -1422,12 +1585,15 @@ if (root) {
       smartCubeOrientation.hidden = !supportsOrientation;
       smartCubeOrientation.disabled = !supportsOrientation;
       setSmartCubeOrientationTracking(false);
+      updateSmartCubeMistakeUi();
     } else {
+      smartCubeLedFeedback = false;
       smartCubeSync.hidden = true;
       smartCubeOrientation.hidden = true;
       smartCubeBattery.hidden = true;
       if (connectionState.phase !== "connecting") {
         smartCubeHalfTurnProgress = null;
+        clearSmartCubeRecovery();
         if (smartCubeCoachingWaiting) {
           clearTurnGuide("restore");
           stopPlayback();
@@ -1435,6 +1601,7 @@ if (root) {
         setSmartCubeOrientationTracking(false);
         smartCubeStateSyncPending = false;
         smartCubeLiveState = null;
+        smartCubeReroute.hidden = true;
         scheduleUpdate();
       }
     }
@@ -1463,6 +1630,7 @@ if (root) {
             smartCubeStatus.textContent = `${smartCubeDeviceName} · State synced`;
           }
           if (smartCubeMovesInFlight === 0) renderSmartCubeLiveState();
+          updateSmartCubeMistakeUi();
         } else if (smartCubeStateSyncPending) {
           smartCubeStateSyncPending = false;
           smartCubeStatus.textContent = "The physical cube returned an invalid facelet state";
@@ -2082,6 +2250,7 @@ if (root) {
     return detail;
   };
   smartCubeConnect.addEventListener("click", async () => {
+    void smartCubeAudio.unlock();
     const usingBrave = await isBraveBrowser();
     if ((typeof isSecureContext !== "undefined" && !isSecureContext) || !bluetoothPolicyAllows()) {
       showBluetoothUnavailable("Bluetooth permission is blocked for this page");
@@ -2137,6 +2306,26 @@ if (root) {
   });
   smartCubeDisconnect.addEventListener("click", () => {
     void smartCubeManager?.disconnect();
+  });
+  smartCubeSound.addEventListener("click", () => {
+    const enabled = !smartCubeAudio.isEnabled();
+    smartCubeAudio.setEnabled(enabled);
+    try {
+      writeSmartCubeSoundPreference(window.localStorage, enabled);
+    } catch {}
+    updateSmartCubeSoundUi();
+    if (enabled) void smartCubeAudio.unlock().then(() => smartCubeAudio.play("realigned"));
+  });
+  smartCubeReroute.addEventListener("click", () => {
+    if (!smartCubeLiveState || activeTab !== "academy") return;
+    clearSmartCubeRecovery();
+    smartCubeHalfTurnProgress = null;
+    stopPlayback();
+    const facelets = FaceletCodec.render(smartCubeLiveState);
+    store.patch({size: 3, input: facelets});
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · Re-routing from physical state…`;
+    coachStatus.textContent = "Generating a fresh verified route from the current physical state.";
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => academySolve.click()));
   });
   smartCubeSync.addEventListener("click", async () => {
     if (!smartCubeConnected || !smartCubeManager) return;
@@ -2437,6 +2626,7 @@ if (root) {
       unsubscribe();
       stopHashSync();
       void smartCubeManager?.disconnect();
+      smartCubeAudio.dispose();
       viewport?.dispose();
     },
     {once: true},

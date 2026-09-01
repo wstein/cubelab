@@ -38,7 +38,7 @@ export type TurnTransform = {
   angle: number;
 };
 export type CameraTarget = {yaw: number; pitch: number};
-type TurnGuide = {step: MoveStep; label: string};
+type TurnGuide = {step: MoveStep; label: string; tone?: "normal" | "recovery"};
 
 const DEFAULT_YAW = -0.62;
 const DEFAULT_PITCH = 0.48;
@@ -579,6 +579,7 @@ export const createCubeViewport = (
     y: number,
     dpr: number,
     muted = false,
+    tone: "normal" | "recovery" = "normal",
   ) => {
     context.save();
     context.font = `600 ${12 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
@@ -588,13 +589,19 @@ export const createCubeViewport = (
     const left = Math.max(6 * dpr, Math.min(overlayCanvas.width - width - 6 * dpr, x - width / 2));
     const top = Math.max(6 * dpr, Math.min(overlayCanvas.height - height - 6 * dpr, y - height / 2));
     context.fillStyle = muted ? "rgba(15, 23, 42, 0.82)" : "rgba(8, 15, 30, 0.9)";
-    context.strokeStyle = muted ? "rgba(148, 163, 184, 0.58)" : "rgba(103, 232, 249, 0.78)";
+    context.strokeStyle = muted
+      ? "rgba(148, 163, 184, 0.58)"
+      : tone === "recovery"
+        ? "rgba(251, 191, 36, 0.9)"
+        : "rgba(103, 232, 249, 0.78)";
     context.lineWidth = dpr;
     context.beginPath();
     context.roundRect(left, top, width, height, 6 * dpr);
     context.fill();
     context.stroke();
-    context.fillStyle = muted ? "rgba(203, 213, 225, 0.85)" : "#cffafe";
+    context.fillStyle = muted
+      ? "rgba(203, 213, 225, 0.85)"
+      : tone === "recovery" ? "#fef3c7" : "#cffafe";
     context.textBaseline = "middle";
     context.fillText(text, left + paddingX, top + height / 2);
     context.restore();
@@ -763,85 +770,94 @@ export const createCubeViewport = (
     if (turnGuide) {
       const transform = turnTransform(state?.size ?? 3, turnGuide.step);
       if (transform) {
+        const recovery = turnGuide.tone === "recovery";
+        const railColour = recovery ? "rgba(251, 191, 36, 0.46)" : "rgba(103, 232, 249, 0.38)";
+        const glowColour = recovery ? "rgba(245, 158, 11, 0.65)" : "rgba(34, 211, 238, 0.5)";
+        const chevronColour = recovery ? [253, 230, 138] : [165, 243, 252];
         const surfacePaths = turnSurfaceArrowPaths(transform, turnGuide.step, state?.size ?? 3);
-          const visibleFaces = surfacePaths.filter(({normal, points}) => {
-            const facing = surfaceFacingScore(
-              normal,
-              points[Math.floor(points.length / 2)],
-              matrices.modelView,
-            );
-            return facing > 0.05;
-          });
-          if (visibleFaces.length === 0) return;
+        const visibleFaces = surfacePaths.filter(({normal, points}) => {
+          const facing = surfaceFacingScore(
+            normal,
+            points[Math.floor(points.length / 2)],
+            matrices.modelView,
+          );
+          return facing > 0.05;
+        });
+        if (visibleFaces.length === 0) return;
 
-          overlay.save();
-          overlay.lineCap = "round";
-          overlay.lineJoin = "round";
+        overlay.save();
+        overlay.lineCap = "round";
+        overlay.lineJoin = "round";
 
-          const allProjectedFaces: Array<ProjectedPoint[]> = [];
+        const allProjectedFaces: Array<ProjectedPoint[]> = [];
 
-          visibleFaces.forEach(({points}) => {
-            const projected = points
-              .map((point) => transformTurnPoint(point, activeTurn))
-              .map((point) => projectPoint(point, matrices.modelView, matrices.projection, width, height))
-              .filter(({inFront}) => inFront);
-            if (projected.length < 3) return;
-            allProjectedFaces.push(projected);
+        visibleFaces.forEach(({points}) => {
+          const projected = points
+            .map((point) => transformTurnPoint(point, activeTurn))
+            .map((point) => projectPoint(point, matrices.modelView, matrices.projection, width, height))
+            .filter(({inFront}) => inFront);
+          if (projected.length < 3) return;
+          allProjectedFaces.push(projected);
 
-            // Subtle glowing guide rail along the layer surface
-            overlay.shadowColor = "rgba(34, 211, 238, 0.5)";
-            overlay.shadowBlur = 6 * dpr;
-            overlay.strokeStyle = "rgba(103, 232, 249, 0.38)";
-            overlay.lineWidth = 2 * dpr;
-            traceProjected(overlay, projected);
-            overlay.stroke();
+          // Subtle glowing guide rail along the layer surface
+          overlay.shadowColor = glowColour;
+          overlay.shadowBlur = 6 * dpr;
+          overlay.strokeStyle = railColour;
+          overlay.lineWidth = 2 * dpr;
+          traceProjected(overlay, projected);
+          overlay.stroke();
 
-            // Static chevrons mark direction without adding distracting motion.
-            const numChevrons = 5;
-            for (let i = 0; i < numChevrons; i++) {
-              const progress = (i + 0.5) / numChevrons;
-              const idx = Math.max(1, Math.min(projected.length - 1, Math.round(progress * (projected.length - 1))));
-              const prev = projected[idx - 1];
-              const curr = projected[idx];
+          // Static chevrons mark direction without adding distracting motion.
+          const numChevrons = 5;
+          for (let i = 0; i < numChevrons; i++) {
+            const progress = (i + 0.5) / numChevrons;
+            const idx = Math.max(1, Math.min(
+              projected.length - 1,
+              Math.round(progress * (projected.length - 1)),
+            ));
+            const prev = projected[idx - 1];
+            const curr = projected[idx];
 
-              // Pulsing brightness based on position on face
-              const edgeFade = Math.sin(progress * Math.PI);
-              const alpha = Math.max(0.2, edgeFade * 0.95);
+            // Pulsing brightness based on position on face
+            const edgeFade = Math.sin(progress * Math.PI);
+            const alpha = Math.max(0.2, edgeFade * 0.95);
 
-              drawChevron(
-                overlay,
-                prev,
-                curr,
-                11 * dpr,
-                `rgba(165, 243, 252, ${alpha})`,
-              );
-            }
-          });
-          overlay.restore();
-
-          if (allProjectedFaces.length > 0) {
-            const primaryPath = allProjectedFaces[0];
-            const anchor = primaryPath[Math.floor(primaryPath.length * 0.5)];
-            const first = primaryPath[0];
-            const last = primaryPath.at(-1)!;
-            const pathLength = Math.max(1, Math.hypot(last.x - first.x, last.y - first.y));
-            let normalX = -(last.y - first.y) / pathLength;
-            let normalY = (last.x - first.x) / pathLength;
-            const outsideX = anchor.x - width / 2;
-            const outsideY = anchor.y - height / 2;
-            if (normalX * outsideX + normalY * outsideY < 0) {
-              normalX *= -1;
-              normalY *= -1;
-            }
-            const badgeX = anchor.x + normalX * 42 * dpr;
-            const badgeY = anchor.y + normalY * 42 * dpr;
-            drawBadge(
+            drawChevron(
               overlay,
-              motionLabel(turnGuide.label, turnGuide.step),
-              badgeX,
-              badgeY,
-              dpr,
+              prev,
+              curr,
+              11 * dpr,
+              `rgba(${chevronColour.join(", ")}, ${alpha})`,
             );
+          }
+        });
+        overlay.restore();
+
+        if (allProjectedFaces.length > 0) {
+          const primaryPath = allProjectedFaces[0];
+          const anchor = primaryPath[Math.floor(primaryPath.length * 0.5)];
+          const first = primaryPath[0];
+          const last = primaryPath.at(-1)!;
+          const pathLength = Math.max(1, Math.hypot(last.x - first.x, last.y - first.y));
+          let normalX = -(last.y - first.y) / pathLength;
+          let normalY = (last.x - first.x) / pathLength;
+          const outsideX = anchor.x - width / 2;
+          const outsideY = anchor.y - height / 2;
+          if (normalX * outsideX + normalY * outsideY < 0) {
+            normalX *= -1;
+            normalY *= -1;
+          }
+          const badgeX = anchor.x + normalX * 42 * dpr;
+          const badgeY = anchor.y + normalY * 42 * dpr;
+          drawBadge(
+            overlay,
+            motionLabel(turnGuide.label, turnGuide.step),
+            badgeX,
+            badgeY,
+            dpr,
+            false,
+            recovery ? "recovery" : "normal",
+          );
         }
       }
     }
@@ -1202,8 +1218,10 @@ export const createCubeViewport = (
       turnGuide = nextGuide;
       if (nextGuide) {
         overlayCanvas.dataset.turnGuide = nextGuide.label;
+        overlayCanvas.dataset.turnGuideTone = nextGuide.tone ?? "normal";
       } else {
         delete overlayCanvas.dataset.turnGuide;
+        delete overlayCanvas.dataset.turnGuideTone;
       }
       requestRender();
     },

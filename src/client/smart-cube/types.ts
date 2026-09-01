@@ -6,6 +6,8 @@ export type SmartCubeCapabilities = {
   facelets: boolean;
   hardware: boolean;
   reset: boolean;
+  /** Verified, transport-provided hardware light control. */
+  led: boolean;
 };
 
 export type SmartCubeDevice = {
@@ -106,6 +108,7 @@ export type SmartCubeManager = {
   disconnect: () => Promise<void>;
   refresh: () => Promise<void>;
   resetCubeState: () => Promise<void>;
+  flashLed: (colour: "amber" | "green", durationMs: number) => Promise<void>;
   subscribeState: (listener: (state: SmartCubeConnectionState) => void) => () => void;
   subscribeEvents: (listener: (event: SmartCubeEvent) => void) => () => void;
 };

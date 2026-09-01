@@ -131,7 +131,7 @@ describe("smart cube connection manager", () => {
 
     const device = await manager.connect({enableAddressSearch: true});
     expect(device).toMatchObject({brand: "gan", protocolId: "gan-gen2"});
-    expect(device.capabilities).toMatchObject({orientation: true, facelets: true, reset: true});
+    expect(device.capabilities).toMatchObject({orientation: true, facelets: true, reset: true, led: false});
     expect(manager.getState().phase).toBe("connected");
     expect(statuses).toContain("Connecting…");
 
@@ -154,9 +154,27 @@ describe("smart cube connection manager", () => {
 
     await manager.resetCubeState();
     expect(fake.commands).toContain("REQUEST_RESET");
+    await expect(manager.flashLed("amber", 500)).rejects.toThrow("verified LED control");
     await manager.disconnect();
     expect(fake.disconnectCount()).toBe(1);
     expect(manager.getState().phase).toBe("disconnected");
+  });
+
+  test("exposes LED feedback only when the transport supplies a verified writer", async () => {
+    const flashes: Array<[string, number]> = [];
+    const fake = fakeConnection({
+      flashLed: async (colour: string, durationMs: number) => {
+        flashes.push([colour, durationMs]);
+      },
+    } as unknown as Partial<TransportConnection>);
+    const manager = createSmartCubeManager({
+      isBluetoothAvailable: () => true,
+      connectTransport: async () => fake.connection,
+    });
+    const device = await manager.connect();
+    expect(device.capabilities.led).toBe(true);
+    await manager.flashLed("green", 10_000);
+    expect(flashes).toEqual([["green", 5000]]);
   });
 
   test("clears the active connection after a hardware disconnect", async () => {

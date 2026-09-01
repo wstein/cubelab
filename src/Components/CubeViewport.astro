@@ -20,6 +20,13 @@
       >Turn guides</button>
       <button
         type="button"
+        class="viewport-control active"
+        data-smart-cube-sound
+        aria-pressed="true"
+        title="Toggle acoustic smart-cube feedback"
+      >Sound on</button>
+      <button
+        type="button"
         class="viewport-control"
         data-auto-orbit
         aria-pressed="false"
@@ -35,6 +42,14 @@
       No smart cube connected
     </span>
     <span class="smart-cube-battery" data-smart-cube-battery hidden></span>
+    <span class="smart-cube-mistakes" data-smart-cube-mistakes hidden></span>
+    <button
+      type="button"
+      class="viewport-control smart-cube-reroute"
+      data-smart-cube-reroute
+      title="Load the current physical state and generate a new Academy route"
+      hidden
+    >Re-route</button>
     <button
       type="button"
       class="viewport-control smart-cube-sync"

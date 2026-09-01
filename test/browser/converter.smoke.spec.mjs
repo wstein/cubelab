@@ -24,6 +24,14 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await expect(page.locator("[data-smart-cube-connect]")).toBeVisible();
   await expect(page.locator("[data-smart-cube-dock]")).toBeHidden();
   await expect(page.locator("[data-smart-cube-sync]")).toBeHidden();
+  const smartCubeSound = page.locator("[data-smart-cube-sound]");
+  await expect(smartCubeSound).toHaveText("Sound on");
+  await smartCubeSound.click();
+  await expect(smartCubeSound).toHaveText("Sound off");
+  await page.reload();
+  await expect(smartCubeSound).toHaveText("Sound off");
+  await smartCubeSound.click();
+  await expect(smartCubeSound).toHaveText("Sound on");
   expect(bluetoothWarnings).toEqual([]);
   const autoOrbit = page.locator("[data-auto-orbit]");
   const turnGuides = page.locator("[data-turn-guides]");
@@ -210,7 +218,7 @@ test("reports blocked Bluetooth without opening the device chooser", async ({pag
 
 test("recovers once from a stale lazy smart-cube chunk", async ({page}) => {
   let chunkRequests = 0;
-  await page.route("**/_astro/smart-cube.*.js", async (route) => {
+  await page.route(/(?:\/_astro\/smart-cube\..*\.js|\/src\/client\/smart-cube\/index\.ts)/, async (route) => {
     chunkRequests += 1;
     if (chunkRequests === 1) await route.abort();
     else await route.continue();

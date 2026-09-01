@@ -15,6 +15,15 @@ opened programmatically. It reports explicit `unavailable`, `connecting`, `conne
 `disconnecting`, `disconnected`, and `error` phases. `reconnect()` intentionally opens the browser
 chooser again; the transport does not retain a public `BluetoothDevice` handle.
 
+Academy coaching adds a strict recovery stack above the transport. A wrong face turn is never
+silently folded into the lesson: Cube Rosetta asks for its inverse, stacks any further slips in
+last-in-first-out order, and resumes the original expected move only after the physical cube is
+realigned. Visual feedback is always available; synthesized sound is user-controlled.
+
+Hardware light feedback is capability-gated. The manager calls a transport-provided `flashLed`
+writer when one exists, but the currently pinned `smartcube-web-bluetooth` GoCube connection does
+not expose such a command. Cube Rosetta therefore does not send speculative raw GATT packets.
+
 Step 3 consumers subscribe to normalized events rather than importing the vendor transport. The
 viewport integration lazy-loads this module from the Connect button, records physical moves in the
 algorithm editor, renders live facelets through every converter, tracks optional gyro orientation,

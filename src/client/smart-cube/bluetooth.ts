@@ -17,6 +17,9 @@ import type {
 
 type EventSubscription = {unsubscribe: () => void};
 type TransportConnector = (options?: TransportConnectOptions) => Promise<TransportConnection>;
+type FeedbackTransport = TransportConnection & {
+  flashLed?: (colour: "amber" | "green", durationMs: number) => Promise<void>;
+};
 
 export type SmartCubeManagerDependencies = {
   connectTransport: TransportConnector;
@@ -45,12 +48,14 @@ export const isWebBluetoothAvailable = (): boolean => {
 
 const normalizeCapabilities = (
   capabilities: TransportConnection["capabilities"],
+  led = false,
 ): SmartCubeCapabilities => ({
   orientation: capabilities.gyroscope,
   battery: capabilities.battery,
   facelets: capabilities.facelets,
   hardware: capabilities.hardware,
   reset: capabilities.reset,
+  led,
 });
 
 const hasBalancedFacelets = (facelets: string): boolean =>
@@ -212,7 +217,10 @@ export const createSmartCubeManager = (
         brandName: driver.brandName,
         protocolId: transport.protocol.id,
         protocolName: transport.protocol.name,
-        capabilities: normalizeCapabilities(transport.capabilities),
+        capabilities: normalizeCapabilities(
+          transport.capabilities,
+          typeof (transport as FeedbackTransport).flashLed === "function",
+        ),
       };
 
       connection = transport;
@@ -264,6 +272,13 @@ export const createSmartCubeManager = (
         throw new Error(`${active.deviceName} does not support remote state reset`);
       }
       await active.sendCommand({type: "REQUEST_RESET"});
+    },
+    flashLed: async (colour, durationMs) => {
+      const active = requireConnection() as FeedbackTransport;
+      if (typeof active.flashLed !== "function") {
+        throw new Error(`${active.deviceName} does not expose verified LED control`);
+      }
+      await active.flashLed(colour, Math.max(50, Math.min(5000, Math.round(durationMs))));
     },
     subscribeState(listener) {
       stateListeners.add(listener);
