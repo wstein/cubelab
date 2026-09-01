@@ -1276,6 +1276,9 @@ if (root) {
     });
   });
   root.querySelector<HTMLButtonElement>("[data-reset-camera]")!.addEventListener("click", () => {
+    autoOrbitButton.setAttribute("aria-pressed", "false");
+    autoOrbitButton.classList.remove("active");
+    viewport?.setAutoOrbit(false);
     viewport?.resetCamera();
   });
   autoOrbitButton.addEventListener("click", () => {

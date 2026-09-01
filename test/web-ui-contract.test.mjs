@@ -127,6 +127,8 @@ test("the viewport exposes a visibility-aware auto-orbit toggle", () => {
   assert.match(viewport, /setAutoOrbit\(enabled\)/);
   assert.match(viewport, /document\.hidden/);
   assert.match(viewport, /stopAutoOrbitFrame\(\)/);
+  assert.match(client, /autoOrbitButton\.setAttribute\("aria-pressed", "false"\)/);
+  assert.match(client, /viewport\?\.setAutoOrbit\(false\)/);
 });
 
 test("the viewport exposes a persistent opt-out for single-move turn guides", () => {

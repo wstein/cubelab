@@ -56,8 +56,8 @@ is cubic ease-out; completing an animation clears the temporary transform so the
 caller can upload the committed canonical state. Cancelling, replacing, or disposing
 the viewport also clears pending animation frames.
 
-Pointer drag changes the orbit camera, the wheel controls distance, and reset
-restores the documented isometric view. Auto orbit pauses its camera movement while
+Pointer drag changes the orbit camera, the wheel controls distance, and Reset view
+turns off Auto orbit before restoring the documented isometric view. Auto orbit pauses its camera movement while
 the user is dragging and remains active across workspace tab changes. Academy phase
 changes can request a bounded smooth camera orbit; manual playback cancellation or Reset
 view cancels that interpolation. WebGL initialization and context-loss
