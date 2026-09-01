@@ -10,8 +10,22 @@
         class="viewport-control active"
         data-turn-guides
         aria-pressed="true"
-        title="Show circular direction guides when hovering timeline moves"
+        title="Show direction guides when hovering timeline moves"
       >Turn guides</button>
+      <div class="segmented-control compact guide-style-control" aria-label="Turn guide style">
+        <button
+          type="button"
+          class="segmented-btn active"
+          data-turn-guide-style="Ring"
+          aria-pressed="true"
+        >Face ring</button>
+        <button
+          type="button"
+          class="segmented-btn"
+          data-turn-guide-style="Chevrons"
+          aria-pressed="false"
+        >Edge chevrons</button>
+      </div>
       <button
         type="button"
         class="viewport-control"
@@ -111,7 +125,7 @@
           >Continuous</button>
         </div>
         <div class="segmented-control compact" aria-label="Playback speed">
-          {[0.5, 1, 2, 4, 10].map((speed) => (
+          {[0.2, 0.5, 1, 2, 4, 10].map((speed) => (
             <button
               type="button"
               class:list={["segmented-btn", {active: speed === 1}]}

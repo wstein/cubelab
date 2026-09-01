@@ -6,10 +6,13 @@ import {
   pieceColourLabel,
   projectPoint,
   turnArcPoints,
+  turnFaceNormal,
+  turnPerimeterPoints,
   type ProjectedPoint,
 } from "./motion-overlay";
 
 export type CubeStyle = "Standard" | "Speed";
+export type TurnGuideStyle = "Ring" | "Chevrons";
 export type CubePalette = "Western" | "Japanese";
 export type CubeState = {size: number; facelets: string[][]};
 export type CubieFocus = {
@@ -37,7 +40,7 @@ export type TurnTransform = {
   angle: number;
 };
 export type CameraTarget = {yaw: number; pitch: number};
-type TurnGuide = {step: MoveStep; label: string};
+type TurnGuide = {step: MoveStep; label: string; style: TurnGuideStyle};
 
 const DEFAULT_YAW = -0.62;
 const DEFAULT_PITCH = 0.48;
@@ -669,19 +672,55 @@ export const createCubeViewport = (
     if (turnGuide) {
       const transform = turnTransform(state?.size ?? 3, turnGuide.step);
       if (transform) {
-        const points = turnArcPoints(transform, turnGuide.step)
+        const points = (
+          turnGuide.style === "Chevrons"
+            ? turnPerimeterPoints(transform, turnGuide.step)
+            : turnArcPoints(transform, turnGuide.step)
+        )
+          .map((point) => transformTurnPointForCubie(
+            point,
+            turnFaceNormal(turnGuide.step) ?? point,
+            activeTurn,
+          ))
           .map((point) => projectPoint(point, matrices.modelView, matrices.projection, width, height))
           .filter(({inFront}) => inFront);
         if (points.length > 2) {
+          const halfTurn = Math.abs(turnGuide.step.turns) % 4 === 2;
           overlay.save();
           overlay.strokeStyle = "#a5b4fc";
-          overlay.lineWidth = 3 * dpr;
+          overlay.lineWidth = (turnGuide.style === "Chevrons" ? 2.2 : 3) * dpr;
           overlay.lineCap = "round";
+          overlay.lineJoin = "round";
           overlay.shadowColor = "rgba(129, 140, 248, 0.95)";
           overlay.shadowBlur = 10 * dpr;
+          if (turnGuide.style === "Chevrons") {
+            overlay.globalAlpha = 0.82;
+            overlay.setLineDash([7 * dpr, 7 * dpr]);
+            overlay.lineDashOffset = -(now * 0.018 * dpr);
+          }
           traceProjected(overlay, points);
           overlay.stroke();
-          drawArrowhead(overlay, points.at(-2)!, points.at(-1)!, 10 * dpr, "#c4b5fd");
+          overlay.setLineDash([]);
+          if (turnGuide.style === "Chevrons") {
+            const offsets = halfTurn ? [0.25, 0.75] : [0.12, 0.37, 0.62, 0.87];
+            offsets.forEach((offset, index) => {
+              const moving = (offset + now * 0.00018) % 1;
+              const pointIndex = Math.max(1, Math.min(points.length - 1, Math.floor(moving * points.length)));
+              const reverse = halfTurn && index === 1;
+              drawArrowhead(
+                overlay,
+                reverse ? points[pointIndex] : points[pointIndex - 1],
+                reverse ? points[pointIndex - 1] : points[pointIndex],
+                8 * dpr,
+                "#c4b5fd",
+              );
+            });
+          } else {
+            drawArrowhead(overlay, points.at(-2)!, points.at(-1)!, 10 * dpr, "#c4b5fd");
+            if (halfTurn) {
+              drawArrowhead(overlay, points[1], points[0], 10 * dpr, "#c4b5fd");
+            }
+          }
           overlay.restore();
           const anchor = points[Math.floor(points.length * 0.55)];
           drawBadge(
@@ -1049,8 +1088,10 @@ export const createCubeViewport = (
       turnGuide = nextGuide;
       if (nextGuide) {
         overlayCanvas.dataset.turnGuide = nextGuide.label;
+        overlayCanvas.dataset.turnGuideStyle = nextGuide.style.toLowerCase();
       } else {
         delete overlayCanvas.dataset.turnGuide;
+        delete overlayCanvas.dataset.turnGuideStyle;
       }
       requestRender();
     },

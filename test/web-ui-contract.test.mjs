@@ -138,7 +138,7 @@ test("the viewport exposes a persistent opt-out for single-move turn guides", ()
   assert.match(client, /store\.patch\(\{turnGuides: !turnGuides\}\)/);
   assert.match(store, /params\.get\("guides"\) !== "off"/);
   assert.match(store, /params\.set\("guides", "off"\)/);
-  assert.match(client, /setTurnGuide\(turnGuides \? activeTurnGuide : null\)/);
+  assert.match(client, /turnGuides && activeTurnGuide \? \{\.\.\.activeTurnGuide, style: turnGuideStyle\} : null/);
   assert.doesNotMatch(client, /turnGuidesChanged && !turnGuides\) clearTurnGuide/);
 });
 
@@ -180,8 +180,11 @@ test("the viewport layers a projected motion HUD over the persistent WebGL canva
   assert.match(viewport, /drawMotionOverlay/);
   assert.match(viewport, /quadraticCurveTo/);
   assert.match(viewport, /turnArcPoints/);
+  assert.match(viewport, /turnPerimeterPoints/);
   assert.match(viewport, /orbit to view back/);
   assert.match(viewport, /setTurnGuide\(nextGuide\)/);
+  assert.match(viewportComponent, /data-turn-guide-style="Ring"/);
+  assert.match(viewportComponent, /data-turn-guide-style="Chevrons"/);
   assert.match(viewport, /varying float vGuideLayer/);
   assert.match(viewport, /vec3 muted = mix\(colour, vec3\(luminance\), 0\.18\) \* 0\.86/);
   assert.match(viewport, /setMilestone\(nextMilestone\)/);
@@ -201,8 +204,8 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.doesNotMatch(viewportComponent, /data-playback-(?:toggle|sequence-back|sequence-forward)/);
   assert.match(viewportComponent, /data-playback-scrubber/);
   assert.match(viewportComponent, /data-playback-speed/);
-  assert.match(viewportComponent, /\[0\.5, 1, 2, 4, 10\]/);
-  assert.match(client, /const duration = 360/);
+  assert.match(viewportComponent, /\[0\.2, 0\.5, 1, 2, 4, 10\]/);
+  assert.match(client, /const duration = 720/);
   assert.match(viewportComponent, /data-playback-loop/);
   assert.match(client, /MAX_PLAYBACK_STEPS/);
   assert.match(client, /transitionTo/);

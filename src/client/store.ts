@@ -1,4 +1,4 @@
-import type {CubeStyle} from "./cube-gl";
+import type {CubeStyle, TurnGuideStyle} from "./cube-gl";
 
 export type SchemeName = "Western" | "Japanese" | "Custom";
 export type LowercaseMode = "Wide" | "InnerSlice";
@@ -14,6 +14,7 @@ export type AppState = {
   notationDialect: NotationDialect;
   cubeStyle: CubeStyle;
   turnGuides: boolean;
+  turnGuideStyle: TurnGuideStyle;
   activeTab: ActiveTab;
 };
 
@@ -26,6 +27,7 @@ export const defaultAppState: AppState = {
   notationDialect: "Modern",
   cubeStyle: "Standard",
   turnGuides: true,
+  turnGuideStyle: "Ring",
   activeTab: "converter",
 };
 
@@ -83,6 +85,9 @@ export const readHash = (hash: string): AppState => {
   const notationDialect: NotationDialect = params.get("dialect") === "Ruwix" ? "Ruwix" : "Modern";
   const cubeStyle: CubeStyle = params.get("style") === "Speed" ? "Speed" : "Standard";
   const turnGuides = params.get("guides") !== "off";
+  const turnGuideStyle: TurnGuideStyle = params.get("guideStyle") === "chevrons"
+    ? "Chevrons"
+    : "Ring";
   const requestedTab = params.get("tab");
   const activeTab: ActiveTab = requestedTab === "beginner" || requestedTab === "cfop" || requestedTab === "workbench"
     ? requestedTab
@@ -97,6 +102,7 @@ export const readHash = (hash: string): AppState => {
     notationDialect,
     cubeStyle,
     turnGuides,
+    turnGuideStyle,
     activeTab,
   };
 };
@@ -111,6 +117,7 @@ export const writeHash = (state: AppState): string => {
   if (state.notationDialect !== "Modern") params.set("dialect", state.notationDialect);
   if (state.cubeStyle !== "Standard") params.set("style", state.cubeStyle);
   if (!state.turnGuides) params.set("guides", "off");
+  if (state.turnGuideStyle !== "Ring") params.set("guideStyle", "chevrons");
   if (state.activeTab !== "converter") params.set("tab", state.activeTab);
   return `#${params.toString()}`;
 };

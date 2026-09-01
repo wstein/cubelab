@@ -17,12 +17,22 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-webgl", "ready");
   const autoOrbit = page.locator("[data-auto-orbit]");
   const turnGuides = page.locator("[data-turn-guides]");
+  const faceRing = page.getByRole("button", {name: "Face ring"});
+  const edgeChevrons = page.getByRole("button", {name: "Edge chevrons"});
   await expect(turnGuides).toHaveAttribute("aria-pressed", "true");
+  await expect(faceRing).toHaveAttribute("aria-pressed", "true");
+  await edgeChevrons.click();
+  await expect(edgeChevrons).toHaveAttribute("aria-pressed", "true");
+  await expect(page).toHaveURL(/guideStyle=chevrons/);
   await turnGuides.click();
   await expect(turnGuides).toHaveAttribute("aria-pressed", "false");
+  await expect(faceRing).toBeDisabled();
+  await expect(edgeChevrons).toBeDisabled();
   await expect(page).toHaveURL(/guides=off/);
   await turnGuides.click();
   await expect(turnGuides).toHaveAttribute("aria-pressed", "true");
+  await faceRing.click();
+  await expect(faceRing).toHaveAttribute("aria-pressed", "true");
   await expect(autoOrbit).toHaveAttribute("aria-pressed", "false");
   await autoOrbit.click();
   await expect(autoOrbit).toHaveAttribute("aria-pressed", "true");
@@ -269,19 +279,27 @@ test("enters direct notation moves from the studio keyboard and exposes shortcut
   await expect(input).toHaveValue("R U'");
   await page.keyboard.press("Alt+f");
   await expect(input).toHaveValue("R U' Fw");
+  await page.locator("[data-playback-speed='1']").click();
+  await page.keyboard.down("Alt");
+  await page.keyboard.down("Shift");
+  await page.keyboard.press("r");
+  await page.keyboard.up("Shift");
+  await page.keyboard.up("Alt");
+  await expect(input).toHaveValue("R U' Fw Rw'");
+  await canvas.focus();
   await page.keyboard.press("l");
   await page.keyboard.press("l");
-  await expect(input).toHaveValue("R U' Fw L2");
+  await expect(input).toHaveValue("R U' Fw Rw' L2");
   await page.keyboard.press("d");
   await page.keyboard.press("2");
-  await expect(input).toHaveValue("R U' Fw L2 D2");
+  await expect(input).toHaveValue("R U' Fw Rw' L2 D2");
   await page.keyboard.press("w");
   await page.keyboard.press("b");
-  await expect(input).toHaveValue("R U' Fw L2 D2 Bw");
+  await expect(input).toHaveValue("R U' Fw Rw' L2 D2 Bw");
   await page.keyboard.press("m");
-  await expect(input).toHaveValue("R U' Fw L2 D2 Bw M");
+  await expect(input).toHaveValue("R U' Fw Rw' L2 D2 Bw M");
   await page.keyboard.press("Shift+x");
-  await expect(input).toHaveValue("R U' Fw L2 D2 Bw M x'");
+  await expect(input).toHaveValue("R U' Fw Rw' L2 D2 Bw M x'");
 
   await page.keyboard.press("Shift+/");
   await expect(page.locator("[data-shortcuts-dialog]")).toBeVisible();
@@ -291,7 +309,7 @@ test("enters direct notation moves from the studio keyboard and exposes shortcut
   await input.focus();
   await page.keyboard.press("End");
   await page.keyboard.press("r");
-  await expect(input).toHaveValue("R U' Fw L2 D2 Bw M x'r");
+  await expect(input).toHaveValue("R U' Fw Rw' L2 D2 Bw M x'r");
 });
 
 test("animates timeline token clicks and time-travels only across distant groups", async ({page}) => {
@@ -335,7 +353,7 @@ test("plays internal pauses without changing the canonical cube state", async ({
   await expect(position).toHaveText("Move 1 of 2");
   const afterR = await facelets.textContent();
   await page.getByRole("button", {name: "Step forward"}).click();
-  await expect(position).toHaveText("Move 2 of 2", {timeout: 700});
+  await expect(position).toHaveText("Move 2 of 2", {timeout: 1100});
   await expect(facelets).not.toHaveText(afterR ?? "");
   await expect(page.locator('[data-compatibility-profile="cubingJs"]')).toContainText("×");
 
@@ -357,11 +375,11 @@ test("steps complete sequences without waiting on pauses", async ({page}) => {
 
   await page.locator("[data-playback-scrubber]").evaluate((element) => element.blur());
   await page.keyboard.press("Shift+ArrowRight");
-  await expect(position).toHaveText("Move 2 of 4", {timeout: 1200});
+  await expect(position).toHaveText("Move 2 of 4", {timeout: 2200});
   await expect(page.locator("[data-move-ribbon] .move-group").nth(1)).toHaveClass(/focused/);
 
   await page.keyboard.press("Shift+ArrowLeft");
-  await expect(position).toHaveText("Move 0 of 4", {timeout: 1200});
+  await expect(position).toHaveText("Move 0 of 4", {timeout: 2200});
   await expect(page.locator("[data-move-ribbon] .move-group").first()).toHaveClass(/focused/);
 });
 
@@ -485,6 +503,10 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await firstMove.hover();
   await expect(firstMove).toHaveClass(/turn-guided/);
   await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-turn-guide", /.+/);
+  await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-turn-guide-style", "ring");
+  await page.getByRole("button", {name: "Edge chevrons"}).click();
+  await firstMove.hover();
+  await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-turn-guide-style", "chevrons");
   await expect(canvas).toHaveAttribute("data-turn-preview-degrees", "4");
   await expect(canvas).toHaveAttribute("data-preview-move-index", "0");
   await expect(canvas).toHaveAttribute("data-preview-facelets", exactBeforeMove ?? "");

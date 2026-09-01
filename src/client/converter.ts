@@ -19,6 +19,7 @@ import {
   type CubePalette,
   type CubeStyle,
   type MoveStep,
+  type TurnGuideStyle,
 } from "./cube-gl";
 import {
   evaluateAlgorithm,
@@ -135,6 +136,7 @@ if (root) {
   const cfopSolution = root.querySelector<HTMLElement>("[data-cfop-solution]")!;
   const autoOrbitButton = root.querySelector<HTMLButtonElement>("[data-auto-orbit]")!;
   const turnGuidesButton = root.querySelector<HTMLButtonElement>("[data-turn-guides]")!;
+  const turnGuideStyleButtons = root.querySelectorAll<HTMLButtonElement>("[data-turn-guide-style]");
   const coachingControls = root.querySelector<HTMLElement>("[data-coaching-controls]")!;
   const coachStatus = root.querySelector<HTMLElement>("[data-coach-status]")!;
   const initialState = readHash(window.location.hash);
@@ -144,6 +146,7 @@ if (root) {
   let notationDialect: NotationDialect = initialState.notationDialect;
   let cubeStyle: CubeStyle = initialState.cubeStyle;
   let turnGuides = initialState.turnGuides;
+  let turnGuideStyle: TurnGuideStyle = initialState.turnGuideStyle;
   let activeTab: ActiveTab = initialState.activeTab;
   let inverseScramble = "";
   let verifiedNissSolution = "";
@@ -463,7 +466,9 @@ if (root) {
       canvas.dataset.previewMoveIndex = String(moveIndex);
       canvas.dataset.previewFacelets = FaceletCodec.render(before);
     }
-    viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
+    viewport?.setTurnGuide(
+      turnGuides && activeTurnGuide ? {...activeTurnGuide, style: turnGuideStyle} : null,
+    );
   };
 
   const firstFocusPieceInPhase = (phase: TutorialPhaseRange): string | null => {
@@ -822,7 +827,7 @@ if (root) {
       renderTimelineIndex(bounded);
       return generation === playbackGeneration;
     }
-    const duration = 360
+    const duration = 720
       * (Math.abs(transform.angle) > Math.PI / 2 + 0.01 ? 1.35 : 1)
       / playbackSpeed
       / speedMultiplier;
@@ -1041,7 +1046,9 @@ if (root) {
     notationDialect = state.notationDialect;
     cubeStyle = state.cubeStyle;
     const turnGuidesChanged = turnGuides !== state.turnGuides;
+    const turnGuideStyleChanged = turnGuideStyle !== state.turnGuideStyle;
     turnGuides = state.turnGuides;
+    turnGuideStyle = state.turnGuideStyle;
     activeTab = state.activeTab;
     if (input.value !== state.input) input.value = state.input;
     if (schemeSelect.value !== state.scheme) schemeSelect.value = state.scheme;
@@ -1060,8 +1067,16 @@ if (root) {
     });
     turnGuidesButton.classList.toggle("active", turnGuides);
     turnGuidesButton.setAttribute("aria-pressed", String(turnGuides));
-    if (turnGuidesChanged) {
-      viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
+    turnGuideStyleButtons.forEach((button) => {
+      const active = button.dataset.turnGuideStyle === turnGuideStyle;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+      button.disabled = !turnGuides;
+    });
+    if (turnGuidesChanged || turnGuideStyleChanged) {
+      viewport?.setTurnGuide(
+        turnGuides && activeTurnGuide ? {...activeTurnGuide, style: turnGuideStyle} : null,
+      );
     }
     root.querySelectorAll<HTMLButtonElement>("[data-workspace-tab]").forEach((button) => {
       const active = button.dataset.workspaceTab === activeTab;
@@ -1397,6 +1412,11 @@ if (root) {
   turnGuidesButton.addEventListener("click", () => {
     store.patch({turnGuides: !turnGuides});
   });
+  turnGuideStyleButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      store.patch({turnGuideStyle: button.dataset.turnGuideStyle as TurnGuideStyle});
+    });
+  });
   playbackBegin.addEventListener("click", () => {
     void seek(0, false);
   });
@@ -1497,8 +1517,9 @@ if (root) {
   window.addEventListener("keydown", (event) => {
     const target = event.target;
     const editing = target instanceof HTMLElement && (
-      target.isContentEditable || target.closest("input, textarea, select, button") !== null
+      target.isContentEditable || target.closest("input, textarea, select") !== null
     );
+    const buttonFocused = target instanceof HTMLElement && target.closest("button") !== null;
     if (editing || event.metaKey || event.ctrlKey) return;
     if (
       event.key === "?"
@@ -1558,6 +1579,7 @@ if (root) {
     }
     if (event.altKey) return;
     flushPendingDirectMove();
+    if (buttonFocused) return;
     if (!activeTimeline?.states || playback.hidden) return;
     switch (event.key) {
       case " ":

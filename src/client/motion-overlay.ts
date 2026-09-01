@@ -3,6 +3,7 @@ import type {MoveStep, TurnTransform} from "./cube-gl";
 export type Vector3 = [number, number, number];
 export type ProjectedPoint = {x: number; y: number; depth: number; inFront: boolean};
 export type SurfaceAnchor = {point: Vector3; normal: Vector3; visible: boolean};
+const FACE_SURFACE = 1.505;
 
 const dot = (left: Vector3, right: Vector3): number =>
   left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
@@ -92,17 +93,38 @@ export const cubieFaceOutline = (
 export const cubieIsFrontFacing = (point: Vector3, modelView: ArrayLike<number>): boolean =>
   cubieSurfaceAnchor(point, modelView).visible;
 
+export const turnFaceNormal = (step: MoveStep): Vector3 | null => {
+  if (step.move.TAG !== "FaceTurn") return null;
+  switch (step.move._0) {
+    case "R": return [1, 0, 0];
+    case "L": return [-1, 0, 0];
+    case "U": return [0, 1, 0];
+    case "D": return [0, -1, 0];
+    case "F": return [0, 0, 1];
+    case "B": return [0, 0, -1];
+  }
+};
+
+const turnPlane = (transform: TurnTransform, step: MoveStep) => {
+  const axis = normalize(transform.axis);
+  const reference: Vector3 = Math.abs(axis[1]) < 0.8 ? [0, 1, 0] : [1, 0, 0];
+  const basisU = normalize(cross(axis, reference));
+  const basisV = normalize(cross(axis, basisU));
+  const normal = turnFaceNormal(step);
+  return {
+    basisU,
+    basisV,
+    centre: normal ? scale(normal, FACE_SURFACE) : [0, 0, 0] as Vector3,
+  };
+};
+
 export const turnArcPoints = (
   transform: TurnTransform,
   step: MoveStep,
   samples = 44,
 ): Vector3[] => {
-  const axis = normalize(transform.axis);
-  const reference: Vector3 = Math.abs(axis[1]) < 0.8 ? [0, 1, 0] : [1, 0, 0];
-  const basisU = normalize(cross(axis, reference));
-  const basisV = normalize(cross(axis, basisU));
+  const {basisU, basisV, centre} = turnPlane(transform, step);
   const faceTurn = step.move.TAG === "FaceTurn";
-  const centre = faceTurn ? scale(axis, 1.62) : [0, 0, 0] as Vector3;
   const radius = faceTurn ? 1.12 : 1.72;
   const direction = Math.sign(transform.angle) || 1;
   const sweep = direction * Math.PI * 1.52;
@@ -115,6 +137,35 @@ export const turnArcPoints = (
       scale(basisV, Math.sin(angle) * radius),
     ));
   });
+};
+
+export const turnPerimeterPoints = (
+  transform: TurnTransform,
+  step: MoveStep,
+  samplesPerEdge = 10,
+): Vector3[] => {
+  const {basisU, basisV, centre} = turnPlane(transform, step);
+  const radius = step.move.TAG === "FaceTurn" ? 1.32 : 1.72;
+  const corners: Array<[number, number]> = [
+    [-radius, -radius],
+    [radius, -radius],
+    [radius, radius],
+    [-radius, radius],
+    [-radius, -radius],
+  ];
+  if (transform.angle < 0) corners.reverse();
+  const count = Math.max(2, samplesPerEdge);
+  return corners.slice(0, -1).flatMap(([fromU, fromV], edge) => {
+    const [toU, toV] = corners[edge + 1];
+    return Array.from({length: count}, (_, index) => {
+      const progress = index / count;
+      const u = fromU + (toU - fromU) * progress;
+      const v = fromV + (toV - fromV) * progress;
+      return add(centre, add(scale(basisU, u), scale(basisV, v)));
+    });
+  }).concat([
+    add(centre, add(scale(basisU, corners.at(-1)![0]), scale(basisV, corners.at(-1)![1]))),
+  ]);
 };
 
 export const motionLabel = (notation: string, step: MoveStep): string => {

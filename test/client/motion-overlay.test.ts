@@ -9,6 +9,8 @@ import {
   pieceColourLabel,
   projectPoint,
   turnArcPoints,
+  turnFaceNormal,
+  turnPerimeterPoints,
 } from "../../src/client/motion-overlay";
 
 describe("projected motion overlay math", () => {
@@ -42,10 +44,24 @@ describe("projected motion overlay math", () => {
     const transform = turnTransform(3, step)!;
     const points = turnArcPoints(transform, step);
     expect(points).toHaveLength(44);
-    expect(points.every(([x]) => Math.abs(x - 1.62) < 0.0001)).toBe(true);
+    expect(points.every(([x]) => Math.abs(x - 1.505) < 0.0001)).toBe(true);
     expect(points[0]).not.toEqual(points.at(-1));
     expect(motionLabel("R", step)).toBe("R · 90° CW");
     expect(motionLabel("R'", {...step, turns: -1})).toBe("R' · 90° CCW");
+  });
+
+  test("locks opposite-face rings and chevrons to their own physical planes", () => {
+    const left: MoveStep = {
+      move: {TAG: "FaceTurn", _0: "L", _1: {from_: 1, to_: 1}},
+      turns: 2,
+    };
+    const transform = turnTransform(3, left)!;
+    const ring = turnArcPoints(transform, left);
+    const perimeter = turnPerimeterPoints(transform, left);
+    expect(turnFaceNormal(left)).toEqual([-1, 0, 0]);
+    expect(ring.every(([x]) => Math.abs(x + 1.505) < 0.0001)).toBe(true);
+    expect(perimeter.every(([x]) => Math.abs(x + 1.505) < 0.0001)).toBe(true);
+    expect(perimeter).toHaveLength(41);
   });
 
   test("names focused pieces using the active colour scheme", () => {

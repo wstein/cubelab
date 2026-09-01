@@ -250,6 +250,15 @@ body {
   gap: 0.45rem;
 }
 
+.guide-style-control {
+  align-self: center;
+}
+
+.guide-style-control .segmented-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
 .viewport-control {
   padding: 0.35rem 0.7rem;
   background: rgba(255, 255, 255, 0.06);
