@@ -6,14 +6,11 @@ import {
   pieceColourLabel,
   projectPoint,
   surfaceFacingScore,
-  turnArcPoints,
-  turnFaceNormal,
   turnSurfaceArrowPaths,
   type ProjectedPoint,
 } from "./motion-overlay";
 
 export type CubeStyle = "Standard" | "Speed";
-export type TurnGuideStyle = "Ring" | "Chevrons";
 export type CubePalette = "Western" | "Japanese";
 export type CubeState = {size: number; facelets: string[][]};
 export type CubieFocus = {
@@ -41,7 +38,7 @@ export type TurnTransform = {
   angle: number;
 };
 export type CameraTarget = {yaw: number; pitch: number};
-type TurnGuide = {step: MoveStep; label: string; style: TurnGuideStyle};
+type TurnGuide = {step: MoveStep; label: string};
 
 const DEFAULT_YAW = -0.62;
 const DEFAULT_PITCH = 0.48;
@@ -744,9 +741,7 @@ export const createCubeViewport = (
     if (turnGuide) {
       const transform = turnTransform(state?.size ?? 3, turnGuide.step);
       if (transform) {
-        const halfTurn = Math.abs(turnGuide.step.turns) % 4 === 2;
-        if (turnGuide.style === "Chevrons") {
-          const surfacePaths = turnSurfaceArrowPaths(transform, turnGuide.step, state?.size ?? 3);
+        const surfacePaths = turnSurfaceArrowPaths(transform, turnGuide.step, state?.size ?? 3);
           const visibleFaces = surfacePaths.filter(({normal, points}) => {
             const facing = surfaceFacingScore(
               normal,
@@ -825,56 +820,6 @@ export const createCubeViewport = (
               badgeY,
               dpr,
             );
-          }
-        } else {
-          const points = turnArcPoints(transform, turnGuide.step)
-            .map((point) => transformTurnPointForCubie(
-              point,
-              turnFaceNormal(turnGuide.step) ?? point,
-              activeTurn,
-            ))
-            .map((point) => projectPoint(point, matrices.modelView, matrices.projection, width, height))
-            .filter(({inFront}) => inFront);
-          if (points.length > 2) {
-            overlay.save();
-            overlay.lineCap = "round";
-            overlay.lineJoin = "round";
-            overlay.shadowColor = "rgba(251, 113, 76, 0.5)";
-            overlay.shadowBlur = 7 * dpr;
-            overlay.strokeStyle = "rgba(5, 10, 20, 0.9)";
-            overlay.lineWidth = 12 * dpr;
-            traceProjected(overlay, points);
-            overlay.stroke();
-            const first = points[0];
-            const last = points.at(-1)!;
-            const gradient = overlay.createLinearGradient(first.x, first.y, last.x, last.y);
-            gradient.addColorStop(0, "#fb7185");
-            gradient.addColorStop(0.52, "#fb784b");
-            gradient.addColorStop(1, "#f59e0b");
-            overlay.strokeStyle = gradient;
-            overlay.lineWidth = 7 * dpr;
-            traceProjected(overlay, points);
-            overlay.stroke();
-            overlay.strokeStyle = "rgba(255, 237, 213, 0.66)";
-            overlay.lineWidth = 1.5 * dpr;
-            traceProjected(overlay, points);
-            overlay.stroke();
-            drawArrowhead(overlay, points.at(-2)!, last, 17 * dpr, "rgba(5, 10, 20, 0.92)");
-            drawArrowhead(overlay, points.at(-2)!, last, 12 * dpr, "#f59e0b");
-            if (halfTurn) {
-              drawArrowhead(overlay, points[1], first, 17 * dpr, "rgba(5, 10, 20, 0.92)");
-              drawArrowhead(overlay, points[1], first, 12 * dpr, "#fb7185");
-            }
-            overlay.restore();
-            const anchor = points[Math.floor(points.length * 0.55)];
-            drawBadge(
-              overlay,
-              motionLabel(turnGuide.label, turnGuide.step),
-              anchor.x,
-              anchor.y - 18 * dpr,
-              dpr,
-            );
-          }
         }
       }
     }
@@ -1082,7 +1027,6 @@ export const createCubeViewport = (
 
   const cancelTurn = () => {
     turnGeneration += 1;
-    cancelCamera();
     if (turnFrame !== null) window.cancelAnimationFrame(turnFrame);
     turnFrame = null;
     activeTurn = null;
@@ -1236,10 +1180,8 @@ export const createCubeViewport = (
       turnGuide = nextGuide;
       if (nextGuide) {
         overlayCanvas.dataset.turnGuide = nextGuide.label;
-        overlayCanvas.dataset.turnGuideStyle = nextGuide.style.toLowerCase();
       } else {
         delete overlayCanvas.dataset.turnGuide;
-        delete overlayCanvas.dataset.turnGuideStyle;
       }
       requestRender();
     },

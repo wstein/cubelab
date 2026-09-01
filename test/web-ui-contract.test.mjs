@@ -138,13 +138,16 @@ test("the viewport exposes a persistent opt-out for single-move turn guides", ()
   assert.match(client, /store\.patch\(\{turnGuides: !turnGuides\}\)/);
   assert.match(store, /params\.get\("guides"\) !== "off"/);
   assert.match(store, /params\.set\("guides", "off"\)/);
-  assert.match(client, /turnGuides && activeTurnGuide \? \{\.\.\.activeTurnGuide, style: turnGuideStyle\} : null/);
+  assert.match(client, /turnGuides && activeTurnGuide \? activeTurnGuide : null/);
   assert.doesNotMatch(client, /turnGuidesChanged && !turnGuides\) clearTurnGuide/);
 });
 
 test("move hover previews the exact pre-move state with four degrees of displacement", () => {
   assert.match(client, /activeTimeline\?\.states\?\.\[moveIndex\]/);
-  assert.match(client, /viewport\?\.setState\(before, viewportPalette\(\)\)/);
+  assert.match(client, /planHoverPreview\(activeTimeline\.steps, cursor, target\)/);
+  assert.match(client, /Math\.min\(10, transition\.speedMultiplier\)/);
+  assert.match(client, /animateHoverPreviewTo\(moveIndex, generation\)/);
+  assert.match(client, /animateHoverPreviewTo\(activeIndex, generation\)/);
   assert.match(client, /viewport\?\.setTurnPreview\(turnTransform\(before\.size, step\)\)/);
   assert.match(viewport, /turnPreviewTransform/);
   assert.match(viewport, /transformTurnPoint/);
@@ -179,13 +182,12 @@ test("the viewport layers a projected motion HUD over the persistent WebGL canva
   assert.match(client, /querySelector<HTMLCanvasElement>\("\[data-motion-overlay\]"\)/);
   assert.match(viewport, /drawMotionOverlay/);
   assert.match(viewport, /quadraticCurveTo/);
-  assert.match(viewport, /turnArcPoints/);
   assert.match(viewport, /turnSurfaceArrowPaths/);
   assert.match(viewport, /sourceVisible && targetVisible/);
   assert.match(viewport, /Rotating to show/);
   assert.match(viewport, /setTurnGuide\(nextGuide\)/);
-  assert.match(viewportComponent, /data-turn-guide-style="Ring"/);
-  assert.match(viewportComponent, /data-turn-guide-style="Chevrons"/);
+  assert.doesNotMatch(viewportComponent, /data-turn-guide-style/);
+  assert.doesNotMatch(viewport, /turnArcPoints/);
   assert.match(viewport, /varying float vGuideLayer/);
   assert.match(viewport, /vec3 muted = mix\(colour, vec3\(luminance\), 0\.18\) \* 0\.86/);
   assert.match(viewport, /setMilestone\(nextMilestone\)/);

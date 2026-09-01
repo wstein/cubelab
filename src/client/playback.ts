@@ -30,6 +30,11 @@ export type TimelineClickPlan = {
 };
 export type TimelineSequence = {start: number; end: number; moveIndices: number[]};
 export type PhysicalMoveProgress = {current: number; total: number};
+export type HoverPreviewTransition = {
+  target: number;
+  speedMultiplier: number;
+  physicalMovesRemaining: number;
+};
 
 export const MAX_PLAYBACK_STEPS = 500;
 
@@ -110,6 +115,31 @@ export const nextSequence = (
 
 const isPhysicalMove = (entry: TimelineEntry): boolean =>
   entry.step !== undefined && entry.step.move.TAG !== "Rotation";
+
+export const planHoverPreview = (
+  steps: TimelineEntry[],
+  current: number,
+  requested: number,
+): HoverPreviewTransition[] => {
+  const from = Math.max(0, Math.min(current, steps.length));
+  const target = Math.max(0, Math.min(requested, steps.length));
+  return directedTargets(from, target).map((next) => {
+    const direction = Math.sign(target - from);
+    const stepIndex = direction > 0 ? next - 1 : next;
+    const remainingEntries = direction > 0
+      ? steps.slice(stepIndex, target)
+      : steps.slice(target, stepIndex + 1);
+    const physicalMovesRemaining = remainingEntries.filter(isPhysicalMove).length;
+    const speedMultiplier = physicalMovesRemaining > 3
+      ? 10
+      : physicalMovesRemaining === 3
+        ? 6
+        : physicalMovesRemaining === 2
+          ? 4
+          : 2;
+    return {target: next, speedMultiplier, physicalMovesRemaining};
+  });
+};
 
 export const physicalMoveProgress = (
   steps: TimelineEntry[],

@@ -5,7 +5,6 @@ export type ProjectedPoint = {x: number; y: number; depth: number; inFront: bool
 export type SurfaceAnchor = {point: Vector3; normal: Vector3; visible: boolean};
 export type TurnSurfaceArrowPath = {normal: Vector3; points: Vector3[]};
 const FACE_SURFACE = 1.505;
-const FACE_ARROW_PLANE = 1.76;
 
 const dot = (left: Vector3, right: Vector3): number =>
   left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
@@ -94,53 +93,6 @@ export const cubieFaceOutline = (
 
 export const cubieIsFrontFacing = (point: Vector3, modelView: ArrayLike<number>): boolean =>
   cubieSurfaceAnchor(point, modelView).visible;
-
-export const turnFaceNormal = (step: MoveStep): Vector3 | null => {
-  if (step.move.TAG !== "FaceTurn") return null;
-  switch (step.move._0) {
-    case "R": return [1, 0, 0];
-    case "L": return [-1, 0, 0];
-    case "U": return [0, 1, 0];
-    case "D": return [0, -1, 0];
-    case "F": return [0, 0, 1];
-    case "B": return [0, 0, -1];
-  }
-};
-
-const turnPlane = (transform: TurnTransform, step: MoveStep) => {
-  const axis = normalize(transform.axis);
-  const reference: Vector3 = Math.abs(axis[1]) < 0.8 ? [0, 1, 0] : [1, 0, 0];
-  const basisU = normalize(cross(axis, reference));
-  const basisV = normalize(cross(axis, basisU));
-  const normal = turnFaceNormal(step);
-  return {
-    basisU,
-    basisV,
-    centre: normal ? scale(normal, FACE_ARROW_PLANE) : [0, 0, 0] as Vector3,
-  };
-};
-
-export const turnArcPoints = (
-  transform: TurnTransform,
-  step: MoveStep,
-  samples = 44,
-): Vector3[] => {
-  const {basisU, basisV, centre} = turnPlane(transform, step);
-  const faceTurn = step.move.TAG === "FaceTurn";
-  const radius = faceTurn ? 1.16 : 1.72;
-  const halfTurn = Math.abs(step.turns) % 4 === 2;
-  const sweep = Math.PI * (halfTurn ? 1.28 : 0.82);
-  const start = -Math.PI / 2 - sweep / 2;
-  const points = Array.from({length: Math.max(3, samples)}, (_, index) => {
-    const progress = index / (Math.max(3, samples) - 1);
-    const angle = start + sweep * progress;
-    return add(centre, add(
-      scale(basisU, Math.cos(angle) * radius),
-      scale(basisV, Math.sin(angle) * radius),
-    ));
-  });
-  return transform.angle < 0 ? points.reverse() : points;
-};
 
 export const surfaceFacingScore = (
   normal: Vector3,

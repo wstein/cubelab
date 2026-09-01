@@ -10,6 +10,7 @@ import {
   isSingleStepExtension,
   MAX_PLAYBACK_STEPS,
   nextSequence,
+  planHoverPreview,
   planSequenceStep,
   planTimelineClick,
   physicalMoveProgress,
@@ -157,6 +158,27 @@ describe("algorithm playback timeline", () => {
       targets: [6],
       speedMultiplier: 1,
     });
+  });
+
+  test("caps hover travel at 10x and slows over the final three physical moves", () => {
+    const face = (name: "R" | "U" | "F" | "L" | "D") => ({
+      step: {move: {TAG: "FaceTurn" as const, _0: name, _1: {from_: 1, to_: 1}}, turns: 1},
+    });
+    const steps = [
+      face("R"),
+      {step: {move: {TAG: "Rotation" as const, _0: "Y" as const}, turns: 1}},
+      {durationMs: 500},
+      face("U"),
+      face("F"),
+      face("L"),
+      face("D"),
+    ];
+    const forward = planHoverPreview(steps, 0, steps.length);
+    expect(forward.map(({target}) => target)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(forward.map(({speedMultiplier}) => speedMultiplier)).toEqual([10, 10, 10, 10, 6, 4, 2]);
+    expect(forward[1].physicalMovesRemaining).toBe(4);
+    expect(planHoverPreview(steps, steps.length, 0).map(({speedMultiplier}) => speedMultiplier))
+      .toEqual([10, 10, 6, 4, 2, 2, 2]);
   });
 
   test("plans real-move sequence steps while skipping pause nodes", () => {

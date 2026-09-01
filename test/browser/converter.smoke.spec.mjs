@@ -17,22 +17,12 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-webgl", "ready");
   const autoOrbit = page.locator("[data-auto-orbit]");
   const turnGuides = page.locator("[data-turn-guides]");
-  const faceRing = page.getByRole("button", {name: "Face arrow", exact: true});
-  const edgeChevrons = page.getByRole("button", {name: "Surface arrows", exact: true});
   await expect(turnGuides).toHaveAttribute("aria-pressed", "true");
-  await expect(faceRing).toHaveAttribute("aria-pressed", "true");
-  await edgeChevrons.click();
-  await expect(edgeChevrons).toHaveAttribute("aria-pressed", "true");
-  await expect(page).toHaveURL(/guideStyle=chevrons/);
   await turnGuides.click();
   await expect(turnGuides).toHaveAttribute("aria-pressed", "false");
-  await expect(faceRing).toBeDisabled();
-  await expect(edgeChevrons).toBeDisabled();
   await expect(page).toHaveURL(/guides=off/);
   await turnGuides.click();
   await expect(turnGuides).toHaveAttribute("aria-pressed", "true");
-  await faceRing.click();
-  await expect(faceRing).toHaveAttribute("aria-pressed", "true");
   await expect(autoOrbit).toHaveAttribute("aria-pressed", "false");
   await autoOrbit.click();
   await expect(autoOrbit).toHaveAttribute("aria-pressed", "true");
@@ -338,6 +328,47 @@ test("animates timeline token clicks and time-travels only across distant groups
   await expect(position).toHaveText("Move 1 of 6");
 });
 
+test("animates distant hover previews and decelerates into the target state", async ({page}) => {
+  await page.goto("/");
+  await page.locator("[data-input]").fill("(R U F L D B R U)");
+  const canvas = page.locator("[data-cube-canvas]");
+  const target = page.locator("[data-move-ribbon] .move-token").nth(7);
+  await page.locator("[data-playback-scrubber]").fill("0");
+  await target.hover();
+  await expect(canvas).toHaveAttribute("data-animating", "true");
+  await expect(canvas).toHaveAttribute("data-hover-preview-index", "7");
+  await expect(canvas).toHaveAttribute("data-hover-preview-speed", "2");
+  await expect(canvas).toHaveAttribute("data-preview-move-index", "7");
+
+  await page.locator("[data-playback-position]").hover();
+  await expect(canvas).toHaveAttribute("data-animating", "true");
+  await expect(canvas).not.toHaveAttribute("data-hover-preview-index", /.+/);
+  await expect(page.locator("[data-playback-position]")).toHaveText("Move 0 of 8");
+});
+
+test("holds the hovered cube state over neutral timeline gaps", async ({page}) => {
+  await page.goto("/");
+  await page.locator("[data-input]").fill("(R U F L) @1.2s (D B)");
+  const canvas = page.locator("[data-cube-canvas]");
+  const target = page.locator("[data-move-ribbon] .move-token").nth(3);
+  await page.locator("[data-playback-scrubber]").fill("0");
+
+  await target.hover();
+  await expect(canvas).toHaveAttribute("data-hover-preview-index", "3");
+  const heldFacelets = await canvas.getAttribute("data-hover-preview-facelets");
+
+  await page.locator("[data-move-ribbon] .timeline-gap").hover();
+  await expect(canvas).toHaveAttribute("data-hover-preview-held", "true");
+  await expect(canvas).toHaveAttribute("data-hover-preview-index", "3");
+  await expect(canvas).toHaveAttribute("data-hover-preview-facelets", heldFacelets ?? "");
+  await expect(canvas).not.toHaveAttribute("data-turn-preview-degrees", /.+/);
+
+  await page.waitForTimeout(300);
+  await expect(canvas).toHaveAttribute("data-hover-preview-index", "3");
+  await page.locator("[data-playback-position]").hover();
+  await expect(canvas).not.toHaveAttribute("data-hover-preview-index", /.+/);
+});
+
 test("plays internal pauses without changing the canonical cube state", async ({page}) => {
   await page.goto("/");
   const input = page.locator("[data-input]");
@@ -509,10 +540,6 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(firstMove).toHaveClass(/turn-guided/);
   await expect(canvas).toHaveAttribute("data-focus-label", sequencePurpose ?? "");
   await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-turn-guide", /.+/);
-  await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-turn-guide-style", "ring");
-  await page.getByRole("button", {name: "Surface arrows", exact: true}).click();
-  await firstMove.hover();
-  await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-turn-guide-style", "chevrons");
   await expect(canvas).toHaveAttribute("data-turn-preview-degrees", "4");
   await expect(canvas).toHaveAttribute("data-preview-move-index", "0");
   await expect(canvas).toHaveAttribute("data-preview-facelets", exactBeforeMove ?? "");

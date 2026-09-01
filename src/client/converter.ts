@@ -19,7 +19,6 @@ import {
   type CubePalette,
   type CubeStyle,
   type MoveStep,
-  type TurnGuideStyle,
 } from "./cube-gl";
 import {
   evaluateAlgorithm,
@@ -28,6 +27,7 @@ import {
   isSingleStepExtension,
   MAX_PLAYBACK_STEPS,
   nextSequence,
+  planHoverPreview,
   planSequenceStep,
   planTimelineClick,
   physicalMoveProgress,
@@ -136,7 +136,6 @@ if (root) {
   const cfopSolution = root.querySelector<HTMLElement>("[data-cfop-solution]")!;
   const autoOrbitButton = root.querySelector<HTMLButtonElement>("[data-auto-orbit]")!;
   const turnGuidesButton = root.querySelector<HTMLButtonElement>("[data-turn-guides]")!;
-  const turnGuideStyleButtons = root.querySelectorAll<HTMLButtonElement>("[data-turn-guide-style]");
   const coachingControls = root.querySelector<HTMLElement>("[data-coaching-controls]")!;
   const coachStatus = root.querySelector<HTMLElement>("[data-coach-status]")!;
   const initialState = readHash(window.location.hash);
@@ -146,7 +145,6 @@ if (root) {
   let notationDialect: NotationDialect = initialState.notationDialect;
   let cubeStyle: CubeStyle = initialState.cubeStyle;
   let turnGuides = initialState.turnGuides;
-  let turnGuideStyle: TurnGuideStyle = initialState.turnGuideStyle;
   let activeTab: ActiveTab = initialState.activeTab;
   let inverseScramble = "";
   let verifiedNissSolution = "";
@@ -387,13 +385,15 @@ if (root) {
   let guidedToken: HTMLElement | null = null;
   let activeTurnGuide: {step: MoveStep; label: string} | null = null;
   let previewedMoveIndex: number | null = null;
+  let hoverPreviewCursor: number | null = null;
+  let hoverPreviewGeneration = 0;
   let tutorialCameraRestore: {yaw: number; pitch: number} | null = null;
   let tutorialCameraGeneration = 0;
 
   const viewportPalette = (): CubePalette =>
     schemeSelect.value === "Japanese" ? "Japanese" : "Western";
 
-  const clearTutorialFocus = () => {
+  const clearTutorialFocus = (mode: "restore" | "hold" = "restore") => {
     const restore = tutorialCameraRestore;
     const cameraGeneration = ++tutorialCameraGeneration;
     focusedGroup?.classList.remove("focused");
@@ -403,6 +403,12 @@ if (root) {
     delete canvas.dataset.sequenceCameraYaw;
     delete canvas.dataset.sequenceCameraPitch;
     viewport?.setFocus(null);
+    if (mode === "hold") {
+      if (restore) canvas.dataset.sequenceCameraHeld = "true";
+      else delete canvas.dataset.sequenceCameraHeld;
+      return;
+    }
+    delete canvas.dataset.sequenceCameraHeld;
     if (restore) {
       void viewport?.smoothOrbitTo(restore.yaw, restore.pitch, 280).then(() => {
         if (cameraGeneration === tutorialCameraGeneration && focusedGroup === null) {
@@ -452,22 +458,90 @@ if (root) {
     }
   };
 
-  const clearTurnGuide = () => {
+  const setHoverPreviewState = (index: number) => {
+    const state = activeTimeline?.states?.[index];
+    if (!state) return;
+    viewport?.setState(state, viewportPalette());
+    if (focusedPiece) {
+      const base = focusForPiece(state, focusedPiece);
+      const purpose = focusedGroup?.dataset.sequenceDescription;
+      viewport?.setFocus(base && purpose ? {...base, label: purpose} : base);
+    }
+    canvas.dataset.hoverPreviewIndex = String(index);
+    canvas.dataset.hoverPreviewFacelets = FaceletCodec.render(state);
+  };
+
+  const animateHoverPreviewTo = async (
+    target: number,
+    generation: number,
+  ): Promise<boolean> => {
+    if (!activeTimeline?.states || !viewport) return false;
+    let cursor = hoverPreviewCursor ?? activeIndex;
+    hoverPreviewCursor = cursor;
+    const transitions = planHoverPreview(activeTimeline.steps, cursor, target);
+    canvas.dataset.hoverPreviewTarget = String(target);
+    for (const transition of transitions) {
+      if (generation !== hoverPreviewGeneration) return false;
+      const direction: -1 | 1 = transition.target > cursor ? 1 : -1;
+      const stepIndex = direction > 0 ? cursor : transition.target;
+      const sourceStep = activeTimeline.steps[stepIndex]?.step;
+      canvas.dataset.hoverPreviewSpeed = String(Math.min(10, transition.speedMultiplier));
+      canvas.dataset.hoverPreviewRemaining = String(transition.physicalMovesRemaining);
+      if (sourceStep) {
+        const animatedStep = direction > 0
+          ? sourceStep
+          : {...sourceStep, turns: -sourceStep.turns};
+        const transform = turnTransform(size, animatedStep);
+        if (transform) {
+          const duration = 720
+            * (Math.abs(transform.angle) > Math.PI / 2 + 0.01 ? 1.35 : 1)
+            / Math.min(10, transition.speedMultiplier);
+          await viewport.animateTurn(transform, duration);
+        }
+      }
+      if (generation !== hoverPreviewGeneration) return false;
+      cursor = transition.target;
+      hoverPreviewCursor = cursor;
+      setHoverPreviewState(cursor);
+    }
+    return generation === hoverPreviewGeneration;
+  };
+
+  const clearTurnGuide = (mode: "immediate" | "hold" | "restore" = "immediate") => {
+    const generation = ++hoverPreviewGeneration;
     guidedToken?.classList.remove("turn-guided");
     guidedToken = null;
     activeTurnGuide = null;
     viewport?.setTurnGuide(null);
     delete canvas.dataset.previewMoveIndex;
     delete canvas.dataset.previewFacelets;
-    if (previewedMoveIndex !== null && activeTimeline?.states) {
-      const displayed = activeTimeline.states[activeIndex];
+    delete canvas.dataset.hoverPreviewTarget;
+    delete canvas.dataset.hoverPreviewSpeed;
+    delete canvas.dataset.hoverPreviewRemaining;
+    viewport?.setTurnPreview(null);
+    viewport?.cancelTurn();
+    previewedMoveIndex = null;
+    if (mode === "hold") {
+      canvas.dataset.hoverPreviewHeld = "true";
+      return;
+    }
+    delete canvas.dataset.hoverPreviewHeld;
+    const finishRestore = () => {
+      if (generation !== hoverPreviewGeneration) return;
+      hoverPreviewCursor = null;
+      delete canvas.dataset.hoverPreviewIndex;
+      delete canvas.dataset.hoverPreviewFacelets;
+      const displayed = activeTimeline?.states?.[activeIndex];
       if (displayed) {
         viewport?.setState(displayed, viewportPalette());
         refreshTutorialFocus();
       }
+    };
+    if (mode === "restore" && hoverPreviewCursor !== null && hoverPreviewCursor !== activeIndex) {
+      void animateHoverPreviewTo(activeIndex, generation).then(finishRestore);
+    } else {
+      finishRestore();
     }
-    viewport?.setTurnPreview(null);
-    previewedMoveIndex = null;
   };
 
   const activateTurnGuide = (
@@ -476,6 +550,10 @@ if (root) {
     label: string,
     moveIndex: number,
   ) => {
+    if (playbackDirection !== 0) stopPlayback();
+    const generation = ++hoverPreviewGeneration;
+    viewport?.cancelTurn();
+    viewport?.setTurnPreview(null);
     guidedToken?.classList.remove("turn-guided");
     guidedToken = token;
     activeTurnGuide = {step, label};
@@ -483,18 +561,19 @@ if (root) {
     const before = activeTimeline?.states?.[moveIndex];
     if (before) {
       previewedMoveIndex = moveIndex;
-      viewport?.setState(before, viewportPalette());
-      if (focusedPiece) {
-        const base = focusForPiece(before, focusedPiece);
-        const purpose = focusedGroup?.dataset.sequenceDescription;
-        viewport?.setFocus(base && purpose ? {...base, label: purpose} : base);
-      }
-      viewport?.setTurnPreview(turnTransform(before.size, step));
-      canvas.dataset.previewMoveIndex = String(moveIndex);
-      canvas.dataset.previewFacelets = FaceletCodec.render(before);
+      viewport?.setTurnGuide(null);
+      void animateHoverPreviewTo(moveIndex, generation).then((arrived) => {
+        if (!arrived || generation !== hoverPreviewGeneration || guidedToken !== token) return;
+        setHoverPreviewState(moveIndex);
+        viewport?.setTurnPreview(turnTransform(before.size, step));
+        canvas.dataset.previewMoveIndex = String(moveIndex);
+        canvas.dataset.previewFacelets = FaceletCodec.render(before);
+        viewport?.setTurnGuide(turnGuides && activeTurnGuide ? activeTurnGuide : null);
+      });
+      return;
     }
     viewport?.setTurnGuide(
-      turnGuides && activeTurnGuide ? {...activeTurnGuide, style: turnGuideStyle} : null,
+      turnGuides && activeTurnGuide ? activeTurnGuide : null,
     );
   };
 
@@ -654,9 +733,10 @@ if (root) {
         if (piece) container.dataset.focusPiece = piece;
         const showFocus = () => activateTutorialFocus(container, piece);
         container.addEventListener("mouseenter", showFocus);
-        container.addEventListener("mouseleave", () => {
+        container.addEventListener("mouseleave", (event) => {
           if (focusedGroup === container && !container.contains(document.activeElement)) {
-            clearTutorialFocus();
+            const destination = event.relatedTarget as Node | null;
+            clearTutorialFocus(destination && moveRibbon.contains(destination) ? "hold" : "restore");
           }
         });
         container.addEventListener("focusin", showFocus);
@@ -703,11 +783,11 @@ if (root) {
         const showTurn = () => activateTurnGuide(button, entry.step!, label, index);
         button.addEventListener("mouseenter", showTurn);
         button.addEventListener("mouseleave", () => {
-          if (guidedToken === button && document.activeElement !== button) clearTurnGuide();
+          if (guidedToken === button && document.activeElement !== button) clearTurnGuide("hold");
         });
         button.addEventListener("focus", showTurn);
         button.addEventListener("blur", () => {
-          if (guidedToken === button) clearTurnGuide();
+          if (guidedToken === button) clearTurnGuide("restore");
         });
         (groupContainer ?? moveRibbon).append(button);
       });
@@ -1073,9 +1153,7 @@ if (root) {
     notationDialect = state.notationDialect;
     cubeStyle = state.cubeStyle;
     const turnGuidesChanged = turnGuides !== state.turnGuides;
-    const turnGuideStyleChanged = turnGuideStyle !== state.turnGuideStyle;
     turnGuides = state.turnGuides;
-    turnGuideStyle = state.turnGuideStyle;
     activeTab = state.activeTab;
     if (input.value !== state.input) input.value = state.input;
     if (schemeSelect.value !== state.scheme) schemeSelect.value = state.scheme;
@@ -1094,15 +1172,9 @@ if (root) {
     });
     turnGuidesButton.classList.toggle("active", turnGuides);
     turnGuidesButton.setAttribute("aria-pressed", String(turnGuides));
-    turnGuideStyleButtons.forEach((button) => {
-      const active = button.dataset.turnGuideStyle === turnGuideStyle;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-pressed", String(active));
-      button.disabled = !turnGuides;
-    });
-    if (turnGuidesChanged || turnGuideStyleChanged) {
+    if (turnGuidesChanged) {
       viewport?.setTurnGuide(
-        turnGuides && activeTurnGuide ? {...activeTurnGuide, style: turnGuideStyle} : null,
+        turnGuides && activeTurnGuide ? activeTurnGuide : null,
       );
     }
     root.querySelectorAll<HTMLButtonElement>("[data-workspace-tab]").forEach((button) => {
@@ -1443,10 +1515,13 @@ if (root) {
   turnGuidesButton.addEventListener("click", () => {
     store.patch({turnGuides: !turnGuides});
   });
-  turnGuideStyleButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      store.patch({turnGuideStyle: button.dataset.turnGuideStyle as TurnGuideStyle});
-    });
+  moveRibbon.addEventListener("mouseleave", () => {
+    if (hoverPreviewCursor !== null && !moveRibbon.contains(document.activeElement)) {
+      clearTurnGuide("restore");
+    }
+    if (tutorialCameraRestore !== null && !moveRibbon.contains(document.activeElement)) {
+      clearTutorialFocus("restore");
+    }
   });
   playbackBegin.addEventListener("click", () => {
     void seek(0, false);
