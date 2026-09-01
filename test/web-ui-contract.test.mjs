@@ -91,13 +91,15 @@ test("the SPA workspace keeps one viewport beside three URL-addressable destinat
   assert.match(page, /data-workspace-tab="workbench"/);
   assert.doesNotMatch(page, /data-workspace-tab="(?:beginner|cfop)"/);
   assert.match(page, /data-academy-method="beginner"/);
-  assert.match(page, /data-academy-method="advancedLbl"/);
-  assert.match(page, /data-academy-method="advanced"/);
+  assert.match(page, /data-academy-method="beginnerCfop"/);
+  assert.match(page, /data-academy-method="fullCfop"/);
+  assert.match(page, /data-academy-method="advancedCfop"/);
   assert.match(page, /57 OLL \+ 21 PLL/);
   assert.match(page, /data-academy-method-panel="beginner"/);
-  assert.match(page, /data-academy-method-panel="advancedLbl"/);
-  assert.match(page, /data-academy-method-panel="advanced"/);
-  assert.doesNotMatch(page, /Full CFOP solver not enabled yet/);
+  assert.match(page, /data-academy-method-panel="beginnerCfop"/);
+  assert.match(page, /data-academy-method-panel="fullCfop"/);
+  assert.match(page, /data-academy-method-panel="advancedCfop"/);
+  assert.doesNotMatch(page, /solver not enabled yet/);
   assert.match(page, /data-academy-comparison/);
   assert.equal((page.match(/<CubeViewport \/>/g) ?? []).length, 1);
   assert.match(page, /data-academy-solve/);
@@ -106,13 +108,15 @@ test("the SPA workspace keeps one viewport beside three URL-addressable destinat
   assert.match(page, /data-beginner-phases/);
   assert.match(page, /data-beginner-copy/);
   assert.match(client, /BeginnerSolver\.solve/);
-  assert.match(client, /CfopSolver\.solve/);
+  assert.match(client, /CfopSolver\.solveBeginner/);
+  assert.match(client, /CfopSolver\.solveFull/);
+  assert.match(client, /CfopSolver\.solveAdvanced/);
   assert.match(client, /buildTimeline\(initialState, solution\.alg\)/);
   assert.match(client, /store\.patch\(\{activeTab:/);
   assert.match(client, /academyMethod:/);
   assert.match(client, /tutorialPhaseMoveCount/);
   assert.match(client, /phase\.sequences/);
-  assert.match(client, /≤60 advanced benchmark/);
+  assert.match(client, /benchmarkTarget/);
 });
 
 test("practice scramble is a Quick load action rather than a transform", () => {

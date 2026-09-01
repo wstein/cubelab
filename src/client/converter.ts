@@ -78,7 +78,7 @@ type RecognizedInput = {
   timeline?: AlgorithmTimeline;
   timelineKey?: string;
 };
-type TutorialMethod = "beginner" | "cfop";
+type TutorialMethod = AcademyMethod;
 type TutorialPhase = {
   number: number;
   title: string;
@@ -137,16 +137,13 @@ if (root) {
   const nissLoad = root.querySelector<HTMLButtonElement>("[data-niss-load]")!;
   const nissResult = root.querySelector<HTMLOutputElement>("[data-niss-result]")!;
   const academySolve = root.querySelector<HTMLButtonElement>("[data-academy-solve]")!;
-  const beginnerStatus = root.querySelector<HTMLElement>("[data-beginner-status]")!;
-  const beginnerCurrent = root.querySelector<HTMLElement>("[data-beginner-current]")!;
-  const beginnerPhases = root.querySelector<HTMLElement>("[data-beginner-phases]")!;
-  const beginnerCopy = root.querySelector<HTMLButtonElement>("[data-beginner-copy]")!;
-  const beginnerSolution = root.querySelector<HTMLElement>("[data-beginner-solution]")!;
-  const cfopStatus = root.querySelector<HTMLElement>("[data-cfop-status]")!;
-  const cfopCurrent = root.querySelector<HTMLElement>("[data-cfop-current]")!;
-  const cfopPhases = root.querySelector<HTMLElement>("[data-cfop-phases]")!;
-  const cfopCopy = root.querySelector<HTMLButtonElement>("[data-cfop-copy]")!;
-  const cfopSolution = root.querySelector<HTMLElement>("[data-cfop-solution]")!;
+  const academyDom = (prefix: string) => ({
+    status: root.querySelector<HTMLElement>(`[data-${prefix}-status]`)!,
+    current: root.querySelector<HTMLElement>(`[data-${prefix}-current]`)!,
+    phases: root.querySelector<HTMLElement>(`[data-${prefix}-phases]`)!,
+    copy: root.querySelector<HTMLButtonElement>(`[data-${prefix}-copy]`)!,
+    solution: root.querySelector<HTMLElement>(`[data-${prefix}-solution]`)!,
+  });
   const academyComparison = root.querySelector<HTMLElement>("[data-academy-comparison]")!;
   const autoOrbitButton = root.querySelector<HTMLButtonElement>("[data-auto-orbit]")!;
   const turnGuidesButton = root.querySelector<HTMLButtonElement>("[data-turn-guides]")!;
@@ -178,25 +175,36 @@ if (root) {
   const savedTutorialSolutions = new Map<TutorialMethod, SavedTutorialSolution>();
   const beginnerAcademy: AcademyElements = {
     method: "beginner",
-    label: "Beginner",
+    label: "Beginner LBL",
     phaseCount: 7,
-    status: beginnerStatus,
-    current: beginnerCurrent,
-    phases: beginnerPhases,
-    copy: beginnerCopy,
-    solution: beginnerSolution,
+    ...academyDom("beginner"),
   };
-  const cfopAcademy: AcademyElements = {
-    method: "cfop",
+  const beginnerCfopAcademy: AcademyElements = {
+    method: "beginnerCfop",
+    label: "Beginner CFOP",
+    phaseCount: 4,
+    ...academyDom("beginner-cfop"),
+  };
+  const fullCfopAcademy: AcademyElements = {
+    method: "fullCfop",
     label: "Full CFOP",
     phaseCount: 4,
-    status: cfopStatus,
-    current: cfopCurrent,
-    phases: cfopPhases,
-    copy: cfopCopy,
-    solution: cfopSolution,
+    ...academyDom("full-cfop"),
   };
-  const academies = [beginnerAcademy, cfopAcademy];
+  const advancedCfopAcademy: AcademyElements = {
+    method: "advancedCfop",
+    label: "Advanced CFOP",
+    phaseCount: 4,
+    ...academyDom("advanced-cfop"),
+  };
+  const academies = [
+    beginnerAcademy,
+    beginnerCfopAcademy,
+    fullCfopAcademy,
+    advancedCfopAcademy,
+  ];
+  const academyForMethod = (method: TutorialMethod): AcademyElements =>
+    academies.find((academy) => academy.method === method) ?? beginnerAcademy;
   const viewport = createCubeViewport(canvas, motionOverlay, (message) => {
     viewportFallback.textContent = `${message} Text conversions remain fully functional.`;
     viewportFallback.hidden = false;
@@ -640,36 +648,32 @@ if (root) {
   };
 
   const phaseFocusNumber = (phase: TutorialPhaseRange): number =>
-    phase.method === "cfop" ? [1, 3, 5, 7][phase.number - 1] ?? phase.number : phase.number;
+    phase.method !== "beginner" ? [1, 3, 5, 7][phase.number - 1] ?? phase.number : phase.number;
 
   const updateAcademyComparison = () => {
-    const beginner = savedTutorialSolutions.get("beginner")?.solution.moveCount;
-    const cfop = savedTutorialSolutions.get("cfop")?.solution.moveCount;
-    academyComparison.hidden = beginner === undefined || cfop === undefined;
-    if (beginner === undefined || cfop === undefined) {
+    const compared = academies.flatMap((academy) => {
+      const moveCount = savedTutorialSolutions.get(academy.method)?.solution.moveCount;
+      return moveCount === undefined ? [] : [{label: academy.label, moveCount}];
+    });
+    academyComparison.hidden = compared.length < 2;
+    if (compared.length < 2) {
       academyComparison.textContent = "";
       return;
     }
-    const difference = beginner - cfop;
-    const comparison = difference > 0
-      ? `CFOP saves ${difference} physical move${difference === 1 ? "" : "s"} on this state.`
-      : difference < 0
-        ? `Beginner is ${-difference} physical move${difference === -1 ? "" : "s"} shorter on this state.`
-        : "Both verified solutions use the same physical move count on this state.";
-    academyComparison.textContent = `Same-state comparison · Beginner LBL ${beginner} · Full CFOP ${cfop}. ${comparison}`;
+    const best = compared.reduce((left, right) => right.moveCount < left.moveCount ? right : left);
+    academyComparison.textContent = `Same-state comparison · ${compared
+      .map(({label, moveCount}) => `${label} ${moveCount}`)
+      .join(" · ")}. Shortest: ${best.label}.`;
   };
 
-  const selectedTutorialMethod = (): TutorialMethod | null =>
-    academyMethod === "beginner" ? "beginner" : academyMethod === "advanced" ? "cfop" : null;
+  const selectedTutorialMethod = (): TutorialMethod => academyMethod;
 
   const updateAcademySolveButton = () => {
     const method = selectedTutorialMethod();
-    academySolve.disabled = academySolveBusy || method === null || activeRecognized === null || size !== 3;
-    academySolve.textContent = method === null
-      ? "Solver unavailable"
-      : savedTutorialSolutions.has(method)
-        ? "Regenerate solution"
-        : "Generate verified solution";
+    academySolve.disabled = academySolveBusy || activeRecognized === null || size !== 3;
+    academySolve.textContent = savedTutorialSolutions.has(method)
+      ? "Regenerate solution"
+      : "Generate verified solution";
   };
 
   const resetAcademy = () => {
@@ -954,7 +958,7 @@ if (root) {
         clearTurnGuide();
         const final = completedPhase.number === tutorialPhases.length;
         const milestoneLabel = final
-          ? `Cube solved — all ${tutorialPhases.length} ${completedPhase.method === "cfop" ? "CFOP stages" : "steps"} verified`
+          ? `Cube solved — all ${tutorialPhases.length} ${completedPhase.method !== "beginner" ? "CFOP stages" : "steps"} verified`
           : `Step ${completedPhase.number} complete — ${completedPhase.title} verified`;
         coachStatus.textContent = milestoneLabel;
         viewport.setMilestone({
@@ -1601,8 +1605,8 @@ if (root) {
     });
     if (appStateApplied && academyMethodChanged) {
       const method = selectedTutorialMethod();
-      const saved = method ? savedTutorialSolutions.get(method) : undefined;
-      const academy = method === "cfop" ? cfopAcademy : beginnerAcademy;
+      const saved = savedTutorialSolutions.get(method);
+      const academy = academyForMethod(method);
       if (saved) presentTutorialSolution(saved.initialState, saved.solution, academy);
     }
     updateAcademySolveButton();
@@ -1847,18 +1851,25 @@ if (root) {
     });
     commentedTutorialSolution = solution.phases.map((phase) => {
       const moves = MoveTransform.serialize(phase.alg);
-      return `// ${academy.method === "cfop" ? "CFOP" : "STEP"} ${phase.number}: ${phase.title}\n// ${phase.instruction}\n${moves || "// Already complete"}`;
+      return `// ${academy.method !== "beginner" ? "CFOP" : "STEP"} ${phase.number}: ${phase.title}\n// ${phase.instruction}\n${moves || "// Already complete"}`;
     }).join("\n\n");
     academy.solution.textContent = commentedTutorialSolution;
     academy.solution.hidden = false;
     academy.copy.disabled = false;
     academy.status.classList.remove("error");
-    const benchmark = academy.method === "cfop"
-      ? solution.moveCount <= 60
-        ? " · ≤60 advanced benchmark met"
-        : ` · ${solution.moveCount - 60} over the ≤60 advanced benchmark`
-      : "";
-    academy.status.textContent = `Verified ${academy.method === "beginner" ? "beginner" : "Full CFOP"} solution · ${solution.moveCount} moves · ${academy.phaseCount} phases${benchmark}`;
+    const benchmarkTarget = academy.method === "beginnerCfop"
+      ? 70
+      : academy.method === "fullCfop"
+        ? 60
+        : academy.method === "advancedCfop"
+          ? 55
+          : null;
+    const benchmark = benchmarkTarget === null
+      ? ""
+      : solution.moveCount <= benchmarkTarget
+        ? ` · ≤${benchmarkTarget} benchmark met`
+        : ` · ${solution.moveCount - benchmarkTarget} over the ≤${benchmarkTarget} benchmark`;
+    academy.status.textContent = `Verified ${academy.label} solution · ${solution.moveCount} moves · ${academy.phaseCount} phases${benchmark}`;
     coachingControls.hidden = false;
 
     const timeline = buildTimeline(initialState, solution.alg);
@@ -1878,24 +1889,28 @@ if (root) {
 
   academySolve.addEventListener("click", () => {
     const method = selectedTutorialMethod();
-    if (method === null || size !== 3 || activeRecognized === null) return;
+    if (size !== 3 || activeRecognized === null) return;
     const initialState = activeRecognized.state;
-    const academy = method === "cfop" ? cfopAcademy : beginnerAcademy;
+    const academy = academyForMethod(method);
     academySolveBusy = true;
     updateAcademySolveButton();
     academy.status.classList.remove("error");
-    academy.status.textContent = method === "cfop"
-      ? "Building and replay-verifying the four Full CFOP phases…"
-      : "Building and replay-verifying the seven beginner phases…";
+    academy.status.textContent = method === "beginner"
+      ? "Building and replay-verifying the seven beginner phases…"
+      : `Building and replay-verifying the four ${academy.label} phases…`;
     window.setTimeout(() => {
-      const result = (method === "cfop"
-        ? CfopSolver.solve(initialState)
-        : BeginnerSolver.solve(initialState)) as Result<TutorialSolution, unknown>;
+      const result = (method === "beginner"
+        ? BeginnerSolver.solve(initialState)
+        : method === "beginnerCfop"
+          ? CfopSolver.solveBeginner(initialState)
+          : method === "fullCfop"
+            ? CfopSolver.solveFull(initialState)
+            : CfopSolver.solveAdvanced(initialState)) as Result<TutorialSolution, unknown>;
       academySolveBusy = false;
       if (result.TAG === "Error") {
-        academy.status.textContent = method === "cfop"
-          ? CfopSolver.describeError(result._0)
-          : BeginnerSolver.describeError(result._0);
+        academy.status.textContent = method === "beginner"
+          ? BeginnerSolver.describeError(result._0)
+          : CfopSolver.describeError(result._0);
         academy.status.classList.add("error");
         updateAcademySolveButton();
         return;
@@ -1926,7 +1941,7 @@ if (root) {
       await navigator.clipboard.writeText(commentedTutorialSolution);
       academy.copy.textContent = "Copied";
       window.setTimeout(() => {
-        academy.copy.textContent = academy.method === "cfop"
+        academy.copy.textContent = academy.method !== "beginner"
           ? "Copy commented CFOP solution"
           : "Copy commented solution";
       }, 1500);

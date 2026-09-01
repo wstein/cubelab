@@ -19,7 +19,7 @@ export type TutorialGroupContext = {
   number: number;
   title: string;
   instruction: string;
-  method?: "beginner" | "cfop";
+  method?: "beginner" | "beginnerCfop" | "fullCfop" | "advancedCfop";
   start?: number;
   sequences?: string[];
 };
@@ -163,7 +163,8 @@ export const describeTimelineGroup = (
 ): string => {
   const moves = entries.flatMap((entry) => entry.step ? [entry.step] : []);
   const onlyRotations = moves.length > 0 && moves.every((step) => step.move.TAG === "Rotation");
-  if (phase?.method === "cfop") {
+  if (phase?.method !== undefined && phase.method !== "beginner") {
+    const look = phase.method === "beginnerCfop" ? "two-look" : "one-look";
     if (onlyRotations) {
       return phase.number === 1
         ? "Regrip so the white cross is built on the bottom."
@@ -174,14 +175,14 @@ export const describeTimelineGroup = (
       && moves[0].move._0 === "U";
     if (singleTopTurn) {
       if (phase.number === 2) return "Align the next F2L piece above its target slot.";
-      if (phase.number === 3) return "AUF-align the recognized one-look OLL case.";
-      if (phase.number === 4) return "AUF-align the recognized one-look PLL case.";
+      if (phase.number === 3) return `AUF-align the recognized ${look} OLL case.`;
+      if (phase.number === 4) return `AUF-align the recognized ${look} PLL case.`;
     }
     switch (phase.number) {
       case 1: return "Solve the next white cross edge on the bottom and align its side colour.";
       case 2: return "Advance the F2L foundation while preserving completed slots.";
-      case 3: return "Apply the recognized one-look OLL case to orient the last layer.";
-      case 4: return "Apply the recognized one-look PLL case to permute the last layer.";
+      case 3: return `Apply the recognized ${look} OLL case to orient the last layer.`;
+      case 4: return `Apply the recognized ${look} PLL case to permute the last layer.`;
     }
   }
   if (onlyRotations) {

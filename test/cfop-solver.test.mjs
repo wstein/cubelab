@@ -28,8 +28,8 @@ const scramble = (algorithm) => {
   return result._0;
 };
 
-const solve = (state) => {
-  const result = CfopSolver.solve(state);
+const solveWith = (solver, state) => {
+  const result = solver(state);
   assert.equal(
     result.TAG,
     "Ok",
@@ -37,6 +37,8 @@ const solve = (state) => {
   );
   return result._0;
 };
+
+const solve = (state) => solveWith(CfopSolver.solveAdvanced, state);
 
 const pieces = (state) => {
   const result = PieceReducer.reduce(state);
@@ -79,11 +81,36 @@ test("emits four replay-verified full CFOP phases", () => {
   });
 });
 
+test("exposes distinct replay-verified Beginner, Full, and Advanced CFOP strategies", () => {
+  const initial = scramble("R U2 F' L2 D B2 R' U F2 D' L B U2 R2 F D2 L' B' U R");
+  const beginner = solveWith(CfopSolver.solveBeginner, initial);
+  const full = solveWith(CfopSolver.solveFull, initial);
+  const advanced = solveWith(CfopSolver.solveAdvanced, initial);
+
+  assert.deepEqual(
+    beginner.phases.map(({title}) => title),
+    ["Cross", "F2L Pairs", "Two-Look OLL", "Two-Look PLL"],
+  );
+  for (const solution of [full, advanced]) {
+    assert.deepEqual(
+      solution.phases.map(({title}) => title),
+      ["Cross", "F2L Pairs", "One-Look OLL", "One-Look PLL"],
+    );
+  }
+  for (const solution of [beginner, full, advanced]) {
+    assert.equal(FaceletCodec.render(MoveExecutor.applyAlg(initial, solution.alg)._0), solvedCompact);
+  }
+  assert.ok(full.moveCount < beginner.moveCount);
+  assert.ok(advanced.moveCount <= full.moveCount);
+  assert.doesNotMatch(full.phases[0].sequences.join(" "), /candidate plans/);
+  assert.match(advanced.phases[0].sequences.join(" "), /candidate plans/);
+});
+
 test("recognizes and replay-verifies every one-look OLL case", () => {
   assert.equal(CfopCases.oll.length, 57);
   CfopCases.oll.forEach((entry) => {
     const initial = lastLayerCase(entry.algorithm);
-    const solution = solve(initial);
+    const solution = solveWith(CfopSolver.solveFull, initial);
     assert.ok(
       solution.phases[2].sequences.some((description) =>
         description.includes(`OLL ${entry.id} ·`)
@@ -98,7 +125,7 @@ test("recognizes and replay-verifies every one-look PLL case", () => {
   assert.equal(CfopCases.pll.length, 21);
   CfopCases.pll.forEach((entry) => {
     const initial = lastLayerCase(entry.algorithm);
-    const solution = solve(initial);
+    const solution = solveWith(CfopSolver.solveFull, initial);
     assert.ok(
       solution.phases[3].sequences.some((description) =>
         description.includes(`${entry.id}-Perm`)

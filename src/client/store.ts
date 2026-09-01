@@ -4,7 +4,7 @@ export type SchemeName = "Western" | "Japanese" | "Custom";
 export type LowercaseMode = "Wide" | "InnerSlice";
 export type NotationDialect = "Modern" | "Ruwix";
 export type ActiveTab = "converter" | "academy" | "workbench";
-export type AcademyMethod = "beginner" | "advancedLbl" | "advanced";
+export type AcademyMethod = "beginner" | "beginnerCfop" | "fullCfop" | "advancedCfop";
 
 export type AppState = {
   size: number;
@@ -93,16 +93,16 @@ export const readHash = (hash: string): AppState => {
       ? "workbench"
     : "converter";
   const requestedMethod = params.get("method");
-  const academyMethod: AcademyMethod = requestedMethod === "advancedLbl"
-      ? "advancedLbl"
-      : requestedMethod === "advanced"
-        || requestedMethod === "fullCfop"
-        || requestedMethod === "intermediate"
-        || requestedMethod === "easyCfop"
-        || requestedMethod === "cfop"
-        || requestedTab === "cfop"
-        ? "advanced"
-        : "beginner";
+  const academyMethod: AcademyMethod = requestedMethod === "beginnerCfop"
+      || requestedMethod === "advancedLbl"
+      || requestedMethod === "intermediate"
+      || requestedMethod === "easyCfop"
+      ? "beginnerCfop"
+      : requestedMethod === "advancedCfop" || requestedMethod === "advanced"
+        ? "advancedCfop"
+        : requestedMethod === "fullCfop" || requestedMethod === "cfop" || requestedTab === "cfop"
+          ? "fullCfop"
+          : "beginner";
   const input = (params.get("alg") ?? "").slice(0, 20_000);
   return {
     size,

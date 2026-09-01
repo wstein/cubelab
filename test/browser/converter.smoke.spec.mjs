@@ -607,7 +607,7 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(page).toHaveURL(/tab=academy&method=beginner/);
 
   await page.getByRole("button", {name: "Generate verified solution"}).click();
-  await expect(page.locator("[data-beginner-status]")).toContainText("Verified beginner solution");
+  await expect(page.locator("[data-beginner-status]")).toContainText("Verified Beginner LBL solution");
   await expect(page.locator("[data-beginner-phase]")).toHaveCount(7);
   await expect(page.locator("[data-beginner-phase]").nth(0)).toContainText("Keep white on top");
   await expect(page.locator("[data-beginner-phase]").nth(2)).toContainText("Turn yellow to the top");
@@ -710,48 +710,62 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
 });
 
 test("opens CFOP Academy and builds its four replay-verified stages", async ({page}) => {
-  await page.goto("/#size=3&alg=R+U+R%27+U%27&tab=academy&method=advanced");
+  await page.goto("/#size=3&alg=R+U+R%27+U%27&tab=academy&method=fullCfop");
   const canvas = page.locator("[data-cube-canvas]");
   await canvas.evaluate((element) => element.setAttribute("data-cfop-persistence-probe", "mounted"));
 
   await expect(page.locator("[data-workspace-panel='academy']")).toBeVisible();
-  await expect(page.locator("[data-academy-method-panel='advanced']")).toBeVisible();
+  const fullPanel = page.locator("[data-academy-method-panel='fullCfop']");
+  await expect(fullPanel).toBeVisible();
   await expect(page.getByRole("button", {name: "Academy", exact: true})).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator("[data-academy-method='advanced']")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("[data-academy-method='fullCfop']")).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", {name: "Generate verified solution"}).click();
 
-  await expect(page.locator("[data-cfop-status]")).toContainText("Verified Full CFOP solution");
-  await expect(page.locator("[data-cfop-phase]")).toHaveCount(4);
-  await expect(page.locator("[data-cfop-phase]").nth(0)).toContainText("Cross");
-  await expect(page.locator("[data-cfop-phase]").nth(1)).toContainText("F2L Pairs");
-  await expect(page.locator("[data-cfop-phase]").nth(2)).toContainText("One-Look OLL");
-  await expect(page.locator("[data-cfop-phase]").nth(3)).toContainText("One-Look PLL");
-  await expect(page.locator("[data-cfop-phase]").nth(1)).toContainText("white–");
-  await expect(page.locator("[data-cfop-phase]").nth(1)).toHaveAttribute("data-phase-move-count", /\d+/);
-  await expect(page.locator("[data-cfop-solution]")).toContainText("// CFOP 1: Cross");
-  await expect(page.locator("[data-cfop-solution]")).toContainText("(x2) @0.5s");
+  await expect(page.locator("[data-full-cfop-status]")).toContainText("Verified Full CFOP solution");
+  await expect(fullPanel.locator("[data-cfop-phase]")).toHaveCount(4);
+  await expect(fullPanel.locator("[data-cfop-phase]").nth(0)).toContainText("Cross");
+  await expect(fullPanel.locator("[data-cfop-phase]").nth(1)).toContainText("F2L Pairs");
+  await expect(fullPanel.locator("[data-cfop-phase]").nth(2)).toContainText("One-Look OLL");
+  await expect(fullPanel.locator("[data-cfop-phase]").nth(3)).toContainText("One-Look PLL");
+  await expect(fullPanel.locator("[data-cfop-phase]").nth(1)).toContainText("white–");
+  await expect(fullPanel.locator("[data-cfop-phase]").nth(1)).toHaveAttribute("data-phase-move-count", /\d+/);
+  await expect(page.locator("[data-full-cfop-solution]")).toContainText("// CFOP 1: Cross");
+  await expect(page.locator("[data-full-cfop-solution]")).toContainText("(x2) @0.5s");
   await expect(page.locator("[data-playback-position]")).toHaveText(/Move 0 of \d+/);
 
-  const f2l = page.locator("[data-cfop-phase]").nth(1);
+  const f2l = fullPanel.locator("[data-cfop-phase]").nth(1);
   await f2l.click();
-  await expect(page.locator("[data-cfop-current]")).toContainText("Step 2: F2L Pairs");
+  await expect(page.locator("[data-full-cfop-current]")).toContainText("Step 2: F2L Pairs");
   await expect(canvas).toHaveAttribute("data-cfop-persistence-probe", "mounted");
 
-  await page.locator("[data-academy-method='advancedLbl']").click();
-  await expect(page.locator("[data-academy-method-panel='advancedLbl']")).toContainText(
-    "Advanced LBL solver not enabled yet",
-  );
-  await expect(page.getByRole("button", {name: "Solver unavailable"})).toBeDisabled();
+  await page.locator("[data-academy-method='beginnerCfop']").click();
+  const beginnerCfopPanel = page.locator("[data-academy-method-panel='beginnerCfop']");
+  await expect(beginnerCfopPanel).toBeVisible();
+  await page.getByRole("button", {name: "Generate verified solution"}).click();
+  await expect(page.locator("[data-beginner-cfop-status]")).toContainText("Verified Beginner CFOP solution");
+  await expect(beginnerCfopPanel.locator("[data-cfop-phase]").nth(2)).toContainText("Two-Look OLL");
+  await expect(beginnerCfopPanel.locator("[data-cfop-phase]").nth(3)).toContainText("Two-Look PLL");
+
+  await page.locator("[data-academy-method='advancedCfop']").click();
+  const advancedPanel = page.locator("[data-academy-method-panel='advancedCfop']");
+  await page.getByRole("button", {name: "Generate verified solution"}).click();
+  await expect(page.locator("[data-advanced-cfop-status]")).toContainText("Verified Advanced CFOP solution");
+  await expect(advancedPanel.locator("[data-cfop-phase]").nth(2)).toContainText("One-Look OLL");
+  await expect(advancedPanel.locator("[data-cfop-phase]").nth(3)).toContainText("One-Look PLL");
+
   await page.locator("[data-academy-method='beginner']").click();
   await expect(page.locator("[data-academy-method-panel='beginner']")).toBeVisible();
   await expect(page).toHaveURL(/tab=academy&method=beginner/);
   await page.getByRole("button", {name: "Generate verified solution"}).click();
-  await expect(page.locator("[data-beginner-status]")).toContainText("Verified beginner solution");
-  await page.locator("[data-academy-method='advanced']").click();
-  await expect(page.locator("[data-cfop-status]")).toContainText("Verified Full CFOP solution");
-  await expect(page.locator("[data-cfop-phase]")).toHaveCount(4);
+  await expect(page.locator("[data-beginner-status]")).toContainText("Verified Beginner LBL solution");
+  await page.locator("[data-academy-method='fullCfop']").click();
+  await expect(page.locator("[data-full-cfop-status]")).toContainText("Verified Full CFOP solution");
+  await expect(fullPanel.locator("[data-cfop-phase]")).toHaveCount(4);
   await expect(page.locator("[data-academy-comparison]")).toContainText("Same-state comparison");
-  await expect(page.locator("[data-academy-comparison]")).toContainText(/Beginner LBL \d+ · Full CFOP \d+/);
+  await expect(page.locator("[data-academy-comparison]")).toContainText(/Beginner LBL \d+/);
+  await expect(page.locator("[data-academy-comparison]")).toContainText(/Beginner CFOP \d+/);
+  await expect(page.locator("[data-academy-comparison]")).toContainText(/Full CFOP \d+/);
+  await expect(page.locator("[data-academy-comparison]")).toContainText(/Advanced CFOP \d+/);
   await expect(page.locator("[data-playback-position]")).toHaveText(/Move 0 of \d+/);
 
   await page.getByRole("button", {name: "Converter"}).click();

@@ -270,11 +270,14 @@ const cards = [
               <button type="button" class="academy-method active" data-academy-method="beginner" aria-pressed="true">
                 <strong>🐣 Beginner LBL</strong><span>7 phases</span>
               </button>
-              <button type="button" class="academy-method" data-academy-method="advancedLbl" aria-pressed="false">
-                <strong>⚡ Advanced LBL</strong><span>Optimized 7-level · locked</span>
+              <button type="button" class="academy-method" data-academy-method="beginnerCfop" aria-pressed="false">
+                <strong>⚡ Beginner CFOP</strong><span>Pair-first · 2-look LL</span>
               </button>
-              <button type="button" class="academy-method" data-academy-method="advanced" aria-pressed="false">
+              <button type="button" class="academy-method" data-academy-method="fullCfop" aria-pressed="false">
                 <strong>🏆 Full CFOP</strong><span>57 OLL + 21 PLL</span>
+              </button>
+              <button type="button" class="academy-method" data-academy-method="advancedCfop" aria-pressed="false">
+                <strong>🚀 Advanced CFOP</strong><span>Ranked Cross + F2L</span>
               </button>
             </div>
             <button type="button" class="academy-solve-btn academy-shared-action" data-academy-solve disabled>
@@ -304,24 +307,27 @@ const cards = [
           <pre class="academy-solution" data-beginner-solution hidden></pre>
         </div>
 
-        <div data-academy-method-panel="advancedLbl" hidden>
+        <div data-academy-method-panel="beginnerCfop" hidden>
           <header class="feature-header academy-method-header">
             <div>
-              <span class="panel-label">Optimized seven-phase bridge</span>
-              <h3>Advanced LBL</h3>
+              <span class="panel-label">Pair-first CFOP with a compact algorithm set</span>
+              <h3>Beginner CFOP Academy</h3>
             </div>
           </header>
-          <div class="academy-locked" role="status">
-            <strong>Advanced LBL solver not enabled yet</strong>
-            <span>
-              This needs a distinct replay-verified engine for direct cross construction,
-              one-shot corner and middle-edge insertions, and recognized one-shot last-layer
-              cases. It will not reuse the repetitive Beginner LBL plan under a new label.
-            </span>
+          <p class="academy-intro">
+            Learn a direct white-bottom Cross and four corner-edge pairs, then finish with
+            memory-friendly two-look OLL and PLL. Every phase is replay-verified.
+          </p>
+          <div class="academy-status" data-beginner-cfop-status aria-live="polite">Enter a valid 3×3 state to begin.</div>
+          <div class="academy-current" data-beginner-cfop-current hidden></div>
+          <div class="academy-phases" data-beginner-cfop-phases></div>
+          <div class="academy-solution-actions">
+            <button type="button" class="transform-btn" data-beginner-cfop-copy disabled>Copy commented CFOP solution</button>
           </div>
+          <pre class="academy-solution" data-beginner-cfop-solution hidden></pre>
         </div>
 
-        <div data-academy-method-panel="advanced" hidden>
+        <div data-academy-method-panel="fullCfop" hidden>
           <header class="feature-header academy-method-header">
             <div>
               <span class="panel-label">Pair-first, one-look last layer</span>
@@ -334,13 +340,34 @@ const cards = [
             The full-CFOP benchmark is ≤60 physical moves; the measured, replay-verified result
             is reported without promising the target in advance.
           </p>
-          <div class="academy-status" data-cfop-status aria-live="polite">Enter a valid 3×3 state to begin.</div>
-          <div class="academy-current" data-cfop-current hidden></div>
-          <div class="academy-phases" data-cfop-phases></div>
+          <div class="academy-status" data-full-cfop-status aria-live="polite">Enter a valid 3×3 state to begin.</div>
+          <div class="academy-current" data-full-cfop-current hidden></div>
+          <div class="academy-phases" data-full-cfop-phases></div>
           <div class="academy-solution-actions">
-            <button type="button" class="transform-btn" data-cfop-copy disabled>Copy commented CFOP solution</button>
+            <button type="button" class="transform-btn" data-full-cfop-copy disabled>Copy commented CFOP solution</button>
           </div>
-          <pre class="academy-solution" data-cfop-solution hidden></pre>
+          <pre class="academy-solution" data-full-cfop-solution hidden></pre>
+        </div>
+
+        <div data-academy-method-panel="advancedCfop" hidden>
+          <header class="feature-header academy-method-header">
+            <div>
+              <span class="panel-label">Candidate-ranked competition planning</span>
+              <h3>Advanced CFOP Academy</h3>
+            </div>
+          </header>
+          <p class="academy-intro">
+            Use the complete 57-case OLL and 21-case PLL libraries with multi-candidate Cross
+            planning and stronger F2L continuation ranking. The solver reports the measured,
+            replay-verified move count without promising a target in advance.
+          </p>
+          <div class="academy-status" data-advanced-cfop-status aria-live="polite">Enter a valid 3×3 state to begin.</div>
+          <div class="academy-current" data-advanced-cfop-current hidden></div>
+          <div class="academy-phases" data-advanced-cfop-phases></div>
+          <div class="academy-solution-actions">
+            <button type="button" class="transform-btn" data-advanced-cfop-copy disabled>Copy commented CFOP solution</button>
+          </div>
+          <pre class="academy-solution" data-advanced-cfop-solution hidden></pre>
         </div>
 
       </section>

@@ -35,11 +35,17 @@ describe("algorithm playback timeline", () => {
   test("describes CFOP groups using their four-stage teaching purpose", () => {
     const entries = [{step: {move: {TAG: "FaceTurn", _0: "R", _1: {from_: 1, to_: 1}}, turns: 1}}];
     expect(describeTimelineGroup(entries, {
-      method: "cfop",
+      method: "fullCfop",
       number: 2,
       title: "F2L Pairs",
       instruction: "Complete the first two layers.",
     })).toContain("F2L");
+    expect(describeTimelineGroup(entries, {
+      method: "beginnerCfop",
+      number: 3,
+      title: "Two-Look OLL",
+      instruction: "Orient the last layer in two looks.",
+    })).toContain("two-look OLL");
   });
 
   test("uses solver-provided case recognition for Academy sequence groups", () => {
@@ -54,7 +60,7 @@ describe("algorithm playback timeline", () => {
       number: 2,
       title: "F2L Pairs",
       instruction: "Solve four pairs.",
-      method: "cfop" as const,
+      method: "fullCfop" as const,
       start: 0,
       sequences: [
         "Solve the white–green–red pair — connected pair in the top layer.",
