@@ -211,6 +211,32 @@ test("plays, reverses, and seeks an expanded algorithm timeline", async ({page})
   await expect(position).toHaveText("Step 1 of 1");
 });
 
+test("animates timeline token clicks and time-travels only across distant groups", async ({page}) => {
+  await page.goto("/");
+  await page.locator("[data-input]").fill("(R U F) (L D B)");
+  const ribbon = page.locator("[data-move-ribbon]");
+  const tokens = ribbon.locator(".move-token");
+  const canvas = page.locator("[data-cube-canvas]");
+  const position = page.locator("[data-playback-position]");
+
+  await page.getByRole("button", {name: "Jump to start"}).click();
+  await tokens.nth(2).click();
+  await expect(ribbon).toHaveAttribute("data-navigation-mode", "sequence");
+  await expect(ribbon).toHaveAttribute("data-navigation-speed", "2");
+  await expect(canvas).toHaveAttribute("data-animating", "true");
+  await expect(position).toHaveText("Step 3 of 6");
+
+  await tokens.nth(3).click();
+  await expect(ribbon).toHaveAttribute("data-navigation-mode", "adjacent");
+  await expect(ribbon).toHaveAttribute("data-navigation-speed", "1");
+  await expect(position).toHaveText("Step 4 of 6");
+
+  await tokens.nth(0).click();
+  await expect(ribbon).toHaveAttribute("data-navigation-mode", "time-travel");
+  await expect(ribbon).toHaveAttribute("data-navigation-speed", "1");
+  await expect(position).toHaveText("Step 1 of 6");
+});
+
 test("plays internal pauses without changing the canonical cube state", async ({page}) => {
   await page.goto("/");
   const input = page.locator("[data-input]");

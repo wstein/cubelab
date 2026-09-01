@@ -26,6 +26,9 @@ cube. Phase buttons seek within that same timeline. The displayed/copyable tutor
 line comments, while structured phase metadata remains separate from notation parsing.
 Move hover reads the exact cached pre-move state without changing the shared tape index or
 converted outputs; leaving hover restores the indexed state and camera.
+Timeline token clicks animate adjacent moves normally, traverse a shared algorithm group
+at 2× the selected speed, or jump across distant groups to the selected move's immediate
+pre-state before animating that final move.
 
 Practice scramble is located in **Quick load**, not among algebraic transformations. It
 remains a random-turn practice sequence and is not labeled as an official WCA scramble.

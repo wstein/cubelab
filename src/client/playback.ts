@@ -16,8 +16,50 @@ type ExpandedEntry = {
 };
 export type TimelineEntry = {step?: MoveStep; durationMs?: number; groupId?: number};
 export type TutorialGroupContext = {number: number; title: string; instruction: string};
+export type TimelineClickPlan = {
+  jumpTo: number | null;
+  targets: number[];
+  speedMultiplier: number;
+};
 
 export const MAX_PLAYBACK_STEPS = 500;
+
+const directedTargets = (from: number, to: number): number[] => {
+  const direction = Math.sign(to - from);
+  return Array.from({length: Math.abs(to - from)}, (_, index) =>
+    from + direction * (index + 1)
+  );
+};
+
+export const planTimelineClick = (
+  steps: TimelineEntry[],
+  current: number,
+  requested: number,
+): TimelineClickPlan => {
+  const target = Math.max(0, Math.min(requested, steps.length));
+  if (target === current) return {jumpTo: null, targets: [], speedMultiplier: 1};
+  if (Math.abs(target - current) === 1) {
+    return {jumpTo: null, targets: [target], speedMultiplier: 1};
+  }
+
+  const traversed = steps.slice(Math.min(current, target), Math.max(current, target));
+  const groupId = traversed[0]?.groupId;
+  const staysInSequence = groupId !== undefined
+    && traversed.every((entry) => entry.groupId === groupId);
+  if (staysInSequence) {
+    return {
+      jumpTo: null,
+      targets: directedTargets(current, target),
+      speedMultiplier: 2,
+    };
+  }
+
+  return {
+    jumpTo: Math.max(0, target - 1),
+    targets: [target],
+    speedMultiplier: 1,
+  };
+};
 
 export const describeTimelineGroup = (
   entries: TimelineEntry[],

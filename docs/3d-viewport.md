@@ -80,7 +80,11 @@ For algorithm input, the client expands composite AST nodes into a canonical ste
 timeline, retains internal pauses as state-neutral steps, and caches state 0
 through state N. The viewport provides start/end jumps, animated forward and inverse
 steps, play/pause, 0.5×/1×/2× speeds, looping, a range scrubber, and clickable move or
-pause tokens. Text codecs update only when a move commits, so
+pause tokens. Clicking an adjacent move animates it at the selected speed. Clicking
+farther within the current bordered algorithm sequence animates every intervening move at
+twice the selected speed. A click across sequence boundaries time-travels to the canonical
+state immediately before the selected move, then animates that move at the selected speed.
+Text codecs update only when a move commits, so
 they always describe an exact canonical state rather than a fractional animation.
 
 The viewport is mounted once beside the Converter, Beginner Academy, and Alg Workbench

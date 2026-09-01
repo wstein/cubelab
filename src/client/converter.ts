@@ -23,6 +23,7 @@ import {
   describeTimelineGroup,
   isSingleStepExtension,
   MAX_PLAYBACK_STEPS,
+  planTimelineClick,
   type AlgorithmTimeline,
 } from "./playback";
 import {
@@ -658,7 +659,11 @@ if (root) {
     updatePlaybackUi();
   };
 
-  const transitionTo = async (target: number, generation: number): Promise<boolean> => {
+  const transitionTo = async (
+    target: number,
+    generation: number,
+    speedMultiplier = 1,
+  ): Promise<boolean> => {
     if (!activeTimeline?.states || generation !== playbackGeneration) return false;
     const bounded = Math.max(0, Math.min(target, activeTimeline.steps.length));
     const direction = bounded - activeIndex;
@@ -690,7 +695,9 @@ if (root) {
           positions: phaseMilestonePositions(phaseState, completedPhase.number),
           label: `✦ ${milestoneLabel}`,
         });
-        await new Promise((resolve) => window.setTimeout(resolve, (final ? 500 : 350) / playbackSpeed));
+        await new Promise((resolve) =>
+          window.setTimeout(resolve, (final ? 500 : 350) / playbackSpeed / speedMultiplier)
+        );
         if (generation !== playbackGeneration) return false;
         const nextPhase = tutorialPhases.find((phase) => phase.number === completedPhase.number + 1);
         const cameraTargets: Record<number, {yaw: number; pitch: number}> = {
@@ -703,14 +710,20 @@ if (root) {
         };
         viewport.setMilestone(null);
         const camera = nextPhase ? cameraTargets[nextPhase.number] : {yaw: -0.62, pitch: 0.48};
-        await viewport.smoothOrbitTo(camera.yaw, camera.pitch, 450 / playbackSpeed);
+        await viewport.smoothOrbitTo(
+          camera.yaw,
+          camera.pitch,
+          450 / playbackSpeed / speedMultiplier,
+        );
         if (generation !== playbackGeneration) return false;
         if (nextPhase) {
           const piece = selectPhasePiece(phaseState, nextPhase.number);
           const nextFocus = piece ? focusForPiece(phaseState, piece) : null;
           coachStatus.textContent = `Next: ${nextPhase.title}. ${nextPhase.instruction}`;
           viewport.setFocus(nextFocus ? {...nextFocus, label: `Next: ${nextPhase.title}`} : null);
-          await new Promise((resolve) => window.setTimeout(resolve, 400 / playbackSpeed));
+          await new Promise((resolve) =>
+            window.setTimeout(resolve, 400 / playbackSpeed / speedMultiplier)
+          );
           if (generation !== playbackGeneration) return false;
           viewport.setFocus(null);
         }
@@ -718,7 +731,9 @@ if (root) {
         return true;
       }
       const pauseDuration = activeTimeline.steps[stepIndex].durationMs ?? 280;
-      await new Promise((resolve) => window.setTimeout(resolve, pauseDuration / playbackSpeed));
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, pauseDuration / playbackSpeed / speedMultiplier)
+      );
       if (generation !== playbackGeneration) return false;
       renderTimelineIndex(bounded);
       return true;
@@ -731,7 +746,10 @@ if (root) {
       renderTimelineIndex(bounded);
       return generation === playbackGeneration;
     }
-    const duration = 180 * (Math.abs(transform.angle) > Math.PI / 2 + 0.01 ? 1.35 : 1) / playbackSpeed;
+    const duration = 180
+      * (Math.abs(transform.angle) > Math.PI / 2 + 0.01 ? 1.35 : 1)
+      / playbackSpeed
+      / speedMultiplier;
     await viewport.animateTurn(transform, duration);
     if (generation !== playbackGeneration) return false;
     renderTimelineIndex(bounded);
@@ -745,6 +763,24 @@ if (root) {
       await transitionTo(target, generation);
     } else {
       renderTimelineIndex(target);
+    }
+  };
+
+  const seekTimelineToken = async (target: number) => {
+    if (!activeTimeline?.states) return;
+    const plan = planTimelineClick(activeTimeline.steps, activeIndex, target);
+    clearTurnGuide();
+    stopPlayback();
+    const generation = playbackGeneration;
+    moveRibbon.dataset.navigationMode = plan.jumpTo !== null
+      ? "time-travel"
+      : plan.speedMultiplier === 2
+        ? "sequence"
+        : "adjacent";
+    moveRibbon.dataset.navigationSpeed = String(playbackSpeed * plan.speedMultiplier);
+    if (plan.jumpTo !== null) renderTimelineIndex(plan.jumpTo);
+    for (const next of plan.targets) {
+      if (!(await transitionTo(next, generation, plan.speedMultiplier))) return;
     }
   };
 
@@ -1191,7 +1227,7 @@ if (root) {
   });
   moveRibbon.addEventListener("click", (event) => {
     const button = (event.target as Element).closest<HTMLButtonElement>("[data-move-index]");
-    if (button) void seek(Number(button.dataset.moveIndex), false);
+    if (button) void seekTimelineToken(Number(button.dataset.moveIndex));
   });
   root.querySelectorAll<HTMLButtonElement>("[data-playback-speed]").forEach((button) => {
     button.addEventListener("click", () => {

@@ -9,6 +9,7 @@ import {
   formatStep,
   isSingleStepExtension,
   MAX_PLAYBACK_STEPS,
+  planTimelineClick,
 } from "../../src/client/playback";
 
 describe("algorithm playback timeline", () => {
@@ -75,6 +76,37 @@ describe("algorithm playback timeline", () => {
       expect(isSingleStepExtension(one._0, two._0)).toBe(true);
       expect(isSingleStepExtension(two._0, changed._0)).toBe(false);
     }
+  });
+
+  test("plans animated token navigation by adjacency and algorithm group", () => {
+    const steps = [
+      {groupId: 1},
+      {groupId: 1},
+      {groupId: 1},
+      {groupId: 2},
+      {groupId: 2},
+      {groupId: 2},
+    ];
+    expect(planTimelineClick(steps, 2, 3)).toEqual({
+      jumpTo: null,
+      targets: [3],
+      speedMultiplier: 1,
+    });
+    expect(planTimelineClick(steps, 0, 3)).toEqual({
+      jumpTo: null,
+      targets: [1, 2, 3],
+      speedMultiplier: 2,
+    });
+    expect(planTimelineClick(steps, 3, 0)).toEqual({
+      jumpTo: null,
+      targets: [2, 1, 0],
+      speedMultiplier: 2,
+    });
+    expect(planTimelineClick(steps, 0, 6)).toEqual({
+      jumpTo: 5,
+      targets: [6],
+      speedMultiplier: 1,
+    });
   });
 
   test("keeps final conversion but omits oversized playback state caches", () => {

@@ -196,6 +196,9 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(client, /phaseMilestonePositions/);
   assert.match(client, /Step \$\{completedPhase\.number\} complete/);
   assert.match(client, /Next: \$\{nextPhase\.title\}/);
+  assert.match(client, /planTimelineClick\(activeTimeline\.steps, activeIndex, target\)/);
+  assert.match(client, /"time-travel"/);
+  assert.match(client, /playbackSpeed \* plan\.speedMultiplier/);
 });
 
 test("the tape groups sequences, focuses cubies, and spaces only Academy phases", () => {
