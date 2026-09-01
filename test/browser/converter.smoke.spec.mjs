@@ -18,6 +18,10 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
 
   await expect(page.locator("[data-status]")).toHaveText("Solved default");
   await expect(page.locator('[data-output="orbit64"]')).toHaveText("AAAAAAAAAAAA");
+  const quickOrbitCopy = page.locator("[data-copy-orbit64]");
+  await expect(quickOrbitCopy).toBeVisible();
+  await quickOrbitCopy.click();
+  await expect(quickOrbitCopy).toHaveText("Copied");
   await expect(piecesCard).toBeVisible();
   await expect(orbitCard).toBeVisible();
   await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-webgl", "ready");
@@ -81,6 +85,7 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await expect(page.locator('[data-output="orbit64"]')).toHaveText("AAAAAAAAAAAA");
 
   await page.locator('[data-size="2"]').click();
+  await expect(quickOrbitCopy).toBeHidden();
   await expect(page.locator('[data-title="pieces"]')).toHaveText("2×2 CP / CO");
   await expect(page.locator('[data-output="pieces"]')).not.toContainText("ep:");
   await expect(orbitCard).toBeHidden();

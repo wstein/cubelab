@@ -286,6 +286,24 @@ if (root) {
       ? {TAG: "Custom", _0: customScheme.value.toUpperCase()}
       : (schemeSelect.value as "Western" | "Japanese");
 
+  const copyText = async (value: string): Promise<boolean> => {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      const fallback = document.createElement("textarea");
+      fallback.value = value;
+      fallback.readOnly = true;
+      fallback.style.position = "fixed";
+      fallback.style.opacity = "0";
+      document.body.append(fallback);
+      fallback.select();
+      const copied = document.execCommand("copy");
+      fallback.remove();
+      return copied;
+    }
+  };
+
   const renderSelectedPattern = () => {
     selectedPattern = visiblePatterns[Number(patternSelect.value)] ?? visiblePatterns[0] ?? null;
     patternLoad.disabled = selectedPattern === null;
@@ -452,8 +470,9 @@ if (root) {
   const setOutput = (key: string, value: string, copyable = true) => {
     const output = root.querySelector<HTMLElement>(`[data-output="${key}"]`);
     if (output) output.textContent = value;
-    const copy = root.querySelector<HTMLButtonElement>(`[data-copy="${key}"]`);
-    if (copy) copy.disabled = !copyable;
+    root.querySelectorAll<HTMLButtonElement>(`[data-copy="${key}"]`).forEach((copy) => {
+      copy.disabled = !copyable;
+    });
   };
 
   const updateCardVisibility = () => {
@@ -465,6 +484,8 @@ if (root) {
     if (pieceTitle) {
       pieceTitle.textContent = size === 2 ? "2×2 CP / CO" : "3×3 CP / CO / EP / EO";
     }
+    const orbitQuickCopy = root.querySelector<HTMLButtonElement>("[data-copy-orbit64]");
+    if (orbitQuickCopy) orbitQuickCopy.hidden = size !== 3;
     nissPanel.hidden = size !== 3 || activeTab !== "workbench";
   };
 
@@ -2816,23 +2837,24 @@ if (root) {
   patternPreviewSolution.addEventListener("click", previewDetectedPatternSolution);
   patternCopySolution.addEventListener("click", async () => {
     if (!detectedPattern?.solution) return;
-    await navigator.clipboard.writeText(detectedPattern.solution);
-    patternCopySolution.textContent = "Copied";
+    const copied = await copyText(detectedPattern.solution);
+    patternCopySolution.textContent = copied ? "Copied" : "Copy failed";
     window.setTimeout(() => {
       patternCopySolution.textContent = "Copy solution";
     }, 1500);
   });
 
   root.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) => {
+    const idleLabel = button.textContent ?? "Copy";
     button.addEventListener("click", async () => {
       const key = button.dataset.copy;
       const output = key ? root.querySelector<HTMLElement>(`[data-output="${key}"]`) : null;
       if (button.disabled || !output || output.textContent === "—") return;
-      await navigator.clipboard.writeText(output.textContent ?? "");
-      button.textContent = "Copied";
-      button.classList.add("copied");
+      const copied = await copyText(output.textContent ?? "");
+      button.textContent = copied ? "Copied" : "Copy failed";
+      button.classList.toggle("copied", copied);
       window.setTimeout(() => {
-        button.textContent = "Copy";
+        button.textContent = idleLabel;
         button.classList.remove("copied");
       }, 1500);
     });

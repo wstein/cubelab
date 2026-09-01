@@ -155,7 +155,15 @@ const cards = [
       <section class="input-panel">
         <div class="input-header">
           <label class="panel-label" for="cube-input">Algorithm or cube state</label>
-          <span class="sniffer-badge" data-status aria-live="polite">Solved default</span>
+          <div class="input-header-actions">
+            <span class="sniffer-badge" data-status aria-live="polite">Solved default</span>
+            <button
+              type="button"
+              class="copy-btn input-orbit-copy"
+              data-copy="orbit64"
+              data-copy-orbit64
+            >Copy Orbit64</button>
+          </div>
         </div>
         <textarea
           id="cube-input"

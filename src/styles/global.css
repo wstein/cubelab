@@ -843,6 +843,19 @@ body {
   margin-bottom: 0.75rem;
 }
 
+.input-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.input-orbit-copy {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.74rem;
+}
+
 .panel-label {
   font-size: 0.875rem;
   font-weight: 600;
@@ -866,6 +879,13 @@ body {
   background: rgba(239, 68, 68, 0.15);
   color: #f87171;
   border-color: rgba(239, 68, 68, 0.3);
+}
+
+@media (max-width: 540px) {
+  .input-header {
+    align-items: flex-start;
+    gap: 0.55rem;
+  }
 }
 
 .cube-textarea {

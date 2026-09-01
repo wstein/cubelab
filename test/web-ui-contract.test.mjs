@@ -15,6 +15,8 @@ test("the static shell declares size-scoped cubie and Orbit64 cards", () => {
   assert.match(page, /key: "pieces"[\s\S]*sizes: "2,3"/);
   assert.match(page, /key: "orbit64"[\s\S]*sizes: "3"/);
   assert.match(page, /data-output-card=\{key\}/);
+  assert.match(page, /data-copy-orbit64/);
+  assert.match(page, />Copy Orbit64</);
 });
 
 test("the Vanilla DOM client wires reachability-aware outputs", () => {
@@ -25,7 +27,8 @@ test("the Vanilla DOM client wires reachability-aware outputs", () => {
   assert.match(client, /Orbit64Codec\.decodeState\(compact\)/);
   assert.match(client, /const net = inputValue\.trimEnd\(\)/);
   assert.match(client, /card\.hidden =/);
-  assert.match(client, /copy\.disabled = !copyable/);
+  assert.match(client, /querySelectorAll<HTMLButtonElement>\(`\[data-copy=/);
+  assert.match(client, /orbitQuickCopy\.hidden = size !== 3/);
 });
 
 test("the web UI exposes an explicit lowercase mode without heuristic switching", () => {

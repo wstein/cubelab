@@ -100,6 +100,12 @@ test("accepts explicit composite multiplier symbols and flexible operator spacin
     assert.equal(parse(3, notation).length, 1);
   }
   assert.equal(parse(3, "(R)x2").at(-1).desc._0.TAG, "Rotation");
+  const nestedAsterisk = parse(3, "((M' U)*4 x y (M' U)*4)");
+  assert.equal(nestedAsterisk.length, 1);
+  assert.equal(nestedAsterisk[0].desc.TAG, "Group");
+  const nestedBody = nestedAsterisk[0].desc._0;
+  assert.deepEqual(nestedBody.map((unit) => unit.desc.TAG), ["Group", "Move", "Move", "Group"]);
+  assert.deepEqual([nestedBody[0].desc._1, nestedBody[3].desc._1], [4, 4]);
   rejects(3, "(R)*", /requires a positive integer/);
 });
 
