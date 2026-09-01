@@ -3,6 +3,7 @@ import type {CubeStyle} from "./cube-gl";
 export type SchemeName = "Western" | "Japanese" | "Custom";
 export type LowercaseMode = "Wide" | "InnerSlice";
 export type NotationDialect = "Modern" | "Ruwix";
+export type ActiveTab = "converter" | "beginner" | "workbench";
 
 export type AppState = {
   size: number;
@@ -12,6 +13,7 @@ export type AppState = {
   lowercaseMode: LowercaseMode;
   notationDialect: NotationDialect;
   cubeStyle: CubeStyle;
+  activeTab: ActiveTab;
 };
 
 export const defaultAppState: AppState = {
@@ -22,6 +24,7 @@ export const defaultAppState: AppState = {
   lowercaseMode: "Wide",
   notationDialect: "Modern",
   cubeStyle: "Standard",
+  activeTab: "converter",
 };
 
 type Listener = (state: AppState) => void;
@@ -77,8 +80,12 @@ export const readHash = (hash: string): AppState => {
     params.get("lowercase") === "InnerSlice" ? "InnerSlice" : "Wide";
   const notationDialect: NotationDialect = params.get("dialect") === "Ruwix" ? "Ruwix" : "Modern";
   const cubeStyle: CubeStyle = params.get("style") === "Speed" ? "Speed" : "Standard";
+  const requestedTab = params.get("tab");
+  const activeTab: ActiveTab = requestedTab === "beginner" || requestedTab === "workbench"
+    ? requestedTab
+    : "converter";
   const input = (params.get("alg") ?? "").slice(0, 20_000);
-  return {size, input, scheme, customScheme, lowercaseMode, notationDialect, cubeStyle};
+  return {size, input, scheme, customScheme, lowercaseMode, notationDialect, cubeStyle, activeTab};
 };
 
 export const writeHash = (state: AppState): string => {
@@ -90,6 +97,7 @@ export const writeHash = (state: AppState): string => {
   if (state.lowercaseMode !== "Wide") params.set("lowercase", state.lowercaseMode);
   if (state.notationDialect !== "Modern") params.set("dialect", state.notationDialect);
   if (state.cubeStyle !== "Standard") params.set("style", state.cubeStyle);
+  if (state.activeTab !== "converter") params.set("tab", state.activeTab);
   return `#${params.toString()}`;
 };
 

@@ -23,6 +23,7 @@ describe("application state store", () => {
       lowercaseMode: "InnerSlice" as const,
       notationDialect: "Ruwix" as const,
       cubeStyle: "Speed" as const,
+      activeTab: "workbench" as const,
     };
     expect(readHash(writeHash(state))).toEqual(state);
   });
@@ -37,5 +38,12 @@ describe("application state store", () => {
     expect(parsed.notationDialect).toBe("Modern");
     expect(parsed.cubeStyle).toBe("Standard");
     expect(parsed.input).toHaveLength(20_000);
+    expect(parsed.activeTab).toBe("converter");
+  });
+
+  test("accepts only known workspace tabs", () => {
+    expect(readHash("#tab=beginner").activeTab).toBe("beginner");
+    expect(readHash("#tab=workbench").activeTab).toBe("workbench");
+    expect(readHash("#tab=unknown").activeTab).toBe("converter");
   });
 });

@@ -76,7 +76,13 @@ function skipTrivia(parser) {
             if (match$1 !== undefined) {
               switch (match$1) {
                 case " " :
+                case ")" :
+                case "," :
+                case ":" :
+                case ">" :
                 case "\n" :
+                case "]" :
+                case "}" :
                   scanning = false;
                   break;
                 default:

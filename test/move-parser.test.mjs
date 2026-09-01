@@ -139,6 +139,11 @@ test("comments and timing annotations separate units without changing spans", ()
   assert.deepEqual(units[0].loc, {start: 0, end_: 1});
   assert.equal(units[3].desc._1, -1);
   assert.equal(units[3].loc.end_ - units[3].loc.start, 2);
+
+  const groupedWithTiming = parse(3, "(R U R' U' @1.3s) [R, U @0.8s]");
+  assert.equal(groupedWithTiming.length, 2);
+  assert.equal(groupedWithTiming[0].desc.TAG, "Group");
+  assert.equal(groupedWithTiming[1].desc.TAG, "Commutator");
 });
 
 test("retains internal pauses and block comments as located editor nodes", () => {

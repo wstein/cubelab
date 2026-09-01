@@ -61,7 +61,7 @@ let skipTrivia = parser => {
         let scanning = ref(true)
         while parser.cursor < parser.input->String.length && scanning.contents {
           switch peek(parser) {
-          | Some(" " | "\n") => scanning := false
+          | Some(" " | "\n" | ")" | "]" | "}" | ">" | "," | ":") => scanning := false
           | _ => parser.cursor = parser.cursor + 1
           }
         }
