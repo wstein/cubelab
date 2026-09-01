@@ -410,11 +410,11 @@ export const relativeQuaternion = (
 /**
  * Re-expresses a relative GoCube sensor rotation in viewport axes.
  *
- * Hardware captures establish a world-frame delta and the calibrated GoCube
- * basis `right=-x, up=+y, front=-z`, with rotation direction inverted. Their
- * combined effect on the relative quaternion is (x,-y,z,w). Applying it after
- * the delta is essential: applying the improper component mapping to both
- * absolute samples reverses multiplication order and visibly swaps axes.
+ * The transport's documented display mapping is sensor `(x,y,z)` to viewport
+ * `(x,-z,-y)`. Apply it to the world-frame delta, not to both absolute samples:
+ * the mapping reverses handedness, so applying it before calibration silently
+ * changes a world-frame delta into a local-frame delta whenever the initial
+ * holding pose is not the identity.
  */
 export const orientationInViewportFrame = (
   quaternion: OrientationQuaternion,
@@ -422,8 +422,8 @@ export const orientationInViewportFrame = (
 ): OrientationQuaternion => frame === "gocube-wire"
   ? normalizedQuaternion({
     x: quaternion.x,
-    y: -quaternion.y,
-    z: quaternion.z,
+    y: -quaternion.z,
+    z: -quaternion.y,
     w: quaternion.w,
   })
   : normalizedQuaternion(quaternion);
