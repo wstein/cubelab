@@ -1839,9 +1839,18 @@ if (root) {
     return /(?:chooser|request).*(?:cancelled|canceled)|user cancelled|no (?:bluetooth )?device (?:was )?selected/i
       .test(reason.message);
   };
-  const describeBluetoothFailure = (reason: unknown) => {
+  const isBraveBrowser = async () => {
+    const brave = (navigator as Navigator & {
+      brave?: {isBrave?: () => Promise<boolean>};
+    }).brave;
+    return await brave?.isBrave?.().catch(() => false) ?? false;
+  };
+  const braveBluetoothHelp =
+    "Brave disables Web Bluetooth by default. Open brave://flags/#brave-web-bluetooth-api, set Web Bluetooth API to Enabled, relaunch Brave, then retry.";
+  const describeBluetoothFailure = (reason: unknown, usingBrave: boolean) => {
     const detail = reason instanceof Error ? reason.message : String(reason);
     if (/globally disabled|permission has been blocked|enterprise policy|disabled web bluetooth/i.test(detail)) {
+      if (usingBrave) return braveBluetoothHelp;
       return window.self === window.top
         ? "Bluetooth is blocked by the browser. Allow Bluetooth devices in Chrome or Edge site settings and enable the browser in macOS Privacy & Security, then retry."
         : "Bluetooth is blocked in this embedded preview. Open Cube Rosetta directly in Chrome or Edge, then connect again.";
@@ -1852,6 +1861,7 @@ if (root) {
     return detail;
   };
   smartCubeConnect.addEventListener("click", async () => {
+    const usingBrave = await isBraveBrowser();
     if ((typeof isSecureContext !== "undefined" && !isSecureContext) || !bluetoothPolicyAllows()) {
       showBluetoothUnavailable("Bluetooth permission is blocked for this page");
       return;
@@ -1866,9 +1876,9 @@ if (root) {
     if (typeof bluetooth.getAvailability === "function") {
       const available = await bluetooth.getAvailability().catch(() => null);
       if (available === false) {
-        showBluetoothUnavailable(
-          "Bluetooth is unavailable or blocked. Turn Bluetooth on and allow Chrome or Edge in macOS Privacy & Security, then retry.",
-        );
+        showBluetoothUnavailable(usingBrave
+          ? braveBluetoothHelp
+          : "Bluetooth is unavailable or blocked. Turn Bluetooth on and allow Chrome or Edge in macOS Privacy & Security, then retry.");
         return;
       }
     }
@@ -1891,7 +1901,7 @@ if (root) {
       }
       smartCubeDock.hidden = false;
       smartCubeDock.dataset.phase = "error";
-      smartCubeStatus.textContent = describeBluetoothFailure(reason);
+      smartCubeStatus.textContent = describeBluetoothFailure(reason, usingBrave);
       smartCubeStatus.title = smartCubeStatus.textContent;
     }
   });

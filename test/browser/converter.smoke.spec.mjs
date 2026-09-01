@@ -189,6 +189,10 @@ test("reports blocked Bluetooth without opening the device chooser", async ({pag
         },
       },
     });
+    Object.defineProperty(navigator, "brave", {
+      configurable: true,
+      value: {isBrave: async () => true},
+    });
   });
 
   await page.goto("/");
@@ -196,8 +200,9 @@ test("reports blocked Bluetooth without opening the device chooser", async ({pag
 
   await expect(page.locator("[data-smart-cube-dock]")).toBeVisible();
   await expect(page.locator("[data-smart-cube-status]")).toContainText(
-    "Bluetooth is unavailable or blocked",
+    "brave://flags/#brave-web-bluetooth-api",
   );
+  await expect(page.locator("[data-smart-cube-status]")).toContainText("relaunch Brave");
   await expect(page.locator("[data-smart-cube-status]")).toHaveCSS("white-space", "normal");
   expect(await page.evaluate(() => window.__bluetoothRequestCount)).toBe(0);
 });
