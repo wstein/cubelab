@@ -2,14 +2,19 @@ import {describe, expect, test} from "bun:test";
 
 import * as CubeGeometry from "../../src/Render/CubeGeometry.res.mjs";
 import * as StateTypes from "../../src/State/StateTypes.res.mjs";
-import {cameraMatrices, clampedCanvasSize, vboCapacityFloats} from "../../src/client/cube-gl";
+import {
+  cameraMatrices,
+  clampedCanvasSize,
+  turnTransform,
+  vboCapacityFloats,
+} from "../../src/client/cube-gl";
 
 describe("cube viewport math", () => {
   test("preallocates enough VBO space as cube sizes increase", () => {
     const capacities = [2, 3, 4, 5].map(vboCapacityFloats);
     expect(capacities.every((value) => value > 0)).toBe(true);
     expect(capacities).toEqual([...capacities].sort((a, b) => a - b));
-    expect(capacities.every((value) => value % 10 === 0)).toBe(true);
+    expect(capacities.every((value) => value % 14 === 0)).toBe(true);
     for (const size of [2, 3, 4, 5]) {
       const generated = CubeGeometry.generate(StateTypes.solved(size)._0, "Speed", "Western");
       expect(generated.TAG).toBe("Ok");
@@ -17,6 +22,36 @@ describe("cube viewport math", () => {
         expect(generated._0.data.length).toBeLessThanOrEqual(vboCapacityFloats(size));
       }
     }
+  });
+
+  test("maps logical face, slice, range, and rotation moves to shader transforms", () => {
+    const right = turnTransform(3, {
+      move: {TAG: "FaceTurn", _0: "R", _1: {from_: 1, to_: 1}},
+      turns: 1,
+    });
+    expect(right?.axis).toEqual([1, 0, 0]);
+    expect(right?.min).toBeCloseTo(0.9);
+    expect(right?.max).toBeCloseTo(1.1);
+    expect(right?.angle).toBeCloseTo(-Math.PI / 2);
+
+    const range = turnTransform(5, {
+      move: {TAG: "FaceTurn", _0: "R", _1: {from_: 2, to_: 3}},
+      turns: 2,
+    });
+    expect(range?.min).toBeCloseTo(-0.06);
+    expect(range?.max).toBeCloseTo(0.66);
+    expect(range?.angle).toBeCloseTo(-Math.PI);
+
+    expect(turnTransform(3, {move: {TAG: "SliceTurn", _0: "M"}, turns: 1})).toMatchObject({
+      axis: [1, 0, 0],
+      angle: Math.PI / 2,
+    });
+    expect(turnTransform(3, {move: {TAG: "Rotation", _0: "Y"}, turns: -1})).toEqual({
+      axis: [0, 1, 0],
+      min: -2,
+      max: 2,
+      angle: Math.PI / 2,
+    });
   });
 
   test("clamps device pixel ratio without producing zero-sized canvases", () => {

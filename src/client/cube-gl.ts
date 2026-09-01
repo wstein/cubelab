@@ -7,27 +7,59 @@ export type CubeState = {size: number; facelets: string[][]};
 type GeometryMesh = {data: number[]; vertexCount: number; stride: number};
 type GeometryResult = {TAG: "Ok"; _0: GeometryMesh} | {TAG: "Error"; _0: string};
 type Mat4 = Float32Array;
+export type MoveStep = {
+  move:
+    | {TAG: "FaceTurn"; _0: "U" | "L" | "F" | "R" | "B" | "D"; _1: {from_: number; to_: number}}
+    | {TAG: "SliceTurn"; _0: "M" | "E" | "S"}
+    | {TAG: "Rotation"; _0: "X" | "Y" | "Z"};
+  turns: number;
+};
+export type TurnTransform = {
+  axis: [number, number, number];
+  min: number;
+  max: number;
+  angle: number;
+};
 
 const DEFAULT_YAW = -0.62;
 const DEFAULT_PITCH = 0.48;
 const DEFAULT_DISTANCE = 7.2;
-const FLOATS_PER_VERTEX = 10;
+const FLOATS_PER_VERTEX = 14;
 
 const vertexShaderSource = `
   attribute vec3 aPosition;
   attribute vec3 aNormal;
   attribute vec4 aColour;
+  attribute vec3 aCubie;
+  attribute float aSheen;
   uniform mat4 uModelView;
   uniform mat4 uProjection;
+  uniform float uTurnActive;
+  uniform vec3 uTurnAxis;
+  uniform vec2 uTurnRange;
+  uniform float uTurnAngle;
   varying vec3 vPosition;
   varying vec3 vNormal;
   varying vec4 vColour;
+  varying float vSheen;
+
+  vec3 rotateAround(vec3 value, vec3 axis, float angle) {
+    float cosine = cos(angle);
+    float sine = sin(angle);
+    return value * cosine + cross(axis, value) * sine
+      + axis * dot(axis, value) * (1.0 - cosine);
+  }
 
   void main() {
-    vec4 position = uModelView * vec4(aPosition, 1.0);
+    float layer = dot(aCubie, uTurnAxis);
+    bool turning = uTurnActive > 0.5 && layer >= uTurnRange.x && layer <= uTurnRange.y;
+    vec3 objectPosition = turning ? rotateAround(aPosition, uTurnAxis, uTurnAngle) : aPosition;
+    vec3 objectNormal = turning ? rotateAround(aNormal, uTurnAxis, uTurnAngle) : aNormal;
+    vec4 position = uModelView * vec4(objectPosition, 1.0);
     vPosition = position.xyz;
-    vNormal = normalize(mat3(uModelView) * aNormal);
+    vNormal = normalize(mat3(uModelView) * objectNormal);
     vColour = aColour;
+    vSheen = aSheen;
     gl_Position = uProjection * position;
   }
 `;
@@ -37,22 +69,26 @@ const fragmentShaderSource = `
   varying vec3 vPosition;
   varying vec3 vNormal;
   varying vec4 vColour;
+  varying float vSheen;
   uniform float uSpeedStyle;
 
   void main() {
     vec3 normal = normalize(vNormal);
-    vec3 key = normalize(vec3(0.35, 0.60, 1.0));
-    vec3 fill = normalize(vec3(-0.60, -0.30, 0.50));
+    vec3 key = normalize(vec3(0.42, 0.68, 0.92));
+    vec3 fill = normalize(vec3(-0.74, -0.24, 0.56));
+    vec3 rim = normalize(vec3(-0.35, 0.70, -0.62));
     vec3 view = normalize(-vPosition);
     float keyDiffuse = max(dot(normal, key), 0.0);
     float fillDiffuse = max(dot(normal, fill), 0.0);
-    float light = 0.30 + 0.70 * keyDiffuse + 0.22 * fillDiffuse;
+    float rimDiffuse = max(dot(normal, rim), 0.0);
+    float light = 0.27 + 0.62 * keyDiffuse + 0.20 * fillDiffuse + 0.12 * rimDiffuse;
     float body = 1.0 - smoothstep(0.02, 0.12, distance(vColour.rgb, vec3(0.13, 0.14, 0.17)));
-    float shine = mix(18.0 + 10.0 * uSpeedStyle, 24.0, body);
-    float strength = mix(0.26 + 0.12 * uSpeedStyle, 0.35, body);
+    float shine = mix(28.0, 24.0, body);
+    float strength = mix(0.18 + 0.05 * uSpeedStyle, 0.30, body);
     vec3 halfway = normalize(key + view);
     float specular = strength * pow(max(dot(normal, halfway), 0.0), shine);
-    vec3 colour = min(vColour.rgb * light + vec3(specular), vec3(1.0));
+    vec3 rolledSheen = vColour.rgb * vSheen * (0.45 + 0.55 * rimDiffuse);
+    vec3 colour = min(vColour.rgb * light + rolledSheen + vec3(specular), vec3(1.0));
     gl_FragColor = vec4(colour, vColour.a);
   }
 `;
@@ -60,7 +96,49 @@ const fragmentShaderSource = `
 export const vboCapacityFloats = (size: number): number => {
   const inner = Math.max(0, size - 2);
   const visibleCubies = size ** 3 - inner ** 3;
-  return visibleCubies * 324 * FLOATS_PER_VERTEX;
+  const bodyVertices = visibleCubies * 132;
+  const exposedFaceVertices = 6 * size * size * 336;
+  return (bodyVertices + exposedFaceVertices) * FLOATS_PER_VERTEX;
+};
+
+const normalizedTurns = (turns: number): number => {
+  const normalized = ((turns % 4) + 4) % 4;
+  return normalized === 3 ? -1 : normalized;
+};
+
+export const turnTransform = (size: number, step: MoveStep): TurnTransform | null => {
+  const turns = normalizedTurns(step.turns);
+  if (turns === 0) return null;
+  const quarter = Math.PI / 2;
+  const cell = 3 / size;
+  const outer = 1.5 - cell / 2;
+  const epsilon = cell * 0.1;
+  if (step.move.TAG === "Rotation") {
+    const axis: [number, number, number] =
+      step.move._0 === "X" ? [1, 0, 0] : step.move._0 === "Y" ? [0, 1, 0] : [0, 0, 1];
+    return {axis, min: -2, max: 2, angle: -turns * quarter};
+  }
+  if (step.move.TAG === "SliceTurn") {
+    const axis: [number, number, number] =
+      step.move._0 === "M" ? [1, 0, 0] : step.move._0 === "E" ? [0, 1, 0] : [0, 0, 1];
+    const direction = step.move._0 === "S" ? -1 : 1;
+    return {axis, min: -epsilon, max: epsilon, angle: direction * turns * quarter};
+  }
+  const vectors: Record<"U" | "L" | "F" | "R" | "B" | "D", [number, number, number]> = {
+    U: [0, 1, 0],
+    D: [0, -1, 0],
+    F: [0, 0, 1],
+    B: [0, 0, -1],
+    R: [1, 0, 0],
+    L: [-1, 0, 0],
+  };
+  const range = step.move._1;
+  return {
+    axis: vectors[step.move._0],
+    min: outer - (range.to_ - 1) * cell - epsilon,
+    max: outer - (range.from_ - 1) * cell + epsilon,
+    angle: -turns * quarter,
+  };
 };
 
 export const clampedCanvasSize = (
@@ -175,6 +253,8 @@ export type CubeViewport = {
   setScene: (state: CubeState, palette: CubePalette, style: CubeStyle) => void;
   setState: (state: CubeState, palette: CubePalette) => void;
   setStyle: (style: CubeStyle) => void;
+  animateTurn: (turn: TurnTransform, duration?: number) => Promise<void>;
+  cancelTurn: () => void;
   resetCamera: () => void;
   dispose: () => void;
 };
@@ -215,9 +295,15 @@ export const createCubeViewport = (
   const position = gl.getAttribLocation(program, "aPosition");
   const normal = gl.getAttribLocation(program, "aNormal");
   const colour = gl.getAttribLocation(program, "aColour");
+  const cubie = gl.getAttribLocation(program, "aCubie");
+  const sheen = gl.getAttribLocation(program, "aSheen");
   const modelView = gl.getUniformLocation(program, "uModelView");
   const projection = gl.getUniformLocation(program, "uProjection");
   const speedStyle = gl.getUniformLocation(program, "uSpeedStyle");
+  const turnActive = gl.getUniformLocation(program, "uTurnActive");
+  const turnAxis = gl.getUniformLocation(program, "uTurnAxis");
+  const turnRange = gl.getUniformLocation(program, "uTurnRange");
+  const turnAngle = gl.getUniformLocation(program, "uTurnAngle");
 
   let state: CubeState | null = null;
   let palette: CubePalette = "Western";
@@ -233,6 +319,9 @@ export const createCubeViewport = (
   let previousX = 0;
   let previousY = 0;
   let disposed = false;
+  let activeTurn: TurnTransform | null = null;
+  let turnFrame: number | null = null;
+  let turnGeneration = 0;
 
   const render = () => {
     frame = null;
@@ -258,10 +347,18 @@ export const createCubeViewport = (
     gl.vertexAttribPointer(normal, 3, gl.FLOAT, false, byteStride, 3 * 4);
     gl.enableVertexAttribArray(colour);
     gl.vertexAttribPointer(colour, 4, gl.FLOAT, false, byteStride, 6 * 4);
+    gl.enableVertexAttribArray(cubie);
+    gl.vertexAttribPointer(cubie, 3, gl.FLOAT, false, byteStride, 10 * 4);
+    gl.enableVertexAttribArray(sheen);
+    gl.vertexAttribPointer(sheen, 1, gl.FLOAT, false, byteStride, 13 * 4);
     const matrices = cameraMatrices(width / height, yaw, pitch, distance);
     gl.uniformMatrix4fv(modelView, false, matrices.modelView);
     gl.uniformMatrix4fv(projection, false, matrices.projection);
     gl.uniform1f(speedStyle, style === "Speed" ? 1 : 0);
+    gl.uniform1f(turnActive, activeTurn ? 1 : 0);
+    gl.uniform3fv(turnAxis, activeTurn?.axis ?? [1, 0, 0]);
+    gl.uniform2f(turnRange, activeTurn?.min ?? 0, activeTurn?.max ?? 0);
+    gl.uniform1f(turnAngle, activeTurn?.angle ?? 0);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
     canvas.dataset.webgl = "ready";
   };
@@ -323,6 +420,42 @@ export const createCubeViewport = (
     onError("The WebGL context was lost. Reload the page to restore the preview.");
   };
 
+  const cancelTurn = () => {
+    turnGeneration += 1;
+    if (turnFrame !== null) window.cancelAnimationFrame(turnFrame);
+    turnFrame = null;
+    activeTurn = null;
+    requestRender();
+  };
+
+  const animateTurn = (turn: TurnTransform, duration = 180): Promise<void> => {
+    cancelTurn();
+    const generation = turnGeneration;
+    const started = performance.now();
+    const safeDuration = Math.max(1, duration);
+    return new Promise((resolve) => {
+      const tick = (now: number) => {
+        if (disposed || generation !== turnGeneration) {
+          resolve();
+          return;
+        }
+        const progress = Math.min(1, (now - started) / safeDuration);
+        const eased = 1 - (1 - progress) ** 3;
+        activeTurn = {...turn, angle: turn.angle * eased};
+        requestRender();
+        if (progress < 1) {
+          turnFrame = window.requestAnimationFrame(tick);
+        } else {
+          turnFrame = null;
+          activeTurn = null;
+          requestRender();
+          resolve();
+        }
+      };
+      turnFrame = window.requestAnimationFrame(tick);
+    });
+  };
+
   canvas.addEventListener("pointerdown", pointerDown);
   canvas.addEventListener("pointermove", pointerMove);
   canvas.addEventListener("pointerup", pointerUp);
@@ -342,12 +475,14 @@ export const createCubeViewport = (
 
   return {
     setScene(nextState, nextPalette, nextStyle) {
+      cancelTurn();
       state = nextState;
       palette = nextPalette;
       style = nextStyle;
       upload();
     },
     setState(nextState, nextPalette) {
+      cancelTurn();
       state = nextState;
       palette = nextPalette;
       upload();
@@ -357,6 +492,8 @@ export const createCubeViewport = (
       style = nextStyle;
       upload();
     },
+    animateTurn,
+    cancelTurn,
     resetCamera() {
       yaw = DEFAULT_YAW;
       pitch = DEFAULT_PITCH;
@@ -365,6 +502,7 @@ export const createCubeViewport = (
     },
     dispose() {
       disposed = true;
+      cancelTurn();
       if (frame !== null) window.cancelAnimationFrame(frame);
       resizeObserver.disconnect();
       intersectionObserver.disconnect();

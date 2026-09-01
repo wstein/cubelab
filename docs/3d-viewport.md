@@ -8,19 +8,25 @@ alter the converted state.
 
 `CubeGeometry.generate` accepts a validated 2×2 through 5×5 state, a surface
 style, and a display palette. It returns a deterministic interleaved mesh with
-ten floats per vertex:
+fourteen floats per vertex:
 
 ```text
-position.xyz, normal.xyz, colour.rgba
+position.xyz, normal.xyz, colour.rgba, cubieCentre.xyz, rollSheen
 ```
+
+`cubieCentre` is constant across every triangle belonging to one physical piece.
+The vertex shader uses that coordinate to select complete cubies for an animated
+layer, avoiding the edge-vertex misclassification that coordinate-only clipping
+would cause.
 
 The two styles are intentionally different physical models:
 
-- **Standard** builds beveled charcoal cubie bodies and places smaller vinyl-coloured
-  tiles just above exposed faces.
-- **Speed** builds stickerless pieces whose exposed caps are coloured plastic. Edge
-  rolls use three cylindrical segments with smooth normals, and corner patches carry
-  the adjacent face colours into the rounded join.
+- **Standard** builds subtly beveled charcoal cubie bodies and places 84%-width,
+  rounded vinyl-coloured tiles just above exposed faces.
+- **Speed** builds stickerless pieces from one continuous rounded cap and three
+  smoothly-normaled roll bands per exposed face. The band reaches the full piece
+  boundary, so adjacent coloured faces meet without disconnected corner fans or
+  punctures. A per-vertex sheen value gives the rolled plastic a satin highlight.
 
 Every cube has the same world-space half-extent. Increasing the puzzle size therefore
 adds smaller pieces instead of making the rendered object larger.
@@ -40,6 +46,13 @@ change. There is no perpetual animation loop. An `IntersectionObserver`
 suppresses work while the viewport is off screen, and the backing canvas
 clamps device pixel ratio to 2.
 
+Logical face, range, slice, and whole-cube moves map to a shader axis, a cubie-centre
+selection interval, and a signed target angle. During a transition, Rodrigues'
+rotation is applied to both position and normal for selected cubies. The easing curve
+is cubic ease-out; completing an animation clears the temporary transform so the
+caller can upload the committed canonical state. Cancelling, replacing, or disposing
+the viewport also clears pending animation frames.
+
 Pointer drag changes the orbit camera, the wheel controls distance, and reset
 restores the documented isometric view. WebGL initialization and context-loss
 failures are reported to the surrounding interface without affecting any text
@@ -48,14 +61,14 @@ codec.
 ## Application integration
 
 One observable application state contains the selected size, raw input, colour
-scheme, lowercase dialect, and cube style. Store notifications are coalesced into
+scheme, lowercase interpretation, numbered-layer dialect, and cube style. Store notifications are coalesced into
 one `requestAnimationFrame`, so text cards and the viewport update from the same
 parse result during the next browser paint.
 
 The input badge reports the successful branch of the deterministic parser cascade:
 algorithm, Orbit64, cubie coordinates, compact facelets, compact colours, facelet
 net, or colour net. Invalid input leaves the last valid 3D state visible and marks
-both status areas as invalid.
+the input status as invalid.
 
 Shareable settings are written to the URL hash after 300 milliseconds without
 adding browser-history entries. Hash input is validated, and imported text is

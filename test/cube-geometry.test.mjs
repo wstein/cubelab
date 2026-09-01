@@ -11,13 +11,13 @@ const generated = (state, style = "Standard", palette = "Western") => {
   return result._0;
 };
 
-test("geometry is deterministic and interleaves position, normal, and RGBA", () => {
+test("geometry is deterministic and interleaves material and cubie animation metadata", () => {
   for (const size of [2, 3, 4, 5]) {
     const state = StateTypes.solved(size)._0;
     for (const style of ["Standard", "Speed"]) {
       const one = generated(state, style);
       const two = generated(state, style);
-      assert.equal(one.stride, 10);
+      assert.equal(one.stride, 14);
       assert.equal(one.data.length, one.vertexCount * one.stride);
       assert.deepEqual(one, two);
       assert.ok(one.vertexCount > 0);
@@ -36,6 +36,18 @@ test("speed geometry has rolled edges while Standard has lifted stickers", () =>
   const speedPositions = speed.data.filter((_, index) => index % speed.stride < 3);
   assert.ok(Math.max(...standardPositions.map(Math.abs)) > 1.5);
   assert.ok(Math.max(...speedPositions.map(Math.abs)) <= 1.5);
+  assert.ok(speed.data.some((value, index) => index % speed.stride === 13 && value > 0));
+  assert.ok(standard.data.every((value, index) => index % standard.stride !== 13 || value === 0));
+});
+
+test("every vertex carries the centre of its owning cubie", () => {
+  const mesh = generated(StateTypes.solved(3)._0, "Speed");
+  const allowed = new Set([-1, 0, 1]);
+  for (let index = 0; index < mesh.data.length; index += mesh.stride) {
+    const centre = mesh.data.slice(index + 10, index + 13);
+    assert.equal(centre.length, 3);
+    assert.ok(centre.every((coordinate) => allowed.has(coordinate)));
+  }
 });
 
 test("geometry preserves positions while recolouring a changed cube state", () => {

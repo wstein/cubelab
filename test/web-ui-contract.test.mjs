@@ -62,3 +62,11 @@ test("the viewport renders on demand and pauses while off screen", () => {
   assert.match(viewport, /bufferSubData/);
   assert.doesNotMatch(viewport, /requestAnimationFrame\(render\)[\s\S]{0,100}requestAnimationFrame/);
 });
+
+test("the viewport animates complete cubies with shader layer transforms", () => {
+  assert.match(viewport, /attribute vec3 aCubie/);
+  assert.match(viewport, /rotateAround/);
+  assert.match(viewport, /export const turnTransform/);
+  assert.match(viewport, /animateTurn/);
+  assert.match(viewport, /1 - \(1 - progress\) \*\* 3/);
+});

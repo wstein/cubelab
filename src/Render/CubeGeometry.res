@@ -25,7 +25,19 @@ type mesh = {
   stride: int,
 }
 
-let stride = 10
+type emitter = {
+  data: array<float>,
+  cubie: vec3,
+}
+
+type rimPoint = {
+  u: float,
+  v: float,
+  nu: float,
+  nv: float,
+}
+
+let stride = 14
 let halfExtent = 1.5
 let body = {r: 0.13, g: 0.14, b: 0.17, a: 1.0}
 
@@ -104,40 +116,44 @@ let colourOf = (~style, ~palette, face) => {
   }
 }
 
-let pushVertex = (data, position, normal, colour) => {
-  data->Array.push(position.x)->ignore
-  data->Array.push(position.y)->ignore
-  data->Array.push(position.z)->ignore
-  data->Array.push(normal.x)->ignore
-  data->Array.push(normal.y)->ignore
-  data->Array.push(normal.z)->ignore
-  data->Array.push(colour.r)->ignore
-  data->Array.push(colour.g)->ignore
-  data->Array.push(colour.b)->ignore
-  data->Array.push(colour.a)->ignore
+let pushVertex = (emitter, position, normal, colour, sheen) => {
+  emitter.data->Array.push(position.x)->ignore
+  emitter.data->Array.push(position.y)->ignore
+  emitter.data->Array.push(position.z)->ignore
+  emitter.data->Array.push(normal.x)->ignore
+  emitter.data->Array.push(normal.y)->ignore
+  emitter.data->Array.push(normal.z)->ignore
+  emitter.data->Array.push(colour.r)->ignore
+  emitter.data->Array.push(colour.g)->ignore
+  emitter.data->Array.push(colour.b)->ignore
+  emitter.data->Array.push(colour.a)->ignore
+  emitter.data->Array.push(emitter.cubie.x)->ignore
+  emitter.data->Array.push(emitter.cubie.y)->ignore
+  emitter.data->Array.push(emitter.cubie.z)->ignore
+  emitter.data->Array.push(sheen)->ignore
 }
 
-let emitTriangle = (data, a, b, c, na, nb, nc, colour, wanted) => {
+let emitTriangle = (emitter, a, b, c, na, nb, nc, colour, wanted, ~sheen=0.0) => {
   let facing = cross(sub(b, a), sub(c, a))
   if dot(facing, wanted) >= 0.0 {
-    pushVertex(data, a, na, colour)
-    pushVertex(data, b, nb, colour)
-    pushVertex(data, c, nc, colour)
+    pushVertex(emitter, a, na, colour, sheen)
+    pushVertex(emitter, b, nb, colour, sheen)
+    pushVertex(emitter, c, nc, colour, sheen)
   } else {
-    pushVertex(data, a, na, colour)
-    pushVertex(data, c, nc, colour)
-    pushVertex(data, b, nb, colour)
+    pushVertex(emitter, a, na, colour, sheen)
+    pushVertex(emitter, c, nc, colour, sheen)
+    pushVertex(emitter, b, nb, colour, sheen)
   }
 }
 
-let emitQuad = (data, a, b, c, d, na, nb, nc, nd, colour, wanted) => {
-  emitTriangle(data, a, b, c, na, nb, nc, colour, wanted)
-  emitTriangle(data, a, c, d, na, nc, nd, colour, wanted)
+let emitQuad = (emitter, a, b, c, d, na, nb, nc, nd, colour, wanted, ~sheen=0.0) => {
+  emitTriangle(emitter, a, b, c, na, nb, nc, colour, wanted, ~sheen)
+  emitTriangle(emitter, a, c, d, na, nc, nd, colour, wanted, ~sheen)
 }
 
 let faceCentre = (centre, face, out) => add(centre, scale(faceNormal(face), out))
 
-let emitFace = (data, centre, face, out, side, colour) => {
+let emitFace = (emitter, centre, face, out, side, colour) => {
   let half = side /. 2.0
   let normal = faceNormal(face)
   let row = scale(rowAxis(face), half)
@@ -147,7 +163,7 @@ let emitFace = (data, centre, face, out, side, colour) => {
   let b = sub(add(middle, row), col)
   let c = add(add(middle, row), col)
   let d = add(sub(middle, row), col)
-  emitQuad(data, a, b, c, d, normal, normal, normal, normal, colour, normal)
+  emitQuad(emitter, a, b, c, d, normal, normal, normal, normal, colour, normal)
 }
 
 let edges: array<(StateTypes.face, StateTypes.face)> = [
@@ -210,7 +226,7 @@ let cubieCentre = (~size, ~gx, ~gy, ~gz) => {
   )
 }
 
-let emitFlatBevels = (data, centre, half, flat, colour) => {
+let emitFlatBevels = (emitter, centre, half, flat, colour) => {
   for index in 0 to edges->Array.length - 1 {
     let (faceA, faceB) = Belt.Array.getUnsafe(edges, index)
     let na = faceNormal(faceA)
@@ -223,11 +239,11 @@ let emitFlatBevels = (data, centre, half, flat, colour) => {
     let c = add(centre, add(onB, scale(along, flat)))
     let d = add(centre, add(onB, scale(along, -flat)))
     let wanted = normalize(add(na, nb))
-    emitQuad(data, a, b, c, d, na, na, nb, nb, colour, wanted)
+    emitQuad(emitter, a, b, c, d, na, na, nb, nb, colour, wanted)
   }
 }
 
-let emitFlatCorners = (data, centre, half, flat, colour) => {
+let emitFlatCorners = (emitter, centre, half, flat, colour) => {
   for index in 0 to corners->Array.length - 1 {
     let (faceA, faceB, faceC) = Belt.Array.getUnsafe(corners, index)
     let na = faceNormal(faceA)
@@ -236,7 +252,7 @@ let emitFlatCorners = (data, centre, half, flat, colour) => {
     let a = add(centre, add(scale(na, half), add(scale(nb, flat), scale(nc, flat))))
     let b = add(centre, add(scale(nb, half), add(scale(nc, flat), scale(na, flat))))
     let c = add(centre, add(scale(nc, half), add(scale(na, flat), scale(nb, flat))))
-    emitTriangle(data, a, b, c, na, nb, nc, colour, normalize(add(na, add(nb, nc))))
+    emitTriangle(emitter, a, b, c, na, nb, nc, colour, normalize(add(na, add(nb, nc))))
   }
 }
 
@@ -247,130 +263,152 @@ let paintFor = (state: StateTypes.cubeState, ~style, ~palette, ~last, ~gx, ~gy, 
     body
   }
 
+let roundedRim = (~half, ~radius, ~steps): array<rimPoint> => {
+  let points = []
+  let flat = half -. radius
+  for quarter in 0 to 3 {
+    let hubU = if quarter == 0 || quarter == 3 {
+      flat
+    } else {
+      -.flat
+    }
+    let hubV = if quarter <= 1 {
+      flat
+    } else {
+      -.flat
+    }
+    for step in 0 to steps - 1 {
+      let angle =
+        (Float.fromInt(quarter) +. Float.fromInt(step) /. Float.fromInt(steps)) *.
+        Math.Constants.pi /. 2.0
+      let nu = Math.cos(angle)
+      let nv = Math.sin(angle)
+      points->Array.push({u: hubU +. radius *. nu, v: hubV +. radius *. nv, nu, nv})
+    }
+  }
+  points
+}
+
+let pointOnFace = (centre, face, out, point) =>
+  add(
+    faceCentre(centre, face, out),
+    add(scale(colAxis(face), point.u), scale(rowAxis(face), point.v)),
+  )
+
+let emitRoundedFace = (emitter, centre, face, out, side, radius, colour) => {
+  let normal = faceNormal(face)
+  let middle = faceCentre(centre, face, out)
+  let rim = roundedRim(~half=side /. 2.0, ~radius, ~steps=4)
+  for index in 0 to rim->Array.length - 1 {
+    let next = (index + 1) % rim->Array.length
+    emitTriangle(
+      emitter,
+      middle,
+      pointOnFace(centre, face, out, Belt.Array.getUnsafe(rim, index)),
+      pointOnFace(centre, face, out, Belt.Array.getUnsafe(rim, next)),
+      normal,
+      normal,
+      normal,
+      colour,
+      normal,
+    )
+  }
+}
+
+let emitPillowedFace = (emitter, centre, face, half, bevel, radius, colour) => {
+  let normal = faceNormal(face)
+  let innerHalf = half -. bevel
+  let rim = roundedRim(~half=innerHalf, ~radius=Math.min(radius, innerHalf *. 0.45), ~steps=4)
+  let middle = faceCentre(centre, face, half)
+  let positionAt = (point, progress) => {
+    let largest = Math.max(Math.abs(point.u), Math.abs(point.v))
+    let outerScale = if largest < 0.000001 {
+      1.0
+    } else {
+      half /. largest
+    }
+    let blend = Math.sin(progress *. Math.Constants.pi /. 2.0)
+    let expanded = 1.0 +. (outerScale -. 1.0) *. blend
+    let out = half -. bevel *. (1.0 -. Math.cos(progress *. Math.Constants.pi /. 2.0))
+    pointOnFace(
+      centre,
+      face,
+      out,
+      {u: point.u *. expanded, v: point.v *. expanded, nu: point.nu, nv: point.nv},
+    )
+  }
+  let normalAt = (point, progress) => {
+    let angle = progress *. Math.Constants.pi /. 2.0
+    let outward = add(scale(colAxis(face), point.nu), scale(rowAxis(face), point.nv))
+    normalize(add(scale(normal, Math.cos(angle)), scale(outward, Math.sin(angle))))
+  }
+
+  for index in 0 to rim->Array.length - 1 {
+    let next = (index + 1) % rim->Array.length
+    let here = Belt.Array.getUnsafe(rim, index)
+    let there = Belt.Array.getUnsafe(rim, next)
+    emitTriangle(
+      emitter,
+      middle,
+      positionAt(here, 0.0),
+      positionAt(there, 0.0),
+      normal,
+      normal,
+      normal,
+      colour,
+      normal,
+    )
+  }
+
+  let bands = 3
+  for band in 0 to bands - 1 {
+    let first = Float.fromInt(band) /. Float.fromInt(bands)
+    let second = Float.fromInt(band + 1) /. Float.fromInt(bands)
+    let sheen = 0.22 *. Math.sin((first +. second) /. 2.0 *. Math.Constants.pi)
+    for index in 0 to rim->Array.length - 1 {
+      let next = (index + 1) % rim->Array.length
+      let here = Belt.Array.getUnsafe(rim, index)
+      let there = Belt.Array.getUnsafe(rim, next)
+      emitQuad(
+        emitter,
+        positionAt(here, first),
+        positionAt(here, second),
+        positionAt(there, second),
+        positionAt(there, first),
+        normalAt(here, first),
+        normalAt(here, second),
+        normalAt(there, second),
+        normalAt(there, first),
+        colour,
+        normalize(add(normalAt(here, first), normalAt(there, second))),
+        ~sheen,
+      )
+    }
+  }
+}
+
 let emitStandardCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, ~gz) => {
   let size = state.size
   let cell = 2.0 *. halfExtent /. Float.fromInt(size)
   let centre = cubieCentre(~size, ~gx, ~gy, ~gz)
+  let emitter = {data, cubie: centre}
   let half = 0.999 *. cell /. 2.0
   let bevel = 0.03 *. cell
   let flat = half -. bevel
   StateTypes.storageOrder->Array.forEach(face =>
-    emitFace(data, centre, face, half, 2.0 *. flat, body)
+    emitFace(emitter, centre, face, half, 2.0 *. flat, body)
   )
-  emitFlatBevels(data, centre, half, flat, body)
-  emitFlatCorners(data, centre, half, flat, body)
+  emitFlatBevels(emitter, centre, half, flat, body)
+  emitFlatCorners(emitter, centre, half, flat, body)
 
   let last = size - 1
   StateTypes.storageOrder->Array.forEach(face =>
     if isExposed(~last, ~gx, ~gy, ~gz, face) {
       let colour = colourOf(~style=Standard, ~palette, faceletAt(state, ~gx, ~gy, ~gz, face))
-      emitFace(data, centre, face, half +. 0.005 *. cell, 0.80 *. cell, colour)
+      let side = 0.84 *. cell
+      emitRoundedFace(emitter, centre, face, half +. 0.005 *. cell, side, 0.05 *. side, colour)
     }
   )
-}
-
-let emitRolledEdges = (
-  data,
-  state: StateTypes.cubeState,
-  centre,
-  flat,
-  bevel,
-  ~palette,
-  ~gx,
-  ~gy,
-  ~gz,
-) => {
-  let last = state.size - 1
-  let steps = 3
-  for index in 0 to edges->Array.length - 1 {
-    let (faceA, faceB) = Belt.Array.getUnsafe(edges, index)
-    let na = faceNormal(faceA)
-    let nb = faceNormal(faceB)
-    let along = cross(nb, na)
-    let hub = add(centre, add(scale(na, flat), scale(nb, flat)))
-    for step in 0 to steps - 1 {
-      let one = Float.fromInt(step) /. Float.fromInt(steps) *. Math.Constants.pi /. 2.0
-      let two = Float.fromInt(step + 1) /. Float.fromInt(steps) *. Math.Constants.pi /. 2.0
-      let n1 = normalize(add(scale(na, Math.cos(one)), scale(nb, Math.sin(one))))
-      let n2 = normalize(add(scale(na, Math.cos(two)), scale(nb, Math.sin(two))))
-      let a = add(add(hub, scale(along, -flat)), scale(n1, bevel))
-      let b = add(add(hub, scale(along, flat)), scale(n1, bevel))
-      let c = add(add(hub, scale(along, flat)), scale(n2, bevel))
-      let d = add(add(hub, scale(along, -flat)), scale(n2, bevel))
-      let ownFace = if step * 2 < steps {
-        faceA
-      } else {
-        faceB
-      }
-      let colour = paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, ownFace)
-      emitQuad(data, a, b, c, d, n1, n1, n2, n2, colour, normalize(add(n1, n2)))
-    }
-  }
-}
-
-let emitRoundedCorners = (
-  data,
-  state: StateTypes.cubeState,
-  centre,
-  half,
-  flat,
-  bevel,
-  ~palette,
-  ~gx,
-  ~gy,
-  ~gz,
-) => {
-  let last = state.size - 1
-  for index in 0 to corners->Array.length - 1 {
-    let (faceA, faceB, faceC) = Belt.Array.getUnsafe(corners, index)
-    let na = faceNormal(faceA)
-    let nb = faceNormal(faceB)
-    let nc = faceNormal(faceC)
-    let a = add(centre, add(scale(na, half), add(scale(nb, flat), scale(nc, flat))))
-    let b = add(centre, add(scale(nb, half), add(scale(nc, flat), scale(na, flat))))
-    let c = add(centre, add(scale(nc, half), add(scale(na, flat), scale(nb, flat))))
-    let facing = normalize(add(na, add(nb, nc)))
-    let hub = add(centre, add(scale(add(na, add(nb, nc)), flat), scale(facing, bevel)))
-    let ab = normalize(add(na, nb))
-    let bc = normalize(add(nb, nc))
-    let ca = normalize(add(nc, na))
-    let middleA = scale(add(a, b), 0.5)
-    let middleB = scale(add(b, c), 0.5)
-    let middleC = scale(add(c, a), 0.5)
-    emitTriangle(
-      data,
-      a,
-      middleA,
-      hub,
-      na,
-      ab,
-      facing,
-      paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, faceA),
-      facing,
-    )
-    emitTriangle(
-      data,
-      b,
-      middleB,
-      hub,
-      nb,
-      bc,
-      facing,
-      paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, faceB),
-      facing,
-    )
-    emitTriangle(
-      data,
-      c,
-      middleC,
-      hub,
-      nc,
-      ca,
-      facing,
-      paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, faceC),
-      facing,
-    )
-  }
 }
 
 let emitSpeedCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, ~gz) => {
@@ -378,21 +416,26 @@ let emitSpeedCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, ~gz
   let last = size - 1
   let cell = 2.0 *. halfExtent /. Float.fromInt(size)
   let centre = cubieCentre(~size, ~gx, ~gy, ~gz)
+  let emitter = {data, cubie: centre}
   let half = 0.999 *. cell /. 2.0
   let bevel = 0.06 *. cell
   let flat = half -. bevel
   StateTypes.storageOrder->Array.forEach(face =>
-    emitFace(
-      data,
-      centre,
-      face,
-      half,
-      2.0 *. flat,
-      paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, face),
-    )
+    emitFace(emitter, centre, face, flat, 2.0 *. flat, body)
   )
-  emitRolledEdges(data, state, centre, flat, bevel, ~palette, ~gx, ~gy, ~gz)
-  emitRoundedCorners(data, state, centre, half, flat, bevel, ~palette, ~gx, ~gy, ~gz)
+  StateTypes.storageOrder->Array.forEach(face =>
+    if isExposed(~last, ~gx, ~gy, ~gz, face) {
+      emitPillowedFace(
+        emitter,
+        centre,
+        face,
+        half,
+        bevel,
+        0.12 *. cell,
+        paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, face),
+      )
+    }
+  )
 }
 
 let validate = (state: StateTypes.cubeState) => {
