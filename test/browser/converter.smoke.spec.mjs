@@ -252,8 +252,46 @@ test("supports keyboard playback, sequence navigation, and camera reset", async 
   await autoOrbit.click();
   await expect(autoOrbit).toHaveAttribute("aria-pressed", "true");
   await autoOrbit.evaluate((element) => element.blur());
-  await page.keyboard.press("r");
+  await page.keyboard.press("c");
   await expect(autoOrbit).toHaveAttribute("aria-pressed", "false");
+});
+
+test("enters direct notation moves from the studio keyboard and exposes shortcut help", async ({page}) => {
+  await page.goto("/");
+  const input = page.locator("[data-input]");
+  const canvas = page.locator("[data-cube-canvas]");
+  await input.fill("");
+  await canvas.focus();
+
+  await page.keyboard.press("r");
+  await expect(input).toHaveValue("R");
+  await page.keyboard.press("Shift+u");
+  await expect(input).toHaveValue("R U'");
+  await page.keyboard.press("Alt+f");
+  await expect(input).toHaveValue("R U' Fw");
+  await page.keyboard.press("l");
+  await page.keyboard.press("l");
+  await expect(input).toHaveValue("R U' Fw L2");
+  await page.keyboard.press("d");
+  await page.keyboard.press("2");
+  await expect(input).toHaveValue("R U' Fw L2 D2");
+  await page.keyboard.press("w");
+  await page.keyboard.press("b");
+  await expect(input).toHaveValue("R U' Fw L2 D2 Bw");
+  await page.keyboard.press("m");
+  await expect(input).toHaveValue("R U' Fw L2 D2 Bw M");
+  await page.keyboard.press("Shift+x");
+  await expect(input).toHaveValue("R U' Fw L2 D2 Bw M x'");
+
+  await page.keyboard.press("Shift+/");
+  await expect(page.locator("[data-shortcuts-dialog]")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("[data-shortcuts-dialog]")).not.toBeVisible();
+
+  await input.focus();
+  await page.keyboard.press("End");
+  await page.keyboard.press("r");
+  await expect(input).toHaveValue("R U' Fw L2 D2 Bw M x'r");
 });
 
 test("animates timeline token clicks and time-travels only across distant groups", async ({page}) => {

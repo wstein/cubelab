@@ -108,6 +108,9 @@ if (root) {
   const playbackPlay = root.querySelector<HTMLButtonElement>("[data-playback-play]")!;
   const playbackEnd = root.querySelector<HTMLButtonElement>("[data-playback-end]")!;
   const playbackLimit = root.querySelector<HTMLElement>("[data-playback-limit]")!;
+  const shortcutsHelp = root.querySelector<HTMLButtonElement>("[data-shortcuts-help]")!;
+  const shortcutsDialog = root.querySelector<HTMLDialogElement>("[data-shortcuts-dialog]")!;
+  const shortcutsClose = root.querySelector<HTMLButtonElement>("[data-shortcuts-close]")!;
   const compatibilityStrip = root.querySelector<HTMLElement>("[data-compatibility]")!;
   const transformButtons = root.querySelectorAll<HTMLButtonElement>("[data-alg-transform]");
   const nissPanel = root.querySelector<HTMLDetailsElement>("[data-niss-panel]")!;
@@ -368,6 +371,13 @@ if (root) {
   let looping = false;
   let playbackDirection: -1 | 0 | 1 = 0;
   let playbackGeneration = 0;
+  let widePrefixExpires = 0;
+  let pendingDirectMove: {
+    signature: string;
+    token: string;
+    doubledToken: string;
+    timeout: number;
+  } | null = null;
   let lastLabel = "";
   let focusedGroup: HTMLElement | null = null;
   let focusedPiece: string | null = null;
@@ -812,7 +822,7 @@ if (root) {
       renderTimelineIndex(bounded);
       return generation === playbackGeneration;
     }
-    const duration = 180
+    const duration = 360
       * (Math.abs(transform.angle) > Math.PI / 2 + 0.01 ? 1.35 : 1)
       / playbackSpeed
       / speedMultiplier;
@@ -1102,6 +1112,10 @@ if (root) {
     scheduleUpdate();
   });
   input.addEventListener("input", () => {
+    if (pendingDirectMove !== null) {
+      window.clearTimeout(pendingDirectMove.timeout);
+      pendingDirectMove = null;
+    }
     updateTransformAvailability(false);
     updateAcademySource(null);
     store.patch({input: input.value});
@@ -1372,6 +1386,8 @@ if (root) {
     viewport?.resetCamera();
   };
   root.querySelector<HTMLButtonElement>("[data-reset-camera]")!.addEventListener("click", resetCameraView);
+  shortcutsHelp.addEventListener("click", () => shortcutsDialog.showModal());
+  shortcutsClose.addEventListener("click", () => shortcutsDialog.close());
   autoOrbitButton.addEventListener("click", () => {
     const enabled = autoOrbitButton.getAttribute("aria-pressed") !== "true";
     autoOrbitButton.setAttribute("aria-pressed", String(enabled));
@@ -1437,17 +1453,111 @@ if (root) {
     button.classList.toggle("active", looping);
     button.setAttribute("aria-pressed", String(looping));
   });
+
+  const appendDirectMove = (token: string) => {
+    if (input.value.trim() !== "" && activeTimeline === null) return;
+    const trimmed = input.value.trimEnd();
+    const lastLine = trimmed.slice(trimmed.lastIndexOf("\n") + 1);
+    const afterLineComment = lastLine.includes("//") || /(^|\s)#/.test(lastLine);
+    const separator = trimmed === "" ? "" : afterLineComment ? "\n" : " ";
+    const next = `${trimmed}${separator}${token}`;
+    if (next.length <= 20_000) store.patch({input: next});
+  };
+
+  const flushPendingDirectMove = () => {
+    if (pendingDirectMove === null) return;
+    const pending = pendingDirectMove;
+    window.clearTimeout(pending.timeout);
+    pendingDirectMove = null;
+    appendDirectMove(pending.token);
+  };
+
+  const queueDirectMove = (base: string, wide: boolean, prime: boolean) => {
+    const stem = `${base}${wide ? "w" : ""}`;
+    const signature = `${stem}${prime ? "'" : ""}`;
+    if (pendingDirectMove !== null) {
+      const pending = pendingDirectMove;
+      window.clearTimeout(pending.timeout);
+      pendingDirectMove = null;
+      if (pending.signature === signature) {
+        appendDirectMove(pending.doubledToken);
+        return;
+      }
+      appendDirectMove(pending.token);
+    }
+    const token = `${stem}${prime ? "'" : ""}`;
+    const timeout = window.setTimeout(() => {
+      if (pendingDirectMove?.signature !== signature) return;
+      pendingDirectMove = null;
+      appendDirectMove(token);
+    }, 250);
+    pendingDirectMove = {signature, token, doubledToken: `${stem}2`, timeout};
+  };
+
   window.addEventListener("keydown", (event) => {
     const target = event.target;
     const editing = target instanceof HTMLElement && (
       target.isContentEditable || target.closest("input, textarea, select, button") !== null
     );
-    if (editing || event.metaKey || event.ctrlKey || event.altKey) return;
-    if (event.key.toLowerCase() === "r") {
+    if (editing || event.metaKey || event.ctrlKey) return;
+    if (
+      event.key === "?"
+      || (event.code === "Slash" && event.shiftKey)
+      || event.key.toLowerCase() === "h"
+    ) {
       event.preventDefault();
+      flushPendingDirectMove();
+      if (shortcutsDialog.open) shortcutsDialog.close();
+      else shortcutsDialog.showModal();
+      return;
+    }
+    if (shortcutsDialog.open) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      if (pendingDirectMove !== null) {
+        window.clearTimeout(pendingDirectMove.timeout);
+        pendingDirectMove = null;
+      }
+      stopPlayback();
+      clearTutorialFocus();
+      clearTurnGuide();
+      return;
+    }
+    if (event.key.toLowerCase() === "c" && !event.altKey) {
+      event.preventDefault();
+      flushPendingDirectMove();
       resetCameraView();
       return;
     }
+    if (!event.repeat && event.code === "KeyW" && !event.altKey) {
+      event.preventDefault();
+      widePrefixExpires = performance.now() + 600;
+      return;
+    }
+    if (!event.repeat && (event.code === "Digit2" || event.code === "Numpad2")) {
+      if (pendingDirectMove !== null) {
+        event.preventDefault();
+        const pending = pendingDirectMove;
+        window.clearTimeout(pending.timeout);
+        pendingDirectMove = null;
+        appendDirectMove(pending.doubledToken);
+      }
+      return;
+    }
+    const directCode = /^Key([RUFLDBMESXYZ])$/.exec(event.code)?.[1];
+    if (!event.repeat && directCode) {
+      const face = "RUFLDB".includes(directCode);
+      if (!event.altKey || face) {
+        event.preventDefault();
+        const wide = face && (event.altKey || performance.now() <= widePrefixExpires);
+        widePrefixExpires = 0;
+        const base = "XYZ".includes(directCode) ? directCode.toLowerCase() : directCode;
+        queueDirectMove(base, wide, event.shiftKey);
+        return;
+      }
+    }
+    if (event.altKey) return;
+    flushPendingDirectMove();
     if (!activeTimeline?.states || playback.hidden) return;
     switch (event.key) {
       case " ":
@@ -1460,6 +1570,14 @@ if (root) {
         void seek(0, false);
         break;
       case "End":
+        event.preventDefault();
+        void seek(activeTimeline.steps.length, false);
+        break;
+      case "0":
+        event.preventDefault();
+        void seek(0, false);
+        break;
+      case "$":
         event.preventDefault();
         void seek(activeTimeline.steps.length, false);
         break;

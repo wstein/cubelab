@@ -272,6 +272,65 @@ body {
   color: #c7d2fe;
 }
 
+.shortcuts-dialog {
+  width: min(42rem, calc(100vw - 2rem));
+  padding: 1.2rem;
+  border: 1px solid rgba(129, 140, 248, 0.46);
+  border-radius: 0.9rem;
+  background: rgba(10, 15, 28, 0.96);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.58);
+  color: var(--text-primary);
+}
+
+.shortcuts-dialog::backdrop {
+  background: rgba(2, 6, 23, 0.7);
+  backdrop-filter: blur(5px);
+}
+
+.shortcuts-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.shortcuts-dialog h3 {
+  margin: 0.25rem 0 0;
+  font-size: 1.25rem;
+}
+
+.shortcut-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.shortcut-grid div {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.shortcut-grid dt {
+  color: #c7d2fe;
+  font: 600 0.76rem var(--font-mono);
+}
+
+.shortcut-grid dd {
+  margin: 0.25rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.shortcuts-dialog > p {
+  margin: 0.9rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
 .playback {
   padding: 0.85rem 1rem 1rem;
   border-top: 1px solid var(--border-subtle);
@@ -1239,5 +1298,24 @@ body {
 
   .toolbar-group {
     flex: 0 0 auto;
+  }
+
+  .playback-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .playback-transport {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .playback-options {
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+
+  .shortcut-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

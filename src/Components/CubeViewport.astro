@@ -19,13 +19,15 @@
         aria-pressed="false"
         title="Rotate the camera automatically while the preview is visible"
       >Auto orbit</button>
-      <button type="button" class="viewport-control" data-reset-camera aria-keyshortcuts="R" title="Reset view (R)">Reset view</button>
+      <button type="button" class="viewport-control" data-shortcuts-help aria-keyshortcuts="? H" title="Keyboard shortcuts (? or H)">Shortcuts</button>
+      <button type="button" class="viewport-control" data-reset-camera aria-keyshortcuts="C" title="Reset view (C)">Reset view</button>
     </div>
   </header>
   <div class="viewport-stage" data-viewport-stage>
     <canvas
       class="cube-canvas"
       data-cube-canvas
+      tabindex="0"
       aria-label="Interactive three-dimensional cube preview. Drag to rotate and scroll to zoom."
     ></canvas>
     <canvas
@@ -109,7 +111,7 @@
           >Continuous</button>
         </div>
         <div class="segmented-control compact" aria-label="Playback speed">
-          {[0.5, 1, 2].map((speed) => (
+          {[0.5, 1, 2, 4, 10].map((speed) => (
             <button
               type="button"
               class:list={["segmented-btn", {active: speed === 1}]}
@@ -125,4 +127,28 @@
     </div>
     <p class="playback-limit" data-playback-limit hidden></p>
   </section>
+  <dialog class="shortcuts-dialog" data-shortcuts-dialog aria-labelledby="shortcuts-title">
+    <div class="shortcuts-dialog-header">
+      <div>
+        <span class="panel-label">Direct notation mode</span>
+        <h3 id="shortcuts-title">Keyboard shortcuts</h3>
+      </div>
+      <button type="button" class="viewport-control" data-shortcuts-close aria-label="Close shortcuts">Close</button>
+    </div>
+    <dl class="shortcut-grid">
+      <div><dt>R U F L D B</dt><dd>Clockwise face turn</dd></div>
+      <div><dt>Shift + face</dt><dd>Counter-clockwise face turn</dd></div>
+      <div><dt>Alt + face / W then face</dt><dd>Wide turn</dd></div>
+      <div><dt>Double tap / 2</dt><dd>Half turn</dd></div>
+      <div><dt>M E S</dt><dd>Slice turn</dd></div>
+      <div><dt>X Y Z</dt><dd>Whole-cube rotation</dd></div>
+      <div><dt>Space</dt><dd>Play or pause</dd></div>
+      <div><dt>← / →</dt><dd>Step one move</dd></div>
+      <div><dt>Shift + ← / →</dt><dd>Previous or next sequence</dd></div>
+      <div><dt>Home / End</dt><dd>Beginning or end</dd></div>
+      <div><dt>C</dt><dd>Reset camera</dd></div>
+      <div><dt>Esc</dt><dd>Stop and clear focus</dd></div>
+    </dl>
+    <p>Shortcuts are suspended while editing text or form controls.</p>
+  </dialog>
 </section>
