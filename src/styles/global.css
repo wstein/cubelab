@@ -421,8 +421,8 @@ body {
 .transport-btn {
   display: inline-grid;
   place-items: center;
-  min-width: 2.35rem;
-  height: 2.2rem;
+  min-width: 2.75rem;
+  height: 2.75rem;
   padding: 0;
   border-color: rgba(148, 163, 184, 0.2);
   border-radius: 0.48rem;
@@ -457,7 +457,7 @@ body {
 }
 
 .transport-primary {
-  min-width: 2.5rem;
+  min-width: 3.15rem;
   border-color: rgba(165, 180, 252, 0.72);
   background: linear-gradient(180deg, #7779f2, #5656d9);
   box-shadow:
@@ -466,6 +466,11 @@ body {
     0 0 0 1px rgba(99, 102, 241, 0.15),
     0 3px 8px rgba(49, 46, 129, 0.44);
   color: white;
+}
+
+.transport-hero {
+  height: 3rem;
+  border-radius: 0.62rem;
 }
 
 .transport-primary:hover:not(:disabled) {
@@ -518,19 +523,6 @@ body {
   border-radius: 0.08rem;
   background: currentColor;
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.28);
-}
-
-.transport-square {
-  width: 0.58rem;
-  height: 0.58rem;
-  border-radius: 0.08rem;
-  background: currentColor;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
-}
-
-.transport-stop:not(:disabled) {
-  border-color: rgba(248, 113, 113, 0.5);
-  color: #fca5a5;
 }
 
 .transport-pause {

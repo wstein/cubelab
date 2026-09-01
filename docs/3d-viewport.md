@@ -78,9 +78,10 @@ the input status as invalid.
 
 For algorithm input, the client expands composite AST nodes into a canonical step
 timeline, retains internal pauses as state-neutral steps, and caches state 0
-through state N. The viewport provides start/end jumps, animated forward and inverse
-real-move steps, forward/backward sequence steps, play/pause, 0.5×/1×/2× speeds, looping,
-a range scrubber, and clickable move or
+through state N. The viewport uses a five-button studio deck: previous sequence, animated
+previous move, a prominent play/pause toggle, animated next move, and next sequence. The
+range scrubber provides arbitrary start/end seeking; playback also provides 0.5×/1×/2×
+speeds, looping, and clickable move or
 pause tokens. Clicking an adjacent move animates it at the selected speed. Clicking
 farther within the current bordered algorithm sequence animates every intervening move at
 twice the selected speed. A click across sequence boundaries time-travels to the canonical
@@ -136,6 +137,10 @@ sequence-forward animate exactly one bordered group at the selected speed, also 
 waiting on pauses. They stop on a cached canonical state, highlight the next sequence, and
 reframe the camera around that sequence's source and target cubies. Camera reframing is a
 sequence-purpose behavior and is never triggered by an individual move preview.
+
+Outside editable controls, `Space` toggles playback, `←`/`→` step one physical move,
+`Shift+←`/`Shift+→` and `[`/`]` step one sequence, and `R` resets the camera while stopping
+auto orbit. The buttons expose the same bindings through `aria-keyshortcuts` and titles.
 
 Academy playback defaults to **Coached** mode. At a phase boundary it uses the existing
 state-neutral pause as a three-part transition: a 350 ms emerald pulse over the verified

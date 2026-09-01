@@ -171,7 +171,7 @@ test("places the visualizer before controls on mobile", async ({page}) => {
   expect(viewport.y).toBeLessThan(inputPanel.y);
 });
 
-test("plays, reverses, and seeks an expanded algorithm timeline", async ({page}) => {
+test("plays, steps, and seeks an expanded algorithm timeline", async ({page}) => {
   await page.goto("/");
   const input = page.locator("[data-input]");
   const position = page.locator("[data-playback-position]");
@@ -183,21 +183,9 @@ test("plays, reverses, and seeks an expanded algorithm timeline", async ({page})
   await expect(position).toHaveText("Move 2 of 2");
   const finalState = await facelets.textContent();
 
-  await page.getByRole("button", {name: "Jump to start"}).click();
-  await expect(position).toHaveText("Move 0 of 2");
-  await expect(facelets).toHaveText(solved);
-
-  const stop = page.getByRole("button", {name: "Stop playback"});
-  await expect(stop).toBeDisabled();
-  await page.getByRole("button", {name: "0.5×"}).click();
-  await page.getByRole("button", {name: "Play algorithm"}).click();
-  await expect(stop).toBeEnabled();
-  await stop.click();
-  await expect(stop).toBeDisabled();
-  await expect(position).not.toHaveText("Move 2 of 2");
-  await page.getByRole("button", {name: "1×"}).click();
   await page.locator("[data-playback-scrubber]").fill("0");
   await expect(position).toHaveText("Move 0 of 2");
+  await expect(facelets).toHaveText(solved);
 
   await page.getByRole("button", {name: "Next move"}).click();
   await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-animating", "true");
@@ -212,15 +200,7 @@ test("plays, reverses, and seeks an expanded algorithm timeline", async ({page})
   await expect(position).toHaveText("Move 2 of 2");
   await expect(facelets).toHaveText(finalState ?? "");
 
-  await page.getByRole("button", {name: "Rewind algorithm"}).click();
-  await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-animating", "true");
-  await expect(position).toHaveText("Move 0 of 2");
-  await expect(facelets).toHaveText(solved);
-
-  await page.getByRole("button", {name: "Play algorithm"}).click();
-  await expect(position).toHaveText("Move 2 of 2");
-
-  await page.getByRole("button", {name: "Jump to start"}).click();
+  await page.locator("[data-playback-scrubber]").fill("0");
   await page.locator("[data-playback-scrubber]").fill("2");
   await expect(position).toHaveText("Move 2 of 2");
   await expect(facelets).toHaveText(finalState ?? "");
@@ -232,6 +212,35 @@ test("plays, reverses, and seeks an expanded algorithm timeline", async ({page})
   await expect(position).toHaveText("Move 1 of 1");
 });
 
+test("supports keyboard playback, sequence navigation, and camera reset", async ({page}) => {
+  await page.goto("/");
+  await page.locator("[data-input]").fill("(R U) (F D)");
+  const position = page.locator("[data-playback-position]");
+  const scrubber = page.locator("[data-playback-scrubber]");
+  await scrubber.fill("0");
+  await scrubber.evaluate((element) => element.blur());
+
+  await page.keyboard.press("ArrowRight");
+  await expect(position).toHaveText("Move 1 of 4");
+  await page.keyboard.press("ArrowLeft");
+  await expect(position).toHaveText("Move 0 of 4");
+  await page.keyboard.press("]");
+  await expect(position).toHaveText("Move 2 of 4");
+  await page.keyboard.press("[");
+  await expect(position).toHaveText("Move 0 of 4");
+  await page.keyboard.press("Shift+ArrowRight");
+  await expect(position).toHaveText("Move 2 of 4");
+  await page.keyboard.press("Space");
+  await expect(position).toHaveText("Move 4 of 4");
+
+  const autoOrbit = page.getByRole("button", {name: "Auto orbit"});
+  await autoOrbit.click();
+  await expect(autoOrbit).toHaveAttribute("aria-pressed", "true");
+  await autoOrbit.evaluate((element) => element.blur());
+  await page.keyboard.press("r");
+  await expect(autoOrbit).toHaveAttribute("aria-pressed", "false");
+});
+
 test("animates timeline token clicks and time-travels only across distant groups", async ({page}) => {
   await page.goto("/");
   await page.locator("[data-input]").fill("(R U F) (L D B)");
@@ -240,7 +249,7 @@ test("animates timeline token clicks and time-travels only across distant groups
   const canvas = page.locator("[data-cube-canvas]");
   const position = page.locator("[data-playback-position]");
 
-  await page.getByRole("button", {name: "Jump to start"}).click();
+  await page.locator("[data-playback-scrubber]").fill("0");
   await tokens.nth(2).click();
   await expect(ribbon).toHaveAttribute("data-navigation-mode", "sequence");
   await expect(ribbon).toHaveAttribute("data-navigation-speed", "2");
@@ -268,7 +277,7 @@ test("plays internal pauses without changing the canonical cube state", async ({
   await expect(page.locator("[data-move-ribbon] .move-token")).toHaveCount(2);
   await expect(page.locator("[data-move-ribbon] .timeline-gap")).toHaveCount(1);
   await expect(page.locator("[data-move-ribbon] .move-token.pause")).toHaveCount(0);
-  await page.getByRole("button", {name: "Jump to start"}).click();
+  await page.locator("[data-playback-scrubber]").fill("0");
   await page.getByRole("button", {name: "Next move"}).click();
   await expect(position).toHaveText("Move 1 of 2");
   const afterR = await facelets.textContent();
@@ -291,7 +300,7 @@ test("steps complete sequences without waiting on pauses", async ({page}) => {
   await page.goto("/");
   await page.locator("[data-input]").fill("(R @1.3s U) (F D)");
   const position = page.locator("[data-playback-position]");
-  await page.getByRole("button", {name: "Jump to start"}).click();
+  await page.locator("[data-playback-scrubber]").fill("0");
 
   await page.getByRole("button", {name: "Next sequence"}).click();
   await expect(position).toHaveText("Move 2 of 4", {timeout: 1200});
@@ -462,7 +471,7 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await page.getByRole("button", {name: "Continuous", exact: true}).click();
   await expect(page.getByRole("button", {name: "Continuous", exact: true})).toHaveAttribute("aria-pressed", "true");
 
-  await page.getByRole("button", {name: "Jump to start"}).click();
+  await page.locator("[data-playback-scrubber]").fill("0");
   await page.locator("[data-playback-speed='2']").click();
   await page.getByRole("button", {name: "Next sequence"}).click();
   await expect(page.locator("[data-beginner-current]")).toContainText("Step 1: White Cross");
