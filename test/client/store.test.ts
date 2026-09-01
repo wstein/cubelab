@@ -58,7 +58,7 @@ describe("application state store", () => {
     expect(readHash("#tab=academy&method=intermediate").academyMethod).toBe("advanced");
     expect(readHash("#tab=academy&method=advanced").academyMethod).toBe("advanced");
     expect(readHash("#tab=academy&method=advancedLbl").academyMethod).toBe("advancedLbl");
-    expect(readHash("#tab=academy&method=fullCfop").academyMethod).toBe("fullCfop");
+    expect(readHash("#tab=academy&method=fullCfop").academyMethod).toBe("advanced");
     expect(readHash("#tab=workbench").activeTab).toBe("workbench");
     expect(readHash("#tab=unknown").activeTab).toBe("converter");
   });

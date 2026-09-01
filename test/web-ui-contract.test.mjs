@@ -93,11 +93,11 @@ test("the SPA workspace keeps one viewport beside three URL-addressable destinat
   assert.match(page, /data-academy-method="beginner"/);
   assert.match(page, /data-academy-method="advancedLbl"/);
   assert.match(page, /data-academy-method="advanced"/);
-  assert.match(page, /data-academy-method="fullCfop"/);
+  assert.match(page, /57 OLL \+ 21 PLL/);
   assert.match(page, /data-academy-method-panel="beginner"/);
   assert.match(page, /data-academy-method-panel="advancedLbl"/);
   assert.match(page, /data-academy-method-panel="advanced"/);
-  assert.match(page, /data-academy-method-panel="fullCfop"/);
+  assert.doesNotMatch(page, /Full CFOP solver not enabled yet/);
   assert.match(page, /data-academy-comparison/);
   assert.equal((page.match(/<CubeViewport \/>/g) ?? []).length, 1);
   assert.match(page, /data-academy-solve/);
@@ -172,6 +172,15 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /enable-experimental-web-platform-features/);
   assert.match(client, /assessSmartCubeMove/);
   assert.match(client, /viewport\?\.setDeviceOrientation/);
+  assert.match(client, /const waitForSmartCubeMove/);
+  assert.match(client, /Next physical move:/);
+  assert.match(client, /if \(smartCubeConnected\) waitForSmartCubeMove\(\)/);
+  assert.match(client, /applyWaitingTimelineMove/);
+  assert.match(client, /if \(continueCoaching\) waitForSmartCubeMove\(\);\s*else renderSmartCubeLiveState\(\);/);
+  assert.doesNotMatch(
+    client,
+    /\.finally\(\(\) => \{\s*smartCubeMovesInFlight -= 1;\s*if \(smartCubeMovesInFlight === 0\) renderSmartCubeLiveState\(\);/,
+  );
   assert.match(
     client,
     /smartCubeOrientation\.disabled = !supportsOrientation;[\s\S]{0,100}setSmartCubeOrientationTracking\(false\)/,

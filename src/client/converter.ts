@@ -56,6 +56,7 @@ import {
   appendRecordedMove,
   assessSmartCubeMove,
   isLastPhysicalMoveInRange,
+  nextExpectedSmartCubeMove,
 } from "./smart-cube/live-sync";
 import type {
   SmartCubeConnectionState,
@@ -187,7 +188,7 @@ if (root) {
   };
   const cfopAcademy: AcademyElements = {
     method: "cfop",
-    label: "Advanced CFOP",
+    label: "Full CFOP",
     phaseCount: 4,
     status: cfopStatus,
     current: cfopCurrent,
@@ -421,6 +422,7 @@ if (root) {
   let smartCubeMovesInFlight = 0;
   let smartCubeMoveQueue = Promise.resolve();
   let suppressNextSmartCubeExtension = false;
+  let smartCubeCoachingWaiting = false;
 
   const viewportPalette = (): CubePalette =>
     schemeSelect.value === "Japanese" ? "Japanese" : "Western";
@@ -654,7 +656,7 @@ if (root) {
       : difference < 0
         ? `Beginner is ${-difference} physical move${difference === -1 ? "" : "s"} shorter on this state.`
         : "Both verified solutions use the same physical move count on this state.";
-    academyComparison.textContent = `Same-state comparison · Beginner LBL ${beginner} · Advanced CFOP ${cfop}. ${comparison}`;
+    academyComparison.textContent = `Same-state comparison · Beginner LBL ${beginner} · Full CFOP ${cfop}. ${comparison}`;
   };
 
   const selectedTutorialMethod = (): TutorialMethod | null =>
@@ -878,16 +880,17 @@ if (root) {
     playbackBegin.disabled = !playable || activeIndex === 0;
     root.querySelector<HTMLButtonElement>("[data-playback-back]")!.disabled = !playable || activeIndex === 0;
     playbackReverse.disabled = !playable || activeIndex === 0;
-    playbackPause.disabled = !playable || playbackDirection === 0;
+    playbackPause.disabled = !playable || (playbackDirection === 0 && !smartCubeCoachingWaiting);
     playbackPlay.disabled = !playable || activeIndex === activeTimeline.steps.length;
     root.querySelector<HTMLButtonElement>("[data-playback-forward]")!.disabled =
       !playable || activeIndex === activeTimeline.steps.length;
     playbackEnd.disabled = !playable || activeIndex === activeTimeline.steps.length;
     playbackReverse.classList.toggle("is-playing", playbackDirection === -1);
     playbackReverse.setAttribute("aria-pressed", String(playbackDirection === -1));
-    playbackPlay.classList.toggle("is-playing", playbackDirection === 1);
-    playbackPlay.setAttribute("aria-pressed", String(playbackDirection === 1));
-    moveRibbon.dataset.hoverPreview = timelineHoverEnabled(playbackDirection)
+    const forwardActive = playbackDirection === 1 || smartCubeCoachingWaiting;
+    playbackPlay.classList.toggle("is-playing", forwardActive);
+    playbackPlay.setAttribute("aria-pressed", String(forwardActive));
+    moveRibbon.dataset.hoverPreview = !smartCubeCoachingWaiting && timelineHoverEnabled(playbackDirection)
       ? "enabled"
       : "disabled";
     moveRibbon.querySelectorAll<HTMLButtonElement>("[data-move-index]").forEach((button) => {
@@ -906,6 +909,7 @@ if (root) {
   const stopPlayback = () => {
     playbackGeneration += 1;
     playbackDirection = 0;
+    smartCubeCoachingWaiting = false;
     viewport?.cancelTurn();
     viewport?.setMilestone(null);
     viewport?.setFocus(null);
@@ -1145,6 +1149,67 @@ if (root) {
     if (transform && viewport) await viewport.animateTurn(transform, 120);
   };
 
+  const waitForSmartCubeMove = () => {
+    if (!smartCubeConnected || !activeTimeline?.states) return;
+    clearTutorialFocus();
+    clearTurnGuide();
+    stopPlayback();
+    const expected = nextExpectedSmartCubeMove(
+      activeTimeline.steps,
+      activeTimeline.labels,
+      activeIndex,
+    );
+    if (!expected) {
+      smartCubeStatus.textContent = `${smartCubeDeviceName} · Timeline complete`;
+      coachStatus.textContent = "Physical sequence complete.";
+      return;
+    }
+    smartCubeCoachingWaiting = true;
+    const entry = activeTimeline.steps[expected.timelineIndex];
+    const token = moveRibbon.querySelector<HTMLButtonElement>(
+      `[data-move-index="${expected.timelineIndex + 1}"]`,
+    );
+    if (entry?.step && token) {
+      guidedToken = token;
+      activeTurnGuide = {step: entry.step, label: expected.token};
+      token.classList.add("turn-guided");
+      token.scrollIntoView({block: "nearest", inline: "nearest"});
+      viewport?.setTurnPreview(turnTransform(size, entry.step));
+      viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
+    }
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · Waiting for ${expected.token}`;
+    coachStatus.textContent = `Next physical move: ${expected.token}. Waiting for the smart cube.`;
+    updatePlaybackUi();
+  };
+
+  const applyWaitingTimelineMove = async (move: string): Promise<boolean> => {
+    if (!activeTimeline?.states) return false;
+    const assessment = assessSmartCubeMove(
+      activeTimeline.steps,
+      activeTimeline.labels,
+      activeIndex,
+      move,
+    );
+    if (assessment.status === "complete") return true;
+    if (assessment.status === "unsupported") {
+      smartCubeStatus.textContent = `Expected ${assessment.expected.token}; received unsupported ${assessment.received}`;
+      await animateSmartCubeMove(move);
+      return true;
+    }
+    if (assessment.status === "mismatch") {
+      smartCubeStatus.textContent = `Expected ${assessment.expected.token}, received ${assessment.received}`;
+      coachStatus.textContent = `Physical move mismatch. Expected ${assessment.expected.token}; received ${assessment.received}.`;
+      await animateSmartCubeMove(move);
+      return true;
+    }
+    const moveIndex = assessment.expected.timelineIndex;
+    if (activeIndex !== moveIndex) renderTimelineIndex(moveIndex);
+    await animateSmartCubeMove(move);
+    renderTimelineIndex(moveIndex + 1);
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · ${move} matched`;
+    return true;
+  };
+
   const renderSmartCubeLiveState = () => {
     if (!smartCubeConnected || !smartCubeLiveState) return;
     renderState(smartCubeLiveState, `${smartCubeDeviceName} · Live physical state`);
@@ -1214,11 +1279,21 @@ if (root) {
   };
 
   const applySmartCubeMove = async (move: string): Promise<void> => {
+    const continueCoaching = smartCubeCoachingWaiting;
     clearTutorialFocus();
     clearTurnGuide();
     stopPlayback();
-    if (await applyAcademySmartCubeMove(move)) {
-      renderSmartCubeLiveState();
+    const handledByAcademy = await applyAcademySmartCubeMove(move);
+    const handledByTimeline = !handledByAcademy && continueCoaching
+      ? await applyWaitingTimelineMove(move)
+      : false;
+    if (handledByAcademy || handledByTimeline) {
+      // During coached playback, renderTimelineIndex already installed the
+      // exact post-move state. The cached facelet report may still describe
+      // the pre-move cube (especially for move-only or delayed-state
+      // protocols), so drawing it here would snap the animation backwards.
+      if (continueCoaching) waitForSmartCubeMove();
+      else renderSmartCubeLiveState();
       return;
     }
 
@@ -1290,6 +1365,10 @@ if (root) {
       smartCubeOrientation.hidden = true;
       smartCubeBattery.hidden = true;
       if (connectionState.phase !== "connecting") {
+        if (smartCubeCoachingWaiting) {
+          clearTurnGuide("restore");
+          stopPlayback();
+        }
         setSmartCubeOrientationTracking(false);
         smartCubeStateSyncPending = false;
         smartCubeLiveState = null;
@@ -1309,7 +1388,6 @@ if (root) {
           })
           .finally(() => {
             smartCubeMovesInFlight -= 1;
-            if (smartCubeMovesInFlight === 0) renderSmartCubeLiveState();
           });
         break;
       case "facelets": {
@@ -1780,7 +1858,7 @@ if (root) {
         ? " · ≤60 advanced benchmark met"
         : ` · ${solution.moveCount - 60} over the ≤60 advanced benchmark`
       : "";
-    academy.status.textContent = `Verified ${academy.method === "beginner" ? "beginner" : "Advanced CFOP"} solution · ${solution.moveCount} moves · ${academy.phaseCount} phases${benchmark}`;
+    academy.status.textContent = `Verified ${academy.method === "beginner" ? "beginner" : "Full CFOP"} solution · ${solution.moveCount} moves · ${academy.phaseCount} phases${benchmark}`;
     coachingControls.hidden = false;
 
     const timeline = buildTimeline(initialState, solution.alg);
@@ -1807,7 +1885,7 @@ if (root) {
     updateAcademySolveButton();
     academy.status.classList.remove("error");
     academy.status.textContent = method === "cfop"
-      ? "Building and replay-verifying the four Advanced CFOP phases…"
+      ? "Building and replay-verifying the four Full CFOP phases…"
       : "Building and replay-verifying the seven beginner phases…";
     window.setTimeout(() => {
       const result = (method === "cfop"
@@ -2045,10 +2123,12 @@ if (root) {
   });
   playbackPause.addEventListener("click", () => {
     stopPlayback();
+    clearTurnGuide("restore");
   });
   playbackPlay.addEventListener("click", () => {
-    if (playbackDirection === 1) return;
-    void play(1);
+    if (playbackDirection === 1 || smartCubeCoachingWaiting) return;
+    if (smartCubeConnected) waitForSmartCubeMove();
+    else void play(1);
   });
   root.querySelector<HTMLButtonElement>("[data-playback-forward]")!.addEventListener("click", () => {
     void executeSingleMove(1);
@@ -2200,7 +2280,11 @@ if (root) {
     switch (event.key) {
       case " ":
         event.preventDefault();
-        if (playbackDirection !== 0) stopPlayback();
+        if (playbackDirection !== 0 || smartCubeCoachingWaiting) {
+          stopPlayback();
+          clearTurnGuide("restore");
+        }
+        else if (smartCubeConnected) waitForSmartCubeMove();
         else void play(1);
         break;
       case "Home":

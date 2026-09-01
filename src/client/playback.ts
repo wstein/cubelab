@@ -174,14 +174,14 @@ export const describeTimelineGroup = (
       && moves[0].move._0 === "U";
     if (singleTopTurn) {
       if (phase.number === 2) return "Align the next F2L piece above its target slot.";
-      if (phase.number === 3) return "Align the next two-look OLL case.";
-      if (phase.number === 4) return "Align the next two-look PLL case.";
+      if (phase.number === 3) return "AUF-align the recognized one-look OLL case.";
+      if (phase.number === 4) return "AUF-align the recognized one-look PLL case.";
     }
     switch (phase.number) {
       case 1: return "Solve the next white cross edge on the bottom and align its side colour.";
       case 2: return "Advance the F2L foundation while preserving completed slots.";
-      case 3: return "Apply the current two-look OLL case to orient the last layer.";
-      case 4: return "Apply the current two-look PLL case to permute the last layer.";
+      case 3: return "Apply the recognized one-look OLL case to orient the last layer.";
+      case 4: return "Apply the recognized one-look PLL case to permute the last layer.";
     }
   }
   if (onlyRotations) {

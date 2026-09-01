@@ -2,14 +2,25 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import * as CfopSolver from "../src/Solver/CfopSolver.res.mjs";
+import * as CfopCases from "../src/Solver/CfopCases.res.mjs";
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
+import * as MoveParser from "../src/Move/MoveParser.res.mjs";
 import * as MoveTransform from "../src/Move/MoveTransform.res.mjs";
 import * as PieceReducer from "../src/State/PieceReducer.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
 
 const solved = StateTypes.solved(3)._0;
 const solvedCompact = FaceletCodec.render(solved);
+
+const lastLayerCase = (algorithm) => {
+  const parsed = MoveParser.parse(3, algorithm);
+  assert.equal(parsed.TAG, "Ok");
+  const internal = MoveTransform.rotate(parsed._0, "X", 2);
+  const setup = MoveExecutor.applyAlg(solved, MoveTransform.invert(internal));
+  assert.equal(setup.TAG, "Ok");
+  return setup._0;
+};
 
 const scramble = (algorithm) => {
   const result = MoveExecutor.parseAndApply(3, algorithm);
@@ -45,12 +56,12 @@ const solvedPieces = (state, corners, edges) => {
   });
 };
 
-test("emits four replay-verified two-look CFOP phases", () => {
+test("emits four replay-verified full CFOP phases", () => {
   const initial = scramble("R U2 F' L2 D B2 R' U F2 D' L B U2 R2 F D2 L' B' U R");
   const solution = solve(initial);
   assert.deepEqual(
     solution.phases.map(({title}) => title),
-    ["Cross", "F2L Pairs", "Two-Look OLL", "Two-Look PLL"],
+    ["Cross", "F2L Pairs", "One-Look OLL", "One-Look PLL"],
   );
   assert.equal(FaceletCodec.render(MoveExecutor.applyAlg(initial, solution.alg)._0), solvedCompact);
 
@@ -59,6 +70,7 @@ test("emits four replay-verified two-look CFOP phases", () => {
   assert.match(MoveTransform.serialize(solution.phases[0].alg), /^\(x2\) @0\.5s/);
   assert.equal((serialized.match(/@1\.2s/g) ?? []).length, 3);
   assert.equal(MoveExecutor.expand(solution.alg)._0.filter(({move}) => move.TAG !== "Rotation").length, solution.moveCount);
+  assert.ok(solution.moveCount <= 60, `expected the full CFOP benchmark, received ${solution.moveCount} moves`);
   assert.equal(solution.phases[1].sequences.length, 4);
   solution.phases[1].sequences.forEach((description) => {
     assert.match(description, /pair —/);
@@ -67,12 +79,34 @@ test("emits four replay-verified two-look CFOP phases", () => {
   });
 });
 
-test("labels the three-corner PLL sequence as an A-perm", () => {
-  const initial = scramble("y' R2 B2 R F R' B2 R F' R y");
-  const solution = solve(initial);
-  assert.ok(solution.phases[3].sequences.some((description) =>
-    description.includes("Permute three last-layer corners — A-perm")
-  ));
+test("recognizes and replay-verifies every one-look OLL case", () => {
+  assert.equal(CfopCases.oll.length, 57);
+  CfopCases.oll.forEach((entry) => {
+    const initial = lastLayerCase(entry.algorithm);
+    const solution = solve(initial);
+    assert.ok(
+      solution.phases[2].sequences.some((description) =>
+        description.includes(`OLL ${entry.id} ·`)
+      ),
+      `OLL ${entry.id} was not recognized`,
+    );
+    assert.equal(FaceletCodec.render(MoveExecutor.applyAlg(initial, solution.alg)._0), solvedCompact);
+  });
+});
+
+test("recognizes and replay-verifies every one-look PLL case", () => {
+  assert.equal(CfopCases.pll.length, 21);
+  CfopCases.pll.forEach((entry) => {
+    const initial = lastLayerCase(entry.algorithm);
+    const solution = solve(initial);
+    assert.ok(
+      solution.phases[3].sequences.some((description) =>
+        description.includes(`${entry.id}-Perm`)
+      ),
+      `${entry.id}-Perm was not recognized`,
+    );
+    assert.equal(FaceletCodec.render(MoveExecutor.applyAlg(initial, solution.alg)._0), solvedCompact);
+  });
 });
 
 test("independently verifies every CFOP phase invariant in the white-bottom frame", () => {

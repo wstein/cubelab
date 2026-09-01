@@ -274,10 +274,7 @@ const cards = [
                 <strong>⚡ Advanced LBL</strong><span>Optimized 7-level · locked</span>
               </button>
               <button type="button" class="academy-method" data-academy-method="advanced" aria-pressed="false">
-                <strong>🚀 Advanced CFOP</strong><span>Pair-first · 2-look LL</span>
-              </button>
-              <button type="button" class="academy-method" data-academy-method="fullCfop" aria-pressed="false">
-                <strong>🏆 Full CFOP</strong><span>57 OLL + 21 PLL · locked</span>
+                <strong>🏆 Full CFOP</strong><span>57 OLL + 21 PLL</span>
               </button>
             </div>
             <button type="button" class="academy-solve-btn academy-shared-action" data-academy-solve disabled>
@@ -327,14 +324,14 @@ const cards = [
         <div data-academy-method-panel="advanced" hidden>
           <header class="feature-header academy-method-header">
             <div>
-              <span class="panel-label">Pair-first, two-look CFOP</span>
-              <h3>Advanced CFOP Academy</h3>
+              <span class="panel-label">Pair-first, one-look last layer</span>
+              <h3>Full CFOP Academy</h3>
             </div>
           </header>
           <p class="academy-intro">
             Plan a direct white-bottom Cross, solve four recognized corner-edge pairs while
-            preserving completed slots, then finish with explicit two-look OLL and PLL cases.
-            The advanced benchmark is ≤60 physical moves; the measured, replay-verified result
+            preserving completed slots, then recognize one of all 57 OLL and 21 PLL cases.
+            The full-CFOP benchmark is ≤60 physical moves; the measured, replay-verified result
             is reported without promising the target in advance.
           </p>
           <div class="academy-status" data-cfop-status aria-live="polite">Enter a valid 3×3 state to begin.</div>
@@ -346,22 +343,6 @@ const cards = [
           <pre class="academy-solution" data-cfop-solution hidden></pre>
         </div>
 
-        <div data-academy-method-panel="fullCfop" hidden>
-          <header class="feature-header academy-method-header">
-            <div>
-              <span class="panel-label">One-look OLL and PLL</span>
-              <h3>Full CFOP</h3>
-            </div>
-          </header>
-          <div class="academy-locked" role="status">
-            <strong>Full CFOP solver not enabled yet</strong>
-            <span>
-              This tier requires complete 57-case OLL and 21-case PLL recognition libraries,
-              one-look selection, and replay verification. The current advanced solver uses
-              pair-first F2L with two-look OLL and PLL.
-            </span>
-          </div>
-        </div>
       </section>
 
       <section class="outputs-grid" data-workspace-panel="converter" aria-label="Converted state formats">
