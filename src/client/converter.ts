@@ -1153,7 +1153,15 @@ if (root) {
       );
       const remaining = nextSmartCubeProgressMoves(smartCubeHalfTurnProgress)[0];
       if (progressButton && remaining) {
-        progressButton.textContent = [...smartCubeHalfTurnProgress.receivedMoves, remaining].join(" ");
+        progressButton.textContent = [
+          ...smartCubeHalfTurnProgress.receivedMoves,
+          remaining,
+        ].map((move) => smartCubeMoveInLessonFrame(
+          activeTimeline.steps,
+          activeTimeline.labels,
+          smartCubeHalfTurnProgress!.timelineIndex,
+          move,
+        )).join(" ");
         progressButton.dataset.halfTurnProgress = "true";
       }
     }

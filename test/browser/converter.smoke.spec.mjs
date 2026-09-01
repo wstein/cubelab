@@ -328,11 +328,11 @@ test("auto-demonstrates regrips without gyro and preserves their lesson frame", 
     });
   });
 
-  await page.goto("/#size=3&alg=x2+R2");
+  await page.goto("/#size=3&alg=x2+U2");
   const input = page.locator("[data-input]");
   const facelets = page.locator('[data-output="facelets"]');
   const expectedFinalState = await facelets.textContent();
-  const expectedRecoveryState = algorithmFacelets("x2 D");
+  const expectedRecoveryState = algorithmFacelets("x2 B");
   await page.locator("[data-smart-cube-connect]").click();
   await expect(page.locator("[data-smart-cube-status]")).toContainText("Live sync");
   await page.evaluate(() => window.__emitSmartCubeEvent({
@@ -340,7 +340,7 @@ test("auto-demonstrates regrips without gyro and preserves their lesson frame", 
     facelets: "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB",
     timestamp: Date.now(),
   }));
-  await input.fill("x2 R2");
+  await input.fill("x2 U2");
   await expect(page.locator("[data-playback-scrubber]")).toBeEnabled();
   await page.locator("[data-playback-scrubber]").fill("0");
   await page.locator("[data-playback-speed='2']").click();
@@ -356,26 +356,26 @@ test("auto-demonstrates regrips without gyro and preserves their lesson frame", 
   }), move);
 
   // Wrong moves form a temporary red sequence around the physical cursor.
-  await emitMove("U");
-  await expect(page.locator("[data-smart-cube-recovery-block] .smart-cube-recovery-token"))
-    .toHaveText(["U", "U'"]);
-  await expect(page.locator('[data-output="facelets"]')).toHaveText(expectedRecoveryState ?? "");
-  await expect(page.locator("[data-smart-cube-recovery-cursor]")).toHaveCount(1);
   await emitMove("F");
   await expect(page.locator("[data-smart-cube-recovery-block] .smart-cube-recovery-token"))
-    .toHaveText(["U", "F", "F'", "U'"]);
-  await emitMove("F'");
+    .toHaveText(["F", "F'"]);
+  await expect(page.locator('[data-output="facelets"]')).toHaveText(expectedRecoveryState ?? "");
+  await expect(page.locator("[data-smart-cube-recovery-cursor]")).toHaveCount(1);
+  await emitMove("R");
   await expect(page.locator("[data-smart-cube-recovery-block] .smart-cube-recovery-token"))
-    .toHaveText(["U", "U'"]);
-  await emitMove("U'");
+    .toHaveText(["F", "R", "R'", "F'"]);
+  await emitMove("R'");
+  await expect(page.locator("[data-smart-cube-recovery-block] .smart-cube-recovery-token"))
+    .toHaveText(["F", "F'"]);
+  await emitMove("F'");
   await expect(page.locator("[data-smart-cube-recovery-block]")).toHaveCount(0);
 
-  expect(expectedMove).toBe("R2");
-  await emitMove("R'");
-  await expect(facelets).toHaveText(algorithmFacelets("x2 R'"));
-  await expect(page.locator('[data-half-turn-progress="true"]')).toHaveText("R' R'");
+  expect(expectedMove).toBe("D2");
+  await emitMove("D");
+  await expect(facelets).toHaveText(algorithmFacelets("x2 U"));
+  await expect(page.locator('[data-half-turn-progress="true"]')).toHaveText("U U");
   await expect(page.locator("[data-motion-overlay]")).not.toHaveAttribute("data-turn-repeat", "2×");
-  await emitMove("R'");
+  await emitMove("D");
   await expect(page.locator("[data-playback-position]")).toHaveText("Move 2 of 2");
   await expect(page.locator('[data-output="facelets"]')).toHaveText(expectedFinalState ?? "");
 
