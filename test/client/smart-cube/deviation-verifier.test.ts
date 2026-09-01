@@ -4,6 +4,7 @@ import {
   assessSmartCubeRecovery,
   beginSmartCubeRecovery,
   inverseSmartCubeMove,
+  normalizeSmartCubeMoves,
   quarterTurnsCancel,
   smartCubeRecoveryPrompt,
 } from "../../../src/client/smart-cube/deviation-verifier";
@@ -48,5 +49,21 @@ describe("smart cube deviation recovery", () => {
     });
     if (undoU.status !== "recovering") return;
     expect(assessSmartCubeRecovery(undoU.state, "F'").status).toBe("realigned");
+  });
+
+  test("canonicalizes repeated turns and removes net-zero detours", () => {
+    expect(normalizeSmartCubeMoves(["D'", "D'", "R'", "R'", "R'", "R'"]))
+      .toEqual(["D2"]);
+    expect(normalizeSmartCubeMoves(["U", "U'"])).toEqual([]);
+    expect(normalizeSmartCubeMoves(["R", "R"])).toEqual(["R2"]);
+
+    const first = beginSmartCubeRecovery(expected, "D'")!;
+    const half = assessSmartCubeRecovery(first, "D'");
+    expect(half).toMatchObject({
+      status: "extended",
+      state: {deviations: ["D2"], undoMoves: ["D2"]},
+    });
+    if (half.status !== "extended") return;
+    expect(assessSmartCubeRecovery(half.state, "D2").status).toBe("realigned");
   });
 });

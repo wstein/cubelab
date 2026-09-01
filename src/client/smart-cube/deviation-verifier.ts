@@ -7,7 +7,7 @@ export type SmartCubeRecoveryState = {
   expected: ExpectedSmartCubeMove;
   /** Moves required next, in execution order, to return to the tutorial state. */
   undoMoves: string[];
-  /** Physical deviations, retained for the session mistake log. */
+  /** Canonical net deviations that are still active on the physical cube. */
   deviations: string[];
 };
 
@@ -31,14 +31,49 @@ export const quarterTurnsCancel = (left: string, right: string): boolean => {
   return inverseSmartCubeMove(first) === second && !first.endsWith("2");
 };
 
+const parsedFaceTurn = (token: string): {face: string; turns: number} | null => {
+  const move = canonicalSmartCubeMove(token);
+  const match = move.match(/^([URFDLB])(?:(2)|('))?$/);
+  if (!match) return null;
+  return {face: match[1], turns: match[2] ? 2 : match[3] ? 3 : 1};
+};
+
+const renderedFaceTurn = (face: string, turns: number): string => {
+  const normalized = ((turns % 4) + 4) % 4;
+  return `${face}${normalized === 2 ? "2" : normalized === 3 ? "'" : ""}`;
+};
+
+export const normalizeSmartCubeMoves = (tokens: string[]): string[] => {
+  const result: Array<{face: string; turns: number}> = [];
+  for (const token of tokens) {
+    const parsed = parsedFaceTurn(token);
+    if (!parsed) continue;
+    const previous = result.at(-1);
+    if (!previous || previous.face !== parsed.face) {
+      result.push(parsed);
+      continue;
+    }
+    const turns = (previous.turns + parsed.turns) % 4;
+    result.pop();
+    if (turns !== 0) result.push({face: parsed.face, turns});
+  }
+  return result.map(({face, turns}) => renderedFaceTurn(face, turns));
+};
+
+const undoSequence = (deviations: string[]): string[] =>
+  [...deviations].reverse().map((move) => inverseSmartCubeMove(move)!).filter(Boolean);
+
+const recoveryCost = (deviations: string[]): number =>
+  deviations.reduce((total, move) => total + (move.endsWith("2") ? 2 : 1), 0);
+
 export const beginSmartCubeRecovery = (
   expected: ExpectedSmartCubeMove,
   received: string,
 ): SmartCubeRecoveryState | null => {
   const actual = canonicalSmartCubeMove(received);
-  const undo = inverseSmartCubeMove(actual);
-  if (!undo) return null;
-  return {expected, undoMoves: [undo], deviations: [actual]};
+  if (!inverseSmartCubeMove(actual)) return null;
+  const deviations = normalizeSmartCubeMoves([actual]);
+  return {expected, undoMoves: undoSequence(deviations), deviations};
 };
 
 export const assessSmartCubeRecovery = (
@@ -46,27 +81,16 @@ export const assessSmartCubeRecovery = (
   received: string,
 ): SmartCubeRecoveryAssessment => {
   const actual = canonicalSmartCubeMove(received);
-  const required = state.undoMoves[0];
-  if (actual === required) {
-    const undoMoves = state.undoMoves.slice(1);
-    if (undoMoves.length === 0) return {status: "realigned", received: actual};
-    return {
-      status: "recovering",
-      received: actual,
-      state: {...state, undoMoves, deviations: state.deviations.slice(0, -1)},
-    };
-  }
-
-  const undo = inverseSmartCubeMove(actual);
-  if (!undo) return {status: "unsupported", received: actual, state};
+  if (!inverseSmartCubeMove(actual)) return {status: "unsupported", received: actual, state};
+  const deviations = normalizeSmartCubeMoves([...state.deviations, actual]);
+  if (deviations.length === 0) return {status: "realigned", received: actual};
+  const nextState = {...state, deviations, undoMoves: undoSequence(deviations)};
   return {
-    status: "extended",
+    status: recoveryCost(deviations) < recoveryCost(state.deviations)
+      ? "recovering"
+      : "extended",
     received: actual,
-    state: {
-      ...state,
-      undoMoves: [undo, ...state.undoMoves],
-      deviations: [...state.deviations, actual],
-    },
+    state: nextState,
   };
 };
 

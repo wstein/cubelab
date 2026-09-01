@@ -22,7 +22,8 @@ realigned. Visual feedback is always available; synthesized sound is user-contro
 
 The move tape shows this stack as a temporary red sequence block. Deviations appear to the left
 of a bright physical-cube cursor and their required inverses appear to the right. Each correct undo
-removes its deviation/inverse pair; the verified lesson timeline itself is never rewritten.
+removes its deviation/inverse pair; adjacent turns are reduced canonically (`R R` → `R2`,
+`U U'` → nothing). The verified lesson timeline itself is never rewritten.
 
 Hardware light feedback is capability-gated. The manager calls a transport-provided `flashLed`
 writer when one exists, but the currently pinned `smartcube-web-bluetooth` GoCube connection does
