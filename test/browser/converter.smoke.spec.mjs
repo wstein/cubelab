@@ -331,7 +331,13 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(page.locator("[data-beginner-solution]")).toContainText("x2");
   await expect(page.locator("[data-beginner-solution]")).not.toContainText("@0.5s");
   await expect(page.locator("[data-beginner-solution]")).toContainText("@1.5s");
-  await expect(page.locator("[data-move-ribbon] .move-group").first()).toBeVisible();
+  const firstTimelineGroup = page.locator("[data-move-ribbon] .move-group").first();
+  await expect(firstTimelineGroup).toBeVisible();
+  await expect(firstTimelineGroup).toHaveAttribute("title", /^\(.+\)$/);
+  await expect(firstTimelineGroup).toHaveAttribute(
+    "aria-label",
+    /^Parenthesized algorithm group: \(.+\)$/,
+  );
   await expect(page.locator("[data-move-ribbon] .move-token.pause").first()).toHaveText("│");
   await expect(page.locator("[data-move-ribbon] .move-token.pause").first()).toHaveAttribute(
     "title",

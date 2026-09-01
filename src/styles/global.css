@@ -302,6 +302,7 @@ body {
   border: 1px solid rgba(129, 140, 248, 0.28);
   border-radius: 6px;
   background: rgba(99, 102, 241, 0.055);
+  cursor: help;
 }
 
 .move-token {

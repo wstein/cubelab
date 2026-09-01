@@ -412,15 +412,23 @@ if (root) {
       moveRibbon.replaceChildren();
       let currentGroupId: number | undefined;
       let groupContainer: HTMLSpanElement | null = null;
+      let groupLabels: string[] = [];
+      const finishGroup = () => {
+        if (!groupContainer) return;
+        const sequence = `(${groupLabels.join(" ")})`;
+        groupContainer.title = sequence;
+        groupContainer.setAttribute("aria-label", `Parenthesized algorithm group: ${sequence}`);
+      };
       activeTimeline.labels.forEach((label, index) => {
         const entry = activeTimeline!.steps[index];
         if (entry.groupId !== currentGroupId) {
+          finishGroup();
           currentGroupId = entry.groupId;
           groupContainer = null;
+          groupLabels = [];
           if (currentGroupId !== undefined) {
             groupContainer = document.createElement("span");
             groupContainer.className = "move-group";
-            groupContainer.setAttribute("aria-label", "Parenthesized algorithm group");
             moveRibbon.append(groupContainer);
           }
         }
@@ -438,8 +446,18 @@ if (root) {
           : label;
         button.setAttribute("aria-label", `Go to step ${index + 1}: ${description}`);
         if (isPause) button.title = description;
+        if (groupContainer) {
+          groupLabels.push(
+            isPause
+              ? entry.durationMs === undefined
+                ? "."
+                : `@${entry.durationMs / 1000}s`
+              : label,
+          );
+        }
         (groupContainer ?? moveRibbon).append(button);
       });
+      finishGroup();
     }
     playbackLimit.hidden = activeTimeline.states !== null;
     playbackLimit.textContent = activeTimeline.states === null

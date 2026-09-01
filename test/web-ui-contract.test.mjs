@@ -150,4 +150,6 @@ test("the tape groups parenthesized sequences and renders pauses as accessible s
   assert.match(client, /Pause for \$\{entry\.durationMs \/ 1000\} seconds/);
   assert.match(client, /button\.textContent = label/);
   assert.match(client, /entry\.groupId/);
+  assert.match(client, /groupContainer\.title = sequence/);
+  assert.match(client, /Parenthesized algorithm group: \$\{sequence\}/);
 });
