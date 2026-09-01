@@ -66,20 +66,25 @@
     />
     <div class="playback-controls">
       <div class="playback-transport" role="group" aria-label="Playback transport">
-        <button type="button" class="transport-btn transport-sequence" data-playback-sequence-back aria-label="Previous sequence" aria-keyshortcuts="Shift+ArrowLeft [" title="Previous phase or sequence (Shift+← or [)">
+        <button type="button" class="transport-btn transport-terminal" data-playback-begin aria-label="Go to beginning" aria-keyshortcuts="Home" title="Go to beginning (Home)">
           <span class="transport-icon" aria-hidden="true"><i class="transport-bar"></i><i class="transport-triangle left"></i></span>
         </button>
-        <button type="button" class="transport-btn" data-playback-back aria-label="Previous move" aria-keyshortcuts="ArrowLeft" title="Previous move (←)">
+        <button type="button" class="transport-btn transport-step" data-playback-back aria-label="Step backward" aria-keyshortcuts="ArrowLeft" title="Step backward one move (←)">
+          <span class="transport-icon" aria-hidden="true"><i class="transport-triangle left"></i><i class="transport-bar"></i></span>
+        </button>
+        <button type="button" class="transport-btn transport-playback" data-playback-reverse aria-label="Play backward" title="Play backward">
           <span class="transport-icon" aria-hidden="true"><i class="transport-triangle left"></i></span>
         </button>
-        <button type="button" class="transport-btn transport-play transport-hero transport-primary" data-playback-toggle aria-label="Play algorithm" aria-keyshortcuts="Space" title="Play or pause (Space)">
-          <span class="transport-icon transport-direction" aria-hidden="true"><i class="transport-triangle right"></i></span>
-          <span class="transport-icon transport-pause" aria-hidden="true"><i class="transport-bar"></i><i class="transport-bar"></i></span>
+        <button type="button" class="transport-btn transport-pause transport-hero" data-playback-pause aria-label="Pause playback" aria-keyshortcuts="Space" title="Pause playback (Space)">
+          <span class="transport-icon" aria-hidden="true"><i class="transport-bar"></i><i class="transport-bar"></i></span>
         </button>
-        <button type="button" class="transport-btn" data-playback-forward aria-label="Next move" aria-keyshortcuts="ArrowRight" title="Next move (→)">
+        <button type="button" class="transport-btn transport-playback" data-playback-play aria-label="Play forward" aria-keyshortcuts="Space" title="Play forward (Space)">
           <span class="transport-icon" aria-hidden="true"><i class="transport-triangle right"></i></span>
         </button>
-        <button type="button" class="transport-btn transport-sequence" data-playback-sequence-forward aria-label="Next sequence" aria-keyshortcuts="Shift+ArrowRight ]" title="Next phase or sequence (Shift+→ or ])">
+        <button type="button" class="transport-btn transport-step" data-playback-forward aria-label="Step forward" aria-keyshortcuts="ArrowRight" title="Step forward one move (→)">
+          <span class="transport-icon" aria-hidden="true"><i class="transport-bar"></i><i class="transport-triangle right"></i></span>
+        </button>
+        <button type="button" class="transport-btn transport-terminal" data-playback-end aria-label="Go to end" aria-keyshortcuts="End" title="Go to end (End)">
           <span class="transport-icon" aria-hidden="true"><i class="transport-triangle right"></i><i class="transport-bar"></i></span>
         </button>
       </div>

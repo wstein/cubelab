@@ -102,9 +102,11 @@ if (root) {
   const moveRibbon = root.querySelector<HTMLElement>("[data-move-ribbon]")!;
   const playbackPosition = root.querySelector<HTMLElement>("[data-playback-position]")!;
   const scrubber = root.querySelector<HTMLInputElement>("[data-playback-scrubber]")!;
-  const playbackToggle = root.querySelector<HTMLButtonElement>("[data-playback-toggle]")!;
-  const sequenceBack = root.querySelector<HTMLButtonElement>("[data-playback-sequence-back]")!;
-  const sequenceForward = root.querySelector<HTMLButtonElement>("[data-playback-sequence-forward]")!;
+  const playbackBegin = root.querySelector<HTMLButtonElement>("[data-playback-begin]")!;
+  const playbackReverse = root.querySelector<HTMLButtonElement>("[data-playback-reverse]")!;
+  const playbackPause = root.querySelector<HTMLButtonElement>("[data-playback-pause]")!;
+  const playbackPlay = root.querySelector<HTMLButtonElement>("[data-playback-play]")!;
+  const playbackEnd = root.querySelector<HTMLButtonElement>("[data-playback-end]")!;
   const playbackLimit = root.querySelector<HTMLElement>("[data-playback-limit]")!;
   const compatibilityStrip = root.querySelector<HTMLElement>("[data-compatibility]")!;
   const transformButtons = root.querySelectorAll<HTMLButtonElement>("[data-alg-transform]");
@@ -364,7 +366,7 @@ if (root) {
   let playbackSpeed = 1;
   let coachedPlayback = true;
   let looping = false;
-  let playing = false;
+  let playbackDirection: -1 | 0 | 1 = 0;
   let playbackGeneration = 0;
   let lastLabel = "";
   let focusedGroup: HTMLElement | null = null;
@@ -678,16 +680,18 @@ if (root) {
     scrubber.max = String(activeTimeline.steps.length);
     scrubber.value = String(activeIndex);
     scrubber.disabled = !playable;
+    playbackBegin.disabled = !playable || activeIndex === 0;
     root.querySelector<HTMLButtonElement>("[data-playback-back]")!.disabled = !playable || activeIndex === 0;
-    sequenceBack.disabled = !playable
-      || planSequenceStep(activeTimeline.steps, activeIndex, -1) === null;
-    playbackToggle.disabled = !playable;
+    playbackReverse.disabled = !playable || activeIndex === 0;
+    playbackPause.disabled = !playable || playbackDirection === 0;
+    playbackPlay.disabled = !playable || activeIndex === activeTimeline.steps.length;
     root.querySelector<HTMLButtonElement>("[data-playback-forward]")!.disabled =
       !playable || activeIndex === activeTimeline.steps.length;
-    sequenceForward.disabled = !playable
-      || planSequenceStep(activeTimeline.steps, activeIndex, 1) === null;
-    playbackToggle.classList.toggle("is-playing", playing);
-    playbackToggle.setAttribute("aria-label", playing ? "Pause algorithm" : "Play algorithm");
+    playbackEnd.disabled = !playable || activeIndex === activeTimeline.steps.length;
+    playbackReverse.classList.toggle("is-playing", playbackDirection === -1);
+    playbackReverse.setAttribute("aria-pressed", String(playbackDirection === -1));
+    playbackPlay.classList.toggle("is-playing", playbackDirection === 1);
+    playbackPlay.setAttribute("aria-pressed", String(playbackDirection === 1));
     moveRibbon.querySelectorAll<HTMLButtonElement>("[data-move-index]").forEach((button) => {
       const moveIndex = Number(button.dataset.moveIndex);
       button.classList.toggle("completed", moveIndex <= activeIndex);
@@ -703,7 +707,7 @@ if (root) {
 
   const stopPlayback = () => {
     playbackGeneration += 1;
-    playing = false;
+    playbackDirection = 0;
     viewport?.cancelTurn();
     viewport?.setMilestone(null);
     viewport?.setFocus(null);
@@ -899,22 +903,32 @@ if (root) {
     showNextSequencePurpose();
   };
 
-  const play = async () => {
+  const play = async (direction: -1 | 1) => {
     if (!activeTimeline?.states || activeTimeline.steps.length === 0) return;
+    if (
+      (direction < 0 && activeIndex === 0)
+      || (direction > 0 && activeIndex === activeTimeline.steps.length)
+    ) return;
     stopPlayback();
-    playing = true;
+    playbackDirection = direction;
     const generation = playbackGeneration;
-    if (activeIndex === activeTimeline.steps.length) renderTimelineIndex(0);
     updatePlaybackUi();
-    while (playing && generation === playbackGeneration && activeTimeline) {
-      if (activeIndex === activeTimeline.steps.length) {
+    while (
+      playbackDirection === direction
+      && generation === playbackGeneration
+      && activeTimeline
+    ) {
+      const atBoundary = direction > 0
+        ? activeIndex === activeTimeline.steps.length
+        : activeIndex === 0;
+      if (atBoundary) {
         if (!looping) break;
-        renderTimelineIndex(0);
+        renderTimelineIndex(direction > 0 ? 0 : activeTimeline.steps.length);
       }
-      if (!(await transitionTo(activeIndex + 1, generation))) return;
+      if (!(await transitionTo(activeIndex + direction, generation))) return;
     }
     if (generation === playbackGeneration) {
-      playing = false;
+      playbackDirection = 0;
       updatePlaybackUi();
     }
   };
@@ -1367,18 +1381,29 @@ if (root) {
   turnGuidesButton.addEventListener("click", () => {
     store.patch({turnGuides: !turnGuides});
   });
+  playbackBegin.addEventListener("click", () => {
+    void seek(0, false);
+  });
   root.querySelector<HTMLButtonElement>("[data-playback-back]")!.addEventListener("click", () => {
     void executeSingleMove(-1);
   });
-  sequenceBack.addEventListener("click", () => void executeSequence(-1));
-  playbackToggle.addEventListener("click", () => {
-    if (playing) stopPlayback();
-    else void play();
+  playbackReverse.addEventListener("click", () => {
+    if (playbackDirection === -1) return;
+    void play(-1);
+  });
+  playbackPause.addEventListener("click", () => {
+    stopPlayback();
+  });
+  playbackPlay.addEventListener("click", () => {
+    if (playbackDirection === 1) return;
+    void play(1);
   });
   root.querySelector<HTMLButtonElement>("[data-playback-forward]")!.addEventListener("click", () => {
     void executeSingleMove(1);
   });
-  sequenceForward.addEventListener("click", () => void executeSequence(1));
+  playbackEnd.addEventListener("click", () => {
+    if (activeTimeline) void seek(activeTimeline.steps.length, false);
+  });
   scrubber.addEventListener("input", () => {
     void seek(Number(scrubber.value), false);
   });
@@ -1427,8 +1452,16 @@ if (root) {
     switch (event.key) {
       case " ":
         event.preventDefault();
-        if (playing) stopPlayback();
-        else void play();
+        if (playbackDirection !== 0) stopPlayback();
+        else void play(1);
+        break;
+      case "Home":
+        event.preventDefault();
+        void seek(0, false);
+        break;
+      case "End":
+        event.preventDefault();
+        void seek(activeTimeline.steps.length, false);
         break;
       case "ArrowLeft":
         event.preventDefault();

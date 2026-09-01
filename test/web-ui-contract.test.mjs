@@ -190,14 +190,18 @@ test("the viewport layers a projected motion HUD over the persistent WebGL canva
 });
 
 test("the viewport exposes bounded tape controls for exact algorithm states", () => {
-  assert.match(viewportComponent, /data-playback-toggle/);
-  assert.equal(viewportComponent.match(/class="transport-btn/g)?.length, 5);
-  assert.doesNotMatch(viewportComponent, /data-playback-(?:rewind|stop|start|end)/);
+  assert.match(viewportComponent, /data-playback-begin/);
+  assert.match(viewportComponent, /data-playback-back/);
+  assert.match(viewportComponent, /data-playback-reverse/);
+  assert.match(viewportComponent, /data-playback-pause/);
+  assert.match(viewportComponent, /data-playback-play/);
+  assert.match(viewportComponent, /data-playback-forward/);
+  assert.match(viewportComponent, /data-playback-end/);
+  assert.equal(viewportComponent.match(/class="transport-btn/g)?.length, 7);
+  assert.doesNotMatch(viewportComponent, /data-playback-(?:toggle|sequence-back|sequence-forward)/);
   assert.match(viewportComponent, /data-playback-scrubber/);
   assert.match(viewportComponent, /data-playback-speed/);
   assert.match(viewportComponent, /data-playback-loop/);
-  assert.match(viewportComponent, /data-playback-sequence-back/);
-  assert.match(viewportComponent, /data-playback-sequence-forward/);
   assert.match(client, /MAX_PLAYBACK_STEPS/);
   assert.match(client, /transitionTo/);
   assert.match(client, /case "ArrowLeft"/);

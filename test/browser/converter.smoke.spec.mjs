@@ -183,18 +183,37 @@ test("plays, steps, and seeks an expanded algorithm timeline", async ({page}) =>
   await expect(position).toHaveText("Move 0 of 2");
   await expect(facelets).toHaveText(solved);
 
-  await page.getByRole("button", {name: "Next move"}).click();
+  await page.getByRole("button", {name: "Step forward"}).click();
   await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-animating", "true");
   await expect(position).toHaveText("Move 1 of 2");
   await expect(page.locator("[data-cube-canvas]")).not.toHaveAttribute("data-animating", "true");
 
-  await page.getByRole("button", {name: "Previous move"}).click();
+  await page.getByRole("button", {name: "Step backward"}).click();
   await expect(position).toHaveText("Move 0 of 2");
   await expect(facelets).toHaveText(solved);
 
-  await page.getByRole("button", {name: "Play algorithm"}).click();
+  await page.getByRole("button", {name: "Play forward"}).click();
   await expect(position).toHaveText("Move 2 of 2");
   await expect(facelets).toHaveText(finalState ?? "");
+
+  await page.getByRole("button", {name: "Play backward"}).click();
+  await expect(position).toHaveText("Move 0 of 2");
+  await expect(facelets).toHaveText(solved);
+
+  await page.getByRole("button", {name: "Go to end"}).click();
+  await expect(position).toHaveText("Move 2 of 2");
+  await page.getByRole("button", {name: "Go to beginning"}).click();
+  await expect(position).toHaveText("Move 0 of 2");
+
+  const pause = page.getByRole("button", {name: "Pause playback"});
+  await page.locator("[data-playback-speed='0.5']").click();
+  await page.getByRole("button", {name: "Play forward"}).click();
+  await expect(pause).toBeEnabled();
+  await pause.click();
+  await expect(pause).toBeDisabled();
+  const pausedPosition = await position.textContent();
+  await page.waitForTimeout(450);
+  await expect(position).toHaveText(pausedPosition ?? "");
 
   await page.locator("[data-playback-scrubber]").fill("0");
   await page.locator("[data-playback-scrubber]").fill("2");
@@ -274,10 +293,10 @@ test("plays internal pauses without changing the canonical cube state", async ({
   await expect(page.locator("[data-move-ribbon] .timeline-gap")).toHaveCount(1);
   await expect(page.locator("[data-move-ribbon] .move-token.pause")).toHaveCount(0);
   await page.locator("[data-playback-scrubber]").fill("0");
-  await page.getByRole("button", {name: "Next move"}).click();
+  await page.getByRole("button", {name: "Step forward"}).click();
   await expect(position).toHaveText("Move 1 of 2");
   const afterR = await facelets.textContent();
-  await page.getByRole("button", {name: "Next move"}).click();
+  await page.getByRole("button", {name: "Step forward"}).click();
   await expect(position).toHaveText("Move 2 of 2", {timeout: 700});
   await expect(facelets).not.toHaveText(afterR ?? "");
   await expect(page.locator('[data-compatibility-profile="cubingJs"]')).toContainText("×");
@@ -298,11 +317,12 @@ test("steps complete sequences without waiting on pauses", async ({page}) => {
   const position = page.locator("[data-playback-position]");
   await page.locator("[data-playback-scrubber]").fill("0");
 
-  await page.getByRole("button", {name: "Next sequence"}).click();
+  await page.locator("[data-playback-scrubber]").evaluate((element) => element.blur());
+  await page.keyboard.press("Shift+ArrowRight");
   await expect(position).toHaveText("Move 2 of 4", {timeout: 1200});
   await expect(page.locator("[data-move-ribbon] .move-group").nth(1)).toHaveClass(/focused/);
 
-  await page.getByRole("button", {name: "Previous sequence"}).click();
+  await page.keyboard.press("Shift+ArrowLeft");
   await expect(position).toHaveText("Move 0 of 4", {timeout: 1200});
   await expect(page.locator("[data-move-ribbon] .move-group").first()).toHaveClass(/focused/);
 });
@@ -460,7 +480,7 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   const phaseTwoStart = Number(await secondPhase.getAttribute("data-beginner-phase-start"));
   await page.locator("[data-playback-speed='0.5']").click();
   await page.locator("[data-playback-scrubber]").fill(String(phaseTwoStart - 1));
-  await page.getByRole("button", {name: "Next move"}).click();
+  await page.getByRole("button", {name: "Step forward"}).click();
   await expect(page.locator("[data-motion-overlay]")).not.toHaveAttribute("data-milestone", /.+/);
   await expect(page.locator("[data-playback-position]")).toHaveText(/Move \d+ of \d+/);
 
@@ -469,7 +489,10 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
 
   await page.locator("[data-playback-scrubber]").fill("0");
   await page.locator("[data-playback-speed='2']").click();
-  await page.getByRole("button", {name: "Next sequence"}).click();
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  });
+  await page.keyboard.press("Shift+ArrowRight");
   await expect(page.locator("[data-beginner-current]")).toContainText("Step 1: White Cross");
   await expect(canvas).toHaveAttribute("data-sequence-purpose-start", /\d+/);
   await expect(canvas).toHaveAttribute("data-focus-piece", /.+/);
