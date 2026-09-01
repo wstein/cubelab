@@ -81,7 +81,6 @@ type AcademyElements = {
   method: TutorialMethod;
   label: string;
   phaseCount: number;
-  solve: HTMLButtonElement;
   status: HTMLElement;
   current: HTMLElement;
   phases: HTMLElement;
@@ -124,13 +123,12 @@ if (root) {
   const nissVerify = root.querySelector<HTMLButtonElement>("[data-niss-verify]")!;
   const nissLoad = root.querySelector<HTMLButtonElement>("[data-niss-load]")!;
   const nissResult = root.querySelector<HTMLOutputElement>("[data-niss-result]")!;
-  const beginnerSolve = root.querySelector<HTMLButtonElement>("[data-beginner-solve]")!;
+  const academySolve = root.querySelector<HTMLButtonElement>("[data-academy-solve]")!;
   const beginnerStatus = root.querySelector<HTMLElement>("[data-beginner-status]")!;
   const beginnerCurrent = root.querySelector<HTMLElement>("[data-beginner-current]")!;
   const beginnerPhases = root.querySelector<HTMLElement>("[data-beginner-phases]")!;
   const beginnerCopy = root.querySelector<HTMLButtonElement>("[data-beginner-copy]")!;
   const beginnerSolution = root.querySelector<HTMLElement>("[data-beginner-solution]")!;
-  const cfopSolve = root.querySelector<HTMLButtonElement>("[data-cfop-solve]")!;
   const cfopStatus = root.querySelector<HTMLElement>("[data-cfop-status]")!;
   const cfopCurrent = root.querySelector<HTMLElement>("[data-cfop-current]")!;
   const cfopPhases = root.querySelector<HTMLElement>("[data-cfop-phases]")!;
@@ -156,12 +154,12 @@ if (root) {
   let tutorialPhases: TutorialPhaseRange[] = [];
   let activeAcademy: AcademyElements | null = null;
   let commentedTutorialSolution = "";
+  let academySolveBusy = false;
   const savedTutorialSolutions = new Map<TutorialMethod, SavedTutorialSolution>();
   const beginnerAcademy: AcademyElements = {
     method: "beginner",
     label: "Beginner",
     phaseCount: 7,
-    solve: beginnerSolve,
     status: beginnerStatus,
     current: beginnerCurrent,
     phases: beginnerPhases,
@@ -170,9 +168,8 @@ if (root) {
   };
   const cfopAcademy: AcademyElements = {
     method: "cfop",
-    label: "CFOP",
+    label: "Beginner CFOP",
     phaseCount: 4,
-    solve: cfopSolve,
     status: cfopStatus,
     current: cfopCurrent,
     phases: cfopPhases,
@@ -627,7 +624,20 @@ if (root) {
       : difference < 0
         ? `Beginner is ${-difference} physical move${difference === -1 ? "" : "s"} shorter on this state.`
         : "Both verified solutions use the same physical move count on this state.";
-    academyComparison.textContent = `Same-state comparison · Beginner ${beginner} · CFOP ${cfop}. ${comparison}`;
+    academyComparison.textContent = `Same-state comparison · Beginner LBL ${beginner} · Beginner CFOP ${cfop}. ${comparison}`;
+  };
+
+  const selectedTutorialMethod = (): TutorialMethod | null =>
+    academyMethod === "beginner" ? "beginner" : academyMethod === "easyCfop" ? "cfop" : null;
+
+  const updateAcademySolveButton = () => {
+    const method = selectedTutorialMethod();
+    academySolve.disabled = academySolveBusy || method === null || activeRecognized === null || size !== 3;
+    academySolve.textContent = method === null
+      ? "Solver unavailable"
+      : savedTutorialSolutions.has(method)
+        ? "Regenerate solution"
+        : "Generate verified solution";
   };
 
   const resetAcademy = () => {
@@ -636,6 +646,7 @@ if (root) {
     commentedTutorialSolution = "";
     savedTutorialSolutions.clear();
     updateAcademyComparison();
+    updateAcademySolveButton();
     academies.forEach((academy) => {
       academy.phases.replaceChildren();
       academy.current.hidden = true;
@@ -651,7 +662,6 @@ if (root) {
     activeRecognized = recognized;
     resetAcademy();
     academies.forEach((academy) => {
-      academy.solve.disabled = recognized === null || size !== 3;
       academy.status.classList.remove("error");
       academy.status.textContent = size !== 3
         ? `${academy.label} Academy is available for 3×3 states.`
@@ -659,6 +669,7 @@ if (root) {
           ? "Enter a valid 3×3 state to begin."
           : `Ready to teach the recognized ${recognized.label.toLowerCase()} state.`;
     });
+    updateAcademySolveButton();
   };
 
   const updateTutorialUi = () => {
@@ -1226,10 +1237,12 @@ if (root) {
       panel.hidden = panel.dataset.academyMethodPanel !== academyMethod;
     });
     if (appStateApplied && academyMethodChanged) {
-      const saved = savedTutorialSolutions.get(academyMethod);
-      const academy = academyMethod === "cfop" ? cfopAcademy : beginnerAcademy;
+      const method = selectedTutorialMethod();
+      const saved = method ? savedTutorialSolutions.get(method) : undefined;
+      const academy = method === "cfop" ? cfopAcademy : beginnerAcademy;
       if (saved) presentTutorialSolution(saved.initialState, saved.solution, academy);
     }
+    updateAcademySolveButton();
     appStateApplied = true;
     if (conversionChanged) scheduleUpdate();
   };
@@ -1478,11 +1491,11 @@ if (root) {
     academy.copy.disabled = false;
     academy.status.classList.remove("error");
     const benchmark = academy.method === "cfop"
-      ? solution.moveCount <= 60
-        ? " · ≤60 advanced benchmark met"
-        : ` · ${solution.moveCount - 60} over the ≤60 advanced benchmark`
+      ? solution.moveCount <= 65
+        ? " · ≤65 Beginner CFOP benchmark met"
+        : ` · ${solution.moveCount - 65} over the ≤65 Beginner CFOP benchmark`
       : "";
-    academy.status.textContent = `Verified ${academy.method === "beginner" ? "beginner" : "CFOP"} solution · ${solution.moveCount} moves · ${academy.phaseCount} phases${benchmark}`;
+    academy.status.textContent = `Verified ${academy.method === "beginner" ? "beginner" : "Beginner CFOP"} solution · ${solution.moveCount} moves · ${academy.phaseCount} phases${benchmark}`;
     coachingControls.hidden = false;
 
     const timeline = buildTimeline(initialState, solution.alg);
@@ -1500,43 +1513,34 @@ if (root) {
     updatePlaybackUi(true);
   };
 
-  beginnerSolve.addEventListener("click", () => {
-    if (size !== 3 || activeRecognized === null) return;
+  academySolve.addEventListener("click", () => {
+    const method = selectedTutorialMethod();
+    if (method === null || size !== 3 || activeRecognized === null) return;
     const initialState = activeRecognized.state;
-    beginnerSolve.disabled = true;
-    beginnerStatus.classList.remove("error");
-    beginnerStatus.textContent = "Building and replay-verifying the seven beginner phases…";
+    const academy = method === "cfop" ? cfopAcademy : beginnerAcademy;
+    academySolveBusy = true;
+    updateAcademySolveButton();
+    academy.status.classList.remove("error");
+    academy.status.textContent = method === "cfop"
+      ? "Building and replay-verifying the four Beginner CFOP phases…"
+      : "Building and replay-verifying the seven beginner phases…";
     window.setTimeout(() => {
-      const result = BeginnerSolver.solve(initialState) as Result<TutorialSolution, unknown>;
-      beginnerSolve.disabled = false;
+      const result = (method === "cfop"
+        ? CfopSolver.solve(initialState)
+        : BeginnerSolver.solve(initialState)) as Result<TutorialSolution, unknown>;
+      academySolveBusy = false;
       if (result.TAG === "Error") {
-        beginnerStatus.textContent = BeginnerSolver.describeError(result._0);
-        beginnerStatus.classList.add("error");
+        academy.status.textContent = method === "cfop"
+          ? CfopSolver.describeError(result._0)
+          : BeginnerSolver.describeError(result._0);
+        academy.status.classList.add("error");
+        updateAcademySolveButton();
         return;
       }
-      savedTutorialSolutions.set("beginner", {initialState, solution: result._0});
+      savedTutorialSolutions.set(method, {initialState, solution: result._0});
       updateAcademyComparison();
-      presentTutorialSolution(initialState, result._0, beginnerAcademy);
-    }, 0);
-  });
-
-  cfopSolve.addEventListener("click", () => {
-    if (size !== 3 || activeRecognized === null) return;
-    const initialState = activeRecognized.state;
-    cfopSolve.disabled = true;
-    cfopStatus.classList.remove("error");
-    cfopStatus.textContent = "Building and replay-verifying the four CFOP phases…";
-    window.setTimeout(() => {
-      const result = CfopSolver.solve(initialState) as Result<TutorialSolution, unknown>;
-      cfopSolve.disabled = false;
-      if (result.TAG === "Error") {
-        cfopStatus.textContent = CfopSolver.describeError(result._0);
-        cfopStatus.classList.add("error");
-        return;
-      }
-      savedTutorialSolutions.set("cfop", {initialState, solution: result._0});
-      updateAcademyComparison();
-      presentTutorialSolution(initialState, result._0, cfopAcademy);
+      updateAcademySolveButton();
+      presentTutorialSolution(initialState, result._0, academy);
     }, 0);
   });
 

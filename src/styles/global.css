@@ -1022,9 +1022,9 @@ body {
 
 .academy-workspace-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  align-items: stretch;
+  flex-direction: column;
+  gap: 0.7rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -1034,9 +1034,16 @@ body {
   margin-top: 0.2rem;
 }
 
+.academy-action-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.55rem;
+}
+
 .academy-method-switch {
   display: grid;
-  grid-template-columns: repeat(2, minmax(9rem, 1fr));
+  flex: 1 1 auto;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.4rem;
   padding: 0.25rem;
   background: rgba(0, 0, 0, 0.22);
@@ -1045,7 +1052,8 @@ body {
 }
 
 .academy-method {
-  padding: 0.55rem 0.75rem;
+  min-width: 0;
+  padding: 0.5rem 0.55rem;
   background: transparent;
   border: 1px solid transparent;
   border-radius: 7px;
@@ -1061,12 +1069,12 @@ body {
 
 .academy-method strong {
   color: var(--text-secondary);
-  font: 600 0.8rem var(--font-sans);
+  font: 600 0.72rem var(--font-sans);
 }
 
 .academy-method span {
   margin-top: 0.12rem;
-  font: 0.68rem var(--font-mono);
+  font: 0.62rem var(--font-mono);
 }
 
 .academy-method.active {
@@ -1086,6 +1094,30 @@ body {
 
 .academy-method-header {
   margin-top: 1rem;
+}
+
+.academy-shared-action {
+  width: 10rem;
+}
+
+.academy-locked {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.8rem;
+  padding: 0.8rem;
+  border: 1px dashed rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.academy-locked strong {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.academy-locked span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
 }
 
 .academy-comparison {
@@ -1202,6 +1234,14 @@ body {
 
   .academy-method-switch {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .academy-action-row {
+    flex-direction: column;
+  }
+
+  .academy-shared-action {
+    width: 100%;
   }
 }
 

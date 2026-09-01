@@ -48,19 +48,21 @@ describe("application state store", () => {
       activeTab: "academy",
       academyMethod: "beginner",
     });
-    expect(readHash("#tab=academy&method=cfop")).toMatchObject({
+    expect(readHash("#tab=academy&method=easyCfop")).toMatchObject({
       activeTab: "academy",
-      academyMethod: "cfop",
+      academyMethod: "easyCfop",
     });
     expect(readHash("#tab=beginner")).toMatchObject({activeTab: "academy", academyMethod: "beginner"});
-    expect(readHash("#tab=cfop")).toMatchObject({activeTab: "academy", academyMethod: "cfop"});
+    expect(readHash("#tab=cfop")).toMatchObject({activeTab: "academy", academyMethod: "easyCfop"});
+    expect(readHash("#tab=academy&method=intermediate").academyMethod).toBe("intermediate");
+    expect(readHash("#tab=academy&method=advanced").academyMethod).toBe("advanced");
     expect(readHash("#tab=workbench").activeTab).toBe("workbench");
     expect(readHash("#tab=unknown").activeTab).toBe("converter");
   });
 
   test("writes the selected Academy method into shareable URLs", () => {
-    expect(writeHash({...defaultAppState, activeTab: "academy", academyMethod: "cfop"}))
-      .toContain("tab=academy&method=cfop");
+    expect(writeHash({...defaultAppState, activeTab: "academy", academyMethod: "easyCfop"}))
+      .toContain("tab=academy&method=easyCfop");
   });
 
   test("persists an explicit turn-guide opt-out", () => {
