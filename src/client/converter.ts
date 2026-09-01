@@ -35,7 +35,12 @@ import {
   type NotationDialect,
   type SchemeName,
 } from "./store";
-import {focusForPiece, selectPhasePiece, selectTutorialPiece} from "./tutorial-focus";
+import {
+  focusForPiece,
+  phaseMilestonePositions,
+  selectPhasePiece,
+  selectTutorialPiece,
+} from "./tutorial-focus";
 
 type Result<T, E = StateError | string> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: E};
 type StateError = {_0?: string; TAG: string; actual?: number; character?: string; expected?: number; index?: number};
@@ -93,6 +98,8 @@ if (root) {
   const beginnerCopy = root.querySelector<HTMLButtonElement>("[data-beginner-copy]")!;
   const beginnerSolution = root.querySelector<HTMLElement>("[data-beginner-solution]")!;
   const autoOrbitButton = root.querySelector<HTMLButtonElement>("[data-auto-orbit]")!;
+  const coachingControls = root.querySelector<HTMLElement>("[data-coaching-controls]")!;
+  const coachStatus = root.querySelector<HTMLElement>("[data-coach-status]")!;
   const initialState = readHash(window.location.hash);
   const store = createStore(initialState);
   let size = initialState.size;
@@ -324,6 +331,7 @@ if (root) {
   let activeTimelineKey: string | null = null;
   let activeIndex = 0;
   let playbackSpeed = 1;
+  let coachedPlayback = true;
   let looping = false;
   let playing = false;
   let playbackGeneration = 0;
@@ -405,6 +413,8 @@ if (root) {
     beginnerCopy.disabled = true;
     beginnerSolution.hidden = true;
     beginnerSolution.textContent = "";
+    coachingControls.hidden = true;
+    coachStatus.textContent = "";
   };
 
   const updateAcademySource = (recognized: RecognizedInput | null) => {
@@ -599,6 +609,9 @@ if (root) {
     playbackGeneration += 1;
     playing = false;
     viewport?.cancelTurn();
+    viewport?.setMilestone(null);
+    viewport?.setFocus(null);
+    coachStatus.textContent = "";
     updatePlaybackUi();
   };
 
@@ -621,6 +634,54 @@ if (root) {
     const stepIndex = direction > 0 ? activeIndex : bounded;
     const sourceStep = activeTimeline.steps[stepIndex].step;
     if (!sourceStep) {
+      const completedPhase = direction > 0
+        ? tutorialPhases.find((phase) => phase.end - 1 === stepIndex)
+        : undefined;
+      if (tutorialPhases.length > 0 && !coachedPlayback) {
+        renderTimelineIndex(bounded);
+        return generation === playbackGeneration;
+      }
+      if (completedPhase) {
+        const phaseState = activeTimeline.states[bounded];
+        renderTimelineIndex(bounded);
+        clearTutorialFocus();
+        clearTurnGuide();
+        const final = completedPhase.number === 7;
+        const milestoneLabel = final
+          ? "Cube solved — all seven steps verified"
+          : `Step ${completedPhase.number} complete — ${completedPhase.title} verified`;
+        coachStatus.textContent = milestoneLabel;
+        viewport.setMilestone({
+          positions: phaseMilestonePositions(phaseState, completedPhase.number),
+          label: `✦ ${milestoneLabel}`,
+        });
+        await new Promise((resolve) => window.setTimeout(resolve, (final ? 500 : 350) / playbackSpeed));
+        if (generation !== playbackGeneration) return false;
+        const nextPhase = tutorialPhases.find((phase) => phase.number === completedPhase.number + 1);
+        const cameraTargets: Record<number, {yaw: number; pitch: number}> = {
+          2: {yaw: -0.72, pitch: 0.58},
+          3: {yaw: -0.58, pitch: 0.55},
+          4: {yaw: -0.38, pitch: 0.82},
+          5: {yaw: -0.48, pitch: 0.74},
+          6: {yaw: -0.68, pitch: 0.62},
+          7: {yaw: -0.58, pitch: 0.68},
+        };
+        viewport.setMilestone(null);
+        const camera = nextPhase ? cameraTargets[nextPhase.number] : {yaw: -0.62, pitch: 0.48};
+        await viewport.smoothOrbitTo(camera.yaw, camera.pitch, 450 / playbackSpeed);
+        if (generation !== playbackGeneration) return false;
+        if (nextPhase) {
+          const piece = selectPhasePiece(phaseState, nextPhase.number);
+          const nextFocus = piece ? focusForPiece(phaseState, piece) : null;
+          coachStatus.textContent = `Next: ${nextPhase.title}. ${nextPhase.instruction}`;
+          viewport.setFocus(nextFocus ? {...nextFocus, label: `Next: ${nextPhase.title}`} : null);
+          await new Promise((resolve) => window.setTimeout(resolve, 400 / playbackSpeed));
+          if (generation !== playbackGeneration) return false;
+          viewport.setFocus(null);
+        }
+        coachStatus.textContent = "";
+        return true;
+      }
       const pauseDuration = activeTimeline.steps[stepIndex].durationMs ?? 280;
       await new Promise((resolve) => window.setTimeout(resolve, pauseDuration / playbackSpeed));
       if (generation !== playbackGeneration) return false;
@@ -1003,6 +1064,7 @@ if (root) {
     beginnerCopy.disabled = false;
     beginnerStatus.classList.remove("error");
     beginnerStatus.textContent = `Verified beginner solution · ${solution.moveCount} moves · 7 phases`;
+    coachingControls.hidden = false;
 
     const timeline = buildTimeline(initialState, solution.alg);
     if (timeline.TAG === "Error") {
@@ -1092,6 +1154,16 @@ if (root) {
     button.addEventListener("click", () => {
       playbackSpeed = Number(button.dataset.playbackSpeed);
       root.querySelectorAll<HTMLButtonElement>("[data-playback-speed]").forEach((candidate) => {
+        const active = candidate === button;
+        candidate.classList.toggle("active", active);
+        candidate.setAttribute("aria-pressed", String(active));
+      });
+    });
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-coaching-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      coachedPlayback = button.dataset.coachingMode === "coached";
+      root.querySelectorAll<HTMLButtonElement>("[data-coaching-mode]").forEach((candidate) => {
         const active = candidate === button;
         candidate.classList.toggle("active", active);
         candidate.setAttribute("aria-pressed", String(active));

@@ -46,6 +46,21 @@ receives an amber ghost treatment, and unrelated cubies are temporarily desatura
 Destination lookup follows the live centre frame, so the focus remains correct through
 explicit `x`, `y`, and `z` teaching regrips.
 
+## Coached phase transitions
+
+Academy playback defaults to **Coached**. Crossing a verified phase boundary pulses the
+pieces completed by that invariant in emerald, eases the persistent camera to the next
+phase's useful viewing angle, then previews the next unsatisfied edge or corner with the
+same source-to-target trajectory used by sequence hover. At 1× the three stages take
+350 ms, 450 ms, and 400 ms respectively and replace—not add to—the 1.2-second phase
+pause. The selected 0.5×/1×/2× speed scales all three durations. The final phase pulses
+all cubies and reports that all seven invariants passed.
+
+**Continuous** skips generated Academy pause nodes and all coaching transitions while
+preserving the exact move-state timeline. Phase cards remain direct step-by-step seek
+controls in either mode. Coaching status is announced through an assistive live region;
+the projected canvas itself remains hidden from accessibility APIs.
+
 ## Solving strategy
 
 - Cross edges and first-layer corners use bounded cubie-coordinate searches. Each search

@@ -153,6 +153,8 @@ test("the viewport layers a projected motion HUD over the persistent WebGL canva
   assert.match(viewport, /turnArcPoints/);
   assert.match(viewport, /orbit to view back/);
   assert.match(viewport, /setTurnGuide\(nextGuide\)/);
+  assert.match(viewport, /varying float vGuideLayer/);
+  assert.match(viewport, /vec3 muted = mix\(colour, vec3\(luminance\), 0\.18\) \* 0\.86/);
   assert.match(viewport, /setMilestone\(nextMilestone\)/);
   assert.match(viewport, /smoothOrbitTo/);
   assert.match(viewport, /uMilestoneCubies\[20\]/);
@@ -165,6 +167,11 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(viewportComponent, /data-playback-loop/);
   assert.match(client, /MAX_PLAYBACK_STEPS/);
   assert.match(client, /transitionTo/);
+  assert.match(viewportComponent, /data-coaching-mode="coached"/);
+  assert.match(viewportComponent, /data-coaching-mode="continuous"/);
+  assert.match(client, /phaseMilestonePositions/);
+  assert.match(client, /Step \$\{completedPhase\.number\} complete/);
+  assert.match(client, /Next: \$\{nextPhase\.title\}/);
 });
 
 test("the tape groups sequences, focuses cubies, and spaces only Academy phases", () => {

@@ -41,8 +41,8 @@ The native WebGL renderer uploads the mesh to one interleaved vertex buffer.
 Capacity is allocated for the selected size's largest Speed mesh, then state
 and style changes reuse it through `bufferSubData`.
 
-Rendering is scheduled only after a state, style, camera, visibility, or size
-change. There is no perpetual animation loop by default. The **Auto orbit** toggle
+Rendering is scheduled only after a state, style, camera, visibility, size, or visual
+guide change. There is no perpetual animation loop by default. The **Auto orbit** toggle
 deliberately starts a slow camera loop; disabling it restores zero idle rendering.
 An `IntersectionObserver` suspends both drawing and auto orbit while the viewport is
 off screen, and the Page Visibility API does the same while the document is hidden.
@@ -58,7 +58,9 @@ the viewport also clears pending animation frames.
 
 Pointer drag changes the orbit camera, the wheel controls distance, and reset
 restores the documented isometric view. Auto orbit pauses its camera movement while
-the user is dragging and remains active across workspace tab changes. WebGL initialization and context-loss
+the user is dragging and remains active across workspace tab changes. Academy phase
+changes can request a bounded smooth camera orbit; manual playback cancellation or Reset
+view cancels that interpolation. WebGL initialization and context-loss
 failures are reported to the surrounding interface without affecting any text
 codec.
 
@@ -86,17 +88,29 @@ panels. Client-side tab changes only toggle the left-hand view, preserving the W
 context, camera, geometry buffers, and current tape position.
 
 Duration annotations such as `@1.3s` are distinct state-neutral timeline steps. The
-ribbon does not render pause tokens or editor syntax; it leaves a narrow gap for a short
-sequence pause and a slightly wider gap for a step pause. The transport still waits for
-the exact duration divided by the selected playback-speed multiplier, while a dot pause
-retains the short default wait.
+ribbon does not render pause tokens or editor syntax. Academy-generated 0.5-second
+inter-sequence delays are visually compact with no gap, while 1.2-second phase boundaries
+use a wider gap; a user-authored dot pause retains a small semantic gap and short default
+wait.
 Parenthesized AST groups are retained during expansion and displayed as bordered move
 clusters, including a distinct cluster for every repetition. In Beginner Academy,
-hovering a cluster explains its teaching purpose—such as aligning a middle-layer edge,
-applying Sune, or restoring cube orientation—instead of merely repeating the visible
-moves. The same explanation is provided as the cluster's accessible label. Groups in
-ordinary editor input receive a neutral description because no pedagogical intent can
-be inferred safely from arbitrary notation.
+hovering or focusing a cluster highlights its complete token group and derives the
+phase-relevant physical edge or corner from its before/after states. A projected Canvas2D
+HUD draws a moving dashed trajectory between camera-selected sticker-surface anchors;
+the WebGL shader adds a cyan source aura and amber target ghost. Hovering an individual
+move also projects a direction-correct layer-turn ring and canonical angle label. Active
+pieces and the currently turning layer remain at full material brightness; unrelated
+layers receive only a soft saturation and brightness reduction. Hidden destinations dim
+the guide and request that the user orbit to the back. The group's pedagogical purpose
+remains its accessible label rather than a floating tooltip.
+
+Academy playback defaults to **Coached** mode. At a phase boundary it uses the existing
+state-neutral pause as a three-part transition: a 350 ms emerald pulse over the verified
+milestone cubies, a 450 ms eased camera reframe, and a 400 ms next-piece trajectory.
+Durations scale with the selected playback speed. Step 7 uses a final all-cubie success
+pulse. **Continuous** mode skips generated Academy pauses and these coaching transitions.
+The HUD canvas is visual-only; milestone and next-step messages are mirrored to an
+`aria-live` status node.
 
 Playback caches at most 500 expanded steps. Algorithms above that limit still execute
 through the normal 100,000-step safety boundary and display their final conversion,

@@ -322,6 +322,8 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(page.locator("[data-beginner-phase]").nth(0)).toContainText("Keep white on top");
   await expect(page.locator("[data-beginner-phase]").nth(2)).toContainText("Turn yellow to the top");
   await expect(page.locator("[data-playback-position]")).toHaveText(/Step 0 of \d+/);
+  await expect(page.locator("[data-coaching-controls]")).toBeVisible();
+  await expect(page.getByRole("button", {name: "Coached", exact: true})).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("[data-beginner-solution]")).toContainText("// STEP 1: White Cross");
   await expect(page.locator("[data-beginner-solution]")).toContainText("(");
   await expect(page.locator("[data-beginner-solution]")).toContainText("x2");
@@ -353,6 +355,19 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(page.locator("[data-move-ribbon] .timeline-gap.sequence-gap")).toHaveCount(0);
   await expect(page.locator("[data-move-ribbon] .timeline-gap.step-gap").first()).toBeVisible();
 
+  const phaseTwoStart = Number(await secondPhase.getAttribute("data-beginner-phase-start"));
+  await page.locator("[data-playback-speed='0.5']").click();
+  await page.locator("[data-playback-scrubber]").fill(String(phaseTwoStart - 1));
+  await page.getByRole("button", {name: "Next move"}).click();
+  await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-milestone", /Step 1 complete/);
+  await expect(page.locator("[data-motion-overlay]")).not.toHaveAttribute("data-milestone", /.+/, {timeout: 3_000});
+  await expect(canvas).toHaveAttribute("data-focus-piece", /.+/, {timeout: 3_000});
+  await expect(canvas).not.toHaveAttribute("data-focus-piece", /.+/, {timeout: 3_000});
+
+  await page.getByRole("button", {name: "Continuous", exact: true}).click();
+  await expect(page.getByRole("button", {name: "Continuous", exact: true})).toHaveAttribute("aria-pressed", "true");
+
+  await page.getByRole("button", {name: "Jump to start"}).click();
   await page.getByRole("button", {name: "Next move"}).click();
   await expect(page.locator("[data-beginner-current]")).toContainText("Step 1: White Cross");
 

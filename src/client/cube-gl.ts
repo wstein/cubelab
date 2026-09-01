@@ -66,6 +66,9 @@ const vertexShaderSource = `
   uniform vec3 uFocusTarget;
   uniform float uMilestoneCount;
   uniform vec3 uMilestoneCubies[20];
+  uniform float uGuideActive;
+  uniform vec3 uGuideAxis;
+  uniform vec2 uGuideRange;
   varying vec3 vPosition;
   varying vec3 vNormal;
   varying vec4 vColour;
@@ -73,6 +76,7 @@ const vertexShaderSource = `
   varying float vSourceFocus;
   varying float vTargetFocus;
   varying float vMilestoneFocus;
+  varying float vGuideLayer;
 
   vec3 rotateAround(vec3 value, vec3 axis, float angle) {
     float cosine = cos(angle);
@@ -102,6 +106,10 @@ const vertexShaderSource = `
         );
       }
     }
+    float guideCoordinate = dot(aCubie, uGuideAxis);
+    vGuideLayer = uGuideActive
+      * step(uGuideRange.x, guideCoordinate)
+      * step(guideCoordinate, uGuideRange.y);
     gl_Position = uProjection * position;
   }
 `;
@@ -115,9 +123,11 @@ const fragmentShaderSource = `
   varying float vSourceFocus;
   varying float vTargetFocus;
   varying float vMilestoneFocus;
+  varying float vGuideLayer;
   uniform float uSpeedStyle;
   uniform float uFocusActive;
   uniform float uFocusTime;
+  uniform float uGuideActive;
 
   void main() {
     vec3 normal = normalize(vNormal);
@@ -136,10 +146,11 @@ const fragmentShaderSource = `
     float specular = strength * pow(max(dot(normal, halfway), 0.0), shine);
     vec3 rolledSheen = vColour.rgb * vSheen * (0.45 + 0.55 * rimDiffuse);
     vec3 colour = min(vColour.rgb * light + rolledSheen + vec3(specular), vec3(1.0));
-    float selected = max(max(vSourceFocus, vTargetFocus), vMilestoneFocus);
+    float selected = max(max(max(vSourceFocus, vTargetFocus), vMilestoneFocus), vGuideLayer);
     float luminance = dot(colour, vec3(0.299, 0.587, 0.114));
-    vec3 muted = mix(colour, vec3(luminance), 0.72) * 0.58;
-    colour = mix(colour, muted, uFocusActive * (1.0 - selected));
+    vec3 muted = mix(colour, vec3(luminance), 0.18) * 0.86;
+    float focusMode = max(uFocusActive, uGuideActive);
+    colour = mix(colour, muted, focusMode * (1.0 - selected));
 
     float fresnel = pow(1.0 - max(dot(normal, view), 0.0), 2.2);
     float pulse = 0.82 + 0.18 * sin(uFocusTime * 4.0);
@@ -387,6 +398,9 @@ export const createCubeViewport = (
   const focusTime = gl.getUniformLocation(program, "uFocusTime");
   const milestoneCount = gl.getUniformLocation(program, "uMilestoneCount");
   const milestoneCubies = gl.getUniformLocation(program, "uMilestoneCubies[0]");
+  const guideActive = gl.getUniformLocation(program, "uGuideActive");
+  const guideAxis = gl.getUniformLocation(program, "uGuideAxis");
+  const guideRange = gl.getUniformLocation(program, "uGuideRange");
 
   let state: CubeState | null = null;
   let palette: CubePalette = "Western";
@@ -654,6 +668,10 @@ export const createCubeViewport = (
     });
     gl.uniform1f(milestoneCount, Math.min(20, milestone?.positions.length ?? 0));
     gl.uniform3fv(milestoneCubies, milestoneValues);
+    const guideTransform = turnGuide ? turnTransform(state?.size ?? 3, turnGuide.step) : null;
+    gl.uniform1f(guideActive, guideTransform ? 1 : 0);
+    gl.uniform3fv(guideAxis, guideTransform?.axis ?? [1, 0, 0]);
+    gl.uniform2f(guideRange, guideTransform?.min ?? 0, guideTransform?.max ?? 0);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
     drawMotionOverlay(matrices, width, height);
     canvas.dataset.webgl = "ready";
@@ -805,6 +823,7 @@ export const createCubeViewport = (
 
   const cancelTurn = () => {
     turnGeneration += 1;
+    cancelCamera();
     if (turnFrame !== null) window.cancelAnimationFrame(turnFrame);
     turnFrame = null;
     activeTurn = null;
@@ -963,6 +982,7 @@ export const createCubeViewport = (
       requestRender();
     },
     resetCamera() {
+      cancelCamera();
       stopInertia();
       velocityYaw = 0;
       velocityPitch = 0;
