@@ -5,6 +5,10 @@ import test from "node:test";
 const page = await readFile(new URL("../src/pages/index.astro", import.meta.url), "utf8");
 const client = await readFile(new URL("../src/client/converter.ts", import.meta.url), "utf8");
 const viewport = await readFile(new URL("../src/client/cube-gl.ts", import.meta.url), "utf8");
+const orientationVerifier = await readFile(
+  new URL("../src/client/smart-cube/orientation-verifier.ts", import.meta.url),
+  "utf8",
+);
 const store = await readFile(new URL("../src/client/store.ts", import.meta.url), "utf8");
 const viewportComponent = await readFile(
   new URL("../src/Components/CubeViewport.astro", import.meta.url),
@@ -189,6 +193,7 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(viewportComponent, /data-smart-cube-sound/);
   assert.match(viewportComponent, /data-smart-cube-mistakes/);
   assert.match(viewportComponent, /data-smart-cube-reroute/);
+  assert.doesNotMatch(viewportComponent, /data-smart-cube-confirm-rotation/);
   assert.match(client, /import\("\.\/smart-cube\/index"\)/);
   assert.ok(
     client.indexOf('smartCubeConnect.addEventListener("click"')
@@ -213,6 +218,10 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(viewport, /turnGuideTone/);
   assert.match(client, /viewport\?\.setDeviceOrientation/);
   assert.match(client, /const waitForSmartCubeMove/);
+  assert.match(client, /assessGyroRotation/);
+  assert.match(client, /transitionTo\(action\.timelineIndex \+ 1, generation, 0\.5\)/);
+  assert.match(client, /smartCubeCoachingFrameActive && !smartCubeRecovery && activeTimeline\?\.states/);
+  assert.match(orientationVerifier, /halfTurn[\s\S]*Math\.abs\(signedDegrees\) >= 135/);
   assert.match(client, /Next physical move:/);
   assert.match(client, /if \(smartCubeConnected\) waitForSmartCubeMove\(\)/);
   assert.match(client, /applyWaitingTimelineMove/);

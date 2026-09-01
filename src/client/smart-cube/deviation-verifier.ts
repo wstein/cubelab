@@ -50,7 +50,11 @@ export const assessSmartCubeRecovery = (
   if (actual === required) {
     const undoMoves = state.undoMoves.slice(1);
     if (undoMoves.length === 0) return {status: "realigned", received: actual};
-    return {status: "recovering", received: actual, state: {...state, undoMoves}};
+    return {
+      status: "recovering",
+      received: actual,
+      state: {...state, undoMoves, deviations: state.deviations.slice(0, -1)},
+    };
   }
 
   const undo = inverseSmartCubeMove(actual);

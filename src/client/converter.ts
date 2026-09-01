@@ -20,6 +20,8 @@ import {
   type CubePalette,
   type CubeStyle,
   type MoveStep,
+  type OrientationCoordinateFrame,
+  type OrientationQuaternion,
 } from "./cube-gl";
 import {
   evaluateAlgorithm,
@@ -61,9 +63,11 @@ import {
   nextExpectedSmartCubeAction,
   nextExpectedSmartCubeMove,
   nextSmartCubeProgressMoves,
+  type ExpectedSmartCubeAction,
   type SmartCubeHalfTurnProgress,
   type SmartCubeMoveAssessment,
 } from "./smart-cube/live-sync";
+import {assessGyroRotation} from "./smart-cube/orientation-verifier";
 import {
   createSmartCubeAudioFeedback,
   readSmartCubeSoundPreference,
@@ -198,7 +202,6 @@ if (root) {
   const smartCubeSound = root.querySelector<HTMLButtonElement>("[data-smart-cube-sound]")!;
   const smartCubeSync = root.querySelector<HTMLButtonElement>("[data-smart-cube-sync]")!;
   const smartCubeResetState = root.querySelector<HTMLButtonElement>("[data-smart-cube-reset-state]")!;
-  const smartCubeConfirmRotation = root.querySelector<HTMLButtonElement>("[data-smart-cube-confirm-rotation]")!;
   const smartCubeOrientation = root.querySelector<HTMLButtonElement>("[data-smart-cube-orientation]")!;
   const smartCubeDisconnect = root.querySelector<HTMLButtonElement>("[data-smart-cube-disconnect]")!;
   const initialState = readHash(window.location.hash);
@@ -601,6 +604,12 @@ if (root) {
   const smartCubePendingMoves: QueuedSmartCubeMove[] = [];
   let suppressNextSmartCubeExtension = false;
   let smartCubeCoachingWaiting = false;
+  let smartCubeCoachingFrameActive = false;
+  let smartCubeRotationWait: {
+    action: ExpectedSmartCubeAction & {kind: "rotation"};
+    generation: number;
+    baseline: {quaternion: OrientationQuaternion; coordinateFrame: OrientationCoordinateFrame} | null;
+  } | null = null;
   let smartCubeHalfTurnProgress: SmartCubeHalfTurnProgress | null = null;
   let smartCubeRecovery: SmartCubeRecoveryState | null = null;
   const smartCubeMistakeLog: Array<{expected: string; received: string; timestamp: number}> = [];
@@ -1148,7 +1157,7 @@ if (root) {
     viewport?.setMilestone(null);
     viewport?.setFocus(null);
     coachStatus.textContent = "";
-    smartCubeConfirmRotation.hidden = true;
+    smartCubeRotationWait = null;
     updatePlaybackUi();
   };
 
@@ -1406,6 +1415,39 @@ if (root) {
     smartCubeReroute.hidden = !smartCubeConnected || count < 3 || smartCubeLiveState === null;
   };
 
+  const clearSmartCubeRecoveryBlock = () => {
+    moveRibbon.querySelector("[data-smart-cube-recovery-block]")?.remove();
+  };
+
+  const renderSmartCubeRecoveryBlock = () => {
+    clearSmartCubeRecoveryBlock();
+    if (!smartCubeRecovery) return;
+    const expectedToken = moveRibbon.querySelector<HTMLElement>(
+      `[data-move-index="${smartCubeRecovery.expected.timelineIndex + 1}"]`,
+    );
+    if (!expectedToken?.parentElement) return;
+
+    const block = document.createElement("span");
+    block.className = "smart-cube-recovery-block";
+    block.dataset.smartCubeRecoveryBlock = "true";
+    block.setAttribute("aria-label", "Temporary recovery sequence");
+    const appendToken = (move: string, side: "deviation" | "undo") => {
+      const token = document.createElement("span");
+      token.className = `smart-cube-recovery-token ${side}`;
+      token.textContent = move;
+      block.append(token);
+    };
+    smartCubeRecovery.deviations.forEach((move) => appendToken(move, "deviation"));
+    const cursor = document.createElement("span");
+    cursor.className = "smart-cube-recovery-cursor";
+    cursor.dataset.smartCubeRecoveryCursor = "true";
+    cursor.setAttribute("aria-label", "Physical cube cursor");
+    block.append(cursor);
+    smartCubeRecovery.undoMoves.forEach((move) => appendToken(move, "undo"));
+    expectedToken.parentElement.insertBefore(block, expectedToken);
+    block.scrollIntoView({block: "nearest", inline: "nearest"});
+  };
+
   const recordSmartCubeMistake = (expected: string, received: string) => {
     smartCubeMistakeLog.push({expected, received, timestamp: Date.now()});
     updateSmartCubeMistakeUi();
@@ -1413,6 +1455,7 @@ if (root) {
 
   const showSmartCubeRecoveryGuide = () => {
     if (!smartCubeRecovery) return;
+    renderSmartCubeRecoveryBlock();
     const undo = smartCubeRecovery.undoMoves[0];
     const step = smartCubeStep(undo);
     smartCubeCoachingWaiting = true;
@@ -1438,6 +1481,7 @@ if (root) {
 
   const clearSmartCubeRecovery = () => {
     smartCubeRecovery = null;
+    clearSmartCubeRecoveryBlock();
     delete smartCubeDock.dataset.recovery;
   };
 
@@ -1460,9 +1504,18 @@ if (root) {
     clearTurnGuide();
     stopPlayback();
     if (smartCubeRecovery) {
+      smartCubeCoachingFrameActive = false;
       showSmartCubeRecoveryGuide();
       return;
     }
+    smartCubeCoachingFrameActive = true;
+    // Hardware facelets stay in the sensor's fixed frame. During coaching the
+    // timeline owns presentation so a confirmed x/y/z regrip cannot be erased
+    // by the next face packet.
+    renderState(
+      activeTimeline.states[activeIndex],
+      activeAcademy ? `${activeAcademy.label} tutorial` : "Smart-cube timeline",
+    );
     const action = nextExpectedSmartCubeAction(
       activeTimeline.steps,
       activeTimeline.labels,
@@ -1489,15 +1542,27 @@ if (root) {
         viewport?.setTurnPreview(turnTransform(size, step));
         viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
       }
-      smartCubeConfirmRotation.textContent = `Confirm ${action.token}`;
-      smartCubeConfirmRotation.hidden = false;
-      smartCubeStatus.textContent = `${smartCubeDeviceName} · Waiting for ${action.token} regrip`;
-      coachStatus.textContent = `Rotate the physical cube ${action.token}, then confirm. Face-only smart cubes do not emit regrip packets.`;
+      const generation = playbackGeneration;
+      const baseline = smartCubeOrientationTracking ? latestSmartCubeOrientation : null;
+      smartCubeRotationWait = {action, generation, baseline};
+      if (baseline) {
+        smartCubeStatus.textContent = `${smartCubeDeviceName} · Waiting for ${action.token} regrip`;
+        coachStatus.textContent = `Rotate the physical cube ${action.token}. Gyro feedback will continue automatically.`;
+      } else {
+        smartCubeStatus.textContent = `${smartCubeDeviceName} · Showing ${action.token} regrip`;
+        coachStatus.textContent = `No active gyro. Demonstrating ${action.token} at half the selected move speed.`;
+        void transitionTo(action.timelineIndex + 1, generation, 0.5).then((arrived) => {
+          if (!arrived || smartCubeRotationWait?.generation !== generation) return;
+          smartCubeRotationWait = null;
+          signalSmartCubeFeedback("correct");
+          smartCubeStatus.textContent = `${smartCubeDeviceName} · ${action.token} regrip shown`;
+          waitForSmartCubeMove();
+        });
+      }
       updatePlaybackUi();
       return;
     }
     const expected = action;
-    smartCubeConfirmRotation.hidden = true;
     if (smartCubeHalfTurnProgress?.timelineIndex !== expected.timelineIndex) {
       smartCubeHalfTurnProgress = null;
     }
@@ -1542,6 +1607,7 @@ if (root) {
     assessment: Extract<SmartCubeMoveAssessment, {status: "mismatch"}>,
     move: string,
   ): Promise<void> => {
+    smartCubeCoachingFrameActive = false;
     const progress = smartCubeHalfTurnProgress;
     recordSmartCubeMistake(assessment.expected.token, assessment.received);
     await animateSmartCubeMove(move);
@@ -1652,6 +1718,13 @@ if (root) {
   };
 
   const renderSmartCubeLiveState = () => {
+    if (smartCubeCoachingFrameActive && !smartCubeRecovery && activeTimeline?.states) {
+      renderState(
+        activeTimeline.states[activeIndex],
+        activeAcademy ? `${activeAcademy.label} tutorial` : "Smart-cube timeline",
+      );
+      return;
+    }
     const state = smartCubeRenderedState ?? smartCubeLiveState;
     if (!smartCubeConnected || !state) return;
     renderState(state, `${smartCubeDeviceName} · Live physical state`);
@@ -1758,6 +1831,7 @@ if (root) {
       return;
     }
 
+    smartCubeCoachingFrameActive = false;
     await animateSmartCubeMove(move);
     commitSmartCubeMoveState(record);
     // Full-state drivers emit a canonical facelet event alongside each move.
@@ -1779,7 +1853,38 @@ if (root) {
     renderSmartCubeLiveState();
   };
 
+  const applySmartCubeGyroRotation = (event: SmartCubeOrientationEvent) => {
+    const pending = smartCubeRotationWait;
+    if (!pending?.baseline || pending.generation !== playbackGeneration || !activeTimeline?.states) {
+      return;
+    }
+    if (pending.baseline.coordinateFrame !== event.coordinateFrame) return;
+    const step = activeTimeline.steps[pending.action.timelineIndex]?.step;
+    if (!step || step.move.TAG !== "Rotation") return;
+    const assessment = assessGyroRotation(
+      pending.baseline.quaternion,
+      event.quaternion,
+      event.coordinateFrame,
+      step.move._0,
+      step.turns,
+    );
+    if (!assessment.matched) return;
+
+    smartCubeRotationWait = null;
+    clearTurnGuide();
+    // The observed pose already supplied the visual motion. Rebase the IMU at
+    // its new holding and advance the logical timeline without replaying x/y/z.
+    viewport?.setDeviceOrientation(null);
+    viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
+    renderTimelineIndex(pending.action.timelineIndex + 1);
+    signalSmartCubeFeedback("correct");
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · ${pending.action.token} regrip detected`;
+    coachStatus.textContent = `${pending.action.token} detected by gyro. Continuing.`;
+    waitForSmartCubeMove();
+  };
+
   const setSmartCubeOrientationTracking = (enabled: boolean) => {
+    const wasTracking = smartCubeOrientationTracking;
     smartCubeOrientationTracking = enabled && smartCubeConnected && !smartCubeOrientation.hidden;
     smartCubeOrientation.classList.toggle("active", smartCubeOrientationTracking);
     smartCubeOrientation.setAttribute("aria-pressed", String(smartCubeOrientationTracking));
@@ -1795,6 +1900,9 @@ if (root) {
       }
     } else {
       viewport?.setDeviceOrientation(null);
+    }
+    if (wasTracking && !smartCubeOrientationTracking && smartCubeRotationWait?.baseline) {
+      waitForSmartCubeMove();
     }
   };
 
@@ -1850,7 +1958,9 @@ if (root) {
           stopPlayback();
         }
         setSmartCubeOrientationTracking(false);
+        latestSmartCubeOrientation = null;
         smartCubeStateSyncPending = false;
+        smartCubeCoachingFrameActive = false;
         smartCubeLiveState = null;
         smartCubeRenderedState = null;
         smartCubePendingMoves.length = 0;
@@ -1909,6 +2019,7 @@ if (root) {
         };
         if (smartCubeOrientationTracking) {
           viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
+          applySmartCubeGyroRotation(event);
         }
         break;
       case "hardware":
@@ -2161,6 +2272,7 @@ if (root) {
     scheduleUpdate();
   });
   input.addEventListener("input", () => {
+    smartCubeCoachingFrameActive = false;
     if (pendingDirectMove !== null) {
       window.clearTimeout(pendingDirectMove.timeout);
       pendingDirectMove = null;
@@ -2606,28 +2718,6 @@ if (root) {
       smartCubeStatus.textContent = describeBluetoothFailure(reason, usingBrave);
       smartCubeStatus.title = smartCubeStatus.textContent;
     }
-  });
-  smartCubeConfirmRotation.addEventListener("click", async () => {
-    if (!smartCubeConnected || !activeTimeline?.states) return;
-    const action = nextExpectedSmartCubeAction(
-      activeTimeline.steps,
-      activeTimeline.labels,
-      activeIndex,
-    );
-    if (action?.kind !== "rotation") {
-      smartCubeConfirmRotation.hidden = true;
-      return;
-    }
-    smartCubeConfirmRotation.disabled = true;
-    smartCubeConfirmRotation.hidden = true;
-    clearTurnGuide();
-    const generation = playbackGeneration;
-    const arrived = await transitionTo(action.timelineIndex + 1, generation);
-    smartCubeConfirmRotation.disabled = false;
-    if (!arrived || !smartCubeConnected) return;
-    signalSmartCubeFeedback("correct");
-    smartCubeStatus.textContent = `${smartCubeDeviceName} · ${action.token} regrip confirmed`;
-    waitForSmartCubeMove();
   });
   smartCubeDisconnect.addEventListener("click", () => {
     void smartCubeManager?.disconnect();

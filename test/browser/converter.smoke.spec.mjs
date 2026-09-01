@@ -275,6 +275,97 @@ test("recovers once from a stale lazy smart-cube chunk", async ({page}) => {
   expect(chunkRequests).toBe(2);
 });
 
+test("auto-demonstrates regrips without gyro and preserves their lesson frame", async ({page}) => {
+  await page.route(/\/src\/client\/smart-cube\/index\.ts/, async (route) => {
+    await route.fulfill({
+      contentType: "application/javascript",
+      body: `
+        let stateListener = () => {};
+        let eventListener = () => {};
+        const device = {
+          name: "Mock Cube", macAddress: null, brand: "gocube", brandName: "GoCube",
+          protocolId: "mock", protocolName: "Mock", capabilities: {
+            orientation: false, battery: false, facelets: false, hardware: false,
+            reset: false, led: false
+          }
+        };
+        window.__emitSmartCubeEvent = (event) => eventListener(event);
+        export const createSmartCubeManager = () => ({
+          getState: () => ({phase: "disconnected", message: "Disconnected", device: null, error: null}),
+          connect: async () => {
+            stateListener({phase: "connected", message: "Connected", device, error: null});
+            return device;
+          },
+          reconnect: async () => device,
+          disconnect: async () => stateListener({phase: "disconnected", message: "Disconnected", device: null, error: null}),
+          refresh: async () => {}, resetCubeState: async () => {}, flashLed: async () => {},
+          subscribeState: (listener) => {
+            stateListener = listener;
+            listener({phase: "disconnected", message: "Disconnected", device: null, error: null});
+            return () => {};
+          },
+          subscribeEvents: (listener) => { eventListener = listener; return () => {}; }
+        });
+      `,
+    });
+  });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "bluetooth", {
+      configurable: true,
+      value: {getAvailability: async () => true, requestDevice: async () => ({})},
+    });
+  });
+
+  await page.goto("/#size=3&alg=x+U");
+  const expectedFinalState = await page.locator('[data-output="facelets"]').textContent();
+  await page.locator("[data-smart-cube-connect]").click();
+  await expect(page.locator("[data-smart-cube-status]")).toContainText("Live sync");
+  await page.evaluate(() => window.__emitSmartCubeEvent({
+    type: "facelets",
+    facelets: "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB",
+    timestamp: Date.now(),
+  }));
+  await page.locator("[data-input]").fill("x U");
+  await expect(page.locator("[data-playback-scrubber]")).toBeEnabled();
+  await page.locator("[data-playback-scrubber]").fill("0");
+  await page.locator("[data-playback-speed='2']").click();
+  await page.getByRole("button", {name: "Play forward"}).click();
+  await expect(page.locator("[data-playback-position]")).toHaveText("Move 1 of 2", {timeout: 2500});
+  const waiting = await page.locator("[data-smart-cube-status]").textContent();
+  const expectedMove = waiting?.match(/Waiting for ([URFDLB](?:2|')?)/)?.[1];
+  expect(expectedMove).toBeTruthy();
+  const emitMove = (move) => page.evaluate((physicalMove) => window.__emitSmartCubeEvent({
+    type: "move", move: physicalMove, face: 0, direction: 0, localTimestamp: null,
+    cubeTimestamp: null, timestamp: Date.now(),
+  }), move);
+
+  // Wrong moves form a temporary red sequence around the physical cursor.
+  await emitMove("R2");
+  await expect(page.locator("[data-smart-cube-recovery-block] .smart-cube-recovery-token"))
+    .toHaveText(["R2", "R2"]);
+  await expect(page.locator("[data-smart-cube-recovery-cursor]")).toHaveCount(1);
+  await emitMove("U");
+  await expect(page.locator("[data-smart-cube-recovery-block] .smart-cube-recovery-token"))
+    .toHaveText(["R2", "U", "U'", "R2"]);
+  await emitMove("U'");
+  await expect(page.locator("[data-smart-cube-recovery-block] .smart-cube-recovery-token"))
+    .toHaveText(["R2", "R2"]);
+  await emitMove("R2");
+  await expect(page.locator("[data-smart-cube-recovery-block]")).toHaveCount(0);
+
+  await emitMove(expectedMove);
+  await expect(page.locator("[data-playback-position]")).toHaveText("Move 2 of 2");
+  await expect(page.locator('[data-output="facelets"]')).toHaveText(expectedFinalState ?? "");
+
+  // A later fixed-frame hardware snapshot must not visually undo the x regrip.
+  await page.evaluate(() => window.__emitSmartCubeEvent({
+    type: "facelets",
+    facelets: "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB",
+    timestamp: Date.now(),
+  }));
+  await expect(page.locator('[data-output="facelets"]')).toHaveText(expectedFinalState ?? "");
+});
+
 test("plays, steps, and seeks an expanded algorithm timeline", async ({page}) => {
   await page.goto("/");
   const input = page.locator("[data-input]");

@@ -52,6 +52,9 @@ describe("projected motion overlay math", () => {
     expect(turnRepeatIndicator(left)).toBe("2×");
     expect(turnRepeatIndicator({...left, turns: 1})).toBeNull();
     expect(turnRepeatIndicator({...left, turns: 3})).toBeNull();
+    expect(turnRepeatIndicator({move: {TAG: "Rotation", _0: "X"}, turns: 1})).toBe("⟳");
+    expect(turnRepeatIndicator({move: {TAG: "Rotation", _0: "Y"}, turns: -1})).toBe("⟲");
+    expect(turnRepeatIndicator({move: {TAG: "Rotation", _0: "Z"}, turns: 2})).toBe("⟳ 2×");
   });
 
   test("names focused pieces using the active colour scheme", () => {

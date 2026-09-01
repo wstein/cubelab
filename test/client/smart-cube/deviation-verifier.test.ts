@@ -42,7 +42,10 @@ describe("smart cube deviation recovery", () => {
     });
     if (second.status !== "extended") return;
     const undoU = assessSmartCubeRecovery(second.state, "U'");
-    expect(undoU).toMatchObject({status: "recovering", state: {undoMoves: ["F'"]}});
+    expect(undoU).toMatchObject({
+      status: "recovering",
+      state: {undoMoves: ["F'"], deviations: ["F"]},
+    });
     if (undoU.status !== "recovering") return;
     expect(assessSmartCubeRecovery(undoU.state, "F'").status).toBe("realigned");
   });

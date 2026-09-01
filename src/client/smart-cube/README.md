@@ -20,6 +20,10 @@ silently folded into the lesson: Cube Rosetta asks for its inverse, stacks any f
 last-in-first-out order, and resumes the original expected move only after the physical cube is
 realigned. Visual feedback is always available; synthesized sound is user-controlled.
 
+The move tape shows this stack as a temporary red sequence block. Deviations appear to the left
+of a bright physical-cube cursor and their required inverses appear to the right. Each correct undo
+removes its deviation/inverse pair; the verified lesson timeline itself is never rewritten.
+
 Hardware light feedback is capability-gated. The manager calls a transport-provided `flashLed`
 writer when one exists, but the currently pinned `smartcube-web-bluetooth` GoCube connection does
 not expose such a command. Cube Rosetta therefore does not send speculative raw GATT packets.
@@ -37,10 +41,11 @@ GoCube gyro samples are restored to wire axes at the transport boundary, then ch
 axes only after relative-pose calibration so pitch, yaw, and roll cannot be cross-coupled.
 
 Whole-cube `x`, `y`, and `z` rotations remain first-class lesson steps. They animate all cubies in
-the viewport and count in ETM, but not HTM. Most smart cubes report face encoder turns rather than
-regrips, so coaching pauses at a rotation, shows its whole-cube guide, and asks the learner to
-confirm the physical reorientation. Later face packets are still interpreted in the resulting
-fixed physical frame; Cube Rosetta never pretends an unreported regrip was detected automatically.
+the viewport and count in ETM, but not HTM. With orientation tracking active, coaching measures the
+requested axis and direction from the IMU sample captured when the hint appears; half turns are
+accepted in either direction. Without an active gyro, the regrip is demonstrated automatically at
+half the selected move speed. Later face packets are interpreted in the resulting fixed physical
+frame while the viewport remains in the rotation-aware lesson frame.
 
 The public boundary remains small:
 

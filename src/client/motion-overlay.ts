@@ -140,6 +140,11 @@ export const turnSurfaceArrowPaths = (
 
 export const turnRepeatIndicator = (step: MoveStep): string | null => {
   const turns = ((step.turns % 4) + 4) % 4;
+  if (turns === 0) return null;
+  if (step.move.TAG === "Rotation") {
+    if (turns === 2) return "⟳ 2×";
+    return turns === 3 ? "⟲" : "⟳";
+  }
   return turns === 2 ? "2×" : null;
 };
 

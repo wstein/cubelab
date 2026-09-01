@@ -549,6 +549,38 @@ body {
   box-shadow: 0 0 12px rgba(245, 158, 11, 0.34);
 }
 
+.smart-cube-recovery-block {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.22rem;
+  padding: 0.15rem 0.24rem;
+  border: 1px solid rgba(251, 113, 133, 0.78);
+  border-radius: 6px;
+  background: rgba(127, 29, 29, 0.28);
+  box-shadow: 0 0 12px rgba(244, 63, 94, 0.18);
+}
+
+.smart-cube-recovery-token {
+  padding: 0.18rem 0.34rem;
+  border-radius: 4px;
+  color: #fecdd3;
+  font: 600 0.72rem var(--font-mono);
+}
+
+.smart-cube-recovery-token.undo {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fef3c7;
+}
+
+.smart-cube-recovery-cursor {
+  width: 2px;
+  height: 1.35rem;
+  border-radius: 2px;
+  background: #f8fafc;
+  box-shadow: 0 0 7px rgba(248, 250, 252, 0.8);
+}
+
 .academy-phase.focused {
   border-color: rgba(103, 232, 249, 0.72);
   background: rgba(34, 211, 238, 0.1);

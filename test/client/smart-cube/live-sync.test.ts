@@ -70,6 +70,24 @@ describe("smart cube live synchronization", () => {
   });
 
   test("conjugates hints back into the fixed physical cube frame", () => {
+    const xQuarterFaces = ["U", "F", "D", "B"].map((logicalFace) => {
+      const rotated = [
+        {step: {move: {TAG: "Rotation" as const, _0: "X" as const}, turns: 1}},
+        {step: {move: {TAG: "FaceTurn" as const, _0: logicalFace as "U" | "F" | "D" | "B", _1: {from_: 1, to_: 1}}, turns: 1}},
+      ];
+      return nextExpectedSmartCubeMove(rotated, ["x", logicalFace], 0)?.token;
+    });
+    expect(xQuarterFaces).toEqual(["F", "D", "B", "U"]);
+
+    const xHalfFaces = ["U", "F", "D", "B"].map((logicalFace) => {
+      const rotated = [
+        {step: {move: {TAG: "Rotation" as const, _0: "X" as const}, turns: 2}},
+        {step: {move: {TAG: "FaceTurn" as const, _0: logicalFace as "U" | "F" | "D" | "B", _1: {from_: 1, to_: 1}}, turns: 1}},
+      ];
+      return nextExpectedSmartCubeMove(rotated, ["x2", logicalFace], 0)?.token;
+    });
+    expect(xHalfFaces).toEqual(["D", "B", "U", "F"]);
+
     const xRotation = [
       {step: {move: {TAG: "Rotation" as const, _0: "X" as const}, turns: 2}},
       {step: {move: {TAG: "FaceTurn" as const, _0: "B" as const, _1: {from_: 1, to_: 1}}, turns: 3}},
