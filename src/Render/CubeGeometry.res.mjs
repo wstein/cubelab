@@ -570,48 +570,6 @@ function emitRoundedFace(emitter, centre, face, out, side, radius, colour) {
   }
 }
 
-function emitPillowedFace(emitter, centre, face, half, bevel, radius, colour) {
-  let normal = faceNormal(face);
-  let innerHalf = half - bevel;
-  let rim = roundedRim(innerHalf, Math.min(radius, innerHalf * 0.45), 4);
-  let middle = faceCentre(centre, face, half);
-  let positionAt = (point, progress) => {
-    let largest = Math.max(Math.abs(point.u), Math.abs(point.v));
-    let outerScale = largest < 0.000001 ? 1.0 : half / largest;
-    let blend = Math.sin(progress * Math.PI / 2.0);
-    let expanded = 1.0 + (outerScale - 1.0) * blend;
-    let out = half - bevel * (1.0 - Math.cos(progress * Math.PI / 2.0));
-    return pointOnFace(centre, face, out, {
-      u: point.u * expanded,
-      v: point.v * expanded,
-      nu: point.nu,
-      nv: point.nv
-    });
-  };
-  let normalAt = (point, progress) => {
-    let angle = progress * Math.PI / 2.0;
-    let outward = add(scale(colAxis(face), point.nu), scale(rowAxis(face), point.nv));
-    return normalize(add(scale(normal, Math.cos(angle)), scale(outward, Math.sin(angle))));
-  };
-  for (let index = 0, index_finish = rim.length; index < index_finish; ++index) {
-    let next = Primitive_int.mod_(index + 1 | 0, rim.length);
-    let here = rim[index];
-    let there = rim[next];
-    emitTriangle(emitter, middle, positionAt(here, 0.0), positionAt(there, 0.0), normal, normal, normal, colour, normal, undefined);
-  }
-  for (let band = 0; band <= 2; ++band) {
-    let first = band / 3;
-    let second = (band + 1 | 0) / 3;
-    let sheen = 0.22 * Math.sin((first + second) / 2.0 * Math.PI);
-    for (let index$1 = 0, index_finish$1 = rim.length; index$1 < index_finish$1; ++index$1) {
-      let next$1 = Primitive_int.mod_(index$1 + 1 | 0, rim.length);
-      let here$1 = rim[index$1];
-      let there$1 = rim[next$1];
-      emitQuad(emitter, positionAt(here$1, first), positionAt(here$1, second), positionAt(there$1, second), positionAt(there$1, first), normalAt(here$1, first), normalAt(here$1, second), normalAt(there$1, second), normalAt(there$1, first), colour, normalize(add(normalAt(here$1, first), normalAt(there$1, second))), sheen);
-    }
-  }
-}
-
 function emitStandardCubie(data, state, palette, gx, gy, gz) {
   let size = state.size;
   let cell = 2.0 * 1.5 / size;
@@ -649,12 +607,65 @@ function emitSpeedCubie(data, state, palette, gx, gy, gz) {
   let half = 0.999 * cell / 2.0;
   let bevel = 0.06 * cell;
   let flat = half - bevel;
-  StateTypes.storageOrder.forEach(face => emitFace(emitter, centre, face, flat, 2.0 * flat, body));
   StateTypes.storageOrder.forEach(face => {
-    if (isExposed(last, gx, gy, gz, face)) {
-      return emitPillowedFace(emitter, centre, face, half, bevel, 0.12 * cell, paintFor(state, "Speed", palette, last, gx, gy, gz, face));
-    }
+    let colour = paintFor(state, "Speed", palette, last, gx, gy, gz, face);
+    emitFace(emitter, centre, face, half, 2.0 * flat, colour);
   });
+  for (let index = 0, index_finish = edges.length; index < index_finish; ++index) {
+    let match = edges[index];
+    let faceB = match[1];
+    let faceA = match[0];
+    let na = faceNormal(faceA);
+    let nb = faceNormal(faceB);
+    let along = cross(nb, na);
+    let facing = normalize(add(na, nb));
+    let onA = add(scale(na, half), scale(nb, flat));
+    let onB = add(scale(nb, half), scale(na, flat));
+    let middle = scale(add(onA, onB), 0.5);
+    let corner = (way, out) => add(centre, add(scale(along, way * flat), out));
+    let colorA = paintFor(state, "Speed", palette, last, gx, gy, gz, faceA);
+    let colorB = paintFor(state, "Speed", palette, last, gx, gy, gz, faceB);
+    emitQuad(emitter, corner(-1.0, onA), corner(1.0, onA), corner(1.0, middle), corner(-1.0, middle), na, na, facing, facing, colorA, facing, 0.22);
+    emitQuad(emitter, corner(-1.0, middle), corner(1.0, middle), corner(1.0, onB), corner(-1.0, onB), facing, facing, nb, nb, colorB, facing, 0.22);
+  }
+  let between = (p1, p2) => scale(add(p1, p2), 0.5);
+  for (let index$1 = 0, index_finish$1 = corners.length; index$1 < index_finish$1; ++index$1) {
+    let match$1 = corners[index$1];
+    let three = match$1[2];
+    let two = match$1[1];
+    let one = match$1[0];
+    let n1 = faceNormal(one);
+    let n2 = faceNormal(two);
+    let n3 = faceNormal(three);
+    let turned = dot(cross(n1, n2), n3);
+    let match$2 = turned > 0.0 ? [
+        one,
+        two,
+        three
+      ] : [
+        one,
+        three,
+        two
+      ];
+    let faceC = match$2[2];
+    let faceB$1 = match$2[1];
+    let faceA$1 = match$2[0];
+    let na$1 = faceNormal(faceA$1);
+    let nb$1 = faceNormal(faceB$1);
+    let nc = faceNormal(faceC);
+    let facing$1 = normalize(add(na$1, add(nb$1, nc)));
+    let onCap = (out, first, second) => add(centre, add(scale(out, half), add(scale(first, flat), scale(second, flat))));
+    let pa = onCap(na$1, nb$1, nc);
+    let pb = onCap(nb$1, nc, na$1);
+    let pc = onCap(nc, na$1, nb$1);
+    let mid = scale(add(pa, add(pb, pc)), 1.0 / 3.0);
+    let colorA$1 = paintFor(state, "Speed", palette, last, gx, gy, gz, faceA$1);
+    let colorB$1 = paintFor(state, "Speed", palette, last, gx, gy, gz, faceB$1);
+    let colorC = paintFor(state, "Speed", palette, last, gx, gy, gz, faceC);
+    emitQuad(emitter, pa, between(pa, pb), mid, between(pc, pa), na$1, normalize(add(na$1, nb$1)), facing$1, normalize(add(nc, na$1)), colorA$1, facing$1, 0.22);
+    emitQuad(emitter, pb, between(pb, pc), mid, between(pa, pb), nb$1, normalize(add(nb$1, nc)), facing$1, normalize(add(na$1, nb$1)), colorB$1, facing$1, 0.22);
+    emitQuad(emitter, pc, between(pc, pa), mid, between(pb, pc), nc, normalize(add(nc, na$1)), facing$1, normalize(add(nb$1, nc)), colorC, facing$1, 0.22);
+  }
 }
 
 function validate(state) {
@@ -753,7 +764,6 @@ export {
   roundedRim,
   pointOnFace,
   emitRoundedFace,
-  emitPillowedFace,
   emitStandardCubie,
   emitSpeedCubie,
   validate,

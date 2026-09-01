@@ -315,78 +315,6 @@ let emitRoundedFace = (emitter, centre, face, out, side, radius, colour) => {
   }
 }
 
-let emitPillowedFace = (emitter, centre, face, half, bevel, radius, colour) => {
-  let normal = faceNormal(face)
-  let innerHalf = half -. bevel
-  let rim = roundedRim(~half=innerHalf, ~radius=Math.min(radius, innerHalf *. 0.45), ~steps=4)
-  let middle = faceCentre(centre, face, half)
-  let positionAt = (point, progress) => {
-    let largest = Math.max(Math.abs(point.u), Math.abs(point.v))
-    let outerScale = if largest < 0.000001 {
-      1.0
-    } else {
-      half /. largest
-    }
-    let blend = Math.sin(progress *. Math.Constants.pi /. 2.0)
-    let expanded = 1.0 +. (outerScale -. 1.0) *. blend
-    let out = half -. bevel *. (1.0 -. Math.cos(progress *. Math.Constants.pi /. 2.0))
-    pointOnFace(
-      centre,
-      face,
-      out,
-      {u: point.u *. expanded, v: point.v *. expanded, nu: point.nu, nv: point.nv},
-    )
-  }
-  let normalAt = (point, progress) => {
-    let angle = progress *. Math.Constants.pi /. 2.0
-    let outward = add(scale(colAxis(face), point.nu), scale(rowAxis(face), point.nv))
-    normalize(add(scale(normal, Math.cos(angle)), scale(outward, Math.sin(angle))))
-  }
-
-  for index in 0 to rim->Array.length - 1 {
-    let next = (index + 1) % rim->Array.length
-    let here = Belt.Array.getUnsafe(rim, index)
-    let there = Belt.Array.getUnsafe(rim, next)
-    emitTriangle(
-      emitter,
-      middle,
-      positionAt(here, 0.0),
-      positionAt(there, 0.0),
-      normal,
-      normal,
-      normal,
-      colour,
-      normal,
-    )
-  }
-
-  let bands = 3
-  for band in 0 to bands - 1 {
-    let first = Float.fromInt(band) /. Float.fromInt(bands)
-    let second = Float.fromInt(band + 1) /. Float.fromInt(bands)
-    let sheen = 0.22 *. Math.sin((first +. second) /. 2.0 *. Math.Constants.pi)
-    for index in 0 to rim->Array.length - 1 {
-      let next = (index + 1) % rim->Array.length
-      let here = Belt.Array.getUnsafe(rim, index)
-      let there = Belt.Array.getUnsafe(rim, next)
-      emitQuad(
-        emitter,
-        positionAt(here, first),
-        positionAt(here, second),
-        positionAt(there, second),
-        positionAt(there, first),
-        normalAt(here, first),
-        normalAt(here, second),
-        normalAt(there, second),
-        normalAt(there, first),
-        colour,
-        normalize(add(normalAt(here, first), normalAt(there, second))),
-        ~sheen,
-      )
-    }
-  }
-}
-
 let emitStandardCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, ~gz) => {
   let size = state.size
   let cell = 2.0 *. halfExtent /. Float.fromInt(size)
@@ -420,22 +348,133 @@ let emitSpeedCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, ~gz
   let half = 0.999 *. cell /. 2.0
   let bevel = 0.06 *. cell
   let flat = half -. bevel
-  StateTypes.storageOrder->Array.forEach(face =>
-    emitFace(emitter, centre, face, flat, 2.0 *. flat, body)
-  )
-  StateTypes.storageOrder->Array.forEach(face =>
-    if isExposed(~last, ~gx, ~gy, ~gz, face) {
-      emitPillowedFace(
-        emitter,
-        centre,
-        face,
-        half,
-        bevel,
-        0.12 *. cell,
-        paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, face),
-      )
+
+  // 1. Caps (6 flat square faces)
+  StateTypes.storageOrder->Array.forEach(face => {
+    let colour = paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, face)
+    emitFace(emitter, centre, face, half, 2.0 *. flat, colour)
+  })
+
+  // 2. Bands (12 edge chamfers, split into two colored halves meeting at the 45° miter)
+  for index in 0 to edges->Array.length - 1 {
+    let (faceA, faceB) = Belt.Array.getUnsafe(edges, index)
+    let na = faceNormal(faceA)
+    let nb = faceNormal(faceB)
+    let along = cross(nb, na)
+    let facing = normalize(add(na, nb))
+    let onA = add(scale(na, half), scale(nb, flat))
+    let onB = add(scale(nb, half), scale(na, flat))
+    let middle = scale(add(onA, onB), 0.5)
+    let corner = (way, out) => add(centre, add(scale(along, way *. flat), out))
+    let colorA = paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, faceA)
+    let colorB = paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, faceB)
+    emitQuad(
+      emitter,
+      corner(-1.0, onA),
+      corner(1.0, onA),
+      corner(1.0, middle),
+      corner(-1.0, middle),
+      na,
+      na,
+      facing,
+      facing,
+      colorA,
+      facing,
+      ~sheen=0.22,
+    )
+    emitQuad(
+      emitter,
+      corner(-1.0, middle),
+      corner(1.0, middle),
+      corner(1.0, onB),
+      corner(-1.0, onB),
+      facing,
+      facing,
+      nb,
+      nb,
+      colorB,
+      facing,
+      ~sheen=0.22,
+    )
+  }
+
+  // 3. Corners (8 corner chamfers, split into three colored thirds meeting at the 3-way miter)
+  let mitre = (x, y) => normalize(add(x, y))
+  let between = (p1, p2) => scale(add(p1, p2), 0.5)
+  for index in 0 to corners->Array.length - 1 {
+    let (one, two, three) = Belt.Array.getUnsafe(corners, index)
+    let n1 = faceNormal(one)
+    let n2 = faceNormal(two)
+    let n3 = faceNormal(three)
+    let turned = dot(cross(n1, n2), n3)
+    let (faceA, faceB, faceC) = if turned > 0.0 {
+      (one, two, three)
+    } else {
+      (one, three, two)
     }
-  )
+    let na = faceNormal(faceA)
+    let nb = faceNormal(faceB)
+    let nc = faceNormal(faceC)
+    let facing = normalize(add(na, add(nb, nc)))
+    let onCap = (out, first, second) =>
+      add(
+        centre,
+        add(
+          scale(out, half),
+          add(scale(first, flat), scale(second, flat)),
+        ),
+      )
+    let pa = onCap(na, nb, nc)
+    let pb = onCap(nb, nc, na)
+    let pc = onCap(nc, na, nb)
+    let mid = scale(add(pa, add(pb, pc)), 1.0 /. 3.0)
+    let colorA = paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, faceA)
+    let colorB = paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, faceB)
+    let colorC = paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, faceC)
+
+    emitQuad(
+      emitter,
+      pa,
+      between(pa, pb),
+      mid,
+      between(pc, pa),
+      na,
+      mitre(na, nb),
+      facing,
+      mitre(nc, na),
+      colorA,
+      facing,
+      ~sheen=0.22,
+    )
+    emitQuad(
+      emitter,
+      pb,
+      between(pb, pc),
+      mid,
+      between(pa, pb),
+      nb,
+      mitre(nb, nc),
+      facing,
+      mitre(na, nb),
+      colorB,
+      facing,
+      ~sheen=0.22,
+    )
+    emitQuad(
+      emitter,
+      pc,
+      between(pc, pa),
+      mid,
+      between(pb, pc),
+      nc,
+      mitre(nc, na),
+      facing,
+      mitre(nb, nc),
+      colorC,
+      facing,
+      ~sheen=0.22,
+    )
+  }
 }
 
 let validate = (state: StateTypes.cubeState) => {
