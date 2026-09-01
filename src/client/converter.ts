@@ -1832,6 +1832,24 @@ if (root) {
     smartCubeDock.hidden = false;
     smartCubeDock.dataset.phase = "error";
     smartCubeStatus.textContent = message;
+    smartCubeStatus.title = message;
+  };
+  const bluetoothChooserWasCancelled = (reason: unknown) => {
+    if (!(reason instanceof DOMException) || reason.name !== "NotFoundError") return false;
+    return /(?:chooser|request).*(?:cancelled|canceled)|user cancelled|no (?:bluetooth )?device (?:was )?selected/i
+      .test(reason.message);
+  };
+  const describeBluetoothFailure = (reason: unknown) => {
+    const detail = reason instanceof Error ? reason.message : String(reason);
+    if (/globally disabled|permission has been blocked|enterprise policy|disabled web bluetooth/i.test(detail)) {
+      return window.self === window.top
+        ? "Bluetooth is blocked by the browser. Allow Bluetooth devices in Chrome or Edge site settings and enable the browser in macOS Privacy & Security, then retry."
+        : "Bluetooth is blocked in this embedded preview. Open Cube Rosetta directly in Chrome or Edge, then connect again.";
+    }
+    if (/denied.*(?:scan|permission)|not allowed/i.test(detail)) {
+      return "Bluetooth scanning was denied. Allow Bluetooth access for this browser and site, then retry.";
+    }
+    return detail;
   };
   smartCubeConnect.addEventListener("click", async () => {
     if ((typeof isSecureContext !== "undefined" && !isSecureContext) || !bluetoothPolicyAllows()) {
@@ -1840,9 +1858,19 @@ if (root) {
     }
     // Read the permission-gated API only after a user gesture. Some embedded
     // browsers log a warning every time this property is probed.
-    if (typeof navigator.bluetooth?.requestDevice !== "function") {
+    const bluetooth = navigator.bluetooth;
+    if (typeof bluetooth?.requestDevice !== "function") {
       showBluetoothUnavailable("Web Bluetooth requires Chrome or Edge in a secure context");
       return;
+    }
+    if (typeof bluetooth.getAvailability === "function") {
+      const available = await bluetooth.getAvailability().catch(() => null);
+      if (available === false) {
+        showBluetoothUnavailable(
+          "Bluetooth is unavailable or blocked. Turn Bluetooth on and allow Chrome or Edge in macOS Privacy & Security, then retry.",
+        );
+        return;
+      }
     }
     store.patch({size: 3});
     try {
@@ -1857,13 +1885,14 @@ if (root) {
         },
       });
     } catch (reason) {
-      if (reason instanceof DOMException && reason.name === "NotFoundError") {
+      if (bluetoothChooserWasCancelled(reason)) {
         await smartCubeManager?.disconnect();
         return;
       }
       smartCubeDock.hidden = false;
       smartCubeDock.dataset.phase = "error";
-      smartCubeStatus.textContent = reason instanceof Error ? reason.message : String(reason);
+      smartCubeStatus.textContent = describeBluetoothFailure(reason);
+      smartCubeStatus.title = smartCubeStatus.textContent;
     }
   });
   smartCubeDisconnect.addEventListener("click", () => {

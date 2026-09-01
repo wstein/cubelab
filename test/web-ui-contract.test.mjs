@@ -157,7 +157,7 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /import\("\.\/smart-cube\/index"\)/);
   assert.ok(
     client.indexOf('smartCubeConnect.addEventListener("click"')
-      < client.indexOf("navigator.bluetooth?.requestDevice"),
+      < client.indexOf("const bluetooth = navigator.bluetooth"),
     "Bluetooth must only be probed inside the explicit Connect gesture",
   );
   assert.match(client, /manager\.subscribeEvents\(handleSmartCubeEvent\)/);

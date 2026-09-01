@@ -176,6 +176,31 @@ test("places the visualizer before controls on mobile", async ({page}) => {
   expect(viewport.y).toBeLessThan(inputPanel.y);
 });
 
+test("reports blocked Bluetooth without opening the device chooser", async ({page}) => {
+  await page.addInitScript(() => {
+    window.__bluetoothRequestCount = 0;
+    Object.defineProperty(navigator, "bluetooth", {
+      configurable: true,
+      value: {
+        getAvailability: async () => false,
+        requestDevice: async () => {
+          window.__bluetoothRequestCount += 1;
+          throw new DOMException("Bluetooth permission has been blocked.", "NotFoundError");
+        },
+      },
+    });
+  });
+
+  await page.goto("/");
+  await page.locator("[data-smart-cube-connect]").click();
+
+  await expect(page.locator("[data-smart-cube-dock]")).toBeVisible();
+  await expect(page.locator("[data-smart-cube-status]")).toContainText(
+    "Bluetooth is unavailable or blocked",
+  );
+  expect(await page.evaluate(() => window.__bluetoothRequestCount)).toBe(0);
+});
+
 test("plays, steps, and seeks an expanded algorithm timeline", async ({page}) => {
   await page.goto("/");
   const input = page.locator("[data-input]");
