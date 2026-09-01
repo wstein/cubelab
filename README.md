@@ -87,6 +87,21 @@ Interactive playback caches canonical states for at most 500 expanded steps. Lon
 algorithms still convert completely, but their tape controls are disabled to keep
 browser memory bounded.
 
+## Algorithm workbench
+
+`MoveTransform.res` provides pure, canonical algorithm transformations:
+
+- structured inversion without flattening groups, commutators, or conjugates;
+- exact same-axis simplification and modulo-four cancellation after safe expansion;
+- left/right, front/back, and up/down mirrors;
+- `x`, `y`, and `z` coordinate-frame rotations;
+- size-aware random-turn practice scrambles with adjacent-axis repetition prevented.
+
+The practice generator is deliberately not labeled WCA-compliant. Official competition
+scrambles must come from the current official WCA scramble program and, except for
+specified events, must sample legal states uniformly. See the
+[algorithm workbench design and guarantees](docs/algorithm-workbench.md).
+
 Custom colour mappings use six distinct uppercase ASCII letters in `U,L,F,R,B,D`
 order. Parsers validate exact sticker counts and canonical net geometry.
 
