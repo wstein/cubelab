@@ -5,6 +5,8 @@ import * as Orbit64Codec from "../State/Orbit64Codec.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import * as StateTypes from "../State/StateTypes.res.mjs";
 import * as MoveCompatibility from "../Move/MoveCompatibility.res.mjs";
+import * as MoveParser from "../Move/MoveParser.res.mjs";
+import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import {
   createCubeViewport,
   turnTransform,
@@ -63,6 +65,7 @@ if (root) {
   const playbackToggle = root.querySelector<HTMLButtonElement>("[data-playback-toggle]")!;
   const playbackLimit = root.querySelector<HTMLElement>("[data-playback-limit]")!;
   const compatibilityStrip = root.querySelector<HTMLElement>("[data-compatibility]")!;
+  const transformButtons = root.querySelectorAll<HTMLButtonElement>("[data-alg-transform]");
   const initialState = readHash(window.location.hash);
   const store = createStore(initialState);
   let size = initialState.size;
@@ -312,6 +315,12 @@ if (root) {
     });
   };
 
+  const updateTransformAvailability = (available: boolean) => {
+    transformButtons.forEach((button) => {
+      button.disabled = !available;
+    });
+  };
+
   const updatePlaybackUi = (rebuild = false) => {
     playback.hidden = activeTimeline === null;
     if (!activeTimeline) return;
@@ -435,6 +444,7 @@ if (root) {
 
   const synchronizePlayback = (recognized: RecognizedInput) => {
     updateCompatibility(recognized);
+    updateTransformAvailability(recognized.timeline !== undefined);
     if (!recognized.timeline || !recognized.timelineKey) {
       stopPlayback();
       activeTimeline = null;
@@ -484,6 +494,7 @@ if (root) {
     const parsed = parseState(input.value);
     if (parsed.TAG === "Error") {
       updateCompatibility(null);
+      updateTransformAvailability(false);
       stopPlayback();
       activeTimeline = null;
       activeTimelineKey = null;
@@ -562,7 +573,59 @@ if (root) {
     customScheme.value = customScheme.value.toUpperCase();
     store.patch({customScheme: customScheme.value});
   });
-  input.addEventListener("input", () => store.patch({input: input.value}));
+  input.addEventListener("input", () => {
+    updateTransformAvailability(false);
+    store.patch({input: input.value});
+  });
+
+  const commitTransformedAlgorithm = (value: string) => {
+    if (value.length > 20_000) {
+      error.textContent = "A transformed algorithm may not exceed 20,000 characters.";
+      error.hidden = false;
+      return;
+    }
+    store.patch({input: value, lowercaseMode: "Wide", notationDialect: "Modern"});
+    input.focus();
+  };
+
+  transformButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const parsed = MoveParser.parseWithOptions(
+        size,
+        lowercaseMode,
+        notationDialect,
+        input.value,
+      ) as Result<unknown[], {message: string}>;
+      if (parsed.TAG === "Error") return;
+      const alg = parsed._0;
+      switch (button.dataset.algTransform) {
+        case "invert":
+          commitTransformedAlgorithm(MoveTransform.serialize(MoveTransform.invert(alg)));
+          break;
+        case "simplify": {
+          const simplified = MoveTransform.simplify(alg) as Result<unknown[], string>;
+          if (simplified.TAG === "Ok") {
+            commitTransformedAlgorithm(MoveTransform.serialize(simplified._0));
+          } else {
+            error.textContent = "The algorithm exceeds the safe transformation limit.";
+            error.hidden = false;
+          }
+          break;
+        }
+        case "mirror-lr":
+          commitTransformedAlgorithm(MoveTransform.serialize(MoveTransform.mirror(alg, "LR")));
+          break;
+        case "rotate-y":
+          commitTransformedAlgorithm(MoveTransform.serialize(MoveTransform.rotate(alg, "Y", 1)));
+          break;
+      }
+    });
+  });
+
+  root.querySelector<HTMLButtonElement>("[data-practice-scramble]")!.addEventListener("click", () => {
+    const scramble = MoveTransform.practiceScramble(size) as Result<string, string>;
+    if (scramble.TAG === "Ok") commitTransformedAlgorithm(scramble._0);
+  });
 
   root.querySelectorAll<HTMLButtonElement>("[data-cube-style]").forEach((button) => {
     button.addEventListener("click", () => {

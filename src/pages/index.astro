@@ -149,11 +149,25 @@ const cards = [
           placeholder="Paste an algorithm, compact facelets, compact colours, or a canonical net. Leave blank for solved."
           spellcheck="false"
         ></textarea>
+        <div class="transform-row" aria-label="Algorithm transformations">
+          <span class="transform-label">Transforms</span>
+          <button type="button" class="transform-btn" data-alg-transform="invert" disabled>↶ Invert</button>
+          <button type="button" class="transform-btn" data-alg-transform="simplify" disabled>⚡ Simplify</button>
+          <button type="button" class="transform-btn" data-alg-transform="mirror-lr" disabled>↔ Mirror L/R</button>
+          <button type="button" class="transform-btn" data-alg-transform="rotate-y" disabled>↻ Rotate y</button>
+          <button
+            type="button"
+            class="transform-btn practice"
+            data-practice-scramble
+            title="Random-turn practice sequence; not an official WCA scramble"
+          >Practice scramble</button>
+        </div>
         <p class="input-help">
           Lowercase moves use modern SiGN wide turns by default (<code>r = Rw</code>).
           Use <code>2R</code> for a portable single inner-layer turn. Unicode Ruwix
           subscripts such as <code>R₂'</code> are recognized directly; ambiguous plaintext
           such as <code>R2'</code> requires Ruwix suffix mode.
+          Practice scrambles are for local testing and are not official WCA sequences.
         </p>
         <div class="compatibility-strip" data-compatibility hidden>
           <span class="compatibility-label">Source compatibility</span>

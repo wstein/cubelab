@@ -55,6 +55,20 @@ test("the web UI explains source portability without claiming competition legali
   assert.match(client, /does not determine event-specific competition legality/);
 });
 
+test("the web UI exposes pure algorithm transforms and a clearly labeled practice scramble", () => {
+  assert.match(page, /data-alg-transform="invert"/);
+  assert.match(page, /data-alg-transform="simplify"/);
+  assert.match(page, /data-alg-transform="mirror-lr"/);
+  assert.match(page, /data-alg-transform="rotate-y"/);
+  assert.match(page, /data-practice-scramble/);
+  assert.match(page, /not official WCA/);
+  assert.match(client, /MoveTransform\.invert/);
+  assert.match(client, /MoveTransform\.simplify/);
+  assert.match(client, /MoveTransform\.mirror/);
+  assert.match(client, /MoveTransform\.rotate/);
+  assert.match(client, /MoveTransform\.practiceScramble/);
+});
+
 test("the studio connects recognized input and one canonical state to WebGL", () => {
   assert.match(page, /<CubeViewport \/>/);
   assert.match(page, /data-preset="M2 E2 S2"/);

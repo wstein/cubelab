@@ -73,3 +73,17 @@ listed exceptions; the WCA currently distributes TNoodle for that purpose:
 
 The local generator uses `Math.random()` and is labeled **Practice scramble** throughout
 the interface. It must not be used to prepare official competition scrambles.
+
+## Browser integration
+
+The action ribbon below the input exposes **Invert**, **Simplify**, **Mirror L/R**,
+**Rotate y**, and **Practice scramble**. Algebraic actions are enabled only when the
+current input is a recognized algorithm; state codecs cannot accidentally be rewritten
+as moves. Each click reparses the current textarea synchronously, applies the pure
+transform, serializes the result, and switches to modern explicit notation before the
+normal conversion/playback update. This avoids stale-frame transformations while typing
+and prevents Ruwix post-face digits from changing the meaning of canonical `F2` output.
+
+The practice action remains available for every supported size. Transform output is
+bounded to 20,000 characters, matching the shareable-input import limit; oversized
+results fail visibly without replacing the original source.

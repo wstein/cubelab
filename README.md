@@ -97,6 +97,10 @@ browser memory bounded.
 - `x`, `y`, and `z` coordinate-frame rotations;
 - size-aware random-turn practice scrambles with adjacent-axis repetition prevented.
 
+The input panel exposes Invert, Simplify, Mirror L/R, Rotate y, and Practice scramble
+actions. State-format input disables algebraic actions, and every generated algorithm is
+serialized into explicit modern notation before being reparsed by the normal pipeline.
+
 The practice generator is deliberately not labeled WCA-compliant. Official competition
 scrambles must come from the current official WCA scramble program and, except for
 specified events, must sample legal states uniformly. See the

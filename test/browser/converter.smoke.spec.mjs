@@ -215,3 +215,36 @@ test("plays internal pauses without changing the canonical cube state", async ({
   await expect(facelets).toHaveText(afterR ?? "");
   await expect(page.locator('[data-compatibility-profile="cubingJs"]')).toContainText("×");
 });
+
+test("applies algorithm workbench actions and generates size-aware practice scrambles", async ({page}) => {
+  await page.goto("/");
+  const input = page.locator("[data-input]");
+  const invert = page.getByRole("button", {name: "Invert"});
+
+  await expect(invert).toBeDisabled();
+  await input.fill("R U R'");
+  await expect(invert).toBeEnabled();
+  await invert.click();
+  await expect(input).toHaveValue("R U' R'");
+
+  await input.fill("R L R'");
+  await page.getByRole("button", {name: "Simplify"}).click();
+  await expect(input).toHaveValue("L");
+
+  await input.fill("R U R'");
+  await page.getByRole("button", {name: "Mirror L/R"}).click();
+  await expect(input).toHaveValue("L' U' L");
+
+  await input.fill("R U R'");
+  await page.getByRole("button", {name: "Rotate y"}).click();
+  await expect(input).toHaveValue("F U F'");
+
+  await input.fill("AAAAAAAAAAAA");
+  await expect(invert).toBeDisabled();
+
+  await page.locator('[data-size="2"]').click();
+  await page.getByRole("button", {name: "Practice scramble"}).click();
+  await expect(page.locator("[data-status]")).toHaveText("Algorithm · SiGN");
+  const scramble = await input.inputValue();
+  expect(scramble.trim().split(/\s+/)).toHaveLength(11);
+});
