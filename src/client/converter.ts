@@ -410,15 +410,35 @@ if (root) {
     const playable = activeTimeline.states !== null && activeTimeline.steps.length > 0;
     if (rebuild) {
       moveRibbon.replaceChildren();
+      let currentGroupId: number | undefined;
+      let groupContainer: HTMLSpanElement | null = null;
       activeTimeline.labels.forEach((label, index) => {
+        const entry = activeTimeline!.steps[index];
+        if (entry.groupId !== currentGroupId) {
+          currentGroupId = entry.groupId;
+          groupContainer = null;
+          if (currentGroupId !== undefined) {
+            groupContainer = document.createElement("span");
+            groupContainer.className = "move-group";
+            groupContainer.setAttribute("aria-label", "Parenthesized algorithm group");
+            moveRibbon.append(groupContainer);
+          }
+        }
         const button = document.createElement("button");
         button.type = "button";
         button.className = "move-token";
         button.textContent = label;
-        button.classList.toggle("pause", activeTimeline.steps[index].step === undefined);
+        const isPause = entry.step === undefined;
+        button.classList.toggle("pause", isPause);
         button.dataset.moveIndex = String(index + 1);
-        button.setAttribute("aria-label", `Go to move ${index + 1}: ${label}`);
-        moveRibbon.append(button);
+        const description = isPause
+          ? entry.durationMs === undefined
+            ? "Pause"
+            : `Pause for ${entry.durationMs / 1000} seconds`
+          : label;
+        button.setAttribute("aria-label", `Go to step ${index + 1}: ${description}`);
+        if (isPause) button.title = description;
+        (groupContainer ?? moveRibbon).append(button);
       });
     }
     playbackLimit.hidden = activeTimeline.states !== null;

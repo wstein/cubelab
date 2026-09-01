@@ -367,7 +367,7 @@ function applyStep(state, step) {
   return result;
 }
 
-function pushStep(steps, move, turns) {
+function pushStep(steps, move, turns, groupId) {
   if (normalizeTurns(turns) === 0) {
     return;
   }
@@ -388,11 +388,12 @@ function pushStep(steps, move, turns) {
     },
     pause: false,
     durationMs: undefined,
-    comment: undefined
+    comment: undefined,
+    groupId: groupId
   });
 }
 
-function pushPause(steps, durationMs) {
+function pushPause(steps, durationMs, groupId) {
   if (steps.length >= 100000) {
     throw {
       RE_EXN_ID: ExpansionFailure,
@@ -407,11 +408,12 @@ function pushPause(steps, durationMs) {
     step: undefined,
     pause: true,
     durationMs: durationMs,
-    comment: undefined
+    comment: undefined,
+    groupId: groupId
   });
 }
 
-function pushComment(steps, text) {
+function pushComment(steps, text, groupId) {
   if (steps.length >= 100000) {
     throw {
       RE_EXN_ID: ExpansionFailure,
@@ -426,61 +428,63 @@ function pushComment(steps, text) {
     step: undefined,
     pause: false,
     durationMs: undefined,
-    comment: text
+    comment: text,
+    groupId: groupId
   });
 }
 
-function expandSequence(steps, units, direction) {
+function expandSequence(steps, units, groupId, nextGroupId, direction) {
   for (let offset = 0, offset_finish = units.length; offset < offset_finish; ++offset) {
     let index = direction === 1 ? offset : (units.length - 1 | 0) - offset | 0;
-    expandUnit(steps, units[index], direction);
+    expandUnit(steps, units[index], groupId, nextGroupId, direction);
   }
 }
 
-function expandRepeated(steps, units, repeat, direction) {
+function expandRepeated(steps, units, repeat, nextGroupId, direction) {
   let repetitions = repeat < 0 ? -repeat | 0 : repeat;
   let nestedDirection = direction * (
     repeat < 0 ? -1 : 1
   ) | 0;
   for (let _for = 1; _for <= repetitions; ++_for) {
-    expandSequence(steps, units, nestedDirection);
+    nextGroupId.contents = nextGroupId.contents + 1 | 0;
+    expandSequence(steps, units, nextGroupId.contents, nextGroupId, nestedDirection);
   }
 }
 
-function expandCommutator(steps, left, right, direction) {
+function expandCommutator(steps, left, right, groupId, nextGroupId, direction) {
   if (direction === 1) {
-    expandSequence(steps, left, 1);
-    expandSequence(steps, right, 1);
-    expandSequence(steps, left, -1);
-    return expandSequence(steps, right, -1);
+    expandSequence(steps, left, groupId, nextGroupId, 1);
+    expandSequence(steps, right, groupId, nextGroupId, 1);
+    expandSequence(steps, left, groupId, nextGroupId, -1);
+    return expandSequence(steps, right, groupId, nextGroupId, -1);
   } else {
-    expandSequence(steps, right, 1);
-    expandSequence(steps, left, 1);
-    expandSequence(steps, right, -1);
-    return expandSequence(steps, left, -1);
+    expandSequence(steps, right, groupId, nextGroupId, 1);
+    expandSequence(steps, left, groupId, nextGroupId, 1);
+    expandSequence(steps, right, groupId, nextGroupId, -1);
+    return expandSequence(steps, left, groupId, nextGroupId, -1);
   }
 }
 
-function expandConjugate(steps, left, right, direction) {
-  expandSequence(steps, left, 1);
-  expandSequence(steps, right, direction);
-  expandSequence(steps, left, -1);
+function expandConjugate(steps, left, right, groupId, nextGroupId, direction) {
+  expandSequence(steps, left, groupId, nextGroupId, 1);
+  expandSequence(steps, right, groupId, nextGroupId, direction);
+  expandSequence(steps, left, groupId, nextGroupId, -1);
 }
 
-function expandUnit(steps, unit, direction) {
+function expandUnit(steps, unit, groupId, nextGroupId, direction) {
   let seconds = unit.desc;
   if (typeof seconds !== "object") {
-    return pushPause(steps, undefined);
+    return pushPause(steps, undefined, groupId);
   }
   switch (seconds.TAG) {
     case "Move" :
-      return pushStep(steps, seconds._0, seconds._1 * direction | 0);
+      return pushStep(steps, seconds._0, seconds._1 * direction | 0, groupId);
     case "TimedPause" :
-      return pushPause(steps, Math.round(seconds._0 * 1000.0) | 0);
+      return pushPause(steps, Math.round(seconds._0 * 1000.0) | 0, groupId);
     case "BlockComment" :
-      return pushComment(steps, seconds._0);
+      return pushComment(steps, seconds._0, groupId);
     case "Group" :
-      return expandRepeated(steps, seconds._0, seconds._1, direction);
+      return expandRepeated(steps, seconds._0, seconds._1, nextGroupId, direction);
     case "Commutator" :
       let repeat = seconds._2;
       let right = seconds._1;
@@ -490,7 +494,7 @@ function expandUnit(steps, unit, direction) {
         repeat < 0 ? -1 : 1
       ) | 0;
       for (let _for = 1; _for <= repetitions; ++_for) {
-        expandCommutator(steps, left, right, nestedDirection);
+        expandCommutator(steps, left, right, groupId, nextGroupId, nestedDirection);
       }
       return;
     case "Conjugate" :
@@ -502,7 +506,7 @@ function expandUnit(steps, unit, direction) {
         repeat$1 < 0 ? -1 : 1
       ) | 0;
       for (let _for$1 = 1; _for$1 <= repetitions$1; ++_for$1) {
-        expandConjugate(steps, left$1, right$1, nestedDirection$1);
+        expandConjugate(steps, left$1, right$1, groupId, nextGroupId, nestedDirection$1);
       }
       return;
   }
@@ -511,7 +515,10 @@ function expandUnit(steps, unit, direction) {
 function expandTimeline(alg) {
   try {
     let steps = [];
-    expandSequence(steps, alg, 1);
+    let nextGroupId = {
+      contents: 0
+    };
+    expandSequence(steps, alg, undefined, nextGroupId, 1);
     return {
       TAG: "Ok",
       _0: steps

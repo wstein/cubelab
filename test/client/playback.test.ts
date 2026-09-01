@@ -20,17 +20,19 @@ describe("algorithm playback timeline", () => {
     const result = evaluateAlgorithm(3, "Wide", "Modern", "(R . U)2 /* inspect */");
     expect(result.TAG).toBe("Ok");
     if (result.TAG !== "Ok") return;
-    expect(result._0.labels).toEqual(["R", "Pause", "U", "R", "Pause", "U"]);
+    expect(result._0.labels).toEqual(["R", "│", "U", "R", "│", "U"]);
     expect(result._0.steps.filter((entry) => entry.step === undefined)).toHaveLength(2);
     expect(result._0.states).toHaveLength(7);
     expect(result._0.states?.[1]).toBe(result._0.states?.[2]);
+    expect(result._0.steps.slice(0, 3).map((entry) => entry.groupId)).toEqual([1, 1, 1]);
+    expect(result._0.steps.slice(3).map((entry) => entry.groupId)).toEqual([2, 2, 2]);
   });
 
   test("retains timestamp duration and labels it in the tape timeline", () => {
     const result = evaluateAlgorithm(3, "Wide", "Modern", "R @1.3s U");
     expect(result.TAG).toBe("Ok");
     if (result.TAG !== "Ok") return;
-    expect(result._0.labels).toEqual(["R", "@1.3s", "U"]);
+    expect(result._0.labels).toEqual(["R", "│", "U"]);
     expect(result._0.steps[1].durationMs).toBe(1300);
     expect(result._0.states?.[1]).toBe(result._0.states?.[2]);
   });

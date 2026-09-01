@@ -72,6 +72,14 @@ test("retains timed pauses with millisecond duration in expanded timelines", () 
   ]);
 });
 
+test("retains parenthesized group identity in expanded timelines", () => {
+  const parsed = MoveParser.parse(3, "(R U)2 F");
+  assert.equal(parsed.TAG, "Ok");
+  const timeline = MoveExecutor.expandTimeline(parsed._0);
+  assert.equal(timeline.TAG, "Ok");
+  assert.deepEqual(timeline._0.map(({groupId}) => groupId), [1, 1, 2, 2, undefined]);
+});
+
 test("wide, slice, inner-layer, and rotation moves are internally consistent", () => {
   assert.equal(compact(3, "Rw"), compact(3, "R M'"));
   assert.equal(compact(3, "M M M M"), solved(3));

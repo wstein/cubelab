@@ -294,6 +294,16 @@ body {
   scrollbar-width: thin;
 }
 
+.move-group {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 0.3rem;
+  padding: 0.16rem 0.2rem;
+  border: 1px solid rgba(129, 140, 248, 0.28);
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.055);
+}
+
 .move-token {
   flex: 0 0 auto;
   padding: 0.2rem 0.42rem;
@@ -317,9 +327,18 @@ body {
 }
 
 .move-token.pause {
-  border-style: dashed;
+  min-width: 0.75rem;
+  padding-inline: 0.1rem;
+  background: transparent;
+  border-color: transparent;
   color: var(--text-secondary);
-  font-style: italic;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.move-token.pause.active {
+  background: rgba(99, 102, 241, 0.16);
+  border-color: rgba(129, 140, 248, 0.45);
 }
 
 .playback-scrubber {

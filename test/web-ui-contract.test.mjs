@@ -144,3 +144,10 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(client, /MAX_PLAYBACK_STEPS/);
   assert.match(client, /transitionTo/);
 });
+
+test("the tape groups parenthesized sequences and renders pauses as accessible separators", () => {
+  assert.match(client, /className = "move-group"/);
+  assert.match(client, /Pause for \$\{entry\.durationMs \/ 1000\} seconds/);
+  assert.match(client, /button\.textContent = label/);
+  assert.match(client, /entry\.groupId/);
+});

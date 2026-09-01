@@ -25,6 +25,7 @@ type timelineEntry = {
   pause: bool,
   durationMs: option<int>,
   comment: option<string>,
+  groupId: option<int>,
 }
 
 exception ExpansionFailure(executionError)
@@ -200,41 +201,53 @@ let applyStep = (state: StateTypes.cubeState, step: step): StateTypes.cubeState 
   result.contents
 }
 
-let pushStep = (steps, move, turns) => {
+let pushStep = (steps, move, turns, groupId) => {
   if normalizeTurns(turns) != 0 {
     if steps->Array.length >= maxExpandedMoves {
       throw(ExpansionFailure(ExpansionLimitExceeded(maxExpandedMoves)))
     }
-    steps->Array.push({step: Some({move, turns}), pause: false, durationMs: None, comment: None})
+    steps->Array.push({
+      step: Some({move, turns}),
+      pause: false,
+      durationMs: None,
+      comment: None,
+      groupId,
+    })
   }
 }
 
-let pushPause = (steps, durationMs) => {
+let pushPause = (steps, durationMs, groupId) => {
   if steps->Array.length >= maxExpandedMoves {
     throw(ExpansionFailure(ExpansionLimitExceeded(maxExpandedMoves)))
   }
-  steps->Array.push({step: None, pause: true, durationMs, comment: None})
+  steps->Array.push({step: None, pause: true, durationMs, comment: None, groupId})
 }
 
-let pushComment = (steps, text) => {
+let pushComment = (steps, text, groupId) => {
   if steps->Array.length >= maxExpandedMoves {
     throw(ExpansionFailure(ExpansionLimitExceeded(maxExpandedMoves)))
   }
-  steps->Array.push({step: None, pause: false, durationMs: None, comment: Some(text)})
+  steps->Array.push({step: None, pause: false, durationMs: None, comment: Some(text), groupId})
 }
 
-let rec expandSequence = (steps, units: array<locatedUnit>, ~direction: int) => {
+let rec expandSequence = (
+  steps,
+  units: array<locatedUnit>,
+  groupId,
+  nextGroupId,
+  ~direction: int,
+) => {
   for offset in 0 to units->Array.length - 1 {
     let index = if direction == 1 {
       offset
     } else {
       units->Array.length - 1 - offset
     }
-    expandUnit(steps, Belt.Array.getUnsafe(units, index), ~direction)
+    expandUnit(steps, Belt.Array.getUnsafe(units, index), groupId, nextGroupId, ~direction)
   }
 }
 
-and expandRepeated = (steps, units, repeat, ~direction) => {
+and expandRepeated = (steps, units, repeat, nextGroupId, ~direction) => {
   let repetitions = if repeat < 0 {
     -repeat
   } else {
@@ -247,37 +260,45 @@ and expandRepeated = (steps, units, repeat, ~direction) => {
       1
     }
   for _ in 1 to repetitions {
-    expandSequence(steps, units, ~direction=nestedDirection)
+    nextGroupId := nextGroupId.contents + 1
+    expandSequence(
+      steps,
+      units,
+      Some(nextGroupId.contents),
+      nextGroupId,
+      ~direction=nestedDirection,
+    )
   }
 }
 
-and expandCommutator = (steps, left, right, ~direction) => {
+and expandCommutator = (steps, left, right, groupId, nextGroupId, ~direction) => {
   if direction == 1 {
-    expandSequence(steps, left, ~direction=1)
-    expandSequence(steps, right, ~direction=1)
-    expandSequence(steps, left, ~direction=-1)
-    expandSequence(steps, right, ~direction=-1)
+    expandSequence(steps, left, groupId, nextGroupId, ~direction=1)
+    expandSequence(steps, right, groupId, nextGroupId, ~direction=1)
+    expandSequence(steps, left, groupId, nextGroupId, ~direction=-1)
+    expandSequence(steps, right, groupId, nextGroupId, ~direction=-1)
   } else {
-    expandSequence(steps, right, ~direction=1)
-    expandSequence(steps, left, ~direction=1)
-    expandSequence(steps, right, ~direction=-1)
-    expandSequence(steps, left, ~direction=-1)
+    expandSequence(steps, right, groupId, nextGroupId, ~direction=1)
+    expandSequence(steps, left, groupId, nextGroupId, ~direction=1)
+    expandSequence(steps, right, groupId, nextGroupId, ~direction=-1)
+    expandSequence(steps, left, groupId, nextGroupId, ~direction=-1)
   }
 }
 
-and expandConjugate = (steps, left, right, ~direction) => {
-  expandSequence(steps, left, ~direction=1)
-  expandSequence(steps, right, ~direction)
-  expandSequence(steps, left, ~direction=-1)
+and expandConjugate = (steps, left, right, groupId, nextGroupId, ~direction) => {
+  expandSequence(steps, left, groupId, nextGroupId, ~direction=1)
+  expandSequence(steps, right, groupId, nextGroupId, ~direction)
+  expandSequence(steps, left, groupId, nextGroupId, ~direction=-1)
 }
 
-and expandUnit = (steps, unit: locatedUnit, ~direction: int) =>
+and expandUnit = (steps, unit: locatedUnit, groupId, nextGroupId, ~direction: int) =>
   switch unit.desc {
-  | Move(move, turns) => pushStep(steps, move, turns * direction)
-  | Pause => pushPause(steps, None)
-  | TimedPause(seconds) => pushPause(steps, Some((seconds *. 1000.0)->Math.round->Int.fromFloat))
-  | BlockComment(text) => pushComment(steps, text)
-  | Group(units, repeat) => expandRepeated(steps, units, repeat, ~direction)
+  | Move(move, turns) => pushStep(steps, move, turns * direction, groupId)
+  | Pause => pushPause(steps, None, groupId)
+  | TimedPause(seconds) =>
+    pushPause(steps, Some((seconds *. 1000.0)->Math.round->Int.fromFloat), groupId)
+  | BlockComment(text) => pushComment(steps, text, groupId)
+  | Group(units, repeat) => expandRepeated(steps, units, repeat, nextGroupId, ~direction)
   | Commutator(left, right, repeat) => {
       let repetitions = if repeat < 0 {
         -repeat
@@ -291,7 +312,7 @@ and expandUnit = (steps, unit: locatedUnit, ~direction: int) =>
           1
         }
       for _ in 1 to repetitions {
-        expandCommutator(steps, left, right, ~direction=nestedDirection)
+        expandCommutator(steps, left, right, groupId, nextGroupId, ~direction=nestedDirection)
       }
     }
   | Conjugate(left, right, repeat) => {
@@ -307,7 +328,7 @@ and expandUnit = (steps, unit: locatedUnit, ~direction: int) =>
           1
         }
       for _ in 1 to repetitions {
-        expandConjugate(steps, left, right, ~direction=nestedDirection)
+        expandConjugate(steps, left, right, groupId, nextGroupId, ~direction=nestedDirection)
       }
     }
   }
@@ -315,7 +336,8 @@ and expandUnit = (steps, unit: locatedUnit, ~direction: int) =>
 let expandTimeline = (alg: alg): result<array<timelineEntry>, executionError> =>
   try {
     let steps = []
-    expandSequence(steps, alg, ~direction=1)
+    let nextGroupId = ref(0)
+    expandSequence(steps, alg, None, nextGroupId, ~direction=1)
     Ok(steps)
   } catch {
   | ExpansionFailure(error) => Error(error)

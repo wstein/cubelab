@@ -212,7 +212,8 @@ test("plays internal pauses without changing the canonical cube state", async ({
 
   await input.fill("R . U /* inspection */");
   await expect(page.locator("[data-move-ribbon] .move-token")).toHaveCount(3);
-  await expect(page.locator("[data-move-ribbon] .move-token.pause")).toHaveText("Pause");
+  await expect(page.locator("[data-move-ribbon] .move-token.pause")).toHaveText("│");
+  await expect(page.locator("[data-move-ribbon] .move-token.pause")).toHaveAttribute("title", "Pause");
   await page.getByRole("button", {name: "Jump to start"}).click();
   await page.getByRole("button", {name: "Next move"}).click();
   await expect(position).toHaveText("Step 1 of 3");
@@ -224,7 +225,11 @@ test("plays internal pauses without changing the canonical cube state", async ({
 
   await input.fill("R @1.3s U");
   await expect(page.locator("[data-move-ribbon] .move-token")).toHaveCount(3);
-  await expect(page.locator("[data-move-ribbon] .move-token.pause")).toHaveText("@1.3s");
+  await expect(page.locator("[data-move-ribbon] .move-token.pause")).toHaveText("│");
+  await expect(page.locator("[data-move-ribbon] .move-token.pause")).toHaveAttribute(
+    "title",
+    "Pause for 1.3 seconds",
+  );
   await expect(page.locator('[data-compatibility-profile="cubingJs"]')).toContainText("✓");
 });
 
@@ -326,7 +331,12 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(page.locator("[data-beginner-solution]")).toContainText("x2");
   await expect(page.locator("[data-beginner-solution]")).toContainText("@0.5s");
   await expect(page.locator("[data-beginner-solution]")).toContainText("@1.5s");
-  await expect(page.locator("[data-move-ribbon] .move-token.pause").first()).toHaveText("@0.5s");
+  await expect(page.locator("[data-move-ribbon] .move-group").first()).toBeVisible();
+  await expect(page.locator("[data-move-ribbon] .move-token.pause").first()).toHaveText("│");
+  await expect(page.locator("[data-move-ribbon] .move-token.pause").first()).toHaveAttribute(
+    "title",
+    "Pause for 0.5 seconds",
+  );
 
   await page.getByRole("button", {name: "Next move"}).click();
   await expect(page.locator("[data-beginner-current]")).toContainText("Step 1: White Cross");
