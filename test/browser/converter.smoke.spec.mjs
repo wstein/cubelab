@@ -317,7 +317,11 @@ test("auto-demonstrates regrips without gyro and preserves their lesson frame", 
   });
 
   await page.goto("/#size=3&alg=x+U");
+  const input = page.locator("[data-input]");
   const expectedFinalState = await page.locator('[data-output="facelets"]').textContent();
+  await input.fill("x R2");
+  const expectedRecoveryState = await page.locator('[data-output="facelets"]').textContent();
+  await input.fill("x U");
   await page.locator("[data-smart-cube-connect]").click();
   await expect(page.locator("[data-smart-cube-status]")).toContainText("Live sync");
   await page.evaluate(() => window.__emitSmartCubeEvent({
@@ -325,7 +329,7 @@ test("auto-demonstrates regrips without gyro and preserves their lesson frame", 
     facelets: "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB",
     timestamp: Date.now(),
   }));
-  await page.locator("[data-input]").fill("x U");
+  await input.fill("x U");
   await expect(page.locator("[data-playback-scrubber]")).toBeEnabled();
   await page.locator("[data-playback-scrubber]").fill("0");
   await page.locator("[data-playback-speed='2']").click();
@@ -343,6 +347,7 @@ test("auto-demonstrates regrips without gyro and preserves their lesson frame", 
   await emitMove("R2");
   await expect(page.locator("[data-smart-cube-recovery-block] .smart-cube-recovery-token"))
     .toHaveText(["R2", "R2"]);
+  await expect(page.locator('[data-output="facelets"]')).toHaveText(expectedRecoveryState ?? "");
   await expect(page.locator("[data-smart-cube-recovery-cursor]")).toHaveCount(1);
   await emitMove("U");
   await expect(page.locator("[data-smart-cube-recovery-block] .smart-cube-recovery-token"))

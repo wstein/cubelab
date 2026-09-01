@@ -45,7 +45,9 @@ the viewport and count in ETM, but not HTM. With orientation tracking active, co
 requested axis and direction from the IMU sample captured when the hint appears; half turns are
 accepted in either direction. Without an active gyro, the regrip is demonstrated automatically at
 half the selected move speed. Later face packets are interpreted in the resulting fixed physical
-frame while the viewport remains in the rotation-aware lesson frame.
+frame while the viewport remains in the rotation-aware lesson frame. Reported face moves are
+translated back into that lesson frame before animation and recovery rendering, so neither a
+matched move nor a slip can visually undo an earlier regrip.
 
 The public boundary remains small:
 

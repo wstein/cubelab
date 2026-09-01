@@ -252,6 +252,43 @@ const physicalPlanForStep = (
   return {timelineIndex, token: fallback, sequences: [], implicitRotation: null, skip: false};
 };
 
+const completedRotations = (
+  steps: TimelineEntry[],
+  labels: string[],
+  current: number,
+): RotationStep[] => {
+  const rotations: RotationStep[] = [];
+  for (let index = 0; index < Math.min(Math.max(0, current), steps.length); index += 1) {
+    const step = steps[index]?.step;
+    if (!step) continue;
+    if (step.move.TAG === "Rotation") {
+      rotations.push({axis: step.move._0, turns: step.turns});
+      continue;
+    }
+    const plan = physicalPlanForStep(step, rotations, labels[index] ?? "", index);
+    if (plan.implicitRotation) rotations.push(plan.implicitRotation);
+  }
+  return rotations;
+};
+
+/** Translate a fixed hardware-face packet into the rotation-aware lesson frame. */
+export const smartCubeMoveInLessonFrame = (
+  steps: TimelineEntry[],
+  labels: string[],
+  current: number,
+  token: string,
+): string => {
+  const move = canonicalSmartCubeMove(token);
+  const match = move.match(/^([URFDLB])(2|')?$/);
+  if (!match) return move;
+  let face = match[1];
+  for (const rotation of completedRotations(steps, labels, current)) {
+    const turns = normalizedTurns(rotation.turns);
+    for (let turn = 0; turn < turns; turn += 1) face = rotateFaceOnce(rotation.axis, face);
+  }
+  return `${face}${match[2] ?? ""}`;
+};
+
 const nextExpectedSmartCubePlan = (
   steps: TimelineEntry[],
   labels: string[],

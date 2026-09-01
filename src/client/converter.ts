@@ -63,6 +63,7 @@ import {
   nextExpectedSmartCubeAction,
   nextExpectedSmartCubeMove,
   nextSmartCubeProgressMoves,
+  smartCubeMoveInLessonFrame,
   type ExpectedSmartCubeAction,
   type SmartCubeHalfTurnProgress,
   type SmartCubeMoveAssessment,
@@ -1394,8 +1395,13 @@ if (root) {
     return evaluated._0.steps.find((entry) => entry.step !== undefined)?.step ?? null;
   };
 
-  const animateSmartCubeMove = async (move: string): Promise<void> => {
-    const step = smartCubeStep(move);
+  const smartCubeLessonMove = (move: string, cursor = activeIndex): string =>
+    smartCubeCoachingFrameActive && activeTimeline
+      ? smartCubeMoveInLessonFrame(activeTimeline.steps, activeTimeline.labels, cursor, move)
+      : move;
+
+  const animateSmartCubeMove = async (move: string, cursor = activeIndex): Promise<void> => {
+    const step = smartCubeStep(smartCubeLessonMove(move, cursor));
     const transform = step ? turnTransform(3, step) : null;
     if (transform && viewport) await viewport.animateTurn(transform, 120);
   };
@@ -1457,7 +1463,10 @@ if (root) {
     if (!smartCubeRecovery) return;
     renderSmartCubeRecoveryBlock();
     const undo = smartCubeRecovery.undoMoves[0];
-    const step = smartCubeStep(undo);
+    const step = smartCubeStep(smartCubeLessonMove(
+      undo,
+      smartCubeRecovery.expected.timelineIndex,
+    ));
     smartCubeCoachingWaiting = true;
     smartCubeDock.dataset.recovery = "true";
     const token = moveRibbon.querySelector<HTMLButtonElement>(
@@ -1504,7 +1513,8 @@ if (root) {
     clearTurnGuide();
     stopPlayback();
     if (smartCubeRecovery) {
-      smartCubeCoachingFrameActive = false;
+      smartCubeCoachingFrameActive = true;
+      renderSmartCubeCoachingState();
       showSmartCubeRecoveryGuide();
       return;
     }
@@ -1570,7 +1580,7 @@ if (root) {
     const token = moveRibbon.querySelector<HTMLButtonElement>(
       `[data-move-index="${expected.timelineIndex + 1}"]`,
     );
-    const physicalStep = smartCubeStep(expected.token);
+    const physicalStep = smartCubeStep(smartCubeLessonMove(expected.token, expected.timelineIndex));
     if (physicalStep && token) {
       guidedToken = token;
       activeTurnGuide = {step: physicalStep, label: expected.token};
@@ -1596,7 +1606,7 @@ if (root) {
     assessment: Extract<SmartCubeMoveAssessment, {status: "partial"}>,
   ): Promise<void> => {
     smartCubeHalfTurnProgress = assessment.progress;
-    await animateSmartCubeMove(assessment.received);
+    await animateSmartCubeMove(assessment.received, assessment.expected.timelineIndex);
     const nextPackets = nextSmartCubeProgressMoves(assessment.progress).join(" or ");
     smartCubeStatus.textContent = `${smartCubeDeviceName} · ${assessment.expected.token} in progress`;
     coachStatus.textContent = `${assessment.received} detected. Repeat ${assessment.received} to complete ${assessment.expected.token}.`;
@@ -1607,10 +1617,9 @@ if (root) {
     assessment: Extract<SmartCubeMoveAssessment, {status: "mismatch"}>,
     move: string,
   ): Promise<void> => {
-    smartCubeCoachingFrameActive = false;
     const progress = smartCubeHalfTurnProgress;
     recordSmartCubeMistake(assessment.expected.token, assessment.received);
-    await animateSmartCubeMove(move);
+    await animateSmartCubeMove(move, assessment.expected.timelineIndex);
 
     if (
       progress?.timelineIndex === assessment.expected.timelineIndex
@@ -1637,8 +1646,9 @@ if (root) {
 
   const applySmartCubeRecoveryMove = async (move: string): Promise<boolean> => {
     if (!smartCubeRecovery) return false;
+    const recoveryCursor = smartCubeRecovery.expected.timelineIndex;
     const assessment = assessSmartCubeRecovery(smartCubeRecovery, move);
-    await animateSmartCubeMove(move);
+    await animateSmartCubeMove(move, recoveryCursor);
 
     if (assessment.status === "realigned") {
       const expected = smartCubeRecovery.expected.token;
@@ -1700,7 +1710,7 @@ if (root) {
     if (assessment.status === "unsupported") {
       smartCubeHalfTurnProgress = null;
       smartCubeStatus.textContent = `Expected ${assessment.expected.token}; received unsupported ${assessment.received}`;
-      await animateSmartCubeMove(move);
+      await animateSmartCubeMove(move, assessment.expected.timelineIndex);
       return true;
     }
     if (assessment.status === "mismatch") {
@@ -1710,25 +1720,43 @@ if (root) {
     const moveIndex = assessment.expected.timelineIndex;
     smartCubeHalfTurnProgress = null;
     if (!assessment.completedHalfTurn && activeIndex !== moveIndex) setSmartCubeTimelineIndex(moveIndex);
-    await animateSmartCubeMove(move);
+    await animateSmartCubeMove(move, moveIndex);
     setSmartCubeTimelineIndex(moveIndex + 1);
     smartCubeStatus.textContent = `${smartCubeDeviceName} · ${move} matched`;
     signalSmartCubeFeedback("correct");
     return true;
   };
 
+  const renderSmartCubeCoachingState = () => {
+    if (!activeTimeline?.states) return;
+    const recoveryCursor = smartCubeRecovery?.expected.timelineIndex ?? activeIndex;
+    let state = activeTimeline.states[recoveryCursor];
+    for (const deviation of smartCubeRecovery?.deviations ?? []) {
+      const step = smartCubeStep(smartCubeMoveInLessonFrame(
+        activeTimeline.steps,
+        activeTimeline.labels,
+        recoveryCursor,
+        deviation,
+      ));
+      if (step) state = MoveExecutor.applyStep(state, step) as CubeState;
+    }
+    renderState(
+      state,
+      activeAcademy ? `${activeAcademy.label} tutorial` : "Smart-cube timeline",
+    );
+  };
+
   const renderSmartCubeLiveState = () => {
-    if (smartCubeCoachingFrameActive && !smartCubeRecovery && activeTimeline?.states) {
-      renderState(
-        activeTimeline.states[activeIndex],
-        activeAcademy ? `${activeAcademy.label} tutorial` : "Smart-cube timeline",
-      );
+    if (smartCubeCoachingFrameActive && activeTimeline?.states) {
+      renderSmartCubeCoachingState();
       return;
     }
     const state = smartCubeRenderedState ?? smartCubeLiveState;
     if (!smartCubeConnected || !state) return;
-    renderState(state, `${smartCubeDeviceName} · Live physical state`);
-    updatePatternDetection({state, label: `${smartCubeDeviceName} · Live physical state`});
+    if (!smartCubeCoachingFrameActive) {
+      renderState(state, `${smartCubeDeviceName} · Live physical state`);
+      updatePatternDetection({state, label: `${smartCubeDeviceName} · Live physical state`});
+    }
   };
 
   const commitSmartCubeMoveState = (record: QueuedSmartCubeMove) => {
@@ -1738,6 +1766,7 @@ if (root) {
     if (!state) return;
     smartCubeRenderedState = state;
     if (!record.state) smartCubeLiveState = state;
+    if (smartCubeCoachingFrameActive) return;
     renderState(state, `${smartCubeDeviceName} · Live physical state`);
     updatePatternDetection({state, label: `${smartCubeDeviceName} · Live physical state`});
   };
@@ -1782,7 +1811,7 @@ if (root) {
     if (assessment.status === "unsupported") {
       smartCubeHalfTurnProgress = null;
       smartCubeStatus.textContent = `Expected ${assessment.expected.token}; this slice/wide move is not reported directly by the cube`;
-      await animateSmartCubeMove(move);
+      await animateSmartCubeMove(move, assessment.expected.timelineIndex);
       return true;
     }
     if (assessment.status === "mismatch") {
@@ -1793,7 +1822,7 @@ if (root) {
     const moveIndex = assessment.expected.timelineIndex;
     smartCubeHalfTurnProgress = null;
     if (!assessment.completedHalfTurn && activeIndex !== moveIndex) setSmartCubeTimelineIndex(moveIndex);
-    await animateSmartCubeMove(move);
+    await animateSmartCubeMove(move, moveIndex);
     setSmartCubeTimelineIndex(moveIndex + 1);
     smartCubeStatus.textContent = `${smartCubeDeviceName} · ${move} matched`;
     coachStatus.textContent = `${move} matched the Academy timeline.`;

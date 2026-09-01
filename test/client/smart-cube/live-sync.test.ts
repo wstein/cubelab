@@ -12,6 +12,7 @@ import {
   isLastPhysicalMoveInRange,
   nextExpectedSmartCubeAction,
   nextExpectedSmartCubeMove,
+  smartCubeMoveInLessonFrame,
 } from "../../../src/client/smart-cube/live-sync";
 
 const face = (name: "R" | "U" | "F" | "B") => ({
@@ -87,6 +88,13 @@ describe("smart cube live synchronization", () => {
       return nextExpectedSmartCubeMove(rotated, ["x2", logicalFace], 0)?.token;
     });
     expect(xHalfFaces).toEqual(["D", "B", "U", "F"]);
+
+    const xThenMove = [
+      {step: {move: {TAG: "Rotation" as const, _0: "X" as const}, turns: 1}},
+      face("U"),
+    ];
+    expect(smartCubeMoveInLessonFrame(xThenMove, ["x", "U"], 1, "F")).toBe("U");
+    expect(smartCubeMoveInLessonFrame(xThenMove, ["x", "U"], 1, "D'")).toBe("F'");
 
     const xRotation = [
       {step: {move: {TAG: "Rotation" as const, _0: "X" as const}, turns: 2}},
