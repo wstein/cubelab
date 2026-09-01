@@ -161,11 +161,47 @@ function skipSpaces(parser) {
   return parser.cursor - start | 0;
 }
 
+function isPrefixedMoveAhead(parser) {
+  let saved = parser.cursor;
+  parsePositiveInt(parser);
+  let match = peek(parser);
+  let result;
+  if (match !== undefined) {
+    switch (match) {
+      case "-" :
+      case "B" :
+      case "D" :
+      case "F" :
+      case "L" :
+      case "R" :
+      case "U" :
+      case "b" :
+      case "d" :
+      case "f" :
+      case "l" :
+      case "r" :
+      case "u" :
+        result = true;
+        break;
+      default:
+        result = false;
+    }
+  } else {
+    result = false;
+  }
+  parser.cursor = saved;
+  return result;
+}
+
 function parseCompositeSuffix(parser, allowZero) {
   let whitespaceStart = parser.cursor;
-  skipSpaces(parser);
+  let spaces = skipSpaces(parser);
   let character = peek(parser);
   if (character !== undefined) {
+    if (spaces > 0 && isDigit(character) && isPrefixedMoveAhead(parser)) {
+      parser.cursor = whitespaceStart;
+      return 1;
+    }
     if (isDigit(character) || character === "'") {
       return parseSuffix(parser, allowZero);
     }
@@ -175,9 +211,9 @@ function parseCompositeSuffix(parser, allowZero) {
         break;
       case "x" :
         parser.cursor = parser.cursor + 1 | 0;
-        let spaces = skipSpaces(parser);
+        let spaces$1 = skipSpaces(parser);
         let character$1 = peek(parser);
-        if (character$1 !== undefined && spaces > 0 && isDigit(character$1)) {
+        if (character$1 !== undefined && spaces$1 > 0 && isDigit(character$1)) {
           return parseSuffix(parser, allowZero);
         } else {
           parser.cursor = whitespaceStart;
@@ -794,6 +830,7 @@ export {
   parsePositiveInt,
   parseSuffix,
   skipSpaces,
+  isPrefixedMoveAhead,
   parseCompositeSuffix,
   faceFromCharacter,
   subscriptWidth,

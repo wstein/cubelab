@@ -129,10 +129,25 @@ let skipSpaces = parser => {
   parser.cursor - start
 }
 
+let isPrefixedMoveAhead = parser => {
+  let saved = parser.cursor
+  let _ = parsePositiveInt(parser)
+  let result = switch peek(parser) {
+  | Some("-" | "U" | "u" | "L" | "l" | "F" | "f" | "R" | "r" | "B" | "b" | "D" | "d") => true
+  | _ => false
+  }
+  parser.cursor = saved
+  result
+}
+
 let parseCompositeSuffix = (parser, ~allowZero: bool) => {
   let whitespaceStart = parser.cursor
-  skipSpaces(parser)->ignore
+  let spaces = skipSpaces(parser)
   switch peek(parser) {
+  | Some(character) if spaces > 0 && isDigit(character) && isPrefixedMoveAhead(parser) => {
+      parser.cursor = whitespaceStart
+      1
+    }
   | Some(character) if isDigit(character) || character == "'" => parseSuffix(parser, ~allowZero)
   | Some("*" | "^") => {
       parser.cursor = parser.cursor + 1
