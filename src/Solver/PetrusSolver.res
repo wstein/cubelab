@@ -263,6 +263,195 @@ let solveTwoGeneratorF2l = (
 let splitSelectionAtGoal = (~state, ~solved, ~selection: CfopSolver.lastLayerSelection, ~isGoal) =>
   CfopSolver.splitSelectionAtGoal(~state, ~solved, ~selection, ~isGoal)
 
+type collSelection = {
+  alg: alg,
+  labels: array<string>,
+  state: PieceReducer.pieceState,
+  caseId: string,
+}
+
+type collRecognition = {caseId: string, yTurns: int}
+
+let collKey = (state: PieceReducer.pieceState) =>
+  [4, 5, 6, 7]
+  ->Array.map(slot => Belt.Array.getUnsafe(state.cp, slot)->Int.toString)
+  ->Array.join("") ++
+  "|" ++
+  [4, 5, 6, 7]
+  ->Array.map(slot => Belt.Array.getUnsafe(state.co, slot)->Int.toString)
+  ->Array.join("")
+
+let downAction = (solved, turns): option<BeginnerSolver.action> => {
+  let normalized = (turns % 4 + 4) % 4
+  if normalized == 0 {
+    None
+  } else {
+    let canonical = if normalized == 3 {-1} else {normalized}
+    BeginnerSolver.downTurns(solved)->Array.find(action =>
+      switch action.alg {
+      | [{desc: Move(FaceTurn(D, _), actionTurns)}] => actionTurns == canonical
+      | _ => false
+      }
+    )
+  }
+}
+
+let applyDown = (state, solved, turns) =>
+  switch downAction(solved, turns) {
+  | Some(action) => BeginnerSolver.applyCubie(state, action.transition)
+  | None => state
+  }
+
+let normalizedCollKey = (~state, ~solved) => {
+  let best = ref(collKey(state))
+  for turns in 1 to 3 {
+    let candidate = collKey(applyDown(state, solved, turns))
+    if candidate < best.contents {best := candidate}
+  }
+  best.contents
+}
+
+let collBaseAlg = algorithm => {
+  let parsed = BeginnerSolver.parseInternal(algorithm)
+  switch Belt.Array.get(parsed, 0) {
+  | Some({desc: Move(FaceTurn(U, _), _)}) => parsed->Array.slice(~start=1, ~end=parsed->Array.length)
+  | _ => parsed
+  }
+}
+
+let appendActionGroup = (output: alg, action: BeginnerSolver.action) => {
+  output->Array.push(located(Group(action.alg, 1)))
+  output->Array.push(located(TimedPause(0.5)))
+}
+
+let physicalMoveCount = (candidate: alg) =>
+  switch MoveExecutor.expand(candidate) {
+  | Error(error) => throw(BuildFailure(BeginnerSolver.ExpansionFailed(error)))
+  | Ok(steps) =>
+    steps->Array.filter(step =>
+      switch step.move {
+      | Rotation(_) => false
+      | FaceTurn(_, _) | SliceTurn(_) => true
+      }
+    )->Array.length
+  }
+
+let validateCollLibrary = solved => {
+  if PetrusCases.coll->Array.length != 40 {
+    throw(BuildFailure(BeginnerSolver.VerificationFailed))
+  }
+  let baseSignatures = Dict.make()
+  let signatures: Dict.t<collRecognition> = Dict.make()
+  PetrusCases.coll->Array.forEach(entry => {
+    for yTurns in 0 to 3 {
+      let action = BeginnerSolver.macroVariant(
+        solved,
+        collBaseAlg(entry.algorithm),
+        yTurns,
+      )
+      let setup = BeginnerSolver.transitionForAlg(solved, MoveTransform.invert(action.alg))
+      if !BeginnerSolver.firstTwoLayersGoal(setup) || !edgesOriented(setup) {
+        throw(BuildFailure(BeginnerSolver.VerificationFailed))
+      }
+      let replay = BeginnerSolver.applyCubie(setup, action.transition)
+      if !BeginnerSolver.solvedCubiesGoal(replay) {
+        throw(BuildFailure(BeginnerSolver.VerificationFailed))
+      }
+      let signature = normalizedCollKey(~state=setup, ~solved)
+      if yTurns == 0 {
+        if Dict.get(baseSignatures, signature) != None {
+          throw(BuildFailure(BeginnerSolver.VerificationFailed))
+        }
+        Dict.set(baseSignatures, signature, entry.id)
+      }
+      if Dict.get(signatures, signature) == None {
+        Dict.set(signatures, signature, {caseId: entry.id, yTurns})
+      }
+    }
+  })
+  signatures
+}
+
+let selectColl = (~state, ~solved, ~signatures): option<collSelection> => {
+  let skip = ref(None)
+  if BeginnerSolver.orientedLastCornersGoal(state) {
+    for turns in 0 to 3 {
+      let after = applyDown(state, solved, turns)
+      if skip.contents == None && BeginnerSolver.positionedLastCornersGoal(after) {
+        let alg = []
+        let labels = ["COLL skip — corners already oriented and permuted."]
+        switch downAction(solved, turns) {
+        | Some(auf) => {
+            appendActionGroup(alg, auf)
+            labels->Array.push("COLL AUF: align all four solved corners.")
+          }
+        | None => ()
+        }
+        skip := Some({alg, labels, state: after, caseId: "Skip"})
+      }
+    }
+  }
+  switch skip.contents {
+  | Some(selection) => Some(selection)
+  | None => {
+    let signature = normalizedCollKey(~state, ~solved)
+    switch Dict.get(signatures, signature) {
+    | None => None
+    | Some(recognition) =>
+      switch PetrusCases.coll->Array.find(entry => entry.id == recognition.caseId) {
+      | None => None
+      | Some(entry) => {
+          let action = BeginnerSolver.macroVariant(
+            solved,
+            collBaseAlg(entry.algorithm),
+            recognition.yTurns,
+          )
+          let best = ref(None)
+          let bestScore = ref(1000000)
+          for preTurns in 0 to 3 {
+            let aligned = applyDown(state, solved, preTurns)
+            let transformed = BeginnerSolver.applyCubie(aligned, action.transition)
+            for postTurns in 0 to 3 {
+              let after = applyDown(transformed, solved, postTurns)
+              if BeginnerSolver.firstTwoLayersGoal(after) && edgesOriented(after) &&
+                BeginnerSolver.orientedLastCornersGoal(after) &&
+                BeginnerSolver.positionedLastCornersGoal(after) {
+                let candidate = []
+                let labels = []
+                switch downAction(solved, preTurns) {
+                | Some(auf) => {
+                    appendActionGroup(candidate, auf)
+                    labels->Array.push("AUF: align the recognized COLL case.")
+                  }
+                | None => ()
+                }
+                appendActionGroup(candidate, action)
+                labels->Array.push(
+                  `COLL ${entry.id} · ${entry.family} — orient and permute all four corners.`,
+                )
+                switch downAction(solved, postTurns) {
+                | Some(auf) => {
+                    appendActionGroup(candidate, auf)
+                    labels->Array.push("COLL AUF: align all four solved corners.")
+                  }
+                | None => ()
+                }
+                let score = physicalMoveCount(candidate->MoveTransform.rotate(~axis=X, ~turns=2))
+                if score < bestScore.contents {
+                  bestScore := score
+                  best := Some({alg: candidate, labels, state: after, caseId: entry.id})
+                }
+              }
+            }
+          }
+          best.contents
+        }
+      }
+    }
+  }
+  }
+}
+
 let annotatedSolution = (~input, ~solved, ~phases) => {
   let annotated = phases->Array.reduce([], (output, item) =>
     output
@@ -364,39 +553,13 @@ let solveMethod = (input: cubeState, method): result<solution, solverError> => {
       throw(BuildFailure(BeginnerSolver.VerificationFailed))
     }
 
-    let combinedOll = CfopSolver.selectBeginnerOll(~state=current.contents, ~solved)
-    let (_, ollCorners) = splitSelectionAtGoal(
-      ~state=current.contents,
-      ~solved,
-      ~selection=combinedOll,
-      ~isGoal=BeginnerSolver.orientedLastEdgesGoal,
-    )
-    current := combinedOll.state
-    if !BeginnerSolver.orientedLastCornersGoal(current.contents) {
-      throw(BuildFailure(BeginnerSolver.VerificationFailed))
-    }
-
-    let combinedPll = CfopSolver.selectBeginnerPll(~state=current.contents, ~solved)
-    let (pllCorners, pllEdges) = splitSelectionAtGoal(
-      ~state=current.contents,
-      ~solved,
-      ~selection=combinedPll,
-      ~isGoal=BeginnerSolver.positionedLastCornersGoal,
-    )
-    current := combinedPll.state
-    if !BeginnerSolver.solvedCubiesGoal(current.contents) {
-      throw(BuildFailure(BeginnerSolver.VerificationFailed))
-    }
-
     let hasPhysicalWork =
       block222Path->Array.length > 0 ||
       block223Paths->Array.some(path => path->Array.length > 0) ||
       eoPath->Array.length > 0 ||
       firstWing->Array.length > 0 ||
       secondWing->Array.length > 0 ||
-      ollCorners.alg->Array.length > 0 ||
-      pllCorners.alg->Array.length > 0 ||
-      pllEdges.alg->Array.length > 0
+      !BeginnerSolver.solvedCubiesGoal(current.contents)
     let whiteDown = [located(Move(Rotation(X), 2))]
     let transform = alg => alg->MoveTransform.rotate(~axis=X, ~turns=2)
     let firstAlg = ref(grouped(frameAlg))
@@ -420,14 +583,6 @@ let solveMethod = (input: cubeState, method): result<solution, solverError> => {
     let firstWingAlg = transform(BeginnerSolver.flattenActions(firstWing))
     let secondWingAlg = transform(BeginnerSolver.flattenActions(secondWing))
     let f2lAlg = grouped(firstWingAlg)->Array.concat(grouped(secondWingAlg))
-    let cornerAlg = transform(ollCorners.alg)
-    let cornerPermutationAlg = transform(pllCorners.alg)
-    let finalEdges = if hasPhysicalWork {
-      transform(pllEdges.alg)->Array.concat(grouped(whiteDown))
-    } else {
-      transform(pllEdges.alg)
-    }
-
     let common = [
       phase(
         1,
@@ -466,41 +621,87 @@ let solveMethod = (input: cubeState, method): result<solution, solverError> => {
       ),
     ]
     let phases = switch method {
-    | Classical => common->Array.concat([
-        phase(
-          5,
-          "Orient Last-Layer Corners",
-          "Use the recognized Sune-family case; the yellow edge cross stays oriented.",
-          cornerAlg->withPhasePause,
-          ollCorners.labels,
-        ),
-        phase(
-          6,
-          "Permute Last-Layer Corners",
-          "Position adjacent or diagonal last-layer corners while preserving edge orientation.",
-          cornerPermutationAlg->withPhasePause,
-          pllCorners.labels,
-        ),
-        phase(
-          7,
-          "Permute Last-Layer Edges",
-          "Finish with the recognized Ua, Ub, H, or Z edge permutation.",
-          finalEdges,
-          pllEdges.labels,
-        ),
-      ])
+    | Classical => {
+        let combinedOll = CfopSolver.selectBeginnerOll(~state=current.contents, ~solved)
+        let (_, ollCorners) = splitSelectionAtGoal(
+          ~state=current.contents,
+          ~solved,
+          ~selection=combinedOll,
+          ~isGoal=BeginnerSolver.orientedLastEdgesGoal,
+        )
+        let afterOll = combinedOll.state
+        if !BeginnerSolver.orientedLastCornersGoal(afterOll) {
+          throw(BuildFailure(BeginnerSolver.VerificationFailed))
+        }
+        let combinedPll = CfopSolver.selectBeginnerPll(~state=afterOll, ~solved)
+        let (pllCorners, pllEdges) = splitSelectionAtGoal(
+          ~state=afterOll,
+          ~solved,
+          ~selection=combinedPll,
+          ~isGoal=BeginnerSolver.positionedLastCornersGoal,
+        )
+        if !BeginnerSolver.solvedCubiesGoal(combinedPll.state) {
+          throw(BuildFailure(BeginnerSolver.VerificationFailed))
+        }
+        let cornerAlg = transform(ollCorners.alg)
+        let cornerPermutationAlg = transform(pllCorners.alg)
+        let finalEdges = if hasPhysicalWork {
+          transform(pllEdges.alg)->Array.concat(grouped(whiteDown))
+        } else {
+          transform(pllEdges.alg)
+        }
+        common->Array.concat([
+          phase(
+            5,
+            "Orient Last-Layer Corners",
+            "Use the recognized Sune-family case; the yellow edge cross stays oriented.",
+            cornerAlg->withPhasePause,
+            ollCorners.labels,
+          ),
+          phase(
+            6,
+            "Permute Last-Layer Corners",
+            "Position adjacent or diagonal last-layer corners while preserving edge orientation.",
+            cornerPermutationAlg->withPhasePause,
+            pllCorners.labels,
+          ),
+          phase(
+            7,
+            "Permute Last-Layer Edges",
+            "Finish with the recognized Ua, Ub, H, or Z edge permutation.",
+            finalEdges,
+            pllEdges.labels,
+          ),
+        ])
+      }
     | Enhanced => {
-        let collAlg = grouped(cornerAlg->Array.concat(cornerPermutationAlg))
-        let lastLayerAlg = collAlg->Array.concat(finalEdges)
-        let labels = [
-          "COLL: orient and position all four last-layer corners with EO preserved.",
-          "EPLL: finish the remaining Ua, Ub, H, or Z edge case.",
-        ]
+        let collSignatures = validateCollLibrary(solved)
+        let coll = switch selectColl(~state=current.contents, ~solved, ~signatures=collSignatures) {
+        | Some(selection) => selection
+        | None => throw(BuildFailure(BeginnerSolver.SearchFailed("one-look COLL recognition")))
+        }
+        let epll = switch CfopSolver.selectPll(~state=coll.state, ~solved) {
+        | Some(selection) => selection
+        | None => throw(BuildFailure(BeginnerSolver.SearchFailed("one-look EPLL recognition")))
+        }
+        if !BeginnerSolver.solvedCubiesGoal(epll.state) {
+          throw(BuildFailure(BeginnerSolver.VerificationFailed))
+        }
+        let lastLayerAlg = grouped(transform(coll.alg))->Array.concat(
+          if hasPhysicalWork {
+            transform(epll.alg)->Array.concat(grouped(whiteDown))
+          } else {
+            transform(epll.alg)
+          },
+        )
+        let labels = coll.labels->Array.concat(
+          epll.labels->Array.map(label => "EPLL: " ++ label),
+        )
         common->Array.concat([
           phase(
             5,
             "COLL + EPLL Finish",
-            "Solve the last-layer corners with an EO-preserving COLL sequence, then execute one EPLL.",
+            "Recognize and execute one EO-preserving COLL case, then finish the remaining EPLL.",
             lastLayerAlg,
             labels,
           ),

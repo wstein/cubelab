@@ -815,7 +815,7 @@ test("builds Classical and Enhanced Petrus tutorials from the same cube state", 
   await expect(page.locator("[data-enhanced-petrus-status]")).toContainText("Verified Enhanced Petrus solution");
   await expect(enhanced.locator("[data-petrus-phase]")).toHaveCount(5);
   await expect(enhanced.locator("[data-petrus-phase]").nth(4)).toContainText("COLL + EPLL Finish");
-  await expect(enhanced.locator("[data-petrus-phase]").nth(4)).toContainText("COLL:");
+  await expect(enhanced.locator("[data-petrus-phase]").nth(4)).toContainText(/COLL (?:skip|[A-Za-z]+-?\d)/);
   await expect(enhanced.locator("[data-petrus-phase]").nth(4)).toContainText("EPLL:");
   await expect(page.locator("[data-academy-comparison]")).toContainText("Classical Petrus");
   await expect(page.locator("[data-academy-comparison]")).toContainText("Enhanced Petrus");

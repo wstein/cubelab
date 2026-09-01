@@ -6,6 +6,7 @@ import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
 import * as MoveTransform from "../src/Move/MoveTransform.res.mjs";
 import * as PetrusSolver from "../src/Solver/PetrusSolver.res.mjs";
+import * as PetrusCases from "../src/Solver/PetrusCases.res.mjs";
 import * as PieceReducer from "../src/State/PieceReducer.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
 
@@ -37,6 +38,20 @@ const afterPhase = (state, phase) => {
   assert.equal(result.TAG, "Ok");
   return result._0;
 };
+
+const physicalMoves = (alg) => MoveExecutor.expand(alg)._0
+  .filter(({move}) => move.TAG !== "Rotation")
+  .map(({move, turns}) => JSON.stringify({move, turns}));
+
+test("validates all 40 COLL cases and their rotated recognition signatures", () => {
+  assert.equal(PetrusCases.coll.length, 40);
+  const signatures = PetrusSolver.validateCollLibrary(solved);
+  assert.equal(Object.keys(signatures).length, 156);
+  assert.deepEqual(
+    [...new Set(PetrusCases.coll.map(({family}) => family))].sort(),
+    ["Anti-Sune", "H", "L", "Pi", "Sune", "T", "U"],
+  );
+});
 
 test("emits seven truthful, replay-verified Classical Petrus phases", () => {
   const solution = solveWith(PetrusSolver.solveClassical);
@@ -90,10 +105,8 @@ test("emits a five-phase Enhanced Petrus curriculum with a COLL/EPLL finish", ()
   assert.equal(solution.phases.length, 5);
   assert.equal(solution.phases[4].title, "COLL + EPLL Finish");
   assert.match(solution.phases[4].instruction, /COLL/);
-  assert.deepEqual(solution.phases[4].sequences, [
-    "COLL: orient and position all four last-layer corners with EO preserved.",
-    "EPLL: finish the remaining Ua, Ub, H, or Z edge case.",
-  ]);
+  assert.ok(solution.phases[4].sequences.some((label) => /COLL [A-Za-z]+-?\d/.test(label)));
+  assert.ok(solution.phases[4].sequences.some((label) => /EPLL:/.test(label)));
 
   let state = initial;
   solution.phases.slice(0, 4).forEach((phase) => { state = afterPhase(state, phase); });
@@ -102,6 +115,8 @@ test("emits a five-phase Enhanced Petrus curriculum with a COLL/EPLL finish", ()
   state = afterPhase(state, solution.phases[4]);
   assert.equal(FaceletCodec.render(state), solvedCompact);
   assert.equal(FaceletCodec.render(MoveExecutor.applyAlg(initial, solution.alg)._0), solvedCompact);
+  const classical = solveWith(PetrusSolver.solveClassical);
+  assert.notDeepEqual(physicalMoves(solution.alg), physicalMoves(classical.alg));
 });
 
 test("handles solved and unsupported inputs without weakening replay guarantees", () => {
@@ -121,14 +136,25 @@ test("solves a seeded sample of unrelated block-building states", () => {
     "U R2 F D2 L B2 U2 R F2 D L2 B",
     "F2 U L2 R D2 B U2 F R2 D L B2",
   ];
+  let enhancedImprovements = 0;
   scrambles.forEach((scramble) => {
     const state = MoveExecutor.parseAndApply(3, scramble)._0;
     const result = PetrusSolver.solveClassical(state);
+    const enhanced = PetrusSolver.solveEnhanced(state);
     assert.equal(
       result.TAG,
       "Ok",
       result.TAG === "Error" ? PetrusSolver.describeError(result._0) : "",
     );
+    assert.equal(
+      enhanced.TAG,
+      "Ok",
+      enhanced.TAG === "Error" ? PetrusSolver.describeError(enhanced._0) : "",
+    );
     assert.equal(FaceletCodec.render(MoveExecutor.applyAlg(state, result._0.alg)._0), solvedCompact);
+    assert.equal(FaceletCodec.render(MoveExecutor.applyAlg(state, enhanced._0.alg)._0), solvedCompact);
+    assert.notDeepEqual(physicalMoves(result._0.alg), physicalMoves(enhanced._0.alg));
+    if (enhanced._0.moveCount < result._0.moveCount) enhancedImprovements += 1;
   });
+  assert.ok(enhancedImprovements > 0, "expected genuine COLL selection to improve at least one sample");
 });

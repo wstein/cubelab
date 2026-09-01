@@ -13,6 +13,7 @@ import {
   transformTurnPoint,
   focusCameraTarget,
   matrixFromQuaternion,
+  multiplyQuaternions,
   relativeQuaternion,
   vboCapacityFloats,
 } from "../../src/client/cube-gl";
@@ -173,5 +174,47 @@ describe("cube viewport math", () => {
     const matrix = matrixFromQuaternion(relativeRoll);
     expect([...matrix].every(Number.isFinite)).toBe(true);
     expect(Math.abs(matrix[1]) + Math.abs(matrix[4])).toBeGreaterThan(1.5);
+  });
+
+  test("uses GoCube's measured world-frame delta convention", () => {
+    const base = {x: 0.2, y: -0.3, z: 0.1, w: 0.9};
+    const current = {x: -0.1, y: 0.4, z: 0.3, w: 0.8};
+    const inverseBase = {x: -base.x, y: -base.y, z: -base.z, w: base.w};
+    const worldDelta = relativeQuaternion(base, current);
+    const expectedWorld = relativeQuaternion(
+      {x: 0, y: 0, z: 0, w: 1},
+      multiplyQuaternions(current, inverseBase),
+    );
+    const localDelta = relativeQuaternion(
+      {x: 0, y: 0, z: 0, w: 1},
+      multiplyQuaternions(inverseBase, current),
+    );
+    expect(worldDelta.x).toBeCloseTo(expectedWorld.x);
+    expect(worldDelta.y).toBeCloseTo(expectedWorld.y);
+    expect(worldDelta.z).toBeCloseTo(expectedWorld.z);
+    expect(worldDelta.w).toBeCloseTo(expectedWorld.w);
+    expect(Math.abs(worldDelta.x - localDelta.x)
+      + Math.abs(worldDelta.y - localDelta.y)
+      + Math.abs(worldDelta.z - localDelta.z)).toBeGreaterThan(0.05);
+  });
+
+  test("applies physical object orientation before the tilted camera view", () => {
+    const half = Math.sqrt(0.5);
+    const modelView = cameraMatrices(
+      1,
+      Math.PI / 2,
+      0,
+      0,
+      {x: 0, y: 0, z: half, w: half},
+    ).modelView;
+    const transformDirection = (matrix: Float32Array, direction: [number, number, number]) => [
+      matrix[0] * direction[0] + matrix[4] * direction[1] + matrix[8] * direction[2],
+      matrix[1] * direction[0] + matrix[5] * direction[1] + matrix[9] * direction[2],
+      matrix[2] * direction[0] + matrix[6] * direction[1] + matrix[10] * direction[2],
+    ];
+    const transformed = transformDirection(modelView, [1, 0, 0]);
+    expect(transformed[0]).toBeCloseTo(0);
+    expect(transformed[1]).toBeCloseTo(1);
+    expect(transformed[2]).toBeCloseTo(0);
   });
 });
