@@ -27,4 +27,45 @@
       </button>
     </div>
   </div>
+  <section class="playback" data-playback aria-label="Algorithm playback" hidden>
+    <div class="playback-heading">
+      <span class="panel-label">Algorithm timeline</span>
+      <span class="playback-position" data-playback-position aria-live="polite">Move 0 of 0</span>
+    </div>
+    <div class="move-ribbon" data-move-ribbon aria-label="Expanded algorithm moves"></div>
+    <input
+      class="playback-scrubber"
+      data-playback-scrubber
+      type="range"
+      min="0"
+      max="0"
+      value="0"
+      aria-label="Algorithm position"
+    />
+    <div class="playback-controls">
+      <div class="playback-transport" role="group" aria-label="Playback transport">
+        <button type="button" class="transport-btn" data-playback-start aria-label="Jump to start">|◀</button>
+        <button type="button" class="transport-btn" data-playback-back aria-label="Previous move">◀</button>
+        <button type="button" class="transport-btn transport-primary" data-playback-toggle aria-label="Play algorithm">▶</button>
+        <button type="button" class="transport-btn" data-playback-forward aria-label="Next move">▶</button>
+        <button type="button" class="transport-btn" data-playback-end aria-label="Jump to end">▶|</button>
+      </div>
+      <div class="playback-options">
+        <div class="segmented-control compact" aria-label="Playback speed">
+          {[0.5, 1, 2].map((speed) => (
+            <button
+              type="button"
+              class:list={["segmented-btn", {active: speed === 1}]}
+              data-playback-speed={speed}
+              aria-pressed={speed === 1 ? "true" : "false"}
+            >
+              {speed}×
+            </button>
+          ))}
+        </div>
+        <button type="button" class="loop-btn" data-playback-loop aria-pressed="false">Loop</button>
+      </div>
+    </div>
+    <p class="playback-limit" data-playback-limit hidden></p>
+  </section>
 </section>

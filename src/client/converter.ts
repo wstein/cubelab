@@ -4,8 +4,19 @@ import * as NetCodec from "../State/NetCodec.res.mjs";
 import * as Orbit64Codec from "../State/Orbit64Codec.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import * as StateTypes from "../State/StateTypes.res.mjs";
-import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
-import {createCubeViewport, type CubePalette, type CubeStyle} from "./cube-gl";
+import {
+  createCubeViewport,
+  turnTransform,
+  type CubePalette,
+  type CubeStyle,
+  type MoveStep,
+} from "./cube-gl";
+import {
+  evaluateAlgorithm,
+  isSingleStepExtension,
+  MAX_PLAYBACK_STEPS,
+  type AlgorithmTimeline,
+} from "./playback";
 import {
   createStore,
   readHash,
@@ -21,7 +32,12 @@ type StateError = {_0?: string; TAG: string; actual?: number; character?: string
 type CubeState = {size: number; facelets: string[][]};
 type PieceState = {size: number; cp: number[]; co: number[]; ep: number[]; eo: number[]};
 type Scheme = "Western" | "Japanese" | {TAG: "Custom"; _0: string};
-type RecognizedInput = {state: CubeState; label: string};
+type RecognizedInput = {
+  state: CubeState;
+  label: string;
+  timeline?: AlgorithmTimeline;
+  timelineKey?: string;
+};
 
 const root = document.querySelector<HTMLElement>("[data-converter]");
 
@@ -37,6 +53,12 @@ if (root) {
   const switchLowercase = root.querySelector<HTMLButtonElement>("[data-switch-lowercase]")!;
   const canvas = root.querySelector<HTMLCanvasElement>("[data-cube-canvas]")!;
   const viewportFallback = root.querySelector<HTMLElement>("[data-viewport-fallback]")!;
+  const playback = root.querySelector<HTMLElement>("[data-playback]")!;
+  const moveRibbon = root.querySelector<HTMLElement>("[data-move-ribbon]")!;
+  const playbackPosition = root.querySelector<HTMLElement>("[data-playback-position]")!;
+  const scrubber = root.querySelector<HTMLInputElement>("[data-playback-scrubber]")!;
+  const playbackToggle = root.querySelector<HTMLButtonElement>("[data-playback-toggle]")!;
+  const playbackLimit = root.querySelector<HTMLElement>("[data-playback-limit]")!;
   const initialState = readHash(window.location.hash);
   const store = createStore(initialState);
   let size = initialState.size;
@@ -71,15 +93,27 @@ if (root) {
   const recognize = (result: Result<CubeState>, label: string): Result<RecognizedInput> =>
     result.TAG === "Ok" ? {TAG: "Ok", _0: {state: result._0, label}} : result;
 
-  const parseAlgorithm = (value: string): Result<RecognizedInput> =>
-    recognize(MoveExecutor.parseAndApplyWithOptions(
+  const parseAlgorithm = (value: string): Result<RecognizedInput> => {
+    const evaluated = evaluateAlgorithm(
       size,
       lowercaseMode,
       notationDialect,
       value,
-    ) as Result<CubeState>, size >= 4 && notationDialect === "Ruwix"
+    );
+    if (evaluated.TAG === "Error") return evaluated;
+    const label = size >= 4 && notationDialect === "Ruwix"
       ? `Algorithm · Ruwix${lowercaseMode === "InnerSlice" ? " + legacy lowercase" : ""}`
-      : `Algorithm · ${size >= 4 && lowercaseMode === "InnerSlice" ? "Legacy" : "SiGN"}`);
+      : `Algorithm · ${size >= 4 && lowercaseMode === "InnerSlice" ? "Legacy" : "SiGN"}`;
+    return {
+      TAG: "Ok",
+      _0: {
+        state: evaluated._0.finalState,
+        label,
+        timeline: evaluated._0,
+        timelineKey: `${size}\u0000${lowercaseMode}\u0000${notationDialect}\u0000${value}`,
+      },
+    };
+  };
 
   const parseState = (inputValue: string): Result<RecognizedInput> => {
     const compact = inputValue.trim();
