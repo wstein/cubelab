@@ -1349,7 +1349,7 @@ if (root) {
     await animateSmartCubeMove(assessment.received);
     const nextPackets = nextSmartCubeProgressMoves(assessment.progress).join(" or ");
     smartCubeStatus.textContent = `${smartCubeDeviceName} · ${assessment.expected.token} in progress`;
-    coachStatus.textContent = `${assessment.received} detected. Complete ${assessment.expected.token} with ${nextPackets}.`;
+    coachStatus.textContent = `${assessment.received} detected. Repeat ${assessment.received} to complete ${assessment.expected.token}.`;
     signalSmartCubeFeedback("correct");
   };
 

@@ -1300,7 +1300,7 @@ export const createCubeViewport = (
       requestRender();
     },
     smoothOrbitTo,
-    setDeviceOrientation(orientation, coordinateFrame = "viewport") {
+    setDeviceOrientation(orientation) {
       if (!orientation) {
         deviceOrientationBase = null;
         deviceOrientation = null;
