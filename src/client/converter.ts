@@ -168,7 +168,7 @@ if (root) {
   };
   const cfopAcademy: AcademyElements = {
     method: "cfop",
-    label: "Beginner CFOP",
+    label: "Advanced CFOP",
     phaseCount: 4,
     status: cfopStatus,
     current: cfopCurrent,
@@ -624,11 +624,11 @@ if (root) {
       : difference < 0
         ? `Beginner is ${-difference} physical move${difference === -1 ? "" : "s"} shorter on this state.`
         : "Both verified solutions use the same physical move count on this state.";
-    academyComparison.textContent = `Same-state comparison · Beginner LBL ${beginner} · Beginner CFOP ${cfop}. ${comparison}`;
+    academyComparison.textContent = `Same-state comparison · Beginner LBL ${beginner} · Advanced CFOP ${cfop}. ${comparison}`;
   };
 
   const selectedTutorialMethod = (): TutorialMethod | null =>
-    academyMethod === "beginner" ? "beginner" : academyMethod === "easyCfop" ? "cfop" : null;
+    academyMethod === "beginner" ? "beginner" : academyMethod === "advanced" ? "cfop" : null;
 
   const updateAcademySolveButton = () => {
     const method = selectedTutorialMethod();
@@ -1491,11 +1491,11 @@ if (root) {
     academy.copy.disabled = false;
     academy.status.classList.remove("error");
     const benchmark = academy.method === "cfop"
-      ? solution.moveCount <= 65
-        ? " · ≤65 Beginner CFOP benchmark met"
-        : ` · ${solution.moveCount - 65} over the ≤65 Beginner CFOP benchmark`
+      ? solution.moveCount <= 60
+        ? " · ≤60 advanced benchmark met"
+        : ` · ${solution.moveCount - 60} over the ≤60 advanced benchmark`
       : "";
-    academy.status.textContent = `Verified ${academy.method === "beginner" ? "beginner" : "Beginner CFOP"} solution · ${solution.moveCount} moves · ${academy.phaseCount} phases${benchmark}`;
+    academy.status.textContent = `Verified ${academy.method === "beginner" ? "beginner" : "Advanced CFOP"} solution · ${solution.moveCount} moves · ${academy.phaseCount} phases${benchmark}`;
     coachingControls.hidden = false;
 
     const timeline = buildTimeline(initialState, solution.alg);
@@ -1522,7 +1522,7 @@ if (root) {
     updateAcademySolveButton();
     academy.status.classList.remove("error");
     academy.status.textContent = method === "cfop"
-      ? "Building and replay-verifying the four Beginner CFOP phases…"
+      ? "Building and replay-verifying the four Advanced CFOP phases…"
       : "Building and replay-verifying the seven beginner phases…";
     window.setTimeout(() => {
       const result = (method === "cfop"

@@ -270,14 +270,14 @@ const cards = [
               <button type="button" class="academy-method active" data-academy-method="beginner" aria-pressed="true">
                 <strong>🐣 Beginner LBL</strong><span>7 phases</span>
               </button>
-              <button type="button" class="academy-method" data-academy-method="easyCfop" aria-pressed="false">
-                <strong>⚡ Beginner CFOP</strong><span>Two-look · 4 phases</span>
-              </button>
-              <button type="button" class="academy-method" data-academy-method="intermediate" aria-pressed="false">
-                <strong>🏁 Intermediate CFOP</strong><span>Full PLL · locked</span>
+              <button type="button" class="academy-method" data-academy-method="advancedLbl" aria-pressed="false">
+                <strong>⚡ Advanced LBL</strong><span>Optimized 7-level · locked</span>
               </button>
               <button type="button" class="academy-method" data-academy-method="advanced" aria-pressed="false">
-                <strong>🚀 Advanced CFOP</strong><span>Full CFOP · locked</span>
+                <strong>🚀 Advanced CFOP</strong><span>Pair-first · 2-look LL</span>
+              </button>
+              <button type="button" class="academy-method" data-academy-method="fullCfop" aria-pressed="false">
+                <strong>🏆 Full CFOP</strong><span>57 OLL + 21 PLL · locked</span>
               </button>
             </div>
             <button type="button" class="academy-solve-btn academy-shared-action" data-academy-solve disabled>
@@ -307,17 +307,34 @@ const cards = [
           <pre class="academy-solution" data-beginner-solution hidden></pre>
         </div>
 
-        <div data-academy-method-panel="easyCfop" hidden>
+        <div data-academy-method-panel="advancedLbl" hidden>
+          <header class="feature-header academy-method-header">
+            <div>
+              <span class="panel-label">Optimized seven-phase bridge</span>
+              <h3>Advanced LBL</h3>
+            </div>
+          </header>
+          <div class="academy-locked" role="status">
+            <strong>Advanced LBL solver not enabled yet</strong>
+            <span>
+              This needs a distinct replay-verified engine for direct cross construction,
+              one-shot corner and middle-edge insertions, and recognized one-shot last-layer
+              cases. It will not reuse the repetitive Beginner LBL plan under a new label.
+            </span>
+          </div>
+        </div>
+
+        <div data-academy-method-panel="advanced" hidden>
           <header class="feature-header academy-method-header">
             <div>
               <span class="panel-label">Pair-first, two-look CFOP</span>
-              <h3>Beginner CFOP Academy</h3>
+              <h3>Advanced CFOP Academy</h3>
             </div>
           </header>
           <p class="academy-intro">
             Plan a direct white-bottom Cross, solve four recognized corner-edge pairs while
             preserving completed slots, then finish with explicit two-look OLL and PLL cases.
-            The Beginner CFOP benchmark is ≤65 physical moves; the measured, replay-verified result
+            The advanced benchmark is ≤60 physical moves; the measured, replay-verified result
             is reported without promising the target in advance.
           </p>
           <div class="academy-status" data-cfop-status aria-live="polite">Enter a valid 3×3 state to begin.</div>
@@ -329,35 +346,19 @@ const cards = [
           <pre class="academy-solution" data-cfop-solution hidden></pre>
         </div>
 
-        <div data-academy-method-panel="intermediate" hidden>
-          <header class="feature-header academy-method-header">
-            <div>
-              <span class="panel-label">Optimized F2L and one-look PLL</span>
-              <h3>Intermediate CFOP</h3>
-            </div>
-          </header>
-          <div class="academy-locked" role="status">
-            <strong>Intermediate CFOP solver not enabled yet</strong>
-            <span>
-              This tier needs a complete 21-case PLL recognition library plus stronger
-              cross and F2L candidate selection. Beginner CFOP remains available today.
-            </span>
-          </div>
-        </div>
-
-        <div data-academy-method-panel="advanced" hidden>
+        <div data-academy-method-panel="fullCfop" hidden>
           <header class="feature-header academy-method-header">
             <div>
               <span class="panel-label">One-look OLL and PLL</span>
-              <h3>Advanced Full CFOP</h3>
+              <h3>Full CFOP</h3>
             </div>
           </header>
           <div class="academy-locked" role="status">
             <strong>Full CFOP solver not enabled yet</strong>
             <span>
               This tier requires complete 57-case OLL and 21-case PLL recognition libraries,
-              one-look selection, and replay verification. The current CFOP solver remains in
-              Beginner CFOP because it deliberately uses two-look OLL and PLL.
+              one-look selection, and replay verification. The current advanced solver uses
+              pair-first F2L with two-look OLL and PLL.
             </span>
           </div>
         </div>

@@ -4,7 +4,7 @@ export type SchemeName = "Western" | "Japanese" | "Custom";
 export type LowercaseMode = "Wide" | "InnerSlice";
 export type NotationDialect = "Modern" | "Ruwix";
 export type ActiveTab = "converter" | "academy" | "workbench";
-export type AcademyMethod = "beginner" | "easyCfop" | "intermediate" | "advanced";
+export type AcademyMethod = "beginner" | "advancedLbl" | "advanced" | "fullCfop";
 
 export type AppState = {
   size: number;
@@ -93,12 +93,16 @@ export const readHash = (hash: string): AppState => {
       ? "workbench"
     : "converter";
   const requestedMethod = params.get("method");
-  const academyMethod: AcademyMethod = requestedMethod === "advanced"
-    ? "advanced"
-    : requestedMethod === "intermediate"
-      ? "intermediate"
-      : requestedMethod === "easyCfop" || requestedMethod === "cfop" || requestedTab === "cfop"
-        ? "easyCfop"
+  const academyMethod: AcademyMethod = requestedMethod === "fullCfop"
+    ? "fullCfop"
+    : requestedMethod === "advancedLbl"
+      ? "advancedLbl"
+      : requestedMethod === "advanced"
+        || requestedMethod === "intermediate"
+        || requestedMethod === "easyCfop"
+        || requestedMethod === "cfop"
+        || requestedTab === "cfop"
+        ? "advanced"
         : "beginner";
   const input = (params.get("alg") ?? "").slice(0, 20_000);
   return {

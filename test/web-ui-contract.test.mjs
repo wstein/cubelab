@@ -91,13 +91,13 @@ test("the SPA workspace keeps one viewport beside three URL-addressable destinat
   assert.match(page, /data-workspace-tab="workbench"/);
   assert.doesNotMatch(page, /data-workspace-tab="(?:beginner|cfop)"/);
   assert.match(page, /data-academy-method="beginner"/);
-  assert.match(page, /data-academy-method="easyCfop"/);
-  assert.match(page, /data-academy-method="intermediate"/);
+  assert.match(page, /data-academy-method="advancedLbl"/);
   assert.match(page, /data-academy-method="advanced"/);
+  assert.match(page, /data-academy-method="fullCfop"/);
   assert.match(page, /data-academy-method-panel="beginner"/);
-  assert.match(page, /data-academy-method-panel="easyCfop"/);
-  assert.match(page, /data-academy-method-panel="intermediate"/);
+  assert.match(page, /data-academy-method-panel="advancedLbl"/);
   assert.match(page, /data-academy-method-panel="advanced"/);
+  assert.match(page, /data-academy-method-panel="fullCfop"/);
   assert.match(page, /data-academy-comparison/);
   assert.equal((page.match(/<CubeViewport \/>/g) ?? []).length, 1);
   assert.match(page, /data-academy-solve/);
@@ -112,7 +112,7 @@ test("the SPA workspace keeps one viewport beside three URL-addressable destinat
   assert.match(client, /academyMethod:/);
   assert.match(client, /tutorialPhaseMoveCount/);
   assert.match(client, /phase\.sequences/);
-  assert.match(client, /≤65 Beginner CFOP benchmark/);
+  assert.match(client, /≤60 advanced benchmark/);
 });
 
 test("practice scramble is a Quick load action rather than a transform", () => {

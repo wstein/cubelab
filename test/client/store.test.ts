@@ -48,21 +48,24 @@ describe("application state store", () => {
       activeTab: "academy",
       academyMethod: "beginner",
     });
-    expect(readHash("#tab=academy&method=easyCfop")).toMatchObject({
+    expect(readHash("#tab=academy&method=advanced")).toMatchObject({
       activeTab: "academy",
-      academyMethod: "easyCfop",
+      academyMethod: "advanced",
     });
     expect(readHash("#tab=beginner")).toMatchObject({activeTab: "academy", academyMethod: "beginner"});
-    expect(readHash("#tab=cfop")).toMatchObject({activeTab: "academy", academyMethod: "easyCfop"});
-    expect(readHash("#tab=academy&method=intermediate").academyMethod).toBe("intermediate");
+    expect(readHash("#tab=cfop")).toMatchObject({activeTab: "academy", academyMethod: "advanced"});
+    expect(readHash("#tab=academy&method=easyCfop").academyMethod).toBe("advanced");
+    expect(readHash("#tab=academy&method=intermediate").academyMethod).toBe("advanced");
     expect(readHash("#tab=academy&method=advanced").academyMethod).toBe("advanced");
+    expect(readHash("#tab=academy&method=advancedLbl").academyMethod).toBe("advancedLbl");
+    expect(readHash("#tab=academy&method=fullCfop").academyMethod).toBe("fullCfop");
     expect(readHash("#tab=workbench").activeTab).toBe("workbench");
     expect(readHash("#tab=unknown").activeTab).toBe("converter");
   });
 
   test("writes the selected Academy method into shareable URLs", () => {
-    expect(writeHash({...defaultAppState, activeTab: "academy", academyMethod: "easyCfop"}))
-      .toContain("tab=academy&method=easyCfop");
+    expect(writeHash({...defaultAppState, activeTab: "academy", academyMethod: "advanced"}))
+      .toContain("tab=academy&method=advanced");
   });
 
   test("persists an explicit turn-guide opt-out", () => {
