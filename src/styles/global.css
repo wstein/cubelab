@@ -549,6 +549,95 @@ body {
   opacity: 0.38;
 }
 
+.niss-panel {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.niss-panel summary {
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.niss-help {
+  margin: 0.65rem 0;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.niss-help code,
+.niss-code {
+  color: #c7d2fe;
+  font-family: var(--font-mono);
+}
+
+.niss-inverse-row,
+.niss-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.niss-code {
+  flex: 1 1 12rem;
+  overflow-wrap: anywhere;
+}
+
+.niss-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0.65rem 0;
+}
+
+.niss-field-label {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.niss-textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 0.5rem;
+  background: var(--input-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font: 0.8rem/1.4 var(--font-mono);
+}
+
+.niss-result {
+  display: block;
+  margin-top: 0.55rem;
+  color: var(--text-muted);
+  font: 0.75rem/1.45 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.niss-result.success {
+  color: #6ee7b7;
+}
+
+.niss-result.failure {
+  color: #fca5a5;
+}
+
+@media (max-width: 640px) {
+  .niss-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
 .compatibility-pill {
   padding: 0.24rem 0.5rem;
   border: 1px solid var(--border-subtle);

@@ -73,6 +73,17 @@ test("the web UI exposes pure algorithm transforms and a clearly labeled practic
   assert.match(client, /MoveTransform\.practiceScramble/);
 });
 
+test("the web UI exposes a state-verified 3x3 NISS helper", () => {
+  assert.match(page, /data-niss-panel/);
+  assert.match(page, /data-niss-normal/);
+  assert.match(page, /data-niss-inverse-moves/);
+  assert.match(page, /data-niss-verify/);
+  assert.match(page, /N · I⁻¹/);
+  assert.match(client, /MoveNiss\.invertScramble/);
+  assert.match(client, /MoveNiss\.verify/);
+  assert.match(client, /MoveNiss\.describeError/);
+});
+
 test("the studio connects recognized input and one canonical state to WebGL", () => {
   assert.match(page, /<CubeViewport \/>/);
   assert.match(page, /data-preset="M2 E2 S2"/);

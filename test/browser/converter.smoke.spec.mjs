@@ -264,3 +264,26 @@ test("applies algorithm workbench actions and generates size-aware practice scra
   const scramble = await input.inputValue();
   expect(scramble.trim().split(/\s+/)).toHaveLength(11);
 });
+
+test("recombines and replay-verifies NISS work before loading it", async ({page}) => {
+  await page.goto("/");
+  const input = page.locator("[data-input]");
+  await input.fill("R U");
+
+  await page.locator("[data-niss-panel] summary").click();
+  await expect(page.locator("[data-niss-inverse]")).toHaveText("U' R'");
+
+  await page.locator("[data-niss-normal]").fill("U'");
+  await page.locator("[data-niss-inverse-moves]").fill("R");
+  await page.getByRole("button", {name: "Recombine and verify"}).click();
+  await expect(page.locator("[data-niss-result]")).toContainText("Verified · 2 moves · U' R'");
+  await page.getByRole("button", {name: "Load verified solution"}).click();
+  await expect(input).toHaveValue("U' R'");
+
+  await input.fill("R U");
+  await page.locator("[data-niss-normal]").fill("R'");
+  await page.locator("[data-niss-inverse-moves]").fill("U'");
+  await page.getByRole("button", {name: "Recombine and verify"}).click();
+  await expect(page.locator("[data-niss-result]")).toContainText("does not solve");
+  await expect(page.getByRole("button", {name: "Load verified solution"})).toBeDisabled();
+});

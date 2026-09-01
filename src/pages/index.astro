@@ -166,6 +166,42 @@ const cards = [
             title="Random-turn practice sequence; not an official WCA scramble"
           >Practice scramble</button>
         </div>
+        <details class="niss-panel" data-niss-panel>
+          <summary>NISS helper (3×3 FMC)</summary>
+          <p class="niss-help">
+            Record normal-side moves as <code>N</code> and inverse-side moves as
+            <code>I</code>. Cube Rosetta constructs <code>N · I⁻¹</code> and accepts it only
+            when replay proves that it solves the current scramble.
+          </p>
+          <div class="niss-inverse-row">
+            <span class="niss-field-label">Inverse scramble</span>
+            <code class="niss-code" data-niss-inverse>—</code>
+            <button type="button" class="transform-btn" data-niss-use-inverse disabled>
+              Use inverse
+            </button>
+          </div>
+          <div class="niss-fields">
+            <label>
+              <span class="niss-field-label">Normal-side moves (N)</span>
+              <textarea class="niss-textarea" data-niss-normal rows="2" spellcheck="false"></textarea>
+            </label>
+            <label>
+              <span class="niss-field-label">Inverse-side moves (I)</span>
+              <textarea class="niss-textarea" data-niss-inverse-moves rows="2" spellcheck="false"></textarea>
+            </label>
+          </div>
+          <div class="niss-actions">
+            <button type="button" class="transform-btn" data-niss-verify disabled>
+              Recombine and verify
+            </button>
+            <button type="button" class="transform-btn" data-niss-load disabled>
+              Load verified solution
+            </button>
+          </div>
+          <output class="niss-result" data-niss-result aria-live="polite">
+            Enter both sides to verify a candidate solution.
+          </output>
+        </details>
         <p class="input-help">
           Lowercase moves use modern SiGN wide turns by default (<code>r = Rw</code>).
           Use <code>2R</code> for a portable single inner-layer turn. Unicode Ruwix

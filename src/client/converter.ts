@@ -5,6 +5,7 @@ import * as Orbit64Codec from "../State/Orbit64Codec.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import * as StateTypes from "../State/StateTypes.res.mjs";
 import * as MoveCompatibility from "../Move/MoveCompatibility.res.mjs";
+import * as MoveNiss from "../Move/MoveNiss.res.mjs";
 import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import {
@@ -66,12 +67,22 @@ if (root) {
   const playbackLimit = root.querySelector<HTMLElement>("[data-playback-limit]")!;
   const compatibilityStrip = root.querySelector<HTMLElement>("[data-compatibility]")!;
   const transformButtons = root.querySelectorAll<HTMLButtonElement>("[data-alg-transform]");
+  const nissPanel = root.querySelector<HTMLDetailsElement>("[data-niss-panel]")!;
+  const nissInverseOutput = root.querySelector<HTMLElement>("[data-niss-inverse]")!;
+  const nissNormal = root.querySelector<HTMLTextAreaElement>("[data-niss-normal]")!;
+  const nissInverseMoves = root.querySelector<HTMLTextAreaElement>("[data-niss-inverse-moves]")!;
+  const nissUseInverse = root.querySelector<HTMLButtonElement>("[data-niss-use-inverse]")!;
+  const nissVerify = root.querySelector<HTMLButtonElement>("[data-niss-verify]")!;
+  const nissLoad = root.querySelector<HTMLButtonElement>("[data-niss-load]")!;
+  const nissResult = root.querySelector<HTMLOutputElement>("[data-niss-result]")!;
   const initialState = readHash(window.location.hash);
   const store = createStore(initialState);
   let size = initialState.size;
   let lowercaseMode: LowercaseMode = initialState.lowercaseMode;
   let notationDialect: NotationDialect = initialState.notationDialect;
   let cubeStyle: CubeStyle = initialState.cubeStyle;
+  let inverseScramble = "";
+  let verifiedNissSolution = "";
   const viewport = createCubeViewport(canvas, (message) => {
     viewportFallback.textContent = `${message} Text conversions remain fully functional.`;
     viewportFallback.hidden = false;
@@ -219,6 +230,24 @@ if (root) {
     if (pieceTitle) {
       pieceTitle.textContent = size === 2 ? "2×2 CP / CO" : "3×3 CP / CO / EP / EO";
     }
+    nissPanel.hidden = size !== 3;
+  };
+
+  const resetNissResult = () => {
+    verifiedNissSolution = "";
+    nissLoad.disabled = true;
+    nissResult.classList.remove("success", "failure");
+    nissResult.textContent = "Enter both sides to verify a candidate solution.";
+  };
+
+  const updateNissSource = (recognized: RecognizedInput | null) => {
+    inverseScramble = recognized?.timeline
+      ? MoveTransform.serialize(MoveNiss.invertScramble(recognized.timeline.alg))
+      : "";
+    nissInverseOutput.textContent = inverseScramble || "—";
+    nissUseInverse.disabled = inverseScramble === "" || size !== 3;
+    nissVerify.disabled = !recognized?.timeline || size !== 3;
+    resetNissResult();
   };
 
   const renderState = (state: CubeState, label: string) => {
@@ -443,6 +472,7 @@ if (root) {
   };
 
   const synchronizePlayback = (recognized: RecognizedInput) => {
+    updateNissSource(recognized);
     updateCompatibility(recognized);
     updateTransformAvailability(recognized.timeline !== undefined);
     if (!recognized.timeline || !recognized.timelineKey) {
@@ -493,6 +523,7 @@ if (root) {
     updateDialectUi();
     const parsed = parseState(input.value);
     if (parsed.TAG === "Error") {
+      updateNissSource(null);
       updateCompatibility(null);
       updateTransformAvailability(false);
       stopPlayback();
@@ -637,6 +668,62 @@ if (root) {
   root.querySelector<HTMLButtonElement>("[data-practice-scramble]")!.addEventListener("click", () => {
     const scramble = MoveTransform.practiceScramble(size) as Result<string, string>;
     if (scramble.TAG === "Ok") commitTransformedAlgorithm(scramble._0);
+  });
+
+  nissUseInverse.addEventListener("click", () => {
+    if (inverseScramble !== "") commitTransformedAlgorithm(inverseScramble);
+  });
+
+  const parseNissAlg = (value: string): Result<unknown[], {message: string}> =>
+    MoveParser.parseWithOptions(3, "Wide", "Modern", value) as Result<unknown[], {message: string}>;
+
+  nissNormal.addEventListener("input", resetNissResult);
+  nissInverseMoves.addEventListener("input", resetNissResult);
+
+  nissVerify.addEventListener("click", () => {
+    const scramble = MoveParser.parseWithOptions(
+      3,
+      lowercaseMode,
+      notationDialect,
+      input.value,
+    ) as Result<unknown[], {message: string}>;
+    const normal = parseNissAlg(nissNormal.value);
+    const inverse = parseNissAlg(nissInverseMoves.value);
+    const parseFailure = scramble.TAG === "Error"
+      ? scramble._0.message
+      : normal.TAG === "Error"
+        ? normal._0.message
+        : inverse.TAG === "Error"
+          ? inverse._0.message
+          : null;
+    if (parseFailure !== null) {
+      nissResult.textContent = parseFailure;
+      nissResult.classList.add("failure");
+      nissResult.classList.remove("success");
+      return;
+    }
+    if (scramble.TAG === "Error" || normal.TAG === "Error" || inverse.TAG === "Error") return;
+    const verification = MoveNiss.verify(
+      3,
+      scramble._0,
+      normal._0,
+      inverse._0,
+    ) as Result<{solution: unknown[]; moveCount: number}, unknown>;
+    if (verification.TAG === "Error") {
+      nissResult.textContent = MoveNiss.describeError(verification._0);
+      nissResult.classList.add("failure");
+      nissResult.classList.remove("success");
+      return;
+    }
+    verifiedNissSolution = MoveTransform.serialize(verification._0.solution);
+    nissResult.textContent = `Verified · ${verification._0.moveCount} moves · ${verifiedNissSolution || "Solved"}`;
+    nissResult.classList.add("success");
+    nissResult.classList.remove("failure");
+    nissLoad.disabled = false;
+  });
+
+  nissLoad.addEventListener("click", () => {
+    if (verifiedNissSolution !== "") commitTransformedAlgorithm(verifiedNissSolution);
   });
 
   root.querySelectorAll<HTMLButtonElement>("[data-cube-style]").forEach((button) => {
