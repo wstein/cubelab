@@ -417,13 +417,7 @@ let emitSpeedCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, ~gz
     let nc = faceNormal(faceC)
     let facing = normalize(add(na, add(nb, nc)))
     let onCap = (out, first, second) =>
-      add(
-        centre,
-        add(
-          scale(out, half),
-          add(scale(first, flat), scale(second, flat)),
-        ),
-      )
+      add(centre, add(scale(out, half), add(scale(first, flat), scale(second, flat))))
     let pa = onCap(na, nb, nc)
     let pb = onCap(nb, nc, na)
     let pc = onCap(nc, na, nb)
