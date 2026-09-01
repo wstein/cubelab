@@ -70,6 +70,13 @@ test("cubing.js alone accepts a whitespace-delimited internal pause", () => {
   assert.equal(result.ruwix.compatible, false);
 });
 
+test("cubing.js timestamp syntax remains visible as a timed pause node", () => {
+  const result = evaluate("R @1.3s U");
+  assert.equal(result.cubingJs.compatible, true);
+  assert.equal(result.wca.compatible, false);
+  assert.equal(result.signLgn.compatible, false);
+});
+
 test("block comments remain explicit Cube Rosetta editor nodes", () => {
   const result = evaluate("R /* inspect */ U");
   for (const profile of Object.values(result)) {

@@ -52,7 +52,7 @@ plus the SiGN/LGN cube grammar and selected reconstruction extensions:
 | Groups, commutators, conjugates | `(R U)3 [R,U][D,L] [R: U2]` |
 | Composite multiplier aliases | `(R U)*6`, `(R U)^6`, `(R U) x 6` |
 | cubing.js-style pauses | `R . U` |
-| Reconstruction annotations | `R U // note`, `R U # note`, `R /* note */ U`, and `R @1.53s U` |
+| Reconstruction annotations | `R U // note`, `R U # note`, `R /* note */ U`, and duration-aware `R @1.53s U` |
 | Ruwix Unicode layer subscripts | `F₂' B₂2 F₃` |
 
 Adjacent bare moves require whitespace; bracket-delimited units may touch because their

@@ -473,7 +473,8 @@ if (root) {
     const stepIndex = direction > 0 ? activeIndex : bounded;
     const sourceStep = activeTimeline.steps[stepIndex].step;
     if (!sourceStep) {
-      await new Promise((resolve) => window.setTimeout(resolve, 280 / playbackSpeed));
+      const pauseDuration = activeTimeline.steps[stepIndex].durationMs ?? 280;
+      await new Promise((resolve) => window.setTimeout(resolve, pauseDuration / playbackSpeed));
       if (generation !== playbackGeneration) return false;
       renderTimelineIndex(bounded);
       return true;

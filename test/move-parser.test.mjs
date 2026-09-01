@@ -135,15 +135,19 @@ test("keeps parenthesized r as a wide-move group and accepts bracket rotations",
 
 test("comments and timing annotations separate units without changing spans", () => {
   const units = parse(3, "R// reconstruction\nU # second line\nF @1.53s R’");
-  assert.equal(units.length, 4);
+  assert.equal(units.length, 5);
   assert.deepEqual(units[0].loc, {start: 0, end_: 1});
-  assert.equal(units[3].desc._1, -1);
-  assert.equal(units[3].loc.end_ - units[3].loc.start, 2);
+  assert.equal(units[3].desc.TAG, "TimedPause");
+  assert.equal(units[3].desc._0, 1.53);
+  assert.equal(units[4].desc._1, -1);
+  assert.equal(units[4].loc.end_ - units[4].loc.start, 2);
 
   const groupedWithTiming = parse(3, "(R U R' U' @1.3s) [R, U @0.8s]");
   assert.equal(groupedWithTiming.length, 2);
   assert.equal(groupedWithTiming[0].desc.TAG, "Group");
+  assert.equal(groupedWithTiming[0].desc._0.at(-1).desc.TAG, "TimedPause");
   assert.equal(groupedWithTiming[1].desc.TAG, "Commutator");
+  assert.equal(groupedWithTiming[1].desc._1.at(-1).desc._0, 0.8);
 });
 
 test("retains internal pauses and block comments as located editor nodes", () => {
@@ -178,6 +182,9 @@ test("rejects unsupported dimensions, invalid ranges, and malformed grammar with
   assert.deepEqual(error.loc, {start: 0, end_: 4});
   const commentError = rejects(3, "R /* unfinished", /Unclosed block comment/);
   assert.deepEqual(commentError.loc, {start: 2, end_: 15});
+  rejects(3, "R @1.3", /must end in 's'/);
+  rejects(3, "R @1.2345s", /millisecond precision/);
+  rejects(3, "R @61s", /may not exceed 60 seconds/);
 });
 
 test("enforces the parser nesting limit", () => {

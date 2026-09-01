@@ -21,16 +21,16 @@ const compact = (size, input) => {
 };
 
 test("serializes every supported structured editor node canonically", () => {
-  const input = "(Rw U)3 [R, U]' 2R [F: U2] . /* inspect */";
+  const input = "(Rw U)3 [R, U]' 2R [F: U2] . @1.3s /* inspect */";
   const rendered = serialize(parse(4, input));
-  assert.equal(rendered, "(Rw U)3 [R, U]' 2R [F: U2] . /* inspect */");
+  assert.equal(rendered, "(Rw U)3 [R, U]' 2R [F: U2] . @1.3s /* inspect */");
   assert.equal(compact(4, rendered), compact(4, input));
 });
 
 test("inverts structured algorithms without flattening them", () => {
-  const source = "R U [F, R] (U D)2 . /* finish */";
+  const source = "R U [F, R] (U D)2 . @0.8s /* finish */";
   const inverse = serialize(MoveTransform.invert(parse(3, source)));
-  assert.equal(inverse, "/* finish */ . (U D)2' [F, R]' U' R'");
+  assert.equal(inverse, "/* finish */ @0.8s . (U D)2' [F, R]' U' R'");
   assert.equal(compact(3, `${source} ${inverse}`), compact(3, ""));
   assert.equal(serialize(MoveTransform.invert(parse(3, "F2 R5"))), "R' F2");
 });

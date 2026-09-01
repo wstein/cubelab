@@ -143,6 +143,7 @@ and inspectUnit = (input, unit: locatedUnit, features, wcaReasons, ruwixReasons)
       }
     }
   | Pause => features.pause = true
+  | TimedPause(_) => features.pause = true
   | BlockComment(_) => features.blockComment = true
   | Group(units, _) => {
       addReason(wcaReasons, "Groups are outside the Article 12 token subset.")

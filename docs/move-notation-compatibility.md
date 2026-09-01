@@ -84,8 +84,11 @@ rewrite them explicitly instead.
   diagnostic offsets still refer to the pasted input.
 - Unicode Ruwix face subscripts `₂` through `₅` map to outer-block widths without
   changing token length, so `F₂'` is equivalent to `2Fw'` and retains its source span.
-- `// comment`, `# comment`, and `@1.53s` reconstruction annotations are ignored during
-  execution.
+- `// comment` and `# comment` reconstruction annotations are ignored during execution.
+- `@1.53s` is retained as a located `TimedPause(1.53)` node. It is state-neutral, appears
+  as `@1.53s` in the tape ribbon, and waits 1.53 seconds at 1× playback speed. Playback
+  speed scales the wait. Durations use at most millisecond precision and are bounded to
+  60 seconds per node.
 - Whitespace-delimited `.` is retained as a located `Pause` AST node and remains visible
   to editor/playback consumers while cube-state execution treats it as a no-op.
 - `/* block comment */` is retained as a located `BlockComment` AST node and treated as

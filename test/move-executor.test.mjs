@@ -57,6 +57,19 @@ test("resilient composite spellings preserve exact execution semantics", () => {
   assert.equal(compact(3, "R U'. # copied prose"), compact(3, "R U'"));
   assert.equal(compact(3, "R . /* inspect */ U"), compact(3, "R U"));
   assert.equal(compact(3, "(R . U)2"), compact(3, "(R U)2"));
+  assert.equal(compact(3, "(R @1.3s U)2"), compact(3, "(R U)2"));
+});
+
+test("retains timed pauses with millisecond duration in expanded timelines", () => {
+  const parsed = MoveParser.parse(3, "R @1.3s U");
+  assert.equal(parsed.TAG, "Ok");
+  const timeline = MoveExecutor.expandTimeline(parsed._0);
+  assert.equal(timeline.TAG, "Ok");
+  assert.deepEqual(timeline._0.map(({pause, durationMs}) => ({pause, durationMs})), [
+    {pause: false, durationMs: undefined},
+    {pause: true, durationMs: 1300},
+    {pause: false, durationMs: undefined},
+  ]);
 });
 
 test("wide, slice, inner-layer, and rotation moves are internally consistent", () => {

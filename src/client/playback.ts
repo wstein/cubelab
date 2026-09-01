@@ -7,8 +7,8 @@ import type {LowercaseMode, NotationDialect} from "./store";
 type Result<T, E> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: E};
 type ParseError = {message: string};
 type ExpansionError = {TAG: "InvalidState"; _0: string} | {TAG: "ExpansionLimitExceeded"; _0: number};
-type ExpandedEntry = {step?: MoveStep; pause: boolean; comment?: string};
-export type TimelineEntry = {step?: MoveStep};
+type ExpandedEntry = {step?: MoveStep; pause: boolean; durationMs?: number; comment?: string};
+export type TimelineEntry = {step?: MoveStep; durationMs?: number};
 
 export const MAX_PLAYBACK_STEPS = 500;
 
@@ -79,7 +79,13 @@ export const buildTimeline = (
       alg,
       finalState: state,
       steps: playbackEntries,
-      labels: playbackEntries.map((entry) => entry.step ? formatStep(entry.step) : "Pause"),
+      labels: playbackEntries.map((entry) =>
+        entry.step
+          ? formatStep(entry.step)
+          : entry.durationMs === undefined
+            ? "Pause"
+            : `@${entry.durationMs / 1000}s`
+      ),
       states,
     },
   };

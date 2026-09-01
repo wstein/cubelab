@@ -214,6 +214,11 @@ test("plays internal pauses without changing the canonical cube state", async ({
   await expect(position).toHaveText("Step 2 of 3");
   await expect(facelets).toHaveText(afterR ?? "");
   await expect(page.locator('[data-compatibility-profile="cubingJs"]')).toContainText("×");
+
+  await input.fill("R @1.3s U");
+  await expect(page.locator("[data-move-ribbon] .move-token")).toHaveCount(3);
+  await expect(page.locator("[data-move-ribbon] .move-token.pause")).toHaveText("@1.3s");
+  await expect(page.locator('[data-compatibility-profile="cubingJs"]')).toContainText("✓");
 });
 
 test("applies algorithm workbench actions and generates size-aware practice scrambles", async ({page}) => {

@@ -102,21 +102,23 @@ function serializeMove(move, turns) {
 }
 
 function serializeUnit(unit) {
-  let text = unit.desc;
-  if (typeof text !== "object") {
+  let seconds = unit.desc;
+  if (typeof seconds !== "object") {
     return ".";
   }
-  switch (text.TAG) {
+  switch (seconds.TAG) {
     case "Move" :
-      return serializeMove(text._0, text._1);
+      return serializeMove(seconds._0, seconds._1);
+    case "TimedPause" :
+      return "@" + seconds._0.toString() + "s";
     case "BlockComment" :
-      return "/*" + text._0 + "*/";
+      return "/*" + seconds._0 + "*/";
     case "Group" :
-      return "(" + serialize(text._0) + ")" + suffix(text._1);
+      return "(" + serialize(seconds._0) + ")" + suffix(seconds._1);
     case "Commutator" :
-      return "[" + serialize(text._0) + ", " + serialize(text._1) + "]" + suffix(text._2);
+      return "[" + serialize(seconds._0) + ", " + serialize(seconds._1) + "]" + suffix(seconds._2);
     case "Conjugate" :
-      return "[" + serialize(text._0) + ": " + serialize(text._1) + "]" + suffix(text._2);
+      return "[" + serialize(seconds._0) + ": " + serialize(seconds._1) + "]" + suffix(seconds._2);
   }
 }
 
@@ -125,46 +127,52 @@ function serialize(alg) {
 }
 
 function invertUnit(unit) {
-  let text = unit.desc;
+  let seconds = unit.desc;
   let tmp;
-  if (typeof text !== "object") {
+  if (typeof seconds !== "object") {
     tmp = "Pause";
   } else {
-    switch (text.TAG) {
+    switch (seconds.TAG) {
       case "Move" :
         tmp = {
           TAG: "Move",
-          _0: text._0,
-          _1: -text._1 | 0
+          _0: seconds._0,
+          _1: -seconds._1 | 0
+        };
+        break;
+      case "TimedPause" :
+        tmp = {
+          TAG: "TimedPause",
+          _0: seconds._0
         };
         break;
       case "BlockComment" :
         tmp = {
           TAG: "BlockComment",
-          _0: text._0
+          _0: seconds._0
         };
         break;
       case "Group" :
         tmp = {
           TAG: "Group",
-          _0: text._0,
-          _1: -text._1 | 0
+          _0: seconds._0,
+          _1: -seconds._1 | 0
         };
         break;
       case "Commutator" :
         tmp = {
           TAG: "Commutator",
-          _0: text._0,
-          _1: text._1,
-          _2: -text._2 | 0
+          _0: seconds._0,
+          _1: seconds._1,
+          _2: -seconds._2 | 0
         };
         break;
       case "Conjugate" :
         tmp = {
           TAG: "Conjugate",
-          _0: text._0,
-          _1: text._1,
-          _2: -text._2 | 0
+          _0: seconds._0,
+          _1: seconds._1,
+          _2: -seconds._2 | 0
         };
         break;
     }
@@ -258,23 +266,27 @@ function simplify(alg) {
   error._0.forEach(entry => {
     let match = entry.step;
     let match$1 = entry.pause;
-    let match$2 = entry.comment;
+    let match$2 = entry.durationMs;
+    let match$3 = entry.comment;
     if (match === undefined) {
       if (match$1) {
         flushRun(output, run);
         runAxis.contents = undefined;
         output.push({
-          desc: "Pause",
+          desc: match$2 !== undefined ? ({
+              TAG: "TimedPause",
+              _0: match$2 / 1000.0
+            }) : "Pause",
           loc: generatedLoc
         });
         return;
-      } else if (match$2 !== undefined) {
+      } else if (match$3 !== undefined) {
         flushRun(output, run);
         runAxis.contents = undefined;
         output.push({
           desc: {
             TAG: "BlockComment",
-            _0: match$2
+            _0: match$3
           },
           loc: generatedLoc
         });
@@ -359,14 +371,14 @@ function mirrorAxisFactor(plane, axis) {
 }
 
 function mirrorUnit(unit, plane) {
-  let text = unit.desc;
+  let seconds = unit.desc;
   let tmp;
-  if (typeof text !== "object") {
+  if (typeof seconds !== "object") {
     tmp = "Pause";
   } else {
-    switch (text.TAG) {
+    switch (seconds.TAG) {
       case "Move" :
-        let slice = text._0;
+        let slice = seconds._0;
         switch (slice.TAG) {
           case "FaceTurn" :
             tmp = {
@@ -376,7 +388,7 @@ function mirrorUnit(unit, plane) {
                 _0: mirrorFace(plane, slice._0),
                 _1: slice._1
               },
-              _1: -text._1 | 0
+              _1: -seconds._1 | 0
             };
             break;
           case "SliceTurn" :
@@ -391,7 +403,7 @@ function mirrorUnit(unit, plane) {
                 TAG: "SliceTurn",
                 _0: slice$1
               },
-              _1: text._1 * mirrorAxisFactor(plane, axis) | 0
+              _1: seconds._1 * mirrorAxisFactor(plane, axis) | 0
             };
             break;
           case "Rotation" :
@@ -402,38 +414,44 @@ function mirrorUnit(unit, plane) {
                 TAG: "Rotation",
                 _0: axis$1
               },
-              _1: text._1 * mirrorAxisFactor(plane, axis$1) | 0
+              _1: seconds._1 * mirrorAxisFactor(plane, axis$1) | 0
             };
             break;
         }
         break;
+      case "TimedPause" :
+        tmp = {
+          TAG: "TimedPause",
+          _0: seconds._0
+        };
+        break;
       case "BlockComment" :
         tmp = {
           TAG: "BlockComment",
-          _0: text._0
+          _0: seconds._0
         };
         break;
       case "Group" :
         tmp = {
           TAG: "Group",
-          _0: mirror(text._0, plane),
-          _1: text._1
+          _0: mirror(seconds._0, plane),
+          _1: seconds._1
         };
         break;
       case "Commutator" :
         tmp = {
           TAG: "Commutator",
-          _0: mirror(text._0, plane),
-          _1: mirror(text._1, plane),
-          _2: text._2
+          _0: mirror(seconds._0, plane),
+          _1: mirror(seconds._1, plane),
+          _2: seconds._2
         };
         break;
       case "Conjugate" :
         tmp = {
           TAG: "Conjugate",
-          _0: mirror(text._0, plane),
-          _1: mirror(text._1, plane),
-          _2: text._2
+          _0: mirror(seconds._0, plane),
+          _1: mirror(seconds._1, plane),
+          _2: seconds._2
         };
         break;
     }
@@ -623,47 +641,53 @@ function rotateBaseMoveOnce(move, turns, by) {
 }
 
 function rotateUnitOnce(unit, by) {
-  let text = unit.desc;
+  let seconds = unit.desc;
   let tmp;
-  if (typeof text !== "object") {
+  if (typeof seconds !== "object") {
     tmp = "Pause";
   } else {
-    switch (text.TAG) {
+    switch (seconds.TAG) {
       case "Move" :
-        let match = rotateBaseMoveOnce(text._0, text._1, by);
+        let match = rotateBaseMoveOnce(seconds._0, seconds._1, by);
         tmp = {
           TAG: "Move",
           _0: match[0],
           _1: match[1]
         };
         break;
+      case "TimedPause" :
+        tmp = {
+          TAG: "TimedPause",
+          _0: seconds._0
+        };
+        break;
       case "BlockComment" :
         tmp = {
           TAG: "BlockComment",
-          _0: text._0
+          _0: seconds._0
         };
         break;
       case "Group" :
         tmp = {
           TAG: "Group",
-          _0: rotateOnce(text._0, by),
-          _1: text._1
+          _0: rotateOnce(seconds._0, by),
+          _1: seconds._1
         };
         break;
       case "Commutator" :
         tmp = {
           TAG: "Commutator",
-          _0: rotateOnce(text._0, by),
-          _1: rotateOnce(text._1, by),
-          _2: text._2
+          _0: rotateOnce(seconds._0, by),
+          _1: rotateOnce(seconds._1, by),
+          _2: seconds._2
         };
         break;
       case "Conjugate" :
         tmp = {
           TAG: "Conjugate",
-          _0: rotateOnce(text._0, by),
-          _1: rotateOnce(text._1, by),
-          _2: text._2
+          _0: rotateOnce(seconds._0, by),
+          _1: rotateOnce(seconds._1, by),
+          _2: seconds._2
         };
         break;
     }

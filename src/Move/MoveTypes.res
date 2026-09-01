@@ -34,6 +34,7 @@ type baseMove =
 type rec unitDesc =
   | Move(baseMove, int)
   | Pause
+  | TimedPause(float)
   | BlockComment(string)
   | Group(array<locatedUnit>, int)
   | Commutator(array<locatedUnit>, array<locatedUnit>, int)

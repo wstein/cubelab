@@ -387,11 +387,12 @@ function pushStep(steps, move, turns) {
       turns: turns
     },
     pause: false,
+    durationMs: undefined,
     comment: undefined
   });
 }
 
-function pushPause(steps) {
+function pushPause(steps, durationMs) {
   if (steps.length >= 100000) {
     throw {
       RE_EXN_ID: ExpansionFailure,
@@ -405,6 +406,7 @@ function pushPause(steps) {
   steps.push({
     step: undefined,
     pause: true,
+    durationMs: durationMs,
     comment: undefined
   });
 }
@@ -423,6 +425,7 @@ function pushComment(steps, text) {
   steps.push({
     step: undefined,
     pause: false,
+    durationMs: undefined,
     comment: text
   });
 }
@@ -465,21 +468,23 @@ function expandConjugate(steps, left, right, direction) {
 }
 
 function expandUnit(steps, unit, direction) {
-  let text = unit.desc;
-  if (typeof text !== "object") {
-    return pushPause(steps);
+  let seconds = unit.desc;
+  if (typeof seconds !== "object") {
+    return pushPause(steps, undefined);
   }
-  switch (text.TAG) {
+  switch (seconds.TAG) {
     case "Move" :
-      return pushStep(steps, text._0, text._1 * direction | 0);
+      return pushStep(steps, seconds._0, seconds._1 * direction | 0);
+    case "TimedPause" :
+      return pushPause(steps, Math.round(seconds._0 * 1000.0) | 0);
     case "BlockComment" :
-      return pushComment(steps, text._0);
+      return pushComment(steps, seconds._0);
     case "Group" :
-      return expandRepeated(steps, text._0, text._1, direction);
+      return expandRepeated(steps, seconds._0, seconds._1, direction);
     case "Commutator" :
-      let repeat = text._2;
-      let right = text._1;
-      let left = text._0;
+      let repeat = seconds._2;
+      let right = seconds._1;
+      let left = seconds._0;
       let repetitions = repeat < 0 ? -repeat | 0 : repeat;
       let nestedDirection = direction * (
         repeat < 0 ? -1 : 1
@@ -489,9 +494,9 @@ function expandUnit(steps, unit, direction) {
       }
       return;
     case "Conjugate" :
-      let repeat$1 = text._2;
-      let right$1 = text._1;
-      let left$1 = text._0;
+      let repeat$1 = seconds._2;
+      let right$1 = seconds._1;
+      let left$1 = seconds._0;
       let repetitions$1 = repeat$1 < 0 ? -repeat$1 | 0 : repeat$1;
       let nestedDirection$1 = direction * (
         repeat$1 < 0 ? -1 : 1

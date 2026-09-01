@@ -71,7 +71,7 @@ net, or colour net. Invalid input leaves the last valid 3D state visible and mar
 the input status as invalid.
 
 For algorithm input, the client expands composite AST nodes into a canonical step
-timeline, retains internal pauses as timed state-neutral steps, and caches state 0
+timeline, retains internal pauses as state-neutral steps, and caches state 0
 through state N. The viewport provides start/end jumps, animated forward and inverse
 steps, play/pause, 0.5×/1×/2× speeds, looping, a range scrubber, and clickable move or
 pause tokens. Text codecs update only when a move commits, so
@@ -80,6 +80,10 @@ they always describe an exact canonical state rather than a fractional animation
 The viewport is mounted once beside the Converter, Beginner Academy, and Alg Workbench
 panels. Client-side tab changes only toggle the left-hand view, preserving the WebGL
 context, camera, geometry buffers, and current tape position.
+
+Duration annotations such as `@1.3s` are distinct state-neutral timeline steps. The
+ribbon keeps the duration label and the transport waits for that duration divided by the
+selected playback-speed multiplier; a dot pause retains the short default wait.
 
 Playback caches at most 500 expanded steps. Algorithms above that limit still execute
 through the normal 100,000-step safety boundary and display their final conversion,

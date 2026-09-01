@@ -56,16 +56,6 @@ let skipTrivia = parser => {
           parser.cursor = parser.cursor + 1
         }
       }
-    | Some("@") => {
-        consumed := true
-        let scanning = ref(true)
-        while parser.cursor < parser.input->String.length && scanning.contents {
-          switch peek(parser) {
-          | Some(" " | "\n" | ")" | "]" | "}" | ">" | "," | ":") => scanning := false
-          | _ => parser.cursor = parser.cursor + 1
-          }
-        }
-      }
     | _ => continuing := false
     }
   }
@@ -386,6 +376,46 @@ let parseBlockComment = parser => {
   {desc: BlockComment(text), loc: {start, end_: parser.cursor}}
 }
 
+let parseTimedPause = parser => {
+  let start = parser.cursor
+  parser.cursor = parser.cursor + 1
+  let whole = switch parsePositiveInt(parser) {
+  | Some(value) => value
+  | None => fail(parser, "A timed pause requires seconds, for example @1.3s.", ~start)
+  }
+  let fraction = ref(0.0)
+  if peek(parser) == Some(".") {
+    parser.cursor = parser.cursor + 1
+    let fractionStart = parser.cursor
+    let numerator = ref(0)
+    let divisor = ref(1.0)
+    while (
+      parser.cursor < parser.input->String.length && peek(parser)->Option.mapOr(false, isDigit)
+    ) {
+      if parser.cursor - fractionStart >= 3 {
+        fail(parser, "Timed pauses support at most millisecond precision.", ~start)
+      }
+      let character = peek(parser)->Option.getOrThrow
+      numerator := numerator.contents * 10 + String.charCodeAtUnsafe(character, 0) - 48
+      divisor := divisor.contents *. 10.0
+      parser.cursor = parser.cursor + 1
+    }
+    if parser.cursor == fractionStart {
+      fail(parser, "A decimal timed pause requires digits after the period.", ~start)
+    }
+    fraction := numerator.contents->Int.toFloat /. divisor.contents
+  }
+  if peek(parser) != Some("s") {
+    fail(parser, "A timed pause must end in 's', for example @1.3s.", ~start)
+  }
+  parser.cursor = parser.cursor + 1
+  let seconds = whole->Int.toFloat +. fraction.contents
+  if seconds > 60.0 {
+    fail(parser, "A single timed pause may not exceed 60 seconds.", ~start)
+  }
+  {desc: TimedPause(seconds), loc: {start, end_: parser.cursor}}
+}
+
 let isTrailingSentencePeriod = parser => {
   let saved = parser.cursor
   parser.cursor = parser.cursor + 1
@@ -489,6 +519,7 @@ and parseUnit = parser => {
         parser.cursor = parser.cursor + 1
         {desc: Pause, loc: {start, end_: parser.cursor}}
       }
+    | Some("@") => parseTimedPause(parser)
     | Some("(") => parseNested(parser, start, ")", (body, repeat) => Group(body, repeat))
     | Some("[") =>
       switch tryInformalRotation(parser, "[", "]") {

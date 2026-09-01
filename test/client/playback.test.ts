@@ -26,6 +26,15 @@ describe("algorithm playback timeline", () => {
     expect(result._0.states?.[1]).toBe(result._0.states?.[2]);
   });
 
+  test("retains timestamp duration and labels it in the tape timeline", () => {
+    const result = evaluateAlgorithm(3, "Wide", "Modern", "R @1.3s U");
+    expect(result.TAG).toBe("Ok");
+    if (result.TAG !== "Ok") return;
+    expect(result._0.labels).toEqual(["R", "@1.3s", "U"]);
+    expect(result._0.steps[1].durationMs).toBe(1300);
+    expect(result._0.states?.[1]).toBe(result._0.states?.[2]);
+  });
+
   test("formats ranges, slices, rotations, and normalized turns", () => {
     expect(formatStep({move: {TAG: "FaceTurn", _0: "R", _1: {from_: 1, to_: 3}}, turns: 1})).toBe("3Rw");
     expect(formatStep({move: {TAG: "FaceTurn", _0: "F", _1: {from_: 2, to_: 3}}, turns: 2})).toBe("2-3Fw2");

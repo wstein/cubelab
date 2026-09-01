@@ -23,6 +23,7 @@ type step = {
 type timelineEntry = {
   step: option<step>,
   pause: bool,
+  durationMs: option<int>,
   comment: option<string>,
 }
 
@@ -204,22 +205,22 @@ let pushStep = (steps, move, turns) => {
     if steps->Array.length >= maxExpandedMoves {
       throw(ExpansionFailure(ExpansionLimitExceeded(maxExpandedMoves)))
     }
-    steps->Array.push({step: Some({move, turns}), pause: false, comment: None})
+    steps->Array.push({step: Some({move, turns}), pause: false, durationMs: None, comment: None})
   }
 }
 
-let pushPause = steps => {
+let pushPause = (steps, durationMs) => {
   if steps->Array.length >= maxExpandedMoves {
     throw(ExpansionFailure(ExpansionLimitExceeded(maxExpandedMoves)))
   }
-  steps->Array.push({step: None, pause: true, comment: None})
+  steps->Array.push({step: None, pause: true, durationMs, comment: None})
 }
 
 let pushComment = (steps, text) => {
   if steps->Array.length >= maxExpandedMoves {
     throw(ExpansionFailure(ExpansionLimitExceeded(maxExpandedMoves)))
   }
-  steps->Array.push({step: None, pause: false, comment: Some(text)})
+  steps->Array.push({step: None, pause: false, durationMs: None, comment: Some(text)})
 }
 
 let rec expandSequence = (steps, units: array<locatedUnit>, ~direction: int) => {
@@ -273,7 +274,8 @@ and expandConjugate = (steps, left, right, ~direction) => {
 and expandUnit = (steps, unit: locatedUnit, ~direction: int) =>
   switch unit.desc {
   | Move(move, turns) => pushStep(steps, move, turns * direction)
-  | Pause => pushPause(steps)
+  | Pause => pushPause(steps, None)
+  | TimedPause(seconds) => pushPause(steps, Some((seconds *. 1000.0)->Math.round->Int.fromFloat))
   | BlockComment(text) => pushComment(steps, text)
   | Group(units, repeat) => expandRepeated(steps, units, repeat, ~direction)
   | Commutator(left, right, repeat) => {

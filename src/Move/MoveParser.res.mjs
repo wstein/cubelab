@@ -68,31 +68,6 @@ function skipTrivia(parser) {
             continuing = false;
           }
           break;
-        case "@" :
-          consumed = true;
-          let scanning = true;
-          while (parser.cursor < parser.input.length && scanning) {
-            let match$1 = peek(parser);
-            if (match$1 !== undefined) {
-              switch (match$1) {
-                case " " :
-                case ")" :
-                case "," :
-                case ":" :
-                case ">" :
-                case "\n" :
-                case "]" :
-                case "}" :
-                  scanning = false;
-                  break;
-                default:
-                  parser.cursor = parser.cursor + 1 | 0;
-              }
-            } else {
-              parser.cursor = parser.cursor + 1 | 0;
-            }
-          };
-          break;
         case " " :
         case "\n" :
           exit = 1;
@@ -580,6 +555,51 @@ function parseBlockComment(parser) {
   };
 }
 
+function parseTimedPause(parser) {
+  let start = parser.cursor;
+  parser.cursor = parser.cursor + 1 | 0;
+  let value = parsePositiveInt(parser);
+  let whole = value !== undefined ? value : fail(parser, "A timed pause requires seconds, for example @1.3s.", start, undefined);
+  let fraction = 0.0;
+  if (Primitive_object.equal(peek(parser), ".")) {
+    parser.cursor = parser.cursor + 1 | 0;
+    let fractionStart = parser.cursor;
+    let numerator = 0;
+    let divisor = 1.0;
+    while (parser.cursor < parser.input.length && Stdlib_Option.mapOr(peek(parser), false, isDigit)) {
+      if ((parser.cursor - fractionStart | 0) >= 3) {
+        fail(parser, "Timed pauses support at most millisecond precision.", start, undefined);
+      }
+      let character = Stdlib_Option.getOrThrow(peek(parser), undefined);
+      numerator = ((numerator * 10 | 0) + character.charCodeAt(0) | 0) - 48 | 0;
+      divisor = divisor * 10.0;
+      parser.cursor = parser.cursor + 1 | 0;
+    };
+    if (parser.cursor === fractionStart) {
+      fail(parser, "A decimal timed pause requires digits after the period.", start, undefined);
+    }
+    fraction = numerator / divisor;
+  }
+  if (Primitive_object.notequal(peek(parser), "s")) {
+    fail(parser, "A timed pause must end in 's', for example @1.3s.", start, undefined);
+  }
+  parser.cursor = parser.cursor + 1 | 0;
+  let seconds = whole + fraction;
+  if (seconds > 60.0) {
+    fail(parser, "A single timed pause may not exceed 60 seconds.", start, undefined);
+  }
+  return {
+    desc: {
+      TAG: "TimedPause",
+      _0: seconds
+    },
+    loc: {
+      start: start,
+      end_: parser.cursor
+    }
+  };
+}
+
 function isTrailingSentencePeriod(parser) {
   let saved = parser.cursor;
   parser.cursor = parser.cursor + 1 | 0;
@@ -740,6 +760,8 @@ function parseUnit(parser) {
       } else {
         return fail(parser, "Only a single informal rotation is allowed in angle brackets.", start, undefined);
       }
+    case "@" :
+      return parseTimedPause(parser);
     case "[" :
       let unit$1 = tryInformalRotation(parser, "[", "]");
       if (unit$1 !== undefined) {
@@ -847,6 +869,7 @@ export {
   isOpeningDelimiter,
   startsBlockComment,
   parseBlockComment,
+  parseTimedPause,
   isTrailingSentencePeriod,
   startsWithDelimiter,
   parseSequence,

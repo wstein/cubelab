@@ -143,6 +143,9 @@ function inspectUnit(input, unit, features, wcaReasons, ruwixReasons) {
       } else {
         return;
       }
+    case "TimedPause" :
+      features.pause = true;
+      return;
     case "BlockComment" :
       features.blockComment = true;
       return;

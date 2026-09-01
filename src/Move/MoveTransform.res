@@ -81,6 +81,7 @@ let rec serializeUnit = unit =>
   switch unit.desc {
   | Move(move, turns) => serializeMove(move, turns)
   | Pause => "."
+  | TimedPause(seconds) => "@" ++ seconds->Float.toString ++ "s"
   | BlockComment(text) => "/*" ++ text ++ "*/"
   | Group(units, repeat) => "(" ++ serialize(units) ++ ")" ++ suffix(repeat)
   | Commutator(left, right, repeat) =>
@@ -95,6 +96,7 @@ let invertUnit = unit => {
   let desc = switch unit.desc {
   | Move(move, turns) => Move(move, -turns)
   | Pause => Pause
+  | TimedPause(seconds) => TimedPause(seconds)
   | BlockComment(text) => BlockComment(text)
   | Group(units, repeat) => Group(units, -repeat)
   | Commutator(left, right, repeat) => Commutator(left, right, -repeat)
@@ -156,8 +158,8 @@ let simplify = (alg: alg): result<alg, MoveExecutor.executionError> =>
       let run = []
       let runAxis = ref(None)
       entries->Array.forEach(entry =>
-        switch (entry.step, entry.pause, entry.comment) {
-        | (Some(step), _, _) => {
+        switch (entry.step, entry.pause, entry.durationMs, entry.comment) {
+        | (Some(step), _, _, _) => {
             let axis = moveAxis(step.move)
             if runAxis.contents != Some(axis) {
               flushRun(output, run)
@@ -165,17 +167,24 @@ let simplify = (alg: alg): result<alg, MoveExecutor.executionError> =>
             }
             addToRun(run, step)
           }
-        | (None, true, _) => {
+        | (None, true, durationMs, _) => {
             flushRun(output, run)
             runAxis := None
-            output->Array.push(located(Pause))
+            output->Array.push(
+              located(
+                switch durationMs {
+                | Some(milliseconds) => TimedPause(milliseconds->Int.toFloat /. 1000.0)
+                | None => Pause
+                },
+              ),
+            )
           }
-        | (None, false, Some(text)) => {
+        | (None, false, _, Some(text)) => {
             flushRun(output, run)
             runAxis := None
             output->Array.push(located(BlockComment(text)))
           }
-        | (None, false, None) => ()
+        | (None, false, _, None) => ()
         }
       )
       flushRun(output, run)
@@ -209,6 +218,7 @@ let rec mirrorUnit = (unit, plane) => {
     }
   | Move(Rotation(axis), turns) => Move(Rotation(axis), turns * mirrorAxisFactor(plane, axis))
   | Pause => Pause
+  | TimedPause(seconds) => TimedPause(seconds)
   | BlockComment(text) => BlockComment(text)
   | Group(units, repeat) => Group(mirror(units, plane), repeat)
   | Commutator(left, right, repeat) => Commutator(mirror(left, plane), mirror(right, plane), repeat)
@@ -287,6 +297,7 @@ let rec rotateUnitOnce = (unit, by) => {
       Move(move, turns)
     }
   | Pause => Pause
+  | TimedPause(seconds) => TimedPause(seconds)
   | BlockComment(text) => BlockComment(text)
   | Group(units, repeat) => Group(rotateOnce(units, by), repeat)
   | Commutator(left, right, repeat) =>
