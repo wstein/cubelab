@@ -1,5 +1,10 @@
 import {describe, expect, test} from "bun:test";
 
+import * as FaceletCodec from "../../../src/State/FaceletCodec.res.mjs";
+import * as StateTypes from "../../../src/State/StateTypes.res.mjs";
+import * as MoveExecutor from "../../../src/Move/MoveExecutor.res.mjs";
+import * as MoveParser from "../../../src/Move/MoveParser.res.mjs";
+import {buildTimeline} from "../../../src/client/playback";
 import {
   appendRecordedMove,
   assessSmartCubeMove,
@@ -8,7 +13,7 @@ import {
   nextExpectedSmartCubeMove,
 } from "../../../src/client/smart-cube/live-sync";
 
-const face = (name: "R" | "U" | "F") => ({
+const face = (name: "R" | "U" | "F" | "B") => ({
   step: {move: {TAG: "FaceTurn" as const, _0: name, _1: {from_: 1, to_: 1}}, turns: 1},
 });
 
@@ -25,7 +30,7 @@ describe("smart cube live synchronization", () => {
 
   test("skips rotations and pauses when finding the expected physical move", () => {
     expect(nextExpectedSmartCubeMove(steps, labels, 0)).toEqual({timelineIndex: 2, token: "R"});
-    expect(nextExpectedSmartCubeMove(steps, labels, 3)).toEqual({timelineIndex: 3, token: "U"});
+    expect(nextExpectedSmartCubeMove(steps, labels, 3)).toEqual({timelineIndex: 3, token: "D"});
     expect(nextExpectedSmartCubeMove(steps, labels, steps.length)).toBeNull();
   });
 
@@ -37,6 +42,60 @@ describe("smart cube live synchronization", () => {
     });
     expect(assessSmartCubeMove(steps, labels, 4, "L").status).toBe("unsupported");
     expect(assessSmartCubeMove(steps, labels, steps.length, "R").status).toBe("complete");
+  });
+
+  test("conjugates hints back into the fixed physical cube frame", () => {
+    const xRotation = [
+      {step: {move: {TAG: "Rotation" as const, _0: "X" as const}, turns: 2}},
+      {step: {move: {TAG: "FaceTurn" as const, _0: "B" as const, _1: {from_: 1, to_: 1}}, turns: 3}},
+    ];
+    expect(nextExpectedSmartCubeMove(xRotation, ["x2", "B'"], 0))
+      .toEqual({timelineIndex: 1, token: "F'"});
+
+    const yRotation = [
+      {step: {move: {TAG: "Rotation" as const, _0: "Y" as const}, turns: 1}},
+      face("F"),
+    ];
+    expect(nextExpectedSmartCubeMove(yRotation, ["y", "F"], 0))
+      .toEqual({timelineIndex: 1, token: "R"});
+
+    const composed = [
+      {step: {move: {TAG: "Rotation" as const, _0: "Y" as const}, turns: 1}},
+      {step: {move: {TAG: "Rotation" as const, _0: "X" as const}, turns: 2}},
+      {step: {move: {TAG: "FaceTurn" as const, _0: "B" as const, _1: {from_: 1, to_: 1}}, turns: 2}},
+    ];
+    expect(nextExpectedSmartCubeMove(composed, ["y", "x2", "B2"], 0))
+      .toEqual({timelineIndex: 2, token: "R2"});
+  });
+
+  test("replaying fixed-frame hints reaches the same state as the rotated timeline", () => {
+    const solved = StateTypes.solved(3)._0;
+    const parsed = MoveParser.parse(3, "x2 B U' R2 x2");
+    expect(parsed.TAG).toBe("Ok");
+    if (parsed.TAG !== "Ok") return;
+    const built = buildTimeline(solved, parsed._0);
+    expect(built.TAG).toBe("Ok");
+    if (built.TAG !== "Ok") return;
+    const timeline = built._0;
+    const physicalTokens: string[] = [];
+    let cursor = 0;
+    while (cursor < timeline.steps.length) {
+      const expected = nextExpectedSmartCubeMove(timeline.steps, timeline.labels, cursor);
+      if (!expected) break;
+      physicalTokens.push(expected.token);
+      cursor = expected.timelineIndex + 1;
+    }
+    expect(physicalTokens).toEqual(["F", "D'", "R2"]);
+
+    const physical = MoveParser.parse(3, physicalTokens.join(" "));
+    expect(physical.TAG).toBe("Ok");
+    if (physical.TAG !== "Ok") return;
+    const fullState = MoveExecutor.applyAlg(solved, parsed._0);
+    const physicalState = MoveExecutor.applyAlg(solved, physical._0);
+    expect(fullState.TAG).toBe("Ok");
+    expect(physicalState.TAG).toBe("Ok");
+    if (fullState.TAG !== "Ok" || physicalState.TAG !== "Ok") return;
+    expect(FaceletCodec.render(physicalState._0)).toBe(FaceletCodec.render(fullState._0));
   });
 
   test("accumulates two same-direction quarter-turn packets into one expected half turn", () => {

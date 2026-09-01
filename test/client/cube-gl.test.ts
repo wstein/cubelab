@@ -12,7 +12,8 @@ import {
   transformTurnPointForCubie,
   transformTurnPoint,
   focusCameraTarget,
-  quaternionCameraOffset,
+  matrixFromQuaternion,
+  relativeQuaternion,
   vboCapacityFloats,
 } from "../../src/client/cube-gl";
 import {cubieIsFrontFacing} from "../../src/client/motion-overlay";
@@ -143,13 +144,34 @@ describe("cube viewport math", () => {
     expect(cameraTween(Math.PI - 0.1, -Math.PI + 0.1, 0.5)).toBeCloseTo(Math.PI);
   });
 
-  test("maps normalized smart-cube quaternions to finite camera offsets", () => {
-    expect(quaternionCameraOffset({x: 0, y: 0, z: 0, w: 1})).toEqual({yaw: 0, pitch: 0});
+  test("keeps smart-cube orientation as a normalized three-axis rotation matrix", () => {
+    expect([...matrixFromQuaternion({x: 0, y: 0, z: 0, w: 1})]).toEqual([
+      1, 0, 0, 0,
+      0, 1, 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, 1,
+    ]);
     const half = Math.sqrt(0.5);
-    const yaw = quaternionCameraOffset({x: 0, y: half, z: 0, w: half});
-    expect(yaw.yaw).toBeCloseTo(Math.PI / 2);
-    expect(yaw.pitch).toBeCloseTo(0);
-    const unnormalized = quaternionCameraOffset({x: half * 3, y: 0, z: 0, w: half * 3});
-    expect(unnormalized.pitch).toBeCloseTo(Math.PI / 2);
+    const roll = matrixFromQuaternion({x: 0, y: 0, z: half * 3, w: half * 3});
+    expect(roll[0]).toBeCloseTo(0);
+    expect(roll[1]).toBeCloseTo(1);
+    expect(roll[4]).toBeCloseTo(-1);
+    expect(roll[5]).toBeCloseTo(0);
+    expect([...roll].every(Number.isFinite)).toBe(true);
+  });
+
+  test("calibrates the first hardware quaternion without discarding later roll", () => {
+    const half = Math.sqrt(0.5);
+    const base = {x: 0, y: half, z: 0, w: half};
+    const identityRelative = relativeQuaternion(base, base);
+    expect(identityRelative.x).toBeCloseTo(0);
+    expect(identityRelative.y).toBeCloseTo(0);
+    expect(identityRelative.z).toBeCloseTo(0);
+    expect(identityRelative.w).toBeCloseTo(1);
+
+    const relativeRoll = relativeQuaternion(base, {x: -0.5, y: 0.5, z: 0.5, w: 0.5});
+    const matrix = matrixFromQuaternion(relativeRoll);
+    expect([...matrix].every(Number.isFinite)).toBe(true);
+    expect(Math.abs(matrix[1]) + Math.abs(matrix[4])).toBeGreaterThan(1.5);
   });
 });

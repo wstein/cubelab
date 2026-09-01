@@ -351,8 +351,15 @@ export const cameraMatrices = (
   yaw: number,
   pitch: number,
   distance: number,
+  objectOrientation?: OrientationQuaternion,
 ): {modelView: Mat4; projection: Mat4} => ({
-  modelView: multiply(translation(-distance), multiply(rotationX(pitch), rotationY(yaw))),
+  modelView: multiply(
+    translation(-distance),
+    multiply(
+      multiply(rotationX(pitch), rotationY(yaw)),
+      objectOrientation ? matrixFromQuaternion(objectOrientation) : identity(),
+    ),
+  ),
   projection: perspective(aspect),
 });
 
@@ -365,17 +372,56 @@ export const cameraTween = (start: number, target: number, progress: number): nu
 
 export type OrientationQuaternion = {x: number; y: number; z: number; w: number};
 
-export const quaternionCameraOffset = (
-  quaternion: OrientationQuaternion,
-): {yaw: number; pitch: number} => {
+const normalizedQuaternion = (quaternion: OrientationQuaternion): OrientationQuaternion => {
   const length = Math.hypot(quaternion.x, quaternion.y, quaternion.z, quaternion.w) || 1;
-  const x = quaternion.x / length;
-  const y = quaternion.y / length;
-  const z = quaternion.z / length;
-  const w = quaternion.w / length;
-  const yaw = Math.atan2(2 * (w * y + x * z), 1 - 2 * (y * y + x * x));
-  const pitch = Math.asin(Math.max(-1, Math.min(1, 2 * (w * x - y * z))));
-  return {yaw, pitch};
+  return {
+    x: quaternion.x / length,
+    y: quaternion.y / length,
+    z: quaternion.z / length,
+    w: quaternion.w / length,
+  };
+};
+
+export const multiplyQuaternions = (
+  left: OrientationQuaternion,
+  right: OrientationQuaternion,
+): OrientationQuaternion => ({
+  x: left.w * right.x + left.x * right.w + left.y * right.z - left.z * right.y,
+  y: left.w * right.y - left.x * right.z + left.y * right.w + left.z * right.x,
+  z: left.w * right.z + left.x * right.y - left.y * right.x + left.z * right.w,
+  w: left.w * right.w - left.x * right.x - left.y * right.y - left.z * right.z,
+});
+
+export const relativeQuaternion = (
+  base: OrientationQuaternion,
+  current: OrientationQuaternion,
+): OrientationQuaternion => {
+  const from = normalizedQuaternion(base);
+  const to = normalizedQuaternion(current);
+  return normalizedQuaternion(multiplyQuaternions(to, {
+    x: -from.x,
+    y: -from.y,
+    z: -from.z,
+    w: from.w,
+  }));
+};
+
+export const matrixFromQuaternion = (quaternion: OrientationQuaternion): Mat4 => {
+  const {x, y, z, w} = normalizedQuaternion(quaternion);
+  const x2 = x + x;
+  const y2 = y + y;
+  const z2 = z + z;
+  const matrix = identity();
+  matrix[0] = 1 - y * y2 - z * z2;
+  matrix[1] = x * y2 + w * z2;
+  matrix[2] = x * z2 - w * y2;
+  matrix[4] = x * y2 - w * z2;
+  matrix[5] = 1 - x * x2 - z * z2;
+  matrix[6] = y * z2 + w * x2;
+  matrix[8] = x * z2 + w * y2;
+  matrix[9] = y * z2 - w * x2;
+  matrix[10] = 1 - x * x2 - y * y2;
+  return matrix;
 };
 
 const compileShader = (gl: WebGLRenderingContext, type: number, source: string): WebGLShader => {
@@ -504,12 +550,8 @@ export const createCubeViewport = (
   let autoOrbitPreviousTime: number | null = null;
   let cameraFrame: number | null = null;
   let cameraGeneration = 0;
-  let deviceOrientationBase: {
-    yaw: number;
-    pitch: number;
-    orientationYaw: number;
-    orientationPitch: number;
-  } | null = null;
+  let deviceOrientationBase: OrientationQuaternion | null = null;
+  let deviceOrientation: OrientationQuaternion | null = null;
   canvas.dataset.autoOrbitState = "off";
   const overlay = overlayCanvas.getContext("2d");
 
@@ -893,7 +935,10 @@ export const createCubeViewport = (
     gl.vertexAttribPointer(cubie, 3, gl.FLOAT, false, byteStride, 10 * 4);
     gl.enableVertexAttribArray(sheen);
     gl.vertexAttribPointer(sheen, 1, gl.FLOAT, false, byteStride, 13 * 4);
-    const matrices = cameraMatrices(width / height, yaw, pitch, distance);
+    const relativeOrientation = deviceOrientationBase && deviceOrientation
+      ? relativeQuaternion(deviceOrientationBase, deviceOrientation)
+      : undefined;
+    const matrices = cameraMatrices(width / height, yaw, pitch, distance, relativeOrientation);
     gl.uniformMatrix4fv(modelView, false, matrices.modelView);
     gl.uniformMatrix4fv(projection, false, matrices.projection);
     gl.uniform1f(speedStyle, style === "Speed" ? 1 : 0);
@@ -1229,31 +1274,17 @@ export const createCubeViewport = (
     setDeviceOrientation(orientation) {
       if (!orientation) {
         deviceOrientationBase = null;
+        deviceOrientation = null;
         delete canvas.dataset.deviceOrientation;
+        requestRender();
         return;
       }
-      const offset = quaternionCameraOffset(orientation);
-      if (!deviceOrientationBase) {
-        deviceOrientationBase = {
-          yaw,
-          pitch,
-          orientationYaw: offset.yaw,
-          orientationPitch: offset.pitch,
-        };
-      }
+      const normalized = normalizedQuaternion(orientation);
+      if (!deviceOrientationBase) deviceOrientationBase = normalized;
+      deviceOrientation = normalized;
       cancelCamera();
       stopInertia();
       stopAutoOrbitFrame();
-      const relativeYaw = cameraTween(
-        deviceOrientationBase.orientationYaw,
-        offset.yaw,
-        1,
-      ) - deviceOrientationBase.orientationYaw;
-      yaw = deviceOrientationBase.yaw + relativeYaw;
-      pitch = Math.max(
-        -1.25,
-        Math.min(1.25, deviceOrientationBase.pitch + offset.pitch - deviceOrientationBase.orientationPitch),
-      );
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
     },
@@ -1271,6 +1302,7 @@ export const createCubeViewport = (
     },
     resetCamera() {
       deviceOrientationBase = null;
+      deviceOrientation = null;
       delete canvas.dataset.deviceOrientation;
       cancelCamera();
       stopInertia();

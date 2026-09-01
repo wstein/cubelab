@@ -37,15 +37,60 @@ export const appendRecordedMove = (source: string, move: string): string => {
   return `${trimmed}${afterLineComment ? "\n" : " "}${token}`;
 };
 
+type RotationStep = {axis: "X" | "Y" | "Z"; turns: number};
+
+const rotateFaceOnce = (axis: RotationStep["axis"], face: string): string => {
+  if (axis === "X") {
+    return ({U: "B", B: "D", D: "F", F: "U"} as Record<string, string>)[face] ?? face;
+  }
+  if (axis === "Y") {
+    return ({R: "F", F: "L", L: "B", B: "R"} as Record<string, string>)[face] ?? face;
+  }
+  return ({U: "R", R: "D", D: "L", L: "U"} as Record<string, string>)[face] ?? face;
+};
+
+const physicalFaceInFixedFrame = (face: string, rotations: RotationStep[]): string => {
+  let mapped = face;
+  for (let index = rotations.length - 1; index >= 0; index -= 1) {
+    const rotation = rotations[index];
+    const inverseTurns = ((-rotation.turns % 4) + 4) % 4;
+    for (let turn = 0; turn < inverseTurns; turn += 1) {
+      mapped = rotateFaceOnce(rotation.axis, mapped);
+    }
+  }
+  return mapped;
+};
+
+const physicalTokenForStep = (
+  step: NonNullable<TimelineEntry["step"]>,
+  rotations: RotationStep[],
+  fallback: string,
+): string => {
+  if (step.move.TAG !== "FaceTurn") return fallback;
+  if (step.move._1.from_ !== 1 || step.move._1.to_ !== 1) return fallback;
+  const face = physicalFaceInFixedFrame(step.move._0, rotations);
+  const turns = ((step.turns % 4) + 4) % 4;
+  return `${face}${turns === 2 ? "2" : turns === 3 ? "'" : ""}`;
+};
+
 export const nextExpectedSmartCubeMove = (
   steps: TimelineEntry[],
   labels: string[],
   current: number,
 ): ExpectedSmartCubeMove | null => {
-  for (let index = Math.max(0, current); index < steps.length; index += 1) {
+  const rotations: RotationStep[] = [];
+  for (let index = 0; index < steps.length; index += 1) {
     const step = steps[index]?.step;
-    if (!step || step.move.TAG === "Rotation") continue;
-    return {timelineIndex: index, token: labels[index] ?? ""};
+    if (!step) continue;
+    if (step.move.TAG === "Rotation") {
+      rotations.push({axis: step.move._0, turns: step.turns});
+      continue;
+    }
+    if (index < Math.max(0, current)) continue;
+    return {
+      timelineIndex: index,
+      token: physicalTokenForStep(step, rotations, labels[index] ?? ""),
+    };
   }
   return null;
 };

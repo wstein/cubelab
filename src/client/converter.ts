@@ -451,11 +451,14 @@ if (root) {
   let smartCubeDeviceName = "Smart cube";
   let smartCubeLedFeedback = false;
   let smartCubeLiveState: CubeState | null = null;
+  let smartCubeRenderedState: CubeState | null = null;
   let smartCubeStateSyncPending = false;
   let smartCubeOrientationTracking = false;
   let latestSmartCubeOrientation: SmartCubeOrientationEvent["quaternion"] | null = null;
   let smartCubeMovesInFlight = 0;
   let smartCubeMoveQueue = Promise.resolve();
+  type QueuedSmartCubeMove = {move: string; state: CubeState | null};
+  const smartCubePendingMoves: QueuedSmartCubeMove[] = [];
   let suppressNextSmartCubeExtension = false;
   let smartCubeCoachingWaiting = false;
   let smartCubeHalfTurnProgress: SmartCubeHalfTurnProgress | null = null;
@@ -611,7 +614,8 @@ if (root) {
       hoverPreviewCursor = null;
       delete canvas.dataset.hoverPreviewIndex;
       delete canvas.dataset.hoverPreviewFacelets;
-      const displayed = smartCubeLiveState ?? activeTimeline?.states?.[activeIndex];
+      const displayed = smartCubeRenderedState ?? smartCubeLiveState
+        ?? activeTimeline?.states?.[activeIndex];
       if (displayed) {
         viewport?.setState(displayed, viewportPalette());
         refreshTutorialFocus();
@@ -967,6 +971,13 @@ if (root) {
     updatePlaybackUi();
   };
 
+  const setSmartCubeTimelineIndex = (index: number) => {
+    if (!activeTimeline) return;
+    activeIndex = Math.max(0, Math.min(index, activeTimeline.steps.length));
+    refreshTutorialFocus();
+    updatePlaybackUi();
+  };
+
   const transitionTo = async (
     target: number,
     generation: number,
@@ -1278,16 +1289,16 @@ if (root) {
       smartCubeHalfTurnProgress = null;
     }
     smartCubeCoachingWaiting = true;
-    const entry = activeTimeline.steps[expected.timelineIndex];
     const token = moveRibbon.querySelector<HTMLButtonElement>(
       `[data-move-index="${expected.timelineIndex + 1}"]`,
     );
-    if (entry?.step && token) {
+    const physicalStep = smartCubeStep(expected.token);
+    if (physicalStep && token) {
       guidedToken = token;
-      activeTurnGuide = {step: entry.step, label: expected.token};
+      activeTurnGuide = {step: physicalStep, label: expected.token};
       token.classList.add("turn-guided");
       token.scrollIntoView({block: "nearest", inline: "nearest"});
-      viewport?.setTurnPreview(turnTransform(size, entry.step));
+      viewport?.setTurnPreview(turnTransform(size, physicalStep));
       viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
     }
     const halfway = smartCubeHalfTurnProgress?.timelineIndex === expected.timelineIndex
@@ -1307,12 +1318,6 @@ if (root) {
   ): Promise<void> => {
     smartCubeHalfTurnProgress = assessment.progress;
     await animateSmartCubeMove(assessment.received);
-    const base = activeTimeline?.states?.[assessment.expected.timelineIndex];
-    const step = smartCubeStep(assessment.received);
-    if (base && step) {
-      const halfwayState = MoveExecutor.applyStep(base, step) as CubeState;
-      renderState(halfwayState, `${assessment.expected.token} halfway`);
-    }
     smartCubeStatus.textContent = `${smartCubeDeviceName} · ${assessment.expected.token} halfway`;
     coachStatus.textContent = `${assessment.received} detected. Repeat ${assessment.received} to complete ${assessment.expected.token}.`;
     signalSmartCubeFeedback("correct");
@@ -1326,7 +1331,6 @@ if (root) {
     smartCubeHalfTurnProgress = null;
     recordSmartCubeMistake(assessment.expected.token, assessment.received);
     await animateSmartCubeMove(move);
-    renderSmartCubeLiveState();
 
     if (
       halfTurn?.timelineIndex === assessment.expected.timelineIndex
@@ -1354,7 +1358,6 @@ if (root) {
     if (!smartCubeRecovery) return false;
     const assessment = assessSmartCubeRecovery(smartCubeRecovery, move);
     await animateSmartCubeMove(move);
-    renderSmartCubeLiveState();
 
     if (assessment.status === "realigned") {
       const expected = smartCubeRecovery.expected.token;
@@ -1412,17 +1415,28 @@ if (root) {
     }
     const moveIndex = assessment.expected.timelineIndex;
     smartCubeHalfTurnProgress = null;
-    if (!assessment.completedHalfTurn && activeIndex !== moveIndex) renderTimelineIndex(moveIndex);
+    if (!assessment.completedHalfTurn && activeIndex !== moveIndex) setSmartCubeTimelineIndex(moveIndex);
     await animateSmartCubeMove(move);
-    renderTimelineIndex(moveIndex + 1);
+    setSmartCubeTimelineIndex(moveIndex + 1);
     smartCubeStatus.textContent = `${smartCubeDeviceName} · ${move} matched`;
     signalSmartCubeFeedback("correct");
     return true;
   };
 
   const renderSmartCubeLiveState = () => {
-    if (!smartCubeConnected || !smartCubeLiveState) return;
-    renderState(smartCubeLiveState, `${smartCubeDeviceName} · Live physical state`);
+    const state = smartCubeRenderedState ?? smartCubeLiveState;
+    if (!smartCubeConnected || !state) return;
+    renderState(state, `${smartCubeDeviceName} · Live physical state`);
+  };
+
+  const commitSmartCubeMoveState = (record: QueuedSmartCubeMove) => {
+    const base = smartCubeRenderedState ?? smartCubeLiveState;
+    const step = smartCubeStep(record.move);
+    const state = record.state ?? (base && step ? MoveExecutor.applyStep(base, step) as CubeState : null);
+    if (!state) return;
+    smartCubeRenderedState = state;
+    if (!record.state) smartCubeLiveState = state;
+    renderState(state, `${smartCubeDeviceName} · Live physical state`);
   };
 
   const mirrorSmartCubeFaceletsToInput = (facelets: string) => {
@@ -1475,9 +1489,9 @@ if (root) {
 
     const moveIndex = assessment.expected.timelineIndex;
     smartCubeHalfTurnProgress = null;
-    if (!assessment.completedHalfTurn && activeIndex !== moveIndex) renderTimelineIndex(moveIndex);
+    if (!assessment.completedHalfTurn && activeIndex !== moveIndex) setSmartCubeTimelineIndex(moveIndex);
     await animateSmartCubeMove(move);
-    renderTimelineIndex(moveIndex + 1);
+    setSmartCubeTimelineIndex(moveIndex + 1);
     smartCubeStatus.textContent = `${smartCubeDeviceName} · ${move} matched`;
     coachStatus.textContent = `${move} matched the Academy timeline.`;
 
@@ -1497,7 +1511,8 @@ if (root) {
     return true;
   };
 
-  const applySmartCubeMove = async (move: string): Promise<void> => {
+  const applySmartCubeMove = async (record: QueuedSmartCubeMove): Promise<void> => {
+    const move = record.move;
     const continueCoaching = smartCubeCoachingWaiting;
     clearTutorialFocus();
     clearTurnGuide();
@@ -1508,16 +1523,13 @@ if (root) {
       ? await applyWaitingTimelineMove(move)
       : false;
     if (handledByRecovery || handledByAcademy || handledByTimeline) {
-      // During coached playback, renderTimelineIndex already installed the
-      // exact post-move state. The cached facelet report may still describe
-      // the pre-move cube (especially for move-only or delayed-state
-      // protocols), so drawing it here would snap the animation backwards.
+      commitSmartCubeMoveState(record);
       if (continueCoaching || smartCubeRecovery || handledByRecovery) waitForSmartCubeMove();
-      else renderSmartCubeLiveState();
       return;
     }
 
     await animateSmartCubeMove(move);
+    commitSmartCubeMoveState(record);
     // Full-state drivers emit a canonical facelet event alongside each move.
     // Keep that physical state in the editor instead of replacing it with a
     // move recording. Move-only drivers retain the recording fallback below.
@@ -1601,6 +1613,8 @@ if (root) {
         setSmartCubeOrientationTracking(false);
         smartCubeStateSyncPending = false;
         smartCubeLiveState = null;
+        smartCubeRenderedState = null;
+        smartCubePendingMoves.length = 0;
         smartCubeReroute.hidden = true;
         scheduleUpdate();
       }
@@ -1609,21 +1623,29 @@ if (root) {
 
   const handleSmartCubeEvent = (event: SmartCubeEvent) => {
     switch (event.type) {
-      case "move":
+      case "move": {
+        const record: QueuedSmartCubeMove = {move: event.move, state: null};
+        smartCubePendingMoves.push(record);
         smartCubeMovesInFlight += 1;
         smartCubeMoveQueue = smartCubeMoveQueue
-          .then(() => applySmartCubeMove(event.move))
+          .then(() => applySmartCubeMove(record))
           .catch((reason) => {
             smartCubeStatus.textContent = reason instanceof Error ? reason.message : String(reason);
           })
           .finally(() => {
+            const pendingIndex = smartCubePendingMoves.indexOf(record);
+            if (pendingIndex >= 0) smartCubePendingMoves.splice(pendingIndex, 1);
             smartCubeMovesInFlight -= 1;
           });
         break;
+      }
       case "facelets": {
         const parsed = FaceletCodec.parse(3, event.facelets) as Result<CubeState>;
         if (parsed.TAG === "Ok") {
           smartCubeLiveState = parsed._0;
+          const pending = [...smartCubePendingMoves].reverse().find((move) => move.state === null);
+          if (pending) pending.state = parsed._0;
+          else smartCubeRenderedState = parsed._0;
           if (smartCubeStateSyncPending) {
             smartCubeStateSyncPending = false;
             mirrorSmartCubeFaceletsToInput(event.facelets);
