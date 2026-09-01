@@ -97,6 +97,10 @@ ribbon does not render pause tokens or editor syntax. Academy-generated 0.5-seco
 inter-sequence delays are visually compact with no gap, while 1.2-second phase boundaries
 use a wider gap; a user-authored dot pause retains a small semantic gap and short default
 wait.
+
+The position indicator counts only physical face, wide, inner-layer, and slice turns.
+State-neutral pauses and whole-cube `x`, `y`, or `z` regrips remain playable timeline
+events but never increment either the current move number or the total.
 Parenthesized AST groups are retained during expansion and displayed as bordered move
 clusters, including a distinct cluster for every repetition. In both Academy views,
 hovering or focusing a cluster highlights its complete token group and derives the

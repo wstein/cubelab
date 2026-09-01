@@ -29,6 +29,7 @@ import {
   nextSequence,
   planSequenceStep,
   planTimelineClick,
+  physicalMoveProgress,
   type AlgorithmTimeline,
 } from "./playback";
 import {
@@ -688,7 +689,8 @@ if (root) {
     playbackLimit.textContent = activeTimeline.states === null
       ? `Final conversion is available; playback is limited to ${MAX_PLAYBACK_STEPS} expanded moves.`
       : "";
-    playbackPosition.textContent = `Step ${activeIndex} of ${activeTimeline.steps.length}`;
+    const moveProgress = physicalMoveProgress(activeTimeline.steps, activeIndex);
+    playbackPosition.textContent = `Move ${moveProgress.current} of ${moveProgress.total}`;
     scrubber.max = String(activeTimeline.steps.length);
     scrubber.value = String(activeIndex);
     scrubber.disabled = !playable;

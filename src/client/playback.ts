@@ -27,6 +27,7 @@ export type TimelineClickPlan = {
   speedMultiplier: number;
 };
 export type TimelineSequence = {start: number; end: number; moveIndices: number[]};
+export type PhysicalMoveProgress = {current: number; total: number};
 
 export const MAX_PLAYBACK_STEPS = 500;
 
@@ -104,6 +105,20 @@ export const nextSequence = (
   steps: TimelineEntry[],
   current: number,
 ): TimelineSequence | null => planSequenceStep(steps, current, 1);
+
+const isPhysicalMove = (entry: TimelineEntry): boolean =>
+  entry.step !== undefined && entry.step.move.TAG !== "Rotation";
+
+export const physicalMoveProgress = (
+  steps: TimelineEntry[],
+  timelineIndex: number,
+): PhysicalMoveProgress => {
+  const bounded = Math.max(0, Math.min(timelineIndex, steps.length));
+  return {
+    current: steps.slice(0, bounded).filter(isPhysicalMove).length,
+    total: steps.filter(isPhysicalMove).length,
+  };
+};
 
 export const describeTimelineGroup = (
   entries: TimelineEntry[],

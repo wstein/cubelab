@@ -180,36 +180,36 @@ test("plays, reverses, and seeks an expanded algorithm timeline", async ({page})
 
   await input.fill("R U");
   await expect(page.locator("[data-playback]")).toBeVisible();
-  await expect(position).toHaveText("Step 2 of 2");
+  await expect(position).toHaveText("Move 2 of 2");
   const finalState = await facelets.textContent();
 
   await page.getByRole("button", {name: "Jump to start"}).click();
-  await expect(position).toHaveText("Step 0 of 2");
+  await expect(position).toHaveText("Move 0 of 2");
   await expect(facelets).toHaveText(solved);
 
   await page.getByRole("button", {name: "Next move"}).click();
   await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-animating", "true");
-  await expect(position).toHaveText("Step 1 of 2");
+  await expect(position).toHaveText("Move 1 of 2");
   await expect(page.locator("[data-cube-canvas]")).not.toHaveAttribute("data-animating", "true");
 
   await page.getByRole("button", {name: "Previous move"}).click();
-  await expect(position).toHaveText("Step 0 of 2");
+  await expect(position).toHaveText("Move 0 of 2");
   await expect(facelets).toHaveText(solved);
 
   await page.getByRole("button", {name: "Play algorithm"}).click();
-  await expect(position).toHaveText("Step 2 of 2");
+  await expect(position).toHaveText("Move 2 of 2");
   await expect(facelets).toHaveText(finalState ?? "");
 
   await page.getByRole("button", {name: "Jump to start"}).click();
   await page.locator("[data-playback-scrubber]").fill("2");
-  await expect(position).toHaveText("Step 2 of 2");
+  await expect(position).toHaveText("Move 2 of 2");
   await expect(facelets).toHaveText(finalState ?? "");
 
   await input.fill("");
   await expect(page.locator("[data-playback]")).toBeHidden();
   await input.fill("R");
   await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-animating", "true");
-  await expect(position).toHaveText("Step 1 of 1");
+  await expect(position).toHaveText("Move 1 of 1");
 });
 
 test("animates timeline token clicks and time-travels only across distant groups", async ({page}) => {
@@ -225,17 +225,17 @@ test("animates timeline token clicks and time-travels only across distant groups
   await expect(ribbon).toHaveAttribute("data-navigation-mode", "sequence");
   await expect(ribbon).toHaveAttribute("data-navigation-speed", "2");
   await expect(canvas).toHaveAttribute("data-animating", "true");
-  await expect(position).toHaveText("Step 3 of 6");
+  await expect(position).toHaveText("Move 3 of 6");
 
   await tokens.nth(3).click();
   await expect(ribbon).toHaveAttribute("data-navigation-mode", "adjacent");
   await expect(ribbon).toHaveAttribute("data-navigation-speed", "1");
-  await expect(position).toHaveText("Step 4 of 6");
+  await expect(position).toHaveText("Move 4 of 6");
 
   await tokens.nth(0).click();
   await expect(ribbon).toHaveAttribute("data-navigation-mode", "time-travel");
   await expect(ribbon).toHaveAttribute("data-navigation-speed", "1");
-  await expect(position).toHaveText("Step 1 of 6");
+  await expect(position).toHaveText("Move 1 of 6");
 });
 
 test("plays internal pauses without changing the canonical cube state", async ({page}) => {
@@ -250,10 +250,10 @@ test("plays internal pauses without changing the canonical cube state", async ({
   await expect(page.locator("[data-move-ribbon] .move-token.pause")).toHaveCount(0);
   await page.getByRole("button", {name: "Jump to start"}).click();
   await page.getByRole("button", {name: "Next move"}).click();
-  await expect(position).toHaveText("Step 1 of 3");
+  await expect(position).toHaveText("Move 1 of 2");
   const afterR = await facelets.textContent();
   await page.getByRole("button", {name: "Next move"}).click();
-  await expect(position).toHaveText("Step 3 of 3", {timeout: 700});
+  await expect(position).toHaveText("Move 2 of 2", {timeout: 700});
   await expect(facelets).not.toHaveText(afterR ?? "");
   await expect(page.locator('[data-compatibility-profile="cubingJs"]')).toContainText("×");
 
@@ -261,6 +261,10 @@ test("plays internal pauses without changing the canonical cube state", async ({
   await expect(page.locator("[data-move-ribbon] .move-token")).toHaveCount(2);
   await expect(page.locator("[data-move-ribbon] .timeline-gap.step-gap")).toHaveCount(1);
   await expect(page.locator('[data-compatibility-profile="cubingJs"]')).toContainText("✓");
+
+  await input.fill("R x y' z2 @0.5s U");
+  await expect(page.locator("[data-move-ribbon] .move-token")).toHaveCount(5);
+  await expect(position).toHaveText("Move 2 of 2");
 });
 
 test("steps complete sequences without waiting on pauses", async ({page}) => {
@@ -270,11 +274,11 @@ test("steps complete sequences without waiting on pauses", async ({page}) => {
   await page.getByRole("button", {name: "Jump to start"}).click();
 
   await page.getByRole("button", {name: "Next sequence"}).click();
-  await expect(position).toHaveText("Step 3 of 5", {timeout: 1200});
+  await expect(position).toHaveText("Move 2 of 4", {timeout: 1200});
   await expect(page.locator("[data-move-ribbon] .move-group").nth(1)).toHaveClass(/focused/);
 
   await page.getByRole("button", {name: "Previous sequence"}).click();
-  await expect(position).toHaveText("Step 0 of 5", {timeout: 1200});
+  await expect(position).toHaveText("Move 0 of 4", {timeout: 1200});
   await expect(page.locator("[data-move-ribbon] .move-group").first()).toHaveClass(/focused/);
 });
 
@@ -370,7 +374,7 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(page.locator("[data-beginner-phase]")).toHaveCount(7);
   await expect(page.locator("[data-beginner-phase]").nth(0)).toContainText("Keep white on top");
   await expect(page.locator("[data-beginner-phase]").nth(2)).toContainText("Turn yellow to the top");
-  await expect(page.locator("[data-playback-position]")).toHaveText(/Step 0 of \d+/);
+  await expect(page.locator("[data-playback-position]")).toHaveText(/Move 0 of \d+/);
   await expect(page.locator("[data-coaching-controls]")).toBeVisible();
   await expect(page.getByRole("button", {name: "Coached", exact: true})).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("[data-beginner-solution]")).toContainText("// STEP 1: White Cross");
@@ -433,9 +437,7 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await page.locator("[data-playback-scrubber]").fill(String(phaseTwoStart - 1));
   await page.getByRole("button", {name: "Next move"}).click();
   await expect(page.locator("[data-motion-overlay]")).not.toHaveAttribute("data-milestone", /.+/);
-  await expect(page.locator("[data-playback-position]")).toHaveText(
-    new RegExp(`Step ${phaseTwoStart + 1} of \\d+`),
-  );
+  await expect(page.locator("[data-playback-position]")).toHaveText(/Move \d+ of \d+/);
 
   await page.getByRole("button", {name: "Continuous", exact: true}).click();
   await expect(page.getByRole("button", {name: "Continuous", exact: true})).toHaveAttribute("aria-pressed", "true");
@@ -475,7 +477,7 @@ test("opens CFOP Academy and builds its four replay-verified stages", async ({pa
   await expect(page.locator("[data-cfop-phase]").nth(3)).toContainText("Two-Look PLL");
   await expect(page.locator("[data-cfop-solution]")).toContainText("// CFOP 1: Cross");
   await expect(page.locator("[data-cfop-solution]")).toContainText("(x2) @0.5s");
-  await expect(page.locator("[data-playback-position]")).toHaveText(/Step 0 of \d+/);
+  await expect(page.locator("[data-playback-position]")).toHaveText(/Move 0 of \d+/);
 
   const f2l = page.locator("[data-cfop-phase]").nth(1);
   await f2l.click();

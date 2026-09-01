@@ -12,6 +12,7 @@ import {
   nextSequence,
   planSequenceStep,
   planTimelineClick,
+  physicalMoveProgress,
 } from "../../src/client/playback";
 
 describe("algorithm playback timeline", () => {
@@ -68,6 +69,18 @@ describe("algorithm playback timeline", () => {
     expect(result._0.labels).toEqual(["R", "", "U"]);
     expect(result._0.steps[1].durationMs).toBe(1300);
     expect(result._0.states?.[1]).toBe(result._0.states?.[2]);
+  });
+
+  test("counts only physical layer turns as moves", () => {
+    const timeline = evaluateAlgorithm(3, "Wide", "Modern", "R @0.5s x y' z2 M U");
+    expect(timeline.TAG).toBe("Ok");
+    if (timeline.TAG !== "Ok") return;
+    expect(physicalMoveProgress(timeline._0.steps, 0)).toEqual({current: 0, total: 3});
+    expect(physicalMoveProgress(timeline._0.steps, 5)).toEqual({current: 1, total: 3});
+    expect(physicalMoveProgress(timeline._0.steps, timeline._0.steps.length)).toEqual({
+      current: 3,
+      total: 3,
+    });
   });
 
   test("formats ranges, slices, rotations, and normalized turns", () => {
