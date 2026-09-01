@@ -102,6 +102,10 @@ function inspectSequence(input, units, features, wcaReasons, ruwixReasons) {
 function inspectUnit(input, unit, features, wcaReasons, ruwixReasons) {
   let source = sourceFor(input, unit);
   let match = unit.desc;
+  if (typeof match !== "object") {
+    features.pause = true;
+    return;
+  }
   switch (match.TAG) {
     case "Move" :
       let turns = match._1;
@@ -139,6 +143,9 @@ function inspectUnit(input, unit, features, wcaReasons, ruwixReasons) {
       } else {
         return;
       }
+    case "BlockComment" :
+      features.blockComment = true;
+      return;
     case "Group" :
       addReason(wcaReasons, "Groups are outside the Article 12 token subset.");
       return inspectSequence(input, match._0, features, wcaReasons, ruwixReasons);
@@ -170,8 +177,10 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
   let ruwixReasons = [];
   let features = {
     adjacentUnits: false,
+    blockComment: false,
     informalRotation: false,
     lowercaseFace: false,
+    pause: false,
     ruwixSubscript: false,
     ruwixPlaintext: false
   };
@@ -206,6 +215,19 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
     addReason(signReasons, "LGN separates adjacent repeated units with whitespace.");
     addReason(cubingReasons, "Add whitespace between units for portable cubing.js source.");
   }
+  if (features.pause) {
+    addReason(wcaReasons, "Pause nodes are outside Article 12 move tokens.");
+    addReason(signReasons, "Pause nodes are a cubing.js editor extension.");
+    addReason(speedsolvingReasons, "Pause nodes are outside the documented Wiki subset.");
+    addReason(ruwixReasons, "Ruwix Advanced does not document pause nodes.");
+  }
+  if (features.blockComment) {
+    addReason(wcaReasons, "Block comments are outside Article 12 move tokens.");
+    addReason(signReasons, "Block comments are a Cube Rosetta editor extension.");
+    addReason(cubingReasons, "The current cubing.js parser does not accept block comments.");
+    addReason(speedsolvingReasons, "Block comments are outside the documented Wiki subset.");
+    addReason(ruwixReasons, "Ruwix Advanced does not document block comments.");
+  }
   if (hasExplicitMultiplier(input)) {
     addReason(wcaReasons, "Explicit multiplier symbols are outside Article 12 move tokens.");
     addReason(signReasons, "SiGN/LGN uses a direct numeric repetition suffix.");
@@ -234,9 +256,10 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
     addReason(speedsolvingReasons, "Terminal semicolon stripping is not documented Wiki notation.");
     addReason(ruwixReasons, "Terminal semicolon stripping is not Ruwix notation.");
   }
-  if (trimmed.endsWith(".")) {
+  if (trimmed.endsWith(".") && !features.pause) {
     addReason(wcaReasons, "A terminal period is outside Article 12 move tokens.");
     addReason(signReasons, "SiGN/LGN does not define pause punctuation.");
+    addReason(cubingReasons, "cubing.js requires whitespace around a pause; this period is sentence punctuation.");
     addReason(speedsolvingReasons, "Pause punctuation is outside the documented Wiki subset.");
     addReason(ruwixReasons, "Ruwix Advanced does not document pause punctuation.");
   }

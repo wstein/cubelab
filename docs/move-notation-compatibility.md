@@ -10,7 +10,9 @@ Cube Rosetta implements the current WCA move notation needed for 2×2×2 through
 cubes and the core cube grammar in the descriptive SiGN/LGN draft. It also accepts a
 small set of reconstruction conveniences: Unicode prime/dash/space normalization,
 `//` and `#` line comments, composite multiplier aliases, terminal sentence
-punctuation, and `@1.53s`-style timestamps.
+punctuation, retained `/* … */` block-comment nodes, and `@1.53s`-style timestamps.
+Whitespace-delimited `.` input is retained as the state-neutral pause leaf documented
+by cubing.js.
 
 Compatibility is not universal across cube sites because several use local extensions
 or older meanings for the same token. In particular, modern SiGN uses lowercase `r` as
@@ -84,9 +86,15 @@ rewrite them explicitly instead.
   changing token length, so `F₂'` is equivalent to `2Fw'` and retains its source span.
 - `// comment`, `# comment`, and `@1.53s` reconstruction annotations are ignored during
   execution.
+- Whitespace-delimited `.` is retained as a located `Pause` AST node and remains visible
+  to editor/playback consumers while cube-state execution treats it as a no-op.
+- `/* block comment */` is retained as a located `BlockComment` AST node and treated as
+  a no-op by execution. This is a Cube Rosetta editor extension: the current cubing.js
+  parser defines `//` line-comment and pause leaves but does not accept block comments.
 - Composite repetitions also accept explicit `*`, `^`, or spaced `x` markers, such as
-  `(R U)*6`, `(R U)^6`, and `(R U) x 6`. A terminal sentence `.` or `;` is ignored only
-  at the end of complete input; an internal `.` is not treated as a cubing.js pause.
+  `(R U)*6`, `(R U)^6`, and `(R U) x 6`. An adjacent terminal sentence `.` or `;` is
+  ignored only at the end of complete input; a whitespace-delimited internal `.` is a
+  cubing.js-compatible pause node.
 - Historical rotation spellings `[r]`, `{u'}`, and `<f>2` are accepted. They are not
   current WCA notation; `x/y/z` should be preferred for portable algorithms.
 
@@ -101,8 +109,8 @@ site.
 | [WCA Regulations](https://www.worldcubeassociation.org/regulations/#12a) | Official WCA Article 12a NxNxN notation | Covered for 2×2–5×5 | FMC's judge-side capitalization recovery and symbol-discard rules are not an input mode. |
 | [J Perm move guide](https://www.jperm.net/3x3/moves) | Common WCA/SiGN subset: face, wide/lowercase-wide, slice, rotation | Covered on 3×3 | No documented cube-move gap; `U2'` is accepted and is state-equivalent to `U2`. |
 | [SpeedCubeDB](https://speedcubedb.com/p/4x4/OLLParity) | Community SiGN-like algorithms for multiple cube sizes | Partial | Some 4×4 pages use `M`; Cube Rosetta rejects `M/E/S` outside 3×3 because even cubes have no unique middle slice. |
-| [alg.cubing.net](https://alg.cubing.net/) | Its [bundled parser identifies itself as SiGNw](https://github.com/cubing/alg.cubing.net/blob/main/src/alg.cubing.net/twisty.js/alg/README.md) plus editor nodes | Core covered | A terminal `.` is accepted as a state-neutral convenience, but internal pauses, `/* block comments */`, and preserved newline/editor nodes are not implemented. `//` comments and `@…s` timestamps are covered. |
-| [Twizzle / cubing.js](https://js.cubing.net/cubing/alg/) | LGN-derived general algorithm AST | Core cube grammar covered | A terminal `.` is portable and state-neutral. Internal pauses and the parser's [experimental caret-NISS syntax](https://github.com/cubing/cubing.js/blob/main/src/cubing/alg/parseAlg.ts) (`^(U L)`) are not implemented. Puzzle-specific Square-1, Clock, and Megaminx moves are outside Cube Rosetta's NxN scope. |
+| [alg.cubing.net](https://alg.cubing.net/) | Its [bundled parser identifies itself as SiGNw](https://github.com/cubing/alg.cubing.net/blob/main/src/alg.cubing.net/twisty.js/alg/README.md) plus editor nodes | Core covered | Internal pause nodes and Cube Rosetta block-comment nodes are covered as state-neutral input. Preserved newline/editor nodes remain outside the current AST. |
+| [Twizzle / cubing.js](https://js.cubing.net/cubing/alg/) | LGN-derived general algorithm AST | Core cube grammar and pause leaves covered | Whitespace-delimited `.` and `//` comments are portable. Block comments are a Cube Rosetta extension; the parser's [experimental caret-NISS syntax](https://github.com/cubing/cubing.js/blob/main/src/cubing/alg/parseAlg.ts) (`^(U L)`) is not implemented. Puzzle-specific Square-1, Clock, and Megaminx moves are outside Cube Rosetta's NxN scope. |
 | [CubeDB](https://cubedb.net/) | cubing.js-style algorithms with an optional “old notation (`r = 2R`)” mode | Covered with an explicit setting | Select legacy inner-slice mode for old-notation algorithms; modern SiGN remains the default. |
 | [Ruwix / Roofpig widget](https://ruwix.com/widget/3d/) | Standard cube moves plus Roofpig extensions | Partial | Camera rotations (`R>`, `R>>`), combined moves (`F'+B`), and aliases such as superscript `²` or `Z` are not implemented. |
 | [Ruwix 4×4 algorithms](https://ruwix.com/twisty-puzzles/4x4x4-rubiks-cube-rubiks-revenge/4x4-cube-patterns/) | Legacy lowercase inner-slice notation on 4×4 | Covered with an explicit setting | Select legacy inner-slice mode; in the default modern mode, `r` remains the outer two-layer block. |
@@ -139,10 +147,11 @@ site.
 
 ### 4. Reconstruction/editor control tokens
 
-- alg.cubing.net: internal pause `.`, block comments `/* … */`.
-- Twizzle/cubing.js: internal pause `.`, experimental NISS `^(...)`.
-- Risk: low for cube state conversion because pauses/comments have no move effect; NISS
-  does affect how an algorithm is interpreted and would need a dedicated AST node.
+- Implemented: located internal pause `.` and block-comment `/* … */` nodes. Both are
+  state-neutral; only the pause is portable to the current cubing.js parser.
+- Uncovered: Twizzle/cubing.js experimental NISS `^(...)` and preserved newline nodes.
+- Risk: low for comments and pauses because they have no cube-state effect; NISS changes
+  algorithm interpretation and requires a dedicated execution model.
 
 ### 5. Roofpig presentation syntax
 
@@ -167,7 +176,8 @@ For portable input across Cube Rosetta, WCA tools, Twizzle, and algorithm databa
 2. Use explicit `Rw` for wide moves and `2R` for a single inner layer.
 3. Use numbered layers instead of `M/E/S` on 4×4 and larger cubes.
 4. Use `x/y/z` for whole-cube rotations rather than historical brackets or camera syntax.
-5. Remove pauses, block comments, NISS markers, and viewer-only controls before pasting.
+5. Keep whitespace around portable cubing.js pauses; remove block comments, NISS markers,
+   and viewer-only controls before pasting into tools that do not document them.
 
 ## Research limits
 

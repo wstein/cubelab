@@ -33,6 +33,8 @@ type baseMove =
 
 type rec unitDesc =
   | Move(baseMove, int)
+  | Pause
+  | BlockComment(string)
   | Group(array<locatedUnit>, int)
   | Commutator(array<locatedUnit>, array<locatedUnit>, int)
   | Conjugate(array<locatedUnit>, array<locatedUnit>, int)

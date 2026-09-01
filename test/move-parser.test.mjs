@@ -141,10 +141,25 @@ test("comments and timing annotations separate units without changing spans", ()
   assert.equal(units[3].loc.end_ - units[3].loc.start, 2);
 });
 
+test("retains internal pauses and block comments as located editor nodes", () => {
+  const units = parse(3, "R . /* inspection\npoint */ U");
+  assert.deepEqual(units.map((unit) => typeof unit.desc === "string" ? unit.desc : unit.desc.TAG), [
+    "Move",
+    "Pause",
+    "BlockComment",
+    "Move",
+  ]);
+  assert.deepEqual(units[1].loc, {start: 2, end_: 3});
+  assert.equal(units[2].desc._0, " inspection\npoint ");
+  assert.deepEqual(units[2].loc, {start: 4, end_: 26});
+  assert.equal(parse(3, "R/* inline */U").length, 3);
+});
+
 test("strips only sentence punctuation at the end of complete input", () => {
   assert.equal(parse(3, "R U'.;").length, 2);
   assert.equal(parse(3, "R U; # copied sentence").length, 2);
-  rejects(3, "R.U", /Unexpected trailing input/);
+  assert.equal(parse(3, "R .").at(-1).desc, "Pause");
+  rejects(3, "R.U", /separated by whitespace/);
 });
 
 test("rejects unsupported dimensions, invalid ranges, and malformed grammar with spans", () => {
@@ -156,6 +171,8 @@ test("rejects unsupported dimensions, invalid ranges, and malformed grammar with
   rejects(3, "[R U]", /requires ',' or ':'/);
   const error = rejects(3, "(R U", /Unclosed/);
   assert.deepEqual(error.loc, {start: 0, end_: 4});
+  const commentError = rejects(3, "R /* unfinished", /Unclosed block comment/);
+  assert.deepEqual(commentError.loc, {start: 2, end_: 15});
 });
 
 test("enforces the parser nesting limit", () => {

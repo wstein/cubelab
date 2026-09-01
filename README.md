@@ -50,12 +50,15 @@ plus the SiGN/LGN cube grammar and selected reconstruction extensions:
 | 3×3 slices and rotations | `M E' S2 x y' z2` |
 | Groups, commutators, conjugates | `(R U)3 [R,U][D,L] [R: U2]` |
 | Composite multiplier aliases | `(R U)*6`, `(R U)^6`, `(R U) x 6` |
-| Reconstruction annotations | `R U // note`, `R U # note`, and `R @1.53s U` |
+| cubing.js-style pauses | `R . U` |
+| Reconstruction annotations | `R U // note`, `R U # note`, `R /* note */ U`, and `R @1.53s U` |
 | Ruwix Unicode layer subscripts | `F₂' B₂2 F₃` |
 
 Adjacent bare moves require whitespace; bracket-delimited units may touch because their
-boundaries are unambiguous. A final sentence `.` or `;` is ignored. `M/E/S` are limited
-to 3×3, and wide moves must turn between 2 and `N-1` layers. See the
+boundaries are unambiguous. A whitespace-delimited `.` is retained as a state-neutral
+pause node; an adjacent final sentence `.` or `;` is ignored. Block comments are retained
+as located editor nodes and ignored by cube-state execution. `M/E/S` are limited to 3×3,
+and wide moves must turn between 2 and `N-1` layers. See the
 [sourced site and dialect compatibility report](docs/move-notation-compatibility.md)
 for standards, known site-specific extensions, and unsupported ambiguous notation.
 

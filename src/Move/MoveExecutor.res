@@ -253,6 +253,7 @@ and expandConjugate = (steps, left, right, ~direction) => {
 and expandUnit = (steps, unit: locatedUnit, ~direction: int) =>
   switch unit.desc {
   | Move(move, turns) => pushStep(steps, move, turns * direction)
+  | Pause | BlockComment(_) => ()
   | Group(units, repeat) => expandRepeated(steps, units, repeat, ~direction)
   | Commutator(left, right, repeat) => {
       let repetitions = if repeat < 0 {

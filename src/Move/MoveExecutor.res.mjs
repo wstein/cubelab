@@ -426,9 +426,14 @@ function expandConjugate(steps, left, right, direction) {
 
 function expandUnit(steps, unit, direction) {
   let match = unit.desc;
+  if (typeof match !== "object") {
+    return;
+  }
   switch (match.TAG) {
     case "Move" :
       return pushStep(steps, match._0, match._1 * direction | 0);
+    case "BlockComment" :
+      return;
     case "Group" :
       return expandRepeated(steps, match._0, match._1, direction);
     case "Commutator" :

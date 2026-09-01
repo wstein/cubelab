@@ -351,11 +351,47 @@ let tryInformalRotation = (parser, open_, close_) => {
 
 let isOpeningDelimiter = character => "([{<"->String.includes(character)
 
+let startsBlockComment = parser => parser.input->String.startsWithFrom("/*", parser.cursor)
+
+let parseBlockComment = parser => {
+  let start = parser.cursor
+  parser.cursor = parser.cursor + 2
+  let contentStart = parser.cursor
+  while (
+    parser.cursor < parser.input->String.length &&
+      !(parser.input->String.startsWithFrom("*/", parser.cursor))
+  ) {
+    parser.cursor = parser.cursor + 1
+  }
+  if parser.cursor == parser.input->String.length {
+    fail(parser, "Unclosed block comment.", ~start, ~end_=parser.input->String.length)
+  }
+  let text = parser.input->String.slice(~start=contentStart, ~end=parser.cursor)
+  parser.cursor = parser.cursor + 2
+  {desc: BlockComment(text), loc: {start, end_: parser.cursor}}
+}
+
+let isTrailingSentencePeriod = parser => {
+  let saved = parser.cursor
+  parser.cursor = parser.cursor + 1
+  while peek(parser) == Some(".") || peek(parser) == Some(";") {
+    parser.cursor = parser.cursor + 1
+  }
+  skipTrivia(parser)->ignore
+  let trailing = parser.cursor == parser.input->String.length
+  parser.cursor = saved
+  trailing
+}
+
 let startsWithDelimiter = (parser, unit: locatedUnit) =>
-  parser.input
-  ->String.get(unit.loc.start)
-  ->Option.map(String.make)
-  ->Option.mapOr(false, isOpeningDelimiter)
+  switch unit.desc {
+  | BlockComment(_) => true
+  | _ =>
+    parser.input
+    ->String.get(unit.loc.start)
+    ->Option.map(String.make)
+    ->Option.mapOr(false, isOpeningDelimiter)
+  }
 
 let rec parseSequence = (parser, ~stops: string): array<locatedUnit> => {
   let items = []
@@ -367,8 +403,11 @@ let rec parseSequence = (parser, ~stops: string): array<locatedUnit> => {
     switch peek(parser) {
     | None => done_ := true
     | Some(character) if stops->String.includes(character) => done_ := true
+    | Some(".") if stops->String.includes(";") && !separated && isTrailingSentencePeriod(parser) =>
+      done_ := true
     | Some(_) => {
-        let nextDelimited = peek(parser)->Option.mapOr(false, isOpeningDelimiter)
+        let nextDelimited =
+          startsBlockComment(parser) || peek(parser)->Option.mapOr(false, isOpeningDelimiter)
         if !first.contents && !separated && !previousDelimited.contents && !nextDelimited {
           fail(parser, "Moves in a sequence must be separated by whitespace.")
         }
@@ -427,29 +466,38 @@ and parseBracket = (parser, start) => {
 
 and parseUnit = parser => {
   let start = parser.cursor
-  switch peek(parser) {
-  | Some("(") => parseNested(parser, start, ")", (body, repeat) => Group(body, repeat))
-  | Some("[") =>
-    switch tryInformalRotation(parser, "[", "]") {
-    | Some(unit) => unit
-    | None => parseBracket(parser, start)
+  if startsBlockComment(parser) {
+    parseBlockComment(parser)
+  } else {
+    switch peek(parser) {
+    | Some(".") => {
+        parser.cursor = parser.cursor + 1
+        {desc: Pause, loc: {start, end_: parser.cursor}}
+      }
+    | Some("(") => parseNested(parser, start, ")", (body, repeat) => Group(body, repeat))
+    | Some("[") =>
+      switch tryInformalRotation(parser, "[", "]") {
+      | Some(unit) => unit
+      | None => parseBracket(parser, start)
+      }
+    | Some("{") =>
+      switch tryInformalRotation(parser, "{", "}") {
+      | Some(unit) => unit
+      | None => fail(parser, "Only a single informal rotation is allowed in braces.", ~start)
+      }
+    | Some("<") =>
+      switch tryInformalRotation(parser, "<", ">") {
+      | Some(unit) => unit
+      | None =>
+        fail(parser, "Only a single informal rotation is allowed in angle brackets.", ~start)
+      }
+    | Some(_) => {
+        let move = parseBaseMove(parser)
+        let turns = parseSuffix(parser, ~allowZero=true)
+        {desc: Move(move, turns), loc: {start, end_: parser.cursor}}
+      }
+    | None => fail(parser, "Expected an algorithm unit.", ~start)
     }
-  | Some("{") =>
-    switch tryInformalRotation(parser, "{", "}") {
-    | Some(unit) => unit
-    | None => fail(parser, "Only a single informal rotation is allowed in braces.", ~start)
-    }
-  | Some("<") =>
-    switch tryInformalRotation(parser, "<", ">") {
-    | Some(unit) => unit
-    | None => fail(parser, "Only a single informal rotation is allowed in angle brackets.", ~start)
-    }
-  | Some(_) => {
-      let move = parseBaseMove(parser)
-      let turns = parseSuffix(parser, ~allowZero=true)
-      {desc: Move(move, turns), loc: {start, end_: parser.cursor}}
-    }
-  | None => fail(parser, "Expected an algorithm unit.", ~start)
   }
 }
 
@@ -471,7 +519,7 @@ let parseWithOptions = (
       depth: 0,
     }
     try {
-      let units = parseSequence(parser, ~stops=".;")
+      let units = parseSequence(parser, ~stops=";")
       skipTrivia(parser)->ignore
       while peek(parser) == Some(".") || peek(parser) == Some(";") {
         parser.cursor = parser.cursor + 1

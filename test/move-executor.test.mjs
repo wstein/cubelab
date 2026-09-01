@@ -55,6 +55,8 @@ test("resilient composite spellings preserve exact execution semantics", () => {
   assert.equal(compact(3, "(R U) x 6"), compact(3, "(R U)^6"));
   assert.equal(compact(3, "[R,U][D,L]"), compact(3, "[R, U] [D, L]"));
   assert.equal(compact(3, "R U'. # copied prose"), compact(3, "R U'"));
+  assert.equal(compact(3, "R . /* inspect */ U"), compact(3, "R U"));
+  assert.equal(compact(3, "(R . U)2"), compact(3, "(R U)2"));
 });
 
 test("wide, slice, inner-layer, and rotation moves are internally consistent", () => {

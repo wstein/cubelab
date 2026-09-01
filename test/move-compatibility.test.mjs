@@ -61,11 +61,25 @@ test("legacy lowercase semantics conflict with every modern lowercase profile", 
   assert.equal(result.ruwix.compatible, false);
 });
 
-test("cubing.js alone treats a terminal period as a portable pause", () => {
-  const result = evaluate("R U.");
+test("cubing.js alone accepts a whitespace-delimited internal pause", () => {
+  const result = evaluate("R . U");
   assert.equal(result.cubingJs.compatible, true);
   assert.equal(result.wca.compatible, false);
   assert.equal(result.signLgn.compatible, false);
   assert.equal(result.speedsolving.compatible, false);
   assert.equal(result.ruwix.compatible, false);
+});
+
+test("block comments remain explicit Cube Rosetta editor nodes", () => {
+  const result = evaluate("R /* inspect */ U");
+  for (const profile of Object.values(result)) {
+    assert.equal(profile.compatible, false);
+  }
+  assert.match(result.cubingJs.reasons.join(" "), /does not accept block comments/);
+});
+
+test("sentence punctuation is distinct from cubing.js pause syntax", () => {
+  const result = evaluate("R U.");
+  assert.equal(result.cubingJs.compatible, false);
+  assert.match(result.cubingJs.reasons.join(" "), /requires whitespace around a pause/);
 });

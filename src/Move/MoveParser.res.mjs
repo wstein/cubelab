@@ -510,7 +510,51 @@ function isOpeningDelimiter(character) {
   return "([{<".includes(character);
 }
 
+function startsBlockComment(parser) {
+  return parser.input.startsWith("/*", parser.cursor);
+}
+
+function parseBlockComment(parser) {
+  let start = parser.cursor;
+  parser.cursor = parser.cursor + 2 | 0;
+  let contentStart = parser.cursor;
+  while (parser.cursor < parser.input.length && !parser.input.startsWith("*/", parser.cursor)) {
+    parser.cursor = parser.cursor + 1 | 0;
+  };
+  if (parser.cursor === parser.input.length) {
+    fail(parser, "Unclosed block comment.", start, parser.input.length);
+  }
+  let text = parser.input.slice(contentStart, parser.cursor);
+  parser.cursor = parser.cursor + 2 | 0;
+  return {
+    desc: {
+      TAG: "BlockComment",
+      _0: text
+    },
+    loc: {
+      start: start,
+      end_: parser.cursor
+    }
+  };
+}
+
+function isTrailingSentencePeriod(parser) {
+  let saved = parser.cursor;
+  parser.cursor = parser.cursor + 1 | 0;
+  while (Primitive_object.equal(peek(parser), ".") || Primitive_object.equal(peek(parser), ";")) {
+    parser.cursor = parser.cursor + 1 | 0;
+  };
+  skipTrivia(parser);
+  let trailing = parser.cursor === parser.input.length;
+  parser.cursor = saved;
+  return trailing;
+}
+
 function startsWithDelimiter(parser, unit) {
+  let match = unit.desc;
+  if (typeof match === "object" && match.TAG === "BlockComment") {
+    return true;
+  }
   return Stdlib_Option.mapOr(Stdlib_Option.map(parser.input[unit.loc.start], prim => String(prim)), false, isOpeningDelimiter);
 }
 
@@ -522,15 +566,23 @@ function parseSequence(parser, stops) {
   while (!done_) {
     let separated = skipTrivia(parser);
     let character = peek(parser);
-    if (character !== undefined && !stops.includes(character)) {
-      let nextDelimited = Stdlib_Option.mapOr(peek(parser), false, isOpeningDelimiter);
-      if (!first && !separated && !previousDelimited && !nextDelimited) {
-        fail(parser, "Moves in a sequence must be separated by whitespace.", undefined, undefined);
+    if (character !== undefined) {
+      let exit = 0;
+      if (stops.includes(character) || character === "." && stops.includes(";") && !separated && isTrailingSentencePeriod(parser)) {
+        done_ = true;
+      } else {
+        exit = 1;
       }
-      let unit = parseUnit(parser);
-      items.push(unit);
-      previousDelimited = startsWithDelimiter(parser, unit);
-      first = false;
+      if (exit === 1) {
+        let nextDelimited = startsBlockComment(parser) || Stdlib_Option.mapOr(peek(parser), false, isOpeningDelimiter);
+        if (!first && !separated && !previousDelimited && !nextDelimited) {
+          fail(parser, "Moves in a sequence must be separated by whitespace.", undefined, undefined);
+        }
+        let unit = parseUnit(parser);
+        items.push(unit);
+        previousDelimited = startsWithDelimiter(parser, unit);
+        first = false;
+      }
     } else {
       done_ = true;
     }
@@ -616,6 +668,9 @@ function parseBracket(parser, start) {
 
 function parseUnit(parser) {
   let start = parser.cursor;
+  if (startsBlockComment(parser)) {
+    return parseBlockComment(parser);
+  }
   let match = peek(parser);
   if (match === undefined) {
     return fail(parser, "Expected an algorithm unit.", start, undefined);
@@ -627,6 +682,15 @@ function parseUnit(parser) {
         _0: body,
         _1: repeat
       }));
+    case "." :
+      parser.cursor = parser.cursor + 1 | 0;
+      return {
+        desc: "Pause",
+        loc: {
+          start: start,
+          end_: parser.cursor
+        }
+      };
     case "<" :
       let unit = tryInformalRotation(parser, "<", ">");
       if (unit !== undefined) {
@@ -687,7 +751,7 @@ function parseWithOptions(size, lowercaseMode, notationDialect, input) {
     depth: 0
   };
   try {
-    let units = parseSequence(parser, ".;");
+    let units = parseSequence(parser, ";");
     skipTrivia(parser);
     while (Primitive_object.equal(peek(parser), ".") || Primitive_object.equal(peek(parser), ";")) {
       parser.cursor = parser.cursor + 1 | 0;
@@ -738,6 +802,9 @@ export {
   rotationForFamily,
   tryInformalRotation,
   isOpeningDelimiter,
+  startsBlockComment,
+  parseBlockComment,
+  isTrailingSentencePeriod,
   startsWithDelimiter,
   parseSequence,
   parseNested,

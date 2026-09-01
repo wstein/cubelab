@@ -15,8 +15,10 @@ type compatibility = {
 
 type sourceFeatures = {
   mutable adjacentUnits: bool,
+  mutable blockComment: bool,
   mutable informalRotation: bool,
   mutable lowercaseFace: bool,
+  mutable pause: bool,
   mutable ruwixSubscript: bool,
   mutable ruwixPlaintext: bool,
 }
@@ -140,6 +142,8 @@ and inspectUnit = (input, unit: locatedUnit, features, wcaReasons, ruwixReasons)
         )
       }
     }
+  | Pause => features.pause = true
+  | BlockComment(_) => features.blockComment = true
   | Group(units, _) => {
       addReason(wcaReasons, "Groups are outside the Article 12 token subset.")
       inspectSequence(input, units, features, wcaReasons, ruwixReasons)
@@ -174,8 +178,10 @@ let evaluate = (
   let ruwixReasons = []
   let features = {
     adjacentUnits: false,
+    blockComment: false,
     informalRotation: false,
     lowercaseFace: false,
+    pause: false,
     ruwixSubscript: false,
     ruwixPlaintext: false,
   }
@@ -222,6 +228,19 @@ let evaluate = (
     addReason(signReasons, "LGN separates adjacent repeated units with whitespace.")
     addReason(cubingReasons, "Add whitespace between units for portable cubing.js source.")
   }
+  if features.pause {
+    addReason(wcaReasons, "Pause nodes are outside Article 12 move tokens.")
+    addReason(signReasons, "Pause nodes are a cubing.js editor extension.")
+    addReason(speedsolvingReasons, "Pause nodes are outside the documented Wiki subset.")
+    addReason(ruwixReasons, "Ruwix Advanced does not document pause nodes.")
+  }
+  if features.blockComment {
+    addReason(wcaReasons, "Block comments are outside Article 12 move tokens.")
+    addReason(signReasons, "Block comments are a Cube Rosetta editor extension.")
+    addReason(cubingReasons, "The current cubing.js parser does not accept block comments.")
+    addReason(speedsolvingReasons, "Block comments are outside the documented Wiki subset.")
+    addReason(ruwixReasons, "Ruwix Advanced does not document block comments.")
+  }
   if hasExplicitMultiplier(input) {
     addReason(wcaReasons, "Explicit multiplier symbols are outside Article 12 move tokens.")
     addReason(signReasons, "SiGN/LGN uses a direct numeric repetition suffix.")
@@ -256,9 +275,13 @@ let evaluate = (
     addReason(speedsolvingReasons, "Terminal semicolon stripping is not documented Wiki notation.")
     addReason(ruwixReasons, "Terminal semicolon stripping is not Ruwix notation.")
   }
-  if trimmed->String.endsWith(".") {
+  if trimmed->String.endsWith(".") && !features.pause {
     addReason(wcaReasons, "A terminal period is outside Article 12 move tokens.")
     addReason(signReasons, "SiGN/LGN does not define pause punctuation.")
+    addReason(
+      cubingReasons,
+      "cubing.js requires whitespace around a pause; this period is sentence punctuation.",
+    )
     addReason(speedsolvingReasons, "Pause punctuation is outside the documented Wiki subset.")
     addReason(ruwixReasons, "Ruwix Advanced does not document pause punctuation.")
   }
