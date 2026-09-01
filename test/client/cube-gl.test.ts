@@ -9,6 +9,7 @@ import {
   clampedCanvasSize,
   turnTransform,
   turnPreviewTransform,
+  transformTurnPointForCubie,
   transformTurnPoint,
   focusCameraTarget,
   vboCapacityFloats,
@@ -85,6 +86,16 @@ describe("cube viewport math", () => {
     expect(transformed[0]).toBeCloseTo(-1);
     expect(transformed[1]).toBeCloseTo(1);
     expect(transformed[2]).toBeCloseTo(0);
+  });
+
+  test("moves projected sticker frames with their owning cubie", () => {
+    const turn = turnPreviewTransform(turnTransform(3, {
+      move: {TAG: "FaceTurn", _0: "R", _1: {from_: 1, to_: 1}},
+      turns: 1,
+    })!);
+    const cubie: [number, number, number] = [1, 1, 0];
+    const outsideLayerSurface: [number, number, number] = [1.535, 1.4, 0.4];
+    expect(transformTurnPointForCubie(outsideLayerSurface, cubie, turn)).not.toEqual(outsideLayerSurface);
   });
 
   test("reframes sequence purpose around its source and target cubies", () => {

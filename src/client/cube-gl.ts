@@ -215,9 +215,16 @@ export const transformTurnPoint = (
   if (!turn) return point;
   const layer = point[0] * turn.axis[0] + point[1] * turn.axis[1] + point[2] * turn.axis[2];
   if (layer < turn.min || layer > turn.max) return point;
+  return rotateTurnPoint(point, turn);
+};
+
+const rotateTurnPoint = (
+  point: [number, number, number],
+  turn: TurnTransform,
+): [number, number, number] => {
   const cosine = Math.cos(turn.angle);
   const sine = Math.sin(turn.angle);
-  const dot = layer;
+  const dot = point[0] * turn.axis[0] + point[1] * turn.axis[1] + point[2] * turn.axis[2];
   const cross: [number, number, number] = [
     turn.axis[1] * point[2] - turn.axis[2] * point[1],
     turn.axis[2] * point[0] - turn.axis[0] * point[2],
@@ -228,6 +235,16 @@ export const transformTurnPoint = (
       + cross[index] * sine
       + turn.axis[index] * dot * (1 - cosine)
   ) as [number, number, number];
+};
+
+export const transformTurnPointForCubie = (
+  point: [number, number, number],
+  cubie: [number, number, number],
+  turn: TurnTransform | null,
+): [number, number, number] => {
+  if (!turn) return point;
+  const layer = cubie[0] * turn.axis[0] + cubie[1] * turn.axis[1] + cubie[2] * turn.axis[2];
+  return layer < turn.min || layer > turn.max ? point : rotateTurnPoint(point, turn);
 };
 
 export const focusCameraTarget = (focus: CubieFocus): CameraTarget => {
@@ -547,14 +564,14 @@ export const createCubeViewport = (
       const sourceAnchor = cubieSurfaceAnchor(focus.source, matrices.modelView, state?.size ?? 3);
       const targetAnchor = cubieSurfaceAnchor(focus.target, matrices.modelView, state?.size ?? 3);
       const source = projectPoint(
-        transformTurnPoint(sourceAnchor.point, activeTurn),
+        transformTurnPointForCubie(sourceAnchor.point, focus.source, activeTurn),
         matrices.modelView,
         matrices.projection,
         width,
         height,
       );
       const target = projectPoint(
-        transformTurnPoint(targetAnchor.point, activeTurn),
+        transformTurnPointForCubie(targetAnchor.point, focus.target, activeTurn),
         matrices.modelView,
         matrices.projection,
         width,
@@ -619,7 +636,7 @@ export const createCubeViewport = (
       overlay.restore();
       const drawOutline = (position: [number, number, number], colour: string) => {
         const outline = cubieFaceOutline(position, matrices.modelView, state?.size ?? 3)
-          .map((point) => transformTurnPoint(point, activeTurn))
+          .map((point) => transformTurnPointForCubie(point, position, activeTurn))
           .map((point) => projectPoint(point, matrices.modelView, matrices.projection, width, height));
         if (outline.some((point) => !point.inFront)) return;
         overlay.save();

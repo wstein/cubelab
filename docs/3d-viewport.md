@@ -105,7 +105,10 @@ HUD draws a moving dashed trajectory between camera-selected sticker-surface anc
 projects cyan source and amber target outlines around their visible cubie faces. Focus
 never modifies the WebGL sticker material, so original colours and opacity remain readable
 in both cube styles. The HUD applies the same layer transform as the shader, keeping its
-anchors and outlines attached during the 4° move preview. Hovering an individual
+anchors and outlines attached during the 4° move preview. Layer membership is determined
+once from the owning cubie centre—matching the shader—so every projected frame corner
+moves as one rigid sticker outline rather than drifting at an outer layer boundary.
+Hovering an individual
 move also projects a direction-correct layer-turn ring and canonical angle label. Active
 pieces and the currently turning layer remain at full material brightness; unrelated
 layers receive only a soft saturation and brightness reduction. Hidden destinations dim
