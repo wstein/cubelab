@@ -7,6 +7,7 @@ import {
 
 export type GyroRotationAssessment = {
   matched: boolean;
+  partial: boolean;
   axisAlignment: number;
   signedDegrees: number;
 };
@@ -45,6 +46,7 @@ export const assessGyroRotation = (
     : signedDegrees * direction >= 65;
   return {
     matched: axisAlignment >= 0.78 && enoughRotation,
+    partial: halfTurn && axisAlignment >= 0.78 && Math.abs(signedDegrees) >= 65,
     axisAlignment,
     signedDegrees,
   };

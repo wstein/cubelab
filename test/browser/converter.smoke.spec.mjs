@@ -1,4 +1,16 @@
 import {expect, test} from "@playwright/test";
+import * as MoveExecutor from "../../src/Move/MoveExecutor.res.mjs";
+import * as MoveParser from "../../src/Move/MoveParser.res.mjs";
+import * as FaceletCodec from "../../src/State/FaceletCodec.res.mjs";
+import * as StateTypes from "../../src/State/StateTypes.res.mjs";
+
+const algorithmFacelets = (algorithm) => {
+  const parsed = MoveParser.parse(3, algorithm);
+  if (parsed.TAG !== "Ok") throw new Error(`Test algorithm did not parse: ${algorithm}`);
+  const applied = MoveExecutor.applyAlg(StateTypes.solved(3)._0, parsed._0);
+  if (applied.TAG !== "Ok") throw new Error(`Test algorithm did not execute: ${algorithm}`);
+  return FaceletCodec.render(applied._0);
+};
 
 test("converts algorithms and Orbit64 while switching size-aware cards", async ({page}) => {
   const pageErrors = [];
@@ -316,12 +328,11 @@ test("auto-demonstrates regrips without gyro and preserves their lesson frame", 
     });
   });
 
-  await page.goto("/#size=3&alg=x+U");
+  await page.goto("/#size=3&alg=x2+R2");
   const input = page.locator("[data-input]");
-  const expectedFinalState = await page.locator('[data-output="facelets"]').textContent();
-  await input.fill("x R2");
-  const expectedRecoveryState = await page.locator('[data-output="facelets"]').textContent();
-  await input.fill("x U");
+  const facelets = page.locator('[data-output="facelets"]');
+  const expectedFinalState = await facelets.textContent();
+  const expectedRecoveryState = algorithmFacelets("x2 D");
   await page.locator("[data-smart-cube-connect]").click();
   await expect(page.locator("[data-smart-cube-status]")).toContainText("Live sync");
   await page.evaluate(() => window.__emitSmartCubeEvent({
@@ -329,11 +340,12 @@ test("auto-demonstrates regrips without gyro and preserves their lesson frame", 
     facelets: "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB",
     timestamp: Date.now(),
   }));
-  await input.fill("x U");
+  await input.fill("x2 R2");
   await expect(page.locator("[data-playback-scrubber]")).toBeEnabled();
   await page.locator("[data-playback-scrubber]").fill("0");
   await page.locator("[data-playback-speed='2']").click();
   await page.getByRole("button", {name: "Play forward"}).click();
+  await expect(page.locator('[data-half-turn-progress="true"]')).toHaveText("x x");
   await expect(page.locator("[data-playback-position]")).toHaveText("Move 1 of 2", {timeout: 2500});
   const waiting = await page.locator("[data-smart-cube-status]").textContent();
   const expectedMove = waiting?.match(/Waiting for ([URFDLB](?:2|')?)/)?.[1];
@@ -344,21 +356,26 @@ test("auto-demonstrates regrips without gyro and preserves their lesson frame", 
   }), move);
 
   // Wrong moves form a temporary red sequence around the physical cursor.
-  await emitMove("R2");
-  await expect(page.locator("[data-smart-cube-recovery-block] .smart-cube-recovery-token"))
-    .toHaveText(["R2", "R2"]);
-  await expect(page.locator('[data-output="facelets"]')).toHaveText(expectedRecoveryState ?? "");
-  await expect(page.locator("[data-smart-cube-recovery-cursor]")).toHaveCount(1);
   await emitMove("U");
   await expect(page.locator("[data-smart-cube-recovery-block] .smart-cube-recovery-token"))
-    .toHaveText(["R2", "U", "U'", "R2"]);
-  await emitMove("U'");
+    .toHaveText(["U", "U'"]);
+  await expect(page.locator('[data-output="facelets"]')).toHaveText(expectedRecoveryState ?? "");
+  await expect(page.locator("[data-smart-cube-recovery-cursor]")).toHaveCount(1);
+  await emitMove("F");
   await expect(page.locator("[data-smart-cube-recovery-block] .smart-cube-recovery-token"))
-    .toHaveText(["R2", "R2"]);
-  await emitMove("R2");
+    .toHaveText(["U", "F", "F'", "U'"]);
+  await emitMove("F'");
+  await expect(page.locator("[data-smart-cube-recovery-block] .smart-cube-recovery-token"))
+    .toHaveText(["U", "U'"]);
+  await emitMove("U'");
   await expect(page.locator("[data-smart-cube-recovery-block]")).toHaveCount(0);
 
-  await emitMove(expectedMove);
+  expect(expectedMove).toBe("R2");
+  await emitMove("R'");
+  await expect(facelets).toHaveText(algorithmFacelets("x2 R'"));
+  await expect(page.locator('[data-half-turn-progress="true"]')).toHaveText("R' R'");
+  await expect(page.locator("[data-motion-overlay]")).not.toHaveAttribute("data-turn-repeat", "2×");
+  await emitMove("R'");
   await expect(page.locator("[data-playback-position]")).toHaveText("Move 2 of 2");
   await expect(page.locator('[data-output="facelets"]')).toHaveText(expectedFinalState ?? "");
 
@@ -369,6 +386,7 @@ test("auto-demonstrates regrips without gyro and preserves their lesson frame", 
     timestamp: Date.now(),
   }));
   await expect(page.locator('[data-output="facelets"]')).toHaveText(expectedFinalState ?? "");
+
 });
 
 test("plays, steps, and seeks an expanded algorithm timeline", async ({page}) => {

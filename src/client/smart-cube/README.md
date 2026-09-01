@@ -37,7 +37,9 @@ and advances Academy timelines only when the expected physical move matches.
 Three-by-three slice, wide, and single-inner-layer lesson moves are matched through the outer-face
 packets that the hardware can actually report (`M = x' R L'`, `Rw = x L`, and their axis variants).
 Composite packets may arrive in either face order; half turns may arrive directly or as two quarter
-turns in either direction. Their implicit physical reorientation is carried into later hints.
+turns in either direction. After the first quarter packet, the viewport holds that intermediate
+state, the tape expands `R2` to `R R` (or `R' R'`), and the guide shows only the remaining quarter.
+Their implicit physical reorientation is carried into later hints.
 GoCube gyro samples are restored to wire axes at the transport boundary, then changed into viewport
 axes only after relative-pose calibration so pitch, yaw, and roll cannot be cross-coupled.
 
@@ -45,7 +47,9 @@ Whole-cube `x`, `y`, and `z` rotations remain first-class lesson steps. They ani
 the viewport and count in ETM, but not HTM. With orientation tracking active, coaching measures the
 requested axis and direction from the IMU sample captured when the hint appears; half turns are
 accepted in either direction. Without an active gyro, the regrip is demonstrated automatically at
-half the selected move speed. Later face packets are interpreted in the resulting fixed physical
+half the selected move speed; `x2`, `y2`, and `z2` are visibly staged as two quarter regrips. With
+gyro feedback, crossing the first quarter similarly changes the hint to the remaining quarter.
+Later face packets are interpreted in the resulting fixed physical
 frame while the viewport remains in the rotation-aware lesson frame. Reported face moves are
 translated back into that lesson frame before animation and recovery rendering, so neither a
 matched move nor a slip can visually undo an earlier regrip.

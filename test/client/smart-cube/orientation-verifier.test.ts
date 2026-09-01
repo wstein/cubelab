@@ -34,5 +34,9 @@ describe("smart-cube gyro rotation feedback", () => {
       .toBe(true);
     expect(assessGyroRotation(identity, rotation("Y", 110), "viewport", "Y", 2).matched)
       .toBe(false);
+    expect(assessGyroRotation(identity, rotation("Y", 110), "viewport", "Y", 2).partial)
+      .toBe(true);
+    expect(assessGyroRotation(identity, rotation("Y", 40), "viewport", "Y", 2).partial)
+      .toBe(false);
   });
 });

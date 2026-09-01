@@ -219,8 +219,10 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /viewport\?\.setDeviceOrientation/);
   assert.match(client, /const waitForSmartCubeMove/);
   assert.match(client, /assessGyroRotation/);
-  assert.match(client, /transitionTo\(action\.timelineIndex \+ 1, generation, 0\.5\)/);
-  assert.match(client, /smartCubeCoachingFrameActive && !smartCubeRecovery && activeTimeline\?\.states/);
+  assert.match(client, /demonstrateSmartCubeRotation\(action, generation\)/);
+  assert.match(client, /smartCubeCoachingFrameActive && activeTimeline\?\.states/);
+  assert.match(client, /smartCubeHalfTurnProgress\?\.receivedMoves/);
+  assert.match(client, /dataset\.halfTurnProgress = "true"/);
   assert.match(orientationVerifier, /halfTurn[\s\S]*Math\.abs\(signedDegrees\) >= 135/);
   assert.match(client, /Next physical move:/);
   assert.match(client, /if \(smartCubeConnected\) waitForSmartCubeMove\(\)/);

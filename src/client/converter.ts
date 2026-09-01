@@ -610,6 +610,7 @@ if (root) {
     action: ExpectedSmartCubeAction & {kind: "rotation"};
     generation: number;
     baseline: {quaternion: OrientationQuaternion; coordinateFrame: OrientationCoordinateFrame} | null;
+    partialTurn: -1 | 0 | 1;
   } | null = null;
   let smartCubeHalfTurnProgress: SmartCubeHalfTurnProgress | null = null;
   let smartCubeRecovery: SmartCubeRecoveryState | null = null;
@@ -1090,6 +1091,7 @@ if (root) {
         button.type = "button";
         button.className = "move-token";
         button.textContent = label;
+        button.dataset.moveLabel = label;
         button.dataset.moveIndex = String(index + 1);
         button.setAttribute("aria-label", `Go to step ${index + 1}: ${label}`);
         const showTurn = () => activateTurnGuide(button, entry.step!, label, index);
@@ -1139,10 +1141,37 @@ if (root) {
       : "disabled";
     moveRibbon.querySelectorAll<HTMLButtonElement>("[data-move-index]").forEach((button) => {
       const moveIndex = Number(button.dataset.moveIndex);
+      button.textContent = button.dataset.moveLabel ?? button.textContent;
+      delete button.dataset.halfTurnProgress;
       button.classList.toggle("completed", moveIndex <= activeIndex);
       button.classList.toggle("active", moveIndex === activeIndex);
       button.disabled = !playable;
     });
+    if (smartCubeHalfTurnProgress) {
+      const progressButton = moveRibbon.querySelector<HTMLButtonElement>(
+        `[data-move-index="${smartCubeHalfTurnProgress.timelineIndex + 1}"]`,
+      );
+      const remaining = nextSmartCubeProgressMoves(smartCubeHalfTurnProgress)[0];
+      if (progressButton && remaining) {
+        progressButton.textContent = [...smartCubeHalfTurnProgress.receivedMoves, remaining].join(" ");
+        progressButton.dataset.halfTurnProgress = "true";
+      }
+    }
+    if (smartCubeRotationWait && activeTimeline) {
+      const rotationStep = activeTimeline.steps[smartCubeRotationWait.action.timelineIndex]?.step;
+      if (rotationStep?.move.TAG === "Rotation" && Math.abs(rotationStep.turns) % 4 === 2) {
+        const quarterTurn = smartCubeRotationWait.partialTurn
+          || (rotationStep.turns < 0 ? -1 : 1);
+        const quarterLabel = `${rotationStep.move._0.toLowerCase()}${quarterTurn < 0 ? "'" : ""}`;
+        const progressButton = moveRibbon.querySelector<HTMLButtonElement>(
+          `[data-move-index="${smartCubeRotationWait.action.timelineIndex + 1}"]`,
+        );
+        if (progressButton) {
+          progressButton.textContent = `${quarterLabel} ${quarterLabel}`;
+          progressButton.dataset.halfTurnProgress = "true";
+        }
+      }
+    }
     moveRibbon.querySelector<HTMLElement>(".move-token.active")?.scrollIntoView({
       block: "nearest",
       inline: "nearest",
@@ -1507,6 +1536,43 @@ if (root) {
       });
   };
 
+  const demonstrateSmartCubeRotation = async (
+    action: ExpectedSmartCubeAction & {kind: "rotation"},
+    generation: number,
+  ): Promise<boolean> => {
+    if (!activeTimeline?.states || !viewport) return false;
+    const step = activeTimeline.steps[action.timelineIndex]?.step;
+    if (!step || step.move.TAG !== "Rotation" || Math.abs(step.turns) % 4 !== 2) {
+      return transitionTo(action.timelineIndex + 1, generation, 0.5);
+    }
+    const quarterTurn: MoveStep = {...step, turns: step.turns < 0 ? -1 : 1};
+    const transform = turnTransform(size, quarterTurn);
+    if (!transform) return transitionTo(action.timelineIndex + 1, generation, 0.5);
+    const quarterLabel = `${step.move._0.toLowerCase()}${quarterTurn.turns < 0 ? "'" : ""}`;
+    const token = moveRibbon.querySelector<HTMLButtonElement>(
+      `[data-move-index="${action.timelineIndex + 1}"]`,
+    );
+    if (token) {
+      token.textContent = `${quarterLabel} ${quarterLabel}`;
+      token.dataset.halfTurnProgress = "true";
+    }
+    const duration = 720 * 1.35 / playbackSpeed / 0.5 / 2;
+    await viewport.animateTurn(transform, duration);
+    if (generation !== playbackGeneration) return false;
+    const halfway = MoveExecutor.applyStep(
+      activeTimeline.states[action.timelineIndex],
+      quarterTurn,
+    ) as CubeState;
+    viewport.setState(halfway, viewportPalette());
+    activeTurnGuide = {step: quarterTurn, label: quarterLabel};
+    viewport.setTurnPreview(turnTransform(size, quarterTurn));
+    viewport.setTurnGuide(turnGuides ? activeTurnGuide : null);
+    await viewport.animateTurn(transform, duration);
+    if (generation !== playbackGeneration) return false;
+    renderTimelineIndex(action.timelineIndex + 1);
+    return true;
+  };
+
   const waitForSmartCubeMove = () => {
     if (!smartCubeConnected || !activeTimeline?.states) return;
     clearTutorialFocus();
@@ -1522,10 +1588,7 @@ if (root) {
     // Hardware facelets stay in the sensor's fixed frame. During coaching the
     // timeline owns presentation so a confirmed x/y/z regrip cannot be erased
     // by the next face packet.
-    renderState(
-      activeTimeline.states[activeIndex],
-      activeAcademy ? `${activeAcademy.label} tutorial` : "Smart-cube timeline",
-    );
+    renderSmartCubeCoachingState();
     const action = nextExpectedSmartCubeAction(
       activeTimeline.steps,
       activeTimeline.labels,
@@ -1554,14 +1617,14 @@ if (root) {
       }
       const generation = playbackGeneration;
       const baseline = smartCubeOrientationTracking ? latestSmartCubeOrientation : null;
-      smartCubeRotationWait = {action, generation, baseline};
+      smartCubeRotationWait = {action, generation, baseline, partialTurn: 0};
       if (baseline) {
         smartCubeStatus.textContent = `${smartCubeDeviceName} · Waiting for ${action.token} regrip`;
         coachStatus.textContent = `Rotate the physical cube ${action.token}. Gyro feedback will continue automatically.`;
       } else {
         smartCubeStatus.textContent = `${smartCubeDeviceName} · Showing ${action.token} regrip`;
         coachStatus.textContent = `No active gyro. Demonstrating ${action.token} at half the selected move speed.`;
-        void transitionTo(action.timelineIndex + 1, generation, 0.5).then((arrived) => {
+        void demonstrateSmartCubeRotation(action, generation).then((arrived) => {
           if (!arrived || smartCubeRotationWait?.generation !== generation) return;
           smartCubeRotationWait = null;
           signalSmartCubeFeedback("correct");
@@ -1580,7 +1643,13 @@ if (root) {
     const token = moveRibbon.querySelector<HTMLButtonElement>(
       `[data-move-index="${expected.timelineIndex + 1}"]`,
     );
-    const physicalStep = smartCubeStep(smartCubeLessonMove(expected.token, expected.timelineIndex));
+    const progress = smartCubeHalfTurnProgress?.timelineIndex === expected.timelineIndex
+      ? smartCubeHalfTurnProgress
+      : null;
+    const guideMove = progress ? nextSmartCubeProgressMoves(progress)[0] : expected.token;
+    const physicalStep = guideMove
+      ? smartCubeStep(smartCubeLessonMove(guideMove, expected.timelineIndex))
+      : null;
     if (physicalStep && token) {
       guidedToken = token;
       activeTurnGuide = {step: physicalStep, label: expected.token};
@@ -1589,9 +1658,6 @@ if (root) {
       viewport?.setTurnPreview(turnTransform(size, physicalStep));
       viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
     }
-    const progress = smartCubeHalfTurnProgress?.timelineIndex === expected.timelineIndex
-      ? smartCubeHalfTurnProgress
-      : null;
     const nextPackets = progress ? nextSmartCubeProgressMoves(progress).join(" or ") : "";
     smartCubeStatus.textContent = progress
       ? `${smartCubeDeviceName} · ${expected.token} in progress`
@@ -1729,14 +1795,25 @@ if (root) {
 
   const renderSmartCubeCoachingState = () => {
     if (!activeTimeline?.states) return;
-    const recoveryCursor = smartCubeRecovery?.expected.timelineIndex ?? activeIndex;
-    let state = activeTimeline.states[recoveryCursor];
+    const coachingCursor = smartCubeRecovery?.expected.timelineIndex
+      ?? smartCubeHalfTurnProgress?.timelineIndex
+      ?? activeIndex;
+    let state = activeTimeline.states[coachingCursor];
     for (const deviation of smartCubeRecovery?.deviations ?? []) {
       const step = smartCubeStep(smartCubeMoveInLessonFrame(
         activeTimeline.steps,
         activeTimeline.labels,
-        recoveryCursor,
+        coachingCursor,
         deviation,
+      ));
+      if (step) state = MoveExecutor.applyStep(state, step) as CubeState;
+    }
+    for (const received of smartCubeHalfTurnProgress?.receivedMoves ?? []) {
+      const step = smartCubeStep(smartCubeMoveInLessonFrame(
+        activeTimeline.steps,
+        activeTimeline.labels,
+        coachingCursor,
+        received,
       ));
       if (step) state = MoveExecutor.applyStep(state, step) as CubeState;
     }
@@ -1897,7 +1974,26 @@ if (root) {
       step.move._0,
       step.turns,
     );
-    if (!assessment.matched) return;
+    if (!assessment.matched) {
+      if (assessment.partial && pending.partialTurn === 0) {
+        pending.partialTurn = assessment.signedDegrees < 0 ? 1 : -1;
+        const quarterStep: MoveStep = {...step, turns: pending.partialTurn};
+        const quarterLabel = `${step.move._0.toLowerCase()}${pending.partialTurn < 0 ? "'" : ""}`;
+        const token = moveRibbon.querySelector<HTMLButtonElement>(
+          `[data-move-index="${pending.action.timelineIndex + 1}"]`,
+        );
+        if (token) {
+          token.textContent = `${quarterLabel} ${quarterLabel}`;
+          token.dataset.halfTurnProgress = "true";
+        }
+        activeTurnGuide = {step: quarterStep, label: quarterLabel};
+        viewport?.setTurnPreview(turnTransform(size, quarterStep));
+        viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
+        smartCubeStatus.textContent = `${smartCubeDeviceName} · ${pending.action.token} halfway`;
+        coachStatus.textContent = `${quarterLabel} detected. Repeat it to complete ${pending.action.token}.`;
+      }
+      return;
+    }
 
     smartCubeRotationWait = null;
     clearTurnGuide();
@@ -2169,7 +2265,7 @@ if (root) {
     }
     synchronizePlayback(parsed._0);
     if (smartCubeConnected && smartCubeLiveState) {
-      renderState(smartCubeLiveState, `${smartCubeDeviceName} · Live physical state`);
+      renderSmartCubeLiveState();
     }
   };
 
