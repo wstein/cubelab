@@ -4,6 +4,7 @@ import * as NetCodec from "../State/NetCodec.res.mjs";
 import * as Orbit64Codec from "../State/Orbit64Codec.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import * as StateTypes from "../State/StateTypes.res.mjs";
+import * as MoveCompatibility from "../Move/MoveCompatibility.res.mjs";
 import {
   createCubeViewport,
   turnTransform,
@@ -32,6 +33,8 @@ type StateError = {_0?: string; TAG: string; actual?: number; character?: string
 type CubeState = {size: number; facelets: string[][]};
 type PieceState = {size: number; cp: number[]; co: number[]; ep: number[]; eo: number[]};
 type Scheme = "Western" | "Japanese" | {TAG: "Custom"; _0: string};
+type CompatibilityAssessment = {compatible: boolean; reasons: string[]};
+type CompatibilityResult = Record<"wca" | "signLgn" | "cubingJs" | "speedsolving" | "ruwix", CompatibilityAssessment>;
 type RecognizedInput = {
   state: CubeState;
   label: string;
@@ -59,6 +62,7 @@ if (root) {
   const scrubber = root.querySelector<HTMLInputElement>("[data-playback-scrubber]")!;
   const playbackToggle = root.querySelector<HTMLButtonElement>("[data-playback-toggle]")!;
   const playbackLimit = root.querySelector<HTMLElement>("[data-playback-limit]")!;
+  const compatibilityStrip = root.querySelector<HTMLElement>("[data-compatibility]")!;
   const initialState = readHash(window.location.hash);
   const store = createStore(initialState);
   let size = initialState.size;
@@ -270,6 +274,44 @@ if (root) {
   let playbackGeneration = 0;
   let lastLabel = "";
 
+  const compatibilityLabels: Record<keyof CompatibilityResult, string> = {
+    wca: "WCA tokens",
+    signLgn: "SiGN / LGN",
+    cubingJs: "cubing.js / Twizzle",
+    speedsolving: "SpeedSolving Wiki",
+    ruwix: "Ruwix Advanced",
+  };
+  const compatibilitySuccess: Record<keyof CompatibilityResult, string> = {
+    wca: "Uses only the WCA Article 12 move-token subset. This does not determine event-specific competition legality.",
+    signLgn: "The original source fits the normative SiGN/LGN grammar used by this profile.",
+    cubingJs: "The original source is portable to the documented cubing.js/Twizzle algorithm grammar.",
+    speedsolving: "The original source uses conventions documented by the SpeedSolving Wiki profile.",
+    ruwix: "The original source uses move forms documented by Ruwix Advanced notation.",
+  };
+
+  const updateCompatibility = (recognized: RecognizedInput | null) => {
+    compatibilityStrip.hidden = !recognized?.timeline;
+    if (!recognized?.timeline) return;
+    const result = MoveCompatibility.evaluate(
+      input.value,
+      lowercaseMode,
+      notationDialect,
+      recognized.timeline.alg,
+    ) as CompatibilityResult;
+    (Object.keys(compatibilityLabels) as Array<keyof CompatibilityResult>).forEach((profile) => {
+      const assessment = result[profile];
+      const pill = root.querySelector<HTMLElement>(`[data-compatibility-profile="${profile}"]`)!;
+      pill.textContent = `${assessment.compatible ? "✓" : "×"} ${compatibilityLabels[profile]}`;
+      pill.classList.toggle("compatible", assessment.compatible);
+      pill.classList.toggle("incompatible", !assessment.compatible);
+      const explanation = assessment.compatible
+        ? compatibilitySuccess[profile]
+        : assessment.reasons.join(" ");
+      pill.title = explanation;
+      pill.setAttribute("aria-label", `${compatibilityLabels[profile]}: ${explanation}`);
+    });
+  };
+
   const updatePlaybackUi = (rebuild = false) => {
     playback.hidden = activeTimeline === null;
     if (!activeTimeline) return;
@@ -385,6 +427,7 @@ if (root) {
   };
 
   const synchronizePlayback = (recognized: RecognizedInput) => {
+    updateCompatibility(recognized);
     if (!recognized.timeline || !recognized.timelineKey) {
       stopPlayback();
       activeTimeline = null;
@@ -433,6 +476,7 @@ if (root) {
     updateDialectUi();
     const parsed = parseState(input.value);
     if (parsed.TAG === "Error") {
+      updateCompatibility(null);
       stopPlayback();
       activeTimeline = null;
       activeTimelineKey = null;

@@ -18,6 +18,11 @@ Implemented state codecs:
 
 The input badge identifies the recognized source format, including algorithms,
 Orbit64, cubie coordinates, compact facelets/colours, and canonical nets. The
+source-compatibility strip appears for algorithms and evaluates their original AST
+against documented WCA token, SiGN/LGN, cubing.js/Twizzle, SpeedSolving Wiki, and
+Ruwix Advanced profiles. Each badge explains any incompatibility on hover or keyboard
+focus; the WCA badge describes source tokens, not event-specific competition legality.
+The
 interactive viewport renders the resulting canonical state as either a stickered
 Standard cube or a stickerless Speedcube. Drag or touch to orbit, scroll to zoom,
 and use the URL hash to share the active input and settings. Parsed algorithms expose

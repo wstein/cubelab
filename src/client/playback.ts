@@ -11,6 +11,7 @@ type ExpansionError = {TAG: "InvalidState"; _0: string} | {TAG: "ExpansionLimitE
 export const MAX_PLAYBACK_STEPS = 500;
 
 export type AlgorithmTimeline = {
+  alg: unknown[];
   finalState: CubeState;
   steps: MoveStep[];
   labels: string[];
@@ -82,6 +83,7 @@ export const evaluateAlgorithm = (
   return {
     TAG: "Ok",
     _0: {
+      alg: parsed._0,
       finalState: state,
       steps: expanded._0,
       labels: expanded._0.map(formatStep),

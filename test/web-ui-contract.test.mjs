@@ -45,6 +45,16 @@ test("the web UI exposes Ruwix suffix layers only through an explicit dialect se
   assert.doesNotMatch(client, /notationDialect\s*=.*input/);
 });
 
+test("the web UI explains source portability without claiming competition legality", () => {
+  assert.match(page, /data-compatibility-profile="wca"/);
+  assert.match(page, /data-compatibility-profile="signLgn"/);
+  assert.match(page, /data-compatibility-profile="cubingJs"/);
+  assert.match(page, /data-compatibility-profile="speedsolving"/);
+  assert.match(page, /data-compatibility-profile="ruwix"/);
+  assert.match(client, /MoveCompatibility\.evaluate/);
+  assert.match(client, /does not determine event-specific competition legality/);
+});
+
 test("the studio connects recognized input and one canonical state to WebGL", () => {
   assert.match(page, /<CubeViewport \/>/);
   assert.match(page, /data-preset="M2 E2 S2"/);

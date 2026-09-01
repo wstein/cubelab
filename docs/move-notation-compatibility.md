@@ -9,7 +9,8 @@ Research date: 2026-09-01
 Cube Rosetta implements the current WCA move notation needed for 2×2×2 through 5×5×5
 cubes and the core cube grammar in the descriptive SiGN/LGN draft. It also accepts a
 small set of reconstruction conveniences: Unicode prime/dash/space normalization,
-`//` line comments, and `@1.53s`-style timestamps.
+`//` and `#` line comments, composite multiplier aliases, terminal sentence
+punctuation, and `@1.53s`-style timestamps.
 
 Compatibility is not universal across cube sites because several use local extensions
 or older meanings for the same token. In particular, modern SiGN uses lowercase `r` as
@@ -18,10 +19,25 @@ a two-layer wide move (`Rw`), while CubeDB's optional old-notation mode and some
 between these contradictory meanings. Modern SiGN is the default; users can explicitly
 select legacy inner-slice semantics for 4×4 and 5×5 input.
 
-Ruwix also publishes numbered inner layers as HTML subscripts after a face. Cube Rosetta
-accepts unambiguous Unicode copies such as `F₂'` as outer-block turns in every mode. Plaintext copies collapse
-the subscript into an ordinary digit, making `F2'` conflict with a modern half turn;
-these forms are accepted only after the user explicitly selects Ruwix suffix-layer mode.
+Ruwix also publishes outer-block widths as HTML subscripts after a face. Cube Rosetta
+accepts unambiguous Unicode copies such as `F₂'` as outer-block turns in every mode.
+Plaintext copies collapse the subscript into an ordinary digit, making `F2'` conflict
+with a modern half turn; these forms are accepted only after the user explicitly
+selects Ruwix suffix-layer mode.
+
+## In-app compatibility profiles
+
+For every recognized algorithm, the source-compatibility strip inspects the original
+located AST and source spelling rather than the expanded move sequence. This preserves
+the distinctions that matter for portability: a commutator and its expanded turns have
+the same cube effect, but only the former requires bracket grammar at the destination.
+
+The five badges cover WCA Article 12 move-token spelling, normative SiGN/LGN grammar,
+documented cubing.js/Twizzle input, conventions described by the SpeedSolving Wiki, and
+Ruwix Advanced notation. A green badge means that the original source fits the cited
+profile; a red badge exposes the specific incompatible features in its tooltip. The WCA
+badge deliberately says **WCA tokens** because token compatibility alone cannot decide
+whether an algorithm is legal for a particular event, attempt, or score sheet.
 
 ## Implemented standards and syntax
 
@@ -85,8 +101,8 @@ site.
 | [WCA Regulations](https://www.worldcubeassociation.org/regulations/#12a) | Official WCA Article 12a NxNxN notation | Covered for 2×2–5×5 | FMC's judge-side capitalization recovery and symbol-discard rules are not an input mode. |
 | [J Perm move guide](https://www.jperm.net/3x3/moves) | Common WCA/SiGN subset: face, wide/lowercase-wide, slice, rotation | Covered on 3×3 | No documented cube-move gap; `U2'` is accepted and is state-equivalent to `U2`. |
 | [SpeedCubeDB](https://speedcubedb.com/p/4x4/OLLParity) | Community SiGN-like algorithms for multiple cube sizes | Partial | Some 4×4 pages use `M`; Cube Rosetta rejects `M/E/S` outside 3×3 because even cubes have no unique middle slice. |
-| [alg.cubing.net](https://alg.cubing.net/) | Its [bundled parser identifies itself as SiGNw](https://github.com/cubing/alg.cubing.net/blob/main/src/alg.cubing.net/twisty.js/alg/README.md) plus editor nodes | Core covered | A pause `.`, `/* block comments */`, and preserved newline/editor nodes are not implemented. `//` comments and `@…s` timestamps are covered. |
-| [Twizzle / cubing.js](https://js.cubing.net/cubing/alg/) | LGN-derived general algorithm AST | Core cube grammar covered | The parser's [pause and experimental caret-NISS syntax](https://github.com/cubing/cubing.js/blob/main/src/cubing/alg/parseAlg.ts) (`.`, `^(U L)`) are not implemented. Puzzle-specific Square-1, Clock, and Megaminx moves are outside Cube Rosetta's NxN scope. |
+| [alg.cubing.net](https://alg.cubing.net/) | Its [bundled parser identifies itself as SiGNw](https://github.com/cubing/alg.cubing.net/blob/main/src/alg.cubing.net/twisty.js/alg/README.md) plus editor nodes | Core covered | A terminal `.` is accepted as a state-neutral convenience, but internal pauses, `/* block comments */`, and preserved newline/editor nodes are not implemented. `//` comments and `@…s` timestamps are covered. |
+| [Twizzle / cubing.js](https://js.cubing.net/cubing/alg/) | LGN-derived general algorithm AST | Core cube grammar covered | A terminal `.` is portable and state-neutral. Internal pauses and the parser's [experimental caret-NISS syntax](https://github.com/cubing/cubing.js/blob/main/src/cubing/alg/parseAlg.ts) (`^(U L)`) are not implemented. Puzzle-specific Square-1, Clock, and Megaminx moves are outside Cube Rosetta's NxN scope. |
 | [CubeDB](https://cubedb.net/) | cubing.js-style algorithms with an optional “old notation (`r = 2R`)” mode | Covered with an explicit setting | Select legacy inner-slice mode for old-notation algorithms; modern SiGN remains the default. |
 | [Ruwix / Roofpig widget](https://ruwix.com/widget/3d/) | Standard cube moves plus Roofpig extensions | Partial | Camera rotations (`R>`, `R>>`), combined moves (`F'+B`), and aliases such as superscript `²` or `Z` are not implemented. |
 | [Ruwix 4×4 algorithms](https://ruwix.com/twisty-puzzles/4x4x4-rubiks-cube-rubiks-revenge/4x4-cube-patterns/) | Legacy lowercase inner-slice notation on 4×4 | Covered with an explicit setting | Select legacy inner-slice mode; in the default modern mode, `r` remains the outer two-layer block. |
@@ -123,8 +139,8 @@ site.
 
 ### 4. Reconstruction/editor control tokens
 
-- alg.cubing.net: pause `.`, block comments `/* … */`.
-- Twizzle/cubing.js: pause `.`, experimental NISS `^(...)`.
+- alg.cubing.net: internal pause `.`, block comments `/* … */`.
+- Twizzle/cubing.js: internal pause `.`, experimental NISS `^(...)`.
 - Risk: low for cube state conversion because pauses/comments have no move effect; NISS
   does affect how an algorithm is interpreted and would need a dedicated AST node.
 
