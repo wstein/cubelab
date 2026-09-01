@@ -148,6 +148,25 @@ test("the viewport exposes a visibility-aware auto-orbit toggle", () => {
   assert.match(client, /viewport\?\.setAutoOrbit\(false\)/);
 });
 
+test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
+  assert.match(viewportComponent, /data-smart-cube-connect/);
+  assert.match(viewportComponent, /data-smart-cube-status/);
+  assert.match(viewportComponent, /data-smart-cube-battery/);
+  assert.match(viewportComponent, /data-smart-cube-orientation/);
+  assert.match(viewportComponent, /data-smart-cube-disconnect/);
+  assert.match(client, /import\("\.\/smart-cube\/index"\)/);
+  assert.ok(
+    client.indexOf('smartCubeConnect.addEventListener("click"')
+      < client.indexOf("navigator.bluetooth?.requestDevice"),
+    "Bluetooth must only be probed inside the explicit Connect gesture",
+  );
+  assert.match(client, /manager\.subscribeEvents\(handleSmartCubeEvent\)/);
+  assert.match(client, /appendRecordedMove/);
+  assert.match(client, /assessSmartCubeMove/);
+  assert.match(client, /viewport\?\.setDeviceOrientation/);
+  assert.match(viewport, /setDeviceOrientation\(orientation\)/);
+});
+
 test("the viewport exposes a persistent opt-out for single-move turn guides", () => {
   assert.match(viewportComponent, /data-turn-guides/);
   assert.match(client, /store\.patch\(\{turnGuides: !turnGuides\}\)/);

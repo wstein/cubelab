@@ -12,6 +12,7 @@ import {
   transformTurnPointForCubie,
   transformTurnPoint,
   focusCameraTarget,
+  quaternionCameraOffset,
   vboCapacityFloats,
 } from "../../src/client/cube-gl";
 import {cubieIsFrontFacing} from "../../src/client/motion-overlay";
@@ -140,5 +141,15 @@ describe("cube viewport math", () => {
     expect(cameraTween(0, 1, 0)).toBe(0);
     expect(cameraTween(0, 1, 1)).toBeCloseTo(1);
     expect(cameraTween(Math.PI - 0.1, -Math.PI + 0.1, 0.5)).toBeCloseTo(Math.PI);
+  });
+
+  test("maps normalized smart-cube quaternions to finite camera offsets", () => {
+    expect(quaternionCameraOffset({x: 0, y: 0, z: 0, w: 1})).toEqual({yaw: 0, pitch: 0});
+    const half = Math.sqrt(0.5);
+    const yaw = quaternionCameraOffset({x: 0, y: half, z: 0, w: half});
+    expect(yaw.yaw).toBeCloseTo(Math.PI / 2);
+    expect(yaw.pitch).toBeCloseTo(0);
+    const unnormalized = quaternionCameraOffset({x: half * 3, y: 0, z: 0, w: half * 3});
+    expect(unnormalized.pitch).toBeCloseTo(Math.PI / 2);
   });
 });

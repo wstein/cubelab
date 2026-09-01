@@ -185,6 +185,65 @@ body {
   border-bottom: 1px solid var(--border-subtle);
 }
 
+.smart-cube-dock {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  background: rgba(15, 23, 42, 0.72);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.smart-cube-dock[hidden] {
+  display: none;
+}
+
+.smart-cube-live-dot {
+  flex: 0 0 auto;
+  width: 0.52rem;
+  height: 0.52rem;
+  background: #64748b;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.12);
+}
+
+.smart-cube-dock[data-phase="connecting"] .smart-cube-live-dot {
+  background: #fbbf24;
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.14);
+}
+
+.smart-cube-dock[data-phase="connected"] .smart-cube-live-dot {
+  background: #34d399;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.15), 0 0 12px rgba(52, 211, 153, 0.36);
+}
+
+.smart-cube-dock[data-phase="error"] .smart-cube-live-dot {
+  background: #fb7185;
+  box-shadow: 0 0 0 3px rgba(251, 113, 133, 0.14);
+}
+
+.smart-cube-status {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.smart-cube-battery {
+  margin-left: auto;
+  color: #a7f3d0;
+  font: 600 0.75rem var(--font-mono);
+  white-space: nowrap;
+}
+
+.smart-cube-orientation,
+.smart-cube-disconnect {
+  flex: 0 0 auto;
+}
+
 .viewport-title {
   margin-top: 0.1rem;
   color: var(--text-primary);
@@ -1295,6 +1354,19 @@ body {
 
   .playback-options {
     justify-content: space-between;
+  }
+
+  .smart-cube-dock {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .smart-cube-status {
+    flex: 1 1 calc(100% - 1.2rem);
+  }
+
+  .smart-cube-battery {
+    margin-left: 1.05rem;
   }
 }
 

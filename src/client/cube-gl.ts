@@ -363,6 +363,21 @@ export const cameraTween = (start: number, target: number, progress: number): nu
   return start + wrapped * eased;
 };
 
+export type OrientationQuaternion = {x: number; y: number; z: number; w: number};
+
+export const quaternionCameraOffset = (
+  quaternion: OrientationQuaternion,
+): {yaw: number; pitch: number} => {
+  const length = Math.hypot(quaternion.x, quaternion.y, quaternion.z, quaternion.w) || 1;
+  const x = quaternion.x / length;
+  const y = quaternion.y / length;
+  const z = quaternion.z / length;
+  const w = quaternion.w / length;
+  const yaw = Math.atan2(2 * (w * y + x * z), 1 - 2 * (y * y + x * x));
+  const pitch = Math.asin(Math.max(-1, Math.min(1, 2 * (w * x - y * z))));
+  return {yaw, pitch};
+};
+
 const compileShader = (gl: WebGLRenderingContext, type: number, source: string): WebGLShader => {
   const shader = gl.createShader(type);
   if (!shader) throw new Error("Unable to allocate a WebGL shader.");
@@ -405,6 +420,7 @@ export type CubeViewport = {
   setMilestone: (milestone: MilestoneFocus | null) => void;
   setTurnGuide: (guide: TurnGuide | null) => void;
   smoothOrbitTo: (yaw: number, pitch: number, duration?: number) => Promise<void>;
+  setDeviceOrientation: (orientation: OrientationQuaternion | null) => void;
   setAutoOrbit: (enabled: boolean) => void;
   resetCamera: () => void;
   dispose: () => void;
@@ -488,6 +504,12 @@ export const createCubeViewport = (
   let autoOrbitPreviousTime: number | null = null;
   let cameraFrame: number | null = null;
   let cameraGeneration = 0;
+  let deviceOrientationBase: {
+    yaw: number;
+    pitch: number;
+    orientationYaw: number;
+    orientationPitch: number;
+  } | null = null;
   canvas.dataset.autoOrbitState = "off";
   const overlay = overlayCanvas.getContext("2d");
 
@@ -1186,6 +1208,37 @@ export const createCubeViewport = (
       requestRender();
     },
     smoothOrbitTo,
+    setDeviceOrientation(orientation) {
+      if (!orientation) {
+        deviceOrientationBase = null;
+        delete canvas.dataset.deviceOrientation;
+        return;
+      }
+      const offset = quaternionCameraOffset(orientation);
+      if (!deviceOrientationBase) {
+        deviceOrientationBase = {
+          yaw,
+          pitch,
+          orientationYaw: offset.yaw,
+          orientationPitch: offset.pitch,
+        };
+      }
+      cancelCamera();
+      stopInertia();
+      stopAutoOrbitFrame();
+      const relativeYaw = cameraTween(
+        deviceOrientationBase.orientationYaw,
+        offset.yaw,
+        1,
+      ) - deviceOrientationBase.orientationYaw;
+      yaw = deviceOrientationBase.yaw + relativeYaw;
+      pitch = Math.max(
+        -1.25,
+        Math.min(1.25, deviceOrientationBase.pitch + offset.pitch - deviceOrientationBase.orientationPitch),
+      );
+      canvas.dataset.deviceOrientation = "tracking";
+      requestRender();
+    },
     setAutoOrbit(enabled) {
       if (autoOrbit === enabled) return;
       autoOrbit = enabled;
@@ -1199,6 +1252,8 @@ export const createCubeViewport = (
       requestRender();
     },
     resetCamera() {
+      deviceOrientationBase = null;
+      delete canvas.dataset.deviceOrientation;
       cancelCamera();
       stopInertia();
       velocityYaw = 0;

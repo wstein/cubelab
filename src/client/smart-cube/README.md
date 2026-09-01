@@ -15,7 +15,12 @@ opened programmatically. It reports explicit `unavailable`, `connecting`, `conne
 `disconnecting`, `disconnected`, and `error` phases. `reconnect()` intentionally opens the browser
 chooser again; the transport does not retain a public `BluetoothDevice` handle.
 
-Step 3 consumers should subscribe to normalized events rather than importing the vendor transport:
+Step 3 consumers subscribe to normalized events rather than importing the vendor transport. The
+viewport integration lazy-loads this module from the Connect button, records physical moves in the
+algorithm editor, renders live facelets through every converter, tracks optional gyro orientation,
+and advances Academy timelines only when the expected physical move matches.
+
+The public boundary remains small:
 
 ```ts
 const cube = createSmartCubeManager();

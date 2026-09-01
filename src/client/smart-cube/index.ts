@@ -1,5 +1,12 @@
 export {createSmartCubeManager, isWebBluetoothAvailable, normalizeTransportEvent} from "./bluetooth";
 export {resolveSmartCubeDriver, smartCubeDrivers} from "./drivers";
+export {
+  appendRecordedMove,
+  assessSmartCubeMove,
+  canonicalSmartCubeMove,
+  isLastPhysicalMoveInRange,
+  nextExpectedSmartCubeMove,
+} from "./live-sync";
 export type {
   SmartCubeBatteryEvent,
   SmartCubeBrand,

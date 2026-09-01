@@ -7,6 +7,12 @@
     <div class="viewport-header-actions">
       <button
         type="button"
+        class="viewport-control smart-cube-connect"
+        data-smart-cube-connect
+        title="Connect a supported Bluetooth smart cube"
+      ><span aria-hidden="true">ᛒ</span> Connect cube</button>
+      <button
+        type="button"
         class="viewport-control active"
         data-turn-guides
         aria-pressed="true"
@@ -23,6 +29,27 @@
       <button type="button" class="viewport-control" data-reset-camera aria-keyshortcuts="C" title="Reset view (C)">Reset view</button>
     </div>
   </header>
+  <div class="smart-cube-dock" data-smart-cube-dock hidden>
+    <span class="smart-cube-live-dot" data-smart-cube-live-dot aria-hidden="true"></span>
+    <span class="smart-cube-status" data-smart-cube-status role="status" aria-live="polite">
+      No smart cube connected
+    </span>
+    <span class="smart-cube-battery" data-smart-cube-battery hidden></span>
+    <button
+      type="button"
+      class="viewport-control smart-cube-orientation"
+      data-smart-cube-orientation
+      aria-pressed="false"
+      title="Track the physical cube orientation"
+      hidden
+    >Track orientation</button>
+    <button
+      type="button"
+      class="viewport-control smart-cube-disconnect"
+      data-smart-cube-disconnect
+      hidden
+    >Disconnect</button>
+  </div>
   <div class="viewport-stage" data-viewport-stage>
     <canvas
       class="cube-canvas"

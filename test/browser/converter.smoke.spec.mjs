@@ -2,7 +2,13 @@ import {expect, test} from "@playwright/test";
 
 test("converts algorithms and Orbit64 while switching size-aware cards", async ({page}) => {
   const pageErrors = [];
+  const bluetoothWarnings = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
+  page.on("console", (message) => {
+    if (message.text().includes("Bluetooth permission has been blocked")) {
+      bluetoothWarnings.push(message.text());
+    }
+  });
 
   await page.goto("/");
 
@@ -15,6 +21,9 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await expect(piecesCard).toBeVisible();
   await expect(orbitCard).toBeVisible();
   await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-webgl", "ready");
+  await expect(page.locator("[data-smart-cube-connect]")).toBeVisible();
+  await expect(page.locator("[data-smart-cube-dock]")).toBeHidden();
+  expect(bluetoothWarnings).toEqual([]);
   const autoOrbit = page.locator("[data-auto-orbit]");
   const turnGuides = page.locator("[data-turn-guides]");
   await expect(turnGuides).toHaveAttribute("aria-pressed", "true");

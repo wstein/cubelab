@@ -52,6 +52,17 @@ import {
   selectPhasePiece,
   selectTutorialPiece,
 } from "./tutorial-focus";
+import {
+  appendRecordedMove,
+  assessSmartCubeMove,
+  isLastPhysicalMoveInRange,
+} from "./smart-cube/live-sync";
+import type {
+  SmartCubeConnectionState,
+  SmartCubeEvent,
+  SmartCubeManager,
+  SmartCubeOrientationEvent,
+} from "./smart-cube/types";
 
 type Result<T, E = StateError | string> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: E};
 type StateError = {_0?: string; TAG: string; actual?: number; character?: string; expected?: number; index?: number};
@@ -140,6 +151,12 @@ if (root) {
   const turnGuidesButton = root.querySelector<HTMLButtonElement>("[data-turn-guides]")!;
   const coachingControls = root.querySelector<HTMLElement>("[data-coaching-controls]")!;
   const coachStatus = root.querySelector<HTMLElement>("[data-coach-status]")!;
+  const smartCubeConnect = root.querySelector<HTMLButtonElement>("[data-smart-cube-connect]")!;
+  const smartCubeDock = root.querySelector<HTMLElement>("[data-smart-cube-dock]")!;
+  const smartCubeStatus = root.querySelector<HTMLElement>("[data-smart-cube-status]")!;
+  const smartCubeBattery = root.querySelector<HTMLElement>("[data-smart-cube-battery]")!;
+  const smartCubeOrientation = root.querySelector<HTMLButtonElement>("[data-smart-cube-orientation]")!;
+  const smartCubeDisconnect = root.querySelector<HTMLButtonElement>("[data-smart-cube-disconnect]")!;
   const initialState = readHash(window.location.hash);
   const store = createStore(initialState);
   let size = initialState.size;
@@ -392,6 +409,16 @@ if (root) {
   let hoverPreviewGeneration = 0;
   let tutorialCameraRestore: {yaw: number; pitch: number} | null = null;
   let tutorialCameraGeneration = 0;
+  let smartCubeManager: SmartCubeManager | null = null;
+  let smartCubeManagerLoading: Promise<SmartCubeManager> | null = null;
+  let smartCubeConnected = false;
+  let smartCubeDeviceName = "Smart cube";
+  let smartCubeLiveState: CubeState | null = null;
+  let smartCubeOrientationTracking = false;
+  let latestSmartCubeOrientation: SmartCubeOrientationEvent["quaternion"] | null = null;
+  let smartCubeMovesInFlight = 0;
+  let smartCubeMoveQueue = Promise.resolve();
+  let suppressNextSmartCubeExtension = false;
 
   const viewportPalette = (): CubePalette =>
     schemeSelect.value === "Japanese" ? "Japanese" : "Western";
@@ -534,7 +561,7 @@ if (root) {
       hoverPreviewCursor = null;
       delete canvas.dataset.hoverPreviewIndex;
       delete canvas.dataset.hoverPreviewFacelets;
-      const displayed = activeTimeline?.states?.[activeIndex];
+      const displayed = smartCubeLiveState ?? activeTimeline?.states?.[activeIndex];
       if (displayed) {
         viewport?.setState(displayed, viewportPalette());
         refreshTutorialFocus();
@@ -1104,6 +1131,211 @@ if (root) {
     }
   };
 
+  const smartCubeStep = (move: string): MoveStep | null => {
+    const evaluated = evaluateAlgorithm(3, "Wide", "Modern", move);
+    if (evaluated.TAG === "Error") return null;
+    return evaluated._0.steps.find((entry) => entry.step !== undefined)?.step ?? null;
+  };
+
+  const animateSmartCubeMove = async (move: string): Promise<void> => {
+    const step = smartCubeStep(move);
+    const transform = step ? turnTransform(3, step) : null;
+    if (transform && viewport) await viewport.animateTurn(transform, 120);
+  };
+
+  const renderSmartCubeLiveState = () => {
+    if (!smartCubeConnected || !smartCubeLiveState) return;
+    renderState(smartCubeLiveState, `${smartCubeDeviceName} · Live physical state`);
+  };
+
+  const pulseSmartCubeMilestone = (label: string, state: CubeState, phaseNumber: number) => {
+    viewport?.setMilestone({
+      positions: phaseMilestonePositions(state, phaseNumber),
+      label: `✦ ${label}`,
+    });
+    window.setTimeout(() => viewport?.setMilestone(null), 650);
+  };
+
+  const applyAcademySmartCubeMove = async (move: string): Promise<boolean> => {
+    if (
+      activeTab !== "academy"
+      || tutorialPhases.length === 0
+      || !activeTimeline?.states
+    ) return false;
+
+    const assessment = assessSmartCubeMove(
+      activeTimeline.steps,
+      activeTimeline.labels,
+      activeIndex,
+      move,
+    );
+    if (assessment.status === "complete") {
+      smartCubeStatus.textContent = `${smartCubeDeviceName} · Academy sequence complete`;
+      return true;
+    }
+    if (assessment.status === "unsupported") {
+      smartCubeStatus.textContent = `Expected ${assessment.expected.token}; this slice/wide move is not reported directly by the cube`;
+      await animateSmartCubeMove(move);
+      return true;
+    }
+    if (assessment.status === "mismatch") {
+      smartCubeStatus.textContent = `Expected ${assessment.expected.token}, received ${assessment.received}`;
+      coachStatus.textContent = `Physical move mismatch. Expected ${assessment.expected.token}; received ${assessment.received}.`;
+      await animateSmartCubeMove(move);
+      return true;
+    }
+
+    const moveIndex = assessment.expected.timelineIndex;
+    if (activeIndex !== moveIndex) renderTimelineIndex(moveIndex);
+    await animateSmartCubeMove(move);
+    renderTimelineIndex(moveIndex + 1);
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · ${move} matched`;
+    coachStatus.textContent = `${move} matched the Academy timeline.`;
+
+    const phase = tutorialPhases.find((candidate) =>
+      moveIndex >= candidate.start && moveIndex < candidate.end
+    );
+    if (phase && isLastPhysicalMoveInRange(activeTimeline.steps, moveIndex, phase.end)) {
+      const phaseState = activeTimeline.states[moveIndex + 1];
+      const label = phase.number === tutorialPhases.length
+        ? `Solved — ${phase.title} verified`
+        : `${phase.title} complete`;
+      pulseSmartCubeMilestone(label, phaseState, phaseFocusNumber(phase));
+      smartCubeStatus.textContent = `${smartCubeDeviceName} · ${label}`;
+    }
+    return true;
+  };
+
+  const applySmartCubeMove = async (move: string): Promise<void> => {
+    clearTutorialFocus();
+    clearTurnGuide();
+    stopPlayback();
+    if (await applyAcademySmartCubeMove(move)) {
+      renderSmartCubeLiveState();
+      return;
+    }
+
+    await animateSmartCubeMove(move);
+    const source = activeRecognized?.timeline ? input.value : "";
+    const next = appendRecordedMove(source, move);
+    if (next.length > 20_000) {
+      smartCubeStatus.textContent = "Move recording limit reached";
+      renderSmartCubeLiveState();
+      return;
+    }
+    suppressNextSmartCubeExtension = true;
+    store.patch({input: next});
+    renderSmartCubeLiveState();
+  };
+
+  const setSmartCubeOrientationTracking = (enabled: boolean) => {
+    smartCubeOrientationTracking = enabled && smartCubeConnected && !smartCubeOrientation.hidden;
+    smartCubeOrientation.classList.toggle("active", smartCubeOrientationTracking);
+    smartCubeOrientation.setAttribute("aria-pressed", String(smartCubeOrientationTracking));
+    if (smartCubeOrientationTracking) {
+      autoOrbitButton.setAttribute("aria-pressed", "false");
+      autoOrbitButton.classList.remove("active");
+      viewport?.setAutoOrbit(false);
+      if (latestSmartCubeOrientation) viewport?.setDeviceOrientation(latestSmartCubeOrientation);
+    } else {
+      viewport?.setDeviceOrientation(null);
+    }
+  };
+
+  const renderSmartCubeConnection = (connectionState: SmartCubeConnectionState) => {
+    root.dataset.smartCubePhase = connectionState.phase;
+    smartCubeDock.dataset.phase = connectionState.phase;
+    const connected = connectionState.phase === "connected" && connectionState.device !== null;
+    smartCubeConnected = connected;
+    smartCubeConnect.hidden = connected;
+    smartCubeConnect.disabled = connectionState.phase === "connecting"
+      || connectionState.phase === "disconnecting"
+      || connectionState.phase === "unavailable";
+    smartCubeConnect.textContent = connectionState.phase === "connecting"
+      ? "Connecting…"
+      : "ᛒ Connect cube";
+    smartCubeDock.hidden = connectionState.phase === "disconnected"
+      || connectionState.phase === "unavailable";
+    smartCubeDisconnect.hidden = !connected;
+    smartCubeDisconnect.disabled = connectionState.phase === "disconnecting";
+    smartCubeStatus.textContent = connectionState.message;
+    if (connected && connectionState.device) {
+      smartCubeDeviceName = connectionState.device.name;
+      smartCubeStatus.textContent = `${connectionState.device.brandName} · ${connectionState.device.name} · Live sync`;
+      const supportsOrientation = connectionState.device.capabilities.orientation;
+      smartCubeOrientation.hidden = !supportsOrientation;
+      smartCubeOrientation.disabled = !supportsOrientation;
+      if (supportsOrientation) setSmartCubeOrientationTracking(true);
+      else setSmartCubeOrientationTracking(false);
+    } else {
+      smartCubeOrientation.hidden = true;
+      smartCubeBattery.hidden = true;
+      if (connectionState.phase !== "connecting") {
+        setSmartCubeOrientationTracking(false);
+        smartCubeLiveState = null;
+        scheduleUpdate();
+      }
+    }
+  };
+
+  const handleSmartCubeEvent = (event: SmartCubeEvent) => {
+    switch (event.type) {
+      case "move":
+        smartCubeMovesInFlight += 1;
+        smartCubeMoveQueue = smartCubeMoveQueue
+          .then(() => applySmartCubeMove(event.move))
+          .catch((reason) => {
+            smartCubeStatus.textContent = reason instanceof Error ? reason.message : String(reason);
+          })
+          .finally(() => {
+            smartCubeMovesInFlight -= 1;
+            if (smartCubeMovesInFlight === 0) renderSmartCubeLiveState();
+          });
+        break;
+      case "facelets": {
+        const parsed = FaceletCodec.parse(3, event.facelets) as Result<CubeState>;
+        if (parsed.TAG === "Ok") {
+          smartCubeLiveState = parsed._0;
+          if (smartCubeMovesInFlight === 0) renderSmartCubeLiveState();
+        }
+        break;
+      }
+      case "battery":
+        smartCubeBattery.hidden = false;
+        smartCubeBattery.textContent = `🔋 ${Math.round(event.level)}%`;
+        break;
+      case "orientation":
+        latestSmartCubeOrientation = event.quaternion;
+        if (smartCubeOrientationTracking) viewport?.setDeviceOrientation(event.quaternion);
+        break;
+      case "hardware":
+        if (event.orientationSupported === false) {
+          smartCubeOrientation.hidden = true;
+          setSmartCubeOrientationTracking(false);
+        }
+        break;
+      case "disconnected":
+        setSmartCubeOrientationTracking(false);
+        break;
+    }
+  };
+
+  const loadSmartCubeManager = async (): Promise<SmartCubeManager> => {
+    if (smartCubeManager) return smartCubeManager;
+    if (!smartCubeManagerLoading) {
+      smartCubeManagerLoading = import("./smart-cube/index").then(({createSmartCubeManager}) => {
+        // Capability is checked once, inside the explicit Connect gesture. Avoid
+        // repeatedly touching navigator.bluetooth in permission-blocked embeds.
+        const manager = createSmartCubeManager({isBluetoothAvailable: () => true});
+        manager.subscribeState(renderSmartCubeConnection);
+        manager.subscribeEvents(handleSmartCubeEvent);
+        smartCubeManager = manager;
+        return manager;
+      });
+    }
+    return smartCubeManagerLoading;
+  };
+
   const synchronizePlayback = (recognized: RecognizedInput) => {
     updateAcademySource(recognized);
     updateNissSource(recognized);
@@ -1122,7 +1354,9 @@ if (root) {
     const previous = activeTimeline;
     const sameTimeline = activeTimelineKey === recognized.timelineKey;
     const previousAtEnd = previous?.states !== null && activeIndex === previous?.steps.length;
-    const animateExtension = recognized.timeline.states !== null && (
+    const suppressExtension = suppressNextSmartCubeExtension;
+    suppressNextSmartCubeExtension = false;
+    const animateExtension = !suppressExtension && recognized.timeline.states !== null && (
       (previousAtEnd && isSingleStepExtension(previous, recognized.timeline))
       || (previous === null && lastLabel === "Solved default" && recognized.timeline.steps.length === 1)
     );
@@ -1176,6 +1410,9 @@ if (root) {
       return;
     }
     synchronizePlayback(parsed._0);
+    if (smartCubeConnected && smartCubeLiveState) {
+      renderState(smartCubeLiveState, `${smartCubeDeviceName} · Live physical state`);
+    }
   };
 
   let updateFrame: number | null = null;
@@ -1583,7 +1820,60 @@ if (root) {
       store.patch({cubeStyle: button.dataset.cubeStyle as CubeStyle});
     });
   });
+  const bluetoothPolicyAllows = () => {
+    const policyDocument = document as Document & {
+      permissionsPolicy?: {allowsFeature: (feature: string) => boolean};
+      featurePolicy?: {allowsFeature: (feature: string) => boolean};
+    };
+    const policy = policyDocument.permissionsPolicy ?? policyDocument.featurePolicy;
+    return policy?.allowsFeature("bluetooth") ?? true;
+  };
+  const showBluetoothUnavailable = (message: string) => {
+    smartCubeDock.hidden = false;
+    smartCubeDock.dataset.phase = "error";
+    smartCubeStatus.textContent = message;
+  };
+  smartCubeConnect.addEventListener("click", async () => {
+    if ((typeof isSecureContext !== "undefined" && !isSecureContext) || !bluetoothPolicyAllows()) {
+      showBluetoothUnavailable("Bluetooth permission is blocked for this page");
+      return;
+    }
+    // Read the permission-gated API only after a user gesture. Some embedded
+    // browsers log a warning every time this property is probed.
+    if (typeof navigator.bluetooth?.requestDevice !== "function") {
+      showBluetoothUnavailable("Web Bluetooth requires Chrome or Edge in a secure context");
+      return;
+    }
+    store.patch({size: 3});
+    try {
+      const manager = await loadSmartCubeManager();
+      await manager.connect({
+        enableAddressSearch: true,
+        macAddressProvider: async (device) => {
+          const value = window.prompt(
+            `${device.name ?? "This encrypted cube"} did not expose its Bluetooth MAC address. Enter it as aa:bb:cc:dd:ee:ff, or Cancel.`,
+          );
+          return value?.trim() || null;
+        },
+      });
+    } catch (reason) {
+      if (reason instanceof DOMException && reason.name === "NotFoundError") {
+        await smartCubeManager?.disconnect();
+        return;
+      }
+      smartCubeDock.hidden = false;
+      smartCubeDock.dataset.phase = "error";
+      smartCubeStatus.textContent = reason instanceof Error ? reason.message : String(reason);
+    }
+  });
+  smartCubeDisconnect.addEventListener("click", () => {
+    void smartCubeManager?.disconnect();
+  });
+  smartCubeOrientation.addEventListener("click", () => {
+    setSmartCubeOrientationTracking(!smartCubeOrientationTracking);
+  });
   const resetCameraView = () => {
+    setSmartCubeOrientationTracking(false);
     tutorialCameraGeneration += 1;
     tutorialCameraRestore = null;
     delete canvas.dataset.sequenceCameraRestoreYaw;
@@ -1598,6 +1888,7 @@ if (root) {
   shortcutsClose.addEventListener("click", () => shortcutsDialog.close());
   autoOrbitButton.addEventListener("click", () => {
     const enabled = autoOrbitButton.getAttribute("aria-pressed") !== "true";
+    if (enabled) setSmartCubeOrientationTracking(false);
     autoOrbitButton.setAttribute("aria-pressed", String(enabled));
     autoOrbitButton.classList.toggle("active", enabled);
     viewport?.setAutoOrbit(enabled);
@@ -1852,6 +2143,7 @@ if (root) {
     () => {
       unsubscribe();
       stopHashSync();
+      void smartCubeManager?.disconnect();
       viewport?.dispose();
     },
     {once: true},
