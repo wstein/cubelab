@@ -101,6 +101,10 @@ The 3×3 [NISS helper](docs/niss-helper.md) constructs `N · I⁻¹` from explic
 normal- and inverse-side work, then replays the full scramble and candidate before it
 allows the result to be loaded as a solution.
 
+The [beginner tutorial solver](docs/beginner-solver.md) accepts any recognized 3×3 state,
+works through seven verified Layer-by-Layer goals, and refuses to return a solution unless
+the complete generated sequence solves all 54 facelets on replay.
+
 The input panel exposes the complete mirror and coordinate-rotation suite alongside
 Invert, Simplify, and Practice scramble actions. State-format input disables algebraic
 actions, and every generated algorithm is serialized into explicit modern notation
