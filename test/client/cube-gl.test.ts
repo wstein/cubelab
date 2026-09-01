@@ -8,6 +8,8 @@ import {
   cameraMatrices,
   clampedCanvasSize,
   turnTransform,
+  turnPreviewTransform,
+  turnPreviewCamera,
   vboCapacityFloats,
 } from "../../src/client/cube-gl";
 
@@ -61,6 +63,27 @@ describe("cube viewport math", () => {
       max: 2,
       angle: Math.PI / 2,
     });
+  });
+
+  test("previews every move direction with a fixed four-degree layer displacement", () => {
+    const clockwise = turnPreviewTransform({axis: [1, 0, 0], min: 0.9, max: 1.1, angle: -Math.PI});
+    const counterclockwise = turnPreviewTransform({
+      axis: [1, 0, 0],
+      min: 0.9,
+      max: 1.1,
+      angle: Math.PI / 2,
+    });
+    expect(clockwise.angle).toBeCloseTo(-4 * Math.PI / 180);
+    expect(counterclockwise.angle).toBeCloseTo(4 * Math.PI / 180);
+  });
+
+  test("reframes turn previews to an oblique view of the involved layer", () => {
+    const right = turnPreviewCamera({axis: [1, 0, 0], min: 0.9, max: 1.1, angle: -Math.PI / 2});
+    const down = turnPreviewCamera({axis: [0, -1, 0], min: 0.9, max: 1.1, angle: -Math.PI / 2});
+    expect(right.yaw).toBeLessThan(0);
+    expect(right.pitch).toBeGreaterThan(0);
+    expect(down.pitch).toBeLessThan(0);
+    expect([right.yaw, right.pitch, down.yaw, down.pitch].every(Number.isFinite)).toBe(true);
   });
 
   test("clamps device pixel ratio without producing zero-sized canvases", () => {

@@ -35,6 +35,7 @@ export type TurnTransform = {
   max: number;
   angle: number;
 };
+export type CameraTarget = {yaw: number; pitch: number};
 type TurnGuide = {step: MoveStep; label: string};
 
 const DEFAULT_YAW = -0.62;
@@ -216,6 +217,43 @@ export const turnTransform = (size: number, step: MoveStep): TurnTransform | nul
   };
 };
 
+export const turnPreviewTransform = (
+  turn: TurnTransform,
+  degrees = 4,
+): TurnTransform => ({
+  ...turn,
+  angle: Math.sign(turn.angle || 1) * Math.max(0, degrees) * Math.PI / 180,
+});
+
+export const turnPreviewCamera = (
+  turn: TurnTransform,
+  focus?: CubieFocus | null,
+): CameraTarget => {
+  const axis = turn.axis;
+  const view: [number, number, number] = [axis[0], axis[1], axis[2]];
+  if (Math.abs(axis[1]) > 0.8) {
+    view[0] += 0.58;
+    view[2] += 0.58;
+  } else {
+    view[1] += 0.46;
+    if (Math.abs(axis[0]) > 0.8) view[2] += 0.52;
+    else view[0] += 0.52;
+  }
+  if (focus) {
+    for (const position of [focus.source, focus.target]) {
+      view[0] += Math.sign(position[0]) * 0.12;
+      view[1] += Math.sign(position[1]) * 0.12;
+      view[2] += Math.sign(position[2]) * 0.12;
+    }
+  }
+  const length = Math.max(0.001, Math.hypot(...view));
+  const direction = view.map((value) => value / length) as [number, number, number];
+  return {
+    yaw: Math.atan2(-direction[0], direction[2]),
+    pitch: Math.asin(Math.max(-1, Math.min(1, direction[1]))),
+  };
+};
+
 export const clampedCanvasSize = (
   width: number,
   height: number,
@@ -337,6 +375,7 @@ export type CubeViewport = {
   setStyle: (style: CubeStyle) => void;
   animateTurn: (turn: TurnTransform, duration?: number) => Promise<void>;
   cancelTurn: () => void;
+  setTurnPreview: (turn: TurnTransform | null, degrees?: number) => void;
   setFocus: (focus: CubieFocus | null) => void;
   setMilestone: (milestone: MilestoneFocus | null) => void;
   setTurnGuide: (guide: TurnGuide | null) => void;
@@ -427,6 +466,8 @@ export const createCubeViewport = (
   let autoOrbitPreviousTime: number | null = null;
   let cameraFrame: number | null = null;
   let cameraGeneration = 0;
+  let previewCamera: CameraTarget | null = null;
+  let previewActive = false;
   canvas.dataset.autoOrbitState = "off";
   const overlay = overlayCanvas.getContext("2d");
 
@@ -675,6 +716,8 @@ export const createCubeViewport = (
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
     drawMotionOverlay(matrices, width, height);
     canvas.dataset.webgl = "ready";
+    canvas.dataset.cameraYaw = yaw.toFixed(6);
+    canvas.dataset.cameraPitch = pitch.toFixed(6);
     if (focus || turnGuide || milestone) requestRender();
   };
 
@@ -683,7 +726,8 @@ export const createCubeViewport = (
     frame = window.requestAnimationFrame(render);
   };
 
-  const canAutoOrbit = () => autoOrbit && visible && !document.hidden && !disposed;
+  const canAutoOrbit = () =>
+    autoOrbit && !previewActive && visible && !document.hidden && !disposed;
 
   const stopAutoOrbitFrame = () => {
     if (autoOrbitFrame !== null) window.cancelAnimationFrame(autoOrbitFrame);
@@ -828,6 +872,7 @@ export const createCubeViewport = (
     turnFrame = null;
     activeTurn = null;
     delete canvas.dataset.animating;
+    delete canvas.dataset.turnPreviewDegrees;
     requestRender();
   };
 
@@ -940,6 +985,35 @@ export const createCubeViewport = (
     },
     animateTurn,
     cancelTurn,
+    setTurnPreview(turn, degrees = 4) {
+      cancelTurn();
+      if (turn) {
+        if (!previewCamera) previewCamera = {yaw, pitch};
+        canvas.dataset.previewCameraYaw = previewCamera.yaw.toFixed(6);
+        canvas.dataset.previewCameraPitch = previewCamera.pitch.toFixed(6);
+        previewActive = true;
+        activeTurn = turnPreviewTransform(turn, degrees);
+        canvas.dataset.turnPreviewDegrees = String(degrees);
+        const camera = turnPreviewCamera(turn, focus);
+        void smoothOrbitTo(camera.yaw, camera.pitch, 180);
+      } else {
+        previewActive = false;
+        const camera = previewCamera;
+        if (camera) {
+          void smoothOrbitTo(camera.yaw, camera.pitch, 180).then(() => {
+            if (!previewActive) {
+              previewCamera = null;
+              delete canvas.dataset.previewCameraYaw;
+              delete canvas.dataset.previewCameraPitch;
+            }
+          });
+        } else {
+          delete canvas.dataset.previewCameraYaw;
+          delete canvas.dataset.previewCameraPitch;
+        }
+      }
+      requestRender();
+    },
     setFocus(nextFocus) {
       focus = nextFocus;
       if (nextFocus) {

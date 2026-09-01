@@ -24,6 +24,8 @@ Beginner solutions use `buildTimeline(initialState, solutionAlg)`, so playback b
 the user's recognized scramble rather than incorrectly applying the solution to a solved
 cube. Phase buttons seek within that same timeline. The displayed/copyable tutorial uses
 line comments, while structured phase metadata remains separate from notation parsing.
+Move hover reads the exact cached pre-move state without changing the shared tape index or
+converted outputs; leaving hover restores the indexed state and camera.
 
 Practice scramble is located in **Quick load**, not among algebraic transformations. It
 remains a random-turn practice sequence and is not labeled as an official WCA scramble.

@@ -104,11 +104,18 @@ layers receive only a soft saturation and brightness reduction. Hidden destinati
 the guide and request that the user orbit to the back. The group's pedagogical purpose
 remains its accessible label rather than a floating tooltip.
 
-The **Turn guides** viewport toggle controls only the circular single-move ring and its
-angle/direction badge. It is enabled by default; opting out clears an active ring
-immediately and suppresses later token-hover rings without disabling source/target
-trajectories, piece highlighting, milestone pulses, or coached phase previews. The
-setting is shareable URL state (`guides=off`).
+Hovering or keyboard-focusing an individual move temporarily uploads the cached canonical
+state immediately before that timeline entry, then displaces the affected layer by exactly
+4° in the move's direction. The camera eases to an oblique view derived from the move axis
+and focused source/target positions, showing the involved cubies together. Leaving the
+token restores both the player's current canonical state and the user's prior camera;
+text codecs never change during this non-destructive preview.
+
+The **Turn guides** viewport toggle controls the single-move ring, its angle/direction
+badge, the 4° layer displacement, and the temporary camera reframe. It is enabled by
+default; opting out clears an active preview immediately and suppresses later token-hover
+previews without disabling source/target trajectories, piece highlighting, milestone
+pulses, or coached phase previews. The setting is shareable URL state (`guides=off`).
 
 Academy playback defaults to **Coached** mode. At a phase boundary it uses the existing
 state-neutral pause as a three-part transition: a 350 ms emerald pulse over the verified

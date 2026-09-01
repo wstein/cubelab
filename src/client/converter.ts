@@ -341,6 +341,10 @@ if (root) {
   let focusedGroup: HTMLElement | null = null;
   let focusedPiece: string | null = null;
   let guidedToken: HTMLElement | null = null;
+  let previewedMoveIndex: number | null = null;
+
+  const viewportPalette = (): CubePalette =>
+    schemeSelect.value === "Japanese" ? "Japanese" : "Western";
 
   const clearTutorialFocus = () => {
     focusedGroup?.classList.remove("focused");
@@ -370,9 +374,25 @@ if (root) {
     guidedToken?.classList.remove("turn-guided");
     guidedToken = null;
     viewport?.setTurnGuide(null);
+    delete canvas.dataset.previewMoveIndex;
+    delete canvas.dataset.previewFacelets;
+    if (previewedMoveIndex !== null && activeTimeline?.states) {
+      const displayed = activeTimeline.states[activeIndex];
+      if (displayed) {
+        viewport?.setState(displayed, viewportPalette());
+        refreshTutorialFocus();
+      }
+    }
+    viewport?.setTurnPreview(null);
+    previewedMoveIndex = null;
   };
 
-  const activateTurnGuide = (token: HTMLElement, step: MoveStep, label: string) => {
+  const activateTurnGuide = (
+    token: HTMLElement,
+    step: MoveStep,
+    label: string,
+    moveIndex: number,
+  ) => {
     if (!turnGuides) {
       clearTurnGuide();
       return;
@@ -380,6 +400,15 @@ if (root) {
     guidedToken?.classList.remove("turn-guided");
     guidedToken = token;
     token.classList.add("turn-guided");
+    const before = activeTimeline?.states?.[moveIndex];
+    if (before) {
+      previewedMoveIndex = moveIndex;
+      viewport?.setState(before, viewportPalette());
+      if (focusedPiece) viewport?.setFocus(focusForPiece(before, focusedPiece));
+      viewport?.setTurnPreview(turnTransform(before.size, step));
+      canvas.dataset.previewMoveIndex = String(moveIndex);
+      canvas.dataset.previewFacelets = FaceletCodec.render(before);
+    }
     viewport?.setTurnGuide({step, label});
   };
 
@@ -568,7 +597,7 @@ if (root) {
         button.textContent = label;
         button.dataset.moveIndex = String(index + 1);
         button.setAttribute("aria-label", `Go to step ${index + 1}: ${label}`);
-        const showTurn = () => activateTurnGuide(button, entry.step!, label);
+        const showTurn = () => activateTurnGuide(button, entry.step!, label, index);
         button.addEventListener("mouseenter", showTurn);
         button.addEventListener("mouseleave", () => {
           if (guidedToken === button && document.activeElement !== button) clearTurnGuide();

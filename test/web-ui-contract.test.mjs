@@ -137,6 +137,21 @@ test("the viewport exposes a persistent opt-out for single-move turn guides", ()
   assert.match(store, /params\.set\("guides", "off"\)/);
 });
 
+test("move hover previews the exact pre-move state with four degrees of displacement", () => {
+  assert.match(client, /activeTimeline\?\.states\?\.\[moveIndex\]/);
+  assert.match(client, /viewport\?\.setState\(before, viewportPalette\(\)\)/);
+  assert.match(client, /viewport\?\.setTurnPreview\(turnTransform\(before\.size, step\)\)/);
+  assert.match(viewport, /turnPreviewTransform/);
+  assert.match(viewport, /turnPreviewCamera/);
+  assert.match(viewport, /previewCamera = \{yaw, pitch\}/);
+  assert.match(viewport, /previewCameraYaw = previewCamera\.yaw\.toFixed\(6\)/);
+  assert.match(viewport, /smoothOrbitTo\(camera\.yaw, camera\.pitch, 180\)/);
+  assert.match(viewport, /autoOrbit && !previewActive/);
+  assert.match(viewport, /cameraYaw = yaw\.toFixed\(6\)/);
+  assert.match(viewport, /degrees = 4/);
+  assert.match(client, /previewFacelets = FaceletCodec\.render\(before\)/);
+});
+
 test("the viewport animates complete cubies with shader layer transforms", () => {
   assert.match(viewport, /attribute vec3 aCubie/);
   assert.match(viewport, /rotateAround/);
@@ -193,7 +208,7 @@ test("the tape groups sequences, focuses cubies, and spaces only Academy phases"
   assert.match(client, /Algorithm sequence purpose: \$\{description\}/);
   assert.match(client, /selectTutorialPiece\(before, after, phase\.number\)/);
   assert.match(client, /focusForPiece\(displayed, focusedPiece\)/);
-  assert.match(client, /activateTurnGuide\(button, entry\.step!, label\)/);
+  assert.match(client, /activateTurnGuide\(button, entry\.step!, label, index\)/);
   assert.match(client, /firstFocusPieceInPhase\(phase\)/);
   assert.doesNotMatch(client, /\.title = description/);
 });
