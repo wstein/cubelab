@@ -8,9 +8,10 @@ import {
   motionLabel,
   pieceColourLabel,
   projectPoint,
+  surfaceFacingScore,
   turnArcPoints,
   turnFaceNormal,
-  turnPerimeterPoints,
+  turnSurfaceArrowPaths,
 } from "../../src/client/motion-overlay";
 
 describe("projected motion overlay math", () => {
@@ -36,7 +37,7 @@ describe("projected motion overlay math", () => {
     )).toBe(true);
   });
 
-  test("builds a face-anchored directional turn ring", () => {
+  test("builds a face-plane directional turn arrow", () => {
     const step: MoveStep = {
       move: {TAG: "FaceTurn", _0: "R", _1: {from_: 1, to_: 1}},
       turns: 1,
@@ -44,24 +45,29 @@ describe("projected motion overlay math", () => {
     const transform = turnTransform(3, step)!;
     const points = turnArcPoints(transform, step);
     expect(points).toHaveLength(44);
-    expect(points.every(([x]) => Math.abs(x - 1.505) < 0.0001)).toBe(true);
+    expect(points.every(([x]) => Math.abs(x - 1.76) < 0.0001)).toBe(true);
     expect(points[0]).not.toEqual(points.at(-1));
     expect(motionLabel("R", step)).toBe("R · 90° CW");
     expect(motionLabel("R'", {...step, turns: -1})).toBe("R' · 90° CCW");
   });
 
-  test("locks opposite-face rings and chevrons to their own physical planes", () => {
+  test("locks opposite-face arrows to their guide planes and sticker surfaces", () => {
     const left: MoveStep = {
       move: {TAG: "FaceTurn", _0: "L", _1: {from_: 1, to_: 1}},
       turns: 2,
     };
     const transform = turnTransform(3, left)!;
     const ring = turnArcPoints(transform, left);
-    const perimeter = turnPerimeterPoints(transform, left);
+    const surfaceArrows = turnSurfaceArrowPaths(transform, left);
     expect(turnFaceNormal(left)).toEqual([-1, 0, 0]);
-    expect(ring.every(([x]) => Math.abs(x + 1.505) < 0.0001)).toBe(true);
-    expect(perimeter.every(([x]) => Math.abs(x + 1.505) < 0.0001)).toBe(true);
-    expect(perimeter).toHaveLength(41);
+    expect(ring.every(([x]) => Math.abs(x + 1.76) < 0.0001)).toBe(true);
+    expect(surfaceArrows).toHaveLength(4);
+    expect(surfaceArrows.every(({normal, points}) => points.every((point) =>
+      Math.abs(point[normal.findIndex((value) => value !== 0)] - 1.505 * normal.find((value) => value !== 0)!) < 0.0001
+    ))).toBe(true);
+    expect(Math.max(...surfaceArrows.map(({normal, points}) =>
+      surfaceFacingScore(normal, points[Math.floor(points.length / 2)], matrices.modelView)
+    ))).toBeGreaterThan(0);
   });
 
   test("names focused pieces using the active colour scheme", () => {

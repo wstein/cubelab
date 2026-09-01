@@ -3,7 +3,9 @@ import type {MoveStep, TurnTransform} from "./cube-gl";
 export type Vector3 = [number, number, number];
 export type ProjectedPoint = {x: number; y: number; depth: number; inFront: boolean};
 export type SurfaceAnchor = {point: Vector3; normal: Vector3; visible: boolean};
+export type TurnSurfaceArrowPath = {normal: Vector3; points: Vector3[]};
 const FACE_SURFACE = 1.505;
+const FACE_ARROW_PLANE = 1.76;
 
 const dot = (left: Vector3, right: Vector3): number =>
   left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
@@ -114,7 +116,7 @@ const turnPlane = (transform: TurnTransform, step: MoveStep) => {
   return {
     basisU,
     basisV,
-    centre: normal ? scale(normal, FACE_SURFACE) : [0, 0, 0] as Vector3,
+    centre: normal ? scale(normal, FACE_ARROW_PLANE) : [0, 0, 0] as Vector3,
   };
 };
 
@@ -125,11 +127,11 @@ export const turnArcPoints = (
 ): Vector3[] => {
   const {basisU, basisV, centre} = turnPlane(transform, step);
   const faceTurn = step.move.TAG === "FaceTurn";
-  const radius = faceTurn ? 1.12 : 1.72;
-  const direction = Math.sign(transform.angle) || 1;
-  const sweep = direction * Math.PI * 1.52;
-  const start = -Math.PI * 0.72;
-  return Array.from({length: Math.max(3, samples)}, (_, index) => {
+  const radius = faceTurn ? 1.16 : 1.72;
+  const halfTurn = Math.abs(step.turns) % 4 === 2;
+  const sweep = Math.PI * (halfTurn ? 1.28 : 0.82);
+  const start = -Math.PI / 2 - sweep / 2;
+  const points = Array.from({length: Math.max(3, samples)}, (_, index) => {
     const progress = index / (Math.max(3, samples) - 1);
     const angle = start + sweep * progress;
     return add(centre, add(
@@ -137,35 +139,51 @@ export const turnArcPoints = (
       scale(basisV, Math.sin(angle) * radius),
     ));
   });
+  return transform.angle < 0 ? points.reverse() : points;
 };
 
-export const turnPerimeterPoints = (
+export const surfaceFacingScore = (
+  normal: Vector3,
+  point: Vector3,
+  modelView: ArrayLike<number>,
+): number => {
+  const camera = transformPoint(modelView, point, 1);
+  const view = normalize([-camera[0], -camera[1], -camera[2]]);
+  const transformed = transformPoint(modelView, normal, 0);
+  return dot(normalize([transformed[0], transformed[1], transformed[2]]), view);
+};
+
+export const turnSurfaceArrowPaths = (
   transform: TurnTransform,
   step: MoveStep,
-  samplesPerEdge = 10,
-): Vector3[] => {
-  const {basisU, basisV, centre} = turnPlane(transform, step);
-  const radius = step.move.TAG === "FaceTurn" ? 1.32 : 1.72;
-  const corners: Array<[number, number]> = [
-    [-radius, -radius],
-    [radius, -radius],
-    [radius, radius],
-    [-radius, radius],
-    [-radius, -radius],
+  size = 3,
+  samples = 18,
+): TurnSurfaceArrowPath[] => {
+  const axis = normalize(transform.axis);
+  const cell = 3 / Math.max(2, size);
+  const outer = 1.5 - cell / 2;
+  const layerCentres = step.move.TAG === "FaceTurn"
+    ? Array.from({length: size}, (_, index) => outer - index * cell)
+      .filter((coordinate) => coordinate >= transform.min && coordinate <= transform.max)
+    : [0];
+  const normals: Vector3[] = [
+    [1, 0, 0], [-1, 0, 0],
+    [0, 1, 0], [0, -1, 0],
+    [0, 0, 1], [0, 0, -1],
   ];
-  if (transform.angle < 0) corners.reverse();
-  const count = Math.max(2, samplesPerEdge);
-  return corners.slice(0, -1).flatMap(([fromU, fromV], edge) => {
-    const [toU, toV] = corners[edge + 1];
-    return Array.from({length: count}, (_, index) => {
-      const progress = index / count;
-      const u = fromU + (toU - fromU) * progress;
-      const v = fromV + (toV - fromV) * progress;
-      return add(centre, add(scale(basisU, u), scale(basisV, v)));
+  const adjacent = normals.filter((normal) => Math.abs(dot(axis, normal)) < 0.1);
+  const count = Math.max(3, samples);
+  return adjacent.flatMap((normal) => {
+    const motion = scale(normalize(cross(axis, normal)), Math.sign(transform.angle || 1));
+    return layerCentres.map((layer) => {
+      const centre = add(scale(axis, layer), scale(normal, FACE_SURFACE));
+      const points = Array.from({length: count}, (_, index) => {
+        const progress = index / (count - 1);
+        return add(centre, scale(motion, (progress - 0.5) * 2.18));
+      });
+      return {normal, points};
     });
-  }).concat([
-    add(centre, add(scale(basisU, corners.at(-1)![0]), scale(basisV, corners.at(-1)![1]))),
-  ]);
+  });
 };
 
 export const motionLabel = (notation: string, step: MoveStep): string => {

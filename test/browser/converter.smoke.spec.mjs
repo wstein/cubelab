@@ -17,8 +17,8 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-webgl", "ready");
   const autoOrbit = page.locator("[data-auto-orbit]");
   const turnGuides = page.locator("[data-turn-guides]");
-  const faceRing = page.getByRole("button", {name: "Face ring"});
-  const edgeChevrons = page.getByRole("button", {name: "Edge chevrons"});
+  const faceRing = page.getByRole("button", {name: "Face arrow", exact: true});
+  const edgeChevrons = page.getByRole("button", {name: "Surface arrows", exact: true});
   await expect(turnGuides).toHaveAttribute("aria-pressed", "true");
   await expect(faceRing).toHaveAttribute("aria-pressed", "true");
   await edgeChevrons.click();
@@ -504,7 +504,7 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(firstMove).toHaveClass(/turn-guided/);
   await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-turn-guide", /.+/);
   await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-turn-guide-style", "ring");
-  await page.getByRole("button", {name: "Edge chevrons"}).click();
+  await page.getByRole("button", {name: "Surface arrows", exact: true}).click();
   await firstMove.hover();
   await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-turn-guide-style", "chevrons");
   await expect(canvas).toHaveAttribute("data-turn-preview-degrees", "4");
