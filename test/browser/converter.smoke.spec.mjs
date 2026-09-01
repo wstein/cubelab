@@ -372,6 +372,7 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await firstTimelineGroup.hover();
   await expect(firstTimelineGroup).toHaveClass(/focused/);
   await expect(canvas).toHaveAttribute("data-focus-piece", /.+/);
+  await expect(canvas).toHaveAttribute("data-focus-highlight", "edges");
   await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-motion-visible", "true");
   const firstMove = firstTimelineGroup.locator(".move-token").first();
   const exactBeforeMove = await page.locator('[data-output="facelets"]').textContent();

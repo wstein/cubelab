@@ -155,17 +155,18 @@ const fragmentShaderSource = `
 
     float fresnel = pow(1.0 - max(dot(normal, view), 0.0), 2.2);
     float pulse = 0.82 + 0.18 * sin(uFocusTime * 4.0);
-    vec3 sourceAura = vec3(0.18, 0.92, 1.0) * (0.22 + 0.48 * fresnel) * pulse;
-    colour = min(colour + sourceAura * vSourceFocus, vec3(1.0));
-
-    vec3 targetGhost = vec3(1.0, 0.55, 0.18);
-    colour = mix(colour, targetGhost, vTargetFocus * (0.30 + 0.28 * fresnel));
+    float focusEdge = smoothstep(0.08, 0.55, fresnel);
+    vec3 sourceEdge = vec3(0.18, 0.92, 1.0) * focusEdge * pulse;
+    vec3 targetEdge = vec3(1.0, 0.55, 0.18) * focusEdge;
+    colour = min(
+      colour + sourceEdge * vSourceFocus + targetEdge * vTargetFocus,
+      vec3(1.0)
+    );
     float sameSlot = vSourceFocus * vTargetFocus;
-    colour = mix(colour, vec3(0.40, 1.0, 0.58), sameSlot * 0.48);
+    colour = min(colour + vec3(0.40, 1.0, 0.58) * focusEdge * sameSlot, vec3(1.0));
     vec3 milestoneGlow = vec3(0.20, 1.0, 0.55) * (0.18 + 0.42 * fresnel) * pulse;
     colour = min(colour + milestoneGlow * vMilestoneFocus, vec3(1.0));
-    float ghostAlpha = mix(vColour.a, 0.68, vTargetFocus * (1.0 - vSourceFocus));
-    gl_FragColor = vec4(colour, ghostAlpha);
+    gl_FragColor = vec4(colour, vColour.a);
   }
 `;
 
@@ -1017,10 +1018,12 @@ export const createCubeViewport = (
     setFocus(nextFocus) {
       focus = nextFocus;
       if (nextFocus) {
+        canvas.dataset.focusHighlight = "edges";
         canvas.dataset.focusPiece = nextFocus.piece;
         canvas.dataset.focusSource = nextFocus.source.join(",");
         canvas.dataset.focusTarget = nextFocus.target.join(",");
       } else {
+        delete canvas.dataset.focusHighlight;
         delete canvas.dataset.focusPiece;
         delete canvas.dataset.focusSource;
         delete canvas.dataset.focusTarget;

@@ -101,7 +101,8 @@ clusters, including a distinct cluster for every repetition. In Beginner Academy
 hovering or focusing a cluster highlights its complete token group and derives the
 phase-relevant physical edge or corner from its before/after states. A projected Canvas2D
 HUD draws a moving dashed trajectory between camera-selected sticker-surface anchors;
-the WebGL shader adds a cyan source aura and amber target ghost. Hovering an individual
+the WebGL shader adds cyan source and amber target accents only along the cubie rims, so
+the original sticker colours remain readable. Hovering an individual
 move also projects a direction-correct layer-turn ring and canonical angle label. Active
 pieces and the currently turning layer remain at full material brightness; unrelated
 layers receive only a soft saturation and brightness reduction. Hidden destinations dim

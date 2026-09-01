@@ -167,6 +167,10 @@ test("the viewport exposes state-driven source and destination focus", () => {
   assert.match(viewport, /vTargetFocus/);
   assert.match(viewport, /setFocus\(nextFocus\)/);
   assert.match(viewport, /sin\(uFocusTime \* 4\.0\)/);
+  assert.match(viewport, /focusEdge = smoothstep/);
+  assert.match(viewport, /focusHighlight = "edges"/);
+  assert.doesNotMatch(viewport, /targetGhost/);
+  assert.doesNotMatch(viewport, /ghostAlpha/);
 });
 
 test("the viewport layers a projected motion HUD over the persistent WebGL canvas", () => {
