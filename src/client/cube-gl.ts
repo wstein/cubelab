@@ -651,17 +651,37 @@ export const createCubeViewport = (
         labelX = control.x;
         labelY = control.y - 18 * dpr;
       }
-      overlay.setLineDash([]);
-      drawArrowhead(overlay, arrowFrom, arrowTo, 11 * dpr, "#fb923c");
-      overlay.beginPath();
-      overlay.arc(source.x, source.y, 6 * dpr, 0, Math.PI * 2);
-      overlay.fillStyle = "#67e8f9";
-      overlay.fill();
-      overlay.beginPath();
-      overlay.arc(target.x, target.y, 9 * dpr, 0, Math.PI * 2);
-      overlay.strokeStyle = "#fb923c";
-      overlay.lineWidth = 2 * dpr;
+      overlay.setLineDash([8 * dpr, 6 * dpr]);
+      overlay.lineDashOffset = -(now * 0.03 * dpr);
+      overlay.strokeStyle = "#38bdf8";
+      overlay.lineWidth = 3.2 * dpr;
+      overlay.shadowColor = "rgba(56, 189, 248, 0.6)";
+      overlay.shadowBlur = 8 * dpr;
       overlay.stroke();
+      overlay.setLineDash([]);
+
+      // Bold IKEA-style triangular arrowhead
+      drawArrowhead(overlay, arrowFrom, arrowTo, 14 * dpr, "#38bdf8");
+
+      // Origin anchor: solid luminous circle with dark border
+      overlay.beginPath();
+      overlay.arc(source.x, source.y, 7 * dpr, 0, Math.PI * 2);
+      overlay.fillStyle = "#38bdf8";
+      overlay.fill();
+      overlay.strokeStyle = "rgba(3, 8, 18, 0.9)";
+      overlay.lineWidth = 1.5 * dpr;
+      overlay.stroke();
+
+      // Destination landing pad: concentric target ring showing slot
+      overlay.beginPath();
+      overlay.arc(target.x, target.y, 11 * dpr, 0, Math.PI * 2);
+      overlay.strokeStyle = "#fb923c";
+      overlay.lineWidth = 2.5 * dpr;
+      overlay.stroke();
+      overlay.beginPath();
+      overlay.arc(target.x, target.y, 4 * dpr, 0, Math.PI * 2);
+      overlay.fillStyle = "#fb923c";
+      overlay.fill();
       overlay.restore();
       const drawOutline = (position: [number, number, number], colour: string) => {
         const outline = cubieFaceOutline(position, matrices.modelView, state?.size ?? 3)
