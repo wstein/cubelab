@@ -615,8 +615,20 @@ if (root) {
         case "mirror-lr":
           commitTransformedAlgorithm(MoveTransform.serialize(MoveTransform.mirror(alg, "LR")));
           break;
+        case "mirror-fb":
+          commitTransformedAlgorithm(MoveTransform.serialize(MoveTransform.mirror(alg, "FB")));
+          break;
+        case "mirror-ud":
+          commitTransformedAlgorithm(MoveTransform.serialize(MoveTransform.mirror(alg, "UD")));
+          break;
+        case "rotate-x":
+          commitTransformedAlgorithm(MoveTransform.serialize(MoveTransform.rotate(alg, "X", 1)));
+          break;
         case "rotate-y":
           commitTransformedAlgorithm(MoveTransform.serialize(MoveTransform.rotate(alg, "Y", 1)));
+          break;
+        case "rotate-z":
+          commitTransformedAlgorithm(MoveTransform.serialize(MoveTransform.rotate(alg, "Z", 1)));
           break;
       }
     });

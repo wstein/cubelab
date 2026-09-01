@@ -235,9 +235,25 @@ test("applies algorithm workbench actions and generates size-aware practice scra
   await page.getByRole("button", {name: "Mirror L/R"}).click();
   await expect(input).toHaveValue("L' U' L");
 
+  await input.fill("F U F'");
+  await page.getByRole("button", {name: "Mirror F/B"}).click();
+  await expect(input).toHaveValue("B' U' B");
+
+  await input.fill("U R U'");
+  await page.getByRole("button", {name: "Mirror U/D"}).click();
+  await expect(input).toHaveValue("D' R' D");
+
+  await input.fill("U F U'");
+  await page.getByRole("button", {name: "Rotate x"}).click();
+  await expect(input).toHaveValue("B U B'");
+
   await input.fill("R U R'");
   await page.getByRole("button", {name: "Rotate y"}).click();
   await expect(input).toHaveValue("F U F'");
+
+  await input.fill("U R U'");
+  await page.getByRole("button", {name: "Rotate z"}).click();
+  await expect(input).toHaveValue("R D R'");
 
   await input.fill("AAAAAAAAAAAA");
   await expect(invert).toBeDisabled();

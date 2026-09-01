@@ -59,7 +59,11 @@ test("the web UI exposes pure algorithm transforms and a clearly labeled practic
   assert.match(page, /data-alg-transform="invert"/);
   assert.match(page, /data-alg-transform="simplify"/);
   assert.match(page, /data-alg-transform="mirror-lr"/);
+  assert.match(page, /data-alg-transform="mirror-fb"/);
+  assert.match(page, /data-alg-transform="mirror-ud"/);
+  assert.match(page, /data-alg-transform="rotate-x"/);
   assert.match(page, /data-alg-transform="rotate-y"/);
+  assert.match(page, /data-alg-transform="rotate-z"/);
   assert.match(page, /data-practice-scramble/);
   assert.match(page, /not official WCA/);
   assert.match(client, /MoveTransform\.invert/);

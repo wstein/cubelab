@@ -76,8 +76,9 @@ the interface. It must not be used to prepare official competition scrambles.
 
 ## Browser integration
 
-The action ribbon below the input exposes **Invert**, **Simplify**, **Mirror L/R**,
-**Rotate y**, and **Practice scramble**. Algebraic actions are enabled only when the
+The action ribbon below the input exposes **Invert**, **Simplify**, all three mirror
+planes (**L/R**, **F/B**, and **U/D**), all three coordinate rotations (**x**, **y**, and
+**z**), and **Practice scramble**. Algebraic actions are enabled only when the
 current input is a recognized algorithm; state codecs cannot accidentally be rewritten
 as moves. Each click reparses the current textarea synchronously, applies the pure
 transform, serializes the result, and switches to modern explicit notation before the
