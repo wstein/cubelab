@@ -3,6 +3,11 @@ import * as CubeGeometry from "../Render/CubeGeometry.res.mjs";
 export type CubeStyle = "Standard" | "Speed";
 export type CubePalette = "Western" | "Japanese";
 export type CubeState = {size: number; facelets: string[][]};
+export type CubieFocus = {
+  piece: string;
+  source: [number, number, number];
+  target: [number, number, number];
+};
 
 type GeometryMesh = {data: number[]; vertexCount: number; stride: number};
 type GeometryResult = {TAG: "Ok"; _0: GeometryMesh} | {TAG: "Error"; _0: string};
@@ -45,10 +50,15 @@ const vertexShaderSource = `
   uniform vec3 uTurnAxis;
   uniform vec2 uTurnRange;
   uniform float uTurnAngle;
+  uniform float uFocusActive;
+  uniform vec3 uFocusSource;
+  uniform vec3 uFocusTarget;
   varying vec3 vPosition;
   varying vec3 vNormal;
   varying vec4 vColour;
   varying float vSheen;
+  varying float vSourceFocus;
+  varying float vTargetFocus;
 
   vec3 rotateAround(vec3 value, vec3 axis, float angle) {
     float cosine = cos(angle);
@@ -67,6 +77,8 @@ const vertexShaderSource = `
     vNormal = normalize(mat3(uModelView) * objectNormal);
     vColour = aColour;
     vSheen = aSheen;
+    vSourceFocus = uFocusActive * (1.0 - step(0.01, distance(aCubie, uFocusSource)));
+    vTargetFocus = uFocusActive * (1.0 - step(0.01, distance(aCubie, uFocusTarget)));
     gl_Position = uProjection * position;
   }
 `;
@@ -77,7 +89,11 @@ const fragmentShaderSource = `
   varying vec3 vNormal;
   varying vec4 vColour;
   varying float vSheen;
+  varying float vSourceFocus;
+  varying float vTargetFocus;
   uniform float uSpeedStyle;
+  uniform float uFocusActive;
+  uniform float uFocusTime;
 
   void main() {
     vec3 normal = normalize(vNormal);
@@ -96,7 +112,22 @@ const fragmentShaderSource = `
     float specular = strength * pow(max(dot(normal, halfway), 0.0), shine);
     vec3 rolledSheen = vColour.rgb * vSheen * (0.45 + 0.55 * rimDiffuse);
     vec3 colour = min(vColour.rgb * light + rolledSheen + vec3(specular), vec3(1.0));
-    gl_FragColor = vec4(colour, vColour.a);
+    float selected = max(vSourceFocus, vTargetFocus);
+    float luminance = dot(colour, vec3(0.299, 0.587, 0.114));
+    vec3 muted = mix(colour, vec3(luminance), 0.72) * 0.58;
+    colour = mix(colour, muted, uFocusActive * (1.0 - selected));
+
+    float fresnel = pow(1.0 - max(dot(normal, view), 0.0), 2.2);
+    float pulse = 0.82 + 0.18 * sin(uFocusTime * 4.0);
+    vec3 sourceAura = vec3(0.18, 0.92, 1.0) * (0.22 + 0.48 * fresnel) * pulse;
+    colour = min(colour + sourceAura * vSourceFocus, vec3(1.0));
+
+    vec3 targetGhost = vec3(1.0, 0.55, 0.18);
+    colour = mix(colour, targetGhost, vTargetFocus * (0.30 + 0.28 * fresnel));
+    float sameSlot = vSourceFocus * vTargetFocus;
+    colour = mix(colour, vec3(0.40, 1.0, 0.58), sameSlot * 0.48);
+    float ghostAlpha = mix(vColour.a, 0.68, vTargetFocus * (1.0 - vSourceFocus));
+    gl_FragColor = vec4(colour, ghostAlpha);
   }
 `;
 
@@ -262,6 +293,7 @@ export type CubeViewport = {
   setStyle: (style: CubeStyle) => void;
   animateTurn: (turn: TurnTransform, duration?: number) => Promise<void>;
   cancelTurn: () => void;
+  setFocus: (focus: CubieFocus | null) => void;
   setAutoOrbit: (enabled: boolean) => void;
   resetCamera: () => void;
   dispose: () => void;
@@ -312,6 +344,10 @@ export const createCubeViewport = (
   const turnAxis = gl.getUniformLocation(program, "uTurnAxis");
   const turnRange = gl.getUniformLocation(program, "uTurnRange");
   const turnAngle = gl.getUniformLocation(program, "uTurnAngle");
+  const focusActive = gl.getUniformLocation(program, "uFocusActive");
+  const focusSource = gl.getUniformLocation(program, "uFocusSource");
+  const focusTarget = gl.getUniformLocation(program, "uFocusTarget");
+  const focusTime = gl.getUniformLocation(program, "uFocusTime");
 
   let state: CubeState | null = null;
   let palette: CubePalette = "Western";
@@ -328,6 +364,7 @@ export const createCubeViewport = (
   let previousY = 0;
   let disposed = false;
   let activeTurn: TurnTransform | null = null;
+  let focus: CubieFocus | null = null;
   let turnFrame: number | null = null;
   let turnGeneration = 0;
   let autoOrbit = false;
@@ -349,6 +386,8 @@ export const createCubeViewport = (
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.cullFace(gl.BACK);
     gl.useProgram(program);
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -371,8 +410,13 @@ export const createCubeViewport = (
     gl.uniform3fv(turnAxis, activeTurn?.axis ?? [1, 0, 0]);
     gl.uniform2f(turnRange, activeTurn?.min ?? 0, activeTurn?.max ?? 0);
     gl.uniform1f(turnAngle, activeTurn?.angle ?? 0);
+    gl.uniform1f(focusActive, focus ? 1 : 0);
+    gl.uniform3fv(focusSource, focus?.source ?? [0, 0, 0]);
+    gl.uniform3fv(focusTarget, focus?.target ?? [0, 0, 0]);
+    gl.uniform1f(focusTime, performance.now() * 0.001);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
     canvas.dataset.webgl = "ready";
+    if (focus) requestRender();
   };
 
   const requestRender = () => {
@@ -599,6 +643,19 @@ export const createCubeViewport = (
     },
     animateTurn,
     cancelTurn,
+    setFocus(nextFocus) {
+      focus = nextFocus;
+      if (nextFocus) {
+        canvas.dataset.focusPiece = nextFocus.piece;
+        canvas.dataset.focusSource = nextFocus.source.join(",");
+        canvas.dataset.focusTarget = nextFocus.target.join(",");
+      } else {
+        delete canvas.dataset.focusPiece;
+        delete canvas.dataset.focusSource;
+        delete canvas.dataset.focusTarget;
+      }
+      requestRender();
+    },
     setAutoOrbit(enabled) {
       if (autoOrbit === enabled) return;
       autoOrbit = enabled;

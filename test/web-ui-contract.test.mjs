@@ -136,6 +136,15 @@ test("the viewport animates complete cubies with shader layer transforms", () =>
   assert.match(viewport, /1 - \(1 - progress\) \*\* 3/);
 });
 
+test("the viewport exposes state-driven source and destination focus", () => {
+  assert.match(viewport, /uniform vec3 uFocusSource/);
+  assert.match(viewport, /uniform vec3 uFocusTarget/);
+  assert.match(viewport, /vSourceFocus/);
+  assert.match(viewport, /vTargetFocus/);
+  assert.match(viewport, /setFocus\(nextFocus\)/);
+  assert.match(viewport, /sin\(uFocusTime \* 4\.0\)/);
+});
+
 test("the viewport exposes bounded tape controls for exact algorithm states", () => {
   assert.match(viewportComponent, /data-playback-toggle/);
   assert.match(viewportComponent, /data-playback-scrubber/);
