@@ -271,6 +271,23 @@ const completedRotations = (
   return rotations;
 };
 
+/** Project a logical x/y/z regrip onto the gyro's fixed physical frame. */
+export const smartCubeRotationInPhysicalFrame = (
+  steps: TimelineEntry[],
+  labels: string[],
+  current: number,
+  axis: RotationStep["axis"],
+  turns: number,
+): RotationStep => {
+  const logicalFace = axis === "X" ? "R" : axis === "Y" ? "U" : "F";
+  const physicalFace = physicalFaceInFixedFrame(
+    logicalFace,
+    completedRotations(steps, labels, current),
+  );
+  const physicalAxis = faceAxis(physicalFace);
+  return {axis: physicalAxis.axis, turns: turns * physicalAxis.turns};
+};
+
 /** Translate a fixed hardware-face packet into the rotation-aware lesson frame. */
 export const smartCubeMoveInLessonFrame = (
   steps: TimelineEntry[],

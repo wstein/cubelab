@@ -16,6 +16,7 @@ import {
   multiplyQuaternions,
   orientationInViewportFrame,
   relativeQuaternion,
+  smoothTrackedOrientation,
   vboCapacityFloats,
 } from "../../src/client/cube-gl";
 import {cubieIsFrontFacing} from "../../src/client/motion-overlay";
@@ -160,6 +161,23 @@ describe("cube viewport math", () => {
     expect(roll[4]).toBeCloseTo(-1);
     expect(roll[5]).toBeCloseTo(0);
     expect([...roll].every(Number.isFinite)).toBe(true);
+  });
+
+  test("locks GoCube jitter and softens deliberate live orientation movement", () => {
+    const identity = {x: 0, y: 0, z: 0, w: 1};
+    const tiny = Math.PI / 360;
+    expect(smoothTrackedOrientation(identity, {
+      x: 0,
+      y: Math.sin(tiny / 2),
+      z: 0,
+      w: Math.cos(tiny / 2),
+    })).toEqual(identity);
+
+    const half = Math.sqrt(0.5);
+    const softened = smoothTrackedOrientation(identity, {x: 0, y: half, z: 0, w: half});
+    expect(softened.y).toBeGreaterThan(0);
+    expect(softened.y).toBeLessThan(half);
+    expect(Math.hypot(softened.x, softened.y, softened.z, softened.w)).toBeCloseTo(1);
   });
 
   test("keeps GoCube sensor y and z on distinct viewport axes", () => {

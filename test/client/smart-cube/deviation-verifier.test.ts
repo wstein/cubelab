@@ -6,6 +6,7 @@ import {
   inverseSmartCubeMove,
   normalizeSmartCubeMoves,
   quarterTurnsCancel,
+  smartCubeRecoveryMatchesExpected,
   smartCubeRecoveryPrompt,
 } from "../../../src/client/smart-cube/deviation-verifier";
 
@@ -65,5 +66,15 @@ describe("smart cube deviation recovery", () => {
     });
     if (half.status !== "extended") return;
     expect(assessSmartCubeRecovery(half.state, "D2").status).toBe("realigned");
+  });
+
+  test("removes a redundant undo plus replay when the slip already equals the expected move", () => {
+    const expectedPrime = {timelineIndex: 4, token: "F'"};
+    const alreadyCompleted = beginSmartCubeRecovery(expectedPrime, "F'")!;
+    expect(smartCubeRecoveryMatchesExpected(alreadyCompleted)).toBe(true);
+    expect(normalizeSmartCubeMoves([
+      ...alreadyCompleted.undoMoves,
+      expectedPrime.token,
+    ])).toEqual([]);
   });
 });

@@ -383,6 +383,34 @@ const normalizedQuaternion = (quaternion: OrientationQuaternion): OrientationQua
   };
 };
 
+/** Locks sub-threshold IMU jitter and softens larger moves along the shortest quaternion path. */
+export const smoothTrackedOrientation = (
+  previous: OrientationQuaternion,
+  sample: OrientationQuaternion,
+  deadZoneRadians = 2 * Math.PI / 180,
+  responsiveness = 0.32,
+): OrientationQuaternion => {
+  const from = normalizedQuaternion(previous);
+  const rawTo = normalizedQuaternion(sample);
+  const dot = from.x * rawTo.x + from.y * rawTo.y + from.z * rawTo.z + from.w * rawTo.w;
+  const sign = dot < 0 ? -1 : 1;
+  const aligned = {
+    x: rawTo.x * sign,
+    y: rawTo.y * sign,
+    z: rawTo.z * sign,
+    w: rawTo.w * sign,
+  };
+  const angularDistance = 2 * Math.acos(Math.min(1, Math.abs(dot)));
+  if (angularDistance <= deadZoneRadians) return from;
+  const amount = Math.max(0, Math.min(1, responsiveness));
+  return normalizedQuaternion({
+    x: from.x + (aligned.x - from.x) * amount,
+    y: from.y + (aligned.y - from.y) * amount,
+    z: from.z + (aligned.z - from.z) * amount,
+    w: from.w + (aligned.w - from.w) * amount,
+  });
+};
+
 export const multiplyQuaternions = (
   left: OrientationQuaternion,
   right: OrientationQuaternion,
@@ -1347,10 +1375,15 @@ export const createCubeViewport = (
         return;
       }
       const normalized = normalizedQuaternion(orientation);
-      if (deviceOrientationFrame !== coordinateFrame) deviceOrientationBase = null;
+      if (deviceOrientationFrame !== coordinateFrame) {
+        deviceOrientationBase = null;
+        deviceOrientation = null;
+      }
       deviceOrientationFrame = coordinateFrame;
       if (!deviceOrientationBase) deviceOrientationBase = normalized;
-      deviceOrientation = normalized;
+      deviceOrientation = deviceOrientation
+        ? smoothTrackedOrientation(deviceOrientation, normalized)
+        : normalized;
       cancelCamera();
       stopInertia();
       stopAutoOrbitFrame();

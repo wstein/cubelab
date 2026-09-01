@@ -430,7 +430,7 @@ test("uses GoCube orientation as an x/y/z checkpoint without live-tracking solve
     });
   });
 
-  await page.goto("/#size=3&alg=x+R");
+  await page.goto("/#size=3&alg=x+y+R");
   await page.locator("[data-smart-cube-connect]").click();
   await page.locator("[data-smart-cube-orientation]").click();
   await page.evaluate(() => window.__emitSmartCubeEvent({
@@ -454,10 +454,22 @@ test("uses GoCube orientation as an x/y/z checkpoint without live-tracking solve
     coordinateFrame: "gocube-wire",
     timestamp: Date.now(),
   }), {x: -half, y: 0, z: 0, w: half});
-  await expect(page.locator("[data-playback-position]")).toHaveText("Move 1 of 2");
-  await expect(page.locator("[data-smart-cube-status]")).toContainText("Waiting for R");
+  await expect(page.locator("[data-playback-position]")).toHaveText("Move 1 of 3");
+  await expect(page.locator("[data-smart-cube-status]")).toContainText("Waiting for y regrip");
   await expect(canvas).not.toHaveAttribute("data-device-orientation", "tracking");
   await expect(page.locator('[data-output="facelets"]')).toHaveText(algorithmFacelets("x"));
+
+  // After x, logical Y lies on the gyro's fixed physical Z axis.
+  await page.evaluate((q) => window.__emitSmartCubeEvent({
+    type: "orientation",
+    quaternion: q,
+    coordinateFrame: "gocube-wire",
+    timestamp: Date.now(),
+  }), {x: -0.5, y: 0.5, z: -0.5, w: 0.5});
+  await expect(page.locator("[data-playback-position]")).toHaveText("Move 2 of 3");
+  await expect(page.locator("[data-smart-cube-status]")).toContainText("Waiting for");
+  await expect(canvas).not.toHaveAttribute("data-device-orientation", "tracking");
+  await expect(page.locator('[data-output="facelets"]')).toHaveText(algorithmFacelets("x y"));
 });
 
 test("plays, steps, and seeks an expanded algorithm timeline", async ({page}) => {

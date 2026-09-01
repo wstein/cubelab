@@ -64,6 +64,7 @@ import {
   nextExpectedSmartCubeMove,
   nextSmartCubeProgressMoves,
   smartCubeMoveInLessonFrame,
+  smartCubeRotationInPhysicalFrame,
   type ExpectedSmartCubeAction,
   type SmartCubeHalfTurnProgress,
   type SmartCubeMoveAssessment,
@@ -78,6 +79,7 @@ import {
   assessSmartCubeRecovery,
   beginSmartCubeRecovery,
   quarterTurnsCancel,
+  smartCubeRecoveryMatchesExpected,
   smartCubeRecoveryPrompt,
   type SmartCubeRecoveryState,
 } from "./smart-cube/deviation-verifier";
@@ -1726,6 +1728,15 @@ if (root) {
     }
 
     smartCubeRecovery = beginSmartCubeRecovery(assessment.expected, assessment.received);
+    if (smartCubeRecovery && smartCubeRecoveryMatchesExpected(smartCubeRecovery)) {
+      const expected = smartCubeRecovery.expected;
+      clearSmartCubeRecovery();
+      setSmartCubeTimelineIndex(expected.timelineIndex + 1);
+      signalSmartCubeFeedback("correct");
+      smartCubeStatus.textContent = `${smartCubeDeviceName} · ${expected.token} completed`;
+      coachStatus.textContent = `${expected.token} reached directly; redundant undo and replay removed.`;
+      return;
+    }
     signalSmartCubeFeedback("deviation");
     if (smartCubeRecovery) {
       const undo = smartCubeRecovery.undoMoves[0];
@@ -1759,6 +1770,15 @@ if (root) {
     }
 
     smartCubeRecovery = assessment.state;
+    if (smartCubeRecoveryMatchesExpected(assessment.state)) {
+      const expected = assessment.state.expected;
+      clearSmartCubeRecovery();
+      setSmartCubeTimelineIndex(expected.timelineIndex + 1);
+      signalSmartCubeFeedback("correct");
+      smartCubeStatus.textContent = `${smartCubeDeviceName} · ${expected.token} completed`;
+      coachStatus.textContent = `${expected.token} reached directly; redundant undo and replay removed.`;
+      return true;
+    }
     if (assessment.status === "extended") {
       recordSmartCubeMistake(assessment.state.expected.token, assessment.received);
       signalSmartCubeFeedback("deviation");
@@ -1995,12 +2015,19 @@ if (root) {
     if (pending.baseline.coordinateFrame !== event.coordinateFrame) return;
     const step = activeTimeline.steps[pending.action.timelineIndex]?.step;
     if (!step || step.move.TAG !== "Rotation") return;
+    const physicalRotation = smartCubeRotationInPhysicalFrame(
+      activeTimeline.steps,
+      activeTimeline.labels,
+      pending.action.timelineIndex,
+      step.move._0,
+      step.turns,
+    );
     const assessment = assessGyroRotation(
       pending.baseline.quaternion,
       event.quaternion,
       event.coordinateFrame,
-      step.move._0,
-      step.turns,
+      physicalRotation.axis,
+      physicalRotation.turns,
     );
     if (!assessment.matched) {
       if (assessment.partial && pending.partialTurn === 0) {

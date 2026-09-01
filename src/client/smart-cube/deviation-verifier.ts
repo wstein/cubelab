@@ -60,6 +60,13 @@ export const normalizeSmartCubeMoves = (tokens: string[]): string[] => {
   return result.map(({face, turns}) => renderedFaceTurn(face, turns));
 };
 
+/** True when the current net slip has already executed the pending lesson move. */
+export const smartCubeRecoveryMatchesExpected = (state: SmartCubeRecoveryState): boolean => {
+  const expected = normalizeSmartCubeMoves([state.expected.token]);
+  return expected.length === state.deviations.length
+    && expected.every((move, index) => move === state.deviations[index]);
+};
+
 const undoSequence = (deviations: string[]): string[] =>
   [...deviations].reverse().map((move) => inverseSmartCubeMove(move)!).filter(Boolean);
 

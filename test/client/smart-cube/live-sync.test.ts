@@ -13,6 +13,7 @@ import {
   nextExpectedSmartCubeAction,
   nextExpectedSmartCubeMove,
   smartCubeMoveInLessonFrame,
+  smartCubeRotationInPhysicalFrame,
 } from "../../../src/client/smart-cube/live-sync";
 
 const face = (name: "R" | "U" | "F" | "B") => ({
@@ -225,6 +226,18 @@ describe("smart cube live synchronization", () => {
     }];
     expect(assessSequence(inner, ["2R"], ["R'", "L"])?.status).toBe("matched");
     expect(assessSequence(inner, ["2R"], ["L", "R'"])?.status).toBe("matched");
+  });
+
+  test("projects gyro rotation axes through earlier regrips", () => {
+    const rotations = [
+      {step: {move: {TAG: "Rotation" as const, _0: "X" as const}, turns: 1}},
+      {step: {move: {TAG: "Rotation" as const, _0: "Y" as const}, turns: 1}},
+      {step: {move: {TAG: "Rotation" as const, _0: "Z" as const}, turns: -1}},
+    ];
+    expect(smartCubeRotationInPhysicalFrame(rotations, ["x", "y", "z'"], 0, "X", 1))
+      .toEqual({axis: "X", turns: 1});
+    expect(smartCubeRotationInPhysicalFrame(rotations, ["x", "y", "z'"], 1, "Y", 1))
+      .toEqual({axis: "Z", turns: 1});
   });
 
   test("records normalized moves without joining line comments", () => {
