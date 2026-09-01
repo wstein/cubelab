@@ -116,11 +116,11 @@ and focused source/target positions, showing the involved cubies together. Leavi
 token restores both the player's current canonical state and the user's prior camera;
 text codecs never change during this non-destructive preview.
 
-The **Turn guides** viewport toggle controls the single-move ring, its angle/direction
-badge, the 4° layer displacement, and the temporary camera reframe. It is enabled by
-default; opting out clears an active preview immediately and suppresses later token-hover
-previews without disabling source/target trajectories, piece highlighting, milestone
-pulses, or coached phase previews. The setting is shareable URL state (`guides=off`).
+The **Turn guides** viewport toggle controls only the circular single-move arrow and its
+angle/direction badge. It is enabled by default; opting out removes an active arrow and
+suppresses later arrows without disabling the exact pre-move state, 4° layer cue, camera
+reframe, source/target trajectory, piece highlighting, milestone pulses, or coached phase
+previews. The setting is shareable URL state (`guides=off`).
 
 Academy playback defaults to **Coached** mode. At a phase boundary it uses the existing
 state-neutral pause as a three-part transition: a 350 ms emerald pulse over the verified

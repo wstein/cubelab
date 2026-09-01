@@ -342,6 +342,7 @@ if (root) {
   let focusedGroup: HTMLElement | null = null;
   let focusedPiece: string | null = null;
   let guidedToken: HTMLElement | null = null;
+  let activeTurnGuide: {step: MoveStep; label: string} | null = null;
   let previewedMoveIndex: number | null = null;
 
   const viewportPalette = (): CubePalette =>
@@ -374,6 +375,7 @@ if (root) {
   const clearTurnGuide = () => {
     guidedToken?.classList.remove("turn-guided");
     guidedToken = null;
+    activeTurnGuide = null;
     viewport?.setTurnGuide(null);
     delete canvas.dataset.previewMoveIndex;
     delete canvas.dataset.previewFacelets;
@@ -394,12 +396,9 @@ if (root) {
     label: string,
     moveIndex: number,
   ) => {
-    if (!turnGuides) {
-      clearTurnGuide();
-      return;
-    }
     guidedToken?.classList.remove("turn-guided");
     guidedToken = token;
+    activeTurnGuide = {step, label};
     token.classList.add("turn-guided");
     const before = activeTimeline?.states?.[moveIndex];
     if (before) {
@@ -410,7 +409,7 @@ if (root) {
       canvas.dataset.previewMoveIndex = String(moveIndex);
       canvas.dataset.previewFacelets = FaceletCodec.render(before);
     }
-    viewport?.setTurnGuide({step, label});
+    viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
   };
 
   const firstFocusPieceInPhase = (phase: TutorialPhaseRange): string | null => {
@@ -921,7 +920,9 @@ if (root) {
     });
     turnGuidesButton.classList.toggle("active", turnGuides);
     turnGuidesButton.setAttribute("aria-pressed", String(turnGuides));
-    if (turnGuidesChanged && !turnGuides) clearTurnGuide();
+    if (turnGuidesChanged) {
+      viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
+    }
     root.querySelectorAll<HTMLButtonElement>("[data-workspace-tab]").forEach((button) => {
       const active = button.dataset.workspaceTab === activeTab;
       button.classList.toggle("active", active);

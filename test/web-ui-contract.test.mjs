@@ -132,9 +132,10 @@ test("the viewport exposes a visibility-aware auto-orbit toggle", () => {
 test("the viewport exposes a persistent opt-out for single-move turn guides", () => {
   assert.match(viewportComponent, /data-turn-guides/);
   assert.match(client, /store\.patch\(\{turnGuides: !turnGuides\}\)/);
-  assert.match(client, /if \(!turnGuides\)/);
   assert.match(store, /params\.get\("guides"\) !== "off"/);
   assert.match(store, /params\.set\("guides", "off"\)/);
+  assert.match(client, /setTurnGuide\(turnGuides \? activeTurnGuide : null\)/);
+  assert.doesNotMatch(client, /turnGuidesChanged && !turnGuides\) clearTurnGuide/);
 });
 
 test("move hover previews the exact pre-move state with four degrees of displacement", () => {
