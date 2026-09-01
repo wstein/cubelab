@@ -29,6 +29,10 @@ converted outputs; leaving hover restores the indexed state and camera.
 Timeline token clicks animate adjacent moves normally, traverse a shared algorithm group
 at 2× the selected speed, or jump across distant groups to the selected move's immediate
 pre-state before animating that final move.
+Transport single-step controls skip state-neutral pauses, while the dedicated sequence
+controls animate one complete parenthesized group forward or backward. A sequence stop
+keeps its exact canonical state and reframes the persistent viewport for the next
+sequence-purpose visualization.
 
 Practice scramble is located in **Quick load**, not among algebraic transformations. It
 remains a random-turn practice sequence and is not labeled as an official WCA scramble.

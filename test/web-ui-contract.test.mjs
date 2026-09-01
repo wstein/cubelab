@@ -143,11 +143,9 @@ test("move hover previews the exact pre-move state with four degrees of displace
   assert.match(client, /viewport\?\.setState\(before, viewportPalette\(\)\)/);
   assert.match(client, /viewport\?\.setTurnPreview\(turnTransform\(before\.size, step\)\)/);
   assert.match(viewport, /turnPreviewTransform/);
-  assert.match(viewport, /turnPreviewCamera/);
-  assert.match(viewport, /previewCamera = \{yaw, pitch\}/);
-  assert.match(viewport, /previewCameraYaw = previewCamera\.yaw\.toFixed\(6\)/);
-  assert.match(viewport, /smoothOrbitTo\(camera\.yaw, camera\.pitch, 180\)/);
-  assert.match(viewport, /autoOrbit && !previewActive/);
+  assert.match(viewport, /transformTurnPoint/);
+  assert.doesNotMatch(viewport, /turnPreviewCamera/);
+  assert.doesNotMatch(viewport, /previewCameraYaw/);
   assert.match(viewport, /cameraYaw = yaw\.toFixed\(6\)/);
   assert.match(viewport, /degrees = 4/);
   assert.match(client, /previewFacelets = FaceletCodec\.render\(before\)/);
@@ -162,16 +160,14 @@ test("the viewport animates complete cubies with shader layer transforms", () =>
 });
 
 test("the viewport exposes state-driven source and destination focus", () => {
-  assert.match(viewport, /uniform vec3 uFocusSource/);
-  assert.match(viewport, /uniform vec3 uFocusTarget/);
-  assert.match(viewport, /vSourceFocus/);
-  assert.match(viewport, /vTargetFocus/);
   assert.match(viewport, /setFocus\(nextFocus\)/);
   assert.match(viewport, /sin\(uFocusTime \* 4\.0\)/);
-  assert.match(viewport, /focusEdge = smoothstep/);
+  assert.match(viewport, /cubieFaceOutline/);
   assert.match(viewport, /focusHighlight = "edges"/);
   assert.doesNotMatch(viewport, /targetGhost/);
   assert.doesNotMatch(viewport, /ghostAlpha/);
+  assert.doesNotMatch(viewport, /sourceEdge/);
+  assert.doesNotMatch(viewport, /uFocusSource/);
 });
 
 test("the viewport layers a projected motion HUD over the persistent WebGL canvas", () => {
@@ -194,6 +190,8 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(viewportComponent, /data-playback-scrubber/);
   assert.match(viewportComponent, /data-playback-speed/);
   assert.match(viewportComponent, /data-playback-loop/);
+  assert.match(viewportComponent, /data-playback-sequence-back/);
+  assert.match(viewportComponent, /data-playback-sequence-forward/);
   assert.match(client, /MAX_PLAYBACK_STEPS/);
   assert.match(client, /transitionTo/);
   assert.match(viewportComponent, /data-coaching-mode="coached"/);
@@ -204,6 +202,10 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(client, /planTimelineClick\(activeTimeline\.steps, activeIndex, target\)/);
   assert.match(client, /"time-travel"/);
   assert.match(client, /playbackSpeed \* plan\.speedMultiplier/);
+  assert.match(client, /planSequenceStep\(activeTimeline\.steps, activeIndex, direction\)/);
+  assert.match(client, /showNextSequencePurpose/);
+  assert.match(client, /focusCameraTarget/);
+  assert.match(client, /sequenceCameraYaw = camera\.yaw\.toFixed\(6\)/);
 });
 
 test("the tape groups sequences, focuses cubies, and spaces only Academy phases", () => {

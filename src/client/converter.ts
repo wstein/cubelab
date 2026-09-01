@@ -12,7 +12,9 @@ import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as BeginnerSolver from "../Solver/BeginnerSolver.res.mjs";
 import {
   createCubeViewport,
+  focusCameraTarget,
   turnTransform,
+  type CubieFocus,
   type CubePalette,
   type CubeStyle,
   type MoveStep,
@@ -23,6 +25,8 @@ import {
   describeTimelineGroup,
   isSingleStepExtension,
   MAX_PLAYBACK_STEPS,
+  nextSequence,
+  planSequenceStep,
   planTimelineClick,
   type AlgorithmTimeline,
 } from "./playback";
@@ -81,6 +85,8 @@ if (root) {
   const playbackPosition = root.querySelector<HTMLElement>("[data-playback-position]")!;
   const scrubber = root.querySelector<HTMLInputElement>("[data-playback-scrubber]")!;
   const playbackToggle = root.querySelector<HTMLButtonElement>("[data-playback-toggle]")!;
+  const sequenceBack = root.querySelector<HTMLButtonElement>("[data-playback-sequence-back]")!;
+  const sequenceForward = root.querySelector<HTMLButtonElement>("[data-playback-sequence-forward]")!;
   const playbackLimit = root.querySelector<HTMLElement>("[data-playback-limit]")!;
   const compatibilityStrip = root.querySelector<HTMLElement>("[data-compatibility]")!;
   const transformButtons = root.querySelectorAll<HTMLButtonElement>("[data-alg-transform]");
@@ -352,16 +358,24 @@ if (root) {
     focusedGroup?.classList.remove("focused");
     focusedGroup = null;
     focusedPiece = null;
+    delete canvas.dataset.sequencePurposeStart;
+    delete canvas.dataset.sequenceCameraYaw;
+    delete canvas.dataset.sequenceCameraPitch;
     viewport?.setFocus(null);
   };
 
-  const refreshTutorialFocus = () => {
+  const refreshTutorialFocus = (): CubieFocus | null => {
     if (!focusedPiece || !activeTimeline?.states) {
       viewport?.setFocus(null);
-      return;
+      return null;
     }
     const displayed = activeTimeline.states[activeIndex];
-    viewport?.setFocus(displayed ? focusForPiece(displayed, focusedPiece) : null);
+    const base = displayed ? focusForPiece(displayed, focusedPiece) : null;
+    const nextFocus = base && focusedGroup?.dataset.sequenceDescription
+      ? {...base, label: focusedGroup.dataset.sequenceDescription}
+      : base;
+    viewport?.setFocus(nextFocus);
+    return nextFocus;
   };
 
   const activateTutorialFocus = (group: HTMLElement, piece: string | null) => {
@@ -369,7 +383,13 @@ if (root) {
     focusedGroup = group;
     focusedPiece = piece;
     group.classList.add("focused");
-    refreshTutorialFocus();
+    const nextFocus = refreshTutorialFocus();
+    if (nextFocus && group.classList.contains("move-group")) {
+      const camera = focusCameraTarget(nextFocus);
+      canvas.dataset.sequenceCameraYaw = camera.yaw.toFixed(6);
+      canvas.dataset.sequenceCameraPitch = camera.pitch.toFixed(6);
+      void viewport?.smoothOrbitTo(camera.yaw, camera.pitch, 280);
+    }
   };
 
   const clearTurnGuide = () => {
@@ -538,6 +558,9 @@ if (root) {
         const groupIndex = activeTimeline.steps.indexOf(groupEntries[0]);
         const phase = tutorialPhases.find((item) => groupIndex >= item.start && groupIndex < item.end);
         const description = describeTimelineGroup(groupEntries, phase);
+        container.dataset.groupStart = String(groupIndex);
+        container.dataset.groupEnd = String(groupIndex + entries.length);
+        container.dataset.sequenceDescription = description;
         container.setAttribute("aria-label", `Algorithm sequence purpose: ${description}`);
         container.tabIndex = 0;
         const onlyRotations = entries.every((entry) =>
@@ -620,9 +643,13 @@ if (root) {
     scrubber.disabled = !playable;
     root.querySelector<HTMLButtonElement>("[data-playback-start]")!.disabled = !playable || activeIndex === 0;
     root.querySelector<HTMLButtonElement>("[data-playback-back]")!.disabled = !playable || activeIndex === 0;
+    sequenceBack.disabled = !playable
+      || planSequenceStep(activeTimeline.steps, activeIndex, -1) === null;
     playbackToggle.disabled = !playable;
     root.querySelector<HTMLButtonElement>("[data-playback-forward]")!.disabled =
       !playable || activeIndex === activeTimeline.steps.length;
+    sequenceForward.disabled = !playable
+      || planSequenceStep(activeTimeline.steps, activeIndex, 1) === null;
     root.querySelector<HTMLButtonElement>("[data-playback-end]")!.disabled =
       !playable || activeIndex === activeTimeline.steps.length;
     playbackToggle.textContent = playing ? "Ⅱ" : "▶";
@@ -781,6 +808,59 @@ if (root) {
     for (const next of plan.targets) {
       if (!(await transitionTo(next, generation, plan.speedMultiplier))) return;
     }
+  };
+
+  const animatePlannedMove = async (
+    moveIndex: number,
+    direction: -1 | 1,
+    generation: number,
+  ): Promise<boolean> => {
+    const source = direction > 0 ? moveIndex : moveIndex + 1;
+    if (activeIndex !== source) renderTimelineIndex(source);
+    return transitionTo(direction > 0 ? moveIndex + 1 : moveIndex, generation);
+  };
+
+  const executeSingleMove = async (direction: -1 | 1) => {
+    if (!activeTimeline?.states) return;
+    const sequence = planSequenceStep(activeTimeline.steps, activeIndex, direction);
+    const moveIndex = sequence?.moveIndices[0];
+    if (moveIndex === undefined) return;
+    clearTutorialFocus();
+    clearTurnGuide();
+    stopPlayback();
+    const generation = playbackGeneration;
+    await animatePlannedMove(moveIndex, direction, generation);
+  };
+
+  const showNextSequencePurpose = () => {
+    if (!activeTimeline?.states) return;
+    const sequence = nextSequence(activeTimeline.steps, activeIndex);
+    if (!sequence) {
+      clearTutorialFocus();
+      return;
+    }
+    const group = moveRibbon.querySelector<HTMLElement>(
+      `[data-group-start="${sequence.start}"]`,
+    );
+    if (!group) return;
+    const piece = group.dataset.focusPiece ?? null;
+    canvas.dataset.sequencePurposeStart = String(sequence.start);
+    activateTutorialFocus(group, piece);
+    group.scrollIntoView({block: "nearest", inline: "nearest"});
+  };
+
+  const executeSequence = async (direction: -1 | 1) => {
+    if (!activeTimeline?.states) return;
+    const sequence = planSequenceStep(activeTimeline.steps, activeIndex, direction);
+    if (!sequence || sequence.moveIndices.length === 0) return;
+    clearTutorialFocus();
+    clearTurnGuide();
+    stopPlayback();
+    const generation = playbackGeneration;
+    for (const moveIndex of sequence.moveIndices) {
+      if (!(await animatePlannedMove(moveIndex, direction, generation))) return;
+    }
+    showNextSequencePurpose();
   };
 
   const play = async () => {
@@ -1211,15 +1291,17 @@ if (root) {
     void seek(0, false);
   });
   root.querySelector<HTMLButtonElement>("[data-playback-back]")!.addEventListener("click", () => {
-    void seek(activeIndex - 1, true);
+    void executeSingleMove(-1);
   });
+  sequenceBack.addEventListener("click", () => void executeSequence(-1));
   playbackToggle.addEventListener("click", () => {
     if (playing) stopPlayback();
     else void play();
   });
   root.querySelector<HTMLButtonElement>("[data-playback-forward]")!.addEventListener("click", () => {
-    void seek(activeIndex + 1, true);
+    void executeSingleMove(1);
   });
+  sequenceForward.addEventListener("click", () => void executeSequence(1));
   root.querySelector<HTMLButtonElement>("[data-playback-end]")!.addEventListener("click", () => {
     if (activeTimeline) void seek(activeTimeline.steps.length, false);
   });

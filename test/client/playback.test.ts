@@ -9,6 +9,8 @@ import {
   formatStep,
   isSingleStepExtension,
   MAX_PLAYBACK_STEPS,
+  nextSequence,
+  planSequenceStep,
   planTimelineClick,
 } from "../../src/client/playback";
 
@@ -107,6 +109,20 @@ describe("algorithm playback timeline", () => {
       targets: [6],
       speedMultiplier: 1,
     });
+  });
+
+  test("plans real-move sequence steps while skipping pause nodes", () => {
+    const steps = [
+      {groupId: 1, step: {move: {TAG: "FaceTurn", _0: "R", _1: {from_: 1, to_: 1}}, turns: 1}},
+      {groupId: 1, durationMs: 500},
+      {groupId: 1, step: {move: {TAG: "FaceTurn", _0: "U", _1: {from_: 1, to_: 1}}, turns: 1}},
+      {durationMs: 1200},
+      {groupId: 2, step: {move: {TAG: "FaceTurn", _0: "F", _1: {from_: 1, to_: 1}}, turns: 1}},
+    ];
+    expect(planSequenceStep(steps, 0, 1)?.moveIndices).toEqual([0, 2]);
+    expect(planSequenceStep(steps, 3, -1)?.moveIndices).toEqual([2, 0]);
+    expect(planSequenceStep(steps, 3, 1)?.moveIndices).toEqual([4]);
+    expect(nextSequence(steps, 3)?.start).toBe(4);
   });
 
   test("keeps final conversion but omits oversized playback state caches", () => {

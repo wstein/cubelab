@@ -252,14 +252,29 @@ test("plays internal pauses without changing the canonical cube state", async ({
   await expect(position).toHaveText("Step 1 of 3");
   const afterR = await facelets.textContent();
   await page.getByRole("button", {name: "Next move"}).click();
-  await expect(position).toHaveText("Step 2 of 3");
-  await expect(facelets).toHaveText(afterR ?? "");
+  await expect(position).toHaveText("Step 3 of 3", {timeout: 700});
+  await expect(facelets).not.toHaveText(afterR ?? "");
   await expect(page.locator('[data-compatibility-profile="cubingJs"]')).toContainText("×");
 
   await input.fill("R @1.3s U");
   await expect(page.locator("[data-move-ribbon] .move-token")).toHaveCount(2);
   await expect(page.locator("[data-move-ribbon] .timeline-gap.step-gap")).toHaveCount(1);
   await expect(page.locator('[data-compatibility-profile="cubingJs"]')).toContainText("✓");
+});
+
+test("steps complete sequences without waiting on pauses", async ({page}) => {
+  await page.goto("/");
+  await page.locator("[data-input]").fill("(R @1.3s U) (F D)");
+  const position = page.locator("[data-playback-position]");
+  await page.getByRole("button", {name: "Jump to start"}).click();
+
+  await page.getByRole("button", {name: "Next sequence"}).click();
+  await expect(position).toHaveText("Step 3 of 5", {timeout: 1200});
+  await expect(page.locator("[data-move-ribbon] .move-group").nth(1)).toHaveClass(/focused/);
+
+  await page.getByRole("button", {name: "Previous sequence"}).click();
+  await expect(position).toHaveText("Step 0 of 5", {timeout: 1200});
+  await expect(page.locator("[data-move-ribbon] .move-group").first()).toHaveClass(/focused/);
 });
 
 test("applies algorithm workbench actions and generates size-aware practice scrambles", async ({page}) => {
@@ -374,6 +389,9 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(canvas).toHaveAttribute("data-focus-piece", /.+/);
   await expect(canvas).toHaveAttribute("data-focus-highlight", "edges");
   await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-motion-visible", "true");
+  await page.waitForTimeout(320);
+  const sequenceCameraYaw = await canvas.getAttribute("data-camera-yaw");
+  const sequenceCameraPitch = await canvas.getAttribute("data-camera-pitch");
   const firstMove = firstTimelineGroup.locator(".move-token").first();
   const exactBeforeMove = await page.locator('[data-output="facelets"]').textContent();
   await firstMove.hover();
@@ -382,13 +400,10 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(canvas).toHaveAttribute("data-turn-preview-degrees", "4");
   await expect(canvas).toHaveAttribute("data-preview-move-index", "0");
   await expect(canvas).toHaveAttribute("data-preview-facelets", exactBeforeMove ?? "");
-  const capturedCameraYaw = await canvas.getAttribute("data-preview-camera-yaw");
-  const capturedCameraPitch = await canvas.getAttribute("data-preview-camera-pitch");
-  await expect.poll(() => canvas.getAttribute("data-camera-yaw")).not.toBe(capturedCameraYaw);
+  await page.waitForTimeout(220);
+  await expect(canvas).toHaveAttribute("data-camera-yaw", sequenceCameraYaw ?? "");
+  await expect(canvas).toHaveAttribute("data-camera-pitch", sequenceCameraPitch ?? "");
   await page.locator("[data-playback-position]").hover();
-  await expect.poll(() => canvas.getAttribute("data-camera-yaw")).toBe(capturedCameraYaw);
-  await expect.poll(() => canvas.getAttribute("data-camera-pitch")).toBe(capturedCameraPitch);
-  await expect(canvas).not.toHaveAttribute("data-preview-camera-yaw", /.+/);
   await firstMove.hover();
   await page.locator("[data-turn-guides]").click();
   await expect(page.locator("[data-motion-overlay]")).not.toHaveAttribute("data-turn-guide", /.+/);
@@ -416,17 +431,22 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await page.locator("[data-playback-speed='0.5']").click();
   await page.locator("[data-playback-scrubber]").fill(String(phaseTwoStart - 1));
   await page.getByRole("button", {name: "Next move"}).click();
-  await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-milestone", /Step 1 complete/);
-  await expect(page.locator("[data-motion-overlay]")).not.toHaveAttribute("data-milestone", /.+/, {timeout: 3_000});
-  await expect(canvas).toHaveAttribute("data-focus-piece", /.+/, {timeout: 3_000});
-  await expect(canvas).not.toHaveAttribute("data-focus-piece", /.+/, {timeout: 3_000});
+  await expect(page.locator("[data-motion-overlay]")).not.toHaveAttribute("data-milestone", /.+/);
+  await expect(page.locator("[data-playback-position]")).toHaveText(
+    new RegExp(`Step ${phaseTwoStart + 1} of \\d+`),
+  );
 
   await page.getByRole("button", {name: "Continuous", exact: true}).click();
   await expect(page.getByRole("button", {name: "Continuous", exact: true})).toHaveAttribute("aria-pressed", "true");
 
   await page.getByRole("button", {name: "Jump to start"}).click();
-  await page.getByRole("button", {name: "Next move"}).click();
+  await page.locator("[data-playback-speed='2']").click();
+  await page.getByRole("button", {name: "Next sequence"}).click();
   await expect(page.locator("[data-beginner-current]")).toContainText("Step 1: White Cross");
+  await expect(canvas).toHaveAttribute("data-sequence-purpose-start", /\d+/);
+  await expect(canvas).toHaveAttribute("data-focus-piece", /.+/);
+  await expect(canvas).toHaveAttribute("data-sequence-camera-yaw", /-?\d+\.\d+/);
+  await expect(canvas).toHaveAttribute("data-sequence-camera-pitch", /-?\d+\.\d+/);
 
   await page.getByRole("button", {name: "Alg Workbench"}).click();
   await expect(page.locator("[data-workspace-panel='workbench']").first()).toBeVisible();

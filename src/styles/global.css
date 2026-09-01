@@ -421,6 +421,10 @@ body {
   color: white;
 }
 
+.transport-sequence {
+  border-color: color-mix(in srgb, var(--accent-primary) 55%, var(--border-subtle));
+}
+
 .transport-btn:disabled {
   cursor: not-allowed;
   opacity: 0.4;

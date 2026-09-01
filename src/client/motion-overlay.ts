@@ -2,7 +2,7 @@ import type {MoveStep, TurnTransform} from "./cube-gl";
 
 export type Vector3 = [number, number, number];
 export type ProjectedPoint = {x: number; y: number; depth: number; inFront: boolean};
-export type SurfaceAnchor = {point: Vector3; visible: boolean};
+export type SurfaceAnchor = {point: Vector3; normal: Vector3; visible: boolean};
 
 const dot = (left: Vector3, right: Vector3): number =>
   left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
@@ -67,8 +67,26 @@ export const cubieSurfaceAnchor = (
   const selected = normals[0] ?? {normal: [0, 0, 1] as Vector3, facing: -1};
   return {
     point: add(point, scale(selected.normal, 1.5 / size + 0.035)),
+    normal: selected.normal,
     visible: selected.facing > 0.08,
   };
+};
+
+export const cubieFaceOutline = (
+  point: Vector3,
+  modelView: ArrayLike<number>,
+  size = 3,
+): Vector3[] => {
+  const anchor = cubieSurfaceAnchor(point, modelView, size);
+  const tangent: Vector3 = Math.abs(anchor.normal[1]) > 0.8 ? [1, 0, 0] : [0, 1, 0];
+  const bitangent = normalize(cross(anchor.normal, tangent));
+  const half = 1.25 / size;
+  return [
+    add(anchor.point, add(scale(tangent, -half), scale(bitangent, -half))),
+    add(anchor.point, add(scale(tangent, half), scale(bitangent, -half))),
+    add(anchor.point, add(scale(tangent, half), scale(bitangent, half))),
+    add(anchor.point, add(scale(tangent, -half), scale(bitangent, half))),
+  ];
 };
 
 export const cubieIsFrontFacing = (point: Vector3, modelView: ArrayLike<number>): boolean =>

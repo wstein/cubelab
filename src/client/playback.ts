@@ -21,6 +21,7 @@ export type TimelineClickPlan = {
   targets: number[];
   speedMultiplier: number;
 };
+export type TimelineSequence = {start: number; end: number; moveIndices: number[]};
 
 export const MAX_PLAYBACK_STEPS = 500;
 
@@ -60,6 +61,44 @@ export const planTimelineClick = (
     speedMultiplier: 1,
   };
 };
+
+const sequenceAtMove = (steps: TimelineEntry[], moveIndex: number): TimelineSequence => {
+  const groupId = steps[moveIndex]?.groupId;
+  if (groupId === undefined) {
+    return {start: moveIndex, end: moveIndex + 1, moveIndices: [moveIndex]};
+  }
+  let start = moveIndex;
+  let end = moveIndex + 1;
+  while (start > 0 && steps[start - 1]?.groupId === groupId) start -= 1;
+  while (end < steps.length && steps[end]?.groupId === groupId) end += 1;
+  const moveIndices = Array.from({length: end - start}, (_, index) => start + index)
+    .filter((index) => steps[index]?.step !== undefined);
+  return {start, end, moveIndices};
+};
+
+export const planSequenceStep = (
+  steps: TimelineEntry[],
+  current: number,
+  direction: -1 | 1,
+): TimelineSequence | null => {
+  let moveIndex = direction > 0 ? Math.max(0, current) : Math.min(steps.length, current) - 1;
+  while (moveIndex >= 0 && moveIndex < steps.length && !steps[moveIndex]?.step) {
+    moveIndex += direction;
+  }
+  if (moveIndex < 0 || moveIndex >= steps.length) return null;
+  const sequence = sequenceAtMove(steps, moveIndex);
+  return {
+    ...sequence,
+    moveIndices: direction > 0
+      ? sequence.moveIndices.filter((index) => index >= moveIndex)
+      : sequence.moveIndices.filter((index) => index <= moveIndex).reverse(),
+  };
+};
+
+export const nextSequence = (
+  steps: TimelineEntry[],
+  current: number,
+): TimelineSequence | null => planSequenceStep(steps, current, 1);
 
 export const describeTimelineGroup = (
   entries: TimelineEntry[],

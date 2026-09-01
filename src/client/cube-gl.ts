@@ -1,5 +1,6 @@
 import * as CubeGeometry from "../Render/CubeGeometry.res.mjs";
 import {
+  cubieFaceOutline,
   cubieSurfaceAnchor,
   motionLabel,
   pieceColourLabel,
@@ -62,9 +63,6 @@ const vertexShaderSource = `
   uniform vec3 uTurnAxis;
   uniform vec2 uTurnRange;
   uniform float uTurnAngle;
-  uniform float uFocusActive;
-  uniform vec3 uFocusSource;
-  uniform vec3 uFocusTarget;
   uniform float uMilestoneCount;
   uniform vec3 uMilestoneCubies[20];
   uniform float uGuideActive;
@@ -74,8 +72,6 @@ const vertexShaderSource = `
   varying vec3 vNormal;
   varying vec4 vColour;
   varying float vSheen;
-  varying float vSourceFocus;
-  varying float vTargetFocus;
   varying float vMilestoneFocus;
   varying float vGuideLayer;
 
@@ -96,8 +92,6 @@ const vertexShaderSource = `
     vNormal = normalize(mat3(uModelView) * objectNormal);
     vColour = aColour;
     vSheen = aSheen;
-    vSourceFocus = uFocusActive * (1.0 - step(0.01, distance(aCubie, uFocusSource)));
-    vTargetFocus = uFocusActive * (1.0 - step(0.01, distance(aCubie, uFocusTarget)));
     vMilestoneFocus = 0.0;
     for (int index = 0; index < 20; index++) {
       if (float(index) < uMilestoneCount) {
@@ -121,12 +115,9 @@ const fragmentShaderSource = `
   varying vec3 vNormal;
   varying vec4 vColour;
   varying float vSheen;
-  varying float vSourceFocus;
-  varying float vTargetFocus;
   varying float vMilestoneFocus;
   varying float vGuideLayer;
   uniform float uSpeedStyle;
-  uniform float uFocusActive;
   uniform float uFocusTime;
   uniform float uGuideActive;
 
@@ -147,23 +138,14 @@ const fragmentShaderSource = `
     float specular = strength * pow(max(dot(normal, halfway), 0.0), shine);
     vec3 rolledSheen = vColour.rgb * vSheen * (0.45 + 0.55 * rimDiffuse);
     vec3 colour = min(vColour.rgb * light + rolledSheen + vec3(specular), vec3(1.0));
-    float selected = max(max(max(vSourceFocus, vTargetFocus), vMilestoneFocus), vGuideLayer);
+    float selected = max(vMilestoneFocus, vGuideLayer);
     float luminance = dot(colour, vec3(0.299, 0.587, 0.114));
     vec3 muted = mix(colour, vec3(luminance), 0.18) * 0.86;
-    float focusMode = max(uFocusActive, uGuideActive);
+    float focusMode = uGuideActive;
     colour = mix(colour, muted, focusMode * (1.0 - selected));
 
     float fresnel = pow(1.0 - max(dot(normal, view), 0.0), 2.2);
     float pulse = 0.82 + 0.18 * sin(uFocusTime * 4.0);
-    float focusEdge = smoothstep(0.08, 0.55, fresnel);
-    vec3 sourceEdge = vec3(0.18, 0.92, 1.0) * focusEdge * pulse;
-    vec3 targetEdge = vec3(1.0, 0.55, 0.18) * focusEdge;
-    colour = min(
-      colour + sourceEdge * vSourceFocus + targetEdge * vTargetFocus,
-      vec3(1.0)
-    );
-    float sameSlot = vSourceFocus * vTargetFocus;
-    colour = min(colour + vec3(0.40, 1.0, 0.58) * focusEdge * sameSlot, vec3(1.0));
     vec3 milestoneGlow = vec3(0.20, 1.0, 0.55) * (0.18 + 0.42 * fresnel) * pulse;
     colour = min(colour + milestoneGlow * vMilestoneFocus, vec3(1.0));
     gl_FragColor = vec4(colour, vColour.a);
@@ -226,26 +208,34 @@ export const turnPreviewTransform = (
   angle: Math.sign(turn.angle || 1) * Math.max(0, degrees) * Math.PI / 180,
 });
 
-export const turnPreviewCamera = (
-  turn: TurnTransform,
-  focus?: CubieFocus | null,
-): CameraTarget => {
-  const axis = turn.axis;
-  const view: [number, number, number] = [axis[0], axis[1], axis[2]];
-  if (Math.abs(axis[1]) > 0.8) {
-    view[0] += 0.58;
-    view[2] += 0.58;
-  } else {
-    view[1] += 0.46;
-    if (Math.abs(axis[0]) > 0.8) view[2] += 0.52;
-    else view[0] += 0.52;
-  }
-  if (focus) {
-    for (const position of [focus.source, focus.target]) {
-      view[0] += Math.sign(position[0]) * 0.12;
-      view[1] += Math.sign(position[1]) * 0.12;
-      view[2] += Math.sign(position[2]) * 0.12;
-    }
+export const transformTurnPoint = (
+  point: [number, number, number],
+  turn: TurnTransform | null,
+): [number, number, number] => {
+  if (!turn) return point;
+  const layer = point[0] * turn.axis[0] + point[1] * turn.axis[1] + point[2] * turn.axis[2];
+  if (layer < turn.min || layer > turn.max) return point;
+  const cosine = Math.cos(turn.angle);
+  const sine = Math.sin(turn.angle);
+  const dot = layer;
+  const cross: [number, number, number] = [
+    turn.axis[1] * point[2] - turn.axis[2] * point[1],
+    turn.axis[2] * point[0] - turn.axis[0] * point[2],
+    turn.axis[0] * point[1] - turn.axis[1] * point[0],
+  ];
+  return point.map((value, index) =>
+    value * cosine
+      + cross[index] * sine
+      + turn.axis[index] * dot * (1 - cosine)
+  ) as [number, number, number];
+};
+
+export const focusCameraTarget = (focus: CubieFocus): CameraTarget => {
+  const view: [number, number, number] = [0.28, 0.32, 0.38];
+  for (const position of [focus.source, focus.target]) {
+    view[0] += Math.sign(position[0]) * 0.34;
+    view[1] += Math.sign(position[1]) * 0.30;
+    view[2] += Math.sign(position[2]) * 0.34;
   }
   const length = Math.max(0.001, Math.hypot(...view));
   const direction = view.map((value) => value / length) as [number, number, number];
@@ -432,9 +422,6 @@ export const createCubeViewport = (
   const turnAxis = gl.getUniformLocation(program, "uTurnAxis");
   const turnRange = gl.getUniformLocation(program, "uTurnRange");
   const turnAngle = gl.getUniformLocation(program, "uTurnAngle");
-  const focusActive = gl.getUniformLocation(program, "uFocusActive");
-  const focusSource = gl.getUniformLocation(program, "uFocusSource");
-  const focusTarget = gl.getUniformLocation(program, "uFocusTarget");
   const focusTime = gl.getUniformLocation(program, "uFocusTime");
   const milestoneCount = gl.getUniformLocation(program, "uMilestoneCount");
   const milestoneCubies = gl.getUniformLocation(program, "uMilestoneCubies[0]");
@@ -467,8 +454,6 @@ export const createCubeViewport = (
   let autoOrbitPreviousTime: number | null = null;
   let cameraFrame: number | null = null;
   let cameraGeneration = 0;
-  let previewCamera: CameraTarget | null = null;
-  let previewActive = false;
   canvas.dataset.autoOrbitState = "off";
   const overlay = overlayCanvas.getContext("2d");
 
@@ -561,8 +546,20 @@ export const createCubeViewport = (
     if (focus) {
       const sourceAnchor = cubieSurfaceAnchor(focus.source, matrices.modelView, state?.size ?? 3);
       const targetAnchor = cubieSurfaceAnchor(focus.target, matrices.modelView, state?.size ?? 3);
-      const source = projectPoint(sourceAnchor.point, matrices.modelView, matrices.projection, width, height);
-      const target = projectPoint(targetAnchor.point, matrices.modelView, matrices.projection, width, height);
+      const source = projectPoint(
+        transformTurnPoint(sourceAnchor.point, activeTurn),
+        matrices.modelView,
+        matrices.projection,
+        width,
+        height,
+      );
+      const target = projectPoint(
+        transformTurnPoint(targetAnchor.point, activeTurn),
+        matrices.modelView,
+        matrices.projection,
+        width,
+        height,
+      );
       const targetVisible = target.inFront && targetAnchor.visible;
       const alpha = targetVisible ? 1 : 0.45;
       overlay.save();
@@ -620,6 +617,26 @@ export const createCubeViewport = (
       overlay.lineWidth = 2 * dpr;
       overlay.stroke();
       overlay.restore();
+      const drawOutline = (position: [number, number, number], colour: string) => {
+        const outline = cubieFaceOutline(position, matrices.modelView, state?.size ?? 3)
+          .map((point) => transformTurnPoint(point, activeTurn))
+          .map((point) => projectPoint(point, matrices.modelView, matrices.projection, width, height));
+        if (outline.some((point) => !point.inFront)) return;
+        overlay.save();
+        overlay.strokeStyle = colour;
+        overlay.lineWidth = 2.4 * dpr;
+        overlay.lineJoin = "round";
+        overlay.shadowColor = colour;
+        overlay.shadowBlur = 8 * dpr;
+        traceProjected(overlay, [...outline, outline[0]]);
+        overlay.stroke();
+        overlay.restore();
+      };
+      if (sameSlot) drawOutline(focus.source, "#86efac");
+      else {
+        drawOutline(focus.source, "#67e8f9");
+        drawOutline(focus.target, "#fb923c");
+      }
       const kind = focus.piece.length === 2 ? "edge" : "corner";
       const action = sameSlot ? "Orient" : "Move";
       drawBadge(
@@ -700,9 +717,6 @@ export const createCubeViewport = (
     gl.uniform3fv(turnAxis, activeTurn?.axis ?? [1, 0, 0]);
     gl.uniform2f(turnRange, activeTurn?.min ?? 0, activeTurn?.max ?? 0);
     gl.uniform1f(turnAngle, activeTurn?.angle ?? 0);
-    gl.uniform1f(focusActive, focus ? 1 : 0);
-    gl.uniform3fv(focusSource, focus?.source ?? [0, 0, 0]);
-    gl.uniform3fv(focusTarget, focus?.target ?? [0, 0, 0]);
     gl.uniform1f(focusTime, performance.now() * 0.001);
     const milestoneValues = new Float32Array(60);
     milestone?.positions.slice(0, 20).forEach((position, index) => {
@@ -727,8 +741,7 @@ export const createCubeViewport = (
     frame = window.requestAnimationFrame(render);
   };
 
-  const canAutoOrbit = () =>
-    autoOrbit && !previewActive && visible && !document.hidden && !disposed;
+  const canAutoOrbit = () => autoOrbit && visible && !document.hidden && !disposed;
 
   const stopAutoOrbitFrame = () => {
     if (autoOrbitFrame !== null) window.cancelAnimationFrame(autoOrbitFrame);
@@ -989,29 +1002,8 @@ export const createCubeViewport = (
     setTurnPreview(turn, degrees = 4) {
       cancelTurn();
       if (turn) {
-        if (!previewCamera) previewCamera = {yaw, pitch};
-        canvas.dataset.previewCameraYaw = previewCamera.yaw.toFixed(6);
-        canvas.dataset.previewCameraPitch = previewCamera.pitch.toFixed(6);
-        previewActive = true;
         activeTurn = turnPreviewTransform(turn, degrees);
         canvas.dataset.turnPreviewDegrees = String(degrees);
-        const camera = turnPreviewCamera(turn, focus);
-        void smoothOrbitTo(camera.yaw, camera.pitch, 180);
-      } else {
-        previewActive = false;
-        const camera = previewCamera;
-        if (camera) {
-          void smoothOrbitTo(camera.yaw, camera.pitch, 180).then(() => {
-            if (!previewActive) {
-              previewCamera = null;
-              delete canvas.dataset.previewCameraYaw;
-              delete canvas.dataset.previewCameraPitch;
-            }
-          });
-        } else {
-          delete canvas.dataset.previewCameraYaw;
-          delete canvas.dataset.previewCameraPitch;
-        }
       }
       requestRender();
     },

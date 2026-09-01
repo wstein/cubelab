@@ -79,7 +79,8 @@ the input status as invalid.
 For algorithm input, the client expands composite AST nodes into a canonical step
 timeline, retains internal pauses as state-neutral steps, and caches state 0
 through state N. The viewport provides start/end jumps, animated forward and inverse
-steps, play/pause, 0.5×/1×/2× speeds, looping, a range scrubber, and clickable move or
+real-move steps, forward/backward sequence steps, play/pause, 0.5×/1×/2× speeds, looping,
+a range scrubber, and clickable move or
 pause tokens. Clicking an adjacent move animates it at the selected speed. Clicking
 farther within the current bordered algorithm sequence animates every intervening move at
 twice the selected speed. A click across sequence boundaries time-travels to the canonical
@@ -100,9 +101,11 @@ Parenthesized AST groups are retained during expansion and displayed as bordered
 clusters, including a distinct cluster for every repetition. In Beginner Academy,
 hovering or focusing a cluster highlights its complete token group and derives the
 phase-relevant physical edge or corner from its before/after states. A projected Canvas2D
-HUD draws a moving dashed trajectory between camera-selected sticker-surface anchors;
-the WebGL shader adds cyan source and amber target accents only along the cubie rims, so
-the original sticker colours remain readable. Hovering an individual
+HUD draws a moving dashed trajectory between camera-selected sticker-surface anchors and
+projects cyan source and amber target outlines around their visible cubie faces. Focus
+never modifies the WebGL sticker material, so original colours and opacity remain readable
+in both cube styles. The HUD applies the same layer transform as the shader, keeping its
+anchors and outlines attached during the 4° move preview. Hovering an individual
 move also projects a direction-correct layer-turn ring and canonical angle label. Active
 pieces and the currently turning layer remain at full material brightness; unrelated
 layers receive only a soft saturation and brightness reduction. Hidden destinations dim
@@ -111,16 +114,21 @@ remains its accessible label rather than a floating tooltip.
 
 Hovering or keyboard-focusing an individual move temporarily uploads the cached canonical
 state immediately before that timeline entry, then displaces the affected layer by exactly
-4° in the move's direction. The camera eases to an oblique view derived from the move axis
-and focused source/target positions, showing the involved cubies together. Leaving the
-token restores both the player's current canonical state and the user's prior camera;
-text codecs never change during this non-destructive preview.
+4° in the move's direction without changing the camera. Leaving the token restores the
+player's current canonical state; text codecs never change during this non-destructive
+preview.
 
 The **Turn guides** viewport toggle controls only the circular single-move arrow and its
 angle/direction badge. It is enabled by default; opting out removes an active arrow and
 suppresses later arrows without disabling the exact pre-move state, 4° layer cue, camera
 reframe, source/target trajectory, piece highlighting, milestone pulses, or coached phase
 previews. The setting is shareable URL state (`guides=off`).
+
+Single-move stepping skips all intervening pause nodes immediately. Sequence-back and
+sequence-forward animate exactly one bordered group at the selected speed, also without
+waiting on pauses. They stop on a cached canonical state, highlight the next sequence, and
+reframe the camera around that sequence's source and target cubies. Camera reframing is a
+sequence-purpose behavior and is never triggered by an individual move preview.
 
 Academy playback defaults to **Coached** mode. At a phase boundary it uses the existing
 state-neutral pause as a three-part transition: a 350 ms emerald pulse over the verified

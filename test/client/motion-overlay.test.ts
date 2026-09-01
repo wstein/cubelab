@@ -2,6 +2,7 @@ import {describe, expect, test} from "bun:test";
 
 import {cameraMatrices, turnTransform, type MoveStep} from "../../src/client/cube-gl";
 import {
+  cubieFaceOutline,
   cubieSurfaceAnchor,
   cubieIsFrontFacing,
   motionLabel,
@@ -26,6 +27,11 @@ describe("projected motion overlay math", () => {
     const anchor = cubieSurfaceAnchor([1, 1, 1], matrices.modelView);
     expect(anchor.visible).toBe(true);
     expect(anchor.point.filter((coordinate) => Math.abs(coordinate) > 1.5)).toHaveLength(1);
+    const outline = cubieFaceOutline([1, 1, 1], matrices.modelView);
+    expect(outline).toHaveLength(4);
+    expect(outline.every((point) =>
+      point.some((coordinate, axis) => Math.abs(coordinate - anchor.point[axis]) < 0.0001)
+    )).toBe(true);
   });
 
   test("builds a face-anchored directional turn ring", () => {

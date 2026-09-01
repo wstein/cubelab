@@ -9,7 +9,8 @@ import {
   clampedCanvasSize,
   turnTransform,
   turnPreviewTransform,
-  turnPreviewCamera,
+  transformTurnPoint,
+  focusCameraTarget,
   vboCapacityFloats,
 } from "../../src/client/cube-gl";
 
@@ -75,15 +76,26 @@ describe("cube viewport math", () => {
     });
     expect(clockwise.angle).toBeCloseTo(-4 * Math.PI / 180);
     expect(counterclockwise.angle).toBeCloseTo(4 * Math.PI / 180);
+    const transformed = transformTurnPoint([1, 1, 0], {
+      axis: [0, 0, 1],
+      min: -0.1,
+      max: 0.1,
+      angle: Math.PI / 2,
+    });
+    expect(transformed[0]).toBeCloseTo(-1);
+    expect(transformed[1]).toBeCloseTo(1);
+    expect(transformed[2]).toBeCloseTo(0);
   });
 
-  test("reframes turn previews to an oblique view of the involved layer", () => {
-    const right = turnPreviewCamera({axis: [1, 0, 0], min: 0.9, max: 1.1, angle: -Math.PI / 2});
-    const down = turnPreviewCamera({axis: [0, -1, 0], min: 0.9, max: 1.1, angle: -Math.PI / 2});
-    expect(right.yaw).toBeLessThan(0);
-    expect(right.pitch).toBeGreaterThan(0);
-    expect(down.pitch).toBeLessThan(0);
-    expect([right.yaw, right.pitch, down.yaw, down.pitch].every(Number.isFinite)).toBe(true);
+  test("reframes sequence purpose around its source and target cubies", () => {
+    const camera = focusCameraTarget({
+      piece: "UFR",
+      source: [1, 1, 1],
+      target: [1, -1, 1],
+    });
+    expect(camera.yaw).toBeLessThan(0);
+    expect(camera.pitch).toBeGreaterThan(0);
+    expect([camera.yaw, camera.pitch].every(Number.isFinite)).toBe(true);
   });
 
   test("clamps device pixel ratio without producing zero-sized canvases", () => {
