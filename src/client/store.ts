@@ -3,7 +3,7 @@ import type {CubeStyle} from "./cube-gl";
 export type SchemeName = "Western" | "Japanese" | "Custom";
 export type LowercaseMode = "Wide" | "InnerSlice";
 export type NotationDialect = "Modern" | "Ruwix";
-export type ActiveTab = "converter" | "beginner" | "workbench";
+export type ActiveTab = "converter" | "beginner" | "cfop" | "workbench";
 
 export type AppState = {
   size: number;
@@ -84,7 +84,7 @@ export const readHash = (hash: string): AppState => {
   const cubeStyle: CubeStyle = params.get("style") === "Speed" ? "Speed" : "Standard";
   const turnGuides = params.get("guides") !== "off";
   const requestedTab = params.get("tab");
-  const activeTab: ActiveTab = requestedTab === "beginner" || requestedTab === "workbench"
+  const activeTab: ActiveTab = requestedTab === "beginner" || requestedTab === "cfop" || requestedTab === "workbench"
     ? requestedTab
     : "converter";
   const input = (params.get("alg") ?? "").slice(0, 20_000);

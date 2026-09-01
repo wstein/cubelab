@@ -45,6 +45,7 @@ describe("application state store", () => {
 
   test("accepts only known workspace tabs", () => {
     expect(readHash("#tab=beginner").activeTab).toBe("beginner");
+    expect(readHash("#tab=cfop").activeTab).toBe("cfop");
     expect(readHash("#tab=workbench").activeTab).toBe("workbench");
     expect(readHash("#tab=unknown").activeTab).toBe("converter");
   });

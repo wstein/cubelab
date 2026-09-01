@@ -85,15 +85,17 @@ test("the web UI exposes a state-verified 3x3 NISS helper", () => {
   assert.match(client, /MoveNiss\.describeError/);
 });
 
-test("the SPA workspace keeps one viewport beside three URL-addressable views", () => {
+test("the SPA workspace keeps one viewport beside four URL-addressable views", () => {
   assert.match(page, /data-workspace-tab="converter"/);
   assert.match(page, /data-workspace-tab="beginner"/);
+  assert.match(page, /data-workspace-tab="cfop"/);
   assert.match(page, /data-workspace-tab="workbench"/);
   assert.equal((page.match(/<CubeViewport \/>/g) ?? []).length, 1);
   assert.match(page, /data-beginner-solve/);
   assert.match(page, /data-beginner-phases/);
   assert.match(page, /data-beginner-copy/);
   assert.match(client, /BeginnerSolver\.solve/);
+  assert.match(client, /CfopSolver\.solve/);
   assert.match(client, /buildTimeline\(initialState, solution\.alg\)/);
   assert.match(client, /store\.patch\(\{activeTab:/);
 });
@@ -218,7 +220,7 @@ test("the tape groups sequences, focuses cubies, and spaces only Academy phases"
   assert.match(client, /entry\.groupId/);
   assert.match(client, /describeTimelineGroup\(groupEntries, phase\)/);
   assert.match(client, /Algorithm sequence purpose: \$\{description\}/);
-  assert.match(client, /selectTutorialPiece\(before, after, phase\.number\)/);
+  assert.match(client, /selectTutorialPiece\(before, after, phaseFocusNumber\(phase\)\)/);
   assert.match(client, /focusForPiece\(displayed, focusedPiece\)/);
   assert.match(client, /activateTurnGuide\(button, entry\.step!, label, index\)/);
   assert.match(client, /firstFocusPieceInPhase\(phase\)/);

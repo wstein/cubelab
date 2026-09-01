@@ -15,7 +15,12 @@ type ExpandedEntry = {
   groupId?: number;
 };
 export type TimelineEntry = {step?: MoveStep; durationMs?: number; groupId?: number};
-export type TutorialGroupContext = {number: number; title: string; instruction: string};
+export type TutorialGroupContext = {
+  number: number;
+  title: string;
+  instruction: string;
+  method?: "beginner" | "cfop";
+};
 export type TimelineClickPlan = {
   jumpTo: number | null;
   targets: number[];
@@ -106,6 +111,27 @@ export const describeTimelineGroup = (
 ): string => {
   const moves = entries.flatMap((entry) => entry.step ? [entry.step] : []);
   const onlyRotations = moves.length > 0 && moves.every((step) => step.move.TAG === "Rotation");
+  if (phase?.method === "cfop") {
+    if (onlyRotations) {
+      return phase.number === 1
+        ? "Regrip so the white cross is built on the bottom."
+        : "Reorient the whole cube while preserving the CFOP frame.";
+    }
+    const singleTopTurn = moves.length === 1
+      && moves[0].move.TAG === "FaceTurn"
+      && moves[0].move._0 === "U";
+    if (singleTopTurn) {
+      if (phase.number === 2) return "Align the next F2L piece above its target slot.";
+      if (phase.number === 3) return "Align the next two-look OLL case.";
+      if (phase.number === 4) return "Align the next two-look PLL case.";
+    }
+    switch (phase.number) {
+      case 1: return "Solve the next white cross edge on the bottom and align its side colour.";
+      case 2: return "Advance the F2L foundation while preserving completed slots.";
+      case 3: return "Apply the current two-look OLL case to orient the last layer.";
+      case 4: return "Apply the current two-look PLL case to permute the last layer.";
+    }
+  }
   if (onlyRotations) {
     if (phase?.number === 1) return "Restore a consistent white-up starting orientation.";
     if (phase?.number === 3) return "Turn the whole cube so yellow faces up for the remaining layers.";

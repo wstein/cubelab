@@ -28,6 +28,16 @@ describe("algorithm playback timeline", () => {
     );
   });
 
+  test("describes CFOP groups using their four-stage teaching purpose", () => {
+    const entries = [{step: {move: {TAG: "FaceTurn", _0: "R", _1: {from_: 1, to_: 1}}, turns: 1}}];
+    expect(describeTimelineGroup(entries, {
+      method: "cfop",
+      number: 2,
+      title: "F2L Foundation",
+      instruction: "Complete the first two layers.",
+    })).toContain("F2L foundation");
+  });
+
   test("expands composite algorithms into labeled canonical states", () => {
     const result = evaluateAlgorithm(3, "Wide", "Modern", "[R, U]");
     expect(result.TAG).toBe("Ok");

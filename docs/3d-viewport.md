@@ -88,8 +88,8 @@ state immediately before the selected move, then animates that move at the selec
 Text codecs update only when a move commits, so
 they always describe an exact canonical state rather than a fractional animation.
 
-The viewport is mounted once beside the Converter, Beginner Academy, and Alg Workbench
-panels. Client-side tab changes only toggle the left-hand view, preserving the WebGL
+The viewport is mounted once beside the Converter, Beginner Academy, CFOP Academy, and
+Alg Workbench panels. Client-side tab changes only toggle the left-hand view, preserving the WebGL
 context, camera, geometry buffers, and current tape position.
 
 Duration annotations such as `@1.3s` are distinct state-neutral timeline steps. The
@@ -98,7 +98,7 @@ inter-sequence delays are visually compact with no gap, while 1.2-second phase b
 use a wider gap; a user-authored dot pause retains a small semantic gap and short default
 wait.
 Parenthesized AST groups are retained during expansion and displayed as bordered move
-clusters, including a distinct cluster for every repetition. In Beginner Academy,
+clusters, including a distinct cluster for every repetition. In both Academy views,
 hovering or focusing a cluster highlights its complete token group and derives the
 phase-relevant physical edge or corner from its before/after states. A projected Canvas2D
 HUD draws a moving dashed trajectory between camera-selected sticker-surface anchors and

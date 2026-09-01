@@ -10,6 +10,7 @@ import * as MoveNiss from "../Move/MoveNiss.res.mjs";
 import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as BeginnerSolver from "../Solver/BeginnerSolver.res.mjs";
+import * as CfopSolver from "../Solver/CfopSolver.res.mjs";
 import {
   createCubeViewport,
   focusCameraTarget,
@@ -60,10 +61,22 @@ type RecognizedInput = {
   timeline?: AlgorithmTimeline;
   timelineKey?: string;
 };
-type BeginnerPhase = {number: number; title: string; instruction: string; alg: unknown[]};
-type BeginnerSolution = {phases: BeginnerPhase[]; alg: unknown[]; moveCount: number};
-type TutorialPhaseRange = BeginnerPhase & {start: number; end: number};
+type TutorialMethod = "beginner" | "cfop";
+type TutorialPhase = {number: number; title: string; instruction: string; alg: unknown[]};
+type TutorialSolution = {phases: TutorialPhase[]; alg: unknown[]; moveCount: number};
+type TutorialPhaseRange = TutorialPhase & {method: TutorialMethod; start: number; end: number};
 type ExpandedTutorialEntry = {comment?: string};
+type AcademyElements = {
+  method: TutorialMethod;
+  label: string;
+  phaseCount: number;
+  solve: HTMLButtonElement;
+  status: HTMLElement;
+  current: HTMLElement;
+  phases: HTMLElement;
+  copy: HTMLButtonElement;
+  solution: HTMLElement;
+};
 
 const root = document.querySelector<HTMLElement>("[data-converter]");
 
@@ -104,6 +117,12 @@ if (root) {
   const beginnerPhases = root.querySelector<HTMLElement>("[data-beginner-phases]")!;
   const beginnerCopy = root.querySelector<HTMLButtonElement>("[data-beginner-copy]")!;
   const beginnerSolution = root.querySelector<HTMLElement>("[data-beginner-solution]")!;
+  const cfopSolve = root.querySelector<HTMLButtonElement>("[data-cfop-solve]")!;
+  const cfopStatus = root.querySelector<HTMLElement>("[data-cfop-status]")!;
+  const cfopCurrent = root.querySelector<HTMLElement>("[data-cfop-current]")!;
+  const cfopPhases = root.querySelector<HTMLElement>("[data-cfop-phases]")!;
+  const cfopCopy = root.querySelector<HTMLButtonElement>("[data-cfop-copy]")!;
+  const cfopSolution = root.querySelector<HTMLElement>("[data-cfop-solution]")!;
   const autoOrbitButton = root.querySelector<HTMLButtonElement>("[data-auto-orbit]")!;
   const turnGuidesButton = root.querySelector<HTMLButtonElement>("[data-turn-guides]")!;
   const coachingControls = root.querySelector<HTMLElement>("[data-coaching-controls]")!;
@@ -120,7 +139,31 @@ if (root) {
   let verifiedNissSolution = "";
   let activeRecognized: RecognizedInput | null = null;
   let tutorialPhases: TutorialPhaseRange[] = [];
-  let commentedBeginnerSolution = "";
+  let activeAcademy: AcademyElements | null = null;
+  let commentedTutorialSolution = "";
+  const beginnerAcademy: AcademyElements = {
+    method: "beginner",
+    label: "Beginner",
+    phaseCount: 7,
+    solve: beginnerSolve,
+    status: beginnerStatus,
+    current: beginnerCurrent,
+    phases: beginnerPhases,
+    copy: beginnerCopy,
+    solution: beginnerSolution,
+  };
+  const cfopAcademy: AcademyElements = {
+    method: "cfop",
+    label: "CFOP",
+    phaseCount: 4,
+    solve: cfopSolve,
+    status: cfopStatus,
+    current: cfopCurrent,
+    phases: cfopPhases,
+    copy: cfopCopy,
+    solution: cfopSolution,
+  };
+  const academies = [beginnerAcademy, cfopAcademy];
   const viewport = createCubeViewport(canvas, motionOverlay, (message) => {
     viewportFallback.textContent = `${message} Text conversions remain fully functional.`;
     viewportFallback.hidden = false;
@@ -451,23 +494,29 @@ if (root) {
         const piece = selectTutorialPiece(
           activeTimeline.states[index],
           activeTimeline.states[end],
-          phase.number,
+          phaseFocusNumber(phase),
         );
         if (piece) return piece;
       }
       index = end;
     }
-    return selectPhasePiece(activeTimeline.states[phase.start], phase.number);
+    return selectPhasePiece(activeTimeline.states[phase.start], phaseFocusNumber(phase));
   };
+
+  const phaseFocusNumber = (phase: TutorialPhaseRange): number =>
+    phase.method === "cfop" ? [1, 3, 5, 7][phase.number - 1] ?? phase.number : phase.number;
 
   const resetAcademy = () => {
     tutorialPhases = [];
-    commentedBeginnerSolution = "";
-    beginnerPhases.replaceChildren();
-    beginnerCurrent.hidden = true;
-    beginnerCopy.disabled = true;
-    beginnerSolution.hidden = true;
-    beginnerSolution.textContent = "";
+    activeAcademy = null;
+    commentedTutorialSolution = "";
+    academies.forEach((academy) => {
+      academy.phases.replaceChildren();
+      academy.current.hidden = true;
+      academy.copy.disabled = true;
+      academy.solution.hidden = true;
+      academy.solution.textContent = "";
+    });
     coachingControls.hidden = true;
     coachStatus.textContent = "";
   };
@@ -475,24 +524,26 @@ if (root) {
   const updateAcademySource = (recognized: RecognizedInput | null) => {
     activeRecognized = recognized;
     resetAcademy();
-    beginnerSolve.disabled = recognized === null || size !== 3;
-    beginnerStatus.classList.remove("error");
-    beginnerStatus.textContent = size !== 3
-      ? "Beginner Academy is available for 3×3 states."
-      : recognized === null
-        ? "Enter a valid 3×3 state to begin."
-        : `Ready to teach the recognized ${recognized.label.toLowerCase()} state.`;
+    academies.forEach((academy) => {
+      academy.solve.disabled = recognized === null || size !== 3;
+      academy.status.classList.remove("error");
+      academy.status.textContent = size !== 3
+        ? `${academy.label} Academy is available for 3×3 states.`
+        : recognized === null
+          ? "Enter a valid 3×3 state to begin."
+          : `Ready to teach the recognized ${recognized.label.toLowerCase()} state.`;
+    });
   };
 
   const updateTutorialUi = () => {
-    if (tutorialPhases.length === 0) return;
+    if (tutorialPhases.length === 0 || activeAcademy === null) return;
     const current = tutorialPhases.find((phase) =>
       phase.end > phase.start && activeIndex >= phase.start && activeIndex < phase.end
     ) ?? (activeIndex === 0 ? tutorialPhases[0] : tutorialPhases.at(-1))!;
-    beginnerCurrent.hidden = false;
-    beginnerCurrent.textContent = `Step ${current.number}: ${current.title} — ${current.instruction}`;
-    beginnerPhases.querySelectorAll<HTMLElement>("[data-beginner-phase]").forEach((button) => {
-      button.classList.toggle("active", Number(button.dataset.beginnerPhase) === current.number);
+    activeAcademy.current.hidden = false;
+    activeAcademy.current.textContent = `Step ${current.number}: ${current.title} — ${current.instruction}`;
+    activeAcademy.phases.querySelectorAll<HTMLElement>("[data-tutorial-phase]").forEach((button) => {
+      button.classList.toggle("active", Number(button.dataset.tutorialPhase) === current.number);
     });
   };
 
@@ -569,7 +620,7 @@ if (root) {
         const before = activeTimeline?.states?.[groupIndex];
         const after = activeTimeline?.states?.[groupIndex + entries.length];
         const piece = phase && before && after && !onlyRotations
-          ? selectTutorialPiece(before, after, phase.number)
+          ? selectTutorialPiece(before, after, phaseFocusNumber(phase))
           : null;
         if (piece) container.dataset.focusPiece = piece;
         const showFocus = () => activateTutorialFocus(container, piece);
@@ -712,13 +763,13 @@ if (root) {
         renderTimelineIndex(bounded);
         clearTutorialFocus();
         clearTurnGuide();
-        const final = completedPhase.number === 7;
+        const final = completedPhase.number === tutorialPhases.length;
         const milestoneLabel = final
-          ? "Cube solved — all seven steps verified"
+          ? `Cube solved — all ${tutorialPhases.length} ${completedPhase.method === "cfop" ? "CFOP stages" : "steps"} verified`
           : `Step ${completedPhase.number} complete — ${completedPhase.title} verified`;
         coachStatus.textContent = milestoneLabel;
         viewport.setMilestone({
-          positions: phaseMilestonePositions(phaseState, completedPhase.number),
+          positions: phaseMilestonePositions(phaseState, phaseFocusNumber(completedPhase)),
           label: `✦ ${milestoneLabel}`,
         });
         await new Promise((resolve) =>
@@ -735,7 +786,9 @@ if (root) {
           7: {yaw: -0.58, pitch: 0.68},
         };
         viewport.setMilestone(null);
-        const camera = nextPhase ? cameraTargets[nextPhase.number] : {yaw: -0.62, pitch: 0.48};
+        const camera = nextPhase
+          ? cameraTargets[phaseFocusNumber(nextPhase)]
+          : {yaw: -0.62, pitch: 0.48};
         await viewport.smoothOrbitTo(
           camera.yaw,
           camera.pitch,
@@ -743,7 +796,7 @@ if (root) {
         );
         if (generation !== playbackGeneration) return false;
         if (nextPhase) {
-          const piece = selectPhasePiece(phaseState, nextPhase.number);
+          const piece = selectPhasePiece(phaseState, phaseFocusNumber(nextPhase));
           const nextFocus = piece ? focusForPiece(phaseState, piece) : null;
           coachStatus.textContent = `Next: ${nextPhase.title}. ${nextPhase.instruction}`;
           viewport.setFocus(nextFocus ? {...nextFocus, label: `Next: ${nextPhase.title}`} : null);
@@ -1178,24 +1231,36 @@ if (root) {
     if (verifiedNissSolution !== "") commitTransformedAlgorithm(verifiedNissSolution);
   });
 
-  const presentBeginnerSolution = (initialState: CubeState, solution: BeginnerSolution) => {
+  const presentTutorialSolution = (
+    initialState: CubeState,
+    solution: TutorialSolution,
+    academy: AcademyElements,
+  ) => {
+    activeAcademy = academy;
     let cursor = 0;
     tutorialPhases = solution.phases.map((phase) => {
       const expanded = MoveExecutor.expandTimeline(phase.alg) as Result<ExpandedTutorialEntry[], unknown>;
       const count = expanded.TAG === "Ok"
         ? expanded._0.filter((entry) => entry.comment === undefined).length
         : 0;
-      const range = {...phase, start: cursor, end: cursor + count};
+      const range = {...phase, method: academy.method, start: cursor, end: cursor + count};
       cursor += count;
       return range;
     });
-    beginnerPhases.replaceChildren();
+    academy.phases.replaceChildren();
     tutorialPhases.forEach((phase) => {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "academy-phase";
-      button.dataset.beginnerPhase = String(phase.number);
-      button.dataset.beginnerPhaseStart = String(phase.start);
+      button.dataset.tutorialPhase = String(phase.number);
+      button.dataset.tutorialPhaseStart = String(phase.start);
+      if (academy.method === "beginner") {
+        button.dataset.beginnerPhase = String(phase.number);
+        button.dataset.beginnerPhaseStart = String(phase.start);
+      } else {
+        button.dataset.cfopPhase = String(phase.number);
+        button.dataset.cfopPhaseStart = String(phase.start);
+      }
       const title = document.createElement("strong");
       title.textContent = `Step ${phase.number}: ${phase.title}`;
       const instruction = document.createElement("span");
@@ -1210,30 +1275,30 @@ if (root) {
       button.addEventListener("blur", () => {
         if (focusedGroup === button) clearTutorialFocus();
       });
-      beginnerPhases.append(button);
+      academy.phases.append(button);
     });
-    commentedBeginnerSolution = solution.phases.map((phase) => {
+    commentedTutorialSolution = solution.phases.map((phase) => {
       const moves = MoveTransform.serialize(phase.alg);
-      return `// STEP ${phase.number}: ${phase.title}\n// ${phase.instruction}\n${moves || "// Already complete"}`;
+      return `// ${academy.method === "cfop" ? "CFOP" : "STEP"} ${phase.number}: ${phase.title}\n// ${phase.instruction}\n${moves || "// Already complete"}`;
     }).join("\n\n");
-    beginnerSolution.textContent = commentedBeginnerSolution;
-    beginnerSolution.hidden = false;
-    beginnerCopy.disabled = false;
-    beginnerStatus.classList.remove("error");
-    beginnerStatus.textContent = `Verified beginner solution · ${solution.moveCount} moves · 7 phases`;
+    academy.solution.textContent = commentedTutorialSolution;
+    academy.solution.hidden = false;
+    academy.copy.disabled = false;
+    academy.status.classList.remove("error");
+    academy.status.textContent = `Verified ${academy.method === "beginner" ? "beginner" : "CFOP"} solution · ${solution.moveCount} moves · ${academy.phaseCount} phases`;
     coachingControls.hidden = false;
 
     const timeline = buildTimeline(initialState, solution.alg);
     if (timeline.TAG === "Error") {
-      beginnerStatus.textContent = timeline._0;
-      beginnerStatus.classList.add("error");
+      academy.status.textContent = timeline._0;
+      academy.status.classList.add("error");
       return;
     }
     stopPlayback();
     activeTimeline = timeline._0;
     activeTimelineKey = null;
     activeIndex = 0;
-    lastLabel = "Beginner tutorial";
+    lastLabel = `${academy.label} tutorial`;
     renderState(initialState, lastLabel);
     updatePlaybackUi(true);
   };
@@ -1245,29 +1310,50 @@ if (root) {
     beginnerStatus.classList.remove("error");
     beginnerStatus.textContent = "Building and replay-verifying the seven beginner phases…";
     window.setTimeout(() => {
-      const result = BeginnerSolver.solve(initialState) as Result<BeginnerSolution, unknown>;
+      const result = BeginnerSolver.solve(initialState) as Result<TutorialSolution, unknown>;
       beginnerSolve.disabled = false;
       if (result.TAG === "Error") {
         beginnerStatus.textContent = BeginnerSolver.describeError(result._0);
         beginnerStatus.classList.add("error");
         return;
       }
-      presentBeginnerSolution(initialState, result._0);
+      presentTutorialSolution(initialState, result._0, beginnerAcademy);
     }, 0);
   });
 
-  beginnerPhases.addEventListener("click", (event) => {
-    const button = (event.target as Element).closest<HTMLButtonElement>("[data-beginner-phase-start]");
-    if (button) void seek(Number(button.dataset.beginnerPhaseStart), false);
+  cfopSolve.addEventListener("click", () => {
+    if (size !== 3 || activeRecognized === null) return;
+    const initialState = activeRecognized.state;
+    cfopSolve.disabled = true;
+    cfopStatus.classList.remove("error");
+    cfopStatus.textContent = "Building and replay-verifying the four CFOP phases…";
+    window.setTimeout(() => {
+      const result = CfopSolver.solve(initialState) as Result<TutorialSolution, unknown>;
+      cfopSolve.disabled = false;
+      if (result.TAG === "Error") {
+        cfopStatus.textContent = CfopSolver.describeError(result._0);
+        cfopStatus.classList.add("error");
+        return;
+      }
+      presentTutorialSolution(initialState, result._0, cfopAcademy);
+    }, 0);
   });
 
-  beginnerCopy.addEventListener("click", async () => {
-    if (commentedBeginnerSolution === "") return;
-    await navigator.clipboard.writeText(commentedBeginnerSolution);
-    beginnerCopy.textContent = "Copied";
-    window.setTimeout(() => {
-      beginnerCopy.textContent = "Copy commented solution";
-    }, 1500);
+  academies.forEach((academy) => {
+    academy.phases.addEventListener("click", (event) => {
+      const button = (event.target as Element).closest<HTMLButtonElement>("[data-tutorial-phase-start]");
+      if (button) void seek(Number(button.dataset.tutorialPhaseStart), false);
+    });
+    academy.copy.addEventListener("click", async () => {
+      if (activeAcademy !== academy || commentedTutorialSolution === "") return;
+      await navigator.clipboard.writeText(commentedTutorialSolution);
+      academy.copy.textContent = "Copied";
+      window.setTimeout(() => {
+        academy.copy.textContent = academy.method === "cfop"
+          ? "Copy commented CFOP solution"
+          : "Copy commented solution";
+      }, 1500);
+    });
   });
 
   root.querySelectorAll<HTMLButtonElement>("[data-cube-style]").forEach((button) => {

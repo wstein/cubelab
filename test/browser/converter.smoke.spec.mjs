@@ -457,3 +457,32 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
 
   await expect(page.locator("[data-practice-scramble]").locator("xpath=parent::*")).toHaveClass(/preset-row/);
 });
+
+test("opens CFOP Academy and builds its four replay-verified stages", async ({page}) => {
+  await page.goto("/#size=3&alg=R+U+R%27+U%27&tab=cfop");
+  const canvas = page.locator("[data-cube-canvas]");
+  await canvas.evaluate((element) => element.setAttribute("data-cfop-persistence-probe", "mounted"));
+
+  await expect(page.locator("[data-workspace-panel='cfop']")).toBeVisible();
+  await expect(page.getByRole("button", {name: "CFOP Academy"})).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("button", {name: "Teach me CFOP"}).click();
+
+  await expect(page.locator("[data-cfop-status]")).toContainText("Verified CFOP solution");
+  await expect(page.locator("[data-cfop-phase]")).toHaveCount(4);
+  await expect(page.locator("[data-cfop-phase]").nth(0)).toContainText("Cross");
+  await expect(page.locator("[data-cfop-phase]").nth(1)).toContainText("F2L Foundation");
+  await expect(page.locator("[data-cfop-phase]").nth(2)).toContainText("Two-Look OLL");
+  await expect(page.locator("[data-cfop-phase]").nth(3)).toContainText("Two-Look PLL");
+  await expect(page.locator("[data-cfop-solution]")).toContainText("// CFOP 1: Cross");
+  await expect(page.locator("[data-cfop-solution]")).toContainText("(x2) @0.5s");
+  await expect(page.locator("[data-playback-position]")).toHaveText(/Step 0 of \d+/);
+
+  const f2l = page.locator("[data-cfop-phase]").nth(1);
+  await f2l.click();
+  await expect(page.locator("[data-cfop-current]")).toContainText("Step 2: F2L Foundation");
+  await expect(canvas).toHaveAttribute("data-cfop-persistence-probe", "mounted");
+
+  await page.getByRole("button", {name: "Converter"}).click();
+  await expect(page).toHaveURL(/tab=converter|#size=3/);
+  await expect(canvas).toHaveAttribute("data-cfop-persistence-probe", "mounted");
+});

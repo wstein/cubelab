@@ -60,6 +60,9 @@ const cards = [
         <button type="button" class="workspace-tab" data-workspace-tab="beginner" aria-selected="false">
           🎓 Beginner Academy
         </button>
+        <button type="button" class="workspace-tab" data-workspace-tab="cfop" aria-selected="false">
+          🧩 CFOP Academy
+        </button>
         <button type="button" class="workspace-tab" data-workspace-tab="workbench" aria-selected="false">
           ⚡ Alg Workbench
         </button>
@@ -286,6 +289,34 @@ const cards = [
           </button>
         </div>
         <pre class="academy-solution" data-beginner-solution hidden></pre>
+      </section>
+
+      <section class="academy-panel" data-workspace-panel="cfop" aria-labelledby="cfop-academy-title" hidden>
+        <header class="feature-header">
+          <div>
+            <span class="panel-label">Four-stage two-look CFOP foundation</span>
+            <h2 id="cfop-academy-title">CFOP Academy</h2>
+          </div>
+          <button type="button" class="academy-solve-btn" data-cfop-solve disabled>
+            Teach me CFOP
+          </button>
+        </header>
+        <p class="academy-intro">
+          Build Cross and F2L with white on the bottom, then finish with two-look OLL and
+          two-look PLL. This foundation teaches F2L as corners followed by edge insertions;
+          pair-first F2L is the next optimization.
+        </p>
+        <div class="academy-status" data-cfop-status aria-live="polite">
+          Enter a valid 3×3 state to begin.
+        </div>
+        <div class="academy-current" data-cfop-current hidden></div>
+        <div class="academy-phases" data-cfop-phases></div>
+        <div class="academy-solution-actions">
+          <button type="button" class="transform-btn" data-cfop-copy disabled>
+            Copy commented CFOP solution
+          </button>
+        </div>
+        <pre class="academy-solution" data-cfop-solution hidden></pre>
       </section>
 
       <section class="outputs-grid" data-workspace-panel="converter" aria-label="Converted state formats">
