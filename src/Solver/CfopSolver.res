@@ -390,8 +390,8 @@ let describeCornerOrientation = (state: PieceReducer.pieceState) => {
 let describeCornerPermutation = (state: PieceReducer.pieceState) => {
   let positioned = [4, 5, 6, 7]->Array.filter(piece => BeginnerSolver.isSolvedCorner(state, piece))
   switch positioned->Array.length {
-  | 0 => "Permute the diagonal/headlights corner PLL case."
-  | 1 | 2 => "Align the headlights and permute the last-layer corners."
+  | 0 => "Permute three last-layer corners — A-perm from the diagonal/headlights case."
+  | 1 | 2 => "Permute three last-layer corners — A-perm from the headlights case."
   | _ => "Apply the final corner AUF."
   }
 }

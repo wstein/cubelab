@@ -387,11 +387,15 @@ if (root) {
   let guidedToken: HTMLElement | null = null;
   let activeTurnGuide: {step: MoveStep; label: string} | null = null;
   let previewedMoveIndex: number | null = null;
+  let tutorialCameraRestore: {yaw: number; pitch: number} | null = null;
+  let tutorialCameraGeneration = 0;
 
   const viewportPalette = (): CubePalette =>
     schemeSelect.value === "Japanese" ? "Japanese" : "Western";
 
   const clearTutorialFocus = () => {
+    const restore = tutorialCameraRestore;
+    const cameraGeneration = ++tutorialCameraGeneration;
     focusedGroup?.classList.remove("focused");
     focusedGroup = null;
     focusedPiece = null;
@@ -399,6 +403,15 @@ if (root) {
     delete canvas.dataset.sequenceCameraYaw;
     delete canvas.dataset.sequenceCameraPitch;
     viewport?.setFocus(null);
+    if (restore) {
+      void viewport?.smoothOrbitTo(restore.yaw, restore.pitch, 280).then(() => {
+        if (cameraGeneration === tutorialCameraGeneration && focusedGroup === null) {
+          tutorialCameraRestore = null;
+          delete canvas.dataset.sequenceCameraRestoreYaw;
+          delete canvas.dataset.sequenceCameraRestorePitch;
+        }
+      });
+    }
   };
 
   const refreshTutorialFocus = (): CubieFocus | null => {
@@ -416,12 +429,22 @@ if (root) {
   };
 
   const activateTutorialFocus = (group: HTMLElement, piece: string | null) => {
+    tutorialCameraGeneration += 1;
     focusedGroup?.classList.remove("focused");
     focusedGroup = group;
     focusedPiece = piece;
     group.classList.add("focused");
     const nextFocus = refreshTutorialFocus();
     if (nextFocus && group.classList.contains("move-group")) {
+      if (tutorialCameraRestore === null) {
+        const yaw = Number(canvas.dataset.cameraYaw);
+        const pitch = Number(canvas.dataset.cameraPitch);
+        if (Number.isFinite(yaw) && Number.isFinite(pitch)) {
+          tutorialCameraRestore = {yaw, pitch};
+          canvas.dataset.sequenceCameraRestoreYaw = yaw.toFixed(6);
+          canvas.dataset.sequenceCameraRestorePitch = pitch.toFixed(6);
+        }
+      }
       const camera = focusCameraTarget(nextFocus);
       canvas.dataset.sequenceCameraYaw = camera.yaw.toFixed(6);
       canvas.dataset.sequenceCameraPitch = camera.pitch.toFixed(6);
@@ -461,7 +484,11 @@ if (root) {
     if (before) {
       previewedMoveIndex = moveIndex;
       viewport?.setState(before, viewportPalette());
-      if (focusedPiece) viewport?.setFocus(focusForPiece(before, focusedPiece));
+      if (focusedPiece) {
+        const base = focusForPiece(before, focusedPiece);
+        const purpose = focusedGroup?.dataset.sequenceDescription;
+        viewport?.setFocus(base && purpose ? {...base, label: purpose} : base);
+      }
       viewport?.setTurnPreview(turnTransform(before.size, step));
       canvas.dataset.previewMoveIndex = String(moveIndex);
       canvas.dataset.previewFacelets = FaceletCodec.render(before);
@@ -1395,6 +1422,10 @@ if (root) {
     });
   });
   const resetCameraView = () => {
+    tutorialCameraGeneration += 1;
+    tutorialCameraRestore = null;
+    delete canvas.dataset.sequenceCameraRestoreYaw;
+    delete canvas.dataset.sequenceCameraRestorePitch;
     autoOrbitButton.setAttribute("aria-pressed", "false");
     autoOrbitButton.classList.remove("active");
     viewport?.setAutoOrbit(false);

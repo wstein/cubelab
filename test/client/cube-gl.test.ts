@@ -14,6 +14,7 @@ import {
   focusCameraTarget,
   vboCapacityFloats,
 } from "../../src/client/cube-gl";
+import {cubieIsFrontFacing} from "../../src/client/motion-overlay";
 
 describe("cube viewport math", () => {
   test("advances auto orbit at a stable speed and clamps resumed frames", () => {
@@ -104,9 +105,20 @@ describe("cube viewport math", () => {
       source: [1, 1, 1],
       target: [1, -1, 1],
     });
-    expect(camera.yaw).toBeLessThan(0);
-    expect(camera.pitch).toBeGreaterThan(0);
     expect([camera.yaw, camera.pitch].every(Number.isFinite)).toBe(true);
+    const cameraView = cameraMatrices(1, camera.yaw, camera.pitch, 7.2);
+    expect(cubieIsFrontFacing([1, 1, 1], cameraView.modelView)).toBe(true);
+    expect(cubieIsFrontFacing([1, -1, 1], cameraView.modelView)).toBe(true);
+
+    const opposedFocus = {
+      piece: "UF",
+      source: [0, 1, 1] as [number, number, number],
+      target: [1, 0, -1] as [number, number, number],
+    };
+    const opposedCamera = focusCameraTarget(opposedFocus);
+    const matrices = cameraMatrices(1, opposedCamera.yaw, opposedCamera.pitch, 7.2);
+    expect(cubieIsFrontFacing(opposedFocus.source, matrices.modelView)).toBe(true);
+    expect(cubieIsFrontFacing(opposedFocus.target, matrices.modelView)).toBe(true);
   });
 
   test("clamps device pixel ratio without producing zero-sized canvases", () => {

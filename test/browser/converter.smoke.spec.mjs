@@ -490,10 +490,15 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
     "aria-label",
     /^Algorithm sequence purpose: .+$/,
   );
+  const cameraBeforeSequenceYaw = await canvas.getAttribute("data-camera-yaw");
+  const cameraBeforeSequencePitch = await canvas.getAttribute("data-camera-pitch");
   await firstTimelineGroup.hover();
   await expect(firstTimelineGroup).toHaveClass(/focused/);
   await expect(canvas).toHaveAttribute("data-focus-piece", /.+/);
   await expect(canvas).toHaveAttribute("data-focus-highlight", "edges");
+  const sequencePurpose = (await firstTimelineGroup.getAttribute("aria-label"))
+    ?.replace("Algorithm sequence purpose: ", "");
+  await expect(canvas).toHaveAttribute("data-focus-label", sequencePurpose ?? "");
   await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-motion-visible", "true");
   await page.waitForTimeout(320);
   const sequenceCameraYaw = await canvas.getAttribute("data-camera-yaw");
@@ -502,6 +507,7 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   const exactBeforeMove = await page.locator('[data-output="facelets"]').textContent();
   await firstMove.hover();
   await expect(firstMove).toHaveClass(/turn-guided/);
+  await expect(canvas).toHaveAttribute("data-focus-label", sequencePurpose ?? "");
   await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-turn-guide", /.+/);
   await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-turn-guide-style", "ring");
   await page.getByRole("button", {name: "Surface arrows", exact: true}).click();
@@ -514,6 +520,9 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(canvas).toHaveAttribute("data-camera-yaw", sequenceCameraYaw ?? "");
   await expect(canvas).toHaveAttribute("data-camera-pitch", sequenceCameraPitch ?? "");
   await page.locator("[data-playback-position]").hover();
+  await page.waitForTimeout(320);
+  await expect(canvas).toHaveAttribute("data-camera-yaw", cameraBeforeSequenceYaw ?? "");
+  await expect(canvas).toHaveAttribute("data-camera-pitch", cameraBeforeSequencePitch ?? "");
   await firstMove.hover();
   await page.locator("[data-turn-guides]").click();
   await expect(page.locator("[data-motion-overlay]")).not.toHaveAttribute("data-turn-guide", /.+/);

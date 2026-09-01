@@ -437,10 +437,10 @@ function describeCornerPermutation(state) {
     if (match >= 3) {
       return "Apply the final corner AUF.";
     } else {
-      return "Align the headlights and permute the last-layer corners.";
+      return "Permute three last-layer corners — A-perm from the headlights case.";
     }
   } else if (match >= 0) {
-    return "Permute the diagonal/headlights corner PLL case.";
+    return "Permute three last-layer corners — A-perm from the diagonal/headlights case.";
   } else {
     return "Apply the final corner AUF.";
   }

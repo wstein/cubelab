@@ -252,18 +252,34 @@ export const transformTurnPointForCubie = (
 };
 
 export const focusCameraTarget = (focus: CubieFocus): CameraTarget => {
-  const view: [number, number, number] = [0.28, 0.32, 0.38];
-  for (const position of [focus.source, focus.target]) {
-    view[0] += Math.sign(position[0]) * 0.34;
-    view[1] += Math.sign(position[1]) * 0.30;
-    view[2] += Math.sign(position[2]) * 0.34;
+  const visibility = (position: [number, number, number], direction: [number, number, number]) =>
+    Math.max(...position.flatMap((coordinate, axis) =>
+      Math.abs(coordinate) < 0.75 ? [] : [Math.sign(coordinate) * direction[axis]]
+    ));
+  const preferred: [number, number, number] = [0.48, 0.46, 0.66];
+  const candidates: Array<{yaw: number; pitch: number; direction: [number, number, number]}> = [];
+  const pitches = [-0.72, -0.48, 0, 0.48, 0.72];
+  for (let yawStep = 0; yawStep < 16; yawStep += 1) {
+    const yaw = -Math.PI + yawStep * Math.PI / 8;
+    for (const pitch of pitches) {
+      const horizontal = Math.cos(pitch);
+      candidates.push({
+        yaw,
+        pitch,
+        direction: [-Math.sin(yaw) * horizontal, Math.sin(pitch), Math.cos(yaw) * horizontal],
+      });
+    }
   }
-  const length = Math.max(0.001, Math.hypot(...view));
-  const direction = view.map((value) => value / length) as [number, number, number];
-  return {
-    yaw: Math.atan2(-direction[0], direction[2]),
-    pitch: Math.asin(Math.max(-1, Math.min(1, direction[1]))),
-  };
+  return candidates.reduce((best, candidate) => {
+    const source = Math.min(0.72, visibility(focus.source, candidate.direction));
+    const target = Math.min(0.72, visibility(focus.target, candidate.direction));
+    const preference = candidate.direction.reduce(
+      (sum, coordinate, axis) => sum + coordinate * preferred[axis],
+      0,
+    );
+    const score = Math.min(source, target) * 8 + (source + target) * 2 + preference * 0.22;
+    return score > best.score ? {...candidate, score} : best;
+  }, {...candidates[0], score: -Infinity});
 };
 
 export const clampedCanvasSize = (
@@ -606,10 +622,10 @@ export const createCubeViewport = (
         width,
         height,
       );
+      const sourceVisible = source.inFront && sourceAnchor.visible;
       const targetVisible = target.inFront && targetAnchor.visible;
-      const alpha = targetVisible ? 1 : 0.45;
+      if (sourceVisible && targetVisible) {
       overlay.save();
-      overlay.globalAlpha = alpha;
       overlay.strokeStyle = "#67e8f9";
       overlay.fillStyle = "#67e8f9";
       overlay.lineWidth = 2.4 * dpr;
@@ -707,12 +723,22 @@ export const createCubeViewport = (
       const action = sameSlot ? "Orient" : "Move";
       drawBadge(
         overlay,
-        focus.label ?? `${action} ${pieceColourLabel(focus.piece, palette)} ${kind}${targetVisible ? "" : " · orbit to view back"}`,
+        focus.label ?? `${action} ${pieceColourLabel(focus.piece, palette)} ${kind}`,
         labelX,
         labelY,
         dpr,
-        !targetVisible,
       );
+      } else {
+        const visibleAnchor = sourceVisible ? source : targetVisible ? target : null;
+        drawBadge(
+          overlay,
+          focus.label ?? `Rotating to show ${pieceColourLabel(focus.piece, palette)} ${focus.piece.length === 2 ? "edge" : "corner"}`,
+          visibleAnchor?.x ?? width / 2,
+          (visibleAnchor?.y ?? 48 * dpr) - 34 * dpr,
+          dpr,
+          true,
+        );
+      }
     }
 
     if (turnGuide) {
@@ -753,13 +779,10 @@ export const createCubeViewport = (
             traceProjected(overlay, projected);
             overlay.stroke();
 
-            // Animated chevrons flowing seamlessly along the surface
+            // Static chevrons mark direction without adding distracting motion.
             const numChevrons = 5;
-            const flowSpeed = 0.00045;
             for (let i = 0; i < numChevrons; i++) {
-              const baseOffset = i / numChevrons;
-              const flow = (now * flowSpeed + baseOffset) % 1.0;
-              const progress = Math.max(0.04, Math.min(0.96, flow));
+              const progress = (i + 0.5) / numChevrons;
               const idx = Math.max(1, Math.min(projected.length - 1, Math.round(progress * (projected.length - 1))));
               const prev = projected[idx - 1];
               const curr = projected[idx];
@@ -1192,11 +1215,14 @@ export const createCubeViewport = (
         canvas.dataset.focusPiece = nextFocus.piece;
         canvas.dataset.focusSource = nextFocus.source.join(",");
         canvas.dataset.focusTarget = nextFocus.target.join(",");
+        if (nextFocus.label) canvas.dataset.focusLabel = nextFocus.label;
+        else delete canvas.dataset.focusLabel;
       } else {
         delete canvas.dataset.focusHighlight;
         delete canvas.dataset.focusPiece;
         delete canvas.dataset.focusSource;
         delete canvas.dataset.focusTarget;
+        delete canvas.dataset.focusLabel;
       }
       requestRender();
     },

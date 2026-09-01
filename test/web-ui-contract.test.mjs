@@ -181,7 +181,8 @@ test("the viewport layers a projected motion HUD over the persistent WebGL canva
   assert.match(viewport, /quadraticCurveTo/);
   assert.match(viewport, /turnArcPoints/);
   assert.match(viewport, /turnSurfaceArrowPaths/);
-  assert.match(viewport, /orbit to view back/);
+  assert.match(viewport, /sourceVisible && targetVisible/);
+  assert.match(viewport, /Rotating to show/);
   assert.match(viewport, /setTurnGuide\(nextGuide\)/);
   assert.match(viewportComponent, /data-turn-guide-style="Ring"/);
   assert.match(viewportComponent, /data-turn-guide-style="Chevrons"/);

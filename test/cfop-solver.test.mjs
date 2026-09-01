@@ -67,6 +67,14 @@ test("emits four replay-verified two-look CFOP phases", () => {
   });
 });
 
+test("labels the three-corner PLL sequence as an A-perm", () => {
+  const initial = scramble("y' R2 B2 R F R' B2 R F' R y");
+  const solution = solve(initial);
+  assert.ok(solution.phases[3].sequences.some((description) =>
+    description.includes("Permute three last-layer corners — A-perm")
+  ));
+});
+
 test("independently verifies every CFOP phase invariant in the white-bottom frame", () => {
   const initial = scramble("(R U R' U')3 F2 D L2 B' U2");
   const solution = solve(initial);
