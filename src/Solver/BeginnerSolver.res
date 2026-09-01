@@ -59,7 +59,7 @@ let groupedSequence = (alg: alg): alg =>
   if alg->Array.length == 0 {
     []
   } else {
-    [located(Group(alg, 1))]
+    [located(Group(alg, 1)), located(TimedPause(0.5))]
   }
 
 let faceIndex = face =>
@@ -624,7 +624,7 @@ let solve = (input: cubeState): result<solution, solverError> => {
       let currentPhase = Belt.Array.getUnsafe(phases, index)
       phases[index] = {
         ...currentPhase,
-        alg: currentPhase.alg->Array.concat([located(TimedPause(1.5))]),
+        alg: currentPhase.alg->Array.concat([located(TimedPause(1.2))]),
       }
     }
     let annotated =

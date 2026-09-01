@@ -26,13 +26,13 @@ first returned to that canonical frame. Reorientation is emitted explicitly with
 insertion and last-layer cases from a natural front face, while whichever axes are
 required normalize an already-rotated input.
 
-Every executable teaching sequence is a parenthesized AST group. Groups run continuously
-without an inserted per-algorithm delay. A single `@1.5s` pause ends Steps 1–6, giving the
-learner time to inspect each completed phase before the next begins; Step 7 ends without
-an additional delay. These pauses are state-neutral timeline nodes and scale with the
-player's selected 0.5×/1×/2× speed. The reported move count excludes comments, pauses,
-and `x`/`y`/`z` whole-cube regrips; only face and slice layer turns count as moves.
-Rotations and phase pauses remain independently addressable tape steps.
+Every executable teaching sequence is a parenthesized AST group followed by `@0.5s`, so
+the learner can inspect its immediate result. A separate `@1.2s` pause ends Steps 1–6
+before the next teaching phase begins. Step 7 retains its final 0.5-second sequence pause
+but adds no extra phase delay. These pauses are state-neutral timeline nodes and scale
+with the player's selected 0.5×/1×/2× speed. The reported move count excludes comments,
+pauses, and `x`/`y`/`z` whole-cube regrips; only face and slice layer turns count as moves.
+Rotations and both pause classes remain independently addressable tape steps.
 
 ## Solving strategy
 
