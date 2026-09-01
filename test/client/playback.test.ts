@@ -126,15 +126,27 @@ describe("algorithm playback timeline", () => {
     expect(result._0.states?.[1]).toBe(result._0.states?.[2]);
   });
 
-  test("counts only physical layer turns as moves", () => {
+  test("reports rotations in ETM while keeping them zero in HTM", () => {
     const timeline = evaluateAlgorithm(3, "Wide", "Modern", "R @0.5s x y' z2 M U");
     expect(timeline.TAG).toBe("Ok");
     if (timeline.TAG !== "Ok") return;
-    expect(physicalMoveProgress(timeline._0.steps, 0)).toEqual({current: 0, total: 3});
-    expect(physicalMoveProgress(timeline._0.steps, 5)).toEqual({current: 1, total: 3});
+    expect(physicalMoveProgress(timeline._0.steps, 0)).toEqual({
+      current: 0,
+      total: 6,
+      htmCurrent: 0,
+      htmTotal: 3,
+    });
+    expect(physicalMoveProgress(timeline._0.steps, 5)).toEqual({
+      current: 4,
+      total: 6,
+      htmCurrent: 1,
+      htmTotal: 3,
+    });
     expect(physicalMoveProgress(timeline._0.steps, timeline._0.steps.length)).toEqual({
-      current: 3,
-      total: 3,
+      current: 6,
+      total: 6,
+      htmCurrent: 3,
+      htmTotal: 3,
     });
   });
 
@@ -205,9 +217,9 @@ describe("algorithm playback timeline", () => {
     const forward = planHoverPreview(steps, 0, steps.length);
     expect(forward.map(({target}) => target)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     expect(forward.map(({speedMultiplier}) => speedMultiplier)).toEqual([10, 10, 10, 10, 6, 4, 2]);
-    expect(forward[1].physicalMovesRemaining).toBe(4);
+    expect(forward[1].physicalMovesRemaining).toBe(5);
     expect(planHoverPreview(steps, steps.length, 0).map(({speedMultiplier}) => speedMultiplier))
-      .toEqual([10, 10, 6, 4, 2, 2, 2]);
+      .toEqual([10, 10, 10, 6, 4, 4, 2]);
   });
 
   test("enables timeline hover only while playback is stopped or paused", () => {

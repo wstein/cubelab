@@ -160,6 +160,16 @@ Shareable settings are written to the URL hash after 300 milliseconds without
 adding browser-history entries. Hash input is validated, and imported text is
 limited to 20,000 characters before it reaches the parser.
 
+## Cube motion and camera motion
+
+Mouse orbit changes only the observer's view. In contrast, notation rotations `x`, `y`, and `z`
+are execution turns: the WebGL turn transform rotates all cubies, preserves the changed cube frame
+for following moves, and exposes the same direction guide used by face and slice turns.
+
+The timeline displays both execution effort and puzzle-state scoring. ETM includes every expanded
+turn, including `x/y/z`; HTM excludes whole-cube reorientations. Half turns still count as one in
+both metrics.
+
 ## Provenance and licensing
 
 The physical design vocabulary was informed by the Standard and Speed looks in

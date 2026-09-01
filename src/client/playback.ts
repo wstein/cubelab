@@ -36,7 +36,14 @@ export type TimelineClickPlan = {
   speedMultiplier: number;
 };
 export type TimelineSequence = {start: number; end: number; moveIndices: number[]};
-export type PhysicalMoveProgress = {current: number; total: number};
+export type PhysicalMoveProgress = {
+  /** Execution Turn Metric: every deliberate layer or whole-cube turn. */
+  current: number;
+  total: number;
+  /** Half Turn Metric: whole-cube rotations score zero. */
+  htmCurrent: number;
+  htmTotal: number;
+};
 export type HoverPreviewTransition = {
   target: number;
   speedMultiplier: number;
@@ -125,7 +132,8 @@ export const nextSequence = (
   current: number,
 ): TimelineSequence | null => planSequenceStep(steps, current, 1);
 
-const isPhysicalMove = (entry: TimelineEntry): boolean =>
+const isExecutionTurn = (entry: TimelineEntry): boolean => entry.step !== undefined;
+const isHtmTurn = (entry: TimelineEntry): boolean =>
   entry.step !== undefined && entry.step.move.TAG !== "Rotation";
 
 export const planHoverPreview = (
@@ -141,7 +149,7 @@ export const planHoverPreview = (
     const remainingEntries = direction > 0
       ? steps.slice(stepIndex, target)
       : steps.slice(target, stepIndex + 1);
-    const physicalMovesRemaining = remainingEntries.filter(isPhysicalMove).length;
+    const physicalMovesRemaining = remainingEntries.filter(isExecutionTurn).length;
     const speedMultiplier = physicalMovesRemaining > 3
       ? 10
       : physicalMovesRemaining === 3
@@ -159,8 +167,10 @@ export const physicalMoveProgress = (
 ): PhysicalMoveProgress => {
   const bounded = Math.max(0, Math.min(timelineIndex, steps.length));
   return {
-    current: steps.slice(0, bounded).filter(isPhysicalMove).length,
-    total: steps.filter(isPhysicalMove).length,
+    current: steps.slice(0, bounded).filter(isExecutionTurn).length,
+    total: steps.filter(isExecutionTurn).length,
+    htmCurrent: steps.slice(0, bounded).filter(isHtmTurn).length,
+    htmTotal: steps.filter(isHtmTurn).length,
   };
 };
 

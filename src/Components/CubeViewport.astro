@@ -66,6 +66,13 @@
     >Set state to solved</button>
     <button
       type="button"
+      class="viewport-control smart-cube-confirm-rotation"
+      data-smart-cube-confirm-rotation
+      title="Confirm that you physically reoriented the cube"
+      hidden
+    >Confirm regrip</button>
+    <button
+      type="button"
       class="viewport-control smart-cube-orientation"
       data-smart-cube-orientation
       aria-pressed="false"
@@ -110,7 +117,10 @@
     <span class="visually-hidden" data-coach-status aria-live="polite"></span>
     <div class="playback-heading">
       <span class="panel-label">Algorithm timeline</span>
-      <span class="playback-position" data-playback-position aria-live="polite">Move 0 of 0</span>
+      <span class="playback-metrics" aria-live="polite">
+        <span><abbr title="Execution Turn Metric">ETM</abbr> <span class="playback-position" data-playback-position>Move 0 of 0</span></span>
+        <span><abbr title="Half Turn Metric">HTM</abbr> <span data-playback-htm>0 of 0</span></span>
+      </span>
     </div>
     <div class="move-ribbon" data-move-ribbon aria-label="Expanded algorithm steps"></div>
     <input

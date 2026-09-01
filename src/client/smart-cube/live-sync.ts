@@ -5,6 +5,10 @@ export type ExpectedSmartCubeMove = {
   token: string;
 };
 
+export type ExpectedSmartCubeAction = ExpectedSmartCubeMove & {
+  kind: "rotation" | "move";
+};
+
 /** Progress through the outer-face packets that represent one logical move. */
 export type SmartCubeHalfTurnProgress = {
   timelineIndex: number;
@@ -278,6 +282,29 @@ export const nextExpectedSmartCubeMove = (
 ): ExpectedSmartCubeMove | null => {
   const plan = nextExpectedSmartCubePlan(steps, labels, current);
   return plan ? {timelineIndex: plan.timelineIndex, token: plan.token} : null;
+};
+
+/**
+ * Returns the next coaching action without hiding explicit whole-cube regrips.
+ * Face encoders cannot normally report x/y/z, so the UI presents rotations as
+ * confirmation checkpoints while `nextExpectedSmartCubeMove` remains the
+ * fixed-frame packet projection used to validate reported face turns.
+ */
+export const nextExpectedSmartCubeAction = (
+  steps: TimelineEntry[],
+  labels: string[],
+  current: number,
+): ExpectedSmartCubeAction | null => {
+  for (let index = Math.max(0, current); index < steps.length; index += 1) {
+    const step = steps[index]?.step;
+    if (!step) continue;
+    if (step.move.TAG === "Rotation") {
+      return {kind: "rotation", timelineIndex: index, token: labels[index] ?? ""};
+    }
+    const expected = nextExpectedSmartCubeMove(steps, labels, index);
+    return expected ? {...expected, kind: "move"} : null;
+  }
+  return null;
 };
 
 export const assessSmartCubeMove = (

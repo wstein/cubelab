@@ -57,6 +57,7 @@ import {
   appendRecordedMove,
   assessSmartCubeMove,
   isLastPhysicalMoveInRange,
+  nextExpectedSmartCubeAction,
   nextExpectedSmartCubeMove,
   nextSmartCubeProgressMoves,
   type SmartCubeHalfTurnProgress,
@@ -139,6 +140,7 @@ if (root) {
   const playback = root.querySelector<HTMLElement>("[data-playback]")!;
   const moveRibbon = root.querySelector<HTMLElement>("[data-move-ribbon]")!;
   const playbackPosition = root.querySelector<HTMLElement>("[data-playback-position]")!;
+  const playbackHtm = root.querySelector<HTMLElement>("[data-playback-htm]")!;
   const scrubber = root.querySelector<HTMLInputElement>("[data-playback-scrubber]")!;
   const playbackBegin = root.querySelector<HTMLButtonElement>("[data-playback-begin]")!;
   const playbackReverse = root.querySelector<HTMLButtonElement>("[data-playback-reverse]")!;
@@ -195,6 +197,7 @@ if (root) {
   const smartCubeSound = root.querySelector<HTMLButtonElement>("[data-smart-cube-sound]")!;
   const smartCubeSync = root.querySelector<HTMLButtonElement>("[data-smart-cube-sync]")!;
   const smartCubeResetState = root.querySelector<HTMLButtonElement>("[data-smart-cube-reset-state]")!;
+  const smartCubeConfirmRotation = root.querySelector<HTMLButtonElement>("[data-smart-cube-confirm-rotation]")!;
   const smartCubeOrientation = root.querySelector<HTMLButtonElement>("[data-smart-cube-orientation]")!;
   const smartCubeDisconnect = root.querySelector<HTMLButtonElement>("[data-smart-cube-disconnect]")!;
   const initialState = readHash(window.location.hash);
@@ -846,7 +849,7 @@ if (root) {
     }
     const best = compared.reduce((left, right) => right.moveCount < left.moveCount ? right : left);
     academyComparison.textContent = `Same-state comparison · ${compared
-      .map(({label, moveCount}) => `${label} ${moveCount}`)
+      .map(({label, moveCount}) => `${label} ${moveCount} HTM`)
       .join(" · ")}. Shortest: ${best.label}.`;
   };
 
@@ -913,6 +916,11 @@ if (root) {
     const expanded = MoveExecutor.expand(phase.alg) as Result<MoveStep[], unknown>;
     if (expanded.TAG === "Error") return 0;
     return expanded._0.filter((step) => step.move.TAG !== "Rotation").length;
+  };
+
+  const tutorialPhaseExecutionCount = (phase: TutorialPhase): number => {
+    const expanded = MoveExecutor.expand(phase.alg) as Result<MoveStep[], unknown>;
+    return expanded.TAG === "Ok" ? expanded._0.length : 0;
   };
 
   const compatibilityLabels: Record<keyof CompatibilityResult, string> = {
@@ -992,21 +1000,42 @@ if (root) {
           ? selectTutorialPiece(before, after, phaseFocusNumber(phase))
           : null;
         if (piece) container.dataset.focusPiece = piece;
+        const rotationIndex = onlyRotations
+          ? entries.findIndex((entry) => entry.step?.move.TAG === "Rotation")
+          : -1;
+        const rotationEntry = rotationIndex >= 0 ? entries[rotationIndex] : undefined;
+        const rotationTimelineIndex = groupIndex + rotationIndex;
         const showFocus = () => {
-          if (timelineHoverEnabled(playbackDirection)) activateTutorialFocus(container, piece);
+          if (!timelineHoverEnabled(playbackDirection)) return;
+          if (rotationEntry?.step) {
+            const token = container.querySelector<HTMLButtonElement>(
+              `[data-move-index="${rotationTimelineIndex + 1}"]`,
+            );
+            if (token) activateTurnGuide(
+              token,
+              rotationEntry.step,
+              activeTimeline!.labels[rotationTimelineIndex] ?? "",
+              rotationTimelineIndex,
+            );
+          } else activateTutorialFocus(container, piece);
         };
         container.addEventListener("mouseenter", showFocus);
         container.addEventListener("mouseleave", (event) => {
-          if (focusedGroup === container && !container.contains(document.activeElement)) {
+          if (!container.contains(document.activeElement)) {
             const destination = event.relatedTarget as Node | null;
-            clearTutorialFocus(destination && moveRibbon.contains(destination) ? "hold" : "restore");
+            if (onlyRotations) {
+              clearTurnGuide(destination && moveRibbon.contains(destination) ? "hold" : "restore");
+            } else if (focusedGroup === container) {
+              clearTutorialFocus(destination && moveRibbon.contains(destination) ? "hold" : "restore");
+            }
           }
         });
         container.addEventListener("focusin", showFocus);
         container.addEventListener("focusout", (event) => {
           const destination = event.relatedTarget as Node | null;
-          if (focusedGroup === container && (!destination || !container.contains(destination))) {
-            clearTutorialFocus();
+          if (!destination || !container.contains(destination)) {
+            if (onlyRotations) clearTurnGuide("restore");
+            else if (focusedGroup === container) clearTutorialFocus();
           }
         });
       };
@@ -1062,6 +1091,7 @@ if (root) {
       : "";
     const moveProgress = physicalMoveProgress(activeTimeline.steps, activeIndex);
     playbackPosition.textContent = `Move ${moveProgress.current} of ${moveProgress.total}`;
+    playbackHtm.textContent = `${moveProgress.htmCurrent} of ${moveProgress.htmTotal}`;
     scrubber.max = String(activeTimeline.steps.length);
     scrubber.value = String(activeIndex);
     scrubber.disabled = !playable;
@@ -1102,6 +1132,7 @@ if (root) {
     viewport?.setMilestone(null);
     viewport?.setFocus(null);
     coachStatus.textContent = "";
+    smartCubeConfirmRotation.hidden = true;
     updatePlaybackUi();
   };
 
@@ -1416,17 +1447,41 @@ if (root) {
       showSmartCubeRecoveryGuide();
       return;
     }
-    const expected = nextExpectedSmartCubeMove(
+    const action = nextExpectedSmartCubeAction(
       activeTimeline.steps,
       activeTimeline.labels,
       activeIndex,
     );
-    if (!expected) {
+    if (!action) {
       smartCubeHalfTurnProgress = null;
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Timeline complete`;
       coachStatus.textContent = "Physical sequence complete.";
       return;
     }
+    if (action.kind === "rotation") {
+      smartCubeHalfTurnProgress = null;
+      smartCubeCoachingWaiting = true;
+      const token = moveRibbon.querySelector<HTMLButtonElement>(
+        `[data-move-index="${action.timelineIndex + 1}"]`,
+      );
+      const step = activeTimeline.steps[action.timelineIndex]?.step;
+      if (step && token) {
+        guidedToken = token;
+        activeTurnGuide = {step, label: action.token};
+        token.classList.add("turn-guided");
+        token.scrollIntoView({block: "nearest", inline: "nearest"});
+        viewport?.setTurnPreview(turnTransform(size, step));
+        viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
+      }
+      smartCubeConfirmRotation.textContent = `Confirm ${action.token}`;
+      smartCubeConfirmRotation.hidden = false;
+      smartCubeStatus.textContent = `${smartCubeDeviceName} · Waiting for ${action.token} regrip`;
+      coachStatus.textContent = `Rotate the physical cube ${action.token}, then confirm. Face-only smart cubes do not emit regrip packets.`;
+      updatePlaybackUi();
+      return;
+    }
+    const expected = action;
+    smartCubeConfirmRotation.hidden = true;
     if (smartCubeHalfTurnProgress?.timelineIndex !== expected.timelineIndex) {
       smartCubeHalfTurnProgress = null;
     }
@@ -1532,6 +1587,19 @@ if (root) {
 
   const applyWaitingTimelineMove = async (move: string): Promise<boolean> => {
     if (!activeTimeline?.states) return false;
+    const action = nextExpectedSmartCubeAction(
+      activeTimeline.steps,
+      activeTimeline.labels,
+      activeIndex,
+    );
+    if (action?.kind === "rotation") {
+      await applySmartCubeMismatch({
+        status: "mismatch",
+        expected: {timelineIndex: action.timelineIndex, token: action.token},
+        received: move,
+      }, move);
+      return true;
+    }
     const assessment = assessSmartCubeMove(
       activeTimeline.steps,
       activeTimeline.labels,
@@ -2242,10 +2310,14 @@ if (root) {
       const instruction = document.createElement("span");
       instruction.textContent = phase.instruction;
       const moveCount = tutorialPhaseMoveCount(phase);
+      const executionCount = tutorialPhaseExecutionCount(phase);
       const metrics = document.createElement("span");
       metrics.className = "academy-phase-metrics";
-      metrics.textContent = `${moveCount} physical move${moveCount === 1 ? "" : "s"}`;
+      metrics.textContent = executionCount === moveCount
+        ? `${moveCount} HTM`
+        : `${moveCount} HTM · ${executionCount} ETM`;
       button.dataset.phaseMoveCount = String(moveCount);
+      button.dataset.phaseExecutionCount = String(executionCount);
       button.append(title, instruction, metrics);
       if (phase.sequences && phase.sequences.length > 0) {
         const cases = document.createElement("span");
@@ -2295,7 +2367,14 @@ if (root) {
       : solution.moveCount <= benchmarkTarget
         ? ` · ≤${benchmarkTarget} benchmark met`
         : ` · ${solution.moveCount - benchmarkTarget} over the ≤${benchmarkTarget} benchmark`;
-    academy.status.textContent = `Verified ${academy.label} solution · ${solution.moveCount} moves · ${academy.phaseCount} phases${benchmark}`;
+    const executionCount = tutorialPhases.reduce(
+      (total, phase) => total + tutorialPhaseExecutionCount(phase),
+      0,
+    );
+    const executionMetric = executionCount === solution.moveCount
+      ? `${solution.moveCount} HTM`
+      : `${solution.moveCount} HTM · ${executionCount} ETM`;
+    academy.status.textContent = `Verified ${academy.label} solution · ${executionMetric} · ${academy.phaseCount} phases${benchmark}`;
     coachingControls.hidden = false;
 
     const timeline = buildTimeline(initialState, solution.alg);
@@ -2505,6 +2584,28 @@ if (root) {
       smartCubeStatus.textContent = describeBluetoothFailure(reason, usingBrave);
       smartCubeStatus.title = smartCubeStatus.textContent;
     }
+  });
+  smartCubeConfirmRotation.addEventListener("click", async () => {
+    if (!smartCubeConnected || !activeTimeline?.states) return;
+    const action = nextExpectedSmartCubeAction(
+      activeTimeline.steps,
+      activeTimeline.labels,
+      activeIndex,
+    );
+    if (action?.kind !== "rotation") {
+      smartCubeConfirmRotation.hidden = true;
+      return;
+    }
+    smartCubeConfirmRotation.disabled = true;
+    smartCubeConfirmRotation.hidden = true;
+    clearTurnGuide();
+    const generation = playbackGeneration;
+    const arrived = await transitionTo(action.timelineIndex + 1, generation);
+    smartCubeConfirmRotation.disabled = false;
+    if (!arrived || !smartCubeConnected) return;
+    signalSmartCubeFeedback("correct");
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · ${action.token} regrip confirmed`;
+    waitForSmartCubeMove();
   });
   smartCubeDisconnect.addEventListener("click", () => {
     void smartCubeManager?.disconnect();

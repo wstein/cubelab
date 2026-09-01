@@ -10,6 +10,7 @@ import {
   assessSmartCubeMove,
   canonicalSmartCubeMove,
   isLastPhysicalMoveInRange,
+  nextExpectedSmartCubeAction,
   nextExpectedSmartCubeMove,
 } from "../../../src/client/smart-cube/live-sync";
 
@@ -42,7 +43,12 @@ describe("smart cube live synchronization", () => {
   ];
   const labels = ["x2", "Pause", "R", "U", "M2", "F"];
 
-  test("skips rotations and pauses when finding the expected physical move", () => {
+  test("keeps rotations as coaching checkpoints while projecting face packets past them", () => {
+    expect(nextExpectedSmartCubeAction(steps, labels, 0))
+      .toEqual({kind: "rotation", timelineIndex: 0, token: "x2"});
+    expect(nextExpectedSmartCubeAction(steps, labels, 1))
+      .toEqual({kind: "move", timelineIndex: 2, token: "R"});
+    expect(nextExpectedSmartCubeAction(steps, labels, steps.length)).toBeNull();
     expect(nextExpectedSmartCubeMove(steps, labels, 0)).toEqual({timelineIndex: 2, token: "R"});
     expect(nextExpectedSmartCubeMove(steps, labels, 3)).toEqual({timelineIndex: 3, token: "D"});
     expect(nextExpectedSmartCubeMove(steps, labels, steps.length)).toBeNull();

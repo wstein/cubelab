@@ -256,6 +256,21 @@ body {
   white-space: nowrap;
 }
 
+.playback-metrics {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem 0.7rem;
+  color: var(--text-muted);
+  font: 500 0.72rem var(--font-mono);
+}
+
+.playback-metrics abbr {
+  color: #a5b4fc;
+  text-decoration: none;
+}
+
 .smart-cube-dock[data-recovery="true"] {
   background: rgba(69, 44, 8, 0.42);
   border-bottom-color: rgba(251, 191, 36, 0.42);

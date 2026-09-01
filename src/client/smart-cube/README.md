@@ -36,6 +36,12 @@ turns in either direction. Their implicit physical reorientation is carried into
 GoCube gyro samples are restored to wire axes at the transport boundary, then changed into viewport
 axes only after relative-pose calibration so pitch, yaw, and roll cannot be cross-coupled.
 
+Whole-cube `x`, `y`, and `z` rotations remain first-class lesson steps. They animate all cubies in
+the viewport and count in ETM, but not HTM. Most smart cubes report face encoder turns rather than
+regrips, so coaching pauses at a rotation, shows its whole-cube guide, and asks the learner to
+confirm the physical reorientation. Later face packets are still interpreted in the resulting
+fixed physical frame; Cube Rosetta never pretends an unreported regrip was detected automatically.
+
 The public boundary remains small:
 
 ```ts

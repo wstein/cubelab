@@ -527,7 +527,8 @@ test("plays internal pauses without changing the canonical cube state", async ({
 
   await input.fill("R x y' z2 @0.5s U");
   await expect(page.locator("[data-move-ribbon] .move-token")).toHaveCount(5);
-  await expect(position).toHaveText("Move 2 of 2");
+  await expect(position).toHaveText("Move 5 of 5");
+  await expect(page.locator("[data-playback-htm]")).toHaveText("2 of 2");
 });
 
 test("steps complete sequences without waiting on pauses", async ({page}) => {
