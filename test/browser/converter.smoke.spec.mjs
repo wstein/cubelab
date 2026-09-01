@@ -176,6 +176,20 @@ test("restores shareable studio state and quick-load presets", async ({page}) =>
   await expect(page.locator("[data-status]")).toHaveText("Algorithm · SiGN");
 });
 
+test("searches, detects, and previews a known pattern solution", async ({page}) => {
+  await page.goto("/");
+  await page.locator("[data-pattern-library] summary").click();
+  await page.locator("[data-pattern-search]").fill("Pons Asinorum");
+  await expect(page.locator("[data-pattern-select] option")).toHaveCount(1);
+  await page.locator("[data-pattern-load]").click();
+  await expect(page.locator("[data-pattern-detected]")).toBeVisible();
+  await expect(page.locator("[data-pattern-detected-name]")).toHaveText("Pons Asinorum");
+  await expect(page.locator("[data-pattern-detected-solution]")).not.toBeEmpty();
+  await page.locator("[data-pattern-preview-solution]").click();
+  await expect(page.locator("[data-playback]")).toBeVisible();
+  await expect(page.locator("[data-playback-position]")).toContainText("Move 0 of");
+});
+
 test("places the visualizer before controls on mobile", async ({page}) => {
   await page.setViewportSize({width: 390, height: 844});
   await page.goto("/");

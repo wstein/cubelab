@@ -133,6 +133,20 @@ test("practice scramble is a Quick load action rather than a transform", () => {
   assert.doesNotMatch(page, /class="transform-btn practice"/);
 });
 
+test("the converter exposes the complete attributed pattern catalog and recognition actions", () => {
+  assert.match(page, /data-pattern-library/);
+  assert.match(page, /229 designs · 2×2–5×5/);
+  assert.match(page, /data-pattern-search/);
+  assert.match(page, /data-pattern-select/);
+  assert.match(page, /data-pattern-detected/);
+  assert.match(page, /data-pattern-preview-solution/);
+  assert.match(page, /data-pattern-copy-solution/);
+  assert.match(client, /patternsForSize/);
+  assert.match(client, /recognizePattern/);
+  assert.match(client, /buildTimeline\(detectedPatternState, parsed\._0\)/);
+  assert.match(client, /updatePatternDetection\(\{state, label:/);
+});
+
 test("the studio connects recognized input and one canonical state to WebGL", () => {
   assert.match(page, /<CubeViewport \/>/);
   assert.match(page, /data-preset="M2 E2 S2"/);

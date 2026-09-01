@@ -74,6 +74,13 @@ import {
   smartCubeRecoveryPrompt,
   type SmartCubeRecoveryState,
 } from "./smart-cube/deviation-verifier";
+import {
+  patternCount,
+  patternsForSize,
+  recognizePattern,
+  type ImportedPattern,
+  type RecognizedPattern,
+} from "./patterns";
 import type {
   SmartCubeConnectionState,
   SmartCubeEvent,
@@ -143,6 +150,20 @@ if (root) {
   const shortcutsDialog = root.querySelector<HTMLDialogElement>("[data-shortcuts-dialog]")!;
   const shortcutsClose = root.querySelector<HTMLButtonElement>("[data-shortcuts-close]")!;
   const compatibilityStrip = root.querySelector<HTMLElement>("[data-compatibility]")!;
+  const patternLibrary = root.querySelector<HTMLDetailsElement>("[data-pattern-library]")!;
+  const patternSearch = root.querySelector<HTMLInputElement>("[data-pattern-search]")!;
+  const patternSelect = root.querySelector<HTMLSelectElement>("[data-pattern-select]")!;
+  const patternName = root.querySelector<HTMLElement>("[data-pattern-name]")!;
+  const patternMeta = root.querySelector<HTMLElement>("[data-pattern-meta]")!;
+  const patternConstruction = root.querySelector<HTMLElement>("[data-pattern-construction]")!;
+  const patternLoad = root.querySelector<HTMLButtonElement>("[data-pattern-load]")!;
+  const patternSource = root.querySelector<HTMLAnchorElement>("[data-pattern-source]")!;
+  const patternDetected = root.querySelector<HTMLElement>("[data-pattern-detected]")!;
+  const patternDetectedName = root.querySelector<HTMLElement>("[data-pattern-detected-name]")!;
+  const patternDetectedMeta = root.querySelector<HTMLElement>("[data-pattern-detected-meta]")!;
+  const patternDetectedSolution = root.querySelector<HTMLElement>("[data-pattern-detected-solution]")!;
+  const patternPreviewSolution = root.querySelector<HTMLButtonElement>("[data-pattern-preview-solution]")!;
+  const patternCopySolution = root.querySelector<HTMLButtonElement>("[data-pattern-copy-solution]")!;
   const transformButtons = root.querySelectorAll<HTMLButtonElement>("[data-alg-transform]");
   const nissPanel = root.querySelector<HTMLDetailsElement>("[data-niss-panel]")!;
   const nissInverseOutput = root.querySelector<HTMLElement>("[data-niss-inverse]")!;
@@ -187,6 +208,10 @@ if (root) {
   let academyMethod: AcademyMethod = initialState.academyMethod;
   let inverseScramble = "";
   let verifiedNissSolution = "";
+  let visiblePatterns: ImportedPattern[] = [];
+  let selectedPattern: ImportedPattern | null = null;
+  let detectedPattern: RecognizedPattern | null = null;
+  let detectedPatternState: CubeState | null = null;
   let activeRecognized: RecognizedInput | null = null;
   let tutorialPhases: TutorialPhaseRange[] = [];
   let activeAcademy: AcademyElements | null = null;
@@ -260,6 +285,74 @@ if (root) {
     schemeSelect.value === "Custom"
       ? {TAG: "Custom", _0: customScheme.value.toUpperCase()}
       : (schemeSelect.value as "Western" | "Japanese");
+
+  const renderSelectedPattern = () => {
+    selectedPattern = visiblePatterns[Number(patternSelect.value)] ?? visiblePatterns[0] ?? null;
+    patternLoad.disabled = selectedPattern === null;
+    if (!selectedPattern) {
+      patternName.textContent = "No matching patterns";
+      patternMeta.textContent = `${size}×${size} catalog`;
+      patternConstruction.textContent = "Try a broader search.";
+      patternSource.removeAttribute("href");
+      patternSource.hidden = true;
+      return;
+    }
+    patternName.textContent = selectedPattern.name;
+    patternMeta.textContent = `${selectedPattern.size}×${selectedPattern.size} · ${selectedPattern.sourceId}`;
+    patternConstruction.textContent = selectedPattern.publishedNotation;
+    patternSource.href = selectedPattern.sourceUrl;
+    patternSource.hidden = false;
+  };
+
+  const renderPatternBrowser = () => {
+    visiblePatterns = patternsForSize(size, patternSearch.value);
+    patternSelect.replaceChildren(...visiblePatterns.map((pattern, index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = pattern.name;
+      return option;
+    }));
+    patternLibrary.querySelector("summary small")!.textContent =
+      `${patternsForSize(size).length} for ${size}×${size} · ${patternCount} total`;
+    renderSelectedPattern();
+  };
+
+  const updatePatternDetection = (recognized: RecognizedInput | null) => {
+    detectedPatternState = recognized?.state ?? null;
+    detectedPattern = recognized ? recognizePattern(recognized.state) : null;
+    patternDetected.hidden = detectedPattern === null;
+    if (!detectedPattern) return;
+    const {pattern, aliases, solution} = detectedPattern;
+    patternDetectedName.textContent = pattern.name;
+    const aliasText = aliases.length > 0
+      ? ` · also catalogued as ${aliases.map((alias) => alias.name).join(", ")}`
+      : "";
+    patternDetectedMeta.textContent =
+      `${pattern.size}×${pattern.size} · ${pattern.sourceId} · ${pattern.solutionKind} solution${aliasText}`;
+    patternDetectedSolution.textContent = solution ?? "No replay-verified solution for this holding.";
+    patternPreviewSolution.disabled = solution === null;
+    patternCopySolution.disabled = solution === null;
+  };
+
+  const previewDetectedPatternSolution = () => {
+    if (!detectedPatternState || !detectedPattern?.solution) return;
+    const parsed = MoveParser.parseWithOptions(
+      size,
+      "Wide",
+      "Modern",
+      detectedPattern.solution,
+    ) as Result<unknown[], {message?: string}>;
+    if (parsed.TAG === "Error") return;
+    const timeline = buildTimeline(detectedPatternState, parsed._0);
+    if (timeline.TAG === "Error") return;
+    stopPlayback();
+    activeTimeline = timeline._0;
+    activeTimelineKey = null;
+    activeIndex = 0;
+    lastLabel = `${detectedPattern.pattern.name} solution`;
+    renderState(detectedPatternState, lastLabel);
+    updatePlaybackUi(true);
+  };
 
   const describeError = (reason: StateError | string): string => {
     if (typeof reason === "string") return reason;
@@ -1457,6 +1550,7 @@ if (root) {
     const state = smartCubeRenderedState ?? smartCubeLiveState;
     if (!smartCubeConnected || !state) return;
     renderState(state, `${smartCubeDeviceName} · Live physical state`);
+    updatePatternDetection({state, label: `${smartCubeDeviceName} · Live physical state`});
   };
 
   const commitSmartCubeMoveState = (record: QueuedSmartCubeMove) => {
@@ -1467,6 +1561,7 @@ if (root) {
     smartCubeRenderedState = state;
     if (!record.state) smartCubeLiveState = state;
     renderState(state, `${smartCubeDeviceName} · Live physical state`);
+    updatePatternDetection({state, label: `${smartCubeDeviceName} · Live physical state`});
   };
 
   const mirrorSmartCubeFaceletsToInput = (facelets: string) => {
@@ -1755,6 +1850,7 @@ if (root) {
     updateAcademySource(recognized);
     updateNissSource(recognized);
     updateCompatibility(recognized);
+    updatePatternDetection(recognized);
     updateTransformAvailability(recognized.timeline !== undefined);
     if (!recognized.timeline || !recognized.timelineKey) {
       stopPlayback();
@@ -1809,6 +1905,7 @@ if (root) {
       updateAcademySource(null);
       updateNissSource(null);
       updateCompatibility(null);
+      updatePatternDetection(null);
       updateTransformAvailability(false);
       stopPlayback();
       activeTimeline = null;
@@ -1841,6 +1938,7 @@ if (root) {
 
   let appStateApplied = false;
   const applyAppState = (state: AppState) => {
+    const patternSizeChanged = !appStateApplied || size !== state.size;
     const conversionChanged = !appStateApplied
       || size !== state.size
       || lowercaseMode !== state.lowercaseMode
@@ -1862,6 +1960,10 @@ if (root) {
     if (schemeSelect.value !== state.scheme) schemeSelect.value = state.scheme;
     if (customScheme.value !== state.customScheme) customScheme.value = state.customScheme;
     customScheme.hidden = state.scheme !== "Custom";
+    if (patternSizeChanged) {
+      patternSearch.value = "";
+      renderPatternBrowser();
+    }
 
     root.querySelectorAll<HTMLButtonElement>("[data-size]").forEach((button) => {
       const active = Number(button.dataset.size) === state.size;
@@ -2703,6 +2805,22 @@ if (root) {
         ...(presetSize ? {size: Number(presetSize)} : {}),
       });
     });
+  });
+
+  patternSearch.addEventListener("input", renderPatternBrowser);
+  patternSelect.addEventListener("change", renderSelectedPattern);
+  patternLoad.addEventListener("click", () => {
+    if (!selectedPattern) return;
+    store.patch({size: selectedPattern.size, input: selectedPattern.construction});
+  });
+  patternPreviewSolution.addEventListener("click", previewDetectedPatternSolution);
+  patternCopySolution.addEventListener("click", async () => {
+    if (!detectedPattern?.solution) return;
+    await navigator.clipboard.writeText(detectedPattern.solution);
+    patternCopySolution.textContent = "Copied";
+    window.setTimeout(() => {
+      patternCopySolution.textContent = "Copy solution";
+    }, 1500);
   });
 
   root.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) => {

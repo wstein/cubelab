@@ -308,6 +308,44 @@ const cards = [
             title="Random-turn practice sequence; not an official WCA scramble"
           >🎲 Practice scramble</button>
         </div>
+        <details class="pattern-library" data-pattern-library>
+          <summary>
+            <span>✨ Pattern library</span>
+            <small>229 designs · 2×2–5×5</small>
+          </summary>
+          <div class="pattern-library-body">
+            <label class="pattern-search-label">
+              <span class="visually-hidden">Search patterns</span>
+              <input type="search" placeholder="Search this cube size…" data-pattern-search />
+            </label>
+            <select data-pattern-select aria-label="Known patterns"></select>
+            <div class="pattern-detail" data-pattern-detail>
+              <strong data-pattern-name></strong>
+              <span data-pattern-meta></span>
+              <code data-pattern-construction></code>
+              <div class="pattern-actions">
+                <button type="button" class="transform-btn" data-pattern-load>Load pattern</button>
+                <a data-pattern-source target="_blank" rel="noreferrer">View source</a>
+              </div>
+            </div>
+          </div>
+        </details>
+        <aside class="pattern-detected" data-pattern-detected aria-live="polite" hidden>
+          <div>
+            <span class="pattern-detected-label">Known pattern detected</span>
+            <strong data-pattern-detected-name></strong>
+            <small data-pattern-detected-meta></small>
+          </div>
+          <code data-pattern-detected-solution></code>
+          <div class="pattern-actions">
+            <button type="button" class="transform-btn" data-pattern-preview-solution>
+              Preview solution
+            </button>
+            <button type="button" class="transform-btn" data-pattern-copy-solution>
+              Copy solution
+            </button>
+          </div>
+        </aside>
         <div class="error-banner" data-error role="alert" hidden></div>
       </section>
 

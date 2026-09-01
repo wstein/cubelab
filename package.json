@@ -15,7 +15,8 @@
     "astro:build": "astro build",
     "astro:preview": "astro preview",
     "build": "rescript && astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "patterns:import": "bun scripts/import-flix-patterns.ts"
   },
   "keywords": [
     "rescript"
