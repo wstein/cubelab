@@ -71,7 +71,6 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await expect(orbitCard).toBeHidden();
   const lowercaseControls = page.locator("[data-lowercase-controls]");
   const notationControls = page.locator("[data-notation-controls]");
-  const lowercaseBanner = page.locator("[data-lowercase-banner]");
   await expect(lowercaseControls).toBeVisible();
   await expect(notationControls).toBeVisible();
   await expect(page.locator('[data-lowercase-mode="Wide"]')).toHaveAttribute(
@@ -86,16 +85,13 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await input.fill("r");
   await expect(page.locator('[data-output="facelets"]')).not.toHaveText(innerSliceState ?? "");
   const modernWideState = await page.locator('[data-output="facelets"]').textContent();
-  await expect(lowercaseBanner).toContainText("modern SiGN wide turns");
 
   await input.fill("Rw U2 r'");
-  await expect(lowercaseBanner).toContainText("Mixed Rw and r notation detected");
-  await page.locator("[data-switch-lowercase]").click();
+  await page.locator('[data-lowercase-mode="InnerSlice"]').click();
   await expect(page.locator('[data-lowercase-mode="InnerSlice"]')).toHaveAttribute(
     "aria-pressed",
     "true",
   );
-  await expect(lowercaseBanner).toContainText("Legacy mode is active");
   await input.fill("r");
   await expect(page.locator('[data-output="facelets"]')).toHaveText(innerSliceState ?? "");
 

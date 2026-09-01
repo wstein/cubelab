@@ -95,9 +95,6 @@ if (root) {
   const status = root.querySelector<HTMLElement>("[data-status]")!;
   const error = root.querySelector<HTMLElement>("[data-error]")!;
   const lowercaseControls = root.querySelector<HTMLElement>("[data-lowercase-controls]")!;
-  const lowercaseBanner = root.querySelector<HTMLElement>("[data-lowercase-banner]")!;
-  const lowercaseMessage = root.querySelector<HTMLElement>("[data-lowercase-message]")!;
-  const switchLowercase = root.querySelector<HTMLButtonElement>("[data-switch-lowercase]")!;
   const canvas = root.querySelector<HTMLCanvasElement>("[data-cube-canvas]")!;
   const motionOverlay = root.querySelector<HTMLCanvasElement>("[data-motion-overlay]")!;
   const viewportFallback = root.querySelector<HTMLElement>("[data-viewport-fallback]")!;
@@ -257,16 +254,6 @@ if (root) {
       : parseAlgorithm(inputValue);
   };
 
-  const notationSignals = (value: string) => {
-    const algorithm = value.replace(/\/\/[^\n]*/g, "");
-    const prefix = String.raw`(?:^|[\s([{:])(?:\d+(?:-\d+)?)?`;
-    const suffix = String.raw`(?:\d+)?(?:['’‘′‵\x60´])?(?=$|[\s)\]},:])`;
-    return {
-      lowercase: new RegExp(`${prefix}[rludfb]${suffix}`, "m").test(algorithm),
-      explicitWide: new RegExp(`${prefix}[ULFRBD]w${suffix}`, "m").test(algorithm),
-    };
-  };
-
   const updateLowercaseUi = () => {
     const supportsLegacy = size >= 4;
     lowercaseControls.hidden = !supportsLegacy;
@@ -276,22 +263,6 @@ if (root) {
       button.setAttribute("aria-pressed", String(active));
     });
 
-    const signals = notationSignals(input.value);
-    lowercaseBanner.hidden = !supportsLegacy || !signals.lowercase;
-    if (lowercaseBanner.hidden) return;
-
-    const mixed = signals.explicitWide && lowercaseMode === "Wide";
-    lowercaseBanner.classList.toggle("warning", mixed);
-    if (lowercaseMode === "InnerSlice") {
-      lowercaseMessage.textContent =
-        "Legacy mode is active: lowercase r means the inner slice 2R; explicit Rw remains wide.";
-      switchLowercase.textContent = "Use modern SiGN (r = Rw)";
-    } else {
-      lowercaseMessage.textContent = mixed
-        ? "Mixed Rw and r notation detected. Modern SiGN treats both as the same wide move; legacy algorithms may use r for 2R."
-        : "Interpreting lowercase moves as modern SiGN wide turns (r = Rw). Is this a legacy algorithm?";
-      switchLowercase.textContent = "Use inner slices (r = 2R)";
-    }
   };
 
   const updateDialectUi = () => {
@@ -1104,9 +1075,6 @@ if (root) {
     });
   });
 
-  switchLowercase.addEventListener("click", () => {
-    store.patch({lowercaseMode: lowercaseMode === "Wide" ? "InnerSlice" : "Wide"});
-  });
 
   schemeSelect.addEventListener("change", () => {
     updateAcademySource(null);

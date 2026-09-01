@@ -31,10 +31,10 @@ test("the Vanilla DOM client wires reachability-aware outputs", () => {
 test("the web UI exposes an explicit lowercase mode without heuristic switching", () => {
   assert.match(page, /data-lowercase-mode="Wide"/);
   assert.match(page, /data-lowercase-mode="InnerSlice"/);
-  assert.match(page, /data-lowercase-banner/);
+  assert.doesNotMatch(page, /data-lowercase-banner/);
   assert.match(page, /modern SiGN wide turns by default/);
   assert.match(client, /evaluateAlgorithm/);
-  assert.match(client, /Mixed Rw and r notation detected/);
+  assert.doesNotMatch(client, /Mixed Rw and r notation detected/);
   assert.doesNotMatch(client, /lowercaseMode\s*=.*signals/);
 });
 
