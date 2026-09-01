@@ -56,7 +56,7 @@ describe("application state store", () => {
     expect(readHash("#tab=cfop")).toMatchObject({activeTab: "academy", academyMethod: "fullCfop"});
     expect(readHash("#tab=academy&method=easyCfop").academyMethod).toBe("beginnerCfop");
     expect(readHash("#tab=academy&method=intermediate").academyMethod).toBe("beginnerCfop");
-    expect(readHash("#tab=academy&method=advancedLbl").academyMethod).toBe("beginnerCfop");
+    expect(readHash("#tab=academy&method=advancedLbl").academyMethod).toBe("advancedLbl");
     expect(readHash("#tab=academy&method=advanced").academyMethod).toBe("advancedCfop");
     expect(readHash("#tab=academy&method=fullCfop").academyMethod).toBe("fullCfop");
     expect(readHash("#tab=workbench").activeTab).toBe("workbench");

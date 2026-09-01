@@ -456,11 +456,7 @@ function planF2l(state, completed, atomics, maxDepth, maxNodes, allSides, rootCa
   candidates.sort(comparePairs);
   let result;
   let bestScore = 100000000;
-  let candidateLimit = completed.length === 0 ? (
-      candidates.length < rootCandidates ? candidates.length : rootCandidates
-    ) : (
-      candidates.length === 0 ? 0 : 1
-    );
+  let candidateLimit = candidates.length < rootCandidates ? candidates.length : rootCandidates;
   for (let index = 0; index < candidateLimit; ++index) {
     let candidate$1 = candidates[index];
     let nextState = applyPath(state, candidate$1.path);
@@ -967,6 +963,138 @@ function selectBeginnerPll(state, solved) {
   };
 }
 
+function splitSelectionAtGoal(state, solved, selection, isGoal) {
+  let cursor = state;
+  let splitGroups = {
+    contents: isGoal(state) ? 0 : -1
+  };
+  for (let index = 0, index_finish = selection.labels.length; index < index_finish; ++index) {
+    if (splitGroups.contents === -1) {
+      let group = [
+        selection.alg[(index << 1)],
+        selection.alg[(index << 1) + 1 | 0]
+      ];
+      let transition = BeginnerSolver.transitionForAlg(solved, group);
+      cursor = BeginnerSolver.applyCubie(cursor, transition);
+      if (isGoal(cursor)) {
+        splitGroups.contents = index + 1 | 0;
+      }
+    }
+  }
+  if (splitGroups.contents === -1) {
+    throw {
+      RE_EXN_ID: BuildFailure,
+      _1: "VerificationFailed",
+      Error: new Error()
+    };
+  }
+  let splitUnits = (splitGroups.contents << 1);
+  let firstAlg = [];
+  let secondAlg = [];
+  selection.alg.forEach((unit, index) => {
+    if (index < splitUnits) {
+      firstAlg.push(unit);
+    } else {
+      secondAlg.push(unit);
+    }
+  });
+  let firstLabels = [];
+  let secondLabels = [];
+  selection.labels.forEach((label, index) => {
+    if (index < splitGroups.contents) {
+      firstLabels.push(label);
+    } else {
+      secondLabels.push(label);
+    }
+  });
+  return [
+    {
+      alg: firstAlg,
+      labels: firstLabels,
+      state: cursor
+    },
+    {
+      alg: secondAlg,
+      labels: secondLabels,
+      state: selection.state
+    }
+  ];
+}
+
+function layerPlanKey(state, pieces, completed) {
+  return BeginnerSolver.fullKey(state) + "|" + pieces.map(piece => {
+    if (completed.some(value => Primitive_object.equal(value, piece))) {
+      return "1";
+    } else {
+      return "0";
+    }
+  }).join("");
+}
+
+function planLayerPiecesFrom(state, pieces, completed, baseCorners, baseEdges, corners, atomics, labels, failed) {
+  if (completed.length === pieces.length) {
+    return [];
+  }
+  let key = layerPlanKey(state, pieces, completed);
+  if (failed[key] !== undefined) {
+    return;
+  }
+  let candidates = [];
+  pieces.forEach((piece, labelIndex) => {
+    if (completed.some(value => value === piece)) {
+      return;
+    }
+    let targetCorners = corners ? baseCorners.concat(completed).concat([piece]) : baseCorners;
+    let targetEdges = corners ? baseEdges : baseEdges.concat(completed).concat([piece]);
+    let path = BeginnerSolver.searchAtomicWithLimit(state, targetCorners, targetEdges, rankedActions(atomics), 12, 600000);
+    if (path === undefined) {
+      return;
+    }
+    let alg = MoveTransform.rotate(BeginnerSolver.flattenActions(path), "X", 2);
+    let score = physicalCost(alg).total;
+    candidates.push({
+      pair: piece,
+      path: path,
+      score: score,
+      label: labels[labelIndex]
+    });
+  });
+  candidates.sort(comparePairs);
+  let result;
+  for (let index = 0, index_finish = candidates.length; index < index_finish; ++index) {
+    if (result === undefined) {
+      let selected = candidates[index];
+      let nextState = applyPath(state, selected.path);
+      let rest = planLayerPiecesFrom(nextState, pieces, completed.concat([selected.pair]), baseCorners, baseEdges, corners, atomics, labels, failed);
+      if (rest !== undefined) {
+        result = [selected].concat(rest);
+      }
+    }
+  }
+  if (result === undefined) {
+    failed[key] = true;
+  }
+  return result;
+}
+
+function planLayerPieces(state, pieces, baseCorners, baseEdges, corners, atomics, labels) {
+  let plan = planLayerPiecesFrom(state, pieces, [], baseCorners, baseEdges, corners, atomics, labels, {});
+  if (plan !== undefined) {
+    return [
+      plan,
+      Stdlib_Array.reduce(plan, state, (current, selected) => applyPath(current, selected.path))
+    ];
+  }
+  throw {
+    RE_EXN_ID: BuildFailure,
+    _1: {
+      TAG: "SearchFailed",
+      _0: "optimized layer-by-layer insertion"
+    },
+    Error: new Error()
+  };
+}
+
 function solveLevel(input, level) {
   try {
     if (input.size !== 3) {
@@ -1089,22 +1217,28 @@ function solveLevel(input, level) {
       };
     }
     let fastF2lPlan = planF2l(current.contents, [], atomics, 11, 180000, false, level === "Advanced" ? 3 : 1, {});
+    let mediumF2lPlan = () => planF2l(current.contents, [], atomics, 12, 300000, true, 2, {});
     let f2lPlan;
     if (fastF2lPlan !== undefined) {
       f2lPlan = fastF2lPlan;
     } else {
-      let plan = planF2l(current.contents, [], atomics, 12, 600000, true, level === "Advanced" ? 3 : 1, {});
+      let plan = mediumF2lPlan();
       if (plan !== undefined) {
         f2lPlan = plan;
       } else {
-        throw {
-          RE_EXN_ID: BuildFailure,
-          _1: {
-            TAG: "SearchFailed",
-            _0: "four locked F2L corner-edge pairs"
-          },
-          Error: new Error()
-        };
+        let plan$1 = planF2l(current.contents, [], atomics, 12, 600000, true, 4, {});
+        if (plan$1 !== undefined) {
+          f2lPlan = plan$1;
+        } else {
+          throw {
+            RE_EXN_ID: BuildFailure,
+            _1: {
+              TAG: "SearchFailed",
+              _0: "four locked F2L corner-edge pairs"
+            },
+            Error: new Error()
+          };
+        }
       }
     }
     let f2lAlg = {
@@ -1316,6 +1450,305 @@ function solveLevel(input, level) {
   }
 }
 
+function solveAdvancedLbl(input) {
+  try {
+    if (input.size !== 3) {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "UnsupportedSize",
+          _0: input.size
+        },
+        Error: new Error()
+      };
+    }
+    let error = PieceReducer.reduce(input);
+    if (error.TAG !== "Ok") {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "InvalidState",
+          _0: error._0
+        },
+        Error: new Error()
+      };
+    }
+    let value = BeginnerSolver.orientFrame(input);
+    let match;
+    if (value !== undefined) {
+      match = value;
+    } else {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "SearchFailed",
+          _0: "centre-frame normalization"
+        },
+        Error: new Error()
+      };
+    }
+    let frameAlg = match[1];
+    let state = StateTypes.solved(3);
+    let solved;
+    if (state.TAG === "Ok") {
+      solved = state._0;
+    } else {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "UnsupportedSize",
+          _0: 3
+        },
+        Error: new Error()
+      };
+    }
+    let pieces = PieceReducer.reduce(match[0]);
+    let start;
+    if (pieces.TAG === "Ok") {
+      start = pieces._0;
+    } else {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "InvalidState",
+          _0: pieces._0
+        },
+        Error: new Error()
+      };
+    }
+    let atomics = BeginnerSolver.atomicActions(solved);
+    let current = start;
+    let selection = selectCross(current, atomics);
+    let crossSelection;
+    if (selection !== undefined) {
+      crossSelection = selection;
+    } else {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "SearchFailed",
+          _0: "a direct white cross"
+        },
+        Error: new Error()
+      };
+    }
+    current = applyPath(current, crossSelection.path);
+    if (!BeginnerSolver.lockedGoal(current, [], [
+        0,
+        1,
+        2,
+        3
+      ])) {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: "VerificationFailed",
+        Error: new Error()
+      };
+    }
+    let cornerNames = [
+      "Insert the white–green–red first-layer corner with one optimized trigger.",
+      "Insert the white–green–orange first-layer corner with one optimized trigger.",
+      "Insert the white–blue–orange first-layer corner with one optimized trigger.",
+      "Insert the white–blue–red first-layer corner with one optimized trigger."
+    ];
+    let match$1 = planLayerPieces(current, [
+      0,
+      1,
+      2,
+      3
+    ], [], [
+      0,
+      1,
+      2,
+      3
+    ], true, atomics, cornerNames);
+    let cornerPlan = match$1[0];
+    current = match$1[1];
+    if (!BeginnerSolver.lockedGoal(current, [
+        0,
+        1,
+        2,
+        3
+      ], [
+        0,
+        1,
+        2,
+        3
+      ])) {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: "VerificationFailed",
+        Error: new Error()
+      };
+    }
+    let middleNames = [
+      "Insert the green–red middle edge with an optimized left/right trigger.",
+      "Insert the green–orange middle edge with an optimized left/right trigger.",
+      "Insert the blue–orange middle edge with an optimized left/right trigger.",
+      "Insert the blue–red middle edge with an optimized left/right trigger."
+    ];
+    let match$2 = planLayerPieces(current, [
+      8,
+      9,
+      10,
+      11
+    ], [
+      0,
+      1,
+      2,
+      3
+    ], [
+      0,
+      1,
+      2,
+      3
+    ], false, atomics, middleNames);
+    let middlePlan = match$2[0];
+    current = match$2[1];
+    if (!BeginnerSolver.firstTwoLayersGoal(current)) {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: "VerificationFailed",
+        Error: new Error()
+      };
+    }
+    let combinedOll = selectBeginnerOll(current, solved);
+    let match$3 = splitSelectionAtGoal(current, solved, combinedOll, BeginnerSolver.orientedLastEdgesGoal);
+    let ollCorners = match$3[1];
+    let ollEdges = match$3[0];
+    current = combinedOll.state;
+    if (!BeginnerSolver.orientedLastCornersGoal(current)) {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: "VerificationFailed",
+        Error: new Error()
+      };
+    }
+    let combinedPll = selectBeginnerPll(current, solved);
+    let match$4 = splitSelectionAtGoal(current, solved, combinedPll, BeginnerSolver.positionedLastCornersGoal);
+    let pllEdges = match$4[1];
+    let pllCorners = match$4[0];
+    current = combinedPll.state;
+    if (!BeginnerSolver.solvedCubiesGoal(current)) {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: "VerificationFailed",
+        Error: new Error()
+      };
+    }
+    let cornerAlg = Stdlib_Array.reduce(cornerPlan, [], (output, selected) => output.concat(BeginnerSolver.groupedSequence(BeginnerSolver.flattenActions(selected.path))));
+    let middleAlg = Stdlib_Array.reduce(middlePlan, [], (output, selected) => output.concat(BeginnerSolver.groupedSequence(BeginnerSolver.flattenActions(selected.path))));
+    let hasPhysicalWork = crossSelection.path.length !== 0 || cornerAlg.length !== 0 || middleAlg.length !== 0 || combinedOll.alg.length !== 0 || combinedPll.alg.length !== 0;
+    let whiteDown = [{
+        desc: {
+          TAG: "Move",
+          _0: {
+            TAG: "Rotation",
+            _0: "X"
+          },
+          _1: 2
+        },
+        loc: generatedLoc
+      }];
+    let crossCore = BeginnerSolver.flattenActions(crossSelection.path);
+    let crossAlg = BeginnerSolver.groupedSequence(frameAlg);
+    let crossLabels = [];
+    if (frameAlg.length !== 0) {
+      crossLabels.push("Normalize the centre frame before planning the cross.");
+    }
+    if (hasPhysicalWork) {
+      crossAlg = crossAlg.concat(BeginnerSolver.groupedSequence(whiteDown));
+      crossLabels.push("Regrip once so white stays on the bottom.");
+      if (crossCore.length !== 0) {
+        crossAlg = crossAlg.concat(BeginnerSolver.groupedSequence(MoveTransform.rotate(crossCore, "X", 2)));
+        crossLabels.push(`Build the direct white cross in ` + crossSelection.path.length.toString() + ` moves.`);
+      }
+    }
+    let finalEdges = hasPhysicalWork ? MoveTransform.rotate(pllEdges.alg, "X", 2).concat(BeginnerSolver.groupedSequence(whiteDown)) : MoveTransform.rotate(pllEdges.alg, "X", 2);
+    let finalLabels = pllEdges.labels.map(label => label);
+    if (hasPhysicalWork) {
+      finalLabels.push("Restore the canonical white-up export frame.");
+    }
+    let phases = [
+      phase(1, "Direct White Cross", "Build the complete white cross directly on the bottom without making a daisy.", withPhasePause(crossAlg), crossLabels),
+      phase(2, "First-Layer Corners", "Insert each white corner once while preserving the direct cross.", withPhasePause(MoveTransform.rotate(cornerAlg, "X", 2)), cornerPlan.map(candidate => candidate.label)),
+      phase(3, "Middle-Layer Edges", "Insert each middle edge with an efficient trigger while preserving the first layer.", withPhasePause(MoveTransform.rotate(middleAlg, "X", 2)), middlePlan.map(candidate => candidate.label)),
+      phase(4, "Yellow Cross", "Recognize the dot, line, or hook and orient all four last-layer edges.", withPhasePause(MoveTransform.rotate(ollEdges.alg, "X", 2)), ollEdges.labels),
+      phase(5, "Orient Yellow Corners", "Recognize the corner case and orient the yellow face without repeated Sune spam.", withPhasePause(MoveTransform.rotate(ollCorners.alg, "X", 2)), ollCorners.labels),
+      phase(6, "Permute Yellow Corners", "Recognize headlights or the diagonal case and position all last-layer corners.", withPhasePause(MoveTransform.rotate(pllCorners.alg, "X", 2)), pllCorners.labels),
+      phase(7, "Permute Yellow Edges", "Finish with the recognized Ua, Ub, H, or Z edge permutation.", finalEdges, finalLabels)
+    ];
+    let annotated = Stdlib_Array.reduce(phases, [], (output, item) => output.concat([{
+        desc: {
+          TAG: "BlockComment",
+          _0: ` ADVANCED LBL ` + item.number.toString() + `: ` + item.title + ` — ` + item.instruction + ` `
+        },
+        loc: generatedLoc
+      }]).concat(item.alg));
+    let error$1 = MoveExecutor.expand(annotated);
+    let moveCount;
+    if (error$1.TAG === "Ok") {
+      moveCount = error$1._0.filter(step => {
+        let match = step.move;
+        switch (match.TAG) {
+          case "FaceTurn" :
+          case "SliceTurn" :
+            return true;
+          case "Rotation" :
+            return false;
+        }
+      }).length;
+    } else {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "ExpansionFailed",
+          _0: error$1._0
+        },
+        Error: new Error()
+      };
+    }
+    let error$2 = MoveExecutor.applyAlg(input, annotated);
+    let result;
+    if (error$2.TAG === "Ok") {
+      result = error$2._0;
+    } else {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "ExpansionFailed",
+          _0: error$2._0
+        },
+        Error: new Error()
+      };
+    }
+    if (!BeginnerSolver.statesEqual(result, solved)) {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: "VerificationFailed",
+        Error: new Error()
+      };
+    }
+    return {
+      TAG: "Ok",
+      _0: {
+        phases: phases,
+        alg: annotated,
+        moveCount: moveCount
+      }
+    };
+  } catch (raw_error) {
+    let error$3 = Primitive_exceptions.internalToException(raw_error);
+    if (error$3.RE_EXN_ID === BuildFailure) {
+      return {
+        TAG: "Error",
+        _0: error$3._1
+      };
+    }
+    throw error$3;
+  }
+}
+
 function solveBeginner(input) {
   return solveLevel(input, "Beginner");
 }
@@ -1381,7 +1814,12 @@ export {
   groupedPathWithLabels,
   selectBeginnerOll,
   selectBeginnerPll,
+  splitSelectionAtGoal,
+  layerPlanKey,
+  planLayerPiecesFrom,
+  planLayerPieces,
   solveLevel,
+  solveAdvancedLbl,
   solveBeginner,
   solveFull,
   solveAdvanced,

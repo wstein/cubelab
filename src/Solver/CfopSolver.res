@@ -438,16 +438,10 @@ let rec planF2l = (
         candidates->Array.sort(comparePairs)
         let result = ref(None)
         let bestScore = ref(100000000)
-        let candidateLimit = if completed->Array.length == 0 {
-          if candidates->Array.length < rootCandidates {
-            candidates->Array.length
-          } else {
-            rootCandidates
-          }
-        } else if candidates->Array.length == 0 {
-          0
+        let candidateLimit = if candidates->Array.length < rootCandidates {
+          candidates->Array.length
         } else {
-          1
+          rootCandidates
         }
         for index in 0 to candidateLimit - 1 {
           let candidate = Belt.Array.getUnsafe(candidates, index)
@@ -894,6 +888,178 @@ let selectBeginnerPll = (~state, ~solved): lastLayerSelection => {
   }
 }
 
+let splitSelectionAtGoal = (
+  ~state: PieceReducer.pieceState,
+  ~solved,
+  ~selection: lastLayerSelection,
+  ~isGoal,
+) => {
+  let cursor = ref(state)
+  let splitGroups = ref(
+    if isGoal(state) {
+      0
+    } else {
+      -1
+    },
+  )
+  for index in 0 to selection.labels->Array.length - 1 {
+    if splitGroups.contents == -1 {
+      let group = [
+        Belt.Array.getUnsafe(selection.alg, index * 2),
+        Belt.Array.getUnsafe(selection.alg, index * 2 + 1),
+      ]
+      let transition = BeginnerSolver.transitionForAlg(solved, group)
+      cursor := BeginnerSolver.applyCubie(cursor.contents, transition)
+      if isGoal(cursor.contents) {
+        splitGroups := index + 1
+      }
+    }
+  }
+  if splitGroups.contents == -1 {
+    throw(BuildFailure(BeginnerSolver.VerificationFailed))
+  }
+  let splitUnits = splitGroups.contents * 2
+  let firstAlg = []
+  let secondAlg = []
+  selection.alg->Array.forEachWithIndex((unit, index) => {
+    if index < splitUnits {
+      firstAlg->Array.push(unit)
+    } else {
+      secondAlg->Array.push(unit)
+    }
+  })
+  let firstLabels = []
+  let secondLabels = []
+  selection.labels->Array.forEachWithIndex((label, index) => {
+    if index < splitGroups.contents {
+      firstLabels->Array.push(label)
+    } else {
+      secondLabels->Array.push(label)
+    }
+  })
+  (
+    {alg: firstAlg, labels: firstLabels, state: cursor.contents},
+    {alg: secondAlg, labels: secondLabels, state: selection.state},
+  )
+}
+
+let layerPlanKey = (state: PieceReducer.pieceState, pieces, completed) =>
+  BeginnerSolver.fullKey(state) ++
+  "|" ++
+  pieces
+  ->Array.map(piece =>
+    if completed->Array.some(value => value == piece) {
+      "1"
+    } else {
+      "0"
+    }
+  )
+  ->Array.join("")
+
+let rec planLayerPiecesFrom = (
+  ~state: PieceReducer.pieceState,
+  ~pieces: array<int>,
+  ~completed: array<int>,
+  ~baseCorners: array<int>,
+  ~baseEdges: array<int>,
+  ~corners: bool,
+  ~atomics: array<BeginnerSolver.action>,
+  ~labels: array<string>,
+  ~failed,
+) => {
+  if completed->Array.length == pieces->Array.length {
+    Some([])
+  } else {
+    let key = layerPlanKey(state, pieces, completed)
+    if Dict.get(failed, key) != None {
+      None
+    } else {
+      let candidates = []
+      pieces->Array.forEachWithIndex((piece, labelIndex) => {
+        if !(completed->Array.some(value => value == piece)) {
+          let targetCorners = if corners {
+            baseCorners->Array.concat(completed)->Array.concat([piece])
+          } else {
+            baseCorners
+          }
+          let targetEdges = if corners {
+            baseEdges
+          } else {
+            baseEdges->Array.concat(completed)->Array.concat([piece])
+          }
+          switch BeginnerSolver.searchAtomicWithLimit(
+            ~state,
+            ~corners=targetCorners,
+            ~edges=targetEdges,
+            ~actions=atomics->rankedActions,
+            ~maxDepth=12,
+            ~maxNodes=600000,
+          ) {
+          | Some(path) => {
+              let score =
+                BeginnerSolver.flattenActions(path)
+                ->MoveTransform.rotate(~axis=X, ~turns=2)
+                ->physicalScore
+              candidates->Array.push({
+                pair: piece,
+                path,
+                score,
+                label: Belt.Array.getUnsafe(labels, labelIndex),
+              })
+            }
+          | None => ()
+          }
+        }
+      })
+      candidates->Array.sort(comparePairs)
+      let result = ref(None)
+      for index in 0 to candidates->Array.length - 1 {
+        if result.contents == None {
+          let selected = Belt.Array.getUnsafe(candidates, index)
+          let nextState = applyPath(state, selected.path)
+          switch planLayerPiecesFrom(
+            ~state=nextState,
+            ~pieces,
+            ~completed=completed->Array.concat([selected.pair]),
+            ~baseCorners,
+            ~baseEdges,
+            ~corners,
+            ~atomics,
+            ~labels,
+            ~failed,
+          ) {
+          | Some(rest) => result := Some([selected]->Array.concat(rest))
+          | None => ()
+          }
+        }
+      }
+      if result.contents == None {
+        Dict.set(failed, key, true)
+      }
+      result.contents
+    }
+  }
+}
+
+let planLayerPieces = (~state, ~pieces, ~baseCorners, ~baseEdges, ~corners, ~atomics, ~labels) =>
+  switch planLayerPiecesFrom(
+    ~state,
+    ~pieces,
+    ~completed=[],
+    ~baseCorners,
+    ~baseEdges,
+    ~corners,
+    ~atomics,
+    ~labels,
+    ~failed=Dict.make(),
+  ) {
+  | None => throw(BuildFailure(BeginnerSolver.SearchFailed("optimized layer-by-layer insertion")))
+  | Some(plan) => (
+      plan,
+      plan->Array.reduce(state, (current, selected) => applyPath(current, selected.path)),
+    )
+  }
+
 let solveLevel = (input: cubeState, level: level): result<solution, solverError> => {
   try {
     if input.size != 3 {
@@ -957,26 +1123,37 @@ let solveLevel = (input: cubeState, level: level): result<solution, solverError>
       },
       ~failed=Dict.make(),
     )
-    let f2lPlan = switch fastF2lPlan {
-    | Some(plan) => plan
-    | None =>
-      switch planF2l(
+    let mediumF2lPlan = () =>
+      planF2l(
         ~state=current.contents,
         ~completed=[],
         ~atomics,
         ~maxDepth=12,
-        ~maxNodes=600000,
+        ~maxNodes=300000,
         ~allSides=true,
-        ~rootCandidates=if level == Advanced {
-          3
-        } else {
-          1
-        },
+        ~rootCandidates=2,
         ~failed=Dict.make(),
-      ) {
+      )
+    let f2lPlan = switch fastF2lPlan {
+    | Some(plan) => plan
+    | None =>
+      switch mediumF2lPlan() {
       | Some(plan) => plan
       | None =>
-        throw(BuildFailure(BeginnerSolver.SearchFailed("four locked F2L corner-edge pairs")))
+        switch planF2l(
+          ~state=current.contents,
+          ~completed=[],
+          ~atomics,
+          ~maxDepth=12,
+          ~maxNodes=600000,
+          ~allSides=true,
+          ~rootCandidates=4,
+          ~failed=Dict.make(),
+        ) {
+        | Some(plan) => plan
+        | None =>
+          throw(BuildFailure(BeginnerSolver.SearchFailed("four locked F2L corner-edge pairs")))
+        }
       }
     }
     let f2lAlg = ref([])
@@ -1107,6 +1284,236 @@ let solveLevel = (input: cubeState, level: level): result<solution, solverError>
       phases->Array.reduce([], (output, item) =>
         output->Array.concat([commentForPhase(item)])->Array.concat(item.alg)
       )
+    let moveCount = switch MoveExecutor.expand(annotated) {
+    | Error(error) => throw(BuildFailure(BeginnerSolver.ExpansionFailed(error)))
+    | Ok(steps) =>
+      steps
+      ->Array.filter(step =>
+        switch step.move {
+        | Rotation(_) => false
+        | FaceTurn(_, _) | SliceTurn(_) => true
+        }
+      )
+      ->Array.length
+    }
+    let result = switch MoveExecutor.applyAlg(input, annotated) {
+    | Error(error) => throw(BuildFailure(BeginnerSolver.ExpansionFailed(error)))
+    | Ok(state) => state
+    }
+    if !BeginnerSolver.statesEqual(result, solved) {
+      throw(BuildFailure(BeginnerSolver.VerificationFailed))
+    }
+    Ok({phases, alg: annotated, moveCount})
+  } catch {
+  | BuildFailure(error) => Error(error)
+  }
+}
+
+let solveAdvancedLbl = (input: cubeState): result<solution, solverError> => {
+  try {
+    if input.size != 3 {
+      throw(BuildFailure(BeginnerSolver.UnsupportedSize(input.size)))
+    }
+    switch PieceReducer.reduce(input) {
+    | Error(error) => throw(BuildFailure(BeginnerSolver.InvalidState(error)))
+    | Ok(_) => ()
+    }
+    let (orientedState, frameAlg) = switch BeginnerSolver.orientFrame(input) {
+    | Some(value) => value
+    | None => throw(BuildFailure(BeginnerSolver.SearchFailed("centre-frame normalization")))
+    }
+    let solved = switch StateTypes.solved(3) {
+    | Ok(state) => state
+    | Error(_) => throw(BuildFailure(BeginnerSolver.UnsupportedSize(3)))
+    }
+    let start = switch PieceReducer.reduce(orientedState) {
+    | Ok(pieces) => pieces
+    | Error(error) => throw(BuildFailure(BeginnerSolver.InvalidState(error)))
+    }
+    let atomics = BeginnerSolver.atomicActions(solved)
+    let current = ref(start)
+
+    let crossSelection = switch selectCross(~state=current.contents, ~atomics) {
+    | Some(selection) => selection
+    | None => throw(BuildFailure(BeginnerSolver.SearchFailed("a direct white cross")))
+    }
+    current := applyPath(current.contents, crossSelection.path)
+    if !BeginnerSolver.lockedGoal(current.contents, [], [0, 1, 2, 3]) {
+      throw(BuildFailure(BeginnerSolver.VerificationFailed))
+    }
+
+    let cornerNames = [
+      "Insert the white–green–red first-layer corner with one optimized trigger.",
+      "Insert the white–green–orange first-layer corner with one optimized trigger.",
+      "Insert the white–blue–orange first-layer corner with one optimized trigger.",
+      "Insert the white–blue–red first-layer corner with one optimized trigger.",
+    ]
+    let (cornerPlan, afterCorners) = planLayerPieces(
+      ~state=current.contents,
+      ~pieces=[0, 1, 2, 3],
+      ~baseCorners=[],
+      ~baseEdges=[0, 1, 2, 3],
+      ~corners=true,
+      ~atomics,
+      ~labels=cornerNames,
+    )
+    current := afterCorners
+    if !BeginnerSolver.lockedGoal(current.contents, [0, 1, 2, 3], [0, 1, 2, 3]) {
+      throw(BuildFailure(BeginnerSolver.VerificationFailed))
+    }
+
+    let middleNames = [
+      "Insert the green–red middle edge with an optimized left/right trigger.",
+      "Insert the green–orange middle edge with an optimized left/right trigger.",
+      "Insert the blue–orange middle edge with an optimized left/right trigger.",
+      "Insert the blue–red middle edge with an optimized left/right trigger.",
+    ]
+    let (middlePlan, afterMiddle) = planLayerPieces(
+      ~state=current.contents,
+      ~pieces=[8, 9, 10, 11],
+      ~baseCorners=[0, 1, 2, 3],
+      ~baseEdges=[0, 1, 2, 3],
+      ~corners=false,
+      ~atomics,
+      ~labels=middleNames,
+    )
+    current := afterMiddle
+    if !BeginnerSolver.firstTwoLayersGoal(current.contents) {
+      throw(BuildFailure(BeginnerSolver.VerificationFailed))
+    }
+
+    let combinedOll = selectBeginnerOll(~state=current.contents, ~solved)
+    let (ollEdges, ollCorners) = splitSelectionAtGoal(
+      ~state=current.contents,
+      ~solved,
+      ~selection=combinedOll,
+      ~isGoal=BeginnerSolver.orientedLastEdgesGoal,
+    )
+    current := combinedOll.state
+    if !BeginnerSolver.orientedLastCornersGoal(current.contents) {
+      throw(BuildFailure(BeginnerSolver.VerificationFailed))
+    }
+
+    let combinedPll = selectBeginnerPll(~state=current.contents, ~solved)
+    let (pllCorners, pllEdges) = splitSelectionAtGoal(
+      ~state=current.contents,
+      ~solved,
+      ~selection=combinedPll,
+      ~isGoal=BeginnerSolver.positionedLastCornersGoal,
+    )
+    current := combinedPll.state
+    if !BeginnerSolver.solvedCubiesGoal(current.contents) {
+      throw(BuildFailure(BeginnerSolver.VerificationFailed))
+    }
+
+    let cornerAlg =
+      cornerPlan->Array.reduce([], (output, selected) =>
+        output->Array.concat(grouped(BeginnerSolver.flattenActions(selected.path)))
+      )
+    let middleAlg =
+      middlePlan->Array.reduce([], (output, selected) =>
+        output->Array.concat(grouped(BeginnerSolver.flattenActions(selected.path)))
+      )
+    let hasPhysicalWork =
+      crossSelection.path->Array.length > 0 ||
+      cornerAlg->Array.length > 0 ||
+      middleAlg->Array.length > 0 ||
+      combinedOll.alg->Array.length > 0 ||
+      combinedPll.alg->Array.length > 0
+    let whiteDown = [located(Move(Rotation(X), 2))]
+    let crossCore = BeginnerSolver.flattenActions(crossSelection.path)
+    let crossAlg = ref(grouped(frameAlg))
+    let crossLabels = []
+    if frameAlg->Array.length > 0 {
+      crossLabels->Array.push("Normalize the centre frame before planning the cross.")
+    }
+    if hasPhysicalWork {
+      crossAlg := crossAlg.contents->Array.concat(grouped(whiteDown))
+      crossLabels->Array.push("Regrip once so white stays on the bottom.")
+      if crossCore->Array.length > 0 {
+        crossAlg :=
+          crossAlg.contents->Array.concat(
+            grouped(crossCore->MoveTransform.rotate(~axis=X, ~turns=2)),
+          )
+        crossLabels->Array.push(
+          `Build the direct white cross in ${crossSelection.path
+            ->Array.length
+            ->Int.toString} moves.`,
+        )
+      }
+    }
+    let transform = alg => alg->MoveTransform.rotate(~axis=X, ~turns=2)
+    let finalEdges = if hasPhysicalWork {
+      transform(pllEdges.alg)->Array.concat(grouped(whiteDown))
+    } else {
+      transform(pllEdges.alg)
+    }
+    let finalLabels = pllEdges.labels->Array.map(label => label)
+    if hasPhysicalWork {
+      finalLabels->Array.push("Restore the canonical white-up export frame.")
+    }
+    let phases = [
+      phase(
+        1,
+        "Direct White Cross",
+        "Build the complete white cross directly on the bottom without making a daisy.",
+        crossAlg.contents->withPhasePause,
+        crossLabels,
+      ),
+      phase(
+        2,
+        "First-Layer Corners",
+        "Insert each white corner once while preserving the direct cross.",
+        transform(cornerAlg)->withPhasePause,
+        cornerPlan->Array.map(candidate => candidate.label),
+      ),
+      phase(
+        3,
+        "Middle-Layer Edges",
+        "Insert each middle edge with an efficient trigger while preserving the first layer.",
+        transform(middleAlg)->withPhasePause,
+        middlePlan->Array.map(candidate => candidate.label),
+      ),
+      phase(
+        4,
+        "Yellow Cross",
+        "Recognize the dot, line, or hook and orient all four last-layer edges.",
+        transform(ollEdges.alg)->withPhasePause,
+        ollEdges.labels,
+      ),
+      phase(
+        5,
+        "Orient Yellow Corners",
+        "Recognize the corner case and orient the yellow face without repeated Sune spam.",
+        transform(ollCorners.alg)->withPhasePause,
+        ollCorners.labels,
+      ),
+      phase(
+        6,
+        "Permute Yellow Corners",
+        "Recognize headlights or the diagonal case and position all last-layer corners.",
+        transform(pllCorners.alg)->withPhasePause,
+        pllCorners.labels,
+      ),
+      phase(
+        7,
+        "Permute Yellow Edges",
+        "Finish with the recognized Ua, Ub, H, or Z edge permutation.",
+        finalEdges,
+        finalLabels,
+      ),
+    ]
+    let annotated = phases->Array.reduce([], (output, item) =>
+      output
+      ->Array.concat([
+        located(
+          BlockComment(
+            ` ADVANCED LBL ${item.number->Int.toString}: ${item.title} — ${item.instruction} `,
+          ),
+        ),
+      ])
+      ->Array.concat(item.alg)
+    )
     let moveCount = switch MoveExecutor.expand(annotated) {
     | Error(error) => throw(BuildFailure(BeginnerSolver.ExpansionFailed(error)))
     | Ok(steps) =>

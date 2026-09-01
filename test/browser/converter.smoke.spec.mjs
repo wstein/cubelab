@@ -738,6 +738,15 @@ test("opens CFOP Academy and builds its four replay-verified stages", async ({pa
   await expect(page.locator("[data-full-cfop-current]")).toContainText("Step 2: F2L Pairs");
   await expect(canvas).toHaveAttribute("data-cfop-persistence-probe", "mounted");
 
+  await page.locator("[data-academy-method='advancedLbl']").click();
+  const advancedLblPanel = page.locator("[data-academy-method-panel='advancedLbl']");
+  await expect(advancedLblPanel).toBeVisible();
+  await page.getByRole("button", {name: "Generate verified solution"}).click();
+  await expect(page.locator("[data-advanced-lbl-status]")).toContainText("Verified Advanced LBL solution");
+  await expect(advancedLblPanel.locator("[data-beginner-phase]")).toHaveCount(7);
+  await expect(advancedLblPanel.locator("[data-beginner-phase]").nth(0)).toContainText("Direct White Cross");
+  await expect(advancedLblPanel.locator("[data-beginner-phase]").nth(6)).toContainText("Permute Yellow Edges");
+
   await page.locator("[data-academy-method='beginnerCfop']").click();
   const beginnerCfopPanel = page.locator("[data-academy-method-panel='beginnerCfop']");
   await expect(beginnerCfopPanel).toBeVisible();
@@ -763,6 +772,7 @@ test("opens CFOP Academy and builds its four replay-verified stages", async ({pa
   await expect(fullPanel.locator("[data-cfop-phase]")).toHaveCount(4);
   await expect(page.locator("[data-academy-comparison]")).toContainText("Same-state comparison");
   await expect(page.locator("[data-academy-comparison]")).toContainText(/Beginner LBL \d+/);
+  await expect(page.locator("[data-academy-comparison]")).toContainText(/Advanced LBL \d+/);
   await expect(page.locator("[data-academy-comparison]")).toContainText(/Beginner CFOP \d+/);
   await expect(page.locator("[data-academy-comparison]")).toContainText(/Full CFOP \d+/);
   await expect(page.locator("[data-academy-comparison]")).toContainText(/Advanced CFOP \d+/);

@@ -91,11 +91,13 @@ test("the SPA workspace keeps one viewport beside three URL-addressable destinat
   assert.match(page, /data-workspace-tab="workbench"/);
   assert.doesNotMatch(page, /data-workspace-tab="(?:beginner|cfop)"/);
   assert.match(page, /data-academy-method="beginner"/);
+  assert.match(page, /data-academy-method="advancedLbl"/);
   assert.match(page, /data-academy-method="beginnerCfop"/);
   assert.match(page, /data-academy-method="fullCfop"/);
   assert.match(page, /data-academy-method="advancedCfop"/);
   assert.match(page, /57 OLL \+ 21 PLL/);
   assert.match(page, /data-academy-method-panel="beginner"/);
+  assert.match(page, /data-academy-method-panel="advancedLbl"/);
   assert.match(page, /data-academy-method-panel="beginnerCfop"/);
   assert.match(page, /data-academy-method-panel="fullCfop"/);
   assert.match(page, /data-academy-method-panel="advancedCfop"/);
@@ -109,6 +111,7 @@ test("the SPA workspace keeps one viewport beside three URL-addressable destinat
   assert.match(page, /data-beginner-copy/);
   assert.match(client, /BeginnerSolver\.solve/);
   assert.match(client, /CfopSolver\.solveBeginner/);
+  assert.match(client, /CfopSolver\.solveAdvancedLbl/);
   assert.match(client, /CfopSolver\.solveFull/);
   assert.match(client, /CfopSolver\.solveAdvanced/);
   assert.match(client, /buildTimeline\(initialState, solution\.alg\)/);
@@ -180,6 +183,9 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /Next physical move:/);
   assert.match(client, /if \(smartCubeConnected\) waitForSmartCubeMove\(\)/);
   assert.match(client, /applyWaitingTimelineMove/);
+  assert.match(client, /applyPartialHalfTurn/);
+  assert.match(client, /completedHalfTurn/);
+  assert.match(client, /Repeat .* to complete/);
   assert.match(client, /if \(continueCoaching\) waitForSmartCubeMove\(\);\s*else renderSmartCubeLiveState\(\);/);
   assert.doesNotMatch(
     client,

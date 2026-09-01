@@ -57,6 +57,8 @@ import {
   assessSmartCubeMove,
   isLastPhysicalMoveInRange,
   nextExpectedSmartCubeMove,
+  type SmartCubeHalfTurnProgress,
+  type SmartCubeMoveAssessment,
 } from "./smart-cube/live-sync";
 import type {
   SmartCubeConnectionState,
@@ -179,6 +181,12 @@ if (root) {
     phaseCount: 7,
     ...academyDom("beginner"),
   };
+  const advancedLblAcademy: AcademyElements = {
+    method: "advancedLbl",
+    label: "Advanced LBL",
+    phaseCount: 7,
+    ...academyDom("advanced-lbl"),
+  };
   const beginnerCfopAcademy: AcademyElements = {
     method: "beginnerCfop",
     label: "Beginner CFOP",
@@ -199,12 +207,15 @@ if (root) {
   };
   const academies = [
     beginnerAcademy,
+    advancedLblAcademy,
     beginnerCfopAcademy,
     fullCfopAcademy,
     advancedCfopAcademy,
   ];
   const academyForMethod = (method: TutorialMethod): AcademyElements =>
     academies.find((academy) => academy.method === method) ?? beginnerAcademy;
+  const isCfopMethod = (method: TutorialMethod): boolean =>
+    method === "beginnerCfop" || method === "fullCfop" || method === "advancedCfop";
   const viewport = createCubeViewport(canvas, motionOverlay, (message) => {
     viewportFallback.textContent = `${message} Text conversions remain fully functional.`;
     viewportFallback.hidden = false;
@@ -431,6 +442,7 @@ if (root) {
   let smartCubeMoveQueue = Promise.resolve();
   let suppressNextSmartCubeExtension = false;
   let smartCubeCoachingWaiting = false;
+  let smartCubeHalfTurnProgress: SmartCubeHalfTurnProgress | null = null;
 
   const viewportPalette = (): CubePalette =>
     schemeSelect.value === "Japanese" ? "Japanese" : "Western";
@@ -648,7 +660,7 @@ if (root) {
   };
 
   const phaseFocusNumber = (phase: TutorialPhaseRange): number =>
-    phase.method !== "beginner" ? [1, 3, 5, 7][phase.number - 1] ?? phase.number : phase.number;
+    isCfopMethod(phase.method) ? [1, 3, 5, 7][phase.number - 1] ?? phase.number : phase.number;
 
   const updateAcademyComparison = () => {
     const compared = academies.flatMap((academy) => {
@@ -958,7 +970,7 @@ if (root) {
         clearTurnGuide();
         const final = completedPhase.number === tutorialPhases.length;
         const milestoneLabel = final
-          ? `Cube solved — all ${tutorialPhases.length} ${completedPhase.method !== "beginner" ? "CFOP stages" : "steps"} verified`
+          ? `Cube solved — all ${tutorialPhases.length} ${isCfopMethod(completedPhase.method) ? "CFOP stages" : "steps"} verified`
           : `Step ${completedPhase.number} complete — ${completedPhase.title} verified`;
         coachStatus.textContent = milestoneLabel;
         viewport.setMilestone({
@@ -1164,9 +1176,13 @@ if (root) {
       activeIndex,
     );
     if (!expected) {
+      smartCubeHalfTurnProgress = null;
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Timeline complete`;
       coachStatus.textContent = "Physical sequence complete.";
       return;
+    }
+    if (smartCubeHalfTurnProgress?.timelineIndex !== expected.timelineIndex) {
+      smartCubeHalfTurnProgress = null;
     }
     smartCubeCoachingWaiting = true;
     const entry = activeTimeline.steps[expected.timelineIndex];
@@ -1181,9 +1197,31 @@ if (root) {
       viewport?.setTurnPreview(turnTransform(size, entry.step));
       viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
     }
-    smartCubeStatus.textContent = `${smartCubeDeviceName} · Waiting for ${expected.token}`;
-    coachStatus.textContent = `Next physical move: ${expected.token}. Waiting for the smart cube.`;
+    const halfway = smartCubeHalfTurnProgress?.timelineIndex === expected.timelineIndex
+      ? smartCubeHalfTurnProgress.quarterTurn
+      : null;
+    smartCubeStatus.textContent = halfway
+      ? `${smartCubeDeviceName} · ${expected.token} halfway`
+      : `${smartCubeDeviceName} · Waiting for ${expected.token}`;
+    coachStatus.textContent = halfway
+      ? `${halfway} detected. Repeat ${halfway} to complete ${expected.token}.`
+      : `Next physical move: ${expected.token}. Waiting for the smart cube.`;
     updatePlaybackUi();
+  };
+
+  const applyPartialHalfTurn = async (
+    assessment: Extract<SmartCubeMoveAssessment, {status: "partial"}>,
+  ): Promise<void> => {
+    smartCubeHalfTurnProgress = assessment.progress;
+    await animateSmartCubeMove(assessment.received);
+    const base = activeTimeline?.states?.[assessment.expected.timelineIndex];
+    const step = smartCubeStep(assessment.received);
+    if (base && step) {
+      const halfwayState = MoveExecutor.applyStep(base, step) as CubeState;
+      renderState(halfwayState, `${assessment.expected.token} halfway`);
+    }
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · ${assessment.expected.token} halfway`;
+    coachStatus.textContent = `${assessment.received} detected. Repeat ${assessment.received} to complete ${assessment.expected.token}.`;
   };
 
   const applyWaitingTimelineMove = async (move: string): Promise<boolean> => {
@@ -1193,21 +1231,32 @@ if (root) {
       activeTimeline.labels,
       activeIndex,
       move,
+      smartCubeHalfTurnProgress,
     );
-    if (assessment.status === "complete") return true;
+    if (assessment.status === "complete") {
+      smartCubeHalfTurnProgress = null;
+      return true;
+    }
+    if (assessment.status === "partial") {
+      await applyPartialHalfTurn(assessment);
+      return true;
+    }
     if (assessment.status === "unsupported") {
+      smartCubeHalfTurnProgress = null;
       smartCubeStatus.textContent = `Expected ${assessment.expected.token}; received unsupported ${assessment.received}`;
       await animateSmartCubeMove(move);
       return true;
     }
     if (assessment.status === "mismatch") {
+      smartCubeHalfTurnProgress = null;
       smartCubeStatus.textContent = `Expected ${assessment.expected.token}, received ${assessment.received}`;
       coachStatus.textContent = `Physical move mismatch. Expected ${assessment.expected.token}; received ${assessment.received}.`;
       await animateSmartCubeMove(move);
       return true;
     }
     const moveIndex = assessment.expected.timelineIndex;
-    if (activeIndex !== moveIndex) renderTimelineIndex(moveIndex);
+    smartCubeHalfTurnProgress = null;
+    if (!assessment.completedHalfTurn && activeIndex !== moveIndex) renderTimelineIndex(moveIndex);
     await animateSmartCubeMove(move);
     renderTimelineIndex(moveIndex + 1);
     smartCubeStatus.textContent = `${smartCubeDeviceName} · ${move} matched`;
@@ -1244,17 +1293,25 @@ if (root) {
       activeTimeline.labels,
       activeIndex,
       move,
+      smartCubeHalfTurnProgress,
     );
     if (assessment.status === "complete") {
+      smartCubeHalfTurnProgress = null;
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Academy sequence complete`;
       return true;
     }
+    if (assessment.status === "partial") {
+      await applyPartialHalfTurn(assessment);
+      return true;
+    }
     if (assessment.status === "unsupported") {
+      smartCubeHalfTurnProgress = null;
       smartCubeStatus.textContent = `Expected ${assessment.expected.token}; this slice/wide move is not reported directly by the cube`;
       await animateSmartCubeMove(move);
       return true;
     }
     if (assessment.status === "mismatch") {
+      smartCubeHalfTurnProgress = null;
       smartCubeStatus.textContent = `Expected ${assessment.expected.token}, received ${assessment.received}`;
       coachStatus.textContent = `Physical move mismatch. Expected ${assessment.expected.token}; received ${assessment.received}.`;
       await animateSmartCubeMove(move);
@@ -1262,7 +1319,8 @@ if (root) {
     }
 
     const moveIndex = assessment.expected.timelineIndex;
-    if (activeIndex !== moveIndex) renderTimelineIndex(moveIndex);
+    smartCubeHalfTurnProgress = null;
+    if (!assessment.completedHalfTurn && activeIndex !== moveIndex) renderTimelineIndex(moveIndex);
     await animateSmartCubeMove(move);
     renderTimelineIndex(moveIndex + 1);
     smartCubeStatus.textContent = `${smartCubeDeviceName} · ${move} matched`;
@@ -1369,6 +1427,7 @@ if (root) {
       smartCubeOrientation.hidden = true;
       smartCubeBattery.hidden = true;
       if (connectionState.phase !== "connecting") {
+        smartCubeHalfTurnProgress = null;
         if (smartCubeCoachingWaiting) {
           clearTurnGuide("restore");
           stopPlayback();
@@ -1811,7 +1870,7 @@ if (root) {
       button.dataset.tutorialPhase = String(phase.number);
       button.dataset.tutorialPhaseStart = String(phase.start);
       button.dataset.tutorialPhaseEnd = String(phase.end);
-      if (academy.method === "beginner") {
+      if (!isCfopMethod(academy.method)) {
         button.dataset.beginnerPhase = String(phase.number);
         button.dataset.beginnerPhaseStart = String(phase.start);
       } else {
@@ -1851,14 +1910,16 @@ if (root) {
     });
     commentedTutorialSolution = solution.phases.map((phase) => {
       const moves = MoveTransform.serialize(phase.alg);
-      return `// ${academy.method !== "beginner" ? "CFOP" : "STEP"} ${phase.number}: ${phase.title}\n// ${phase.instruction}\n${moves || "// Already complete"}`;
+      return `// ${isCfopMethod(academy.method) ? "CFOP" : "STEP"} ${phase.number}: ${phase.title}\n// ${phase.instruction}\n${moves || "// Already complete"}`;
     }).join("\n\n");
     academy.solution.textContent = commentedTutorialSolution;
     academy.solution.hidden = false;
     academy.copy.disabled = false;
     academy.status.classList.remove("error");
-    const benchmarkTarget = academy.method === "beginnerCfop"
-      ? 70
+    const benchmarkTarget = academy.method === "advancedLbl"
+      ? 76
+      : academy.method === "beginnerCfop"
+        ? 70
       : academy.method === "fullCfop"
         ? 60
         : academy.method === "advancedCfop"
@@ -1897,15 +1958,17 @@ if (root) {
     academy.status.classList.remove("error");
     academy.status.textContent = method === "beginner"
       ? "Building and replay-verifying the seven beginner phases…"
-      : `Building and replay-verifying the four ${academy.label} phases…`;
+      : `Building and replay-verifying the ${academy.phaseCount} ${academy.label} phases…`;
     window.setTimeout(() => {
       const result = (method === "beginner"
         ? BeginnerSolver.solve(initialState)
-        : method === "beginnerCfop"
-          ? CfopSolver.solveBeginner(initialState)
-          : method === "fullCfop"
-            ? CfopSolver.solveFull(initialState)
-            : CfopSolver.solveAdvanced(initialState)) as Result<TutorialSolution, unknown>;
+        : method === "advancedLbl"
+          ? CfopSolver.solveAdvancedLbl(initialState)
+          : method === "beginnerCfop"
+            ? CfopSolver.solveBeginner(initialState)
+            : method === "fullCfop"
+              ? CfopSolver.solveFull(initialState)
+              : CfopSolver.solveAdvanced(initialState)) as Result<TutorialSolution, unknown>;
       academySolveBusy = false;
       if (result.TAG === "Error") {
         academy.status.textContent = method === "beginner"
@@ -1941,7 +2004,7 @@ if (root) {
       await navigator.clipboard.writeText(commentedTutorialSolution);
       academy.copy.textContent = "Copied";
       window.setTimeout(() => {
-        academy.copy.textContent = academy.method !== "beginner"
+        academy.copy.textContent = isCfopMethod(academy.method)
           ? "Copy commented CFOP solution"
           : "Copy commented solution";
       }, 1500);
@@ -2137,6 +2200,7 @@ if (root) {
     void play(-1);
   });
   playbackPause.addEventListener("click", () => {
+    smartCubeHalfTurnProgress = null;
     stopPlayback();
     clearTurnGuide("restore");
   });
@@ -2296,6 +2360,7 @@ if (root) {
       case " ":
         event.preventDefault();
         if (playbackDirection !== 0 || smartCubeCoachingWaiting) {
+          smartCubeHalfTurnProgress = null;
           stopPlayback();
           clearTurnGuide("restore");
         }

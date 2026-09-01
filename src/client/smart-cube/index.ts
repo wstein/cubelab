@@ -7,6 +7,7 @@ export {
   isLastPhysicalMoveInRange,
   nextExpectedSmartCubeMove,
 } from "./live-sync";
+export type {SmartCubeHalfTurnProgress} from "./live-sync";
 export type {
   SmartCubeBatteryEvent,
   SmartCubeBrand,

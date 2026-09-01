@@ -84,6 +84,7 @@ test("emits four replay-verified full CFOP phases", () => {
 test("exposes distinct replay-verified Beginner, Full, and Advanced CFOP strategies", () => {
   const initial = scramble("R U2 F' L2 D B2 R' U F2 D' L B U2 R2 F D2 L' B' U R");
   const beginner = solveWith(CfopSolver.solveBeginner, initial);
+  const advancedLbl = solveWith(CfopSolver.solveAdvancedLbl, initial);
   const full = solveWith(CfopSolver.solveFull, initial);
   const advanced = solveWith(CfopSolver.solveAdvanced, initial);
 
@@ -91,15 +92,43 @@ test("exposes distinct replay-verified Beginner, Full, and Advanced CFOP strateg
     beginner.phases.map(({title}) => title),
     ["Cross", "F2L Pairs", "Two-Look OLL", "Two-Look PLL"],
   );
+  assert.deepEqual(
+    advancedLbl.phases.map(({title}) => title),
+    [
+      "Direct White Cross",
+      "First-Layer Corners",
+      "Middle-Layer Edges",
+      "Yellow Cross",
+      "Orient Yellow Corners",
+      "Permute Yellow Corners",
+      "Permute Yellow Edges",
+    ],
+  );
   for (const solution of [full, advanced]) {
     assert.deepEqual(
       solution.phases.map(({title}) => title),
       ["Cross", "F2L Pairs", "One-Look OLL", "One-Look PLL"],
     );
   }
-  for (const solution of [beginner, full, advanced]) {
+  for (const solution of [beginner, advancedLbl, full, advanced]) {
     assert.equal(FaceletCodec.render(MoveExecutor.applyAlg(initial, solution.alg)._0), solvedCompact);
   }
+  let advancedLblState = initial;
+  advancedLblState = MoveExecutor.applyAlg(advancedLblState, advancedLbl.phases[0].alg)._0;
+  solvedPieces(advancedLblState, [], [0, 1, 2, 3]);
+  advancedLblState = MoveExecutor.applyAlg(advancedLblState, advancedLbl.phases[1].alg)._0;
+  solvedPieces(advancedLblState, [0, 1, 2, 3], [0, 1, 2, 3]);
+  advancedLblState = MoveExecutor.applyAlg(advancedLblState, advancedLbl.phases[2].alg)._0;
+  solvedPieces(advancedLblState, [0, 1, 2, 3], [0, 1, 2, 3, 8, 9, 10, 11]);
+  advancedLblState = MoveExecutor.applyAlg(advancedLblState, advancedLbl.phases[3].alg)._0;
+  assert.deepEqual(pieces(advancedLblState).eo, Array(12).fill(0));
+  advancedLblState = MoveExecutor.applyAlg(advancedLblState, advancedLbl.phases[4].alg)._0;
+  assert.deepEqual(pieces(advancedLblState).co, Array(8).fill(0));
+  advancedLblState = MoveExecutor.applyAlg(advancedLblState, advancedLbl.phases[5].alg)._0;
+  assert.deepEqual(pieces(advancedLblState).cp, [0, 1, 2, 3, 4, 5, 6, 7]);
+  advancedLblState = MoveExecutor.applyAlg(advancedLblState, advancedLbl.phases[6].alg)._0;
+  assert.equal(FaceletCodec.render(advancedLblState), solvedCompact);
+  assert.ok(advancedLbl.moveCount <= 76);
   assert.ok(full.moveCount < beginner.moveCount);
   assert.ok(advanced.moveCount <= full.moveCount);
   assert.doesNotMatch(full.phases[0].sequences.join(" "), /candidate plans/);

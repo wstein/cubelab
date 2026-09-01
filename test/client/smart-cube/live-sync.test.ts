@@ -39,6 +39,32 @@ describe("smart cube live synchronization", () => {
     expect(assessSmartCubeMove(steps, labels, steps.length, "R").status).toBe("complete");
   });
 
+  test("accumulates two same-direction quarter-turn packets into one expected half turn", () => {
+    const halfSteps = [
+      {step: {move: {TAG: "FaceTurn" as const, _0: "R" as const, _1: {from_: 1, to_: 1}}, turns: 2}},
+    ];
+    const direct = assessSmartCubeMove(halfSteps, ["R2"], 0, "R2");
+    expect(direct).toMatchObject({status: "matched", completedHalfTurn: false});
+
+    const first = assessSmartCubeMove(halfSteps, ["R2"], 0, "R");
+    expect(first).toMatchObject({
+      status: "partial",
+      received: "R",
+      progress: {timelineIndex: 0, quarterTurn: "R"},
+    });
+    if (first.status !== "partial") return;
+    expect(assessSmartCubeMove(halfSteps, ["R2"], 0, "R", first.progress))
+      .toMatchObject({status: "matched", completedHalfTurn: true});
+    expect(assessSmartCubeMove(halfSteps, ["R2"], 0, "R'", first.progress).status)
+      .toBe("mismatch");
+
+    const counterClockwise = assessSmartCubeMove(halfSteps, ["R2"], 0, "R'");
+    expect(counterClockwise.status).toBe("partial");
+    if (counterClockwise.status !== "partial") return;
+    expect(assessSmartCubeMove(halfSteps, ["R2"], 0, "R'", counterClockwise.progress))
+      .toMatchObject({status: "matched", completedHalfTurn: true});
+  });
+
   test("records normalized moves without joining line comments", () => {
     expect(canonicalSmartCubeMove(" r' ")).toBe("R'");
     expect(appendRecordedMove("R U", "f2")).toBe("R U F2");

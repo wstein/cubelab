@@ -270,8 +270,11 @@ const cards = [
               <button type="button" class="academy-method active" data-academy-method="beginner" aria-pressed="true">
                 <strong>🐣 Beginner LBL</strong><span>7 phases</span>
               </button>
+              <button type="button" class="academy-method" data-academy-method="advancedLbl" aria-pressed="false">
+                <strong>⚡ Advanced LBL</strong><span>7 optimized phases</span>
+              </button>
               <button type="button" class="academy-method" data-academy-method="beginnerCfop" aria-pressed="false">
-                <strong>⚡ Beginner CFOP</strong><span>Pair-first · 2-look LL</span>
+                <strong>🚀 Beginner CFOP</strong><span>Pair-first · 2-look LL</span>
               </button>
               <button type="button" class="academy-method" data-academy-method="fullCfop" aria-pressed="false">
                 <strong>🏆 Full CFOP</strong><span>57 OLL + 21 PLL</span>
@@ -305,6 +308,27 @@ const cards = [
             <button type="button" class="transform-btn" data-beginner-copy disabled>Copy commented solution</button>
           </div>
           <pre class="academy-solution" data-beginner-solution hidden></pre>
+        </div>
+
+        <div data-academy-method-panel="advancedLbl" hidden>
+          <header class="feature-header academy-method-header">
+            <div>
+              <span class="panel-label">Optimized seven-phase Layer-by-Layer bridge</span>
+              <h3>Advanced LBL Academy</h3>
+            </div>
+          </header>
+          <p class="academy-intro">
+            Keep the familiar seven-stage progression while replacing repetitive move spam
+            with a direct bottom Cross, optimized one-shot corner and middle-edge insertions,
+            and recognized two-look OLL and PLL cases.
+          </p>
+          <div class="academy-status" data-advanced-lbl-status aria-live="polite">Enter a valid 3×3 state to begin.</div>
+          <div class="academy-current" data-advanced-lbl-current hidden></div>
+          <div class="academy-phases" data-advanced-lbl-phases></div>
+          <div class="academy-solution-actions">
+            <button type="button" class="transform-btn" data-advanced-lbl-copy disabled>Copy commented solution</button>
+          </div>
+          <pre class="academy-solution" data-advanced-lbl-solution hidden></pre>
         </div>
 
         <div data-academy-method-panel="beginnerCfop" hidden>

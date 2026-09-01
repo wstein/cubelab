@@ -5,8 +5,19 @@ export type ExpectedSmartCubeMove = {
   token: string;
 };
 
+export type SmartCubeHalfTurnProgress = {
+  timelineIndex: number;
+  quarterTurn: string;
+};
+
 export type SmartCubeMoveAssessment =
-  | {status: "matched"; expected: ExpectedSmartCubeMove}
+  | {status: "matched"; expected: ExpectedSmartCubeMove; completedHalfTurn: boolean}
+  | {
+    status: "partial";
+    expected: ExpectedSmartCubeMove;
+    received: string;
+    progress: SmartCubeHalfTurnProgress;
+  }
   | {status: "mismatch"; expected: ExpectedSmartCubeMove; received: string}
   | {status: "complete"}
   | {status: "unsupported"; expected: ExpectedSmartCubeMove; received: string};
@@ -44,6 +55,7 @@ export const assessSmartCubeMove = (
   labels: string[],
   current: number,
   received: string,
+  halfTurnProgress: SmartCubeHalfTurnProgress | null = null,
 ): SmartCubeMoveAssessment => {
   const expected = nextExpectedSmartCubeMove(steps, labels, current);
   if (!expected) return {status: "complete"};
@@ -52,9 +64,26 @@ export const assessSmartCubeMove = (
   if (!/^[URFDLB](?:2|')?$/.test(expectedToken)) {
     return {status: "unsupported", expected, received: actual};
   }
-  return actual === expectedToken
-    ? {status: "matched", expected}
-    : {status: "mismatch", expected, received: actual};
+  if (actual === expectedToken) {
+    return {status: "matched", expected, completedHalfTurn: false};
+  }
+  const expectedHalfTurn = expectedToken.match(/^([URFDLB])2$/);
+  const receivedQuarterTurn = actual.match(/^([URFDLB])(')?$/);
+  if (expectedHalfTurn && receivedQuarterTurn && expectedHalfTurn[1] === receivedQuarterTurn[1]) {
+    const sameExpected = halfTurnProgress?.timelineIndex === expected.timelineIndex;
+    if (sameExpected && halfTurnProgress.quarterTurn === actual) {
+      return {status: "matched", expected, completedHalfTurn: true};
+    }
+    if (!sameExpected) {
+      return {
+        status: "partial",
+        expected,
+        received: actual,
+        progress: {timelineIndex: expected.timelineIndex, quarterTurn: actual},
+      };
+    }
+  }
+  return {status: "mismatch", expected, received: actual};
 };
 
 export const isLastPhysicalMoveInRange = (

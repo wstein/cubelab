@@ -19,7 +19,7 @@ export type TutorialGroupContext = {
   number: number;
   title: string;
   instruction: string;
-  method?: "beginner" | "beginnerCfop" | "fullCfop" | "advancedCfop";
+  method?: "beginner" | "advancedLbl" | "beginnerCfop" | "fullCfop" | "advancedCfop";
   start?: number;
   sequences?: string[];
 };
@@ -163,7 +163,11 @@ export const describeTimelineGroup = (
 ): string => {
   const moves = entries.flatMap((entry) => entry.step ? [entry.step] : []);
   const onlyRotations = moves.length > 0 && moves.every((step) => step.move.TAG === "Rotation");
-  if (phase?.method !== undefined && phase.method !== "beginner") {
+  if (
+    phase?.method === "beginnerCfop"
+    || phase?.method === "fullCfop"
+    || phase?.method === "advancedCfop"
+  ) {
     const look = phase.method === "beginnerCfop" ? "two-look" : "one-look";
     if (onlyRotations) {
       return phase.number === 1
