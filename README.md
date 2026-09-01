@@ -28,8 +28,8 @@ larger pastes snap directly to their final state.
 The move parser implements the SiGN/LGN structure used by the project: outer, inner,
 wide, slice, and rotation moves; arbitrary repetition suffixes; groups; commutators;
 and conjugates. Unicode aliases preserve token length and raw-input offsets for typed
-source-span diagnostics; Ruwix face subscripts such as `F₂'` normalize to portable
-prefix form (`2F'`). Slice moves are deliberately limited to 3×3×3,
+source-span diagnostics; Ruwix face subscripts such as `F₂'` map to portable
+outer-block form (`2Fw'`). Slice moves are deliberately limited to 3×3×3,
 while layer and wide-move ranges are validated against the selected size.
 
 ## Move notation compatibility
@@ -61,7 +61,7 @@ uppercase notation such as `Rw`, `3Rw`, or `2R`. Cube Rosetta never guesses a di
 from the input.
 
 Ruwix plaintext loses the distinction between a layer subscript and a turn suffix:
-`F2'` can mean Ruwix `2F'` or modern outer-face `F2'`. Cube Rosetta therefore parses
+`F2'` can mean Ruwix `2Fw'` or modern outer-face `F2'`. Cube Rosetta therefore parses
 plaintext suffix layers only when **Ruwix suffix** mode is selected. The default modern
 mode never guesses. Unicode subscript input remains unambiguous in either mode.
 

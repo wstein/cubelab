@@ -47,46 +47,16 @@ function normalizeCharacter(character) {
   }
 }
 
-function subscriptDigit(character) {
-  switch (character) {
-    case "₂" :
-      return "2";
-    case "₃" :
-      return "3";
-    case "₄" :
-      return "4";
-    case "₅" :
-      return "5";
-    default:
-      return;
-  }
-}
-
-function isFace(character) {
-  return "ULFRBD".includes(character);
-}
-
 function normalize(input) {
   let output = Stdlib_Array.make(input.length, "");
   for (let index = 0, index_finish = input.length; index < index_finish; ++index) {
     output[index] = normalizeCharacter(String(input[index]));
-  }
-  for (let index$1 = 0, index_finish$1 = input.length - 2 | 0; index$1 <= index_finish$1; ++index$1) {
-    let character = String(input[index$1]);
-    let next = String(input[index$1 + 1 | 0]);
-    let digit = subscriptDigit(next);
-    if (digit !== undefined && "ULFRBD".includes(character)) {
-      output[index$1] = digit;
-      output[index$1 + 1 | 0] = character;
-    }
   }
   return output.join("");
 }
 
 export {
   normalizeCharacter,
-  subscriptDigit,
-  isFace,
   normalize,
 }
 /* No side effect */

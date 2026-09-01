@@ -36,7 +36,7 @@ test("normalization preserves source length while replacing common Unicode alias
   assert.equal(normalized.length, input.length);
 
   const subscript = "F₂' B₃2";
-  assert.equal(MoveNormalizer.normalize(subscript), "2F' 3B2");
+  assert.equal(MoveNormalizer.normalize(subscript), subscript);
   assert.equal(MoveNormalizer.normalize(subscript).length, subscript.length);
 });
 
@@ -109,14 +109,14 @@ test("keeps modern suffix turns distinct from explicit Ruwix layer suffixes", ()
   assert.equal(modern.desc._1, -2);
 
   const unicodeLayer = parse(5, "F₂'")[0];
-  assert.deepEqual(unicodeLayer.desc._0._1, {from_: 2, to_: 2});
+  assert.deepEqual(unicodeLayer.desc._0._1, {from_: 1, to_: 2});
   assert.equal(unicodeLayer.desc._1, -1);
 
   const ruwix = parseWithOptions(5, "Wide", "Ruwix", "F2' B22 F3");
   assert.deepEqual(ruwix.map((unit) => unit.desc._0._1), [
-    {from_: 2, to_: 2},
-    {from_: 2, to_: 2},
-    {from_: 3, to_: 3},
+    {from_: 1, to_: 2},
+    {from_: 1, to_: 2},
+    {from_: 1, to_: 3},
   ]);
   assert.deepEqual(ruwix.map((unit) => unit.desc._1), [-1, 2, 1]);
 });

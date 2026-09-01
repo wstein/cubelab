@@ -84,9 +84,9 @@ test("legacy lowercase mode is explicit and leaves unambiguous notation unchange
 test("Ruwix suffix-layer notation is explicit while Unicode subscripts are portable", () => {
   const ruwix = MoveExecutor.parseAndApplyWithOptions(5, "Wide", "Ruwix", "F2' B22 F3");
   assert.equal(ruwix.TAG, "Ok", ruwix._0);
-  assert.equal(FaceletCodec.render(ruwix._0), compact(5, "2F' 2B2 3F"));
-  assert.equal(compact(5, "F₂' B₂2 F₃"), compact(5, "2F' 2B2 3F"));
-  assert.notEqual(compact(5, "F2'"), compact(5, "2F'"));
+  assert.equal(FaceletCodec.render(ruwix._0), compact(5, "Fw' Bw2 3Fw"));
+  assert.equal(compact(5, "F₂' B₂2 F₃"), compact(5, "Fw' Bw2 3Fw"));
+  assert.notEqual(compact(5, "F2'"), compact(5, "Fw'"));
 });
 
 test("slice turns and rotations carry centre stickers through their geometric layers", () => {

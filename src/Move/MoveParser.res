@@ -172,6 +172,15 @@ let faceFromCharacter = character =>
   | _ => None
   }
 
+let subscriptWidth = character =>
+  switch character {
+  | "₂" => Some(2)
+  | "₃" => Some(3)
+  | "₄" => Some(4)
+  | "₅" => Some(5)
+  | _ => None
+  }
+
 let validateRange = (parser, range, ~wide: bool, ~explicitRange: bool, ~start: int) => {
   if range.from_ < 1 || range.to_ < range.from_ || range.to_ > parser.size {
     fail(parser, "Layer range is outside the selected cube.", ~start, ~end_=parser.cursor)
@@ -242,20 +251,25 @@ let parseBaseMove = parser => {
         if explicitWide {
           parser.cursor = parser.cursor + 1
         }
-        let ruwixLayer = if (
-          parser.notationDialect == Ruwix &&
-          parser.size >= 4 &&
-          !lowercase &&
-          first == None &&
-          rangeEnd == None &&
-          !explicitWide
-        ) {
+        let ruwixWidth = if !lowercase && first == None && rangeEnd == None && !explicitWide {
           switch peek(parser) {
-          | Some(character) if character >= "2" && character <= "5" => {
-              parser.cursor = parser.cursor + 1
-              Some(String.charCodeAtUnsafe(character, 0) - 48)
+          | Some(character) =>
+            switch subscriptWidth(character) {
+            | Some(width) => {
+                parser.cursor = parser.cursor + 1
+                Some(width)
+              }
+            | None
+              if parser.notationDialect == Ruwix &&
+              parser.size >= 4 &&
+              character >= "2" &&
+              character <= "5" => {
+                parser.cursor = parser.cursor + 1
+                Some(String.charCodeAtUnsafe(character, 0) - 48)
+              }
+            | None => None
             }
-          | _ => None
+          | None => None
           }
         } else {
           None
@@ -269,9 +283,10 @@ let parseBaseMove = parser => {
             ~end_=parser.cursor,
           )
         }
-        let wide = (lowercase && !lowercaseIsInner) || explicitWide || rangeEnd != None
-        let range = switch (first, rangeEnd, wide, lowercaseIsInner, ruwixLayer) {
-        | (None, None, false, false, Some(layer)) => {from_: layer, to_: layer}
+        let wide =
+          (lowercase && !lowercaseIsInner) || explicitWide || rangeEnd != None || ruwixWidth != None
+        let range = switch (first, rangeEnd, wide, lowercaseIsInner, ruwixWidth) {
+        | (None, None, true, false, Some(width)) => {from_: 1, to_: width}
         | (None, None, false, true, None) => {from_: 2, to_: 2}
         | (Some(from_), Some(to_), true, false, None) => {from_, to_}
         | (Some(to_), None, true, false, None) => {from_: 1, to_}

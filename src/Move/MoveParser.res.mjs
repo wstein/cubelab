@@ -225,6 +225,21 @@ function faceFromCharacter(character) {
   }
 }
 
+function subscriptWidth(character) {
+  switch (character) {
+    case "₂" :
+      return 2;
+    case "₃" :
+      return 3;
+    case "₄" :
+      return 4;
+    case "₅" :
+      return 5;
+    default:
+      return;
+  }
+}
+
 function validateRange(parser, range, wide, explicitRange, start) {
   if (range.from_ < 1 || range.to_ < range.from_ || range.to_ > parser.size) {
     fail(parser, "Layer range is outside the selected cube.", start, parser.cursor);
@@ -275,28 +290,36 @@ function parseBaseMove(parser) {
       if (explicitWide) {
         parser.cursor = parser.cursor + 1 | 0;
       }
-      let ruwixLayer;
-      if (parser.notationDialect === "Ruwix" && parser.size >= 4 && !lowercase && first === undefined && rangeEnd === undefined && !explicitWide) {
+      let ruwixWidth;
+      if (!lowercase && first === undefined && rangeEnd === undefined && !explicitWide) {
         let character$1 = peek(parser);
-        if (character$1 !== undefined && character$1 >= "2" && character$1 <= "5") {
-          parser.cursor = parser.cursor + 1 | 0;
-          ruwixLayer = character$1.charCodeAt(0) - 48 | 0;
+        if (character$1 !== undefined) {
+          let width = subscriptWidth(character$1);
+          if (width !== undefined) {
+            parser.cursor = parser.cursor + 1 | 0;
+            ruwixWidth = width;
+          } else if (parser.notationDialect === "Ruwix" && parser.size >= 4 && character$1 >= "2" && character$1 <= "5") {
+            parser.cursor = parser.cursor + 1 | 0;
+            ruwixWidth = character$1.charCodeAt(0) - 48 | 0;
+          } else {
+            ruwixWidth = undefined;
+          }
         } else {
-          ruwixLayer = undefined;
+          ruwixWidth = undefined;
         }
       } else {
-        ruwixLayer = undefined;
+        ruwixWidth = undefined;
       }
       let lowercaseIsInner = lowercase && parser.size >= 4 && parser.lowercaseMode === "InnerSlice";
       if (lowercaseIsInner && (first !== undefined || rangeEnd !== undefined || explicitWide)) {
         fail(parser, "Legacy lowercase inner-slice moves cannot have a layer prefix or 'w'; use explicit uppercase notation.", start, parser.cursor);
       }
-      let wide = lowercase && !lowercaseIsInner || explicitWide || rangeEnd !== undefined;
+      let wide = lowercase && !lowercaseIsInner || explicitWide || rangeEnd !== undefined || ruwixWidth !== undefined;
       let range;
       let exit$1 = 0;
       if (first !== undefined) {
         if (rangeEnd !== undefined) {
-          if (wide && !(lowercaseIsInner || ruwixLayer !== undefined)) {
+          if (wide && !(lowercaseIsInner || ruwixWidth !== undefined)) {
             range = {
               from_: first,
               to_: rangeEnd
@@ -305,7 +328,7 @@ function parseBaseMove(parser) {
             exit$1 = 3;
           }
         } else if (wide) {
-          if (lowercaseIsInner || ruwixLayer !== undefined) {
+          if (lowercaseIsInner || ruwixWidth !== undefined) {
             exit$1 = 3;
           } else {
             range = {
@@ -313,7 +336,7 @@ function parseBaseMove(parser) {
               to_: first
             };
           }
-        } else if (lowercaseIsInner || ruwixLayer !== undefined) {
+        } else if (lowercaseIsInner || ruwixWidth !== undefined) {
           exit$1 = 3;
         } else {
           range = {
@@ -324,16 +347,19 @@ function parseBaseMove(parser) {
       } else if (rangeEnd !== undefined) {
         exit$1 = 3;
       } else if (wide) {
-        if (lowercaseIsInner || ruwixLayer !== undefined) {
+        if (lowercaseIsInner) {
           exit$1 = 3;
         } else {
-          range = {
-            from_: 1,
-            to_: 2
-          };
+          range = ruwixWidth !== undefined ? ({
+              from_: 1,
+              to_: ruwixWidth
+            }) : ({
+              from_: 1,
+              to_: 2
+            });
         }
       } else if (lowercaseIsInner) {
-        if (ruwixLayer !== undefined) {
+        if (ruwixWidth !== undefined) {
           exit$1 = 3;
         } else {
           range = {
@@ -341,14 +367,13 @@ function parseBaseMove(parser) {
             to_: 2
           };
         }
+      } else if (ruwixWidth !== undefined) {
+        exit$1 = 3;
       } else {
-        range = ruwixLayer !== undefined ? ({
-            from_: ruwixLayer,
-            to_: ruwixLayer
-          }) : ({
-            from_: 1,
-            to_: 1
-          });
+        range = {
+          from_: 1,
+          to_: 1
+        };
       }
       if (exit$1 === 3) {
         range = fail(parser, "Invalid layer-range move.", start, parser.cursor);
@@ -707,6 +732,7 @@ export {
   skipSpaces,
   parseCompositeSuffix,
   faceFromCharacter,
+  subscriptWidth,
   validateRange,
   parseBaseMove,
   rotationForFamily,
