@@ -55,6 +55,30 @@ function concatAlg(left, right) {
   return left.concat(right);
 }
 
+function groupedSequence(alg) {
+  if (alg.length === 0) {
+    return [];
+  } else {
+    return [
+      {
+        desc: {
+          TAG: "Group",
+          _0: alg,
+          _1: 1
+        },
+        loc: generatedLoc
+      },
+      {
+        desc: {
+          TAG: "TimedPause",
+          _0: 0.5
+        },
+        loc: generatedLoc
+      }
+    ];
+  }
+}
+
 function faceIndex(face) {
   switch (face) {
     case "U" :
@@ -266,6 +290,14 @@ function flattenActions(actions) {
   return Stdlib_Array.reduce(actions, [], (output, action) => output.concat(action.alg));
 }
 
+function groupedActions(actions) {
+  return Stdlib_Array.reduce(actions, [], (output, action) => output.concat(groupedSequence(action.alg)));
+}
+
+function fullKey(state) {
+  return state.cp.map(value => value.toString()).join("") + state.co.map(value => value.toString()).join("") + state.ep.map(value => String.fromCharCode(value + 65 | 0)).join("") + state.eo.map(value => value.toString()).join("");
+}
+
 function parseInternal(input) {
   let alg = MoveParser.parse(3, input);
   if (alg.TAG === "Ok") {
@@ -294,6 +326,60 @@ function downLayerVariant(alg, yTurns) {
   return MoveTransform.rotate(MoveTransform.rotate(alg, "Y", yTurns), "X", 2);
 }
 
+function downLayerRegrip(alg, yTurns) {
+  let humanSequence = [];
+  if (yTurns !== 0) {
+    humanSequence.push({
+      desc: {
+        TAG: "Move",
+        _0: {
+          TAG: "Rotation",
+          _0: "Y"
+        },
+        _1: -yTurns | 0
+      },
+      loc: generatedLoc
+    });
+  }
+  alg.forEach(unit => {
+    humanSequence.push(unit);
+  });
+  if (yTurns !== 0) {
+    humanSequence.push({
+      desc: {
+        TAG: "Move",
+        _0: {
+          TAG: "Rotation",
+          _0: "Y"
+        },
+        _1: yTurns
+      },
+      loc: generatedLoc
+    });
+  }
+  return MoveTransform.rotate(humanSequence, "X", 2);
+}
+
+function macroVariant(solved, base, yTurns) {
+  let regripped = downLayerRegrip(base, yTurns);
+  let expected = downLayerVariant(base, yTurns);
+  let regrippedTransition = transitionForAlg(solved, regripped);
+  let expectedTransition = transitionForAlg(solved, expected);
+  if (fullKey(regrippedTransition) !== fullKey(expectedTransition)) {
+    throw {
+      RE_EXN_ID: BuildFailure,
+      _1: "VerificationFailed",
+      Error: new Error()
+    };
+  }
+  return {
+    alg: regripped,
+    transition: regrippedTransition,
+    faceIndex: -1,
+    axisIndex: -1
+  };
+}
+
 function macroVariants(solved, source) {
   let base = parseInternal(source);
   return [
@@ -301,7 +387,7 @@ function macroVariants(solved, source) {
     1,
     2,
     3
-  ].map(yTurns => macroAction(solved, downLayerVariant(base, yTurns)));
+  ].map(yTurns => macroVariant(solved, base, yTurns));
 }
 
 function downTurns(solved) {
@@ -324,10 +410,6 @@ function downTurns(solved) {
       }];
     return macroAction(solved, alg);
   });
-}
-
-function fullKey(state) {
-  return state.cp.map(value => value.toString()).join("") + state.co.map(value => value.toString()).join("") + state.ep.map(value => String.fromCharCode(value + 65 | 0)).join("") + state.eo.map(value => value.toString()).join("");
 }
 
 function searchMacros(state, actions, isGoal, projectionOpt, maxDepth) {
@@ -670,7 +752,7 @@ function solve(input) {
       path$1.forEach(action => {
         current.contents = applyCubie(current.contents, action.transition);
       });
-      crossAlg = crossAlg.concat(flattenActions(path$1));
+      crossAlg = crossAlg.concat(groupedSequence(flattenActions(path$1)));
     }
     let cornerAlg = [];
     for (let piece$1 = 0; piece$1 <= 3; ++piece$1) {
@@ -697,7 +779,7 @@ function solve(input) {
       path$3.forEach(action => {
         current.contents = applyCubie(current.contents, action.transition);
       });
-      cornerAlg = cornerAlg.concat(flattenActions(path$3));
+      cornerAlg = cornerAlg.concat(groupedSequence(flattenActions(path$3)));
     }
     let middleActions = downTurns(solved).concat(macroVariants(solved, "U R U' R' U' F' U F")).concat(macroVariants(solved, "U' L' U L U F U' F'"));
     let middleAlg = [];
@@ -728,7 +810,7 @@ function solve(input) {
       path$5.forEach(action => {
         current.contents = applyCubie(current.contents, action.transition);
       });
-      middleAlg = middleAlg.concat(flattenActions(path$5));
+      middleAlg = middleAlg.concat(groupedActions(path$5));
     }
     let lastEdgeActions = downTurns(solved).concat(macroVariants(solved, "F R U R' U' F'"));
     let path$6 = searchMacros(current.contents, lastEdgeActions, orientedLastEdgesGoal, undefined, 4);
@@ -791,12 +873,12 @@ function solve(input) {
       1,
       2,
       3
-    ].map(y => macroAction(solved, downLayerVariant(ua, y)))).concat([
+    ].map(y => macroVariant(solved, ua, y))).concat([
       0,
       1,
       2,
       3
-    ].map(y => macroAction(solved, downLayerVariant(ub, y))));
+    ].map(y => macroVariant(solved, ub, y)));
     let path$9 = searchMacros(current.contents, edgePermutationActions, solvedCubiesGoal, undefined, 5);
     let edgePermutationPath;
     if (path$9 !== undefined) {
@@ -815,10 +897,10 @@ function solve(input) {
       phase(1, "White Cross", "Align the four white edges with their side centres.", crossAlg),
       phase(2, "First-Layer Corners", "Insert the four white corners while preserving the cross.", cornerAlg),
       phase(3, "Middle Layer", "Insert the four non-yellow edges with beginner left/right insertions.", middleAlg),
-      phase(4, "Yellow Cross", "Orient the four yellow edges into a cross.", flattenActions(lastEdgePath)),
-      phase(5, "Orient Yellow Corners", "Use Sune and anti-Sune cases until the yellow face is oriented.", flattenActions(lastCornerPath)),
-      phase(6, "Position Yellow Corners", "Place the oriented corners over their matching side colours.", flattenActions(cornerPermutationPath)),
-      phase(7, "Position Yellow Edges", "Cycle the final edges to finish the cube.", flattenActions(edgePermutationPath))
+      phase(4, "Yellow Cross", "Orient the four yellow edges into a cross.", groupedActions(lastEdgePath)),
+      phase(5, "Orient Yellow Corners", "Use Sune and anti-Sune cases until the yellow face is oriented.", groupedActions(lastCornerPath)),
+      phase(6, "Position Yellow Corners", "Place the oriented corners over their matching side colours.", groupedActions(cornerPermutationPath)),
+      phase(7, "Position Yellow Edges", "Cycle the final edges to finish the cube.", groupedActions(edgePermutationPath))
     ];
     let phases = corePhases.map(item => ({
       number: item.number,
@@ -843,15 +925,30 @@ function solve(input) {
       number: init.number,
       title: init.title,
       instruction: init.instruction,
-      alg: match[1].concat(whiteDown).concat(phases[0].alg)
+      alg: groupedSequence(match[1].concat(whiteDown)).concat(phases[0].alg)
     };
     let init$1 = phases[6];
     phases[6] = {
       number: init$1.number,
       title: init$1.title,
       instruction: init$1.instruction,
-      alg: phases[6].alg.concat(whiteDown)
+      alg: phases[6].alg.concat(groupedSequence(whiteDown))
     };
+    for (let index = 0, index_finish = phases.length - 2 | 0; index <= index_finish; ++index) {
+      let currentPhase = phases[index];
+      phases[index] = {
+        number: currentPhase.number,
+        title: currentPhase.title,
+        instruction: currentPhase.instruction,
+        alg: currentPhase.alg.concat([{
+            desc: {
+              TAG: "TimedPause",
+              _0: 1.5
+            },
+            loc: generatedLoc
+          }])
+      };
+    }
     let annotated = Stdlib_Array.reduce(phases, [], (output, item) => output.concat([commentForPhase(item)]).concat(item.alg));
     let error$1 = MoveExecutor.expand(annotated);
     let moveCount;
@@ -918,6 +1015,7 @@ export {
   maxAtomicNodes,
   describeError,
   concatAlg,
+  groupedSequence,
   faceIndex,
   axisIndex,
   applyCubie,
@@ -930,12 +1028,15 @@ export {
   projectionKey,
   searchAtomic,
   flattenActions,
+  groupedActions,
+  fullKey,
   parseInternal,
   macroAction,
   downLayerVariant,
+  downLayerRegrip,
+  macroVariant,
   macroVariants,
   downTurns,
-  fullKey,
   searchMacros,
   firstLayerGoal,
   firstTwoLayersGoal,

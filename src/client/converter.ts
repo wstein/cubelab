@@ -51,6 +51,7 @@ type RecognizedInput = {
 type BeginnerPhase = {number: number; title: string; instruction: string; alg: unknown[]};
 type BeginnerSolution = {phases: BeginnerPhase[]; alg: unknown[]; moveCount: number};
 type TutorialPhaseRange = BeginnerPhase & {start: number; end: number};
+type ExpandedTutorialEntry = {comment?: string};
 
 const root = document.querySelector<HTMLElement>("[data-converter]");
 
@@ -817,8 +818,10 @@ if (root) {
   const presentBeginnerSolution = (initialState: CubeState, solution: BeginnerSolution) => {
     let cursor = 0;
     tutorialPhases = solution.phases.map((phase) => {
-      const expanded = MoveExecutor.expand(phase.alg) as Result<unknown[], unknown>;
-      const count = expanded.TAG === "Ok" ? expanded._0.length : 0;
+      const expanded = MoveExecutor.expandTimeline(phase.alg) as Result<ExpandedTutorialEntry[], unknown>;
+      const count = expanded.TAG === "Ok"
+        ? expanded._0.filter((entry) => entry.comment === undefined).length
+        : 0;
       const range = {...phase, start: cursor, end: cursor + count};
       cursor += count;
       return range;

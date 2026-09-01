@@ -19,7 +19,17 @@ Each phase preserves the completed goal of every earlier phase:
 
 The generated tutorial places white on the bottom while teaching, then restores the
 canonical `U/R/F/D/L/B` centre frame at the end. Inputs ending in whole-cube rotations
-are first returned to that canonical centre frame.
+are first returned to that canonical centre frame. Reorientation is emitted explicitly
+with `x`, `y`, and `z` whole-cube moves instead of silently remapping every case. The
+solver uses `x2` to put white on the bottom, `y` regrips to present insertion and
+last-layer cases from a natural front face, and whichever axes are required to normalize
+an already-rotated input.
+
+Every executable teaching sequence is a parenthesized AST group. A duration pause of
+`@0.5s` follows each group so the learner can inspect its result; `@1.5s` separates the
+seven phase boundaries. These pauses are state-neutral timeline nodes and scale with the
+player's selected 0.5×/1×/2× speed. The reported move count excludes comments and pauses
+but includes physical whole-cube rotations.
 
 ## Solving strategy
 
@@ -33,7 +43,7 @@ are first returned to that canonical centre frame.
 
 This is intentionally a teaching solver rather than an optimal solver. Generated
 solutions are usually longer than two-phase solutions, and move count is secondary to
-visible phase boundaries and recognizable beginner algorithms.
+visible phase boundaries, human regrips, and recognizable beginner algorithms.
 
 ## Correctness boundary
 

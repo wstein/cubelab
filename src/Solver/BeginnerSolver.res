@@ -55,6 +55,13 @@ let describeError = error =>
 
 let concatAlg = (left: alg, right: alg): alg => left->Array.concat(right)
 
+let groupedSequence = (alg: alg): alg =>
+  if alg->Array.length == 0 {
+    []
+  } else {
+    [located(Group(alg, 1)), located(TimedPause(0.5))]
+  }
+
 let faceIndex = face =>
   switch face {
   | U => 0
@@ -215,6 +222,15 @@ let searchAtomic = (~state, ~corners, ~edges, ~actions, ~maxDepth) => {
 let flattenActions = actions =>
   actions->Array.reduce([], (output, action) => concatAlg(output, action.alg))
 
+let groupedActions = actions =>
+  actions->Array.reduce([], (output, action) => concatAlg(output, groupedSequence(action.alg)))
+
+let fullKey = (state: PieceReducer.pieceState) =>
+  state.cp->Array.map(value => value->Int.toString)->Array.join("") ++
+  state.co->Array.map(value => value->Int.toString)->Array.join("") ++
+  state.ep->Array.map(value => (value + 65)->String.fromCharCode)->Array.join("") ++
+  state.eo->Array.map(value => value->Int.toString)->Array.join("")
+
 let parseInternal = input =>
   switch MoveParser.parse(~size=3, input) {
   | Ok(alg) => alg
@@ -233,9 +249,37 @@ let downLayerVariant = (alg, yTurns) =>
   ->MoveTransform.rotate(~axis=Y, ~turns=yTurns)
   ->MoveTransform.rotate(~axis=X, ~turns=2)
 
+let downLayerRegrip = (alg, yTurns) => {
+  let humanSequence = []
+  if yTurns != 0 {
+    humanSequence->Array.push(located(Move(Rotation(Y), -yTurns)))
+  }
+  alg->Array.forEach(unit => humanSequence->Array.push(unit))
+  if yTurns != 0 {
+    humanSequence->Array.push(located(Move(Rotation(Y), yTurns)))
+  }
+  humanSequence->MoveTransform.rotate(~axis=X, ~turns=2)
+}
+
+let macroVariant = (solved, base, yTurns) => {
+  let regripped = downLayerRegrip(base, yTurns)
+  let expected = downLayerVariant(base, yTurns)
+  let regrippedTransition = transitionForAlg(solved, regripped)
+  let expectedTransition = transitionForAlg(solved, expected)
+  if fullKey(regrippedTransition) != fullKey(expectedTransition) {
+    throw(BuildFailure(VerificationFailed))
+  }
+  {
+    alg: regripped,
+    transition: regrippedTransition,
+    faceIndex: -1,
+    axisIndex: -1,
+  }
+}
+
 let macroVariants = (solved, source) => {
   let base = parseInternal(source)
-  [0, 1, 2, 3]->Array.map(yTurns => macroAction(solved, downLayerVariant(base, yTurns)))
+  [0, 1, 2, 3]->Array.map(yTurns => macroVariant(solved, base, yTurns))
 }
 
 let downTurns = solved =>
@@ -243,12 +287,6 @@ let downTurns = solved =>
     let alg = [located(Move(FaceTurn(D, outerRange), turn))]
     macroAction(solved, alg)
   })
-
-let fullKey = (state: PieceReducer.pieceState) =>
-  state.cp->Array.map(value => value->Int.toString)->Array.join("") ++
-  state.co->Array.map(value => value->Int.toString)->Array.join("") ++
-  state.ep->Array.map(value => (value + 65)->String.fromCharCode)->Array.join("") ++
-  state.eo->Array.map(value => value->Int.toString)->Array.join("")
 
 let searchMacros = (~state, ~actions, ~isGoal, ~projection=fullKey, ~maxDepth) => {
   if isGoal(state) {
@@ -406,7 +444,7 @@ let solve = (input: cubeState): result<solution, solverError> => {
       | None => throw(BuildFailure(SearchFailed("the white cross")))
       }
       path->Array.forEach(action => current := applyCubie(current.contents, action.transition))
-      crossAlg := concatAlg(crossAlg.contents, flattenActions(path))
+      crossAlg := concatAlg(crossAlg.contents, groupedSequence(flattenActions(path)))
     }
 
     let cornerAlg = ref([])
@@ -423,7 +461,7 @@ let solve = (input: cubeState): result<solution, solverError> => {
       | None => throw(BuildFailure(SearchFailed("the first-layer corners")))
       }
       path->Array.forEach(action => current := applyCubie(current.contents, action.transition))
-      cornerAlg := concatAlg(cornerAlg.contents, flattenActions(path))
+      cornerAlg := concatAlg(cornerAlg.contents, groupedSequence(flattenActions(path)))
     }
 
     let middleActions =
@@ -447,7 +485,7 @@ let solve = (input: cubeState): result<solution, solverError> => {
       | None => throw(BuildFailure(SearchFailed("the middle-layer edges")))
       }
       path->Array.forEach(action => current := applyCubie(current.contents, action.transition))
-      middleAlg := concatAlg(middleAlg.contents, flattenActions(path))
+      middleAlg := concatAlg(middleAlg.contents, groupedActions(path))
     }
 
     let lastEdgeActions = downTurns(solved)->Array.concat(macroVariants(solved, "F R U R' U' F'"))
@@ -500,8 +538,8 @@ let solve = (input: cubeState): result<solution, solverError> => {
     let ub = MoveTransform.invert(ua)
     let edgePermutationActions =
       downTurns(solved)
-      ->Array.concat([0, 1, 2, 3]->Array.map(y => macroAction(solved, downLayerVariant(ua, y))))
-      ->Array.concat([0, 1, 2, 3]->Array.map(y => macroAction(solved, downLayerVariant(ub, y))))
+      ->Array.concat([0, 1, 2, 3]->Array.map(y => macroVariant(solved, ua, y)))
+      ->Array.concat([0, 1, 2, 3]->Array.map(y => macroVariant(solved, ub, y)))
     let edgePermutationPath = switch searchMacros(
       ~state=current.contents,
       ~actions=edgePermutationActions,
@@ -535,25 +573,25 @@ let solve = (input: cubeState): result<solution, solverError> => {
         4,
         "Yellow Cross",
         "Orient the four yellow edges into a cross.",
-        flattenActions(lastEdgePath),
+        groupedActions(lastEdgePath),
       ),
       phase(
         5,
         "Orient Yellow Corners",
         "Use Sune and anti-Sune cases until the yellow face is oriented.",
-        flattenActions(lastCornerPath),
+        groupedActions(lastCornerPath),
       ),
       phase(
         6,
         "Position Yellow Corners",
         "Place the oriented corners over their matching side colours.",
-        flattenActions(cornerPermutationPath),
+        groupedActions(cornerPermutationPath),
       ),
       phase(
         7,
         "Position Yellow Edges",
         "Cycle the final edges to finish the cube.",
-        flattenActions(edgePermutationPath),
+        groupedActions(edgePermutationPath),
       ),
     ]
     let phases = corePhases->Array.map(item => {
@@ -568,11 +606,20 @@ let solve = (input: cubeState): result<solution, solverError> => {
     }
     phases[0] = {
       ...Belt.Array.getUnsafe(phases, 0),
-      alg: frameAlg->Array.concat(whiteDown)->Array.concat(Belt.Array.getUnsafe(phases, 0).alg),
+      alg: groupedSequence(frameAlg->Array.concat(whiteDown))->Array.concat(
+        Belt.Array.getUnsafe(phases, 0).alg,
+      ),
     }
     phases[6] = {
       ...Belt.Array.getUnsafe(phases, 6),
-      alg: Belt.Array.getUnsafe(phases, 6).alg->Array.concat(whiteDown),
+      alg: Belt.Array.getUnsafe(phases, 6).alg->Array.concat(groupedSequence(whiteDown)),
+    }
+    for index in 0 to phases->Array.length - 2 {
+      let currentPhase = Belt.Array.getUnsafe(phases, index)
+      phases[index] = {
+        ...currentPhase,
+        alg: currentPhase.alg->Array.concat([located(TimedPause(1.5))]),
+      }
     }
     let annotated =
       phases->Array.reduce([], (output, item) =>
