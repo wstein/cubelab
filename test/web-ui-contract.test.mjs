@@ -17,7 +17,7 @@ test("the static shell declares size-scoped cubie and Orbit64 cards", () => {
 });
 
 test("the Vanilla DOM client wires reachability-aware outputs", () => {
-  assert.match(client, /PieceReducer\.reduce\(parsed\._0\.state\)/);
+  assert.match(client, /PieceReducer\.reduce\(state\)/);
   assert.match(client, /PieceReducer\.parseState\(size, compact\)/);
   assert.match(client, /PieceReducer\.render\(pieces\._0\)/);
   assert.match(client, /Orbit64Codec\.encode\(pieces\._0\)/);
@@ -32,7 +32,7 @@ test("the web UI exposes an explicit lowercase mode without heuristic switching"
   assert.match(page, /data-lowercase-mode="InnerSlice"/);
   assert.match(page, /data-lowercase-banner/);
   assert.match(page, /modern SiGN wide turns by default/);
-  assert.match(client, /parseAndApplyWithOptions/);
+  assert.match(client, /evaluateAlgorithm/);
   assert.match(client, /Mixed Rw and r notation detected/);
   assert.doesNotMatch(client, /lowercaseMode\s*=.*signals/);
 });
@@ -53,7 +53,7 @@ test("the studio connects recognized input and one canonical state to WebGL", ()
   assert.match(client, /label: "Cubie coordinates"/);
   assert.match(client, /"Compact facelets"/);
   assert.match(client, /"Compact colours"/);
-  assert.match(client, /viewport\?\.setScene\(parsed\._0\.state/);
+  assert.match(client, /viewport\?\.setScene\(state/);
 });
 
 test("the viewport renders on demand and pauses while off screen", () => {
