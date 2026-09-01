@@ -99,9 +99,11 @@ phase-relevant physical edge or corner from its before/after states. A projected
 HUD draws a moving dashed trajectory between camera-selected sticker-surface anchors;
 the WebGL shader adds a cyan source aura and amber target ghost. Hovering an individual
 move also projects a direction-correct layer-turn ring and canonical angle label. Active
-pieces and the currently turning layer remain at full material brightness; unrelated
-layers receive only a soft saturation and brightness reduction. Hidden destinations dim
-the guide and request that the user orbit to the back. The group's pedagogical purpose
+pieces, the currently turning layer, and the six orientation centres retain their full
+colours. Uninvolved stickers become a uniformly lit neutral gray while black plastic,
+bevel shading, and spatial depth remain intact—the conventional teaching-diagram treatment
+used to isolate working pieces without darkening the cube. Hidden destinations dim the
+guide and request that the user orbit to the back. The group's pedagogical purpose
 remains its accessible label rather than a floating tooltip.
 
 Academy playback defaults to **Coached** mode. At a phase boundary it uses the existing
