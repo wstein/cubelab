@@ -4,6 +4,7 @@ import * as CubeGeometry from "../../src/Render/CubeGeometry.res.mjs";
 import * as StateTypes from "../../src/State/StateTypes.res.mjs";
 import {
   autoOrbitYawDelta,
+  cameraTween,
   cameraMatrices,
   clampedCanvasSize,
   turnTransform,
@@ -75,5 +76,11 @@ describe("cube viewport math", () => {
       expect(matrices.projection).toHaveLength(16);
       expect([...matrices.modelView, ...matrices.projection].every(Number.isFinite)).toBe(true);
     }
+  });
+
+  test("camera tween follows the shortest wrapped route with smooth endpoints", () => {
+    expect(cameraTween(0, 1, 0)).toBe(0);
+    expect(cameraTween(0, 1, 1)).toBeCloseTo(1);
+    expect(cameraTween(Math.PI - 0.1, -Math.PI + 0.1, 0.5)).toBeCloseTo(Math.PI);
   });
 });

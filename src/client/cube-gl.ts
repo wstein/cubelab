@@ -1,6 +1,6 @@
 import * as CubeGeometry from "../Render/CubeGeometry.res.mjs";
 import {
-  cubieIsFrontFacing,
+  cubieSurfaceAnchor,
   motionLabel,
   pieceColourLabel,
   projectPoint,
@@ -15,7 +15,9 @@ export type CubieFocus = {
   piece: string;
   source: [number, number, number];
   target: [number, number, number];
+  label?: string;
 };
+export type MilestoneFocus = {positions: Array<[number, number, number]>; label: string};
 
 type GeometryMesh = {data: number[]; vertexCount: number; stride: number};
 type GeometryResult = {TAG: "Ok"; _0: GeometryMesh} | {TAG: "Error"; _0: string};
@@ -62,12 +64,15 @@ const vertexShaderSource = `
   uniform float uFocusActive;
   uniform vec3 uFocusSource;
   uniform vec3 uFocusTarget;
+  uniform float uMilestoneCount;
+  uniform vec3 uMilestoneCubies[20];
   varying vec3 vPosition;
   varying vec3 vNormal;
   varying vec4 vColour;
   varying float vSheen;
   varying float vSourceFocus;
   varying float vTargetFocus;
+  varying float vMilestoneFocus;
 
   vec3 rotateAround(vec3 value, vec3 axis, float angle) {
     float cosine = cos(angle);
@@ -88,6 +93,15 @@ const vertexShaderSource = `
     vSheen = aSheen;
     vSourceFocus = uFocusActive * (1.0 - step(0.01, distance(aCubie, uFocusSource)));
     vTargetFocus = uFocusActive * (1.0 - step(0.01, distance(aCubie, uFocusTarget)));
+    vMilestoneFocus = 0.0;
+    for (int index = 0; index < 20; index++) {
+      if (float(index) < uMilestoneCount) {
+        vMilestoneFocus = max(
+          vMilestoneFocus,
+          1.0 - step(0.01, distance(aCubie, uMilestoneCubies[index]))
+        );
+      }
+    }
     gl_Position = uProjection * position;
   }
 `;
@@ -100,6 +114,7 @@ const fragmentShaderSource = `
   varying float vSheen;
   varying float vSourceFocus;
   varying float vTargetFocus;
+  varying float vMilestoneFocus;
   uniform float uSpeedStyle;
   uniform float uFocusActive;
   uniform float uFocusTime;
@@ -121,7 +136,7 @@ const fragmentShaderSource = `
     float specular = strength * pow(max(dot(normal, halfway), 0.0), shine);
     vec3 rolledSheen = vColour.rgb * vSheen * (0.45 + 0.55 * rimDiffuse);
     vec3 colour = min(vColour.rgb * light + rolledSheen + vec3(specular), vec3(1.0));
-    float selected = max(vSourceFocus, vTargetFocus);
+    float selected = max(max(vSourceFocus, vTargetFocus), vMilestoneFocus);
     float luminance = dot(colour, vec3(0.299, 0.587, 0.114));
     vec3 muted = mix(colour, vec3(luminance), 0.72) * 0.58;
     colour = mix(colour, muted, uFocusActive * (1.0 - selected));
@@ -135,6 +150,8 @@ const fragmentShaderSource = `
     colour = mix(colour, targetGhost, vTargetFocus * (0.30 + 0.28 * fresnel));
     float sameSlot = vSourceFocus * vTargetFocus;
     colour = mix(colour, vec3(0.40, 1.0, 0.58), sameSlot * 0.48);
+    vec3 milestoneGlow = vec3(0.20, 1.0, 0.55) * (0.18 + 0.42 * fresnel) * pulse;
+    colour = min(colour + milestoneGlow * vMilestoneFocus, vec3(1.0));
     float ghostAlpha = mix(vColour.a, 0.68, vTargetFocus * (1.0 - vSourceFocus));
     gl_FragColor = vec4(colour, ghostAlpha);
   }
@@ -265,6 +282,13 @@ export const cameraMatrices = (
   projection: perspective(aspect),
 });
 
+export const cameraTween = (start: number, target: number, progress: number): number => {
+  const wrapped = ((target - start + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+  const bounded = Math.max(0, Math.min(1, progress));
+  const eased = bounded * bounded * (3 - 2 * bounded);
+  return start + wrapped * eased;
+};
+
 const compileShader = (gl: WebGLRenderingContext, type: number, source: string): WebGLShader => {
   const shader = gl.createShader(type);
   if (!shader) throw new Error("Unable to allocate a WebGL shader.");
@@ -303,7 +327,9 @@ export type CubeViewport = {
   animateTurn: (turn: TurnTransform, duration?: number) => Promise<void>;
   cancelTurn: () => void;
   setFocus: (focus: CubieFocus | null) => void;
+  setMilestone: (milestone: MilestoneFocus | null) => void;
   setTurnGuide: (guide: TurnGuide | null) => void;
+  smoothOrbitTo: (yaw: number, pitch: number, duration?: number) => Promise<void>;
   setAutoOrbit: (enabled: boolean) => void;
   resetCamera: () => void;
   dispose: () => void;
@@ -359,6 +385,8 @@ export const createCubeViewport = (
   const focusSource = gl.getUniformLocation(program, "uFocusSource");
   const focusTarget = gl.getUniformLocation(program, "uFocusTarget");
   const focusTime = gl.getUniformLocation(program, "uFocusTime");
+  const milestoneCount = gl.getUniformLocation(program, "uMilestoneCount");
+  const milestoneCubies = gl.getUniformLocation(program, "uMilestoneCubies[0]");
 
   let state: CubeState | null = null;
   let palette: CubePalette = "Western";
@@ -376,12 +404,15 @@ export const createCubeViewport = (
   let disposed = false;
   let activeTurn: TurnTransform | null = null;
   let focus: CubieFocus | null = null;
+  let milestone: MilestoneFocus | null = null;
   let turnGuide: TurnGuide | null = null;
   let turnFrame: number | null = null;
   let turnGeneration = 0;
   let autoOrbit = false;
   let autoOrbitFrame: number | null = null;
   let autoOrbitPreviousTime: number | null = null;
+  let cameraFrame: number | null = null;
+  let cameraGeneration = 0;
   canvas.dataset.autoOrbitState = "off";
   const overlay = overlayCanvas.getContext("2d");
 
@@ -458,7 +489,7 @@ export const createCubeViewport = (
       overlayCanvas.height = height;
     }
     overlay.clearRect(0, 0, width, height);
-    if (!focus && !turnGuide) {
+    if (!focus && !turnGuide && !milestone) {
       delete overlayCanvas.dataset.motionVisible;
       return;
     }
@@ -467,10 +498,16 @@ export const createCubeViewport = (
     const dpr = width / Math.max(1, bounds.width);
     const now = performance.now();
 
+    if (milestone) {
+      drawBadge(overlay, milestone.label, width / 2, 34 * dpr, dpr);
+    }
+
     if (focus) {
-      const source = projectPoint(focus.source, matrices.modelView, matrices.projection, width, height);
-      const target = projectPoint(focus.target, matrices.modelView, matrices.projection, width, height);
-      const targetVisible = target.inFront && cubieIsFrontFacing(focus.target, matrices.modelView);
+      const sourceAnchor = cubieSurfaceAnchor(focus.source, matrices.modelView, state?.size ?? 3);
+      const targetAnchor = cubieSurfaceAnchor(focus.target, matrices.modelView, state?.size ?? 3);
+      const source = projectPoint(sourceAnchor.point, matrices.modelView, matrices.projection, width, height);
+      const target = projectPoint(targetAnchor.point, matrices.modelView, matrices.projection, width, height);
+      const targetVisible = target.inFront && targetAnchor.visible;
       const alpha = targetVisible ? 1 : 0.45;
       overlay.save();
       overlay.globalAlpha = alpha;
@@ -531,7 +568,7 @@ export const createCubeViewport = (
       const action = sameSlot ? "Orient" : "Move";
       drawBadge(
         overlay,
-        `${action} ${pieceColourLabel(focus.piece, palette)} ${kind}${targetVisible ? "" : " · orbit to view back"}`,
+        focus.label ?? `${action} ${pieceColourLabel(focus.piece, palette)} ${kind}${targetVisible ? "" : " · orbit to view back"}`,
         labelX,
         labelY,
         dpr,
@@ -611,10 +648,16 @@ export const createCubeViewport = (
     gl.uniform3fv(focusSource, focus?.source ?? [0, 0, 0]);
     gl.uniform3fv(focusTarget, focus?.target ?? [0, 0, 0]);
     gl.uniform1f(focusTime, performance.now() * 0.001);
+    const milestoneValues = new Float32Array(60);
+    milestone?.positions.slice(0, 20).forEach((position, index) => {
+      milestoneValues.set(position, index * 3);
+    });
+    gl.uniform1f(milestoneCount, Math.min(20, milestone?.positions.length ?? 0));
+    gl.uniform3fv(milestoneCubies, milestoneValues);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
     drawMotionOverlay(matrices, width, height);
     canvas.dataset.webgl = "ready";
-    if (focus || turnGuide) requestRender();
+    if (focus || turnGuide || milestone) requestRender();
   };
 
   const requestRender = () => {
@@ -769,6 +812,43 @@ export const createCubeViewport = (
     requestRender();
   };
 
+  const cancelCamera = () => {
+    cameraGeneration += 1;
+    if (cameraFrame !== null) window.cancelAnimationFrame(cameraFrame);
+    cameraFrame = null;
+  };
+
+  const smoothOrbitTo = (targetYaw: number, targetPitch: number, duration = 450): Promise<void> => {
+    cancelCamera();
+    stopInertia();
+    stopAutoOrbitFrame();
+    const generation = cameraGeneration;
+    const started = performance.now();
+    const startYaw = yaw;
+    const startPitch = pitch;
+    return new Promise((resolve) => {
+      const tick = (now: number) => {
+        if (disposed || generation !== cameraGeneration) {
+          resolve();
+          return;
+        }
+        const progress = Math.min(1, (now - started) / Math.max(1, duration));
+        yaw = cameraTween(startYaw, targetYaw, progress);
+        const eased = progress * progress * (3 - 2 * progress);
+        pitch = startPitch + (targetPitch - startPitch) * eased;
+        requestRender();
+        if (progress < 1) {
+          cameraFrame = window.requestAnimationFrame(tick);
+        } else {
+          cameraFrame = null;
+          startAutoOrbitFrame();
+          resolve();
+        }
+      };
+      cameraFrame = window.requestAnimationFrame(tick);
+    });
+  };
+
   const animateTurn = (turn: TurnTransform, duration = 180): Promise<void> => {
     cancelTurn();
     const generation = turnGeneration;
@@ -854,6 +934,12 @@ export const createCubeViewport = (
       }
       requestRender();
     },
+    setMilestone(nextMilestone) {
+      milestone = nextMilestone;
+      if (nextMilestone) overlayCanvas.dataset.milestone = nextMilestone.label;
+      else delete overlayCanvas.dataset.milestone;
+      requestRender();
+    },
     setTurnGuide(nextGuide) {
       turnGuide = nextGuide;
       if (nextGuide) {
@@ -863,6 +949,7 @@ export const createCubeViewport = (
       }
       requestRender();
     },
+    smoothOrbitTo,
     setAutoOrbit(enabled) {
       if (autoOrbit === enabled) return;
       autoOrbit = enabled;
@@ -886,6 +973,7 @@ export const createCubeViewport = (
     },
     dispose() {
       disposed = true;
+      cancelCamera();
       stopInertia();
       stopAutoOrbitFrame();
       cancelTurn();

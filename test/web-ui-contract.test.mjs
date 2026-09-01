@@ -153,6 +153,9 @@ test("the viewport layers a projected motion HUD over the persistent WebGL canva
   assert.match(viewport, /turnArcPoints/);
   assert.match(viewport, /orbit to view back/);
   assert.match(viewport, /setTurnGuide\(nextGuide\)/);
+  assert.match(viewport, /setMilestone\(nextMilestone\)/);
+  assert.match(viewport, /smoothOrbitTo/);
+  assert.match(viewport, /uMilestoneCubies\[20\]/);
 });
 
 test("the viewport exposes bounded tape controls for exact algorithm states", () => {

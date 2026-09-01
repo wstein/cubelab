@@ -6,6 +6,7 @@ export type CubieFocus = {
   piece: string;
   source: [number, number, number];
   target: [number, number, number];
+  label?: string;
 };
 
 type Sticker = {face: Face; colour: Face};
@@ -152,6 +153,28 @@ export const selectPhasePiece = (state: CubeState, phaseNumber: number): string 
     return [{piece: current.piece, score: phaseScore(current, target, centres, phaseNumber)}];
   }).sort((left, right) => left.score - right.score || left.piece.localeCompare(right.piece));
   return ranked.find(({score}) => score < 100)?.piece ?? ranked[0]?.piece ?? null;
+};
+
+export const phaseMilestonePositions = (
+  state: CubeState,
+  phaseNumber: number,
+): Array<[number, number, number]> => {
+  if (state.size !== 3) return [];
+  return cubies(state).filter((cubie) => {
+    const corner = cubie.stickers.length === 3;
+    const white = contains(cubie.piece, "U");
+    const yellow = contains(cubie.piece, "D");
+    switch (phaseNumber) {
+      case 1: return !corner && white;
+      case 2: return white;
+      case 3: return white || (!corner && !yellow);
+      case 4: return !corner && yellow;
+      case 5: return yellow;
+      case 6: return corner && yellow;
+      case 7: return true;
+      default: return false;
+    }
+  }).map(({position}) => geometryPosition(state.size, position));
 };
 
 export const focusForPiece = (state: CubeState, piece: string): CubieFocus | null => {

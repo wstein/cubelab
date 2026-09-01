@@ -6,6 +6,7 @@ import type {CubeState, MoveStep} from "../../src/client/cube-gl";
 import {
   cubies,
   focusForPiece,
+  phaseMilestonePositions,
   selectPhasePiece,
   selectTutorialPiece,
 } from "../../src/client/tutorial-focus";
@@ -54,5 +55,11 @@ describe("Beginner Academy cubie focus", () => {
     const scrambled = MoveExecutor.applyStep(solved, step("R")) as CubeState;
     expect(selectPhasePiece(scrambled, 2)).toContain("U");
     expect(selectPhasePiece(solved, 2)).toBe("BLU");
+  });
+
+  test("enumerates the verified cubies highlighted at each milestone", () => {
+    expect([1, 2, 3, 4, 5, 6, 7].map((phase) =>
+      phaseMilestonePositions(solved, phase).length
+    )).toEqual([4, 8, 12, 4, 8, 4, 20]);
   });
 });
