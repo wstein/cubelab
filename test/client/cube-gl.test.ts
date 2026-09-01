@@ -173,12 +173,12 @@ describe("cube viewport math", () => {
       "gocube-wire",
     );
     expect(aroundSensorY.x).toBeCloseTo(0);
-    expect(aroundSensorY.y).toBeCloseTo(0);
-    expect(aroundSensorY.z).toBeCloseTo(-half);
+    expect(aroundSensorY.y).toBeCloseTo(-half);
+    expect(aroundSensorY.z).toBeCloseTo(0);
     expect(aroundSensorY.w).toBeCloseTo(half);
     expect(aroundSensorZ.x).toBeCloseTo(0);
-    expect(aroundSensorZ.y).toBeCloseTo(-half);
-    expect(aroundSensorZ.z).toBeCloseTo(0);
+    expect(aroundSensorZ.y).toBeCloseTo(0);
+    expect(aroundSensorZ.z).toBeCloseTo(half);
     expect(aroundSensorZ.w).toBeCloseTo(half);
   });
 

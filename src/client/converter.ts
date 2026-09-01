@@ -1581,6 +1581,21 @@ if (root) {
     return true;
   };
 
+  const syncSmartCubeTrackedOrientation = () => {
+    if (
+      smartCubeOrientationTracking
+      && !smartCubeCoachingFrameActive
+      && latestSmartCubeOrientation
+    ) {
+      viewport?.setDeviceOrientation(
+        latestSmartCubeOrientation.quaternion,
+        latestSmartCubeOrientation.coordinateFrame,
+      );
+      return;
+    }
+    viewport?.setDeviceOrientation(null);
+  };
+
   const waitForSmartCubeMove = () => {
     if (!smartCubeConnected || !activeTimeline?.states) return;
     clearTutorialFocus();
@@ -1588,11 +1603,15 @@ if (root) {
     stopPlayback();
     if (smartCubeRecovery) {
       smartCubeCoachingFrameActive = true;
+      syncSmartCubeTrackedOrientation();
       renderSmartCubeCoachingState();
       showSmartCubeRecoveryGuide();
       return;
     }
     smartCubeCoachingFrameActive = true;
+    // In solve mode the timeline owns the virtual cube. Gyro samples are
+    // checkpoints for explicit x/y/z steps, never a second live transform.
+    syncSmartCubeTrackedOrientation();
     // Hardware facelets stay in the sensor's fixed frame. During coaching the
     // timeline owns presentation so a confirmed x/y/z regrip cannot be erased
     // by the next face packet.
@@ -1946,6 +1965,7 @@ if (root) {
     }
 
     smartCubeCoachingFrameActive = false;
+    syncSmartCubeTrackedOrientation();
     await animateSmartCubeMove(move);
     commitSmartCubeMoveState(record);
     // Full-state drivers emit a canonical facelet event alongside each move.
@@ -1967,7 +1987,7 @@ if (root) {
     renderSmartCubeLiveState();
   };
 
-  const applySmartCubeGyroRotation = (event: SmartCubeOrientationEvent) => {
+  const applySmartCubeGyroRotation = async (event: SmartCubeOrientationEvent) => {
     const pending = smartCubeRotationWait;
     if (!pending?.baseline || pending.generation !== playbackGeneration || !activeTimeline?.states) {
       return;
@@ -2005,10 +2025,12 @@ if (root) {
 
     smartCubeRotationWait = null;
     clearTurnGuide();
-    // The observed pose already supplied the visual motion. Rebase the IMU at
-    // its new holding and advance the logical timeline without replaying x/y/z.
+    // Solve mode deliberately does not live-track the observed pose. Animate
+    // the recognized logical regrip once, then advance like a matched face move.
     viewport?.setDeviceOrientation(null);
-    viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
+    const transform = turnTransform(size, step);
+    if (transform && viewport) await viewport.animateTurn(transform, 120);
+    if (pending.generation !== playbackGeneration) return;
     renderTimelineIndex(pending.action.timelineIndex + 1);
     signalSmartCubeFeedback("correct");
     smartCubeStatus.textContent = `${smartCubeDeviceName} · ${pending.action.token} regrip detected`;
@@ -2025,15 +2047,8 @@ if (root) {
       autoOrbitButton.setAttribute("aria-pressed", "false");
       autoOrbitButton.classList.remove("active");
       viewport?.setAutoOrbit(false);
-      if (latestSmartCubeOrientation) {
-        viewport?.setDeviceOrientation(
-          latestSmartCubeOrientation.quaternion,
-          latestSmartCubeOrientation.coordinateFrame,
-        );
-      }
-    } else {
-      viewport?.setDeviceOrientation(null);
     }
+    syncSmartCubeTrackedOrientation();
     if (wasTracking && !smartCubeOrientationTracking && smartCubeRotationWait?.baseline) {
       waitForSmartCubeMove();
     }
@@ -2151,8 +2166,12 @@ if (root) {
           coordinateFrame: event.coordinateFrame,
         };
         if (smartCubeOrientationTracking) {
-          viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
-          applySmartCubeGyroRotation(event);
+          if (!smartCubeCoachingFrameActive) {
+            viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
+          }
+          void applySmartCubeGyroRotation(event).catch((reason) => {
+            smartCubeStatus.textContent = reason instanceof Error ? reason.message : String(reason);
+          });
         }
         break;
       case "hardware":
@@ -2406,6 +2425,7 @@ if (root) {
   });
   input.addEventListener("input", () => {
     smartCubeCoachingFrameActive = false;
+    syncSmartCubeTrackedOrientation();
     if (pendingDirectMove !== null) {
       window.clearTimeout(pendingDirectMove.timeout);
       pendingDirectMove = null;

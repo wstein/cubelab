@@ -410,11 +410,11 @@ export const relativeQuaternion = (
 /**
  * Re-expresses a relative GoCube sensor rotation in viewport axes.
  *
- * The transport's documented display mapping is sensor `(x,y,z)` to viewport
- * `(x,-z,-y)`. Apply it to the world-frame delta, not to both absolute samples:
- * the mapping reverses handedness, so applying it before calibration silently
- * changes a world-frame delta into a local-frame delta whenever the initial
- * holding pose is not the identity.
+ * CubeTrace's measured working calibration uses a WORLD delta, the proper
+ * `right=-x, up=+y, front=-z` basis, and inverted rotation. Their combined
+ * effect on the relative quaternion is `(x,-y,z,w)`. Apply it after the delta:
+ * applying the transport's improper presentation mapping to both absolute
+ * samples reverses multiplication order and visibly crosses the axes.
  */
 export const orientationInViewportFrame = (
   quaternion: OrientationQuaternion,
@@ -422,8 +422,8 @@ export const orientationInViewportFrame = (
 ): OrientationQuaternion => frame === "gocube-wire"
   ? normalizedQuaternion({
     x: quaternion.x,
-    y: -quaternion.z,
-    z: -quaternion.y,
+    y: -quaternion.y,
+    z: quaternion.z,
     w: quaternion.w,
   })
   : normalizedQuaternion(quaternion);
@@ -1337,7 +1337,7 @@ export const createCubeViewport = (
       requestRender();
     },
     smoothOrbitTo,
-    setDeviceOrientation(orientation) {
+    setDeviceOrientation(orientation, coordinateFrame = "viewport") {
       if (!orientation) {
         deviceOrientationBase = null;
         deviceOrientation = null;
