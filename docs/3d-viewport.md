@@ -91,9 +91,12 @@ visual tape; the exact duration remains available through the separator's toolti
 accessible label. The transport waits for that duration divided by the selected
 playback-speed multiplier, while a dot pause retains the short default wait.
 Parenthesized AST groups are retained during expansion and displayed as bordered move
-clusters, including a distinct cluster for every repetition. Hovering anywhere on a
-cluster exposes its complete parenthesized sequence; the same sequence is provided as
-the cluster's accessible label.
+clusters, including a distinct cluster for every repetition. In Beginner Academy,
+hovering a cluster explains its teaching purpose—such as aligning a middle-layer edge,
+applying Sune, or restoring cube orientation—instead of merely repeating the visible
+moves. The same explanation is provided as the cluster's accessible label. Groups in
+ordinary editor input receive a neutral description because no pedagogical intent can
+be inferred safely from arbitrary notation.
 
 Playback caches at most 500 expanded steps. Algorithms above that limit still execute
 through the normal 100,000-step safety boundary and display their final conversion,

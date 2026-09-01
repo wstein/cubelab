@@ -20,6 +20,7 @@ import {
 import {
   evaluateAlgorithm,
   buildTimeline,
+  describeTimelineGroup,
   isSingleStepExtension,
   MAX_PLAYBACK_STEPS,
   type AlgorithmTimeline,
@@ -412,12 +413,14 @@ if (root) {
       moveRibbon.replaceChildren();
       let currentGroupId: number | undefined;
       let groupContainer: HTMLSpanElement | null = null;
-      let groupLabels: string[] = [];
+      let groupEntries: AlgorithmTimeline["steps"] = [];
       const finishGroup = () => {
         if (!groupContainer) return;
-        const sequence = `(${groupLabels.join(" ")})`;
-        groupContainer.title = sequence;
-        groupContainer.setAttribute("aria-label", `Parenthesized algorithm group: ${sequence}`);
+        const groupIndex = activeTimeline.steps.indexOf(groupEntries[0]);
+        const phase = tutorialPhases.find((item) => groupIndex >= item.start && groupIndex < item.end);
+        const description = describeTimelineGroup(groupEntries, phase);
+        groupContainer.title = description;
+        groupContainer.setAttribute("aria-label", `Algorithm sequence purpose: ${description}`);
       };
       activeTimeline.labels.forEach((label, index) => {
         const entry = activeTimeline!.steps[index];
@@ -425,7 +428,7 @@ if (root) {
           finishGroup();
           currentGroupId = entry.groupId;
           groupContainer = null;
-          groupLabels = [];
+          groupEntries = [];
           if (currentGroupId !== undefined) {
             groupContainer = document.createElement("span");
             groupContainer.className = "move-group";
@@ -447,13 +450,7 @@ if (root) {
         button.setAttribute("aria-label", `Go to step ${index + 1}: ${description}`);
         if (isPause) button.title = description;
         if (groupContainer) {
-          groupLabels.push(
-            isPause
-              ? entry.durationMs === undefined
-                ? "."
-                : `@${entry.durationMs / 1000}s`
-              : label,
-          );
+          groupEntries.push(entry);
         }
         (groupContainer ?? moveRibbon).append(button);
       });

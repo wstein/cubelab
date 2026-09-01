@@ -2,9 +2,29 @@ import {describe, expect, test} from "bun:test";
 
 import * as FaceletCodec from "../../src/State/FaceletCodec.res.mjs";
 import * as StateTypes from "../../src/State/StateTypes.res.mjs";
-import {buildTimeline, evaluateAlgorithm, formatStep, isSingleStepExtension, MAX_PLAYBACK_STEPS} from "../../src/client/playback";
+import {
+  buildTimeline,
+  describeTimelineGroup,
+  evaluateAlgorithm,
+  formatStep,
+  isSingleStepExtension,
+  MAX_PLAYBACK_STEPS,
+} from "../../src/client/playback";
 
 describe("algorithm playback timeline", () => {
+  test("describes the purpose of Academy groups instead of repeating their moves", () => {
+    const rotation = {step: {move: {TAG: "Rotation", _0: "X"}, turns: 2}};
+    const insertion = {step: {move: {TAG: "FaceTurn", _0: "R", _1: {from_: 1, to_: 1}}, turns: 1}};
+    const alignment = {step: {move: {TAG: "FaceTurn", _0: "U", _1: {from_: 1, to_: 1}}, turns: -1}};
+    const middle = {number: 3, title: "Middle Layer", instruction: "Insert middle edges."};
+    expect(describeTimelineGroup([rotation], middle)).toContain("yellow faces up");
+    expect(describeTimelineGroup([alignment], middle)).toContain("Align the next middle-layer edge");
+    expect(describeTimelineGroup([insertion], middle)).toContain("beginner left or right insertion");
+    expect(describeTimelineGroup([insertion])).toBe(
+      "Execute this parenthesized algorithm as one sequence.",
+    );
+  });
+
   test("expands composite algorithms into labeled canonical states", () => {
     const result = evaluateAlgorithm(3, "Wide", "Modern", "[R, U]");
     expect(result.TAG).toBe("Ok");

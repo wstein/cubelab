@@ -15,8 +15,62 @@ type ExpandedEntry = {
   groupId?: number;
 };
 export type TimelineEntry = {step?: MoveStep; durationMs?: number; groupId?: number};
+export type TutorialGroupContext = {number: number; title: string; instruction: string};
 
 export const MAX_PLAYBACK_STEPS = 500;
+
+export const describeTimelineGroup = (
+  entries: TimelineEntry[],
+  phase?: TutorialGroupContext,
+): string => {
+  const moves = entries.flatMap((entry) => entry.step ? [entry.step] : []);
+  const onlyRotations = moves.length > 0 && moves.every((step) => step.move.TAG === "Rotation");
+  if (onlyRotations) {
+    if (phase?.number === 1) return "Restore a consistent white-up starting orientation.";
+    if (phase?.number === 3) return "Turn the whole cube so yellow faces up for the remaining layers.";
+    if (phase?.number === 7) return "Restore the canonical white-up cube orientation.";
+    return "Reorient the whole cube for the next algorithm.";
+  }
+
+  const singleTopTurn = moves.length === 1
+    && moves[0].move.TAG === "FaceTurn"
+    && moves[0].move._0 === "U";
+  if (singleTopTurn) {
+    switch (phase?.number) {
+      case 3:
+        return "Align the next middle-layer edge above its target slot.";
+      case 4:
+        return "Align the yellow-edge case before forming the yellow cross.";
+      case 5:
+        return "Align the yellow-corner orientation case.";
+      case 6:
+        return "Align the yellow-corner permutation case.";
+      case 7:
+        return "Align the final yellow-edge permutation case.";
+    }
+  }
+
+  switch (phase?.number) {
+    case 1:
+      return "Solve the next white cross edge and align it with its side centre.";
+    case 2:
+      return "Insert the next white first-layer corner while preserving the cross.";
+    case 3:
+      return "Insert a middle-layer edge with a beginner left or right insertion.";
+    case 4:
+      return "Apply the yellow-cross algorithm to orient the top edges.";
+    case 5:
+      return "Apply Sune or anti-Sune to orient the yellow corners.";
+    case 6:
+      return "Position the yellow corners over their matching side colours.";
+    case 7:
+      return "Cycle the remaining yellow edges to solve the cube.";
+    default:
+      return phase
+        ? `${phase.title}: ${phase.instruction}`
+        : "Execute this parenthesized algorithm as one sequence.";
+  }
+};
 
 export type AlgorithmTimeline = {
   alg: unknown[];

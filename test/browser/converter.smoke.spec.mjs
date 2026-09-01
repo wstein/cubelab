@@ -333,10 +333,10 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(page.locator("[data-beginner-solution]")).toContainText("@1.5s");
   const firstTimelineGroup = page.locator("[data-move-ribbon] .move-group").first();
   await expect(firstTimelineGroup).toBeVisible();
-  await expect(firstTimelineGroup).toHaveAttribute("title", /^\(.+\)$/);
+  await expect(firstTimelineGroup).toHaveAttribute("title", /white cross edge/);
   await expect(firstTimelineGroup).toHaveAttribute(
     "aria-label",
-    /^Parenthesized algorithm group: \(.+\)$/,
+    /^Algorithm sequence purpose: .+$/,
   );
   await expect(page.locator("[data-move-ribbon] .move-token.pause").first()).toHaveText("│");
   await expect(page.locator("[data-move-ribbon] .move-token.pause").first()).toHaveAttribute(
