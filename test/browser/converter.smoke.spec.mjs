@@ -198,6 +198,7 @@ test("reports blocked Bluetooth without opening the device chooser", async ({pag
   await expect(page.locator("[data-smart-cube-status]")).toContainText(
     "Bluetooth is unavailable or blocked",
   );
+  await expect(page.locator("[data-smart-cube-status]")).toHaveCSS("white-space", "normal");
   expect(await page.evaluate(() => window.__bluetoothRequestCount)).toBe(0);
 });
 

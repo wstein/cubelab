@@ -225,6 +225,17 @@ body {
   box-shadow: 0 0 0 3px rgba(251, 113, 133, 0.14);
 }
 
+.smart-cube-dock[data-phase="error"] {
+  align-items: flex-start;
+}
+
+.smart-cube-dock[data-phase="error"] .smart-cube-status {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  line-height: 1.45;
+}
+
 .smart-cube-status {
   min-width: 0;
   overflow: hidden;
