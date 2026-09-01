@@ -198,6 +198,16 @@ body {
   touch-action: none;
 }
 
+.motion-overlay {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 .cube-canvas:active {
   cursor: grabbing;
 }
@@ -208,6 +218,7 @@ body {
 
 .viewport-hint {
   position: absolute;
+  z-index: 2;
   bottom: 0.75rem;
   left: 0.85rem;
   padding: 0.2rem 0.45rem;

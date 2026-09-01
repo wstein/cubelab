@@ -68,6 +68,7 @@ if (root) {
   const lowercaseMessage = root.querySelector<HTMLElement>("[data-lowercase-message]")!;
   const switchLowercase = root.querySelector<HTMLButtonElement>("[data-switch-lowercase]")!;
   const canvas = root.querySelector<HTMLCanvasElement>("[data-cube-canvas]")!;
+  const motionOverlay = root.querySelector<HTMLCanvasElement>("[data-motion-overlay]")!;
   const viewportFallback = root.querySelector<HTMLElement>("[data-viewport-fallback]")!;
   const playback = root.querySelector<HTMLElement>("[data-playback]")!;
   const moveRibbon = root.querySelector<HTMLElement>("[data-move-ribbon]")!;
@@ -104,7 +105,7 @@ if (root) {
   let activeRecognized: RecognizedInput | null = null;
   let tutorialPhases: TutorialPhaseRange[] = [];
   let commentedBeginnerSolution = "";
-  const viewport = createCubeViewport(canvas, (message) => {
+  const viewport = createCubeViewport(canvas, motionOverlay, (message) => {
     viewportFallback.textContent = `${message} Text conversions remain fully functional.`;
     viewportFallback.hidden = false;
   });

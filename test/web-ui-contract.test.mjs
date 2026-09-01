@@ -145,6 +145,16 @@ test("the viewport exposes state-driven source and destination focus", () => {
   assert.match(viewport, /sin\(uFocusTime \* 4\.0\)/);
 });
 
+test("the viewport layers a projected motion HUD over the persistent WebGL canvas", () => {
+  assert.match(viewportComponent, /data-motion-overlay/);
+  assert.match(client, /querySelector<HTMLCanvasElement>\("\[data-motion-overlay\]"\)/);
+  assert.match(viewport, /drawMotionOverlay/);
+  assert.match(viewport, /quadraticCurveTo/);
+  assert.match(viewport, /turnArcPoints/);
+  assert.match(viewport, /orbit to view back/);
+  assert.match(viewport, /setTurnGuide\(nextGuide\)/);
+});
+
 test("the viewport exposes bounded tape controls for exact algorithm states", () => {
   assert.match(viewportComponent, /data-playback-toggle/);
   assert.match(viewportComponent, /data-playback-scrubber/);

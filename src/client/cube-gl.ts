@@ -1,4 +1,12 @@
 import * as CubeGeometry from "../Render/CubeGeometry.res.mjs";
+import {
+  cubieIsFrontFacing,
+  motionLabel,
+  pieceColourLabel,
+  projectPoint,
+  turnArcPoints,
+  type ProjectedPoint,
+} from "./motion-overlay";
 
 export type CubeStyle = "Standard" | "Speed";
 export type CubePalette = "Western" | "Japanese";
@@ -25,6 +33,7 @@ export type TurnTransform = {
   max: number;
   angle: number;
 };
+type TurnGuide = {step: MoveStep; label: string};
 
 const DEFAULT_YAW = -0.62;
 const DEFAULT_PITCH = 0.48;
@@ -294,6 +303,7 @@ export type CubeViewport = {
   animateTurn: (turn: TurnTransform, duration?: number) => Promise<void>;
   cancelTurn: () => void;
   setFocus: (focus: CubieFocus | null) => void;
+  setTurnGuide: (guide: TurnGuide | null) => void;
   setAutoOrbit: (enabled: boolean) => void;
   resetCamera: () => void;
   dispose: () => void;
@@ -301,6 +311,7 @@ export type CubeViewport = {
 
 export const createCubeViewport = (
   canvas: HTMLCanvasElement,
+  overlayCanvas: HTMLCanvasElement,
   onError: (message: string) => void = () => undefined,
 ): CubeViewport | null => {
   const gl = canvas.getContext("webgl", {
@@ -365,12 +376,198 @@ export const createCubeViewport = (
   let disposed = false;
   let activeTurn: TurnTransform | null = null;
   let focus: CubieFocus | null = null;
+  let turnGuide: TurnGuide | null = null;
   let turnFrame: number | null = null;
   let turnGeneration = 0;
   let autoOrbit = false;
   let autoOrbitFrame: number | null = null;
   let autoOrbitPreviousTime: number | null = null;
   canvas.dataset.autoOrbitState = "off";
+  const overlay = overlayCanvas.getContext("2d");
+
+  const traceProjected = (
+    context: CanvasRenderingContext2D,
+    points: ProjectedPoint[],
+  ) => {
+    const first = points[0];
+    if (!first) return;
+    context.beginPath();
+    context.moveTo(first.x, first.y);
+    points.slice(1).forEach((point) => context.lineTo(point.x, point.y));
+  };
+
+  const drawArrowhead = (
+    context: CanvasRenderingContext2D,
+    from: ProjectedPoint,
+    to: ProjectedPoint,
+    size: number,
+    colour: string,
+  ) => {
+    const angle = Math.atan2(to.y - from.y, to.x - from.x);
+    context.save();
+    context.translate(to.x, to.y);
+    context.rotate(angle);
+    context.beginPath();
+    context.moveTo(0, 0);
+    context.lineTo(-size, size * 0.58);
+    context.lineTo(-size, -size * 0.58);
+    context.closePath();
+    context.fillStyle = colour;
+    context.shadowColor = colour;
+    context.shadowBlur = size * 0.8;
+    context.fill();
+    context.restore();
+  };
+
+  const drawBadge = (
+    context: CanvasRenderingContext2D,
+    text: string,
+    x: number,
+    y: number,
+    dpr: number,
+    muted = false,
+  ) => {
+    context.save();
+    context.font = `600 ${12 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+    const paddingX = 8 * dpr;
+    const height = 25 * dpr;
+    const width = context.measureText(text).width + paddingX * 2;
+    const left = Math.max(6 * dpr, Math.min(overlayCanvas.width - width - 6 * dpr, x - width / 2));
+    const top = Math.max(6 * dpr, Math.min(overlayCanvas.height - height - 6 * dpr, y - height / 2));
+    context.fillStyle = muted ? "rgba(15, 23, 42, 0.82)" : "rgba(8, 15, 30, 0.9)";
+    context.strokeStyle = muted ? "rgba(148, 163, 184, 0.58)" : "rgba(103, 232, 249, 0.78)";
+    context.lineWidth = dpr;
+    context.beginPath();
+    context.roundRect(left, top, width, height, 6 * dpr);
+    context.fill();
+    context.stroke();
+    context.fillStyle = muted ? "rgba(203, 213, 225, 0.85)" : "#cffafe";
+    context.textBaseline = "middle";
+    context.fillText(text, left + paddingX, top + height / 2);
+    context.restore();
+  };
+
+  const drawMotionOverlay = (
+    matrices: {modelView: Mat4; projection: Mat4},
+    width: number,
+    height: number,
+  ) => {
+    if (!overlay) return;
+    if (overlayCanvas.width !== width || overlayCanvas.height !== height) {
+      overlayCanvas.width = width;
+      overlayCanvas.height = height;
+    }
+    overlay.clearRect(0, 0, width, height);
+    if (!focus && !turnGuide) {
+      delete overlayCanvas.dataset.motionVisible;
+      return;
+    }
+    overlayCanvas.dataset.motionVisible = "true";
+    const bounds = canvas.getBoundingClientRect();
+    const dpr = width / Math.max(1, bounds.width);
+    const now = performance.now();
+
+    if (focus) {
+      const source = projectPoint(focus.source, matrices.modelView, matrices.projection, width, height);
+      const target = projectPoint(focus.target, matrices.modelView, matrices.projection, width, height);
+      const targetVisible = target.inFront && cubieIsFrontFacing(focus.target, matrices.modelView);
+      const alpha = targetVisible ? 1 : 0.45;
+      overlay.save();
+      overlay.globalAlpha = alpha;
+      overlay.strokeStyle = "#67e8f9";
+      overlay.fillStyle = "#67e8f9";
+      overlay.lineWidth = 2.4 * dpr;
+      overlay.lineCap = "round";
+      overlay.lineJoin = "round";
+      overlay.shadowColor = "rgba(34, 211, 238, 0.9)";
+      overlay.shadowBlur = 9 * dpr;
+      overlay.setLineDash([8 * dpr, 7 * dpr]);
+      overlay.lineDashOffset = -(now * 0.025 * dpr);
+      const sameSlot = Math.hypot(target.x - source.x, target.y - source.y) < 8 * dpr;
+      let arrowFrom: ProjectedPoint;
+      let arrowTo: ProjectedPoint;
+      let labelX: number;
+      let labelY: number;
+      if (sameSlot) {
+        const radius = 34 * dpr;
+        overlay.beginPath();
+        overlay.arc(source.x, source.y, radius, Math.PI * 0.35, Math.PI * 2.08);
+        overlay.stroke();
+        arrowFrom = {x: source.x + radius * 0.92, y: source.y - radius * 0.38, depth: 0, inFront: true};
+        arrowTo = {x: source.x + radius, y: source.y + radius * 0.1, depth: 0, inFront: true};
+        labelX = source.x;
+        labelY = source.y - radius - 18 * dpr;
+      } else {
+        const dx = target.x - source.x;
+        const dy = target.y - source.y;
+        const length = Math.max(1, Math.hypot(dx, dy));
+        const lift = Math.min(80 * dpr, Math.max(34 * dpr, length * 0.32));
+        const control = {
+          x: (source.x + target.x) / 2 - (dy / length) * lift,
+          y: (source.y + target.y) / 2 + (dx / length) * lift - 18 * dpr,
+        };
+        overlay.beginPath();
+        overlay.moveTo(source.x, source.y);
+        overlay.quadraticCurveTo(control.x, control.y, target.x, target.y);
+        overlay.stroke();
+        arrowFrom = {x: control.x, y: control.y, depth: 0, inFront: true};
+        arrowTo = target;
+        labelX = control.x;
+        labelY = control.y - 18 * dpr;
+      }
+      overlay.setLineDash([]);
+      drawArrowhead(overlay, arrowFrom, arrowTo, 11 * dpr, "#fb923c");
+      overlay.beginPath();
+      overlay.arc(source.x, source.y, 6 * dpr, 0, Math.PI * 2);
+      overlay.fillStyle = "#67e8f9";
+      overlay.fill();
+      overlay.beginPath();
+      overlay.arc(target.x, target.y, 9 * dpr, 0, Math.PI * 2);
+      overlay.strokeStyle = "#fb923c";
+      overlay.lineWidth = 2 * dpr;
+      overlay.stroke();
+      overlay.restore();
+      const kind = focus.piece.length === 2 ? "edge" : "corner";
+      const action = sameSlot ? "Orient" : "Move";
+      drawBadge(
+        overlay,
+        `${action} ${pieceColourLabel(focus.piece, palette)} ${kind}${targetVisible ? "" : " · orbit to view back"}`,
+        labelX,
+        labelY,
+        dpr,
+        !targetVisible,
+      );
+    }
+
+    if (turnGuide) {
+      const transform = turnTransform(state?.size ?? 3, turnGuide.step);
+      if (transform) {
+        const points = turnArcPoints(transform, turnGuide.step)
+          .map((point) => projectPoint(point, matrices.modelView, matrices.projection, width, height))
+          .filter(({inFront}) => inFront);
+        if (points.length > 2) {
+          overlay.save();
+          overlay.strokeStyle = "#a5b4fc";
+          overlay.lineWidth = 3 * dpr;
+          overlay.lineCap = "round";
+          overlay.shadowColor = "rgba(129, 140, 248, 0.95)";
+          overlay.shadowBlur = 10 * dpr;
+          traceProjected(overlay, points);
+          overlay.stroke();
+          drawArrowhead(overlay, points.at(-2)!, points.at(-1)!, 10 * dpr, "#c4b5fd");
+          overlay.restore();
+          const anchor = points[Math.floor(points.length * 0.55)];
+          drawBadge(
+            overlay,
+            motionLabel(turnGuide.label, turnGuide.step),
+            anchor.x,
+            anchor.y - 18 * dpr,
+            dpr,
+          );
+        }
+      }
+    }
+  };
 
   const render = () => {
     frame = null;
@@ -415,8 +612,9 @@ export const createCubeViewport = (
     gl.uniform3fv(focusTarget, focus?.target ?? [0, 0, 0]);
     gl.uniform1f(focusTime, performance.now() * 0.001);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
+    drawMotionOverlay(matrices, width, height);
     canvas.dataset.webgl = "ready";
-    if (focus) requestRender();
+    if (focus || turnGuide) requestRender();
   };
 
   const requestRender = () => {
@@ -656,6 +854,15 @@ export const createCubeViewport = (
       }
       requestRender();
     },
+    setTurnGuide(nextGuide) {
+      turnGuide = nextGuide;
+      if (nextGuide) {
+        overlayCanvas.dataset.turnGuide = nextGuide.label;
+      } else {
+        delete overlayCanvas.dataset.turnGuide;
+      }
+      requestRender();
+    },
     setAutoOrbit(enabled) {
       if (autoOrbit === enabled) return;
       autoOrbit = enabled;
@@ -685,6 +892,7 @@ export const createCubeViewport = (
       if (frame !== null) window.cancelAnimationFrame(frame);
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
+      overlay?.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
       canvas.removeEventListener("pointerdown", pointerDown);
       canvas.removeEventListener("pointermove", pointerMove);
       canvas.removeEventListener("pointerup", pointerUp);
