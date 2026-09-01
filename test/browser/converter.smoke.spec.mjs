@@ -145,3 +145,44 @@ test("places the visualizer before controls on mobile", async ({page}) => {
   expect(inputPanel).not.toBeNull();
   expect(viewport.y).toBeLessThan(inputPanel.y);
 });
+
+test("plays, reverses, and seeks an expanded algorithm timeline", async ({page}) => {
+  await page.goto("/");
+  const input = page.locator("[data-input]");
+  const position = page.locator("[data-playback-position]");
+  const facelets = page.locator('[data-output="facelets"]');
+  const solved = "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB";
+
+  await input.fill("R U");
+  await expect(page.locator("[data-playback]")).toBeVisible();
+  await expect(position).toHaveText("Move 2 of 2");
+  const finalState = await facelets.textContent();
+
+  await page.getByRole("button", {name: "Jump to start"}).click();
+  await expect(position).toHaveText("Move 0 of 2");
+  await expect(facelets).toHaveText(solved);
+
+  await page.getByRole("button", {name: "Next move"}).click();
+  await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-animating", "true");
+  await expect(position).toHaveText("Move 1 of 2");
+  await expect(page.locator("[data-cube-canvas]")).not.toHaveAttribute("data-animating", "true");
+
+  await page.getByRole("button", {name: "Previous move"}).click();
+  await expect(position).toHaveText("Move 0 of 2");
+  await expect(facelets).toHaveText(solved);
+
+  await page.getByRole("button", {name: "Play algorithm"}).click();
+  await expect(position).toHaveText("Move 2 of 2");
+  await expect(facelets).toHaveText(finalState ?? "");
+
+  await page.getByRole("button", {name: "Jump to start"}).click();
+  await page.locator("[data-playback-scrubber]").fill("2");
+  await expect(position).toHaveText("Move 2 of 2");
+  await expect(facelets).toHaveText(finalState ?? "");
+
+  await input.fill("");
+  await expect(page.locator("[data-playback]")).toBeHidden();
+  await input.fill("R");
+  await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-animating", "true");
+  await expect(position).toHaveText("Move 1 of 1");
+});

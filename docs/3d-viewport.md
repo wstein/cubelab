@@ -70,6 +70,18 @@ algorithm, Orbit64, cubie coordinates, compact facelets, compact colours, facele
 net, or colour net. Invalid input leaves the last valid 3D state visible and marks
 the input status as invalid.
 
+For algorithm input, the client expands composite AST nodes into a canonical step
+timeline and caches state 0 through state N. The viewport provides start/end jumps,
+animated forward and inverse steps, play/pause, 0.5×/1×/2× speeds, looping, a range
+scrubber, and clickable move tokens. Text codecs update only when a move commits, so
+they always describe an exact canonical state rather than a fractional animation.
+
+Playback caches at most 500 expanded steps. Algorithms above that limit still execute
+through the normal 100,000-step safety boundary and display their final conversion,
+but do not retain hundreds of intermediate cube states. When editing at the current
+end of a timeline, appending exactly one expanded move animates that move; pastes and
+multi-step changes render the final state immediately.
+
 Shareable settings are written to the URL hash after 300 milliseconds without
 adding browser-history entries. Hash input is validated, and imported text is
 limited to 20,000 characters before it reaches the parser.

@@ -425,6 +425,7 @@ export const createCubeViewport = (
     if (turnFrame !== null) window.cancelAnimationFrame(turnFrame);
     turnFrame = null;
     activeTurn = null;
+    delete canvas.dataset.animating;
     requestRender();
   };
 
@@ -433,6 +434,7 @@ export const createCubeViewport = (
     const generation = turnGeneration;
     const started = performance.now();
     const safeDuration = Math.max(1, duration);
+    canvas.dataset.animating = "true";
     return new Promise((resolve) => {
       const tick = (now: number) => {
         if (disposed || generation !== turnGeneration) {
@@ -448,6 +450,7 @@ export const createCubeViewport = (
         } else {
           turnFrame = null;
           activeTurn = null;
+          delete canvas.dataset.animating;
           requestRender();
           resolve();
         }

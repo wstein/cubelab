@@ -70,3 +70,12 @@ test("the viewport animates complete cubies with shader layer transforms", () =>
   assert.match(viewport, /animateTurn/);
   assert.match(viewport, /1 - \(1 - progress\) \*\* 3/);
 });
+
+test("the viewport exposes bounded tape controls for exact algorithm states", () => {
+  assert.match(viewportComponent, /data-playback-toggle/);
+  assert.match(viewportComponent, /data-playback-scrubber/);
+  assert.match(viewportComponent, /data-playback-speed/);
+  assert.match(viewportComponent, /data-playback-loop/);
+  assert.match(client, /MAX_PLAYBACK_STEPS/);
+  assert.match(client, /transitionTo/);
+});

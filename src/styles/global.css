@@ -312,6 +312,11 @@ body {
   color: white;
 }
 
+.transport-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
 .segmented-control.compact .segmented-btn {
   padding: 0.25rem 0.42rem;
   font-size: 0.7rem;

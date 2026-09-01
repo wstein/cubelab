@@ -20,7 +20,10 @@ The input badge identifies the recognized source format, including algorithms,
 Orbit64, cubie coordinates, compact facelets/colours, and canonical nets. The
 interactive viewport renders the resulting canonical state as either a stickered
 Standard cube or a stickerless Speedcube. Drag or touch to orbit, scroll to zoom,
-and use the URL hash to share the active input and settings.
+and use the URL hash to share the active input and settings. Parsed algorithms expose
+an expanded move ribbon, scrubber, forward/reverse stepping, play/pause, speed, and
+loop controls. A single move appended while typing animates from the preceding state;
+larger pastes snap directly to their final state.
 
 The move parser implements the SiGN/LGN structure used by the project: outer, inner,
 wide, slice, and rotation moves; arbitrary repetition suffixes; groups; commutators;
@@ -68,6 +71,10 @@ stay in the fixed world frame while their stickers follow slice-layer and whole-
 rotations. The 3×3 piece reducer virtually restores the solved centre orientation
 before extracting cubie coordinates, then validates permutation parity and orientation
 sums.
+
+Interactive playback caches canonical states for at most 500 expanded moves. Longer
+algorithms still convert completely, but their tape controls are disabled to keep
+browser memory bounded.
 
 Custom colour mappings use six distinct uppercase ASCII letters in `U,L,F,R,B,D`
 order. Parsers validate exact sticker counts and canonical net geometry.

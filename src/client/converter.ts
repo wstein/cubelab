@@ -214,32 +214,16 @@ if (root) {
     }
   };
 
-  const update = () => {
-    updateCardVisibility();
-    updateLowercaseUi();
-    updateDialectUi();
-    const value = input.value;
-    const parsed = parseState(value);
-    if (parsed.TAG === "Error") {
-      status.textContent = "Parse error";
-      status.classList.add("error");
-      error.textContent = describeError(parsed._0);
-      error.hidden = false;
-      for (const key of ["facelets", "net", "colours", "colour-net", "pieces", "orbit64"]) {
-        setOutput(key, "—", false);
-      }
-      return;
-    }
-
-    status.textContent = parsed._0.label;
+  const renderState = (state: CubeState, label: string) => {
+    status.textContent = label;
     status.classList.remove("error");
     error.hidden = true;
     const palette: CubePalette = schemeSelect.value === "Japanese" ? "Japanese" : "Western";
-    viewport?.setScene(parsed._0.state, palette, cubeStyle);
-    setOutput("facelets", FaceletCodec.render(parsed._0.state));
-    setOutput("net", NetCodec.render(parsed._0.state));
-    const colours = ColorCodec.renderCompact(scheme(), parsed._0.state) as Result<string>;
-    const colourNet = ColorCodec.renderNet(scheme(), parsed._0.state) as Result<string>;
+    viewport?.setScene(state, palette, cubeStyle);
+    setOutput("facelets", FaceletCodec.render(state));
+    setOutput("net", NetCodec.render(state));
+    const colours = ColorCodec.renderCompact(scheme(), state) as Result<string>;
+    const colourNet = ColorCodec.renderNet(scheme(), state) as Result<string>;
     setOutput("colours", colours.TAG === "Ok" ? colours._0 : "—", colours.TAG === "Ok");
     setOutput(
       "colour-net",
@@ -248,7 +232,7 @@ if (root) {
     );
 
     if (size === 2 || size === 3) {
-      const pieces = PieceReducer.reduce(parsed._0.state) as Result<PieceState, unknown>;
+      const pieces = PieceReducer.reduce(state) as Result<PieceState, unknown>;
       if (pieces.TAG === "Error") {
         setOutput(
           "pieces",
@@ -275,6 +259,195 @@ if (root) {
         }
       }
     }
+  };
+
+  let activeTimeline: AlgorithmTimeline | null = null;
+  let activeTimelineKey: string | null = null;
+  let activeIndex = 0;
+  let playbackSpeed = 1;
+  let looping = false;
+  let playing = false;
+  let playbackGeneration = 0;
+  let lastLabel = "";
+
+  const updatePlaybackUi = (rebuild = false) => {
+    playback.hidden = activeTimeline === null;
+    if (!activeTimeline) return;
+    const playable = activeTimeline.states !== null && activeTimeline.steps.length > 0;
+    if (rebuild) {
+      moveRibbon.replaceChildren();
+      activeTimeline.labels.forEach((label, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "move-token";
+        button.textContent = label;
+        button.dataset.moveIndex = String(index + 1);
+        button.setAttribute("aria-label", `Go to move ${index + 1}: ${label}`);
+        moveRibbon.append(button);
+      });
+    }
+    playbackLimit.hidden = activeTimeline.states !== null;
+    playbackLimit.textContent = activeTimeline.states === null
+      ? `Final conversion is available; playback is limited to ${MAX_PLAYBACK_STEPS} expanded moves.`
+      : "";
+    playbackPosition.textContent = `Move ${activeIndex} of ${activeTimeline.steps.length}`;
+    scrubber.max = String(activeTimeline.steps.length);
+    scrubber.value = String(activeIndex);
+    scrubber.disabled = !playable;
+    root.querySelector<HTMLButtonElement>("[data-playback-start]")!.disabled = !playable || activeIndex === 0;
+    root.querySelector<HTMLButtonElement>("[data-playback-back]")!.disabled = !playable || activeIndex === 0;
+    playbackToggle.disabled = !playable;
+    root.querySelector<HTMLButtonElement>("[data-playback-forward]")!.disabled =
+      !playable || activeIndex === activeTimeline.steps.length;
+    root.querySelector<HTMLButtonElement>("[data-playback-end]")!.disabled =
+      !playable || activeIndex === activeTimeline.steps.length;
+    playbackToggle.textContent = playing ? "Ⅱ" : "▶";
+    playbackToggle.setAttribute("aria-label", playing ? "Pause algorithm" : "Play algorithm");
+    moveRibbon.querySelectorAll<HTMLButtonElement>("[data-move-index]").forEach((button) => {
+      const moveIndex = Number(button.dataset.moveIndex);
+      button.classList.toggle("completed", moveIndex <= activeIndex);
+      button.classList.toggle("active", moveIndex === activeIndex);
+      button.disabled = !playable;
+    });
+    moveRibbon.querySelector<HTMLElement>(".move-token.active")?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+    });
+  };
+
+  const stopPlayback = () => {
+    playbackGeneration += 1;
+    playing = false;
+    viewport?.cancelTurn();
+    updatePlaybackUi();
+  };
+
+  const renderTimelineIndex = (index: number) => {
+    if (!activeTimeline?.states) return;
+    activeIndex = Math.max(0, Math.min(index, activeTimeline.steps.length));
+    renderState(activeTimeline.states[activeIndex], status.textContent ?? "Algorithm");
+    updatePlaybackUi();
+  };
+
+  const transitionTo = async (target: number, generation: number): Promise<boolean> => {
+    if (!activeTimeline?.states || generation !== playbackGeneration) return false;
+    const bounded = Math.max(0, Math.min(target, activeTimeline.steps.length));
+    const direction = bounded - activeIndex;
+    if (Math.abs(direction) !== 1 || !viewport) {
+      renderTimelineIndex(bounded);
+      return generation === playbackGeneration;
+    }
+    const stepIndex = direction > 0 ? activeIndex : bounded;
+    const sourceStep = activeTimeline.steps[stepIndex];
+    const animatedStep: MoveStep = direction > 0
+      ? sourceStep
+      : {...sourceStep, turns: -sourceStep.turns};
+    const transform = turnTransform(size, animatedStep);
+    if (!transform) {
+      renderTimelineIndex(bounded);
+      return generation === playbackGeneration;
+    }
+    const duration = 180 * (Math.abs(transform.angle) > Math.PI / 2 + 0.01 ? 1.35 : 1) / playbackSpeed;
+    await viewport.animateTurn(transform, duration);
+    if (generation !== playbackGeneration) return false;
+    renderTimelineIndex(bounded);
+    return true;
+  };
+
+  const seek = async (target: number, animate: boolean) => {
+    stopPlayback();
+    const generation = playbackGeneration;
+    if (animate) {
+      await transitionTo(target, generation);
+    } else {
+      renderTimelineIndex(target);
+    }
+  };
+
+  const play = async () => {
+    if (!activeTimeline?.states || activeTimeline.steps.length === 0) return;
+    stopPlayback();
+    playing = true;
+    const generation = playbackGeneration;
+    if (activeIndex === activeTimeline.steps.length) renderTimelineIndex(0);
+    updatePlaybackUi();
+    while (playing && generation === playbackGeneration && activeTimeline) {
+      if (activeIndex === activeTimeline.steps.length) {
+        if (!looping) break;
+        renderTimelineIndex(0);
+      }
+      if (!(await transitionTo(activeIndex + 1, generation))) return;
+    }
+    if (generation === playbackGeneration) {
+      playing = false;
+      updatePlaybackUi();
+    }
+  };
+
+  const synchronizePlayback = (recognized: RecognizedInput) => {
+    if (!recognized.timeline || !recognized.timelineKey) {
+      stopPlayback();
+      activeTimeline = null;
+      activeTimelineKey = null;
+      playback.hidden = true;
+      renderState(recognized.state, recognized.label);
+      lastLabel = recognized.label;
+      return;
+    }
+
+    const previous = activeTimeline;
+    const sameTimeline = activeTimelineKey === recognized.timelineKey;
+    const previousAtEnd = previous?.states !== null && activeIndex === previous?.steps.length;
+    const animateExtension = recognized.timeline.states !== null && (
+      (previousAtEnd && isSingleStepExtension(previous, recognized.timeline))
+      || (previous === null && lastLabel === "Solved default" && recognized.timeline.steps.length === 1)
+    );
+    stopPlayback();
+    activeTimeline = recognized.timeline;
+    activeTimelineKey = recognized.timelineKey;
+    updatePlaybackUi(true);
+
+    if (recognized.timeline.states === null) {
+      activeIndex = recognized.timeline.steps.length;
+      renderState(recognized.state, recognized.label);
+      updatePlaybackUi();
+    } else if (animateExtension) {
+      activeIndex = recognized.timeline.steps.length - 1;
+      renderState(recognized.timeline.states[activeIndex], recognized.label);
+      updatePlaybackUi();
+      const generation = playbackGeneration;
+      void transitionTo(activeIndex + 1, generation);
+    } else if (sameTimeline) {
+      renderTimelineIndex(Math.min(activeIndex, recognized.timeline.steps.length));
+    } else {
+      activeIndex = recognized.timeline.steps.length;
+      renderState(recognized.state, recognized.label);
+      updatePlaybackUi();
+    }
+    lastLabel = recognized.label;
+  };
+
+  const update = () => {
+    updateCardVisibility();
+    updateLowercaseUi();
+    updateDialectUi();
+    const parsed = parseState(input.value);
+    if (parsed.TAG === "Error") {
+      stopPlayback();
+      activeTimeline = null;
+      activeTimelineKey = null;
+      playback.hidden = true;
+      status.textContent = "Parse error";
+      status.classList.add("error");
+      error.textContent = describeError(parsed._0);
+      error.hidden = false;
+      for (const key of ["facelets", "net", "colours", "colour-net", "pieces", "orbit64"]) {
+        setOutput(key, "—", false);
+      }
+      lastLabel = "Parse error";
+      return;
+    }
+    synchronizePlayback(parsed._0);
   };
 
   let updateFrame: number | null = null;
@@ -347,6 +520,45 @@ if (root) {
   });
   root.querySelector<HTMLButtonElement>("[data-reset-camera]")!.addEventListener("click", () => {
     viewport?.resetCamera();
+  });
+  root.querySelector<HTMLButtonElement>("[data-playback-start]")!.addEventListener("click", () => {
+    void seek(0, false);
+  });
+  root.querySelector<HTMLButtonElement>("[data-playback-back]")!.addEventListener("click", () => {
+    void seek(activeIndex - 1, true);
+  });
+  playbackToggle.addEventListener("click", () => {
+    if (playing) stopPlayback();
+    else void play();
+  });
+  root.querySelector<HTMLButtonElement>("[data-playback-forward]")!.addEventListener("click", () => {
+    void seek(activeIndex + 1, true);
+  });
+  root.querySelector<HTMLButtonElement>("[data-playback-end]")!.addEventListener("click", () => {
+    if (activeTimeline) void seek(activeTimeline.steps.length, false);
+  });
+  scrubber.addEventListener("input", () => {
+    void seek(Number(scrubber.value), false);
+  });
+  moveRibbon.addEventListener("click", (event) => {
+    const button = (event.target as Element).closest<HTMLButtonElement>("[data-move-index]");
+    if (button) void seek(Number(button.dataset.moveIndex), false);
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-playback-speed]").forEach((button) => {
+    button.addEventListener("click", () => {
+      playbackSpeed = Number(button.dataset.playbackSpeed);
+      root.querySelectorAll<HTMLButtonElement>("[data-playback-speed]").forEach((candidate) => {
+        const active = candidate === button;
+        candidate.classList.toggle("active", active);
+        candidate.setAttribute("aria-pressed", String(active));
+      });
+    });
+  });
+  root.querySelector<HTMLButtonElement>("[data-playback-loop]")!.addEventListener("click", (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    looping = !looping;
+    button.classList.toggle("active", looping);
+    button.setAttribute("aria-pressed", String(looping));
   });
   root.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((button) => {
     button.addEventListener("click", () => {
