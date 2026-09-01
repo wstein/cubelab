@@ -436,6 +436,26 @@ export const relativeQuaternion = (
 };
 
 /**
+ * Returns the orientation change in the cube/sensor's local frame.
+ *
+ * Unlike the world-space delta above, this remains stable when the user has
+ * freely regripped the cube before performing the next coached rotation.
+ */
+export const relativeQuaternionLocal = (
+  base: OrientationQuaternion,
+  current: OrientationQuaternion,
+): OrientationQuaternion => {
+  const from = normalizedQuaternion(base);
+  const to = normalizedQuaternion(current);
+  return normalizedQuaternion(multiplyQuaternions({
+    x: -from.x,
+    y: -from.y,
+    z: -from.z,
+    w: from.w,
+  }, to));
+};
+
+/**
  * Re-expresses a relative GoCube sensor rotation in viewport axes.
  *
  * CubeTrace's measured working calibration uses a WORLD delta, the proper

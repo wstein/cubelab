@@ -69,7 +69,7 @@ import {
   type SmartCubeHalfTurnProgress,
   type SmartCubeMoveAssessment,
 } from "./smart-cube/live-sync";
-import {assessGyroRotation} from "./smart-cube/orientation-verifier";
+import {assessGyroRotation, detectGyroQuarterRotation} from "./smart-cube/orientation-verifier";
 import {
   createSmartCubeAudioFeedback,
   readSmartCubeSoundPreference,
@@ -2028,6 +2028,7 @@ if (root) {
       event.coordinateFrame,
       physicalRotation.axis,
       physicalRotation.turns,
+      "local",
     );
     if (!assessment.matched) {
       if (assessment.partial && pending.partialTurn === 0) {
@@ -2046,6 +2047,22 @@ if (root) {
         viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
         smartCubeStatus.textContent = `${smartCubeDeviceName} · ${pending.action.token} halfway`;
         coachStatus.textContent = `${quarterLabel} detected. Repeat it to complete ${pending.action.token}.`;
+        return;
+      }
+      // A regrip around another axis is allowed in solve mode. Treat its new
+      // pose as the checkpoint for the still-pending lesson rotation without
+      // creating a slip, recovery sequence, sound, or warning.
+      if (detectGyroQuarterRotation(
+        pending.baseline.quaternion,
+        event.quaternion,
+        event.coordinateFrame,
+        "local",
+      )) {
+        pending.baseline = {
+          quaternion: event.quaternion,
+          coordinateFrame: event.coordinateFrame,
+        };
+        pending.partialTurn = 0;
       }
       return;
     }
