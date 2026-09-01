@@ -113,7 +113,15 @@ test("emits seven truthful beginner phases and replay-verifies the final state",
       assert.equal(phase.alg.at(-1).desc._0, 1.5);
     }
   });
-  assert.equal(MoveExecutor.expand(solution.alg)._0.length, solution.moveCount);
+  const expandedMoves = MoveExecutor.expand(solution.alg)._0;
+  const physicalLayerMoves = expandedMoves.filter((step) => step.move.TAG !== "Rotation");
+  assert.equal(physicalLayerMoves.length, solution.moveCount);
+  assert.ok(expandedMoves.length > solution.moveCount, "whole-cube regrips must not count as moves");
+});
+
+test("reports zero moves for a solved cube despite tutorial metadata", () => {
+  const solution = solve(solved);
+  assert.equal(solution.moveCount, 0);
 });
 
 test("solves canonical state inputs independently of their source algorithm", () => {

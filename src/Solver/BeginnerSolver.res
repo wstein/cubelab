@@ -633,7 +633,15 @@ let solve = (input: cubeState): result<solution, solverError> => {
       )
     let moveCount = switch MoveExecutor.expand(annotated) {
     | Error(error) => throw(BuildFailure(ExpansionFailed(error)))
-    | Ok(steps) => steps->Array.length
+    | Ok(steps) =>
+      steps
+      ->Array.filter(step =>
+        switch step.move {
+        | Rotation(_) => false
+        | FaceTurn(_, _) | SliceTurn(_) => true
+        }
+      )
+      ->Array.length
     }
     let result = switch MoveExecutor.applyAlg(input, annotated) {
     | Error(error) => throw(BuildFailure(ExpansionFailed(error)))

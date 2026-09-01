@@ -960,7 +960,16 @@ function solve(input) {
     let error$1 = MoveExecutor.expand(annotated);
     let moveCount;
     if (error$1.TAG === "Ok") {
-      moveCount = error$1._0.length;
+      moveCount = error$1._0.filter(step => {
+        let match = step.move;
+        switch (match.TAG) {
+          case "FaceTurn" :
+          case "SliceTurn" :
+            return true;
+          case "Rotation" :
+            return false;
+        }
+      }).length;
     } else {
       throw {
         RE_EXN_ID: BuildFailure,
