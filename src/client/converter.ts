@@ -98,6 +98,7 @@ if (root) {
   const beginnerCopy = root.querySelector<HTMLButtonElement>("[data-beginner-copy]")!;
   const beginnerSolution = root.querySelector<HTMLElement>("[data-beginner-solution]")!;
   const autoOrbitButton = root.querySelector<HTMLButtonElement>("[data-auto-orbit]")!;
+  const turnGuidesButton = root.querySelector<HTMLButtonElement>("[data-turn-guides]")!;
   const coachingControls = root.querySelector<HTMLElement>("[data-coaching-controls]")!;
   const coachStatus = root.querySelector<HTMLElement>("[data-coach-status]")!;
   const initialState = readHash(window.location.hash);
@@ -106,6 +107,7 @@ if (root) {
   let lowercaseMode: LowercaseMode = initialState.lowercaseMode;
   let notationDialect: NotationDialect = initialState.notationDialect;
   let cubeStyle: CubeStyle = initialState.cubeStyle;
+  let turnGuides = initialState.turnGuides;
   let activeTab: ActiveTab = initialState.activeTab;
   let inverseScramble = "";
   let verifiedNissSolution = "";
@@ -371,6 +373,10 @@ if (root) {
   };
 
   const activateTurnGuide = (token: HTMLElement, step: MoveStep, label: string) => {
+    if (!turnGuides) {
+      clearTurnGuide();
+      return;
+    }
     guidedToken?.classList.remove("turn-guided");
     guidedToken = token;
     token.classList.add("turn-guided");
@@ -830,6 +836,8 @@ if (root) {
     lowercaseMode = state.lowercaseMode;
     notationDialect = state.notationDialect;
     cubeStyle = state.cubeStyle;
+    const turnGuidesChanged = turnGuides !== state.turnGuides;
+    turnGuides = state.turnGuides;
     activeTab = state.activeTab;
     if (input.value !== state.input) input.value = state.input;
     if (schemeSelect.value !== state.scheme) schemeSelect.value = state.scheme;
@@ -846,6 +854,9 @@ if (root) {
       button.classList.toggle("active", active);
       button.setAttribute("aria-pressed", String(active));
     });
+    turnGuidesButton.classList.toggle("active", turnGuides);
+    turnGuidesButton.setAttribute("aria-pressed", String(turnGuides));
+    if (turnGuidesChanged && !turnGuides) clearTurnGuide();
     root.querySelectorAll<HTMLButtonElement>("[data-workspace-tab]").forEach((button) => {
       const active = button.dataset.workspaceTab === activeTab;
       button.classList.toggle("active", active);
@@ -1126,6 +1137,9 @@ if (root) {
     autoOrbitButton.setAttribute("aria-pressed", String(enabled));
     autoOrbitButton.classList.toggle("active", enabled);
     viewport?.setAutoOrbit(enabled);
+  });
+  turnGuidesButton.addEventListener("click", () => {
+    store.patch({turnGuides: !turnGuides});
   });
   root.querySelector<HTMLButtonElement>("[data-playback-start]")!.addEventListener("click", () => {
     void seek(0, false);

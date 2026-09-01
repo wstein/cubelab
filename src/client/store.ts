@@ -13,6 +13,7 @@ export type AppState = {
   lowercaseMode: LowercaseMode;
   notationDialect: NotationDialect;
   cubeStyle: CubeStyle;
+  turnGuides: boolean;
   activeTab: ActiveTab;
 };
 
@@ -24,6 +25,7 @@ export const defaultAppState: AppState = {
   lowercaseMode: "Wide",
   notationDialect: "Modern",
   cubeStyle: "Standard",
+  turnGuides: true,
   activeTab: "converter",
 };
 
@@ -80,12 +82,23 @@ export const readHash = (hash: string): AppState => {
     params.get("lowercase") === "InnerSlice" ? "InnerSlice" : "Wide";
   const notationDialect: NotationDialect = params.get("dialect") === "Ruwix" ? "Ruwix" : "Modern";
   const cubeStyle: CubeStyle = params.get("style") === "Speed" ? "Speed" : "Standard";
+  const turnGuides = params.get("guides") !== "off";
   const requestedTab = params.get("tab");
   const activeTab: ActiveTab = requestedTab === "beginner" || requestedTab === "workbench"
     ? requestedTab
     : "converter";
   const input = (params.get("alg") ?? "").slice(0, 20_000);
-  return {size, input, scheme, customScheme, lowercaseMode, notationDialect, cubeStyle, activeTab};
+  return {
+    size,
+    input,
+    scheme,
+    customScheme,
+    lowercaseMode,
+    notationDialect,
+    cubeStyle,
+    turnGuides,
+    activeTab,
+  };
 };
 
 export const writeHash = (state: AppState): string => {
@@ -97,6 +110,7 @@ export const writeHash = (state: AppState): string => {
   if (state.lowercaseMode !== "Wide") params.set("lowercase", state.lowercaseMode);
   if (state.notationDialect !== "Modern") params.set("dialect", state.notationDialect);
   if (state.cubeStyle !== "Standard") params.set("style", state.cubeStyle);
+  if (!state.turnGuides) params.set("guides", "off");
   if (state.activeTab !== "converter") params.set("tab", state.activeTab);
   return `#${params.toString()}`;
 };

@@ -5,6 +5,7 @@ import test from "node:test";
 const page = await readFile(new URL("../src/pages/index.astro", import.meta.url), "utf8");
 const client = await readFile(new URL("../src/client/converter.ts", import.meta.url), "utf8");
 const viewport = await readFile(new URL("../src/client/cube-gl.ts", import.meta.url), "utf8");
+const store = await readFile(new URL("../src/client/store.ts", import.meta.url), "utf8");
 const viewportComponent = await readFile(
   new URL("../src/Components/CubeViewport.astro", import.meta.url),
   "utf8",
@@ -126,6 +127,14 @@ test("the viewport exposes a visibility-aware auto-orbit toggle", () => {
   assert.match(viewport, /setAutoOrbit\(enabled\)/);
   assert.match(viewport, /document\.hidden/);
   assert.match(viewport, /stopAutoOrbitFrame\(\)/);
+});
+
+test("the viewport exposes a persistent opt-out for single-move turn guides", () => {
+  assert.match(viewportComponent, /data-turn-guides/);
+  assert.match(client, /store\.patch\(\{turnGuides: !turnGuides\}\)/);
+  assert.match(client, /if \(!turnGuides\)/);
+  assert.match(store, /params\.get\("guides"\) !== "off"/);
+  assert.match(store, /params\.set\("guides", "off"\)/);
 });
 
 test("the viewport animates complete cubies with shader layer transforms", () => {

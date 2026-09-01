@@ -23,6 +23,7 @@ describe("application state store", () => {
       lowercaseMode: "InnerSlice" as const,
       notationDialect: "Ruwix" as const,
       cubeStyle: "Speed" as const,
+      turnGuides: false,
       activeTab: "workbench" as const,
     };
     expect(readHash(writeHash(state))).toEqual(state);
@@ -37,6 +38,7 @@ describe("application state store", () => {
     expect(parsed.lowercaseMode).toBe("Wide");
     expect(parsed.notationDialect).toBe("Modern");
     expect(parsed.cubeStyle).toBe("Standard");
+    expect(parsed.turnGuides).toBe(true);
     expect(parsed.input).toHaveLength(20_000);
     expect(parsed.activeTab).toBe("converter");
   });
@@ -45,5 +47,11 @@ describe("application state store", () => {
     expect(readHash("#tab=beginner").activeTab).toBe("beginner");
     expect(readHash("#tab=workbench").activeTab).toBe("workbench");
     expect(readHash("#tab=unknown").activeTab).toBe("converter");
+  });
+
+  test("persists an explicit turn-guide opt-out", () => {
+    expect(writeHash({...defaultAppState, turnGuides: false})).toContain("guides=off");
+    expect(readHash("#guides=off").turnGuides).toBe(false);
+    expect(readHash("#guides=on").turnGuides).toBe(true);
   });
 });

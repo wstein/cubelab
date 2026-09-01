@@ -16,6 +16,13 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await expect(orbitCard).toBeVisible();
   await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-webgl", "ready");
   const autoOrbit = page.locator("[data-auto-orbit]");
+  const turnGuides = page.locator("[data-turn-guides]");
+  await expect(turnGuides).toHaveAttribute("aria-pressed", "true");
+  await turnGuides.click();
+  await expect(turnGuides).toHaveAttribute("aria-pressed", "false");
+  await expect(page).toHaveURL(/guides=off/);
+  await turnGuides.click();
+  await expect(turnGuides).toHaveAttribute("aria-pressed", "true");
   await expect(autoOrbit).toHaveAttribute("aria-pressed", "false");
   await autoOrbit.click();
   await expect(autoOrbit).toHaveAttribute("aria-pressed", "true");
@@ -344,6 +351,12 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await firstMove.hover();
   await expect(firstMove).toHaveClass(/turn-guided/);
   await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-turn-guide", /.+/);
+  await page.locator("[data-turn-guides]").click();
+  await expect(page.locator("[data-motion-overlay]")).not.toHaveAttribute("data-turn-guide", /.+/);
+  await page.locator("[data-playback-position]").hover();
+  await firstMove.hover();
+  await expect(page.locator("[data-motion-overlay]")).not.toHaveAttribute("data-turn-guide", /.+/);
+  await page.locator("[data-turn-guides]").click();
   await page.locator("[data-playback-position]").hover();
   await expect(canvas).not.toHaveAttribute("data-focus-piece", /.+/);
   await expect(page.locator("[data-motion-overlay]")).not.toHaveAttribute("data-turn-guide", /.+/);

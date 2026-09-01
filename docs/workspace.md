@@ -15,7 +15,8 @@ current input and settings.
 ## Shared-state behavior
 
 The puzzle size, notation settings, input, recognized cube state, viewport style, and
-playback timeline remain shared. Tab-only state changes do not reparse the input or reset
+turn-guide preference remain shareable URL state. The playback timeline remains shared
+in memory. Tab-only state changes do not reparse the input or reset
 playback. Editing the source or changing a conversion setting intentionally rebuilds the
 recognized state and clears any generated tutorial.
 
