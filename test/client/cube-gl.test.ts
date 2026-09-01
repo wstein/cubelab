@@ -3,6 +3,7 @@ import {describe, expect, test} from "bun:test";
 import * as CubeGeometry from "../../src/Render/CubeGeometry.res.mjs";
 import * as StateTypes from "../../src/State/StateTypes.res.mjs";
 import {
+  autoOrbitYawDelta,
   cameraMatrices,
   clampedCanvasSize,
   turnTransform,
@@ -10,6 +11,13 @@ import {
 } from "../../src/client/cube-gl";
 
 describe("cube viewport math", () => {
+  test("advances auto orbit at a stable speed and clamps resumed frames", () => {
+    expect(autoOrbitYawDelta(0)).toBe(0);
+    expect(autoOrbitYawDelta(25)).toBeCloseTo(0.006);
+    expect(autoOrbitYawDelta(1_000)).toBeCloseTo(0.012);
+    expect(autoOrbitYawDelta(-10)).toBe(0);
+  });
+
   test("preallocates enough VBO space as cube sizes increase", () => {
     const capacities = [2, 3, 4, 5].map(vboCapacityFloats);
     expect(capacities.every((value) => value > 0)).toBe(true);

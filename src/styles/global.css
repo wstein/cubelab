@@ -232,6 +232,13 @@ body {
   border-top: 1px solid var(--border-subtle);
 }
 
+.viewport-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
 .viewport-control {
   padding: 0.35rem 0.7rem;
   background: rgba(255, 255, 255, 0.06);
@@ -245,6 +252,13 @@ body {
 .viewport-control:hover {
   border-color: var(--accent-primary);
   color: var(--text-primary);
+}
+
+.viewport-control.active,
+.viewport-control[aria-pressed="true"] {
+  border-color: rgba(99, 102, 241, 0.72);
+  background: rgba(99, 102, 241, 0.2);
+  color: #c7d2fe;
 }
 
 .playback {

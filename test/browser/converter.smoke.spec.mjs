@@ -15,6 +15,13 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await expect(piecesCard).toBeVisible();
   await expect(orbitCard).toBeVisible();
   await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-webgl", "ready");
+  const autoOrbit = page.locator("[data-auto-orbit]");
+  await expect(autoOrbit).toHaveAttribute("aria-pressed", "false");
+  await autoOrbit.click();
+  await expect(autoOrbit).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-auto-orbit-state", "on");
+  await autoOrbit.click();
+  await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-auto-orbit-state", "off");
 
   await input.fill("AAAAAAAAAAAA");
   await expect(page.locator("[data-status]")).toHaveText("Orbit64");

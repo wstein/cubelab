@@ -25,6 +25,13 @@ const DEFAULT_YAW = -0.62;
 const DEFAULT_PITCH = 0.48;
 const DEFAULT_DISTANCE = 7.2;
 const FLOATS_PER_VERTEX = 14;
+const AUTO_ORBIT_RADIANS_PER_SECOND = 0.24;
+const MAX_AUTO_ORBIT_FRAME_MS = 50;
+
+export const autoOrbitYawDelta = (
+  elapsedMs: number,
+  radiansPerSecond = AUTO_ORBIT_RADIANS_PER_SECOND,
+): number => Math.max(0, Math.min(MAX_AUTO_ORBIT_FRAME_MS, elapsedMs)) * radiansPerSecond * 0.001;
 
 const vertexShaderSource = `
   attribute vec3 aPosition;
@@ -255,6 +262,7 @@ export type CubeViewport = {
   setStyle: (style: CubeStyle) => void;
   animateTurn: (turn: TurnTransform, duration?: number) => Promise<void>;
   cancelTurn: () => void;
+  setAutoOrbit: (enabled: boolean) => void;
   resetCamera: () => void;
   dispose: () => void;
 };
@@ -322,6 +330,10 @@ export const createCubeViewport = (
   let activeTurn: TurnTransform | null = null;
   let turnFrame: number | null = null;
   let turnGeneration = 0;
+  let autoOrbit = false;
+  let autoOrbitFrame: number | null = null;
+  let autoOrbitPreviousTime: number | null = null;
+  canvas.dataset.autoOrbitState = "off";
 
   const render = () => {
     frame = null;
@@ -366,6 +378,34 @@ export const createCubeViewport = (
   const requestRender = () => {
     if (disposed || !visible || frame !== null) return;
     frame = window.requestAnimationFrame(render);
+  };
+
+  const canAutoOrbit = () => autoOrbit && visible && !document.hidden && !disposed;
+
+  const stopAutoOrbitFrame = () => {
+    if (autoOrbitFrame !== null) window.cancelAnimationFrame(autoOrbitFrame);
+    autoOrbitFrame = null;
+    autoOrbitPreviousTime = null;
+  };
+
+  const stepAutoOrbit = (now: number) => {
+    autoOrbitFrame = null;
+    if (!canAutoOrbit()) {
+      autoOrbitPreviousTime = null;
+      return;
+    }
+    if (autoOrbitPreviousTime !== null && !dragging) {
+      yaw += autoOrbitYawDelta(now - autoOrbitPreviousTime);
+      requestRender();
+    }
+    autoOrbitPreviousTime = now;
+    autoOrbitFrame = window.requestAnimationFrame(stepAutoOrbit);
+  };
+
+  const startAutoOrbitFrame = () => {
+    if (!canAutoOrbit() || autoOrbitFrame !== null) return;
+    autoOrbitPreviousTime = null;
+    autoOrbitFrame = window.requestAnimationFrame(stepAutoOrbit);
   };
 
   const upload = () => {
@@ -470,6 +510,13 @@ export const createCubeViewport = (
     canvas.dataset.webgl = "lost";
     onError("The WebGL context was lost. Reload the page to restore the preview.");
   };
+  const documentVisibilityChanged = () => {
+    if (document.hidden) stopAutoOrbitFrame();
+    else {
+      requestRender();
+      startAutoOrbitFrame();
+    }
+  };
 
   const cancelTurn = () => {
     turnGeneration += 1;
@@ -516,12 +563,16 @@ export const createCubeViewport = (
   canvas.addEventListener("pointercancel", pointerUp);
   canvas.addEventListener("wheel", wheel, {passive: false});
   canvas.addEventListener("webglcontextlost", contextLost);
+  document.addEventListener("visibilitychange", documentVisibilityChanged);
   const resizeObserver = new ResizeObserver(requestRender);
   resizeObserver.observe(canvas);
   const intersectionObserver = new IntersectionObserver(
     ([entry]) => {
       visible = entry?.isIntersecting ?? true;
-      if (visible) requestRender();
+      if (visible) {
+        requestRender();
+        startAutoOrbitFrame();
+      } else stopAutoOrbitFrame();
     },
     {threshold: 0.01},
   );
@@ -548,6 +599,18 @@ export const createCubeViewport = (
     },
     animateTurn,
     cancelTurn,
+    setAutoOrbit(enabled) {
+      if (autoOrbit === enabled) return;
+      autoOrbit = enabled;
+      canvas.dataset.autoOrbitState = enabled ? "on" : "off";
+      if (enabled) {
+        stopInertia();
+        velocityYaw = 0;
+        velocityPitch = 0;
+        startAutoOrbitFrame();
+      } else stopAutoOrbitFrame();
+      requestRender();
+    },
     resetCamera() {
       stopInertia();
       velocityYaw = 0;
@@ -560,6 +623,7 @@ export const createCubeViewport = (
     dispose() {
       disposed = true;
       stopInertia();
+      stopAutoOrbitFrame();
       cancelTurn();
       if (frame !== null) window.cancelAnimationFrame(frame);
       resizeObserver.disconnect();
@@ -570,6 +634,7 @@ export const createCubeViewport = (
       canvas.removeEventListener("pointercancel", pointerUp);
       canvas.removeEventListener("wheel", wheel);
       canvas.removeEventListener("webglcontextlost", contextLost);
+      document.removeEventListener("visibilitychange", documentVisibilityChanged);
       gl.deleteBuffer(buffer);
       gl.deleteProgram(program);
     },

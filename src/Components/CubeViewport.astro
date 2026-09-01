@@ -4,7 +4,16 @@
       <span class="panel-label">Interactive preview</span>
       <h2 id="viewport-title" class="viewport-title">3D cube state</h2>
     </div>
-    <button type="button" class="viewport-control" data-reset-camera>Reset view</button>
+    <div class="viewport-header-actions">
+      <button
+        type="button"
+        class="viewport-control"
+        data-auto-orbit
+        aria-pressed="false"
+        title="Rotate the camera automatically while the preview is visible"
+      >Auto orbit</button>
+      <button type="button" class="viewport-control" data-reset-camera>Reset view</button>
+    </div>
   </header>
   <div class="viewport-stage" data-viewport-stage>
     <canvas

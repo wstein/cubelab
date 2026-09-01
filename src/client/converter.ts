@@ -88,6 +88,7 @@ if (root) {
   const beginnerPhases = root.querySelector<HTMLElement>("[data-beginner-phases]")!;
   const beginnerCopy = root.querySelector<HTMLButtonElement>("[data-beginner-copy]")!;
   const beginnerSolution = root.querySelector<HTMLElement>("[data-beginner-solution]")!;
+  const autoOrbitButton = root.querySelector<HTMLButtonElement>("[data-auto-orbit]")!;
   const initialState = readHash(window.location.hash);
   const store = createStore(initialState);
   let size = initialState.size;
@@ -104,6 +105,7 @@ if (root) {
     viewportFallback.textContent = `${message} Text conversions remain fully functional.`;
     viewportFallback.hidden = false;
   });
+  if (!viewport) autoOrbitButton.disabled = true;
 
   const scheme = (): Scheme =>
     schemeSelect.value === "Custom"
@@ -899,6 +901,12 @@ if (root) {
   });
   root.querySelector<HTMLButtonElement>("[data-reset-camera]")!.addEventListener("click", () => {
     viewport?.resetCamera();
+  });
+  autoOrbitButton.addEventListener("click", () => {
+    const enabled = autoOrbitButton.getAttribute("aria-pressed") !== "true";
+    autoOrbitButton.setAttribute("aria-pressed", String(enabled));
+    autoOrbitButton.classList.toggle("active", enabled);
+    viewport?.setAutoOrbit(enabled);
   });
   root.querySelector<HTMLButtonElement>("[data-playback-start]")!.addEventListener("click", () => {
     void seek(0, false);

@@ -120,6 +120,14 @@ test("the viewport renders on demand and pauses while off screen", () => {
   assert.doesNotMatch(viewport, /requestAnimationFrame\(render\)[\s\S]{0,100}requestAnimationFrame/);
 });
 
+test("the viewport exposes a visibility-aware auto-orbit toggle", () => {
+  assert.match(viewportComponent, /data-auto-orbit/);
+  assert.match(client, /viewport\?\.setAutoOrbit\(enabled\)/);
+  assert.match(viewport, /setAutoOrbit\(enabled\)/);
+  assert.match(viewport, /document\.hidden/);
+  assert.match(viewport, /stopAutoOrbitFrame\(\)/);
+});
+
 test("the viewport animates complete cubies with shader layer transforms", () => {
   assert.match(viewport, /attribute vec3 aCubie/);
   assert.match(viewport, /rotateAround/);

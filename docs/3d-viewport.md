@@ -42,9 +42,12 @@ Capacity is allocated for the selected size's largest Speed mesh, then state
 and style changes reuse it through `bufferSubData`.
 
 Rendering is scheduled only after a state, style, camera, visibility, or size
-change. There is no perpetual animation loop. An `IntersectionObserver`
-suppresses work while the viewport is off screen, and the backing canvas
-clamps device pixel ratio to 2.
+change. There is no perpetual animation loop by default. The **Auto orbit** toggle
+deliberately starts a slow camera loop; disabling it restores zero idle rendering.
+An `IntersectionObserver` suspends both drawing and auto orbit while the viewport is
+off screen, and the Page Visibility API does the same while the document is hidden.
+Animation resumes without accumulating a large time delta. The backing canvas clamps
+device pixel ratio to 2.
 
 Logical face, range, slice, and whole-cube moves map to a shader axis, a cubie-centre
 selection interval, and a signed target angle. During a transition, Rodrigues'
@@ -54,7 +57,8 @@ caller can upload the committed canonical state. Cancelling, replacing, or dispo
 the viewport also clears pending animation frames.
 
 Pointer drag changes the orbit camera, the wheel controls distance, and reset
-restores the documented isometric view. WebGL initialization and context-loss
+restores the documented isometric view. Auto orbit pauses its camera movement while
+the user is dragging and remains active across workspace tab changes. WebGL initialization and context-loss
 failures are reported to the surrounding interface without affecting any text
 codec.
 
