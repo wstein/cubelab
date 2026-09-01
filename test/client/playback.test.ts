@@ -15,6 +15,7 @@ import {
   planTimelineClick,
   physicalMoveProgress,
   tutorialSequenceDescription,
+  timelineHoverEnabled,
 } from "../../src/client/playback";
 
 describe("algorithm playback timeline", () => {
@@ -179,6 +180,12 @@ describe("algorithm playback timeline", () => {
     expect(forward[1].physicalMovesRemaining).toBe(4);
     expect(planHoverPreview(steps, steps.length, 0).map(({speedMultiplier}) => speedMultiplier))
       .toEqual([10, 10, 6, 4, 2, 2, 2]);
+  });
+
+  test("enables timeline hover only while playback is stopped or paused", () => {
+    expect(timelineHoverEnabled(0)).toBe(true);
+    expect(timelineHoverEnabled(1)).toBe(false);
+    expect(timelineHoverEnabled(-1)).toBe(false);
   });
 
   test("plans real-move sequence steps while skipping pause nodes", () => {

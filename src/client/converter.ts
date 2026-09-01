@@ -31,6 +31,7 @@ import {
   planSequenceStep,
   planTimelineClick,
   physicalMoveProgress,
+  timelineHoverEnabled,
   tutorialSequenceDescription,
   type AlgorithmTimeline,
 } from "./playback";
@@ -552,7 +553,7 @@ if (root) {
     label: string,
     moveIndex: number,
   ) => {
-    if (playbackDirection !== 0) stopPlayback();
+    if (!timelineHoverEnabled(playbackDirection)) return;
     const generation = ++hoverPreviewGeneration;
     viewport?.cancelTurn();
     viewport?.setTurnPreview(null);
@@ -772,7 +773,9 @@ if (root) {
           ? selectTutorialPiece(before, after, phaseFocusNumber(phase))
           : null;
         if (piece) container.dataset.focusPiece = piece;
-        const showFocus = () => activateTutorialFocus(container, piece);
+        const showFocus = () => {
+          if (timelineHoverEnabled(playbackDirection)) activateTutorialFocus(container, piece);
+        };
         container.addEventListener("mouseenter", showFocus);
         container.addEventListener("mouseleave", (event) => {
           if (focusedGroup === container && !container.contains(document.activeElement)) {
@@ -855,6 +858,9 @@ if (root) {
     playbackReverse.setAttribute("aria-pressed", String(playbackDirection === -1));
     playbackPlay.classList.toggle("is-playing", playbackDirection === 1);
     playbackPlay.setAttribute("aria-pressed", String(playbackDirection === 1));
+    moveRibbon.dataset.hoverPreview = timelineHoverEnabled(playbackDirection)
+      ? "enabled"
+      : "disabled";
     moveRibbon.querySelectorAll<HTMLButtonElement>("[data-move-index]").forEach((button) => {
       const moveIndex = Number(button.dataset.moveIndex);
       button.classList.toggle("completed", moveIndex <= activeIndex);
@@ -1072,6 +1078,8 @@ if (root) {
       (direction < 0 && activeIndex === 0)
       || (direction > 0 && activeIndex === activeTimeline.steps.length)
     ) return;
+    clearTutorialFocus();
+    clearTurnGuide();
     stopPlayback();
     playbackDirection = direction;
     const generation = playbackGeneration;

@@ -346,6 +346,30 @@ test("animates distant hover previews and decelerates into the target state", as
   await expect(page.locator("[data-playback-position]")).toHaveText("Move 0 of 8");
 });
 
+test("enables timeline hover previews only while stopped or paused", async ({page}) => {
+  await page.goto("/");
+  await page.locator("[data-input]").fill("(R U F L D B)");
+  const ribbon = page.locator("[data-move-ribbon]");
+  const canvas = page.locator("[data-cube-canvas]");
+  const target = ribbon.locator(".move-token").nth(5);
+  const play = page.getByRole("button", {name: "Play forward"});
+
+  await page.locator("[data-playback-scrubber]").fill("0");
+  await page.locator("[data-playback-speed='0.2']").click();
+  await play.click();
+  await expect(ribbon).toHaveAttribute("data-hover-preview", "disabled");
+  await target.hover();
+  await page.waitForTimeout(120);
+  await expect(play).toHaveAttribute("aria-pressed", "true");
+  await expect(canvas).not.toHaveAttribute("data-preview-move-index", /.+/);
+
+  await page.getByRole("button", {name: "Pause playback"}).click();
+  await expect(ribbon).toHaveAttribute("data-hover-preview", "enabled");
+  await page.locator("[data-playback-position]").hover();
+  await target.hover();
+  await expect(canvas).toHaveAttribute("data-preview-move-index", "5");
+});
+
 test("holds the hovered cube state over neutral timeline gaps", async ({page}) => {
   await page.goto("/");
   await page.locator("[data-input]").fill("(R U F L) @1.2s (D B)");

@@ -36,6 +36,11 @@ export type HoverPreviewTransition = {
   physicalMovesRemaining: number;
 };
 
+export type PlaybackDirection = -1 | 0 | 1;
+
+/** Hover previews must never interrupt an active forward or reverse transport. */
+export const timelineHoverEnabled = (direction: PlaybackDirection): boolean => direction === 0;
+
 export const MAX_PLAYBACK_STEPS = 500;
 
 const directedTargets = (from: number, to: number): number[] => {
