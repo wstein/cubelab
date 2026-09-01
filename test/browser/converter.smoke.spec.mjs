@@ -318,6 +318,8 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await page.getByRole("button", {name: "Teach me this solution"}).click();
   await expect(page.locator("[data-beginner-status]")).toContainText("Verified beginner solution");
   await expect(page.locator("[data-beginner-phase]")).toHaveCount(7);
+  await expect(page.locator("[data-beginner-phase]").nth(0)).toContainText("Keep white on top");
+  await expect(page.locator("[data-beginner-phase]").nth(2)).toContainText("Turn yellow to the top");
   await expect(page.locator("[data-playback-position]")).toHaveText(/Step 0 of \d+/);
   await expect(page.locator("[data-beginner-solution]")).toContainText("// STEP 1: White Cross");
   await expect(page.locator("[data-beginner-solution]")).toContainText("(");

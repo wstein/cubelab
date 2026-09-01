@@ -894,22 +894,22 @@ function solve(input) {
       };
     }
     let corePhases = [
-      phase(1, "White Cross", "Align the four white edges with their side centres.", crossAlg),
-      phase(2, "First-Layer Corners", "Insert the four white corners while preserving the cross.", cornerAlg),
-      phase(3, "Middle Layer", "Insert the four non-yellow edges with beginner left/right insertions.", middleAlg),
+      phase(1, "White Cross", "Keep white on top and align the four white edges with their side centres.", crossAlg),
+      phase(2, "First-Layer Corners", "Keep white on top and insert the four white corners while preserving the cross.", cornerAlg),
+      phase(3, "Middle Layer", "Turn yellow to the top, then insert the four non-yellow edges with beginner left/right insertions.", middleAlg),
       phase(4, "Yellow Cross", "Orient the four yellow edges into a cross.", groupedActions(lastEdgePath)),
       phase(5, "Orient Yellow Corners", "Use Sune and anti-Sune cases until the yellow face is oriented.", groupedActions(lastCornerPath)),
       phase(6, "Position Yellow Corners", "Place the oriented corners over their matching side colours.", groupedActions(cornerPermutationPath)),
       phase(7, "Position Yellow Edges", "Cycle the final edges to finish the cube.", groupedActions(edgePermutationPath))
     ];
-    let phases = corePhases.map(item => ({
+    let phases = corePhases.map((item, index) => ({
       number: item.number,
       title: item.title,
       instruction: item.instruction,
-      alg: MoveTransform.rotate(item.alg, "X", 2)
+      alg: index < 2 ? item.alg : MoveTransform.rotate(item.alg, "X", 2)
     }));
     let coreHasMoves = corePhases.some(item => item.alg.length !== 0);
-    let whiteDown = coreHasMoves ? [{
+    let yellowUp = coreHasMoves ? [{
           desc: {
             TAG: "Move",
             _0: {
@@ -925,14 +925,21 @@ function solve(input) {
       number: init.number,
       title: init.title,
       instruction: init.instruction,
-      alg: groupedSequence(match[1].concat(whiteDown)).concat(phases[0].alg)
+      alg: groupedSequence(match[1]).concat(phases[0].alg)
     };
-    let init$1 = phases[6];
-    phases[6] = {
+    let init$1 = phases[2];
+    phases[2] = {
       number: init$1.number,
       title: init$1.title,
       instruction: init$1.instruction,
-      alg: phases[6].alg.concat(groupedSequence(whiteDown))
+      alg: groupedSequence(yellowUp).concat(phases[2].alg)
+    };
+    let init$2 = phases[6];
+    phases[6] = {
+      number: init$2.number,
+      title: init$2.title,
+      instruction: init$2.instruction,
+      alg: phases[6].alg.concat(groupedSequence(yellowUp))
     };
     for (let index = 0, index_finish = phases.length - 2 | 0; index <= index_finish; ++index) {
       let currentPhase = phases[index];

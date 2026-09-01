@@ -69,6 +69,18 @@ test("emits seven truthful beginner phases and replay-verifies the final state",
   let state = initial;
   solution.phases.forEach((phase, index) => {
     state = apply(state, phase.alg);
+    const upCentre = state.facelets[0][4];
+    const downCentre = state.facelets[5][4];
+    if (index <= 1) {
+      assert.equal(upCentre, "U", `Step ${index + 1} must keep white on top`);
+      assert.equal(downCentre, "D", `Step ${index + 1} must keep yellow on the bottom`);
+    } else if (index < 6) {
+      assert.equal(upCentre, "D", `Step ${index + 1} must keep yellow on top`);
+      assert.equal(downCentre, "U", `Step ${index + 1} must keep white on the bottom`);
+    } else {
+      assert.equal(upCentre, "U", "The final step must restore the canonical frame");
+      assert.equal(downCentre, "D", "The final step must restore the canonical frame");
+    }
     const pieces = reduce(state);
     if (index === 0) assert.ok([0, 1, 2, 3].every((edge) => edgeSolved(pieces, edge)));
     if (index === 1) assert.ok(firstLayer(pieces));
@@ -84,6 +96,10 @@ test("emits seven truthful beginner phases and replay-verifies the final state",
   assert.match(serialized, /\b[xyz](?:2|')?\b/);
   assert.match(serialized, /@0\.5s/);
   assert.match(serialized, /@1\.5s/);
+  assert.doesNotMatch(MoveTransform.serialize(solution.phases[0].alg), /\bx2\b/);
+  assert.doesNotMatch(MoveTransform.serialize(solution.phases[1].alg), /\bx2\b/);
+  assert.ok(MoveTransform.serialize(solution.phases[2].alg).startsWith("(x2) @0.5s"));
+  assert.ok(MoveTransform.serialize(solution.phases[6].alg).endsWith("(x2) @0.5s"));
   solution.phases.forEach((phase, index) => {
     phase.alg.forEach((unit, unitIndex) => {
       if (unit.desc.TAG === "Group") {
