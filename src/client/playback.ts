@@ -7,6 +7,7 @@ import type {LowercaseMode, NotationDialect} from "./store";
 type Result<T, E> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: E};
 type ParseError = {message: string};
 type ExpansionError = {TAG: "InvalidState"; _0: string} | {TAG: "ExpansionLimitExceeded"; _0: number};
+type ExpandedEntry = {step?: MoveStep; pause: boolean; comment?: string};
 export type TimelineEntry = {step?: MoveStep};
 
 export const MAX_PLAYBACK_STEPS = 500;
@@ -67,7 +68,7 @@ export const evaluateAlgorithm = (
   >;
   if (parsed.TAG === "Error") return {TAG: "Error", _0: parsed._0.message};
 
-  const expanded = MoveExecutor.expandTimeline(parsed._0) as Result<TimelineEntry[], ExpansionError>;
+  const expanded = MoveExecutor.expandTimeline(parsed._0) as Result<ExpandedEntry[], ExpansionError>;
   if (expanded.TAG === "Error") {
     return expanded._0.TAG === "ExpansionLimitExceeded"
       ? {TAG: "Error", _0: `Expanded algorithms may not exceed ${expanded._0._0} moves.`}
@@ -76,9 +77,10 @@ export const evaluateAlgorithm = (
 
   const solved = StateTypes.solved(size) as Result<CubeState, unknown>;
   if (solved.TAG === "Error") return {TAG: "Error", _0: "Cube size must be between 2 and 5."};
+  const playbackEntries = expanded._0.filter((entry) => entry.comment === undefined);
   let state = solved._0;
-  const states = expanded._0.length <= MAX_PLAYBACK_STEPS ? [state] : null;
-  for (const entry of expanded._0) {
+  const states = playbackEntries.length <= MAX_PLAYBACK_STEPS ? [state] : null;
+  for (const entry of playbackEntries) {
     if (entry.step) state = MoveExecutor.applyStep(state, entry.step) as CubeState;
     states?.push(state);
   }
@@ -87,8 +89,8 @@ export const evaluateAlgorithm = (
     _0: {
       alg: parsed._0,
       finalState: state,
-      steps: expanded._0,
-      labels: expanded._0.map((entry) => entry.step ? formatStep(entry.step) : "Pause"),
+      steps: playbackEntries,
+      labels: playbackEntries.map((entry) => entry.step ? formatStep(entry.step) : "Pause"),
       states,
     },
   };

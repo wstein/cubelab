@@ -385,7 +385,9 @@ function pushStep(steps, move, turns) {
     step: {
       move: move,
       turns: turns
-    }
+    },
+    pause: false,
+    comment: undefined
   });
 }
 
@@ -401,7 +403,27 @@ function pushPause(steps) {
     };
   }
   steps.push({
-    step: undefined
+    step: undefined,
+    pause: true,
+    comment: undefined
+  });
+}
+
+function pushComment(steps, text) {
+  if (steps.length >= 100000) {
+    throw {
+      RE_EXN_ID: ExpansionFailure,
+      _1: {
+        TAG: "ExpansionLimitExceeded",
+        _0: 100000
+      },
+      Error: new Error()
+    };
+  }
+  steps.push({
+    step: undefined,
+    pause: false,
+    comment: text
   });
 }
 
@@ -443,21 +465,21 @@ function expandConjugate(steps, left, right, direction) {
 }
 
 function expandUnit(steps, unit, direction) {
-  let match = unit.desc;
-  if (typeof match !== "object") {
+  let text = unit.desc;
+  if (typeof text !== "object") {
     return pushPause(steps);
   }
-  switch (match.TAG) {
+  switch (text.TAG) {
     case "Move" :
-      return pushStep(steps, match._0, match._1 * direction | 0);
+      return pushStep(steps, text._0, text._1 * direction | 0);
     case "BlockComment" :
-      return;
+      return pushComment(steps, text._0);
     case "Group" :
-      return expandRepeated(steps, match._0, match._1, direction);
+      return expandRepeated(steps, text._0, text._1, direction);
     case "Commutator" :
-      let repeat = match._2;
-      let right = match._1;
-      let left = match._0;
+      let repeat = text._2;
+      let right = text._1;
+      let left = text._0;
       let repetitions = repeat < 0 ? -repeat | 0 : repeat;
       let nestedDirection = direction * (
         repeat < 0 ? -1 : 1
@@ -467,9 +489,9 @@ function expandUnit(steps, unit, direction) {
       }
       return;
     case "Conjugate" :
-      let repeat$1 = match._2;
-      let right$1 = match._1;
-      let left$1 = match._0;
+      let repeat$1 = text._2;
+      let right$1 = text._1;
+      let left$1 = text._0;
       let repetitions$1 = repeat$1 < 0 ? -repeat$1 | 0 : repeat$1;
       let nestedDirection$1 = direction * (
         repeat$1 < 0 ? -1 : 1
@@ -644,6 +666,7 @@ export {
   applyStep,
   pushStep,
   pushPause,
+  pushComment,
   expandSequence,
   expandRepeated,
   expandCommutator,

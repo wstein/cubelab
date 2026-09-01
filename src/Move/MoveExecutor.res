@@ -22,6 +22,8 @@ type step = {
 
 type timelineEntry = {
   step: option<step>,
+  pause: bool,
+  comment: option<string>,
 }
 
 exception ExpansionFailure(executionError)
@@ -202,7 +204,7 @@ let pushStep = (steps, move, turns) => {
     if steps->Array.length >= maxExpandedMoves {
       throw(ExpansionFailure(ExpansionLimitExceeded(maxExpandedMoves)))
     }
-    steps->Array.push({step: Some({move, turns})})
+    steps->Array.push({step: Some({move, turns}), pause: false, comment: None})
   }
 }
 
@@ -210,7 +212,14 @@ let pushPause = steps => {
   if steps->Array.length >= maxExpandedMoves {
     throw(ExpansionFailure(ExpansionLimitExceeded(maxExpandedMoves)))
   }
-  steps->Array.push({step: None})
+  steps->Array.push({step: None, pause: true, comment: None})
+}
+
+let pushComment = (steps, text) => {
+  if steps->Array.length >= maxExpandedMoves {
+    throw(ExpansionFailure(ExpansionLimitExceeded(maxExpandedMoves)))
+  }
+  steps->Array.push({step: None, pause: false, comment: Some(text)})
 }
 
 let rec expandSequence = (steps, units: array<locatedUnit>, ~direction: int) => {
@@ -265,7 +274,7 @@ and expandUnit = (steps, unit: locatedUnit, ~direction: int) =>
   switch unit.desc {
   | Move(move, turns) => pushStep(steps, move, turns * direction)
   | Pause => pushPause(steps)
-  | BlockComment(_) => ()
+  | BlockComment(text) => pushComment(steps, text)
   | Group(units, repeat) => expandRepeated(steps, units, repeat, ~direction)
   | Commutator(left, right, repeat) => {
       let repetitions = if repeat < 0 {
