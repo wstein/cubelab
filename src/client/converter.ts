@@ -36,7 +36,6 @@ if (root) {
   const switchLowercase = root.querySelector<HTMLButtonElement>("[data-switch-lowercase]")!;
   const canvas = root.querySelector<HTMLCanvasElement>("[data-cube-canvas]")!;
   const viewportFallback = root.querySelector<HTMLElement>("[data-viewport-fallback]")!;
-  const viewportStatus = root.querySelector<HTMLElement>("[data-viewport-status]")!;
   const initialState = readHash(window.location.hash);
   const store = createStore(initialState);
   let size = initialState.size;
@@ -179,7 +178,6 @@ if (root) {
       for (const key of ["facelets", "net", "colours", "colour-net", "pieces", "orbit64"]) {
         setOutput(key, "—", false);
       }
-      viewportStatus.textContent = `${size}×${size} · Invalid input`;
       return;
     }
 
@@ -188,7 +186,6 @@ if (root) {
     error.hidden = true;
     const palette: CubePalette = schemeSelect.value === "Japanese" ? "Japanese" : "Western";
     viewport?.setScene(parsed._0.state, palette, cubeStyle);
-    viewportStatus.textContent = `${size}×${size} · ${parsed._0.label}`;
     setOutput("facelets", FaceletCodec.render(parsed._0.state));
     setOutput("net", NetCodec.render(parsed._0.state));
     const colours = ColorCodec.renderCompact(scheme(), parsed._0.state) as Result<string>;
