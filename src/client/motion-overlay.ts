@@ -2,6 +2,7 @@ import type {MoveStep, TurnTransform} from "./cube-gl";
 
 export type Vector3 = [number, number, number];
 export type ProjectedPoint = {x: number; y: number; depth: number; inFront: boolean};
+export type SurfaceAnchor = {point: Vector3; visible: boolean};
 
 const dot = (left: Vector3, right: Vector3): number =>
   left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
@@ -46,22 +47,32 @@ export const projectPoint = (
   };
 };
 
-export const cubieIsFrontFacing = (
+export const cubieSurfaceAnchor = (
   point: Vector3,
   modelView: ArrayLike<number>,
-): boolean => {
+  size = 3,
+): SurfaceAnchor => {
   const camera = transformPoint(modelView, point, 1);
   const view = normalize([-camera[0], -camera[1], -camera[2]]);
-  const normals: Vector3[] = [];
+  const normals: Array<{normal: Vector3; facing: number}> = [];
   point.forEach((value, axis) => {
     if (Math.abs(value) < 0.75) return;
     const normal: Vector3 = [0, 0, 0];
     normal[axis] = Math.sign(value);
     const transformed = transformPoint(modelView, normal, 0);
-    normals.push(normalize([transformed[0], transformed[1], transformed[2]]));
+    const cameraNormal = normalize([transformed[0], transformed[1], transformed[2]]);
+    normals.push({normal, facing: dot(cameraNormal, view)});
   });
-  return normals.some((normal) => dot(normal, view) > 0.08);
+  normals.sort((left, right) => right.facing - left.facing);
+  const selected = normals[0] ?? {normal: [0, 0, 1] as Vector3, facing: -1};
+  return {
+    point: add(point, scale(selected.normal, 1.5 / size + 0.035)),
+    visible: selected.facing > 0.08,
+  };
 };
+
+export const cubieIsFrontFacing = (point: Vector3, modelView: ArrayLike<number>): boolean =>
+  cubieSurfaceAnchor(point, modelView).visible;
 
 export const turnArcPoints = (
   transform: TurnTransform,
@@ -74,7 +85,7 @@ export const turnArcPoints = (
   const basisV = normalize(cross(axis, basisU));
   const faceTurn = step.move.TAG === "FaceTurn";
   const centre = faceTurn ? scale(axis, 1.62) : [0, 0, 0] as Vector3;
-  const radius = faceTurn ? 1.28 : 1.82;
+  const radius = faceTurn ? 1.12 : 1.72;
   const direction = Math.sign(transform.angle) || 1;
   const sweep = direction * Math.PI * 1.52;
   const start = -Math.PI * 0.72;

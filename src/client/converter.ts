@@ -35,7 +35,7 @@ import {
   type NotationDialect,
   type SchemeName,
 } from "./store";
-import {focusForPiece, selectTutorialPiece} from "./tutorial-focus";
+import {focusForPiece, selectPhasePiece, selectTutorialPiece} from "./tutorial-focus";
 
 type Result<T, E = StateError | string> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: E};
 type StateError = {_0?: string; TAG: string; actual?: number; character?: string; expected?: number; index?: number};
@@ -330,6 +330,7 @@ if (root) {
   let lastLabel = "";
   let focusedGroup: HTMLElement | null = null;
   let focusedPiece: string | null = null;
+  let guidedToken: HTMLElement | null = null;
 
   const clearTutorialFocus = () => {
     focusedGroup?.classList.remove("focused");
@@ -353,6 +354,47 @@ if (root) {
     focusedPiece = piece;
     group.classList.add("focused");
     refreshTutorialFocus();
+  };
+
+  const clearTurnGuide = () => {
+    guidedToken?.classList.remove("turn-guided");
+    guidedToken = null;
+    viewport?.setTurnGuide(null);
+  };
+
+  const activateTurnGuide = (token: HTMLElement, step: MoveStep, label: string) => {
+    guidedToken?.classList.remove("turn-guided");
+    guidedToken = token;
+    token.classList.add("turn-guided");
+    viewport?.setTurnGuide({step, label});
+  };
+
+  const firstFocusPieceInPhase = (phase: TutorialPhaseRange): string | null => {
+    if (!activeTimeline?.states) return null;
+    let index = phase.start;
+    while (index < phase.end) {
+      const groupId = activeTimeline.steps[index]?.groupId;
+      if (groupId === undefined) {
+        index += 1;
+        continue;
+      }
+      let end = index + 1;
+      while (end < phase.end && activeTimeline.steps[end]?.groupId === groupId) end += 1;
+      const entries = activeTimeline.steps.slice(index, end);
+      const onlyRotations = entries.every((entry) =>
+        entry.step === undefined || entry.step.move.TAG === "Rotation"
+      );
+      if (!onlyRotations) {
+        const piece = selectTutorialPiece(
+          activeTimeline.states[index],
+          activeTimeline.states[end],
+          phase.number,
+        );
+        if (piece) return piece;
+      }
+      index = end;
+    }
+    return selectPhasePiece(activeTimeline.states[phase.start], phase.number);
   };
 
   const resetAcademy = () => {
@@ -439,6 +481,7 @@ if (root) {
     const playable = activeTimeline.states !== null && activeTimeline.steps.length > 0;
     if (rebuild) {
       clearTutorialFocus();
+      clearTurnGuide();
       moveRibbon.replaceChildren();
       let currentGroupId: number | undefined;
       let groupContainer: HTMLSpanElement | null = null;
@@ -461,13 +504,19 @@ if (root) {
           ? selectTutorialPiece(before, after, phase.number)
           : null;
         if (piece) container.dataset.focusPiece = piece;
-        container.addEventListener("mouseenter", () => activateTutorialFocus(container, piece));
+        const showFocus = () => activateTutorialFocus(container, piece);
+        container.addEventListener("mouseenter", showFocus);
         container.addEventListener("mouseleave", () => {
-          if (focusedGroup === container) clearTutorialFocus();
+          if (focusedGroup === container && !container.contains(document.activeElement)) {
+            clearTutorialFocus();
+          }
         });
-        container.addEventListener("focus", () => activateTutorialFocus(container, piece));
-        container.addEventListener("blur", () => {
-          if (focusedGroup === container) clearTutorialFocus();
+        container.addEventListener("focusin", showFocus);
+        container.addEventListener("focusout", (event) => {
+          const destination = event.relatedTarget as Node | null;
+          if (focusedGroup === container && (!destination || !container.contains(destination))) {
+            clearTutorialFocus();
+          }
         });
       };
       activeTimeline.labels.forEach((label, index) => {
@@ -503,6 +552,15 @@ if (root) {
         button.textContent = label;
         button.dataset.moveIndex = String(index + 1);
         button.setAttribute("aria-label", `Go to step ${index + 1}: ${label}`);
+        const showTurn = () => activateTurnGuide(button, entry.step!, label);
+        button.addEventListener("mouseenter", showTurn);
+        button.addEventListener("mouseleave", () => {
+          if (guidedToken === button && document.activeElement !== button) clearTurnGuide();
+        });
+        button.addEventListener("focus", showTurn);
+        button.addEventListener("blur", () => {
+          if (guidedToken === button) clearTurnGuide();
+        });
         (groupContainer ?? moveRibbon).append(button);
       });
       finishGroup();
@@ -925,6 +983,15 @@ if (root) {
       const instruction = document.createElement("span");
       instruction.textContent = phase.instruction;
       button.append(title, instruction);
+      const showPhaseFocus = () => activateTutorialFocus(button, firstFocusPieceInPhase(phase));
+      button.addEventListener("mouseenter", showPhaseFocus);
+      button.addEventListener("mouseleave", () => {
+        if (focusedGroup === button && document.activeElement !== button) clearTutorialFocus();
+      });
+      button.addEventListener("focus", showPhaseFocus);
+      button.addEventListener("blur", () => {
+        if (focusedGroup === button) clearTutorialFocus();
+      });
       beginnerPhases.append(button);
     });
     commentedBeginnerSolution = solution.phases.map((phase) => {

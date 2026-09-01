@@ -142,6 +142,18 @@ export const selectTutorialPiece = (
   return ranked[0]?.piece ?? null;
 };
 
+export const selectPhasePiece = (state: CubeState, phaseNumber: number): string | null => {
+  if (state.size !== 3) return null;
+  const all = cubies(state);
+  const centres = centreColours(state);
+  const ranked = candidatesForPhase(all, phaseNumber).flatMap((current) => {
+    const target = all.find((cubie) => cubie.target === current.piece);
+    if (!target) return [];
+    return [{piece: current.piece, score: phaseScore(current, target, centres, phaseNumber)}];
+  }).sort((left, right) => left.score - right.score || left.piece.localeCompare(right.piece));
+  return ranked.find(({score}) => score < 100)?.piece ?? ranked[0]?.piece ?? null;
+};
+
 export const focusForPiece = (state: CubeState, piece: string): CubieFocus | null => {
   const all = cubies(state);
   const source = all.find((cubie) => cubie.piece === piece);

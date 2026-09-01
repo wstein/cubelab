@@ -355,6 +355,19 @@ body {
   box-shadow: 0 0 10px var(--accent-glow);
 }
 
+.move-token.turn-guided {
+  background: rgba(139, 92, 246, 0.24);
+  border-color: rgba(196, 181, 253, 0.9);
+  color: #ede9fe;
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.36);
+}
+
+.academy-phase.focused {
+  border-color: rgba(103, 232, 249, 0.72);
+  background: rgba(34, 211, 238, 0.1);
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.12);
+}
+
 .timeline-gap {
   flex: 0 0 auto;
   align-self: stretch;

@@ -337,8 +337,18 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await firstTimelineGroup.hover();
   await expect(firstTimelineGroup).toHaveClass(/focused/);
   await expect(canvas).toHaveAttribute("data-focus-piece", /.+/);
+  await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-motion-visible", "true");
+  const firstMove = firstTimelineGroup.locator(".move-token").first();
+  await firstMove.hover();
+  await expect(firstMove).toHaveClass(/turn-guided/);
+  await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-turn-guide", /.+/);
   await page.locator("[data-playback-position]").hover();
   await expect(canvas).not.toHaveAttribute("data-focus-piece", /.+/);
+  await expect(page.locator("[data-motion-overlay]")).not.toHaveAttribute("data-turn-guide", /.+/);
+  const secondPhase = page.locator("[data-beginner-phase]").nth(1);
+  await secondPhase.hover();
+  await expect(secondPhase).toHaveClass(/focused/);
+  await expect(canvas).toHaveAttribute("data-focus-piece", /.+/);
   await expect(page.locator("[data-move-ribbon] .move-token.pause")).toHaveCount(0);
   await expect(page.locator("[data-move-ribbon] .timeline-gap.sequence-gap")).toHaveCount(0);
   await expect(page.locator("[data-move-ribbon] .timeline-gap.step-gap").first()).toBeVisible();

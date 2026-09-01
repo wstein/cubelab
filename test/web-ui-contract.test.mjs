@@ -174,5 +174,7 @@ test("the tape groups sequences, focuses cubies, and spaces only Academy phases"
   assert.match(client, /Algorithm sequence purpose: \$\{description\}/);
   assert.match(client, /selectTutorialPiece\(before, after, phase\.number\)/);
   assert.match(client, /focusForPiece\(displayed, focusedPiece\)/);
+  assert.match(client, /activateTurnGuide\(button, entry\.step!, label\)/);
+  assert.match(client, /firstFocusPieceInPhase\(phase\)/);
   assert.doesNotMatch(client, /\.title = description/);
 });

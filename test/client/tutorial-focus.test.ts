@@ -3,7 +3,12 @@ import {describe, expect, test} from "bun:test";
 import * as MoveExecutor from "../../src/Move/MoveExecutor.res.mjs";
 import * as StateTypes from "../../src/State/StateTypes.res.mjs";
 import type {CubeState, MoveStep} from "../../src/client/cube-gl";
-import {cubies, focusForPiece, selectTutorialPiece} from "../../src/client/tutorial-focus";
+import {
+  cubies,
+  focusForPiece,
+  selectPhasePiece,
+  selectTutorialPiece,
+} from "../../src/client/tutorial-focus";
 
 const solved = StateTypes.solved(3)._0 as CubeState;
 const step = (face: "U" | "L" | "F" | "R" | "B" | "D", turns = 1): MoveStep => ({
@@ -43,5 +48,11 @@ describe("Beginner Academy cubie focus", () => {
   test("does not infer tutorial focus outside supported 3x3 phases", () => {
     expect(selectTutorialPiece(solved, solved, 0)).toBeNull();
     expect(selectTutorialPiece(solved, solved, 8)).toBeNull();
+  });
+
+  test("provides a stable phase-level piece when no sequence delta identifies one", () => {
+    const scrambled = MoveExecutor.applyStep(solved, step("R")) as CubeState;
+    expect(selectPhasePiece(scrambled, 2)).toContain("U");
+    expect(selectPhasePiece(solved, 2)).toBe("BLU");
   });
 });
