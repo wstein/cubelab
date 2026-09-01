@@ -167,6 +167,9 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /store\.patch\(\{size: 3, input: facelets\}\)/);
   assert.match(client, /if \(smartCubeStateSyncPending\)/);
   assert.match(client, /await smartCubeManager\.refresh\(\)/);
+  assert.match(client, /macAddressProvider: async \(device, isFallbackCall\)/);
+  assert.match(client, /if \(!isFallbackCall\) return null/);
+  assert.match(client, /enable-experimental-web-platform-features/);
   assert.match(client, /assessSmartCubeMove/);
   assert.match(client, /viewport\?\.setDeviceOrientation/);
   assert.match(

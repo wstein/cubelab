@@ -1953,9 +1953,17 @@ if (root) {
       smartCubeStateSyncPending = true;
       await manager.connect({
         enableAddressSearch: true,
-        macAddressProvider: async (device) => {
+        macAddressProvider: async (device, isFallbackCall) => {
+          // Let the transport inspect GAN manufacturer advertisements first.
+          // This callback is invoked once before and once after that attempt.
+          if (!isFallbackCall) return null;
+          const experimentalFeaturesUrl = usingBrave
+            ? "brave://flags/#enable-experimental-web-platform-features"
+            : "chrome://flags/#enable-experimental-web-platform-features";
           const value = window.prompt(
-            `${device.name ?? "This encrypted cube"} did not expose its Bluetooth MAC address. Enter it as aa:bb:cc:dd:ee:ff, or Cancel.`,
+            `${device.name ?? "This encrypted cube"} did not expose its Bluetooth MAC address. `
+              + `Enter it as aa:bb:cc:dd:ee:ff, or Cancel. For automatic detection, enable `
+              + `${experimentalFeaturesUrl} and restart the browser.`,
           );
           return value?.trim() || null;
         },
