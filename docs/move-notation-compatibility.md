@@ -18,6 +18,11 @@ a two-layer wide move (`Rw`), while CubeDB's optional old-notation mode and some
 between these contradictory meanings. Modern SiGN is the default; users can explicitly
 select legacy inner-slice semantics for 4×4 and 5×5 input.
 
+Ruwix also publishes numbered inner layers as HTML subscripts after a face. Cube Rosetta
+accepts unambiguous Unicode copies such as `F₂'` in every mode. Plaintext copies collapse
+the subscript into an ordinary digit, making `F2'` conflict with a modern half turn;
+these forms are accepted only after the user explicitly selects Ruwix suffix-layer mode.
+
 ## Implemented standards and syntax
 
 ### WCA notation
@@ -58,6 +63,8 @@ rewrite them explicitly instead.
 
 - Common typographic primes, dashes, brackets, and whitespace normalize one-for-one so
   diagnostic offsets still refer to the pasted input.
+- Unicode Ruwix face subscripts `₂` through `₅` are reordered into SiGN prefixes without
+  changing token length, so `F₂'` becomes `2F'` and retains the same source span.
 - `// comment` and `@1.53s` reconstruction annotations are ignored during execution.
 - Historical rotation spellings `[r]`, `{u'}`, and `<f>2` are accepted. They are not
   current WCA notation; `x/y/z` should be preferred for portable algorithms.
@@ -78,6 +85,7 @@ site.
 | [CubeDB](https://cubedb.net/) | cubing.js-style algorithms with an optional “old notation (`r = 2R`)” mode | Covered with an explicit setting | Select legacy inner-slice mode for old-notation algorithms; modern SiGN remains the default. |
 | [Ruwix / Roofpig widget](https://ruwix.com/widget/3d/) | Standard cube moves plus Roofpig extensions | Partial | Camera rotations (`R>`, `R>>`), combined moves (`F'+B`), and aliases such as superscript `²` or `Z` are not implemented. |
 | [Ruwix 4×4 algorithms](https://ruwix.com/twisty-puzzles/4x4x4-rubiks-cube-rubiks-revenge/4x4-cube-patterns/) | Legacy lowercase inner-slice notation on 4×4 | Covered with an explicit setting | Select legacy inner-slice mode; in the default modern mode, `r` remains the outer two-layer block. |
+| [Ruwix advanced notation](https://ruwix.com/the-rubiks-cube/notation/advanced/) | Post-face HTML subscripts for inner layers | Covered with deterministic modes | Unicode `F₂'` works directly. Plaintext `F2'` requires explicit Ruwix suffix-layer mode because modern notation reads it as an outer half turn. |
 | [Ruwix notation guide](https://ruwix.com/the-rubiks-cube/notation/) | Documents common and legacy alternatives | Partial | `Fi`/`Ri` inverse suffixes and the rare lowercase-means-inverse dialect are not implemented because they conflict with modern lowercase-wide notation. |
 
 ## Uncovered syntax, ranked
@@ -100,14 +108,22 @@ site.
 - Safe interoperability rule: rewrite the intended slice using a numbered move such as
   `2R` or `3L` before conversion.
 
-### 3. Reconstruction/editor control tokens
+### 3. Ruwix plaintext subscript loss — explicit mode only
+
+- Examples: HTML `F₂'` copied as plaintext `F2'`; HTML `B₂2` copied as `B22`.
+- Risk: high. Modern SiGN already defines `F2'` as a two-quarter-turn outer-face move.
+- Implemented rule: Unicode subscripts are unambiguous and accepted directly. Plaintext
+  post-face layer digits require the explicit Ruwix suffix-layer setting on 4×4/5×5.
+- Portable interoperability rule: retain the Unicode subscript or rewrite it as `2F'`.
+
+### 4. Reconstruction/editor control tokens
 
 - alg.cubing.net: pause `.`, block comments `/* … */`.
 - Twizzle/cubing.js: pause `.`, experimental NISS `^(...)`.
 - Risk: low for cube state conversion because pauses/comments have no move effect; NISS
   does affect how an algorithm is interpreted and would need a dedicated AST node.
 
-### 4. Roofpig presentation syntax
+### 5. Roofpig presentation syntax
 
 - Camera-only rotations: `R>`, `R>>`, `R<`, `R<<`.
 - Parallel/combined notation: `F'+B`.
@@ -115,7 +131,7 @@ site.
 - Risk: medium. Camera operations are presentation state, not cube state, and combined
   moves need a documented execution-order or simultaneity model.
 
-### 5. Other WCA puzzle families — intentionally outside scope
+### 6. Other WCA puzzle families — intentionally outside scope
 
 The WCA and cubing.js also define Square-1 tuples/slashes, Megaminx `R++/D--`, Clock
 dial moves, Pyraminx tips, and other puzzle-specific moves. Cube Rosetta currently models

@@ -4,6 +4,7 @@ type parser = {
   input: string,
   size: int,
   lowercaseMode: lowercaseMode,
+  notationDialect: notationDialect,
   mutable cursor: int,
   mutable depth: int,
 }
@@ -114,6 +115,20 @@ let parseSuffix = (parser, ~allowZero: bool) => {
   }
 }
 
+let parseCompositeSuffix = (parser, ~allowZero: bool) => {
+  let whitespaceStart = parser.cursor
+  while peek(parser) == Some(" ") {
+    parser.cursor = parser.cursor + 1
+  }
+  switch peek(parser) {
+  | Some(character) if isDigit(character) || character == "'" => parseSuffix(parser, ~allowZero)
+  | _ => {
+      parser.cursor = whitespaceStart
+      parseSuffix(parser, ~allowZero)
+    }
+  }
+}
+
 let faceFromCharacter = character =>
   switch character {
   | "U" | "u" => Some(StateTypes.U)
@@ -195,6 +210,24 @@ let parseBaseMove = parser => {
         if explicitWide {
           parser.cursor = parser.cursor + 1
         }
+        let ruwixLayer = if (
+          parser.notationDialect == Ruwix &&
+          parser.size >= 4 &&
+          !lowercase &&
+          first == None &&
+          rangeEnd == None &&
+          !explicitWide
+        ) {
+          switch peek(parser) {
+          | Some(character) if character >= "2" && character <= "5" => {
+              parser.cursor = parser.cursor + 1
+              Some(String.charCodeAtUnsafe(character, 0) - 48)
+            }
+          | _ => None
+          }
+        } else {
+          None
+        }
         let lowercaseIsInner = lowercase && parser.size >= 4 && parser.lowercaseMode == InnerSlice
         if lowercaseIsInner && (first != None || rangeEnd != None || explicitWide) {
           fail(
@@ -205,13 +238,14 @@ let parseBaseMove = parser => {
           )
         }
         let wide = (lowercase && !lowercaseIsInner) || explicitWide || rangeEnd != None
-        let range = switch (first, rangeEnd, wide, lowercaseIsInner) {
-        | (None, None, false, true) => {from_: 2, to_: 2}
-        | (Some(from_), Some(to_), true, false) => {from_, to_}
-        | (Some(to_), None, true, false) => {from_: 1, to_}
-        | (None, None, true, false) => {from_: 1, to_: 2}
-        | (Some(layer), None, false, false) => {from_: layer, to_: layer}
-        | (None, None, false, false) => {from_: 1, to_: 1}
+        let range = switch (first, rangeEnd, wide, lowercaseIsInner, ruwixLayer) {
+        | (None, None, false, false, Some(layer)) => {from_: layer, to_: layer}
+        | (None, None, false, true, None) => {from_: 2, to_: 2}
+        | (Some(from_), Some(to_), true, false, None) => {from_, to_}
+        | (Some(to_), None, true, false, None) => {from_: 1, to_}
+        | (None, None, true, false, None) => {from_: 1, to_: 2}
+        | (Some(layer), None, false, false, None) => {from_: layer, to_: layer}
+        | (None, None, false, false, None) => {from_: 1, to_: 1}
         | _ => fail(parser, "Invalid layer-range move.", ~start, ~end_=parser.cursor)
         }
         validateRange(parser, range, ~wide, ~explicitRange=rangeEnd != None, ~start)
@@ -252,7 +286,7 @@ let tryInformalRotation = (parser, open_, close_) => {
     } else {
       parser.cursor = parser.cursor + 1
       let (axis, direction) = result->Option.getOrThrow
-      let suffix = parseSuffix(parser, ~allowZero=true)
+      let suffix = parseCompositeSuffix(parser, ~allowZero=true)
       Some({
         desc: Move(
           Rotation(axis),
@@ -301,7 +335,7 @@ and parseNested = (parser, start, close_, makeDesc) => {
   }
   parser.cursor = parser.cursor + 1
   parser.depth = parser.depth - 1
-  let repeat = parseSuffix(parser, ~allowZero=false)
+  let repeat = parseCompositeSuffix(parser, ~allowZero=false)
   {desc: makeDesc(body, repeat), loc: {start, end_: parser.cursor}}
 }
 
@@ -323,7 +357,7 @@ and parseBracket = (parser, start) => {
   }
   parser.cursor = parser.cursor + 1
   parser.depth = parser.depth - 1
-  let repeat = parseSuffix(parser, ~allowZero=false)
+  let repeat = parseCompositeSuffix(parser, ~allowZero=false)
   let desc = if separator == "," {
     Commutator(left, right, repeat)
   } else {
@@ -360,14 +394,23 @@ and parseUnit = parser => {
   }
 }
 
-let parseWithLowercaseMode = (~size: int, ~lowercaseMode: lowercaseMode, input: string): result<
-  alg,
-  parseError,
-> => {
+let parseWithOptions = (
+  ~size: int,
+  ~lowercaseMode: lowercaseMode,
+  ~notationDialect: notationDialect,
+  input: string,
+): result<alg, parseError> => {
   if size < 2 || size > 5 {
     Error({message: "Cube size must be between 2 and 5.", loc: {start: 0, end_: 0}})
   } else {
-    let parser = {input: MoveNormalizer.normalize(input), size, lowercaseMode, cursor: 0, depth: 0}
+    let parser = {
+      input: MoveNormalizer.normalize(input),
+      size,
+      lowercaseMode,
+      notationDialect,
+      cursor: 0,
+      depth: 0,
+    }
     try {
       let units = parseSequence(parser, ~stops="")
       skipTrivia(parser)->ignore
@@ -380,6 +423,11 @@ let parseWithLowercaseMode = (~size: int, ~lowercaseMode: lowercaseMode, input: 
     }
   }
 }
+
+let parseWithLowercaseMode = (~size: int, ~lowercaseMode: lowercaseMode, input: string): result<
+  alg,
+  parseError,
+> => parseWithOptions(~size, ~lowercaseMode, ~notationDialect=Modern, input)
 
 let parse = (~size: int, input: string): result<alg, parseError> =>
   parseWithLowercaseMode(~size, ~lowercaseMode=Wide, input)

@@ -24,8 +24,9 @@ and use the URL hash to share the active input and settings.
 
 The move parser implements the SiGN/LGN structure used by the project: outer, inner,
 wide, slice, and rotation moves; arbitrary repetition suffixes; groups; commutators;
-and conjugates. A one-to-one Unicode normalization pass preserves raw-input offsets
-for typed source-span diagnostics. Slice moves are deliberately limited to 3×3×3,
+and conjugates. Unicode aliases preserve token length and raw-input offsets for typed
+source-span diagnostics; Ruwix face subscripts such as `F₂'` normalize to portable
+prefix form (`2F'`). Slice moves are deliberately limited to 3×3×3,
 while layer and wide-move ranges are validated against the selected size.
 
 ## Move notation compatibility
@@ -41,6 +42,7 @@ plus the SiGN/LGN cube grammar and selected reconstruction extensions:
 | 3×3 slices and rotations | `M E' S2 x y' z2` |
 | Groups, commutators, conjugates | `(R U)3 [R, U] [R: U2]` |
 | Reconstruction annotations | `R U // note` and `R @1.53s U` |
+| Ruwix Unicode layer subscripts | `F₂' B₂2 F₃` |
 
 Adjacent moves require whitespace. `M/E/S` are limited to 3×3, and wide moves must
 turn between 2 and `N-1` layers. See the
@@ -52,6 +54,11 @@ block `Rw`. On 4×4 and 5×5, the web interface can explicitly select the legacy
 inner-slice dialect, where bare `r` means `2R`. This mode never changes explicit
 uppercase notation such as `Rw`, `3Rw`, or `2R`. Cube Rosetta never guesses a dialect
 from the input.
+
+Ruwix plaintext loses the distinction between a layer subscript and a turn suffix:
+`F2'` can mean Ruwix `2F'` or modern outer-face `F2'`. Cube Rosetta therefore parses
+plaintext suffix layers only when **Ruwix suffix** mode is selected. The default modern
+mode never guesses. Unicode subscript input remains unambiguous in either mode.
 
 The geometry executor applies the parsed AST to a solved or supplied canonical state.
 It supports 2×2×2 through 5×5×5 outer, inner, wide, and whole-cube moves, plus 3×3×3

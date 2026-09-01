@@ -32,9 +32,17 @@ test("the web UI exposes an explicit lowercase mode without heuristic switching"
   assert.match(page, /data-lowercase-mode="InnerSlice"/);
   assert.match(page, /data-lowercase-banner/);
   assert.match(page, /modern SiGN wide turns by default/);
-  assert.match(client, /parseAndApplyWithLowercaseMode/);
+  assert.match(client, /parseAndApplyWithOptions/);
   assert.match(client, /Mixed Rw and r notation detected/);
   assert.doesNotMatch(client, /lowercaseMode\s*=.*signals/);
+});
+
+test("the web UI exposes Ruwix suffix layers only through an explicit dialect setting", () => {
+  assert.match(page, /data-notation-dialect="Modern"/);
+  assert.match(page, /data-notation-dialect="Ruwix"/);
+  assert.match(page, /ambiguous plaintext/);
+  assert.match(client, /notationDialect/);
+  assert.doesNotMatch(client, /notationDialect\s*=.*input/);
 });
 
 test("the studio connects recognized input and one canonical state to WebGL", () => {

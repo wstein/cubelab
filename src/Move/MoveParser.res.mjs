@@ -147,6 +147,20 @@ function parseSuffix(parser, allowZero) {
   }
 }
 
+function parseCompositeSuffix(parser, allowZero) {
+  let whitespaceStart = parser.cursor;
+  while (Primitive_object.equal(peek(parser), " ")) {
+    parser.cursor = parser.cursor + 1 | 0;
+  };
+  let character = peek(parser);
+  if (character !== undefined && (isDigit(character) || character === "'")) {
+    return parseSuffix(parser, allowZero);
+  } else {
+    parser.cursor = whitespaceStart;
+    return parseSuffix(parser, allowZero);
+  }
+}
+
 function faceFromCharacter(character) {
   switch (character) {
     case "B" :
@@ -222,6 +236,18 @@ function parseBaseMove(parser) {
       if (explicitWide) {
         parser.cursor = parser.cursor + 1 | 0;
       }
+      let ruwixLayer;
+      if (parser.notationDialect === "Ruwix" && parser.size >= 4 && !lowercase && first === undefined && rangeEnd === undefined && !explicitWide) {
+        let character$1 = peek(parser);
+        if (character$1 !== undefined && character$1 >= "2" && character$1 <= "5") {
+          parser.cursor = parser.cursor + 1 | 0;
+          ruwixLayer = character$1.charCodeAt(0) - 48 | 0;
+        } else {
+          ruwixLayer = undefined;
+        }
+      } else {
+        ruwixLayer = undefined;
+      }
       let lowercaseIsInner = lowercase && parser.size >= 4 && parser.lowercaseMode === "InnerSlice";
       if (lowercaseIsInner && (first !== undefined || rangeEnd !== undefined || explicitWide)) {
         fail(parser, "Legacy lowercase inner-slice moves cannot have a layer prefix or 'w'; use explicit uppercase notation.", start, parser.cursor);
@@ -231,7 +257,7 @@ function parseBaseMove(parser) {
       let exit$1 = 0;
       if (first !== undefined) {
         if (rangeEnd !== undefined) {
-          if (wide && !lowercaseIsInner) {
+          if (wide && !(lowercaseIsInner || ruwixLayer !== undefined)) {
             range = {
               from_: first,
               to_: rangeEnd
@@ -240,7 +266,7 @@ function parseBaseMove(parser) {
             exit$1 = 3;
           }
         } else if (wide) {
-          if (lowercaseIsInner) {
+          if (lowercaseIsInner || ruwixLayer !== undefined) {
             exit$1 = 3;
           } else {
             range = {
@@ -248,7 +274,7 @@ function parseBaseMove(parser) {
               to_: first
             };
           }
-        } else if (lowercaseIsInner) {
+        } else if (lowercaseIsInner || ruwixLayer !== undefined) {
           exit$1 = 3;
         } else {
           range = {
@@ -259,7 +285,7 @@ function parseBaseMove(parser) {
       } else if (rangeEnd !== undefined) {
         exit$1 = 3;
       } else if (wide) {
-        if (lowercaseIsInner) {
+        if (lowercaseIsInner || ruwixLayer !== undefined) {
           exit$1 = 3;
         } else {
           range = {
@@ -267,10 +293,19 @@ function parseBaseMove(parser) {
             to_: 2
           };
         }
-      } else {
-        range = lowercaseIsInner ? ({
+      } else if (lowercaseIsInner) {
+        if (ruwixLayer !== undefined) {
+          exit$1 = 3;
+        } else {
+          range = {
             from_: 2,
             to_: 2
+          };
+        }
+      } else {
+        range = ruwixLayer !== undefined ? ({
+            from_: ruwixLayer,
+            to_: ruwixLayer
           }) : ({
             from_: 1,
             to_: 1
@@ -388,7 +423,7 @@ function tryInformalRotation(parser, open_, close_) {
   }
   parser.cursor = parser.cursor + 1 | 0;
   let match = Stdlib_Option.getOrThrow(result, undefined);
-  let suffix = parseSuffix(parser, true);
+  let suffix = parseCompositeSuffix(parser, true);
   return {
     desc: {
       TAG: "Move",
@@ -439,7 +474,7 @@ function parseNested(parser, start, close_, makeDesc) {
   }
   parser.cursor = parser.cursor + 1 | 0;
   parser.depth = parser.depth - 1 | 0;
-  let repeat = parseSuffix(parser, false);
+  let repeat = parseCompositeSuffix(parser, false);
   return {
     desc: makeDesc(body, repeat),
     loc: {
@@ -482,7 +517,7 @@ function parseBracket(parser, start) {
   }
   parser.cursor = parser.cursor + 1 | 0;
   parser.depth = parser.depth - 1 | 0;
-  let repeat = parseSuffix(parser, false);
+  let repeat = parseCompositeSuffix(parser, false);
   let desc = separator === "," ? ({
       TAG: "Commutator",
       _0: left,
@@ -554,7 +589,7 @@ function parseUnit(parser) {
   }
 }
 
-function parseWithLowercaseMode(size, lowercaseMode, input) {
+function parseWithOptions(size, lowercaseMode, notationDialect, input) {
   if (size < 2 || size > 5) {
     return {
       TAG: "Error",
@@ -571,6 +606,7 @@ function parseWithLowercaseMode(size, lowercaseMode, input) {
     input: MoveNormalizer.normalize(input),
     size: size,
     lowercaseMode: lowercaseMode,
+    notationDialect: notationDialect,
     cursor: 0,
     depth: 0
   };
@@ -596,6 +632,10 @@ function parseWithLowercaseMode(size, lowercaseMode, input) {
   }
 }
 
+function parseWithLowercaseMode(size, lowercaseMode, input) {
+  return parseWithOptions(size, lowercaseMode, "Modern", input);
+}
+
 function parse(size, input) {
   return parseWithLowercaseMode(size, "Wide", input);
 }
@@ -609,6 +649,7 @@ export {
   skipTrivia,
   parsePositiveInt,
   parseSuffix,
+  parseCompositeSuffix,
   faceFromCharacter,
   validateRange,
   parseBaseMove,
@@ -618,6 +659,7 @@ export {
   parseNested,
   parseBracket,
   parseUnit,
+  parseWithOptions,
   parseWithLowercaseMode,
   parse,
 }

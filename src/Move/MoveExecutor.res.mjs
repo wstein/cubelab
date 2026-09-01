@@ -537,8 +537,8 @@ function applyAlg(state, alg) {
   }
 }
 
-function parseAndApplyWithLowercaseMode(size, lowercaseMode, input) {
-  let error = MoveParser.parseWithLowercaseMode(size, lowercaseMode, input);
+function parseAndApplyWithOptions(size, lowercaseMode, notationDialect, input) {
+  let error = MoveParser.parseWithOptions(size, lowercaseMode, notationDialect, input);
   if (error.TAG !== "Ok") {
     return {
       TAG: "Error",
@@ -573,6 +573,10 @@ function parseAndApplyWithLowercaseMode(size, lowercaseMode, input) {
   }
 }
 
+function parseAndApplyWithLowercaseMode(size, lowercaseMode, input) {
+  return parseAndApplyWithOptions(size, lowercaseMode, "Modern", input);
+}
+
 function parseAndApply(size, input) {
   return parseAndApplyWithLowercaseMode(size, "Wide", input);
 }
@@ -602,6 +606,7 @@ export {
   expand,
   validateState,
   applyAlg,
+  parseAndApplyWithOptions,
   parseAndApplyWithLowercaseMode,
   parseAndApply,
 }

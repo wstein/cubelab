@@ -54,8 +54,10 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await expect(piecesCard).toBeHidden();
   await expect(orbitCard).toBeHidden();
   const lowercaseControls = page.locator("[data-lowercase-controls]");
+  const notationControls = page.locator("[data-notation-controls]");
   const lowercaseBanner = page.locator("[data-lowercase-banner]");
   await expect(lowercaseControls).toBeVisible();
+  await expect(notationControls).toBeVisible();
   await expect(page.locator('[data-lowercase-mode="Wide"]')).toHaveAttribute(
     "aria-pressed",
     "true",
@@ -84,6 +86,17 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await page.locator('[data-lowercase-mode="Wide"]').click();
   await expect(page.locator('[data-output="facelets"]')).toHaveText(modernWideState ?? "");
 
+  await page.locator('[data-size="5"]').click();
+  await input.fill("F2'");
+  const modernSuffixState = await page.locator('[data-output="facelets"]').textContent();
+  await page.locator('[data-notation-dialect="Ruwix"]').click();
+  await expect(page.locator("[data-status]")).toHaveText("Algorithm · Ruwix");
+  await expect(page.locator('[data-output="facelets"]')).not.toHaveText(modernSuffixState ?? "");
+  await input.fill("F₂'");
+  const unicodeRuwixState = await page.locator('[data-output="facelets"]').textContent();
+  await input.fill("F2'");
+  await expect(page.locator('[data-output="facelets"]')).toHaveText(unicodeRuwixState ?? "");
+
   await page.locator('[data-cube-style="Speed"]').click();
   await expect(page.locator('[data-cube-style="Speed"]')).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-webgl", "ready");
@@ -91,6 +104,7 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
 
   await page.locator('[data-size="3"]').click();
   await expect(lowercaseControls).toBeHidden();
+  await expect(notationControls).toBeHidden();
   await input.fill("U");
   await expect(page.locator("[data-status]")).toHaveText("Algorithm · SiGN");
   await expect(page.locator('[data-output="pieces"]')).toContainText("cp: 3 0 1 2");

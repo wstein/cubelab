@@ -12,6 +12,7 @@ import {
   synchronizeHash,
   type AppState,
   type LowercaseMode,
+  type NotationDialect,
   type SchemeName,
 } from "./store";
 
@@ -40,6 +41,7 @@ if (root) {
   const store = createStore(initialState);
   let size = initialState.size;
   let lowercaseMode: LowercaseMode = initialState.lowercaseMode;
+  let notationDialect: NotationDialect = initialState.notationDialect;
   let cubeStyle: CubeStyle = initialState.cubeStyle;
   const viewport = createCubeViewport(canvas, (message) => {
     viewportFallback.textContent = `${message} Text conversions remain fully functional.`;
@@ -70,11 +72,14 @@ if (root) {
     result.TAG === "Ok" ? {TAG: "Ok", _0: {state: result._0, label}} : result;
 
   const parseAlgorithm = (value: string): Result<RecognizedInput> =>
-    recognize(MoveExecutor.parseAndApplyWithLowercaseMode(
+    recognize(MoveExecutor.parseAndApplyWithOptions(
       size,
       lowercaseMode,
+      notationDialect,
       value,
-    ) as Result<CubeState>, `Algorithm · ${size >= 4 && lowercaseMode === "InnerSlice" ? "Legacy" : "SiGN"}`);
+    ) as Result<CubeState>, size >= 4 && notationDialect === "Ruwix"
+      ? `Algorithm · Ruwix${lowercaseMode === "InnerSlice" ? " + legacy lowercase" : ""}`
+      : `Algorithm · ${size >= 4 && lowercaseMode === "InnerSlice" ? "Legacy" : "SiGN"}`);
 
   const parseState = (inputValue: string): Result<RecognizedInput> => {
     const compact = inputValue.trim();
@@ -147,6 +152,16 @@ if (root) {
     }
   };
 
+  const updateDialectUi = () => {
+    const controls = root.querySelector<HTMLElement>("[data-notation-controls]")!;
+    controls.hidden = size < 4;
+    root.querySelectorAll<HTMLButtonElement>("[data-notation-dialect]").forEach((button) => {
+      const active = button.dataset.notationDialect === notationDialect;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+  };
+
   const setOutput = (key: string, value: string, copyable = true) => {
     const output = root.querySelector<HTMLElement>(`[data-output="${key}"]`);
     if (output) output.textContent = value;
@@ -168,6 +183,7 @@ if (root) {
   const update = () => {
     updateCardVisibility();
     updateLowercaseUi();
+    updateDialectUi();
     const value = input.value;
     const parsed = parseState(value);
     if (parsed.TAG === "Error") {
@@ -239,6 +255,7 @@ if (root) {
   const applyAppState = (state: AppState) => {
     size = state.size;
     lowercaseMode = state.lowercaseMode;
+    notationDialect = state.notationDialect;
     cubeStyle = state.cubeStyle;
     if (input.value !== state.input) input.value = state.input;
     if (schemeSelect.value !== state.scheme) schemeSelect.value = state.scheme;
@@ -267,6 +284,12 @@ if (root) {
   root.querySelectorAll<HTMLButtonElement>("[data-lowercase-mode]").forEach((button) => {
     button.addEventListener("click", () => {
       store.patch({lowercaseMode: button.dataset.lowercaseMode as LowercaseMode});
+    });
+  });
+
+  root.querySelectorAll<HTMLButtonElement>("[data-notation-dialect]").forEach((button) => {
+    button.addEventListener("click", () => {
+      store.patch({notationDialect: button.dataset.notationDialect as NotationDialect});
     });
   });
 

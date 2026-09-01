@@ -2,6 +2,7 @@ import type {CubeStyle} from "./cube-gl";
 
 export type SchemeName = "Western" | "Japanese" | "Custom";
 export type LowercaseMode = "Wide" | "InnerSlice";
+export type NotationDialect = "Modern" | "Ruwix";
 
 export type AppState = {
   size: number;
@@ -9,6 +10,7 @@ export type AppState = {
   scheme: SchemeName;
   customScheme: string;
   lowercaseMode: LowercaseMode;
+  notationDialect: NotationDialect;
   cubeStyle: CubeStyle;
 };
 
@@ -18,6 +20,7 @@ export const defaultAppState: AppState = {
   scheme: "Western",
   customScheme: "WOGRBY",
   lowercaseMode: "Wide",
+  notationDialect: "Modern",
   cubeStyle: "Standard",
 };
 
@@ -72,9 +75,10 @@ export const readHash = (hash: string): AppState => {
     : defaultAppState.customScheme;
   const lowercaseMode: LowercaseMode =
     params.get("lowercase") === "InnerSlice" ? "InnerSlice" : "Wide";
+  const notationDialect: NotationDialect = params.get("dialect") === "Ruwix" ? "Ruwix" : "Modern";
   const cubeStyle: CubeStyle = params.get("style") === "Speed" ? "Speed" : "Standard";
   const input = (params.get("alg") ?? "").slice(0, 20_000);
-  return {size, input, scheme, customScheme, lowercaseMode, cubeStyle};
+  return {size, input, scheme, customScheme, lowercaseMode, notationDialect, cubeStyle};
 };
 
 export const writeHash = (state: AppState): string => {
@@ -84,6 +88,7 @@ export const writeHash = (state: AppState): string => {
   if (state.scheme !== "Western") params.set("scheme", state.scheme);
   if (state.scheme === "Custom") params.set("custom", state.customScheme);
   if (state.lowercaseMode !== "Wide") params.set("lowercase", state.lowercaseMode);
+  if (state.notationDialect !== "Modern") params.set("dialect", state.notationDialect);
   if (state.cubeStyle !== "Standard") params.set("style", state.cubeStyle);
   return `#${params.toString()}`;
 };

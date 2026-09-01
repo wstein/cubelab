@@ -113,6 +113,28 @@ const cards = [
             </button>
           </div>
         </div>
+
+        <div class="toolbar-group" data-notation-controls hidden>
+          <span class="panel-label">Layer syntax</span>
+          <div class="segmented-control" aria-label="Numbered layer notation">
+            <button
+              type="button"
+              class="segmented-btn active"
+              data-notation-dialect="Modern"
+              aria-pressed="true"
+            >
+              SiGN prefix (2R)
+            </button>
+            <button
+              type="button"
+              class="segmented-btn"
+              data-notation-dialect="Ruwix"
+              aria-pressed="false"
+            >
+              Ruwix suffix (R₂)
+            </button>
+          </div>
+        </div>
       </section>
 
       <section class="input-panel">
@@ -129,7 +151,9 @@ const cards = [
         ></textarea>
         <p class="input-help">
           Lowercase moves use modern SiGN wide turns by default (<code>r = Rw</code>).
-          Use <code>2R</code> for a portable single inner-layer turn.
+          Use <code>2R</code> for a portable single inner-layer turn. Unicode Ruwix
+          subscripts such as <code>R₂'</code> are recognized directly; ambiguous plaintext
+          such as <code>R2'</code> requires Ruwix suffix mode.
         </p>
         <div class="preset-row" aria-label="Example algorithms">
           <span class="preset-label">Quick load</span>

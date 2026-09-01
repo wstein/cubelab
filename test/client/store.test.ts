@@ -21,6 +21,7 @@ describe("application state store", () => {
       input: "Rw U2 r' // parity",
       scheme: "Japanese" as const,
       lowercaseMode: "InnerSlice" as const,
+      notationDialect: "Ruwix" as const,
       cubeStyle: "Speed" as const,
     };
     expect(readHash(writeHash(state))).toEqual(state);
@@ -33,6 +34,7 @@ describe("application state store", () => {
     expect(parsed.size).toBe(3);
     expect(parsed.customScheme).toBe("WOGRBY");
     expect(parsed.lowercaseMode).toBe("Wide");
+    expect(parsed.notationDialect).toBe("Modern");
     expect(parsed.cubeStyle).toBe("Standard");
     expect(parsed.input).toHaveLength(20_000);
   });

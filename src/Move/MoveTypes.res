@@ -17,6 +17,10 @@ type lowercaseMode =
   | Wide
   | InnerSlice
 
+type notationDialect =
+  | Modern
+  | Ruwix
+
 type layerRange = {
   from_: int,
   to_: int,

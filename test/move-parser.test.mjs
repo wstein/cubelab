@@ -16,6 +16,12 @@ const parseWithLowercaseMode = (size, lowercaseMode, input) => {
   return result._0;
 };
 
+const parseWithOptions = (size, lowercaseMode, notationDialect, input) => {
+  const result = MoveParser.parseWithOptions(size, lowercaseMode, notationDialect, input);
+  assert.equal(result.TAG, "Ok", result._0?.message);
+  return result._0;
+};
+
 const rejects = (size, input, message) => {
   const result = MoveParser.parse(size, input);
   assert.equal(result.TAG, "Error");
@@ -28,6 +34,10 @@ test("normalization preserves source length while replacing common Unicode alias
   const normalized = MoveNormalizer.normalize(input);
   assert.equal(normalized, "R' (U-D)");
   assert.equal(normalized.length, input.length);
+
+  const subscript = "F₂' B₃2";
+  assert.equal(MoveNormalizer.normalize(subscript), "2F' 3B2");
+  assert.equal(MoveNormalizer.normalize(subscript).length, subscript.length);
 });
 
 test("parses face, wide, range, slice, and rotation moves with signed repeats", () => {
@@ -58,11 +68,29 @@ test("lowercase mode explicitly selects modern wide or legacy inner-layer semant
 });
 
 test("parses nested groups, commutators, conjugates, and composite suffixes", () => {
-  const units = parse(3, "(R U R' U')3 [R, U]' [R: U2]2");
+  const units = parse(3, "(R U R' U') 3 [R, U] ' [R: U2] 2");
   assert.deepEqual(units.map((unit) => unit.desc.TAG), ["Group", "Commutator", "Conjugate"]);
   assert.equal(units[0].desc._1, 3);
   assert.equal(units[1].desc._2, -1);
   assert.equal(units[2].desc._2, 2);
+});
+
+test("keeps modern suffix turns distinct from explicit Ruwix layer suffixes", () => {
+  const modern = parse(5, "F2'")[0];
+  assert.deepEqual(modern.desc._0._1, {from_: 1, to_: 1});
+  assert.equal(modern.desc._1, -2);
+
+  const unicodeLayer = parse(5, "F₂'")[0];
+  assert.deepEqual(unicodeLayer.desc._0._1, {from_: 2, to_: 2});
+  assert.equal(unicodeLayer.desc._1, -1);
+
+  const ruwix = parseWithOptions(5, "Wide", "Ruwix", "F2' B22 F3");
+  assert.deepEqual(ruwix.map((unit) => unit.desc._0._1), [
+    {from_: 2, to_: 2},
+    {from_: 2, to_: 2},
+    {from_: 3, to_: 3},
+  ]);
+  assert.deepEqual(ruwix.map((unit) => unit.desc._1), [-1, 2, 1]);
 });
 
 test("keeps parenthesized r as a wide-move group and accepts bracket rotations", () => {
