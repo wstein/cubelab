@@ -11,6 +11,7 @@ type StateError = {_0?: string; TAG: string; actual?: number; character?: string
 type CubeState = {size: number; facelets: string[][]};
 type PieceState = {size: number; cp: number[]; co: number[]; ep: number[]; eo: number[]};
 type Scheme = "Western" | "Japanese" | {TAG: "Custom"; _0: string};
+type LowercaseMode = "Wide" | "InnerSlice";
 
 const root = document.querySelector<HTMLElement>("[data-converter]");
 
@@ -20,7 +21,12 @@ if (root) {
   const customScheme = root.querySelector<HTMLInputElement>("[data-custom-scheme]")!;
   const status = root.querySelector<HTMLElement>("[data-status]")!;
   const error = root.querySelector<HTMLElement>("[data-error]")!;
+  const lowercaseControls = root.querySelector<HTMLElement>("[data-lowercase-controls]")!;
+  const lowercaseBanner = root.querySelector<HTMLElement>("[data-lowercase-banner]")!;
+  const lowercaseMessage = root.querySelector<HTMLElement>("[data-lowercase-message]")!;
+  const switchLowercase = root.querySelector<HTMLButtonElement>("[data-switch-lowercase]")!;
   let size = 3;
+  let lowercaseMode: LowercaseMode = "Wide";
 
   const scheme = (): Scheme =>
     schemeSelect.value === "Custom"
@@ -41,6 +47,13 @@ if (root) {
         return reason._0 ?? "The cube state is invalid.";
     }
   };
+
+  const parseAlgorithm = (value: string): Result<CubeState> =>
+    MoveExecutor.parseAndApplyWithLowercaseMode(
+      size,
+      lowercaseMode,
+      value,
+    ) as Result<CubeState>;
 
   const parseState = (inputValue: string): Result<CubeState> => {
     const compact = inputValue.trim();
@@ -64,14 +77,51 @@ if (root) {
       const colourNet = ColorCodec.parseNet(scheme(), size, net) as Result<CubeState>;
       return colourNet.TAG === "Ok"
         ? colourNet
-        : (MoveExecutor.parseAndApply(size, inputValue) as Result<CubeState>);
+        : parseAlgorithm(inputValue);
     }
     const facelets = FaceletCodec.parse(size, compact) as Result<CubeState>;
     if (facelets.TAG === "Ok") return facelets;
     const colours = ColorCodec.parseCompact(scheme(), size, compact) as Result<CubeState>;
     return colours.TAG === "Ok"
       ? colours
-      : (MoveExecutor.parseAndApply(size, inputValue) as Result<CubeState>);
+      : parseAlgorithm(inputValue);
+  };
+
+  const notationSignals = (value: string) => {
+    const algorithm = value.replace(/\/\/[^\n]*/g, "");
+    const prefix = String.raw`(?:^|[\s([{:])(?:\d+(?:-\d+)?)?`;
+    const suffix = String.raw`(?:\d+)?(?:['’‘′‵\x60´])?(?=$|[\s)\]},:])`;
+    return {
+      lowercase: new RegExp(`${prefix}[rludfb]${suffix}`, "m").test(algorithm),
+      explicitWide: new RegExp(`${prefix}[ULFRBD]w${suffix}`, "m").test(algorithm),
+    };
+  };
+
+  const updateLowercaseUi = () => {
+    const supportsLegacy = size >= 4;
+    lowercaseControls.hidden = !supportsLegacy;
+    root.querySelectorAll<HTMLButtonElement>("[data-lowercase-mode]").forEach((button) => {
+      const active = button.dataset.lowercaseMode === lowercaseMode;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+
+    const signals = notationSignals(input.value);
+    lowercaseBanner.hidden = !supportsLegacy || !signals.lowercase;
+    if (lowercaseBanner.hidden) return;
+
+    const mixed = signals.explicitWide && lowercaseMode === "Wide";
+    lowercaseBanner.classList.toggle("warning", mixed);
+    if (lowercaseMode === "InnerSlice") {
+      lowercaseMessage.textContent =
+        "Legacy mode is active: lowercase r means the inner slice 2R; explicit Rw remains wide.";
+      switchLowercase.textContent = "Use modern SiGN (r = Rw)";
+    } else {
+      lowercaseMessage.textContent = mixed
+        ? "Mixed Rw and r notation detected. Modern SiGN treats both as the same wide move; legacy algorithms may use r for 2R."
+        : "Interpreting lowercase moves as modern SiGN wide turns (r = Rw). Is this a legacy algorithm?";
+      switchLowercase.textContent = "Use inner slices (r = 2R)";
+    }
   };
 
   const setOutput = (key: string, value: string, copyable = true) => {
@@ -94,6 +144,7 @@ if (root) {
 
   const update = () => {
     updateCardVisibility();
+    updateLowercaseUi();
     const value = input.value;
     const parsed = parseState(value);
     if (parsed.TAG === "Error") {
@@ -161,6 +212,18 @@ if (root) {
       });
       update();
     });
+  });
+
+  root.querySelectorAll<HTMLButtonElement>("[data-lowercase-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      lowercaseMode = button.dataset.lowercaseMode as LowercaseMode;
+      update();
+    });
+  });
+
+  switchLowercase.addEventListener("click", () => {
+    lowercaseMode = lowercaseMode === "Wide" ? "InnerSlice" : "Wide";
+    update();
   });
 
   schemeSelect.addEventListener("change", () => {

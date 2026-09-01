@@ -85,3 +85,9 @@ The browser smoke test requires Playwright's Chromium binary once per machine:
 bunx playwright install chromium
 bun run test:browser
 ```
+
+Set `PLAYWRIGHT_PORT` when port 4321 is already in use, for example:
+
+```sh
+PLAYWRIGHT_PORT=4322 bun run test:browser
+```

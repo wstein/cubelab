@@ -88,6 +88,28 @@ const cards = [
             hidden
           />
         </div>
+
+        <div class="toolbar-group" data-lowercase-controls hidden>
+          <span class="panel-label">Lowercase moves</span>
+          <div class="segmented-control" aria-label="Lowercase move interpretation">
+            <button
+              type="button"
+              class="segmented-btn active"
+              data-lowercase-mode="Wide"
+              aria-pressed="true"
+            >
+              Wide (r = Rw)
+            </button>
+            <button
+              type="button"
+              class="segmented-btn"
+              data-lowercase-mode="InnerSlice"
+              aria-pressed="false"
+            >
+              Inner slice (r = 2R)
+            </button>
+          </div>
+        </div>
       </section>
 
       <section class="input-panel">
@@ -102,6 +124,14 @@ const cards = [
           placeholder="Paste an algorithm, compact facelets, compact colours, or a canonical net. Leave blank for solved."
           spellcheck="false"
         ></textarea>
+        <p class="input-help">
+          Lowercase moves use modern SiGN wide turns by default (<code>r = Rw</code>).
+          Use <code>2R</code> for a portable single inner-layer turn.
+        </p>
+        <div class="notation-banner" data-lowercase-banner role="status" hidden>
+          <span data-lowercase-message></span>
+          <button type="button" class="notation-action" data-switch-lowercase></button>
+        </div>
         <div class="error-banner" data-error role="alert" hidden></div>
       </section>
 

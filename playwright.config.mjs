@@ -1,5 +1,11 @@
 import {defineConfig} from "@playwright/test";
 
+const port = Number(process.env.PLAYWRIGHT_PORT ?? 4321);
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  throw new Error("PLAYWRIGHT_PORT must be an integer between 1 and 65535.");
+}
+const baseURL = `http://127.0.0.1:${port}`;
+
 export default defineConfig({
   testDir: "./test/browser",
   fullyParallel: false,
@@ -7,13 +13,13 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: "line",
   use: {
-    baseURL: "http://127.0.0.1:4321",
+    baseURL,
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "bun run preview -- --host 127.0.0.1 --port 4321",
-    url: "http://127.0.0.1:4321",
+    command: `bun run preview -- --host 127.0.0.1 --port ${port}`,
+    url: baseURL,
     reuseExistingServer: true,
     timeout: 30_000,
   },
