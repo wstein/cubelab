@@ -3,7 +3,8 @@ import type {CubeStyle} from "./cube-gl";
 export type SchemeName = "Western" | "Japanese" | "Custom";
 export type LowercaseMode = "Wide" | "InnerSlice";
 export type NotationDialect = "Modern" | "Ruwix";
-export type ActiveTab = "converter" | "beginner" | "cfop" | "workbench";
+export type ActiveTab = "converter" | "academy" | "workbench";
+export type AcademyMethod = "beginner" | "cfop";
 
 export type AppState = {
   size: number;
@@ -15,6 +16,7 @@ export type AppState = {
   cubeStyle: CubeStyle;
   turnGuides: boolean;
   activeTab: ActiveTab;
+  academyMethod: AcademyMethod;
 };
 
 export const defaultAppState: AppState = {
@@ -27,6 +29,7 @@ export const defaultAppState: AppState = {
   cubeStyle: "Standard",
   turnGuides: true,
   activeTab: "converter",
+  academyMethod: "beginner",
 };
 
 type Listener = (state: AppState) => void;
@@ -84,9 +87,15 @@ export const readHash = (hash: string): AppState => {
   const cubeStyle: CubeStyle = params.get("style") === "Speed" ? "Speed" : "Standard";
   const turnGuides = params.get("guides") !== "off";
   const requestedTab = params.get("tab");
-  const activeTab: ActiveTab = requestedTab === "beginner" || requestedTab === "cfop" || requestedTab === "workbench"
-    ? requestedTab
+  const activeTab: ActiveTab = requestedTab === "academy" || requestedTab === "beginner" || requestedTab === "cfop"
+    ? "academy"
+    : requestedTab === "workbench"
+      ? "workbench"
     : "converter";
+  const requestedMethod = params.get("method");
+  const academyMethod: AcademyMethod = requestedMethod === "cfop" || requestedTab === "cfop"
+    ? "cfop"
+    : "beginner";
   const input = (params.get("alg") ?? "").slice(0, 20_000);
   return {
     size,
@@ -98,6 +107,7 @@ export const readHash = (hash: string): AppState => {
     cubeStyle,
     turnGuides,
     activeTab,
+    academyMethod,
   };
 };
 
@@ -112,6 +122,9 @@ export const writeHash = (state: AppState): string => {
   if (state.cubeStyle !== "Standard") params.set("style", state.cubeStyle);
   if (!state.turnGuides) params.set("guides", "off");
   if (state.activeTab !== "converter") params.set("tab", state.activeTab);
+  if (state.activeTab === "academy" || state.academyMethod !== "beginner") {
+    params.set("method", state.academyMethod);
+  }
   return `#${params.toString()}`;
 };
 

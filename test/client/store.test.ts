@@ -44,10 +44,23 @@ describe("application state store", () => {
   });
 
   test("accepts only known workspace tabs", () => {
-    expect(readHash("#tab=beginner").activeTab).toBe("beginner");
-    expect(readHash("#tab=cfop").activeTab).toBe("cfop");
+    expect(readHash("#tab=academy&method=beginner")).toMatchObject({
+      activeTab: "academy",
+      academyMethod: "beginner",
+    });
+    expect(readHash("#tab=academy&method=cfop")).toMatchObject({
+      activeTab: "academy",
+      academyMethod: "cfop",
+    });
+    expect(readHash("#tab=beginner")).toMatchObject({activeTab: "academy", academyMethod: "beginner"});
+    expect(readHash("#tab=cfop")).toMatchObject({activeTab: "academy", academyMethod: "cfop"});
     expect(readHash("#tab=workbench").activeTab).toBe("workbench");
     expect(readHash("#tab=unknown").activeTab).toBe("converter");
+  });
+
+  test("writes the selected Academy method into shareable URLs", () => {
+    expect(writeHash({...defaultAppState, activeTab: "academy", academyMethod: "cfop"}))
+      .toContain("tab=academy&method=cfop");
   });
 
   test("persists an explicit turn-guide opt-out", () => {

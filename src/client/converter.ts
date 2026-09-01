@@ -38,6 +38,7 @@ import {
   createStore,
   readHash,
   synchronizeHash,
+  type AcademyMethod,
   type AppState,
   type ActiveTab,
   type LowercaseMode,
@@ -73,6 +74,7 @@ type TutorialPhase = {
   sequences?: string[];
 };
 type TutorialSolution = {phases: TutorialPhase[]; alg: unknown[]; moveCount: number};
+type SavedTutorialSolution = {initialState: CubeState; solution: TutorialSolution};
 type TutorialPhaseRange = TutorialPhase & {method: TutorialMethod; start: number; end: number};
 type ExpandedTutorialEntry = {comment?: string};
 type AcademyElements = {
@@ -134,6 +136,7 @@ if (root) {
   const cfopPhases = root.querySelector<HTMLElement>("[data-cfop-phases]")!;
   const cfopCopy = root.querySelector<HTMLButtonElement>("[data-cfop-copy]")!;
   const cfopSolution = root.querySelector<HTMLElement>("[data-cfop-solution]")!;
+  const academyComparison = root.querySelector<HTMLElement>("[data-academy-comparison]")!;
   const autoOrbitButton = root.querySelector<HTMLButtonElement>("[data-auto-orbit]")!;
   const turnGuidesButton = root.querySelector<HTMLButtonElement>("[data-turn-guides]")!;
   const coachingControls = root.querySelector<HTMLElement>("[data-coaching-controls]")!;
@@ -146,12 +149,14 @@ if (root) {
   let cubeStyle: CubeStyle = initialState.cubeStyle;
   let turnGuides = initialState.turnGuides;
   let activeTab: ActiveTab = initialState.activeTab;
+  let academyMethod: AcademyMethod = initialState.academyMethod;
   let inverseScramble = "";
   let verifiedNissSolution = "";
   let activeRecognized: RecognizedInput | null = null;
   let tutorialPhases: TutorialPhaseRange[] = [];
   let activeAcademy: AcademyElements | null = null;
   let commentedTutorialSolution = "";
+  const savedTutorialSolutions = new Map<TutorialMethod, SavedTutorialSolution>();
   const beginnerAcademy: AcademyElements = {
     method: "beginner",
     label: "Beginner",
@@ -608,10 +613,29 @@ if (root) {
   const phaseFocusNumber = (phase: TutorialPhaseRange): number =>
     phase.method === "cfop" ? [1, 3, 5, 7][phase.number - 1] ?? phase.number : phase.number;
 
+  const updateAcademyComparison = () => {
+    const beginner = savedTutorialSolutions.get("beginner")?.solution.moveCount;
+    const cfop = savedTutorialSolutions.get("cfop")?.solution.moveCount;
+    academyComparison.hidden = beginner === undefined || cfop === undefined;
+    if (beginner === undefined || cfop === undefined) {
+      academyComparison.textContent = "";
+      return;
+    }
+    const difference = beginner - cfop;
+    const comparison = difference > 0
+      ? `CFOP saves ${difference} physical move${difference === 1 ? "" : "s"} on this state.`
+      : difference < 0
+        ? `Beginner is ${-difference} physical move${difference === -1 ? "" : "s"} shorter on this state.`
+        : "Both verified solutions use the same physical move count on this state.";
+    academyComparison.textContent = `Same-state comparison · Beginner ${beginner} · CFOP ${cfop}. ${comparison}`;
+  };
+
   const resetAcademy = () => {
     tutorialPhases = [];
     activeAcademy = null;
     commentedTutorialSolution = "";
+    savedTutorialSolutions.clear();
+    updateAcademyComparison();
     academies.forEach((academy) => {
       academy.phases.replaceChildren();
       academy.current.hidden = true;
@@ -652,6 +676,12 @@ if (root) {
     activeAcademy.phases.querySelectorAll<HTMLElement>("[data-tutorial-phase]").forEach((button) => {
       button.classList.toggle("active", Number(button.dataset.tutorialPhase) === current.number);
     });
+  };
+
+  const tutorialPhaseMoveCount = (phase: TutorialPhase): number => {
+    const expanded = MoveExecutor.expand(phase.alg) as Result<MoveStep[], unknown>;
+    if (expanded.TAG === "Error") return 0;
+    return expanded._0.filter((step) => step.move.TAG !== "Rotation").length;
   };
 
   const compatibilityLabels: Record<keyof CompatibilityResult, string> = {
@@ -1153,8 +1183,10 @@ if (root) {
     notationDialect = state.notationDialect;
     cubeStyle = state.cubeStyle;
     const turnGuidesChanged = turnGuides !== state.turnGuides;
+    const academyMethodChanged = academyMethod !== state.academyMethod;
     turnGuides = state.turnGuides;
     activeTab = state.activeTab;
+    academyMethod = state.academyMethod;
     if (input.value !== state.input) input.value = state.input;
     if (schemeSelect.value !== state.scheme) schemeSelect.value = state.scheme;
     if (customScheme.value !== state.customScheme) customScheme.value = state.customScheme;
@@ -1185,6 +1217,19 @@ if (root) {
     root.querySelectorAll<HTMLElement>("[data-workspace-panel]").forEach((panel) => {
       panel.hidden = panel.dataset.workspacePanel !== activeTab;
     });
+    root.querySelectorAll<HTMLButtonElement>("[data-academy-method]").forEach((button) => {
+      const active = button.dataset.academyMethod === academyMethod;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    root.querySelectorAll<HTMLElement>("[data-academy-method-panel]").forEach((panel) => {
+      panel.hidden = panel.dataset.academyMethodPanel !== academyMethod;
+    });
+    if (appStateApplied && academyMethodChanged) {
+      const saved = savedTutorialSolutions.get(academyMethod);
+      const academy = academyMethod === "cfop" ? cfopAcademy : beginnerAcademy;
+      if (saved) presentTutorialSolution(saved.initialState, saved.solution, academy);
+    }
     appStateApplied = true;
     if (conversionChanged) scheduleUpdate();
   };
@@ -1192,6 +1237,15 @@ if (root) {
   root.querySelectorAll<HTMLButtonElement>("[data-workspace-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       store.patch({activeTab: button.dataset.workspaceTab as ActiveTab});
+    });
+  });
+
+  root.querySelectorAll<HTMLButtonElement>("[data-academy-method]").forEach((button) => {
+    button.addEventListener("click", () => {
+      store.patch({
+        activeTab: "academy",
+        academyMethod: button.dataset.academyMethod as AcademyMethod,
+      });
     });
   });
 
@@ -1388,7 +1442,22 @@ if (root) {
       title.textContent = `Step ${phase.number}: ${phase.title}`;
       const instruction = document.createElement("span");
       instruction.textContent = phase.instruction;
-      button.append(title, instruction);
+      const moveCount = tutorialPhaseMoveCount(phase);
+      const metrics = document.createElement("span");
+      metrics.className = "academy-phase-metrics";
+      metrics.textContent = `${moveCount} physical move${moveCount === 1 ? "" : "s"}`;
+      button.dataset.phaseMoveCount = String(moveCount);
+      button.append(title, instruction, metrics);
+      if (phase.sequences && phase.sequences.length > 0) {
+        const cases = document.createElement("span");
+        cases.className = "academy-phase-cases";
+        phase.sequences.forEach((sequence, index) => {
+          const item = document.createElement("span");
+          item.textContent = `${index + 1}. ${sequence}`;
+          cases.append(item);
+        });
+        button.append(cases);
+      }
       const showPhaseFocus = () => activateTutorialFocus(button, firstFocusPieceInPhase(phase));
       button.addEventListener("mouseenter", showPhaseFocus);
       button.addEventListener("mouseleave", () => {
@@ -1408,7 +1477,12 @@ if (root) {
     academy.solution.hidden = false;
     academy.copy.disabled = false;
     academy.status.classList.remove("error");
-    academy.status.textContent = `Verified ${academy.method === "beginner" ? "beginner" : "CFOP"} solution · ${solution.moveCount} moves · ${academy.phaseCount} phases`;
+    const benchmark = academy.method === "cfop"
+      ? solution.moveCount <= 60
+        ? " · ≤60 advanced benchmark met"
+        : ` · ${solution.moveCount - 60} over the ≤60 advanced benchmark`
+      : "";
+    academy.status.textContent = `Verified ${academy.method === "beginner" ? "beginner" : "CFOP"} solution · ${solution.moveCount} moves · ${academy.phaseCount} phases${benchmark}`;
     coachingControls.hidden = false;
 
     const timeline = buildTimeline(initialState, solution.alg);
@@ -1440,6 +1514,8 @@ if (root) {
         beginnerStatus.classList.add("error");
         return;
       }
+      savedTutorialSolutions.set("beginner", {initialState, solution: result._0});
+      updateAcademyComparison();
       presentTutorialSolution(initialState, result._0, beginnerAcademy);
     }, 0);
   });
@@ -1458,6 +1534,8 @@ if (root) {
         cfopStatus.classList.add("error");
         return;
       }
+      savedTutorialSolutions.set("cfop", {initialState, solution: result._0});
+      updateAcademyComparison();
       presentTutorialSolution(initialState, result._0, cfopAcademy);
     }, 0);
   });

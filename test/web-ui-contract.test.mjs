@@ -85,11 +85,16 @@ test("the web UI exposes a state-verified 3x3 NISS helper", () => {
   assert.match(client, /MoveNiss\.describeError/);
 });
 
-test("the SPA workspace keeps one viewport beside four URL-addressable views", () => {
+test("the SPA workspace keeps one viewport beside three URL-addressable destinations", () => {
   assert.match(page, /data-workspace-tab="converter"/);
-  assert.match(page, /data-workspace-tab="beginner"/);
-  assert.match(page, /data-workspace-tab="cfop"/);
+  assert.match(page, /data-workspace-tab="academy"/);
   assert.match(page, /data-workspace-tab="workbench"/);
+  assert.doesNotMatch(page, /data-workspace-tab="(?:beginner|cfop)"/);
+  assert.match(page, /data-academy-method="beginner"/);
+  assert.match(page, /data-academy-method="cfop"/);
+  assert.match(page, /data-academy-method-panel="beginner"/);
+  assert.match(page, /data-academy-method-panel="cfop"/);
+  assert.match(page, /data-academy-comparison/);
   assert.equal((page.match(/<CubeViewport \/>/g) ?? []).length, 1);
   assert.match(page, /data-beginner-solve/);
   assert.match(page, /data-beginner-phases/);
@@ -98,6 +103,10 @@ test("the SPA workspace keeps one viewport beside four URL-addressable views", (
   assert.match(client, /CfopSolver\.solve/);
   assert.match(client, /buildTimeline\(initialState, solution\.alg\)/);
   assert.match(client, /store\.patch\(\{activeTab:/);
+  assert.match(client, /academyMethod:/);
+  assert.match(client, /tutorialPhaseMoveCount/);
+  assert.match(client, /phase\.sequences/);
+  assert.match(client, /≤60 advanced benchmark/);
 });
 
 test("practice scramble is a Quick load action rather than a transform", () => {

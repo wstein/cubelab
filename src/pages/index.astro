@@ -48,29 +48,29 @@ const cards = [
   <body>
     <main class="container" data-converter>
       <header class="site-header">
-        <span class="badge-tag">2×2×2 — 5×5×5</span>
-        <h1 class="title-gradient">Cube Rosetta</h1>
-        <p class="subtitle">Convert cube states into strict, copy-ready notation.</p>
+        <div class="brand-lockup">
+          <span class="badge-tag">2×2×2 — 5×5×5</span>
+          <div>
+            <h1 class="title-gradient">Cube Rosetta</h1>
+            <p class="subtitle">Strict cube-state conversion and interactive coaching.</p>
+          </div>
+        </div>
+        <nav class="workspace-tabs" aria-label="Cube Rosetta workspace">
+          <button type="button" class="workspace-tab active" data-workspace-tab="converter" aria-selected="true">
+            🔄 Converter
+          </button>
+          <button type="button" class="workspace-tab" data-workspace-tab="academy" aria-label="Academy" aria-selected="false">
+            🎓 Academy
+          </button>
+          <button type="button" class="workspace-tab" data-workspace-tab="workbench" aria-selected="false">
+            ⚡ Alg Workbench
+          </button>
+        </nav>
       </header>
-
-      <nav class="workspace-tabs" aria-label="Cube Rosetta workspace">
-        <button type="button" class="workspace-tab active" data-workspace-tab="converter" aria-selected="true">
-          🔄 Converter
-        </button>
-        <button type="button" class="workspace-tab" data-workspace-tab="beginner" aria-selected="false">
-          🎓 Beginner Academy
-        </button>
-        <button type="button" class="workspace-tab" data-workspace-tab="cfop" aria-selected="false">
-          🧩 CFOP Academy
-        </button>
-        <button type="button" class="workspace-tab" data-workspace-tab="workbench" aria-selected="false">
-          ⚡ Alg Workbench
-        </button>
-      </nav>
 
       <section class="studio">
         <div class="studio-controls">
-      <section class="toolbar" aria-label="Converter settings">
+      <section class="toolbar compact-toolbar" aria-label="Converter settings">
         <div class="toolbar-group">
           <span class="panel-label">Puzzle size</span>
           <div class="segmented-control" data-size-control>
@@ -259,60 +259,68 @@ const cards = [
         <div class="error-banner" data-error role="alert" hidden></div>
       </section>
 
-      <section class="academy-panel" data-workspace-panel="beginner" aria-labelledby="academy-title" hidden>
-        <header class="feature-header">
+      <section class="academy-panel" data-workspace-panel="academy" aria-labelledby="academy-title" hidden>
+        <header class="academy-workspace-header">
           <div>
-            <span class="panel-label">Seven-step Layer-by-Layer method</span>
-            <h2 id="academy-title">Beginner Academy</h2>
+            <span class="panel-label">Guided, replay-verified solving</span>
+            <h2 id="academy-title">Academy</h2>
           </div>
-          <button type="button" class="academy-solve-btn" data-beginner-solve disabled>
-            Teach me this solution
-          </button>
+          <div class="academy-method-switch" role="group" aria-label="Academy method">
+            <button type="button" class="academy-method active" data-academy-method="beginner" aria-pressed="true">
+              <strong>🐣 Beginner</strong><span>LBL · 7 phases</span>
+            </button>
+            <button type="button" class="academy-method" data-academy-method="cfop" aria-pressed="false">
+              <strong>⚡ Advanced</strong><span>CFOP · 4 phases</span>
+            </button>
+          </div>
         </header>
-        <p class="academy-intro">
-          Enter any valid 3×3 state or scramble above. The solver places white on the
-          bottom, verifies all seven phase goals, and loads the result into the persistent
-          tape player.
-        </p>
-        <div class="academy-status" data-beginner-status aria-live="polite">
-          Enter a valid 3×3 state to begin.
-        </div>
-        <div class="academy-current" data-beginner-current hidden></div>
-        <div class="academy-phases" data-beginner-phases></div>
-        <div class="academy-solution-actions">
-          <button type="button" class="transform-btn" data-beginner-copy disabled>
-            Copy commented solution
-          </button>
-        </div>
-        <pre class="academy-solution" data-beginner-solution hidden></pre>
-      </section>
+        <div class="academy-comparison" data-academy-comparison aria-live="polite" hidden></div>
 
-      <section class="academy-panel" data-workspace-panel="cfop" aria-labelledby="cfop-academy-title" hidden>
-        <header class="feature-header">
-          <div>
-            <span class="panel-label">Four-stage, pair-first two-look CFOP</span>
-            <h2 id="cfop-academy-title">CFOP Academy</h2>
+        <div data-academy-method-panel="beginner">
+          <header class="feature-header academy-method-header">
+            <div>
+              <span class="panel-label">Seven-step Layer-by-Layer method</span>
+              <h3>Beginner Academy</h3>
+            </div>
+            <button type="button" class="academy-solve-btn" data-beginner-solve disabled>
+              Teach me this solution
+            </button>
+          </header>
+          <p class="academy-intro">
+            Build piece intuition through seven approachable stages. The solver verifies every
+            phase goal and loads the exact result into the persistent tape player.
+          </p>
+          <div class="academy-status" data-beginner-status aria-live="polite">Enter a valid 3×3 state to begin.</div>
+          <div class="academy-current" data-beginner-current hidden></div>
+          <div class="academy-phases" data-beginner-phases></div>
+          <div class="academy-solution-actions">
+            <button type="button" class="transform-btn" data-beginner-copy disabled>Copy commented solution</button>
           </div>
-          <button type="button" class="academy-solve-btn" data-cfop-solve disabled>
-            Teach me CFOP
-          </button>
-        </header>
-        <p class="academy-intro">
-          Plan a white-bottom Cross, solve four recognized corner-edge pairs while preserving
-          completed slots, then finish with explicit two-look OLL and PLL cases. Every phase is
-          replayed and verified before the tutorial is shown.
-        </p>
-        <div class="academy-status" data-cfop-status aria-live="polite">
-          Enter a valid 3×3 state to begin.
+          <pre class="academy-solution" data-beginner-solution hidden></pre>
         </div>
-        <div class="academy-current" data-cfop-current hidden></div>
-        <div class="academy-phases" data-cfop-phases></div>
-        <div class="academy-solution-actions">
-          <button type="button" class="transform-btn" data-cfop-copy disabled>
-            Copy commented CFOP solution
-          </button>
+
+        <div data-academy-method-panel="cfop" hidden>
+          <header class="feature-header academy-method-header">
+            <div>
+              <span class="panel-label">Pair-first, two-look CFOP</span>
+              <h3>Advanced CFOP Academy</h3>
+            </div>
+            <button type="button" class="academy-solve-btn" data-cfop-solve disabled>Teach me CFOP</button>
+          </header>
+          <p class="academy-intro">
+            Plan a direct white-bottom Cross, solve four recognized corner-edge pairs while
+            preserving completed slots, then finish with explicit two-look OLL and PLL cases.
+            The advanced benchmark is ≤60 physical moves; the measured, replay-verified result
+            is reported without promising the target in advance.
+          </p>
+          <div class="academy-status" data-cfop-status aria-live="polite">Enter a valid 3×3 state to begin.</div>
+          <div class="academy-current" data-cfop-current hidden></div>
+          <div class="academy-phases" data-cfop-phases></div>
+          <div class="academy-solution-actions">
+            <button type="button" class="transform-btn" data-cfop-copy disabled>Copy commented CFOP solution</button>
+          </div>
+          <pre class="academy-solution" data-cfop-solution hidden></pre>
         </div>
-        <pre class="academy-solution" data-cfop-solution hidden></pre>
       </section>
 
       <section class="outputs-grid" data-workspace-panel="converter" aria-label="Converted state formats">
