@@ -337,6 +337,18 @@ test("plays, steps, and seeks an expanded algorithm timeline", async ({page}) =>
   await expect(position).toHaveText("Move 1 of 1");
 });
 
+test("shows only a 2× repeat marker on half-turn guides", async ({page}) => {
+  await page.goto("/");
+  await page.locator("[data-input]").fill("D F2");
+  const overlay = page.locator("[data-motion-overlay]");
+  const moves = page.locator("[data-move-ribbon] .move-token");
+
+  await moves.nth(0).hover();
+  await expect(overlay).not.toHaveAttribute("data-turn-repeat", /.+/);
+  await moves.nth(1).hover();
+  await expect(overlay).toHaveAttribute("data-turn-repeat", "2×");
+});
+
 test("supports keyboard playback, sequence navigation, and camera reset", async ({page}) => {
   await page.goto("/");
   await page.locator("[data-input]").fill("(R U) (F D)");

@@ -5,11 +5,11 @@ import {
   cubieFaceOutline,
   cubieSurfaceAnchor,
   cubieIsFrontFacing,
-  motionLabel,
   pieceColourLabel,
   projectPoint,
   surfaceFacingScore,
   turnSurfaceArrowPaths,
+  turnRepeatIndicator,
 } from "../../src/client/motion-overlay";
 
 describe("projected motion overlay math", () => {
@@ -49,7 +49,9 @@ describe("projected motion overlay math", () => {
     expect(Math.max(...surfaceArrows.map(({normal, points}) =>
       surfaceFacingScore(normal, points[Math.floor(points.length / 2)], matrices.modelView)
     ))).toBeGreaterThan(0);
-    expect(motionLabel("L2", left)).toBe("L2 · 180°");
+    expect(turnRepeatIndicator(left)).toBe("2×");
+    expect(turnRepeatIndicator({...left, turns: 1})).toBeNull();
+    expect(turnRepeatIndicator({...left, turns: 3})).toBeNull();
   });
 
   test("names focused pieces using the active colour scheme", () => {

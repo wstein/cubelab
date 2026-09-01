@@ -138,11 +138,9 @@ export const turnSurfaceArrowPaths = (
   });
 };
 
-export const motionLabel = (notation: string, step: MoveStep): string => {
+export const turnRepeatIndicator = (step: MoveStep): string | null => {
   const turns = ((step.turns % 4) + 4) % 4;
-  const angle = turns === 2 ? "180°" : "90°";
-  if (step.move.TAG !== "FaceTurn" || turns === 2) return `${notation} · ${angle}`;
-  return `${notation} · ${angle} ${turns === 3 ? "CCW" : "CW"}`;
+  return turns === 2 ? "2×" : null;
 };
 
 export const pieceColourLabel = (piece: string, palette: "Western" | "Japanese"): string => {

@@ -2,11 +2,11 @@ import * as CubeGeometry from "../Render/CubeGeometry.res.mjs";
 import {
   cubieFaceOutline,
   cubieSurfaceAnchor,
-  motionLabel,
   pieceColourLabel,
   projectPoint,
   surfaceFacingScore,
   turnSurfaceArrowPaths,
+  turnRepeatIndicator,
   type ProjectedPoint,
 } from "./motion-overlay";
 
@@ -675,6 +675,39 @@ export const createCubeViewport = (
     context.restore();
   };
 
+  const drawRepeatIndicator = (
+    context: CanvasRenderingContext2D,
+    text: string,
+    x: number,
+    y: number,
+    dpr: number,
+    tone: "normal" | "recovery" = "normal",
+  ) => {
+    context.save();
+    context.font = `800 ${19 * dpr}px ui-sans-serif, system-ui, sans-serif`;
+    const paddingX = 10 * dpr;
+    const height = 34 * dpr;
+    const width = Math.max(height, context.measureText(text).width + paddingX * 2);
+    const left = Math.max(6 * dpr, Math.min(overlayCanvas.width - width - 6 * dpr, x - width / 2));
+    const top = Math.max(6 * dpr, Math.min(overlayCanvas.height - height - 6 * dpr, y - height / 2));
+    const colour = tone === "recovery" ? "#fde68a" : "#cffafe";
+    context.fillStyle = "rgba(8, 15, 30, 0.94)";
+    context.strokeStyle = colour;
+    context.lineWidth = 2 * dpr;
+    context.shadowColor = tone === "recovery" ? "rgba(245, 158, 11, 0.7)" : "rgba(34, 211, 238, 0.7)";
+    context.shadowBlur = 10 * dpr;
+    context.beginPath();
+    context.roundRect(left, top, width, height, 10 * dpr);
+    context.fill();
+    context.stroke();
+    context.shadowBlur = 0;
+    context.fillStyle = colour;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(text, left + width / 2, top + height / 2);
+    context.restore();
+  };
+
   const drawMotionOverlay = (
     matrices: {modelView: Mat4; projection: Mat4},
     width: number,
@@ -901,7 +934,8 @@ export const createCubeViewport = (
         });
         overlay.restore();
 
-        if (allProjectedFaces.length > 0) {
+        const repeatIndicator = turnRepeatIndicator(turnGuide.step);
+        if (repeatIndicator && allProjectedFaces.length > 0) {
           const primaryPath = allProjectedFaces[0];
           const anchor = primaryPath[Math.floor(primaryPath.length * 0.5)];
           const first = primaryPath[0];
@@ -917,13 +951,12 @@ export const createCubeViewport = (
           }
           const badgeX = anchor.x + normalX * 42 * dpr;
           const badgeY = anchor.y + normalY * 42 * dpr;
-          drawBadge(
+          drawRepeatIndicator(
             overlay,
-            motionLabel(turnGuide.label, turnGuide.step),
+            repeatIndicator,
             badgeX,
             badgeY,
             dpr,
-            false,
             recovery ? "recovery" : "normal",
           );
         }
@@ -1293,9 +1326,13 @@ export const createCubeViewport = (
       if (nextGuide) {
         overlayCanvas.dataset.turnGuide = nextGuide.label;
         overlayCanvas.dataset.turnGuideTone = nextGuide.tone ?? "normal";
+        const repeat = turnRepeatIndicator(nextGuide.step);
+        if (repeat) overlayCanvas.dataset.turnRepeat = repeat;
+        else delete overlayCanvas.dataset.turnRepeat;
       } else {
         delete overlayCanvas.dataset.turnGuide;
         delete overlayCanvas.dataset.turnGuideTone;
+        delete overlayCanvas.dataset.turnRepeat;
       }
       requestRender();
     },
