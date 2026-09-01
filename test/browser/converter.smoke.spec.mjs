@@ -211,9 +211,9 @@ test("plays internal pauses without changing the canonical cube state", async ({
   const facelets = page.locator('[data-output="facelets"]');
 
   await input.fill("R . U /* inspection */");
-  await expect(page.locator("[data-move-ribbon] .move-token")).toHaveCount(3);
-  await expect(page.locator("[data-move-ribbon] .move-token.pause")).toHaveText("│");
-  await expect(page.locator("[data-move-ribbon] .move-token.pause")).toHaveAttribute("title", "Pause");
+  await expect(page.locator("[data-move-ribbon] .move-token")).toHaveCount(2);
+  await expect(page.locator("[data-move-ribbon] .timeline-gap")).toHaveCount(1);
+  await expect(page.locator("[data-move-ribbon] .move-token.pause")).toHaveCount(0);
   await page.getByRole("button", {name: "Jump to start"}).click();
   await page.getByRole("button", {name: "Next move"}).click();
   await expect(position).toHaveText("Step 1 of 3");
@@ -224,12 +224,8 @@ test("plays internal pauses without changing the canonical cube state", async ({
   await expect(page.locator('[data-compatibility-profile="cubingJs"]')).toContainText("×");
 
   await input.fill("R @1.3s U");
-  await expect(page.locator("[data-move-ribbon] .move-token")).toHaveCount(3);
-  await expect(page.locator("[data-move-ribbon] .move-token.pause")).toHaveText("│");
-  await expect(page.locator("[data-move-ribbon] .move-token.pause")).toHaveAttribute(
-    "title",
-    "Pause for 1.3 seconds",
-  );
+  await expect(page.locator("[data-move-ribbon] .move-token")).toHaveCount(2);
+  await expect(page.locator("[data-move-ribbon] .timeline-gap.step-gap")).toHaveCount(1);
   await expect(page.locator('[data-compatibility-profile="cubingJs"]')).toContainText("✓");
 });
 
@@ -338,14 +334,9 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
     "aria-label",
     /^Algorithm sequence purpose: .+$/,
   );
-  await expect(page.locator("[data-move-ribbon] .move-token.pause").first()).toHaveText("│");
-  await expect(page.locator("[data-move-ribbon] .move-token.pause").first()).toHaveAttribute(
-    "title",
-    "Pause for 0.5 seconds",
-  );
-  await expect(
-    page.locator('[data-move-ribbon] .move-token.pause[title="Pause for 1.2 seconds"]').first(),
-  ).toBeVisible();
+  await expect(page.locator("[data-move-ribbon] .move-token.pause")).toHaveCount(0);
+  await expect(page.locator("[data-move-ribbon] .timeline-gap.sequence-gap").first()).toBeVisible();
+  await expect(page.locator("[data-move-ribbon] .timeline-gap.step-gap").first()).toBeVisible();
 
   await page.getByRole("button", {name: "Next move"}).click();
   await expect(page.locator("[data-beginner-current]")).toContainText("Step 1: White Cross");

@@ -327,19 +327,18 @@ body {
   box-shadow: 0 0 10px var(--accent-glow);
 }
 
-.move-token.pause {
-  min-width: 0.75rem;
-  padding-inline: 0.1rem;
-  background: transparent;
-  border-color: transparent;
-  color: var(--text-secondary);
-  font-style: normal;
-  font-weight: 700;
+.timeline-gap {
+  flex: 0 0 auto;
+  align-self: stretch;
+  min-height: 1px;
 }
 
-.move-token.pause.active {
-  background: rgba(99, 102, 241, 0.16);
-  border-color: rgba(129, 140, 248, 0.45);
+.timeline-gap.sequence-gap {
+  width: 0.2rem;
+}
+
+.timeline-gap.step-gap {
+  width: 0.65rem;
 }
 
 .playback-scrubber {

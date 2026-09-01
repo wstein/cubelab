@@ -435,23 +435,25 @@ if (root) {
             moveRibbon.append(groupContainer);
           }
         }
+        const isPause = entry.step === undefined;
+        if (groupContainer) {
+          groupEntries.push(entry);
+        }
+        if (isPause) {
+          const gap = document.createElement("span");
+          gap.className = entry.durationMs !== undefined && entry.durationMs >= 1_000
+            ? "timeline-gap step-gap"
+            : "timeline-gap sequence-gap";
+          gap.setAttribute("aria-hidden", "true");
+          (groupContainer ?? moveRibbon).append(gap);
+          return;
+        }
         const button = document.createElement("button");
         button.type = "button";
         button.className = "move-token";
         button.textContent = label;
-        const isPause = entry.step === undefined;
-        button.classList.toggle("pause", isPause);
         button.dataset.moveIndex = String(index + 1);
-        const description = isPause
-          ? entry.durationMs === undefined
-            ? "Pause"
-            : `Pause for ${entry.durationMs / 1000} seconds`
-          : label;
-        button.setAttribute("aria-label", `Go to step ${index + 1}: ${description}`);
-        if (isPause) button.title = description;
-        if (groupContainer) {
-          groupEntries.push(entry);
-        }
+        button.setAttribute("aria-label", `Go to step ${index + 1}: ${label}`);
         (groupContainer ?? moveRibbon).append(button);
       });
       finishGroup();

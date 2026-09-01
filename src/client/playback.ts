@@ -142,7 +142,7 @@ export const buildTimeline = (
       labels: playbackEntries.map((entry) =>
         entry.step
           ? formatStep(entry.step)
-          : "│"
+          : ""
       ),
       states,
     },

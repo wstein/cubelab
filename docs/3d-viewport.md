@@ -86,10 +86,10 @@ panels. Client-side tab changes only toggle the left-hand view, preserving the W
 context, camera, geometry buffers, and current tape position.
 
 Duration annotations such as `@1.3s` are distinct state-neutral timeline steps. The
-ribbon renders pauses as narrow `│` separators instead of exposing editor syntax in the
-visual tape; the exact duration remains available through the separator's tooltip and
-accessible label. The transport waits for that duration divided by the selected
-playback-speed multiplier, while a dot pause retains the short default wait.
+ribbon does not render pause tokens or editor syntax; it leaves a narrow gap for a short
+sequence pause and a slightly wider gap for a step pause. The transport still waits for
+the exact duration divided by the selected playback-speed multiplier, while a dot pause
+retains the short default wait.
 Parenthesized AST groups are retained during expansion and displayed as bordered move
 clusters, including a distinct cluster for every repetition. In Beginner Academy,
 hovering a cluster explains its teaching purpose—such as aligning a middle-layer edge,

@@ -106,8 +106,10 @@ test("emits seven truthful beginner phases and replay-verifies the final state",
       assert.notEqual(unit.desc.TAG, "Move", "teaching moves must belong to a grouped sequence");
       if (unit.desc.TAG === "Group") {
         assert.equal(phase.alg[unitIndex + 1]?.desc.TAG, "TimedPause");
-        assert.equal(phase.alg[unitIndex + 1]?.desc._0, 0.5);
+        const endsPhase = index < solution.phases.length - 1 && unitIndex + 1 === phase.alg.length - 1;
+        assert.equal(phase.alg[unitIndex + 1]?.desc._0, endsPhase ? 1.2 : 0.5);
       }
+      if (unit.desc.TAG === "TimedPause") assert.notEqual(phase.alg[unitIndex + 1]?.desc.TAG, "TimedPause");
     });
     if (index < solution.phases.length - 1) {
       assert.equal(phase.alg.at(-1).desc.TAG, "TimedPause");

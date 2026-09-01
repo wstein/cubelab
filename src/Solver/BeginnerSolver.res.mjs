@@ -943,11 +943,21 @@ function solve(input) {
     };
     for (let index = 0, index_finish = phases.length - 2 | 0; index <= index_finish; ++index) {
       let currentPhase = phases[index];
+      let phaseAlg = currentPhase.alg.map(unit => unit);
+      if (phaseAlg.length !== 0) {
+        let last = phaseAlg[phaseAlg.length - 1 | 0];
+        let seconds = last.desc;
+        if (typeof seconds === "object" && seconds.TAG === "TimedPause") {
+          if (seconds._0 === 0.5) {
+            phaseAlg.pop();
+          }
+        }
+      }
       phases[index] = {
         number: currentPhase.number,
         title: currentPhase.title,
         instruction: currentPhase.instruction,
-        alg: currentPhase.alg.concat([{
+        alg: phaseAlg.concat([{
             desc: {
               TAG: "TimedPause",
               _0: 1.2

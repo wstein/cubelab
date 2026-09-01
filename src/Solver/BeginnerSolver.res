@@ -622,9 +622,17 @@ let solve = (input: cubeState): result<solution, solverError> => {
     }
     for index in 0 to phases->Array.length - 2 {
       let currentPhase = Belt.Array.getUnsafe(phases, index)
+      let phaseAlg = currentPhase.alg->Array.map(unit => unit)
+      if phaseAlg->Array.length > 0 {
+        let last = Belt.Array.getUnsafe(phaseAlg, phaseAlg->Array.length - 1)
+        switch last.desc {
+        | TimedPause(seconds) if seconds == 0.5 => phaseAlg->Array.pop->ignore
+        | _ => ()
+        }
+      }
       phases[index] = {
         ...currentPhase,
-        alg: currentPhase.alg->Array.concat([located(TimedPause(1.2))]),
+        alg: phaseAlg->Array.concat([located(TimedPause(1.2))]),
       }
     }
     let annotated =
