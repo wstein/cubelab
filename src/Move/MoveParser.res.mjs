@@ -52,6 +52,12 @@ function skipTrivia(parser) {
     if (match !== undefined) {
       let exit = 0;
       switch (match) {
+        case "#" :
+          consumed = true;
+          while (parser.cursor < parser.input.length && Primitive_object.notequal(peek(parser), "\n")) {
+            parser.cursor = parser.cursor + 1 | 0;
+          };
+          break;
         case "/" :
           if (parser.input.startsWith("//", parser.cursor)) {
             consumed = true;
@@ -147,18 +153,51 @@ function parseSuffix(parser, allowZero) {
   }
 }
 
-function parseCompositeSuffix(parser, allowZero) {
-  let whitespaceStart = parser.cursor;
+function skipSpaces(parser) {
+  let start = parser.cursor;
   while (Primitive_object.equal(peek(parser), " ")) {
     parser.cursor = parser.cursor + 1 | 0;
   };
+  return parser.cursor - start | 0;
+}
+
+function parseCompositeSuffix(parser, allowZero) {
+  let whitespaceStart = parser.cursor;
+  skipSpaces(parser);
   let character = peek(parser);
-  if (character !== undefined && (isDigit(character) || character === "'")) {
-    return parseSuffix(parser, allowZero);
-  } else {
-    parser.cursor = whitespaceStart;
-    return parseSuffix(parser, allowZero);
+  if (character !== undefined) {
+    if (isDigit(character) || character === "'") {
+      return parseSuffix(parser, allowZero);
+    }
+    switch (character) {
+      case "*" :
+      case "^" :
+        break;
+      case "x" :
+        parser.cursor = parser.cursor + 1 | 0;
+        let spaces = skipSpaces(parser);
+        let character$1 = peek(parser);
+        if (character$1 !== undefined && spaces > 0 && isDigit(character$1)) {
+          return parseSuffix(parser, allowZero);
+        } else {
+          parser.cursor = whitespaceStart;
+          return parseSuffix(parser, allowZero);
+        }
+      default:
+        parser.cursor = whitespaceStart;
+        return parseSuffix(parser, allowZero);
+    }
+    parser.cursor = parser.cursor + 1 | 0;
+    skipSpaces(parser);
+    let character$2 = peek(parser);
+    if (character$2 !== undefined && isDigit(character$2)) {
+      return parseSuffix(parser, allowZero);
+    } else {
+      return fail(parser, "A repeat multiplier requires a positive integer.", whitespaceStart, undefined);
+    }
   }
+  parser.cursor = whitespaceStart;
+  return parseSuffix(parser, allowZero);
 }
 
 function faceFromCharacter(character) {
@@ -442,18 +481,30 @@ function tryInformalRotation(parser, open_, close_) {
   };
 }
 
+function isOpeningDelimiter(character) {
+  return "([{<".includes(character);
+}
+
+function startsWithDelimiter(parser, unit) {
+  return Stdlib_Option.mapOr(Stdlib_Option.map(parser.input[unit.loc.start], prim => String(prim)), false, isOpeningDelimiter);
+}
+
 function parseSequence(parser, stops) {
   let items = [];
   let first = true;
+  let previousDelimited = false;
   let done_ = false;
   while (!done_) {
     let separated = skipTrivia(parser);
     let character = peek(parser);
     if (character !== undefined && !stops.includes(character)) {
-      if (!first && !separated) {
+      let nextDelimited = Stdlib_Option.mapOr(peek(parser), false, isOpeningDelimiter);
+      if (!first && !separated && !previousDelimited && !nextDelimited) {
         fail(parser, "Moves in a sequence must be separated by whitespace.", undefined, undefined);
       }
-      items.push(parseUnit(parser));
+      let unit = parseUnit(parser);
+      items.push(unit);
+      previousDelimited = startsWithDelimiter(parser, unit);
       first = false;
     } else {
       done_ = true;
@@ -611,7 +662,11 @@ function parseWithOptions(size, lowercaseMode, notationDialect, input) {
     depth: 0
   };
   try {
-    let units = parseSequence(parser, "");
+    let units = parseSequence(parser, ".;");
+    skipTrivia(parser);
+    while (Primitive_object.equal(peek(parser), ".") || Primitive_object.equal(peek(parser), ";")) {
+      parser.cursor = parser.cursor + 1 | 0;
+    };
     skipTrivia(parser);
     if (parser.cursor !== parser.input.length) {
       fail(parser, "Unexpected trailing input.", undefined, undefined);
@@ -649,12 +704,15 @@ export {
   skipTrivia,
   parsePositiveInt,
   parseSuffix,
+  skipSpaces,
   parseCompositeSuffix,
   faceFromCharacter,
   validateRange,
   parseBaseMove,
   rotationForFamily,
   tryInformalRotation,
+  isOpeningDelimiter,
+  startsWithDelimiter,
   parseSequence,
   parseNested,
   parseBracket,

@@ -50,6 +50,12 @@ let skipTrivia = parser => {
           parser.cursor = parser.cursor + 1
         }
       }
+    | Some("#") => {
+        consumed := true
+        while parser.cursor < parser.input->String.length && peek(parser) != Some("\n") {
+          parser.cursor = parser.cursor + 1
+        }
+      }
     | Some("@") => {
         consumed := true
         let scanning = ref(true)
@@ -115,13 +121,39 @@ let parseSuffix = (parser, ~allowZero: bool) => {
   }
 }
 
-let parseCompositeSuffix = (parser, ~allowZero: bool) => {
-  let whitespaceStart = parser.cursor
+let skipSpaces = parser => {
+  let start = parser.cursor
   while peek(parser) == Some(" ") {
     parser.cursor = parser.cursor + 1
   }
+  parser.cursor - start
+}
+
+let parseCompositeSuffix = (parser, ~allowZero: bool) => {
+  let whitespaceStart = parser.cursor
+  skipSpaces(parser)->ignore
   switch peek(parser) {
   | Some(character) if isDigit(character) || character == "'" => parseSuffix(parser, ~allowZero)
+  | Some("*" | "^") => {
+      parser.cursor = parser.cursor + 1
+      skipSpaces(parser)->ignore
+      switch peek(parser) {
+      | Some(character) if isDigit(character) => parseSuffix(parser, ~allowZero)
+      | _ =>
+        fail(parser, "A repeat multiplier requires a positive integer.", ~start=whitespaceStart)
+      }
+    }
+  | Some("x") => {
+      parser.cursor = parser.cursor + 1
+      let spaces = skipSpaces(parser)
+      switch peek(parser) {
+      | Some(character) if spaces > 0 && isDigit(character) => parseSuffix(parser, ~allowZero)
+      | _ => {
+          parser.cursor = whitespaceStart
+          parseSuffix(parser, ~allowZero)
+        }
+      }
+    }
   | _ => {
       parser.cursor = whitespaceStart
       parseSuffix(parser, ~allowZero)
@@ -302,9 +334,18 @@ let tryInformalRotation = (parser, open_, close_) => {
   }
 }
 
+let isOpeningDelimiter = character => "([{<"->String.includes(character)
+
+let startsWithDelimiter = (parser, unit: locatedUnit) =>
+  parser.input
+  ->String.get(unit.loc.start)
+  ->Option.map(String.make)
+  ->Option.mapOr(false, isOpeningDelimiter)
+
 let rec parseSequence = (parser, ~stops: string): array<locatedUnit> => {
   let items = []
   let first = ref(true)
+  let previousDelimited = ref(false)
   let done_ = ref(false)
   while !done_.contents {
     let separated = skipTrivia(parser)
@@ -312,10 +353,13 @@ let rec parseSequence = (parser, ~stops: string): array<locatedUnit> => {
     | None => done_ := true
     | Some(character) if stops->String.includes(character) => done_ := true
     | Some(_) => {
-        if !first.contents && !separated {
+        let nextDelimited = peek(parser)->Option.mapOr(false, isOpeningDelimiter)
+        if !first.contents && !separated && !previousDelimited.contents && !nextDelimited {
           fail(parser, "Moves in a sequence must be separated by whitespace.")
         }
-        items->Array.push(parseUnit(parser))
+        let unit = parseUnit(parser)
+        items->Array.push(unit)
+        previousDelimited := startsWithDelimiter(parser, unit)
         first := false
       }
     }
@@ -412,7 +456,11 @@ let parseWithOptions = (
       depth: 0,
     }
     try {
-      let units = parseSequence(parser, ~stops="")
+      let units = parseSequence(parser, ~stops=".;")
+      skipTrivia(parser)->ignore
+      while peek(parser) == Some(".") || peek(parser) == Some(";") {
+        parser.cursor = parser.cursor + 1
+      }
       skipTrivia(parser)->ignore
       if parser.cursor != parser.input->String.length {
         fail(parser, "Unexpected trailing input.")

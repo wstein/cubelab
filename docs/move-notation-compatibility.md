@@ -49,9 +49,10 @@ cube base moves include:
 - ranged layer moves such as `2-3Rw`;
 - groups, commutators, conjugates, nesting, and composite suffixes.
 
-Cube Rosetta implements this core grammar with puzzle-aware bounds. It requires
-whitespace between adjacent moves and restricts `M/E/S` to 3×3 because a single middle
-layer is not unique on an even cube.
+Cube Rosetta implements this core grammar with puzzle-aware bounds. Adjacent bare moves
+require whitespace; self-delimiting bracket units may touch, as in `[R,U][D,L]` or
+`R(U R')`. It restricts `M/E/S` to 3×3 because a single middle layer is not unique on
+an even cube.
 
 Bare lowercase face moves use modern SiGN semantics by default, so `r` is `Rw`. For
 4×4 and 5×5 source material, users may explicitly select legacy inner-slice mode, where
@@ -65,7 +66,11 @@ rewrite them explicitly instead.
   diagnostic offsets still refer to the pasted input.
 - Unicode Ruwix face subscripts `₂` through `₅` are reordered into SiGN prefixes without
   changing token length, so `F₂'` becomes `2F'` and retains the same source span.
-- `// comment` and `@1.53s` reconstruction annotations are ignored during execution.
+- `// comment`, `# comment`, and `@1.53s` reconstruction annotations are ignored during
+  execution.
+- Composite repetitions also accept explicit `*`, `^`, or spaced `x` markers, such as
+  `(R U)*6`, `(R U)^6`, and `(R U) x 6`. A terminal sentence `.` or `;` is ignored only
+  at the end of complete input; an internal `.` is not treated as a cubing.js pause.
 - Historical rotation spellings `[r]`, `{u'}`, and `<f>2` are accepted. They are not
   current WCA notation; `x/y/z` should be preferred for portable algorithms.
 

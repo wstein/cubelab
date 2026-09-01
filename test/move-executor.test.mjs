@@ -50,6 +50,13 @@ test("groups, commutators, and conjugates execute their algebraic identities", (
   assert.equal(compact(3, "[R, U]'"), compact(3, "[U, R]"));
 });
 
+test("resilient composite spellings preserve exact execution semantics", () => {
+  assert.equal(compact(3, "(R U)*6"), compact(3, "(R U)6"));
+  assert.equal(compact(3, "(R U) x 6"), compact(3, "(R U)^6"));
+  assert.equal(compact(3, "[R,U][D,L]"), compact(3, "[R, U] [D, L]"));
+  assert.equal(compact(3, "R U'. # copied prose"), compact(3, "R U'"));
+});
+
 test("wide, slice, inner-layer, and rotation moves are internally consistent", () => {
   assert.equal(compact(3, "Rw"), compact(3, "R M'"));
   assert.equal(compact(3, "M M M M"), solved(3));

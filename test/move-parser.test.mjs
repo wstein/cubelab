@@ -75,6 +75,34 @@ test("parses nested groups, commutators, conjugates, and composite suffixes", ()
   assert.equal(units[2].desc._2, 2);
 });
 
+test("accepts self-delimiting units without artificial whitespace", () => {
+  const adjacent = parse(3, "(M2 E2 S2)(R L) [R,U][D,L] (R U)R' R(U R')");
+  assert.deepEqual(adjacent.map((unit) => unit.desc.TAG), [
+    "Group",
+    "Group",
+    "Commutator",
+    "Commutator",
+    "Group",
+    "Move",
+    "Move",
+    "Group",
+  ]);
+  rejects(3, "RUR", /separated by whitespace/);
+});
+
+test("accepts explicit composite multiplier symbols and flexible operator spacing", () => {
+  for (const notation of ["(R U)*6", "(R U) * 6", "(R U)^6", "(R U) x 6"]) {
+    const unit = parse(3, notation)[0];
+    assert.equal(unit.desc.TAG, "Group");
+    assert.equal(unit.desc._1, 6);
+  }
+  for (const notation of ["[R,U]", "[R , U]", "[R:U]", "[R : U]"]) {
+    assert.equal(parse(3, notation).length, 1);
+  }
+  assert.equal(parse(3, "(R)x2").at(-1).desc._0.TAG, "Rotation");
+  rejects(3, "(R)*", /requires a positive integer/);
+});
+
 test("keeps modern suffix turns distinct from explicit Ruwix layer suffixes", () => {
   const modern = parse(5, "F2'")[0];
   assert.deepEqual(modern.desc._0._1, {from_: 1, to_: 1});
@@ -106,11 +134,17 @@ test("keeps parenthesized r as a wide-move group and accepts bracket rotations",
 });
 
 test("comments and timing annotations separate units without changing spans", () => {
-  const units = parse(3, "R// reconstruction\nU @1.53s R’");
-  assert.equal(units.length, 3);
+  const units = parse(3, "R// reconstruction\nU # second line\nF @1.53s R’");
+  assert.equal(units.length, 4);
   assert.deepEqual(units[0].loc, {start: 0, end_: 1});
-  assert.equal(units[2].desc._1, -1);
-  assert.equal(units[2].loc.end_ - units[2].loc.start, 2);
+  assert.equal(units[3].desc._1, -1);
+  assert.equal(units[3].loc.end_ - units[3].loc.start, 2);
+});
+
+test("strips only sentence punctuation at the end of complete input", () => {
+  assert.equal(parse(3, "R U'.;").length, 2);
+  assert.equal(parse(3, "R U; # copied sentence").length, 2);
+  rejects(3, "R.U", /Unexpected trailing input/);
 });
 
 test("rejects unsupported dimensions, invalid ranges, and malformed grammar with spans", () => {

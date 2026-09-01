@@ -109,6 +109,9 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await expect(page.locator("[data-status]")).toHaveText("Algorithm · SiGN");
   await expect(page.locator('[data-output="pieces"]')).toContainText("cp: 3 0 1 2");
   await expect(page.locator('[data-output="orbit64"]')).toHaveText("AcIufRZj-AAA");
+  await input.fill("(M2 E2 S2)(R L) # adjacent groups");
+  await expect(page.locator("[data-status]")).toHaveText("Algorithm · SiGN");
+  await expect(page.locator("[data-move-ribbon] .move-token")).toHaveCount(5);
   expect(pageErrors).toEqual([]);
 });
 
