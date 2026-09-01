@@ -14,8 +14,9 @@ small set of reconstruction conveniences: Unicode prime/dash/space normalization
 Compatibility is not universal across cube sites because several use local extensions
 or older meanings for the same token. In particular, modern SiGN uses lowercase `r` as
 a two-layer wide move (`Rw`), while CubeDB's optional old-notation mode and some Ruwix
-4×4 material use `r` for the single inner layer (`2R`). Cube Rosetta intentionally does
-not guess between these contradictory meanings.
+4×4 material use `r` for the single inner layer (`2R`). Cube Rosetta never guesses
+between these contradictory meanings. Modern SiGN is the default; users can explicitly
+select legacy inner-slice semantics for 4×4 and 5×5 input.
 
 ## Implemented standards and syntax
 
@@ -47,6 +48,12 @@ Cube Rosetta implements this core grammar with puzzle-aware bounds. It requires
 whitespace between adjacent moves and restricts `M/E/S` to 3×3 because a single middle
 layer is not unique on an even cube.
 
+Bare lowercase face moves use modern SiGN semantics by default, so `r` is `Rw`. For
+4×4 and 5×5 source material, users may explicitly select legacy inner-slice mode, where
+bare `r` is `2R`. Explicit uppercase tokens (`Rw`, `3Rw`, `2R`, and `2-2Rw`) have the
+same meaning in both modes. Prefixed lowercase tokens are rejected in legacy mode;
+rewrite them explicitly instead.
+
 ### Project extensions
 
 - Common typographic primes, dashes, brackets, and whitespace normalize one-for-one so
@@ -68,20 +75,23 @@ site.
 | [SpeedCubeDB](https://speedcubedb.com/p/4x4/OLLParity) | Community SiGN-like algorithms for multiple cube sizes | Partial | Some 4×4 pages use `M`; Cube Rosetta rejects `M/E/S` outside 3×3 because even cubes have no unique middle slice. |
 | [alg.cubing.net](https://alg.cubing.net/) | Its [bundled parser identifies itself as SiGNw](https://github.com/cubing/alg.cubing.net/blob/main/src/alg.cubing.net/twisty.js/alg/README.md) plus editor nodes | Core covered | A pause `.`, `/* block comments */`, and preserved newline/editor nodes are not implemented. `//` comments and `@…s` timestamps are covered. |
 | [Twizzle / cubing.js](https://js.cubing.net/cubing/alg/) | LGN-derived general algorithm AST | Core cube grammar covered | The parser's [pause and experimental caret-NISS syntax](https://github.com/cubing/cubing.js/blob/main/src/cubing/alg/parseAlg.ts) (`.`, `^(U L)`) are not implemented. Puzzle-specific Square-1, Clock, and Megaminx moves are outside Cube Rosetta's NxN scope. |
-| [CubeDB](https://cubedb.net/) | cubing.js-style algorithms with an optional “old notation (`r = 2R`)” mode | Partial and intentionally ambiguous | Old lowercase inner-slice notation conflicts with modern SiGN, where `r = Rw`. Use explicit `2R` or `Rw` before pasting. |
+| [CubeDB](https://cubedb.net/) | cubing.js-style algorithms with an optional “old notation (`r = 2R`)” mode | Covered with an explicit setting | Select legacy inner-slice mode for old-notation algorithms; modern SiGN remains the default. |
 | [Ruwix / Roofpig widget](https://ruwix.com/widget/3d/) | Standard cube moves plus Roofpig extensions | Partial | Camera rotations (`R>`, `R>>`), combined moves (`F'+B`), and aliases such as superscript `²` or `Z` are not implemented. |
-| [Ruwix 4×4 algorithms](https://ruwix.com/twisty-puzzles/4x4x4-rubiks-cube-rubiks-revenge/4x4-cube-patterns/) | Legacy lowercase inner-slice notation on 4×4 | Semantically incompatible | The page defines `r` as the inner right layer; Cube Rosetta follows modern SiGN and reads `r` as the outer two layers. |
+| [Ruwix 4×4 algorithms](https://ruwix.com/twisty-puzzles/4x4x4-rubiks-cube-rubiks-revenge/4x4-cube-patterns/) | Legacy lowercase inner-slice notation on 4×4 | Covered with an explicit setting | Select legacy inner-slice mode; in the default modern mode, `r` remains the outer two-layer block. |
 | [Ruwix notation guide](https://ruwix.com/the-rubiks-cube/notation/) | Documents common and legacy alternatives | Partial | `Fi`/`Ri` inverse suffixes and the rare lowercase-means-inverse dialect are not implemented because they conflict with modern lowercase-wide notation. |
 
 ## Uncovered syntax, ranked
 
-### 1. Ambiguous legacy lowercase notation — do not auto-detect
+### 1. Ambiguous legacy lowercase notation — explicit mode only
 
 - Examples: old `r = 2R`, or lowercase `r` meaning inverse `R'`.
 - Sites: CubeDB old-notation mode and Ruwix documentation.
 - Risk: high. The same text is a valid modern SiGN wide move with a different state.
-- Safe interoperability rule: rewrite inner slices explicitly as `2R` and wide turns as
-  `Rw`. A future legacy mode must be an explicit user choice, never a sniffer heuristic.
+- Implemented rule: modern SiGN is the default, and the 4×4/5×5 legacy interpretation
+  requires an explicit user choice. Cube Rosetta may warn about mixed syntax but never
+  switches modes heuristically.
+- Portable interoperability rule: rewrite inner slices explicitly as `2R` and wide
+  turns as `Rw`; explicit notation does not depend on the selected mode.
 
 ### 2. Even-cube `M/E/S` semantics — requires a declared convention
 

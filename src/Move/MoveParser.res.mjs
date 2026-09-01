@@ -217,17 +217,21 @@ function parseBaseMove(parser) {
       if (face === undefined) {
         return fail(parser, "Unknown move family '" + family + "'.", start, parser.cursor);
       }
-      let lowerWide = family >= "a" && family <= "z";
+      let lowercase = family >= "a" && family <= "z";
       let explicitWide = Primitive_object.equal(peek(parser), "w");
       if (explicitWide) {
         parser.cursor = parser.cursor + 1 | 0;
       }
-      let wide = lowerWide || explicitWide || rangeEnd !== undefined;
+      let lowercaseIsInner = lowercase && parser.size >= 4 && parser.lowercaseMode === "InnerSlice";
+      if (lowercaseIsInner && (first !== undefined || rangeEnd !== undefined || explicitWide)) {
+        fail(parser, "Legacy lowercase inner-slice moves cannot have a layer prefix or 'w'; use explicit uppercase notation.", start, parser.cursor);
+      }
+      let wide = lowercase && !lowercaseIsInner || explicitWide || rangeEnd !== undefined;
       let range;
       let exit$1 = 0;
       if (first !== undefined) {
         if (rangeEnd !== undefined) {
-          if (wide) {
+          if (wide && !lowercaseIsInner) {
             range = {
               from_: first,
               to_: rangeEnd
@@ -235,20 +239,37 @@ function parseBaseMove(parser) {
           } else {
             exit$1 = 3;
           }
-        } else {
-          range = wide ? ({
+        } else if (wide) {
+          if (lowercaseIsInner) {
+            exit$1 = 3;
+          } else {
+            range = {
               from_: 1,
               to_: first
-            }) : ({
-              from_: first,
-              to_: first
-            });
+            };
+          }
+        } else if (lowercaseIsInner) {
+          exit$1 = 3;
+        } else {
+          range = {
+            from_: first,
+            to_: first
+          };
         }
       } else if (rangeEnd !== undefined) {
         exit$1 = 3;
-      } else {
-        range = wide ? ({
+      } else if (wide) {
+        if (lowercaseIsInner) {
+          exit$1 = 3;
+        } else {
+          range = {
             from_: 1,
+            to_: 2
+          };
+        }
+      } else {
+        range = lowercaseIsInner ? ({
+            from_: 2,
             to_: 2
           }) : ({
             from_: 1,
@@ -533,7 +554,7 @@ function parseUnit(parser) {
   }
 }
 
-function parse(size, input) {
+function parseWithLowercaseMode(size, lowercaseMode, input) {
   if (size < 2 || size > 5) {
     return {
       TAG: "Error",
@@ -549,6 +570,7 @@ function parse(size, input) {
   let parser = {
     input: MoveNormalizer.normalize(input),
     size: size,
+    lowercaseMode: lowercaseMode,
     cursor: 0,
     depth: 0
   };
@@ -574,6 +596,10 @@ function parse(size, input) {
   }
 }
 
+function parse(size, input) {
+  return parseWithLowercaseMode(size, "Wide", input);
+}
+
 export {
   ParseFailure,
   fail,
@@ -592,6 +618,7 @@ export {
   parseNested,
   parseBracket,
   parseUnit,
+  parseWithLowercaseMode,
   parse,
 }
 /* No side effect */

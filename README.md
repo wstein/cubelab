@@ -40,6 +40,12 @@ turn between 2 and `N-1` layers. See the
 [sourced site and dialect compatibility report](docs/move-notation-compatibility.md)
 for standards, known site-specific extensions, and unsupported ambiguous notation.
 
+Lowercase face moves follow modern SiGN by default: `r` means the outer two-layer
+block `Rw`. On 4×4 and 5×5, the web interface can explicitly select the legacy
+inner-slice dialect, where bare `r` means `2R`. This mode never changes explicit
+uppercase notation such as `Rw`, `3Rw`, or `2R`. Cube Rosetta never guesses a dialect
+from the input.
+
 The geometry executor applies the parsed AST to a solved or supplied canonical state.
 It supports 2×2×2 through 5×5×5 outer, inner, wide, and whole-cube moves, plus 3×3×3
 `M/E/S`. Composite notation is expanded with a 100,000-move safety limit. Sticker

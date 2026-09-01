@@ -10,6 +10,12 @@ const parse = (size, input) => {
   return result._0;
 };
 
+const parseWithLowercaseMode = (size, lowercaseMode, input) => {
+  const result = MoveParser.parseWithLowercaseMode(size, lowercaseMode, input);
+  assert.equal(result.TAG, "Ok", result._0?.message);
+  return result._0;
+};
+
 const rejects = (size, input, message) => {
   const result = MoveParser.parse(size, input);
   assert.equal(result.TAG, "Error");
@@ -33,6 +39,22 @@ test("parses face, wide, range, slice, and rotation moves with signed repeats", 
 
   const slices = parse(3, "M E' S2");
   assert.deepEqual(slices.map((unit) => unit.desc._0.TAG), ["SliceTurn", "SliceTurn", "SliceTurn"]);
+});
+
+test("lowercase mode explicitly selects modern wide or legacy inner-layer semantics", () => {
+  const modern = parseWithLowercaseMode(4, "Wide", "r")[0];
+  const legacy = parseWithLowercaseMode(4, "InnerSlice", "r")[0];
+  assert.deepEqual(modern.desc._0._1, {from_: 1, to_: 2});
+  assert.deepEqual(legacy.desc._0._1, {from_: 2, to_: 2});
+
+  const explicitWide = parseWithLowercaseMode(4, "InnerSlice", "Rw")[0];
+  assert.deepEqual(explicitWide.desc._0._1, {from_: 1, to_: 2});
+  const threeByThree = parseWithLowercaseMode(3, "InnerSlice", "r")[0];
+  assert.deepEqual(threeByThree.desc._0._1, {from_: 1, to_: 2});
+
+  const prefixed = MoveParser.parseWithLowercaseMode(5, "InnerSlice", "3r");
+  assert.equal(prefixed.TAG, "Error");
+  assert.match(prefixed._0.message, /cannot have a layer prefix/);
 });
 
 test("parses nested groups, commutators, conjugates, and composite suffixes", () => {

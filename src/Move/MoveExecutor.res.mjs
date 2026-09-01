@@ -537,8 +537,8 @@ function applyAlg(state, alg) {
   }
 }
 
-function parseAndApply(size, input) {
-  let error = MoveParser.parse(size, input);
+function parseAndApplyWithLowercaseMode(size, lowercaseMode, input) {
+  let error = MoveParser.parseWithLowercaseMode(size, lowercaseMode, input);
   if (error.TAG !== "Ok") {
     return {
       TAG: "Error",
@@ -573,6 +573,10 @@ function parseAndApply(size, input) {
   }
 }
 
+function parseAndApply(size, input) {
+  return parseAndApplyWithLowercaseMode(size, "Wide", input);
+}
+
 let maxExpandedMoves = 100000;
 
 export {
@@ -598,6 +602,7 @@ export {
   expand,
   validateState,
   applyAlg,
+  parseAndApplyWithLowercaseMode,
   parseAndApply,
 }
 /* No side effect */

@@ -3,6 +3,7 @@ open MoveTypes
 type parser = {
   input: string,
   size: int,
+  lowercaseMode: lowercaseMode,
   mutable cursor: int,
   mutable depth: int,
 }
@@ -189,18 +190,28 @@ let parseBaseMove = parser => {
     switch faceFromCharacter(family) {
     | None => fail(parser, "Unknown move family '" ++ family ++ "'.", ~start, ~end_=parser.cursor)
     | Some(face) => {
-        let lowerWide = family >= "a" && family <= "z"
+        let lowercase = family >= "a" && family <= "z"
         let explicitWide = peek(parser) == Some("w")
         if explicitWide {
           parser.cursor = parser.cursor + 1
         }
-        let wide = lowerWide || explicitWide || rangeEnd != None
-        let range = switch (first, rangeEnd, wide) {
-        | (Some(from_), Some(to_), true) => {from_, to_}
-        | (Some(to_), None, true) => {from_: 1, to_}
-        | (None, None, true) => {from_: 1, to_: 2}
-        | (Some(layer), None, false) => {from_: layer, to_: layer}
-        | (None, None, false) => {from_: 1, to_: 1}
+        let lowercaseIsInner = lowercase && parser.size >= 4 && parser.lowercaseMode == InnerSlice
+        if lowercaseIsInner && (first != None || rangeEnd != None || explicitWide) {
+          fail(
+            parser,
+            "Legacy lowercase inner-slice moves cannot have a layer prefix or 'w'; use explicit uppercase notation.",
+            ~start,
+            ~end_=parser.cursor,
+          )
+        }
+        let wide = (lowercase && !lowercaseIsInner) || explicitWide || rangeEnd != None
+        let range = switch (first, rangeEnd, wide, lowercaseIsInner) {
+        | (None, None, false, true) => {from_: 2, to_: 2}
+        | (Some(from_), Some(to_), true, false) => {from_, to_}
+        | (Some(to_), None, true, false) => {from_: 1, to_}
+        | (None, None, true, false) => {from_: 1, to_: 2}
+        | (Some(layer), None, false, false) => {from_: layer, to_: layer}
+        | (None, None, false, false) => {from_: 1, to_: 1}
         | _ => fail(parser, "Invalid layer-range move.", ~start, ~end_=parser.cursor)
         }
         validateRange(parser, range, ~wide, ~explicitRange=rangeEnd != None, ~start)
@@ -349,11 +360,14 @@ and parseUnit = parser => {
   }
 }
 
-let parse = (~size: int, input: string): result<alg, parseError> => {
+let parseWithLowercaseMode = (~size: int, ~lowercaseMode: lowercaseMode, input: string): result<
+  alg,
+  parseError,
+> => {
   if size < 2 || size > 5 {
     Error({message: "Cube size must be between 2 and 5.", loc: {start: 0, end_: 0}})
   } else {
-    let parser = {input: MoveNormalizer.normalize(input), size, cursor: 0, depth: 0}
+    let parser = {input: MoveNormalizer.normalize(input), size, lowercaseMode, cursor: 0, depth: 0}
     try {
       let units = parseSequence(parser, ~stops="")
       skipTrivia(parser)->ignore
@@ -366,3 +380,6 @@ let parse = (~size: int, input: string): result<alg, parseError> => {
     }
   }
 }
+
+let parse = (~size: int, input: string): result<alg, parseError> =>
+  parseWithLowercaseMode(~size, ~lowercaseMode=Wide, input)

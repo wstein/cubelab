@@ -326,8 +326,12 @@ let applyAlg = (state: StateTypes.cubeState, alg: alg): result<
     }
   }
 
-let parseAndApply = (~size: int, input: string): result<StateTypes.cubeState, string> =>
-  switch MoveParser.parse(~size, input) {
+let parseAndApplyWithLowercaseMode = (
+  ~size: int,
+  ~lowercaseMode: lowercaseMode,
+  input: string,
+): result<StateTypes.cubeState, string> =>
+  switch MoveParser.parseWithLowercaseMode(~size, ~lowercaseMode, input) {
   | Error(error) => Error(error.message)
   | Ok(alg) =>
     switch StateTypes.solved(size) {
@@ -341,3 +345,6 @@ let parseAndApply = (~size: int, input: string): result<StateTypes.cubeState, st
       }
     }
   }
+
+let parseAndApply = (~size: int, input: string): result<StateTypes.cubeState, string> =>
+  parseAndApplyWithLowercaseMode(~size, ~lowercaseMode=Wide, input)

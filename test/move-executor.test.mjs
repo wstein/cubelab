@@ -12,6 +12,12 @@ const apply = (size, algorithm) => {
   return result._0;
 };
 
+const applyWithLowercaseMode = (size, lowercaseMode, algorithm) => {
+  const result = MoveExecutor.parseAndApplyWithLowercaseMode(size, lowercaseMode, algorithm);
+  assert.equal(result.TAG, "Ok", result._0);
+  return result._0;
+};
+
 const compact = (size, algorithm) => FaceletCodec.render(apply(size, algorithm));
 const solved = (size) => FaceletCodec.render(StateTypes.solved(size)._0);
 
@@ -50,6 +56,22 @@ test("wide, slice, inner-layer, and rotation moves are internally consistent", (
   assert.equal(compact(4, "2-3Rw 2-3Rw'"), solved(4));
   assert.equal(compact(5, "2R 2R' 3Fw 3Fw'"), solved(5));
   assert.equal(compact(3, "x x x x y y y y z z z z"), solved(3));
+});
+
+test("legacy lowercase mode is explicit and leaves unambiguous notation unchanged", () => {
+  assert.equal(compact(4, "r"), compact(4, "Rw"));
+  assert.equal(
+    FaceletCodec.render(applyWithLowercaseMode(4, "InnerSlice", "r")),
+    compact(4, "2R"),
+  );
+  assert.equal(
+    FaceletCodec.render(applyWithLowercaseMode(5, "InnerSlice", "Rw")),
+    compact(5, "Rw"),
+  );
+  assert.notEqual(
+    FaceletCodec.render(applyWithLowercaseMode(4, "InnerSlice", "r")),
+    compact(4, "r"),
+  );
 });
 
 test("slice turns and rotations carry centre stickers through their geometric layers", () => {

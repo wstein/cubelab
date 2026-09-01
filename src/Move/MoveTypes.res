@@ -13,6 +13,10 @@ type slice =
   | E
   | S
 
+type lowercaseMode =
+  | Wide
+  | InnerSlice
+
 type layerRange = {
   from_: int,
   to_: int,
