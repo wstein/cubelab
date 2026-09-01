@@ -45,6 +45,16 @@ let suffix = turns => {
   }
 }
 
+let canonicalTurns = turns => {
+  let normalized = (turns % 4 + 4) % 4
+  switch normalized {
+  | 0 => 0
+  | 1 => 1
+  | 2 => 2
+  | _ => -1
+  }
+}
+
 let serializeMove = (move, turns) => {
   let family = switch move {
   | FaceTurn(face, range) => {
@@ -64,7 +74,7 @@ let serializeMove = (move, turns) => {
   | SliceTurn(slice) => sliceName(slice)
   | Rotation(axis) => axisName(axis)
   }
-  family ++ suffix(turns)
+  family ++ suffix(canonicalTurns(turns))
 }
 
 let rec serializeUnit = unit =>
@@ -117,16 +127,6 @@ let moveAxis = move =>
     }
   | Rotation(axis) => axis
   }
-
-let canonicalTurns = turns => {
-  let normalized = (turns % 4 + 4) % 4
-  switch normalized {
-  | 0 => 0
-  | 1 => 1
-  | 2 => 2
-  | _ => -1
-  }
-}
 
 let flushRun = (output: array<locatedUnit>, run: array<MoveExecutor.step>) => {
   run->Array.forEach(step => {

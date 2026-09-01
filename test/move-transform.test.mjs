@@ -32,6 +32,7 @@ test("inverts structured algorithms without flattening them", () => {
   const inverse = serialize(MoveTransform.invert(parse(3, source)));
   assert.equal(inverse, "/* finish */ . (U D)2' [F, R]' U' R'");
   assert.equal(compact(3, `${source} ${inverse}`), compact(3, ""));
+  assert.equal(serialize(MoveTransform.invert(parse(3, "F2 R5"))), "R' F2");
 });
 
 test("simplifies same-axis runs and preserves editor boundaries", () => {

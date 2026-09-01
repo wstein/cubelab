@@ -68,6 +68,15 @@ function suffix(turns) {
   }
 }
 
+function canonicalTurns(turns) {
+  let normalized = (turns % 4 + 4 | 0) % 4;
+  if (normalized > 2 || normalized < 0) {
+    return -1;
+  } else {
+    return normalized;
+  }
+}
+
 function serializeMove(move, turns) {
   let family;
   switch (move.TAG) {
@@ -89,7 +98,7 @@ function serializeMove(move, turns) {
       family = axisName(move._0);
       break;
   }
-  return family + suffix(turns);
+  return family + suffix(canonicalTurns(turns));
 }
 
 function serializeUnit(unit) {
@@ -199,15 +208,6 @@ function moveAxis(move) {
       }
     case "Rotation" :
       return move._0;
-  }
-}
-
-function canonicalTurns(turns) {
-  let normalized = (turns % 4 + 4 | 0) % 4;
-  if (normalized > 2 || normalized < 0) {
-    return -1;
-  } else {
-    return normalized;
   }
 }
 
@@ -840,13 +840,13 @@ export {
   sliceName,
   axisName,
   suffix,
+  canonicalTurns,
   serializeMove,
   serializeUnit,
   serialize,
   invertUnit,
   invert,
   moveAxis,
-  canonicalTurns,
   flushRun,
   addToRun,
   simplify,
