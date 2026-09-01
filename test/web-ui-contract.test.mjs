@@ -95,12 +95,16 @@ test("the SPA workspace keeps one viewport beside three URL-addressable destinat
   assert.match(page, /data-academy-method="beginnerCfop"/);
   assert.match(page, /data-academy-method="fullCfop"/);
   assert.match(page, /data-academy-method="advancedCfop"/);
+  assert.match(page, /data-academy-method="petrus"/);
+  assert.match(page, /data-academy-method="enhancedPetrus"/);
   assert.match(page, /57 OLL \+ 21 PLL/);
   assert.match(page, /data-academy-method-panel="beginner"/);
   assert.match(page, /data-academy-method-panel="advancedLbl"/);
   assert.match(page, /data-academy-method-panel="beginnerCfop"/);
   assert.match(page, /data-academy-method-panel="fullCfop"/);
   assert.match(page, /data-academy-method-panel="advancedCfop"/);
+  assert.match(page, /data-academy-method-panel="petrus"/);
+  assert.match(page, /data-academy-method-panel="enhancedPetrus"/);
   assert.doesNotMatch(page, /solver not enabled yet/);
   assert.match(page, /data-academy-comparison/);
   assert.equal((page.match(/<CubeViewport \/>/g) ?? []).length, 1);
@@ -113,6 +117,8 @@ test("the SPA workspace keeps one viewport beside three URL-addressable destinat
   assert.match(client, /CfopSolver\.solveBeginner/);
   assert.match(client, /CfopSolver\.solveAdvancedLbl/);
   assert.match(client, /CfopSolver\.solveFull/);
+  assert.match(client, /PetrusSolver\.solveClassical/);
+  assert.match(client, /PetrusSolver\.solveEnhanced/);
   assert.match(client, /CfopSolver\.solveAdvanced/);
   assert.match(client, /buildTimeline\(initialState, solution\.alg\)/);
   assert.match(client, /store\.patch\(\{activeTab:/);
@@ -160,6 +166,7 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(viewportComponent, /data-smart-cube-status/);
   assert.match(viewportComponent, /data-smart-cube-battery/);
   assert.match(viewportComponent, /data-smart-cube-sync/);
+  assert.match(viewportComponent, /data-smart-cube-reset-state/);
   assert.match(viewportComponent, /data-smart-cube-orientation/);
   assert.match(viewportComponent, /data-smart-cube-disconnect/);
   assert.match(viewportComponent, /data-smart-cube-sound/);
@@ -177,6 +184,7 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /store\.patch\(\{size: 3, input: facelets\}\)/);
   assert.match(client, /if \(smartCubeStateSyncPending\)/);
   assert.match(client, /await smartCubeManager\.refresh\(\)/);
+  assert.match(client, /await smartCubeManager\.resetCubeState\(\)/);
   assert.match(client, /macAddressProvider: async \(device, isFallbackCall\)/);
   assert.match(client, /if \(!isFallbackCall\) return null/);
   assert.match(client, /enable-experimental-web-platform-features/);

@@ -4,7 +4,14 @@ export type SchemeName = "Western" | "Japanese" | "Custom";
 export type LowercaseMode = "Wide" | "InnerSlice";
 export type NotationDialect = "Modern" | "Ruwix";
 export type ActiveTab = "converter" | "academy" | "workbench";
-export type AcademyMethod = "beginner" | "advancedLbl" | "beginnerCfop" | "fullCfop" | "advancedCfop";
+export type AcademyMethod =
+  | "beginner"
+  | "advancedLbl"
+  | "beginnerCfop"
+  | "fullCfop"
+  | "advancedCfop"
+  | "petrus"
+  | "enhancedPetrus";
 
 export type AppState = {
   size: number;
@@ -93,7 +100,12 @@ export const readHash = (hash: string): AppState => {
       ? "workbench"
     : "converter";
   const requestedMethod = params.get("method");
-  const academyMethod: AcademyMethod = requestedMethod === "advancedLbl"
+  const academyMethod: AcademyMethod = requestedMethod === "petrus"
+      || requestedMethod === "classicalPetrus"
+      ? "petrus"
+      : requestedMethod === "enhancedPetrus" || requestedMethod === "modernPetrus"
+        ? "enhancedPetrus"
+      : requestedMethod === "advancedLbl"
       ? "advancedLbl"
       : requestedMethod === "beginnerCfop"
       || requestedMethod === "intermediate"

@@ -19,7 +19,14 @@ export type TutorialGroupContext = {
   number: number;
   title: string;
   instruction: string;
-  method?: "beginner" | "advancedLbl" | "beginnerCfop" | "fullCfop" | "advancedCfop";
+  method?:
+    | "beginner"
+    | "advancedLbl"
+    | "beginnerCfop"
+    | "fullCfop"
+    | "advancedCfop"
+    | "petrus"
+    | "enhancedPetrus";
   start?: number;
   sequences?: string[];
 };
@@ -163,6 +170,20 @@ export const describeTimelineGroup = (
 ): string => {
   const moves = entries.flatMap((entry) => entry.step ? [entry.step] : []);
   const onlyRotations = moves.length > 0 && moves.every((step) => step.move.TAG === "Rotation");
+  if (phase?.method === "petrus" || phase?.method === "enhancedPetrus") {
+    if (onlyRotations) return "Set the DBL Petrus working block while preserving the fixed cube frame.";
+    switch (phase.number) {
+      case 1: return "Connect a DBL anchor piece to the growing 2×2×2 block.";
+      case 2: return "Extend the connected block into the complete 2×2×3 left slab.";
+      case 3: return "Reorient the bad-edge set without breaking the 2×2×3 block.";
+      case 4: return "Advance the remaining F2L wing using only physical R and U turns.";
+      case 5: return phase.method === "enhancedPetrus"
+        ? "Execute the EO-preserving COLL and EPLL finish."
+        : "Orient the last-layer corners while the edge cross remains solved.";
+      case 6: return "Permute the last-layer corners while preserving oriented edges.";
+      case 7: return "Finish the final EPLL edge cycle.";
+    }
+  }
   if (
     phase?.method === "beginnerCfop"
     || phase?.method === "fullCfop"

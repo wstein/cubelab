@@ -282,6 +282,12 @@ const cards = [
               <button type="button" class="academy-method" data-academy-method="advancedCfop" aria-pressed="false">
                 <strong>🚀 Advanced CFOP</strong><span>Ranked Cross + F2L</span>
               </button>
+              <button type="button" class="academy-method" data-academy-method="petrus" aria-pressed="false">
+                <strong>🧩 Classical Petrus</strong><span>7 block-building phases</span>
+              </button>
+              <button type="button" class="academy-method" data-academy-method="enhancedPetrus" aria-pressed="false">
+                <strong>🏆 Enhanced Petrus</strong><span>5 phases · COLL/EPLL</span>
+              </button>
             </div>
             <button type="button" class="academy-solve-btn academy-shared-action" data-academy-solve disabled>
               Generate verified solution
@@ -392,6 +398,48 @@ const cards = [
             <button type="button" class="transform-btn" data-advanced-cfop-copy disabled>Copy commented CFOP solution</button>
           </div>
           <pre class="academy-solution" data-advanced-cfop-solution hidden></pre>
+        </div>
+
+        <div data-academy-method-panel="petrus" hidden>
+          <header class="feature-header academy-method-header">
+            <div>
+              <span class="panel-label">Connected blocks, edge orientation, two-generator finish</span>
+              <h3>Classical Petrus Academy</h3>
+            </div>
+          </header>
+          <p class="academy-intro">
+            Build a DBL 2×2×2 block, expand it into a 2×2×3 left slab, orient every bad edge,
+            and finish F2L using only physical R and U turns. The last layer is taught as
+            separate OCLL, CPLL, and EPLL phases, with every boundary replay-verified.
+          </p>
+          <div class="academy-status" data-petrus-status aria-live="polite">Enter a valid 3×3 state to begin.</div>
+          <div class="academy-current" data-petrus-current hidden></div>
+          <div class="academy-phases" data-petrus-phases></div>
+          <div class="academy-solution-actions">
+            <button type="button" class="transform-btn" data-petrus-copy disabled>Copy commented Petrus solution</button>
+          </div>
+          <pre class="academy-solution" data-petrus-solution hidden></pre>
+        </div>
+
+        <div data-academy-method-panel="enhancedPetrus" hidden>
+          <header class="feature-header academy-method-header">
+            <div>
+              <span class="panel-label">Modern Petrus with an EO-preserving last-layer finish</span>
+              <h3>Enhanced Petrus Academy</h3>
+            </div>
+          </header>
+          <p class="academy-intro">
+            Keep the same block-building and bad-edge foundation, then combine last-layer
+            corner orientation and permutation into a COLL teaching sequence before the final
+            EPLL. The measured move count is reported from exact replay rather than promised.
+          </p>
+          <div class="academy-status" data-enhanced-petrus-status aria-live="polite">Enter a valid 3×3 state to begin.</div>
+          <div class="academy-current" data-enhanced-petrus-current hidden></div>
+          <div class="academy-phases" data-enhanced-petrus-phases></div>
+          <div class="academy-solution-actions">
+            <button type="button" class="transform-btn" data-enhanced-petrus-copy disabled>Copy commented Enhanced Petrus solution</button>
+          </div>
+          <pre class="academy-solution" data-enhanced-petrus-solution hidden></pre>
         </div>
 
       </section>

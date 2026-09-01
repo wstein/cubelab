@@ -267,6 +267,7 @@ body {
 }
 
 .smart-cube-sync,
+.smart-cube-reset-state,
 .smart-cube-reroute,
 .smart-cube-orientation,
 .smart-cube-disconnect {
@@ -1138,7 +1139,7 @@ body {
 .academy-method-switch {
   display: grid;
   flex: 1 1 auto;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
   gap: 0.4rem;
   padding: 0.25rem;
   background: rgba(0, 0, 0, 0.22);

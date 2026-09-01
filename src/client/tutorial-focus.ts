@@ -76,6 +76,8 @@ const geometryPosition = (size: number, position: GridPosition): [number, number
 };
 
 const contains = (piece: string, colour: Face): boolean => piece.includes(colour);
+const petrus222Pieces = new Set(["FLU", "FU", "LU", "FL"]);
+const petrus223Pieces = new Set(["FLU", "BLU", "FU", "LU", "BU", "FL", "BL"]);
 const candidatesForPhase = (all: Cubie[], phaseNumber: number): Cubie[] => all.filter((cubie) => {
   const corner = cubie.stickers.length === 3;
   switch (phaseNumber) {
@@ -88,6 +90,14 @@ const candidatesForPhase = (all: Cubie[], phaseNumber: number): Cubie[] => all.f
     case 5:
     case 6:
       return corner && contains(cubie.piece, "D");
+    case 8: return petrus222Pieces.has(cubie.piece);
+    case 9: return petrus223Pieces.has(cubie.piece);
+    case 10: return !corner;
+    case 11: return !contains(cubie.piece, "D");
+    case 12:
+    case 13:
+      return corner && contains(cubie.piece, "D");
+    case 14: return !corner && contains(cubie.piece, "D");
     default:
       return false;
   }
@@ -172,6 +182,13 @@ export const phaseMilestonePositions = (
       case 5: return yellow;
       case 6: return corner && yellow;
       case 7: return true;
+      case 8: return petrus222Pieces.has(cubie.piece);
+      case 9: return petrus223Pieces.has(cubie.piece);
+      case 10: return !corner;
+      case 11: return !yellow;
+      case 12:
+      case 13: return corner && yellow;
+      case 14: return !corner && yellow;
       default: return false;
     }
   }).map(({position}) => geometryPosition(state.size, position));

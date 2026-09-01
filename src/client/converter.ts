@@ -11,6 +11,7 @@ import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as BeginnerSolver from "../Solver/BeginnerSolver.res.mjs";
 import * as CfopSolver from "../Solver/CfopSolver.res.mjs";
+import * as PetrusSolver from "../Solver/PetrusSolver.res.mjs";
 import {
   createCubeViewport,
   focusCameraTarget,
@@ -171,6 +172,7 @@ if (root) {
   const smartCubeReroute = root.querySelector<HTMLButtonElement>("[data-smart-cube-reroute]")!;
   const smartCubeSound = root.querySelector<HTMLButtonElement>("[data-smart-cube-sound]")!;
   const smartCubeSync = root.querySelector<HTMLButtonElement>("[data-smart-cube-sync]")!;
+  const smartCubeResetState = root.querySelector<HTMLButtonElement>("[data-smart-cube-reset-state]")!;
   const smartCubeOrientation = root.querySelector<HTMLButtonElement>("[data-smart-cube-orientation]")!;
   const smartCubeDisconnect = root.querySelector<HTMLButtonElement>("[data-smart-cube-disconnect]")!;
   const initialState = readHash(window.location.hash);
@@ -220,17 +222,33 @@ if (root) {
     phaseCount: 4,
     ...academyDom("advanced-cfop"),
   };
+  const petrusAcademy: AcademyElements = {
+    method: "petrus",
+    label: "Classical Petrus",
+    phaseCount: 7,
+    ...academyDom("petrus"),
+  };
+  const enhancedPetrusAcademy: AcademyElements = {
+    method: "enhancedPetrus",
+    label: "Enhanced Petrus",
+    phaseCount: 5,
+    ...academyDom("enhanced-petrus"),
+  };
   const academies = [
     beginnerAcademy,
     advancedLblAcademy,
     beginnerCfopAcademy,
     fullCfopAcademy,
     advancedCfopAcademy,
+    petrusAcademy,
+    enhancedPetrusAcademy,
   ];
   const academyForMethod = (method: TutorialMethod): AcademyElements =>
     academies.find((academy) => academy.method === method) ?? beginnerAcademy;
   const isCfopMethod = (method: TutorialMethod): boolean =>
     method === "beginnerCfop" || method === "fullCfop" || method === "advancedCfop";
+  const isPetrusMethod = (method: TutorialMethod): boolean =>
+    method === "petrus" || method === "enhancedPetrus";
   const viewport = createCubeViewport(canvas, motionOverlay, (message) => {
     viewportFallback.textContent = `${message} Text conversions remain fully functional.`;
     viewportFallback.hidden = false;
@@ -689,8 +707,14 @@ if (root) {
     return selectPhasePiece(activeTimeline.states[phase.start], phaseFocusNumber(phase));
   };
 
-  const phaseFocusNumber = (phase: TutorialPhaseRange): number =>
-    isCfopMethod(phase.method) ? [1, 3, 5, 7][phase.number - 1] ?? phase.number : phase.number;
+  const phaseFocusNumber = (phase: TutorialPhaseRange): number => {
+    if (isCfopMethod(phase.method)) return [1, 3, 5, 7][phase.number - 1] ?? phase.number;
+    if (isPetrusMethod(phase.method)) {
+      if (phase.method === "enhancedPetrus" && phase.number === 5) return 12;
+      return [8, 9, 10, 11, 12, 13, 14][phase.number - 1] ?? phase.number;
+    }
+    return phase.number;
+  };
 
   const updateAcademyComparison = () => {
     const compared = academies.flatMap((academy) => {
@@ -1591,8 +1615,11 @@ if (root) {
       smartCubeStatus.textContent = `${connectionState.device.brandName} · ${connectionState.device.name} · Live sync`;
       const supportsOrientation = connectionState.device.capabilities.orientation;
       const supportsFacelets = connectionState.device.capabilities.facelets;
+      const supportsReset = connectionState.device.capabilities.reset;
       smartCubeSync.hidden = !supportsFacelets;
       smartCubeSync.disabled = !supportsFacelets;
+      smartCubeResetState.hidden = !supportsReset;
+      smartCubeResetState.disabled = !supportsReset;
       if (!wasConnected && supportsFacelets) smartCubeStateSyncPending = true;
       smartCubeOrientation.hidden = !supportsOrientation;
       smartCubeOrientation.disabled = !supportsOrientation;
@@ -1601,6 +1628,7 @@ if (root) {
     } else {
       smartCubeLedFeedback = false;
       smartCubeSync.hidden = true;
+      smartCubeResetState.hidden = true;
       smartCubeOrientation.hidden = true;
       smartCubeBattery.hidden = true;
       if (connectionState.phase !== "connecting") {
@@ -2060,7 +2088,10 @@ if (root) {
       button.dataset.tutorialPhase = String(phase.number);
       button.dataset.tutorialPhaseStart = String(phase.start);
       button.dataset.tutorialPhaseEnd = String(phase.end);
-      if (!isCfopMethod(academy.method)) {
+      if (isPetrusMethod(academy.method)) {
+        button.dataset.petrusPhase = String(phase.number);
+        button.dataset.petrusPhaseStart = String(phase.start);
+      } else if (!isCfopMethod(academy.method)) {
         button.dataset.beginnerPhase = String(phase.number);
         button.dataset.beginnerPhaseStart = String(phase.start);
       } else {
@@ -2100,7 +2131,12 @@ if (root) {
     });
     commentedTutorialSolution = solution.phases.map((phase) => {
       const moves = MoveTransform.serialize(phase.alg);
-      return `// ${isCfopMethod(academy.method) ? "CFOP" : "STEP"} ${phase.number}: ${phase.title}\n// ${phase.instruction}\n${moves || "// Already complete"}`;
+      const family = isCfopMethod(academy.method)
+        ? "CFOP"
+        : isPetrusMethod(academy.method)
+          ? "PETRUS"
+          : "STEP";
+      return `// ${family} ${phase.number}: ${phase.title}\n// ${phase.instruction}\n${moves || "// Already complete"}`;
     }).join("\n\n");
     academy.solution.textContent = commentedTutorialSolution;
     academy.solution.hidden = false;
@@ -2150,20 +2186,23 @@ if (root) {
       ? "Building and replay-verifying the seven beginner phases…"
       : `Building and replay-verifying the ${academy.phaseCount} ${academy.label} phases…`;
     window.setTimeout(() => {
-      const result = (method === "beginner"
-        ? BeginnerSolver.solve(initialState)
-        : method === "advancedLbl"
-          ? CfopSolver.solveAdvancedLbl(initialState)
-          : method === "beginnerCfop"
-            ? CfopSolver.solveBeginner(initialState)
-            : method === "fullCfop"
-              ? CfopSolver.solveFull(initialState)
-              : CfopSolver.solveAdvanced(initialState)) as Result<TutorialSolution, unknown>;
+      let result: Result<TutorialSolution, unknown>;
+      switch (method) {
+        case "beginner": result = BeginnerSolver.solve(initialState); break;
+        case "advancedLbl": result = CfopSolver.solveAdvancedLbl(initialState); break;
+        case "beginnerCfop": result = CfopSolver.solveBeginner(initialState); break;
+        case "fullCfop": result = CfopSolver.solveFull(initialState); break;
+        case "advancedCfop": result = CfopSolver.solveAdvanced(initialState); break;
+        case "petrus": result = PetrusSolver.solveClassical(initialState); break;
+        case "enhancedPetrus": result = PetrusSolver.solveEnhanced(initialState); break;
+      }
       academySolveBusy = false;
       if (result.TAG === "Error") {
         academy.status.textContent = method === "beginner"
           ? BeginnerSolver.describeError(result._0)
-          : CfopSolver.describeError(result._0);
+          : isPetrusMethod(method)
+            ? PetrusSolver.describeError(result._0)
+            : CfopSolver.describeError(result._0);
         academy.status.classList.add("error");
         updateAcademySolveButton();
         return;
@@ -2196,7 +2235,9 @@ if (root) {
       window.setTimeout(() => {
         academy.copy.textContent = isCfopMethod(academy.method)
           ? "Copy commented CFOP solution"
-          : "Copy commented solution";
+          : isPetrusMethod(academy.method)
+            ? `Copy commented ${academy.label} solution`
+            : "Copy commented solution";
       }, 1500);
     });
   });
@@ -2363,6 +2404,30 @@ if (root) {
     } finally {
       smartCubeSync.disabled = false;
       smartCubeSync.textContent = "Sync state";
+    }
+  });
+  smartCubeResetState.addEventListener("click", async () => {
+    if (!smartCubeConnected || !smartCubeManager) return;
+    const confirmed = window.confirm(
+      "Set the smart cube's internal state to solved? Continue only if the physical cube is already solved.",
+    );
+    if (!confirmed) return;
+    smartCubeStateSyncPending = true;
+    smartCubeResetState.disabled = true;
+    smartCubeResetState.textContent = "Setting solved…";
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · Setting internal state to solved…`;
+    try {
+      await smartCubeManager.resetCubeState();
+      await smartCubeManager.refresh();
+      if (smartCubeStateSyncPending) {
+        smartCubeStatus.textContent = `${smartCubeDeviceName} · Solved state requested; waiting for state…`;
+      }
+    } catch (reason) {
+      smartCubeStateSyncPending = false;
+      smartCubeStatus.textContent = reason instanceof Error ? reason.message : String(reason);
+    } finally {
+      smartCubeResetState.disabled = false;
+      smartCubeResetState.textContent = "Set state to solved";
     }
   });
   smartCubeOrientation.addEventListener("click", () => {

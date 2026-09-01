@@ -59,6 +59,10 @@ describe("application state store", () => {
     expect(readHash("#tab=academy&method=advancedLbl").academyMethod).toBe("advancedLbl");
     expect(readHash("#tab=academy&method=advanced").academyMethod).toBe("advancedCfop");
     expect(readHash("#tab=academy&method=fullCfop").academyMethod).toBe("fullCfop");
+    expect(readHash("#tab=academy&method=petrus").academyMethod).toBe("petrus");
+    expect(readHash("#tab=academy&method=classicalPetrus").academyMethod).toBe("petrus");
+    expect(readHash("#tab=academy&method=enhancedPetrus").academyMethod).toBe("enhancedPetrus");
+    expect(readHash("#tab=academy&method=modernPetrus").academyMethod).toBe("enhancedPetrus");
     expect(readHash("#tab=workbench").activeTab).toBe("workbench");
     expect(readHash("#tab=unknown").activeTab).toBe("converter");
   });
@@ -66,6 +70,10 @@ describe("application state store", () => {
   test("writes the selected Academy method into shareable URLs", () => {
     expect(writeHash({...defaultAppState, activeTab: "academy", academyMethod: "advancedCfop"}))
       .toContain("tab=academy&method=advancedCfop");
+    expect(writeHash({...defaultAppState, activeTab: "academy", academyMethod: "petrus"}))
+      .toContain("tab=academy&method=petrus");
+    expect(writeHash({...defaultAppState, activeTab: "academy", academyMethod: "enhancedPetrus"}))
+      .toContain("tab=academy&method=enhancedPetrus");
   });
 
   test("persists an explicit turn-guide opt-out", () => {

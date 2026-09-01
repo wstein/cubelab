@@ -24,6 +24,7 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await expect(page.locator("[data-smart-cube-connect]")).toBeVisible();
   await expect(page.locator("[data-smart-cube-dock]")).toBeHidden();
   await expect(page.locator("[data-smart-cube-sync]")).toBeHidden();
+  await expect(page.locator("[data-smart-cube-reset-state]")).toBeHidden();
   const smartCubeSound = page.locator("[data-smart-cube-sound]");
   await expect(smartCubeSound).toHaveText("Sound on");
   await smartCubeSound.click();
@@ -789,4 +790,33 @@ test("opens CFOP Academy and builds its four replay-verified stages", async ({pa
   await page.getByRole("button", {name: "Converter"}).click();
   await expect(page).toHaveURL(/tab=converter|#size=3/);
   await expect(canvas).toHaveAttribute("data-cfop-persistence-probe", "mounted");
+});
+
+test("builds Classical and Enhanced Petrus tutorials from the same cube state", async ({page}) => {
+  await page.goto("/#size=3&alg=R+U+R%27+U%27&tab=academy&method=petrus");
+  const classical = page.locator("[data-academy-method-panel='petrus']");
+  await expect(classical).toBeVisible();
+  await expect(page.locator("[data-academy-method='petrus']")).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", {name: "Generate verified solution"}).click();
+  await expect(page.locator("[data-petrus-status]")).toContainText("Verified Classical Petrus solution");
+  await expect(classical.locator("[data-petrus-phase]")).toHaveCount(7);
+  await expect(classical.locator("[data-petrus-phase]").nth(0)).toContainText("2×2×2 Block");
+  await expect(classical.locator("[data-petrus-phase]").nth(1)).toContainText("2×2×3");
+  await expect(classical.locator("[data-petrus-phase]").nth(2)).toContainText("Orient Bad Edges");
+  await expect(classical.locator("[data-petrus-phase]").nth(3)).toContainText("2-Generator F2L Finish");
+  await expect(classical.locator("[data-petrus-phase]").nth(6)).toContainText("Permute Last-Layer Edges");
+  await expect(page.locator("[data-petrus-solution]")).toContainText("// PETRUS 1:");
+
+  await page.locator("[data-academy-method='enhancedPetrus']").click();
+  await expect(page).toHaveURL(/method=enhancedPetrus/);
+  const enhanced = page.locator("[data-academy-method-panel='enhancedPetrus']");
+  await expect(enhanced).toBeVisible();
+  await page.getByRole("button", {name: "Generate verified solution"}).click();
+  await expect(page.locator("[data-enhanced-petrus-status]")).toContainText("Verified Enhanced Petrus solution");
+  await expect(enhanced.locator("[data-petrus-phase]")).toHaveCount(5);
+  await expect(enhanced.locator("[data-petrus-phase]").nth(4)).toContainText("COLL + EPLL Finish");
+  await expect(enhanced.locator("[data-petrus-phase]").nth(4)).toContainText("COLL:");
+  await expect(enhanced.locator("[data-petrus-phase]").nth(4)).toContainText("EPLL:");
+  await expect(page.locator("[data-academy-comparison]")).toContainText("Classical Petrus");
+  await expect(page.locator("[data-academy-comparison]")).toContainText("Enhanced Petrus");
 });

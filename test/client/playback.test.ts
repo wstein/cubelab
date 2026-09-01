@@ -48,6 +48,28 @@ describe("algorithm playback timeline", () => {
     })).toContain("two-look OLL");
   });
 
+  test("describes Petrus groups as block, EO, and two-generator work", () => {
+    const entries = [{step: {move: {TAG: "FaceTurn", _0: "R", _1: {from_: 1, to_: 1}}, turns: 1}}];
+    expect(describeTimelineGroup(entries, {
+      method: "petrus",
+      number: 2,
+      title: "Expand to 2×2×3",
+      instruction: "Expand the block.",
+    })).toContain("2×2×3");
+    expect(describeTimelineGroup(entries, {
+      method: "petrus",
+      number: 3,
+      title: "Orient Bad Edges",
+      instruction: "Orient edges.",
+    })).toContain("bad-edge");
+    expect(describeTimelineGroup(entries, {
+      method: "enhancedPetrus",
+      number: 5,
+      title: "COLL + EPLL Finish",
+      instruction: "Finish the last layer.",
+    })).toContain("COLL");
+  });
+
   test("uses solver-provided case recognition for Academy sequence groups", () => {
     const steps = [
       {groupId: 7},

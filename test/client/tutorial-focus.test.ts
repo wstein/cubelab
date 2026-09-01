@@ -61,5 +61,8 @@ describe("Beginner Academy cubie focus", () => {
     expect([1, 2, 3, 4, 5, 6, 7].map((phase) =>
       phaseMilestonePositions(solved, phase).length
     )).toEqual([4, 8, 12, 4, 8, 4, 20]);
+    expect([8, 9, 10, 11, 12, 13, 14].map((phase) =>
+      phaseMilestonePositions(solved, phase).length
+    )).toEqual([4, 7, 12, 12, 4, 4, 4]);
   });
 });
