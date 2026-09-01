@@ -31,7 +31,7 @@ test("emits four replay-verified two-look CFOP phases", () => {
   const solution = solve(initial);
   assert.deepEqual(
     solution.phases.map(({title}) => title),
-    ["Cross", "F2L Foundation", "Two-Look OLL", "Two-Look PLL"],
+    ["Cross", "F2L Pairs", "Two-Look OLL", "Two-Look PLL"],
   );
   assert.equal(FaceletCodec.render(MoveExecutor.applyAlg(initial, solution.alg)._0), solvedCompact);
 

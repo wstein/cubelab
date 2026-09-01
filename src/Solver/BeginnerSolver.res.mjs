@@ -237,13 +237,13 @@ function projectionKey(state, corners, edges) {
   return cornerKey + "|" + edgeKey;
 }
 
-function searchAtomic(state, corners, edges, actions, maxDepth) {
+function searchAtomicWithLimit(state, corners, edges, actions, maxDepth, maxNodes) {
   if (lockedGoal(state, corners, edges)) {
     return [];
   }
   let dfs = (current, remaining, previousFace, previousAxis, path, seen, nodes) => {
     nodes.contents = nodes.contents + 1 | 0;
-    if (nodes.contents > 2500000) {
+    if (nodes.contents > maxNodes) {
       return;
     }
     if (remaining === 0) {
@@ -284,6 +284,10 @@ function searchAtomic(state, corners, edges, actions, maxDepth) {
     }
   }
   return found;
+}
+
+function searchAtomic(state, corners, edges, actions, maxDepth) {
+  return searchAtomicWithLimit(state, corners, edges, actions, maxDepth, 2500000);
 }
 
 function flattenActions(actions) {
@@ -1052,6 +1056,7 @@ export {
   lockedGoal,
   findPiece,
   projectionKey,
+  searchAtomicWithLimit,
   searchAtomic,
   flattenActions,
   groupedActions,

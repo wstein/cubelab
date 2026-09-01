@@ -2,9 +2,13 @@
 
 import * as StateTypes from "../State/StateTypes.res.mjs";
 import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
+import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as BeginnerSolver from "./BeginnerSolver.res.mjs";
+import * as Primitive_exceptions from "@rescript/runtime/lib/es6/Primitive_exceptions.js";
+
+let BuildFailure = /* @__PURE__ */Primitive_exceptions.create("CfopSolver.BuildFailure");
 
 let generatedLoc = {
   start: 0,
@@ -18,12 +22,13 @@ function located(desc) {
   };
 }
 
-function phase(number, title, instruction, alg) {
+function phase(number, title, instruction, alg, sequences) {
   return {
     number: number,
     title: title,
     instruction: instruction,
-    alg: alg
+    alg: alg,
+    sequences: sequences
   };
 }
 
@@ -37,35 +42,9 @@ function commentForPhase(phase) {
   };
 }
 
-let groupedHalfTurn = [
-  {
-    desc: {
-      TAG: "Group",
-      _0: [{
-          desc: {
-            TAG: "Move",
-            _0: {
-              TAG: "Rotation",
-              _0: "X"
-            },
-            _1: 2
-          },
-          loc: generatedLoc
-        }],
-      _1: 1
-    },
-    loc: generatedLoc
-  },
-  {
-    desc: {
-      TAG: "TimedPause",
-      _0: 0.5
-    },
-    loc: generatedLoc
-  }
-];
+let grouped = BeginnerSolver.groupedSequence;
 
-function withSequencePause(alg) {
+function withPhasePause(alg) {
   let output = alg.map(unit => unit);
   if (output.length !== 0) {
     let lastIndex = output.length - 1 | 0;
@@ -74,7 +53,7 @@ function withSequencePause(alg) {
       output[lastIndex] = {
         desc: {
           TAG: "TimedPause",
-          _0: 0.5
+          _0: 1.2
         },
         loc: generatedLoc
       };
@@ -83,142 +62,713 @@ function withSequencePause(alg) {
   return output;
 }
 
-function isHalfTurnRegrip(unit) {
-  let match = unit.desc;
-  if (typeof match !== "object") {
-    return false;
-  }
-  if (match.TAG !== "Group") {
-    return false;
-  }
-  if (match._1 !== 1) {
-    return false;
-  }
-  let contents = match._0;
-  if (contents.length !== 1) {
-    return false;
-  }
-  let match$1 = contents[0].desc;
-  if (typeof match$1 !== "object") {
-    return false;
-  }
-  if (match$1.TAG !== "Move") {
-    return false;
-  }
-  let match$2 = match$1._0;
-  switch (match$2.TAG) {
-    case "FaceTurn" :
-    case "SliceTurn" :
-      return false;
-    case "Rotation" :
-      switch (match$2._0) {
-        case "X" :
-          let turns = match$1._1;
-          if (turns % 4 === 2) {
-            return true;
-          } else {
-            return turns % 4 === -2;
+function applyPath(state, path) {
+  return Stdlib_Array.reduce(path, state, (current, action) => BeginnerSolver.applyCubie(current, action.transition));
+}
+
+function physicalScore(alg) {
+  let steps = MoveExecutor.expand(alg);
+  if (steps.TAG === "Ok") {
+    return Stdlib_Array.reduce(steps._0, 0, (score, step) => {
+      let turnCost = step.turns % 2 === 0 ? 180 : 100;
+      let match = step.move;
+      switch (match.TAG) {
+        case "FaceTurn" :
+          switch (match._0) {
+            case "L" :
+              return (score + turnCost | 0) + 4 | 0;
+            case "B" :
+              return (score + turnCost | 0) + 10 | 0;
+            default:
+              return score + turnCost | 0;
           }
-        case "Y" :
-        case "Z" :
-          return false;
+        case "SliceTurn" :
+          return score + turnCost | 0;
+        case "Rotation" :
+          return score + 18 | 0;
       }
-  }
-}
-
-function withoutLeadingYellowUp(alg) {
-  let tmp = false;
-  if (alg.length >= 2 && isHalfTurnRegrip(alg[0])) {
-    let match = alg[1].desc;
-    let tmp$1;
-    tmp$1 = typeof match !== "object" ? false : match.TAG === "TimedPause";
-    tmp = tmp$1;
-  }
-  if (tmp) {
-    return alg.slice(2, alg.length);
-  } else {
-    return alg;
-  }
-}
-
-function statesEqual(left, right) {
-  if (left.size === right.size) {
-    return left.facelets.every((facelets, faceIndex) => {
-      let other = right.facelets[faceIndex];
-      return facelets.every((facelet, index) => facelet === other[index]);
     });
   } else {
+    return 1000000;
+  }
+}
+
+function rankedActions(actions) {
+  let ranked = actions.map(action => [
+    action,
+    physicalScore(action.alg)
+  ]);
+  ranked.sort((left, right) => left[1] - right[1] | 0);
+  return ranked.map(param => param[0]);
+}
+
+function actionIsAlignment(action) {
+  let match = action.alg;
+  if (match.length !== 1) {
     return false;
   }
+  let match$1 = match[0];
+  let match$2 = match$1.desc;
+  if (typeof match$2 !== "object") {
+    return false;
+  }
+  if (match$2.TAG !== "Move") {
+    return false;
+  }
+  let match$3 = match$2._0;
+  switch (match$3.TAG) {
+    case "FaceTurn" :
+      return match$3._0 === "D";
+    case "SliceTurn" :
+    case "Rotation" :
+      return false;
+  }
+}
+
+let pairNames = [
+  "white–green–red",
+  "white–green–orange",
+  "white–blue–orange",
+  "white–blue–red"
+];
+
+let cornerSlots = [
+  "UFR",
+  "UFL",
+  "UBL",
+  "UBR",
+  "DFR",
+  "DLF",
+  "DBL",
+  "DRB"
+];
+
+let edgeSlots = [
+  "UR",
+  "UF",
+  "UL",
+  "UB",
+  "DR",
+  "DF",
+  "DL",
+  "DB",
+  "FR",
+  "FL",
+  "BL",
+  "BR"
+];
+
+function physicalPosition(position) {
+  return position.split("").map(face => {
+    switch (face) {
+      case "B" :
+        return "F";
+      case "D" :
+        return "U";
+      case "F" :
+        return "B";
+      case "U" :
+        return "D";
+      default:
+        return face;
+    }
+  }).join("");
+}
+
+function describePairCase(state, pair) {
+  let cornerSlot = BeginnerSolver.findPiece(state.cp, pair);
+  let edgeSlot = BeginnerSolver.findPiece(state.ep, 8 + pair | 0);
+  let cornerPosition = physicalPosition(cornerSlots[cornerSlot]);
+  let edgePosition = physicalPosition(edgeSlots[edgeSlot]);
+  let situation = cornerSlot >= 4 && edgeSlot >= 4 && edgeSlot <= 7 ? "both pieces in the top layer" : (
+      cornerSlot >= 4 && edgeSlot >= 8 ? "corner on top; edge trapped in an F2L slot" : (
+          cornerSlot < 4 ? "corner trapped in the first layer" : "separated corner-edge pair"
+        )
+    );
+  return `Solve the ` + pairNames[pair] + ` pair — ` + situation + ` (corner ` + cornerPosition + `, edge ` + edgePosition + `).`;
+}
+
+function f2lFaces(pair) {
+  switch (pair) {
+    case 0 :
+      return [
+        1,
+        2,
+        4
+      ];
+    case 1 :
+      return [
+        1,
+        4,
+        3
+      ];
+    case 2 :
+      return [
+        1,
+        3,
+        5
+      ];
+    default:
+      return [
+        1,
+        5,
+        2
+      ];
+  }
+}
+
+function findPairCandidate(state, completed, pair, atomics) {
+  let targets = completed.concat([pair]);
+  let edges = [
+    0,
+    1,
+    2,
+    3
+  ].concat(targets.map(value => 8 + value | 0));
+  let faces = f2lFaces(pair);
+  let actions = atomics.filter(action => faces.some(face => face === action.faceIndex));
+  let path = BeginnerSolver.searchAtomicWithLimit(state, targets, edges, actions, 11, 180000);
+  if (path === undefined) {
+    return;
+  }
+  let alg = BeginnerSolver.flattenActions(path);
+  return {
+    pair: pair,
+    path: path,
+    score: physicalScore(alg),
+    label: describePairCase(state, pair)
+  };
+}
+
+function betterPair(candidate, current) {
+  if (current !== undefined && !(candidate.score < current.score || candidate.score === current.score && candidate.path.length < current.path.length)) {
+    return current;
+  } else {
+    return candidate;
+  }
+}
+
+function describeEdgeOrientation(state) {
+  let oriented = [
+    4,
+    5,
+    6,
+    7
+  ].filter(slot => state.eo[slot] === 0);
+  let match = oriented.length;
+  switch (match) {
+    case 0 :
+      return "Orient the OLL dot into a yellow cross.";
+    case 2 :
+      let delta = oriented[0] - oriented[1] | 0;
+      let distance = delta < 0 ? -delta | 0 : delta;
+      if (distance === 2) {
+        return "Orient the OLL line into a yellow cross.";
+      } else {
+        return "Orient the OLL L-shape into a yellow cross.";
+      }
+    default:
+      return "Align the yellow-edge OLL case.";
+  }
+}
+
+function describeCornerOrientation(state) {
+  let oriented = [
+    4,
+    5,
+    6,
+    7
+  ].filter(slot => state.co[slot] === 0);
+  let match = oriented.length;
+  switch (match) {
+    case 0 :
+      return "Orient the four-corner OLL case.";
+    case 1 :
+      return "Orient the Sune or anti-Sune corner case.";
+    case 2 :
+      return "Orient the two-corner OLL case.";
+    default:
+      return "Align the final OLL corner case.";
+  }
+}
+
+function describeCornerPermutation(state) {
+  let positioned = [
+    4,
+    5,
+    6,
+    7
+  ].filter(piece => BeginnerSolver.isSolvedCorner(state, piece));
+  let match = positioned.length;
+  if (match > 0) {
+    if (match >= 3) {
+      return "Apply the final corner AUF.";
+    } else {
+      return "Align the headlights and permute the last-layer corners.";
+    }
+  } else if (match >= 0) {
+    return "Permute the diagonal/headlights corner PLL case.";
+  } else {
+    return "Apply the final corner AUF.";
+  }
+}
+
+function describeEdgePermutation(state) {
+  let positioned = [
+    4,
+    5,
+    6,
+    7
+  ].filter(piece => BeginnerSolver.isSolvedEdge(state, piece));
+  let match = positioned.length;
+  if (match !== 0) {
+    if (match !== 1) {
+      return "Apply the final PLL AUF.";
+    } else {
+      return "Solve the Ua/Ub three-edge cycle.";
+    }
+  } else {
+    return "Solve the H/Z four-edge permutation.";
+  }
+}
+
+function groupedPathWithLabels(state, path, describe) {
+  let current = {
+    contents: state
+  };
+  let alg = [];
+  let labels = [];
+  path.forEach(action => {
+    labels.push(actionIsAlignment(action) ? "AUF: align the recognized case." : describe(current.contents));
+    alg.push({
+      desc: {
+        TAG: "Group",
+        _0: action.alg,
+        _1: 1
+      },
+      loc: generatedLoc
+    });
+    alg.push({
+      desc: {
+        TAG: "TimedPause",
+        _0: 0.5
+      },
+      loc: generatedLoc
+    });
+    current.contents = BeginnerSolver.applyCubie(current.contents, action.transition);
+  });
+  return [
+    alg,
+    labels,
+    current.contents
+  ];
 }
 
 function solve(input) {
-  let error = BeginnerSolver.solve(input);
-  if (error.TAG !== "Ok") {
-    return {
-      TAG: "Error",
-      _0: error._0
-    };
-  }
-  let beginner = error._0;
-  let beginnerPhases = beginner.phases;
-  let cross = beginner.moveCount === 0 ? beginnerPhases[0].alg : groupedHalfTurn.concat(MoveTransform.rotate(beginnerPhases[0].alg, "X", 2));
-  let firstLayer = withSequencePause(MoveTransform.rotate(beginnerPhases[1].alg, "X", 2));
-  let middle = withoutLeadingYellowUp(beginnerPhases[2].alg);
-  let f2l = firstLayer.concat(middle);
-  let oll = withSequencePause(beginnerPhases[3].alg).concat(beginnerPhases[4].alg);
-  let pll = withSequencePause(beginnerPhases[5].alg).concat(beginnerPhases[6].alg);
-  let phases = [
-    phase(1, "Cross", "Build the white cross on the bottom and align every edge with its side centre.", cross),
-    phase(2, "F2L Foundation", "Complete the first two layers with corner placement followed by left/right edge insertions; pair-first F2L is the next optimization.", f2l),
-    phase(3, "Two-Look OLL", "Orient the last layer in two looks: form the yellow cross, then orient its corners.", oll),
-    phase(4, "Two-Look PLL", "Permute last-layer corners, then cycle the remaining edges to solve the cube.", pll)
-  ];
-  let annotated = Stdlib_Array.reduce(phases, [], (output, item) => output.concat([commentForPhase(item)]).concat(item.alg));
-  let state = StateTypes.solved(3);
-  let solved;
-  solved = state.TAG === "Ok" ? state._0 : input;
-  let error$1 = MoveExecutor.applyAlg(input, annotated);
-  if (error$1.TAG === "Ok") {
-    if (statesEqual(error$1._0, solved)) {
-      return {
-        TAG: "Ok",
-        _0: {
-          phases: phases,
-          alg: annotated,
-          moveCount: beginner.moveCount
-        }
-      };
-    } else {
-      return {
-        TAG: "Error",
-        _0: "VerificationFailed"
+  try {
+    if (input.size !== 3) {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "UnsupportedSize",
+          _0: input.size
+        },
+        Error: new Error()
       };
     }
-  } else {
+    let error = PieceReducer.reduce(input);
+    if (error.TAG !== "Ok") {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "InvalidState",
+          _0: error._0
+        },
+        Error: new Error()
+      };
+    }
+    let value = BeginnerSolver.orientFrame(input);
+    let match;
+    if (value !== undefined) {
+      match = value;
+    } else {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "SearchFailed",
+          _0: "centre-frame normalization"
+        },
+        Error: new Error()
+      };
+    }
+    let frameAlg = match[1];
+    let state = StateTypes.solved(3);
+    let solved;
+    if (state.TAG === "Ok") {
+      solved = state._0;
+    } else {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "UnsupportedSize",
+          _0: 3
+        },
+        Error: new Error()
+      };
+    }
+    let pieces = PieceReducer.reduce(match[0]);
+    let start;
+    if (pieces.TAG === "Ok") {
+      start = pieces._0;
+    } else {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "InvalidState",
+          _0: pieces._0
+        },
+        Error: new Error()
+      };
+    }
+    let atomics = BeginnerSolver.atomicActions(solved);
+    let current = start;
+    let path = BeginnerSolver.searchAtomic(current, [], [
+      0,
+      1,
+      2,
+      3
+    ], atomics, 8);
+    let crossPath;
+    if (path !== undefined) {
+      crossPath = path;
+    } else {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "SearchFailed",
+          _0: "a move-optimized white cross"
+        },
+        Error: new Error()
+      };
+    }
+    current = applyPath(current, crossPath);
+    if (!BeginnerSolver.lockedGoal(current, [], [
+        0,
+        1,
+        2,
+        3
+      ])) {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: "VerificationFailed",
+        Error: new Error()
+      };
+    }
+    let f2lAlg = [];
+    let f2lLabels = [];
+    let completedPairs = [];
+    while (completedPairs.length < 4) {
+      let best;
+      for (let pair = 0; pair <= 3; ++pair) {
+        if (!completedPairs.some(value => value === pair)) {
+          let candidate = findPairCandidate(current, completedPairs, pair, atomics);
+          if (candidate !== undefined) {
+            best = betterPair(candidate, best);
+          }
+        }
+      }
+      let candidate$1 = best;
+      let selected;
+      if (candidate$1 !== undefined) {
+        selected = candidate$1;
+      } else {
+        throw {
+          RE_EXN_ID: BuildFailure,
+          _1: {
+            TAG: "SearchFailed",
+            _0: "a locked F2L corner-edge pair"
+          },
+          Error: new Error()
+        };
+      }
+      current = applyPath(current, selected.path);
+      completedPairs.push(selected.pair);
+      let lockedEdges = [
+        0,
+        1,
+        2,
+        3
+      ].concat(completedPairs.map(pair => 8 + pair | 0));
+      if (!BeginnerSolver.lockedGoal(current, completedPairs, lockedEdges)) {
+        throw {
+          RE_EXN_ID: BuildFailure,
+          _1: "VerificationFailed",
+          Error: new Error()
+        };
+      }
+      f2lAlg = f2lAlg.concat(BeginnerSolver.groupedSequence(BeginnerSolver.flattenActions(selected.path)));
+      f2lLabels.push(selected.label);
+    };
+    if (!BeginnerSolver.firstTwoLayersGoal(current)) {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: "VerificationFailed",
+        Error: new Error()
+      };
+    }
+    let ollEdgePrimitives = BeginnerSolver.macroVariants(solved, "F R U R' U' F'").concat(BeginnerSolver.macroVariants(solved, "F U R U' R' F'")).concat(BeginnerSolver.macroVariants(solved, "F R U R' U' F' U2 F U R U' R' F'"));
+    let ollEdgeCases = rankedActions(ollEdgePrimitives);
+    let ollEdgeActions = rankedActions(BeginnerSolver.downTurns(solved).concat(ollEdgeCases));
+    let path$1 = BeginnerSolver.searchMacros(current, ollEdgeActions, BeginnerSolver.orientedLastEdgesGoal, undefined, 2);
+    let ollEdgePath;
+    if (path$1 !== undefined) {
+      ollEdgePath = path$1;
+    } else {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "SearchFailed",
+          _0: "two-look OLL edge orientation"
+        },
+        Error: new Error()
+      };
+    }
+    let match$1 = groupedPathWithLabels(current, ollEdgePath, describeEdgeOrientation);
+    current = match$1[2];
+    let ollCornerAlgorithms = [
+      "R U R' U R U2 R'",
+      "R U2 R' U' R U' R'",
+      "R U2 R2 U' R2 U' R2 U2 R",
+      "R U R' U R U' R' U R U2 R'",
+      "r U R' U' r' F R F'",
+      "F' r U R' U' r' F R",
+      "R2 D R' U2 R D' R' U2 R'"
+    ];
+    let ollCornerPrimitives = Stdlib_Array.reduce(ollCornerAlgorithms, [], (all, algorithm) => all.concat(BeginnerSolver.macroVariants(solved, algorithm)));
+    let ollCornerCases = rankedActions(ollCornerPrimitives);
+    let ollCornerActions = rankedActions(BeginnerSolver.downTurns(solved).concat(ollCornerCases));
+    let path$2 = BeginnerSolver.searchMacros(current, ollCornerActions, BeginnerSolver.orientedLastCornersGoal, undefined, 2);
+    let ollCornerPath;
+    if (path$2 !== undefined) {
+      ollCornerPath = path$2;
+    } else {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "SearchFailed",
+          _0: "two-look OLL corner orientation"
+        },
+        Error: new Error()
+      };
+    }
+    let match$2 = groupedPathWithLabels(current, ollCornerPath, describeCornerOrientation);
+    current = match$2[2];
+    if (!BeginnerSolver.orientedLastCornersGoal(current)) {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: "VerificationFailed",
+        Error: new Error()
+      };
+    }
+    let cornerPll = BeginnerSolver.parseInternal("R' F R' B2 R F' R' B2 R2");
+    let pllCornerActions = rankedActions(BeginnerSolver.downTurns(solved).concat([
+      0,
+      1,
+      2,
+      3
+    ].map(y => BeginnerSolver.macroVariant(solved, cornerPll, y))).concat([
+      0,
+      1,
+      2,
+      3
+    ].map(y => BeginnerSolver.macroVariant(solved, MoveTransform.invert(cornerPll), y))));
+    let path$3 = BeginnerSolver.searchMacros(current, pllCornerActions, BeginnerSolver.positionedLastCornersGoal, undefined, 5);
+    let pllCornerPath;
+    if (path$3 !== undefined) {
+      pllCornerPath = path$3;
+    } else {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "SearchFailed",
+          _0: "two-look PLL corner permutation"
+        },
+        Error: new Error()
+      };
+    }
+    let match$3 = groupedPathWithLabels(current, pllCornerPath, describeCornerPermutation);
+    current = match$3[2];
+    let ua = BeginnerSolver.parseInternal("R U' R U R U R U' R' U' R2");
+    let ub = MoveTransform.invert(ua);
+    let h = BeginnerSolver.parseInternal("M2 U M2 U2 M2 U M2");
+    let z = BeginnerSolver.parseInternal("M2 U M2 U M' U2 M2 U2 M' U2");
+    let pllEdgeActions = rankedActions(BeginnerSolver.downTurns(solved).concat(Stdlib_Array.reduce([
+      ua,
+      ub,
+      h,
+      z
+    ], [], (all, algorithm) => all.concat([
+      0,
+      1,
+      2,
+      3
+    ].map(y => BeginnerSolver.macroVariant(solved, algorithm, y))))));
+    let path$4 = BeginnerSolver.searchMacros(current, pllEdgeActions, BeginnerSolver.solvedCubiesGoal, undefined, 4);
+    let pllEdgePath;
+    if (path$4 !== undefined) {
+      pllEdgePath = path$4;
+    } else {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "SearchFailed",
+          _0: "two-look PLL edge permutation"
+        },
+        Error: new Error()
+      };
+    }
+    let match$4 = groupedPathWithLabels(current, pllEdgePath, describeEdgePermutation);
+    current = match$4[2];
+    if (!BeginnerSolver.solvedCubiesGoal(current)) {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: "VerificationFailed",
+        Error: new Error()
+      };
+    }
+    let hasPhysicalWork = crossPath.length !== 0 || f2lAlg.length !== 0 || ollEdgePath.length !== 0 || ollCornerPath.length !== 0 || pllCornerPath.length !== 0 || pllEdgePath.length !== 0;
+    let whiteDown = [{
+        desc: {
+          TAG: "Move",
+          _0: {
+            TAG: "Rotation",
+            _0: "X"
+          },
+          _1: 2
+        },
+        loc: generatedLoc
+      }];
+    let crossCore = BeginnerSolver.flattenActions(crossPath);
+    let crossAlg = BeginnerSolver.groupedSequence(frameAlg);
+    let crossLabels = [];
+    if (frameAlg.length !== 0) {
+      crossLabels.push("Normalize the centre frame before planning the cross.");
+    }
+    if (hasPhysicalWork) {
+      crossAlg = crossAlg.concat(BeginnerSolver.groupedSequence(whiteDown));
+      crossLabels.push("Regrip once so white stays on the bottom for CFOP.");
+      if (crossCore.length !== 0) {
+        crossAlg = crossAlg.concat(BeginnerSolver.groupedSequence(MoveTransform.rotate(crossCore, "X", 2)));
+        crossLabels.push(`Build the move-optimized white cross in ` + crossPath.length.toString() + ` moves.`);
+      }
+    }
+    let transformedF2l = MoveTransform.rotate(f2lAlg, "X", 2);
+    let transformedOll = MoveTransform.rotate(match$1[0].concat(match$2[0]), "X", 2);
+    let transformedPll = MoveTransform.rotate(match$3[0].concat(match$4[0]), "X", 2);
+    let pllAlg = hasPhysicalWork ? transformedPll.concat(BeginnerSolver.groupedSequence(whiteDown)) : transformedPll;
+    let pllLabels = match$3[1].concat(match$4[1]);
+    if (hasPhysicalWork) {
+      pllLabels.push("Restore the canonical white-up export frame.");
+    }
+    let phases = [
+      phase(1, "Cross", "Plan the complete white-bottom cross before execution and minimize physical turns.", withPhasePause(crossAlg), crossLabels),
+      phase(2, "F2L Pairs", "Solve four corner-edge pairs together while preserving the cross and every completed slot.", withPhasePause(transformedF2l), f2lLabels),
+      phase(3, "Two-Look OLL", "Recognize and orient last-layer edges, then recognize and orient the corners.", withPhasePause(transformedOll), match$1[1].concat(match$2[1])),
+      phase(4, "Two-Look PLL", "Recognize and permute last-layer corners, then solve the Ua/Ub/H/Z edge case.", pllAlg, pllLabels)
+    ];
+    let annotated = Stdlib_Array.reduce(phases, [], (output, item) => output.concat([commentForPhase(item)]).concat(item.alg));
+    let error$1 = MoveExecutor.expand(annotated);
+    let moveCount;
+    if (error$1.TAG === "Ok") {
+      moveCount = error$1._0.filter(step => {
+        let match = step.move;
+        switch (match.TAG) {
+          case "FaceTurn" :
+          case "SliceTurn" :
+            return true;
+          case "Rotation" :
+            return false;
+        }
+      }).length;
+    } else {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "ExpansionFailed",
+          _0: error$1._0
+        },
+        Error: new Error()
+      };
+    }
+    let error$2 = MoveExecutor.applyAlg(input, annotated);
+    let result;
+    if (error$2.TAG === "Ok") {
+      result = error$2._0;
+    } else {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: {
+          TAG: "ExpansionFailed",
+          _0: error$2._0
+        },
+        Error: new Error()
+      };
+    }
+    if (!BeginnerSolver.statesEqual(result, solved)) {
+      throw {
+        RE_EXN_ID: BuildFailure,
+        _1: "VerificationFailed",
+        Error: new Error()
+      };
+    }
     return {
-      TAG: "Error",
+      TAG: "Ok",
       _0: {
-        TAG: "ExpansionFailed",
-        _0: error$1._0
+        phases: phases,
+        alg: annotated,
+        moveCount: moveCount
       }
     };
+  } catch (raw_error) {
+    let error$3 = Primitive_exceptions.internalToException(raw_error);
+    if (error$3.RE_EXN_ID === BuildFailure) {
+      return {
+        TAG: "Error",
+        _0: error$3._1
+      };
+    }
+    throw error$3;
   }
 }
 
 let describeError = BeginnerSolver.describeError;
 
 export {
+  BuildFailure,
   generatedLoc,
   located,
   describeError,
   phase,
   commentForPhase,
-  groupedHalfTurn,
-  withSequencePause,
-  isHalfTurnRegrip,
-  withoutLeadingYellowUp,
-  statesEqual,
+  grouped,
+  withPhasePause,
+  applyPath,
+  physicalScore,
+  rankedActions,
+  actionIsAlignment,
+  pairNames,
+  cornerSlots,
+  edgeSlots,
+  physicalPosition,
+  describePairCase,
+  f2lFaces,
+  findPairCandidate,
+  betterPair,
+  describeEdgeOrientation,
+  describeCornerOrientation,
+  describeCornerPermutation,
+  describeEdgePermutation,
+  groupedPathWithLabels,
   solve,
 }
 /* No side effect */

@@ -158,13 +158,13 @@ let projectionKey = (state: PieceReducer.pieceState, corners, edges) => {
   cornerKey ++ "|" ++ edgeKey
 }
 
-let searchAtomic = (~state, ~corners, ~edges, ~actions, ~maxDepth) => {
+let searchAtomicWithLimit = (~state, ~corners, ~edges, ~actions, ~maxDepth, ~maxNodes) => {
   if lockedGoal(state, corners, edges) {
     Some([])
   } else {
     let rec dfs = (current, remaining, previousFace, previousAxis, path, seen, nodes) => {
       nodes := nodes.contents + 1
-      if nodes.contents > maxAtomicNodes {
+      if nodes.contents > maxNodes {
         None
       } else if remaining == 0 {
         if lockedGoal(current, corners, edges) {
@@ -218,6 +218,9 @@ let searchAtomic = (~state, ~corners, ~edges, ~actions, ~maxDepth) => {
     found.contents
   }
 }
+
+let searchAtomic = (~state, ~corners, ~edges, ~actions, ~maxDepth) =>
+  searchAtomicWithLimit(~state, ~corners, ~edges, ~actions, ~maxDepth, ~maxNodes=maxAtomicNodes)
 
 let flattenActions = actions =>
   actions->Array.reduce([], (output, action) => concatAlg(output, action.alg))
