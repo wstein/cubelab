@@ -152,6 +152,7 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(viewportComponent, /data-smart-cube-connect/);
   assert.match(viewportComponent, /data-smart-cube-status/);
   assert.match(viewportComponent, /data-smart-cube-battery/);
+  assert.match(viewportComponent, /data-smart-cube-sync/);
   assert.match(viewportComponent, /data-smart-cube-orientation/);
   assert.match(viewportComponent, /data-smart-cube-disconnect/);
   assert.match(client, /import\("\.\/smart-cube\/index"\)/);
@@ -162,6 +163,10 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   );
   assert.match(client, /manager\.subscribeEvents\(handleSmartCubeEvent\)/);
   assert.match(client, /appendRecordedMove/);
+  assert.match(client, /mirrorSmartCubeFaceletsToInput\(event\.facelets\)/);
+  assert.match(client, /store\.patch\(\{size: 3, input: facelets\}\)/);
+  assert.match(client, /if \(smartCubeStateSyncPending\)/);
+  assert.match(client, /await smartCubeManager\.refresh\(\)/);
   assert.match(client, /assessSmartCubeMove/);
   assert.match(client, /viewport\?\.setDeviceOrientation/);
   assert.match(

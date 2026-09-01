@@ -23,6 +23,7 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-webgl", "ready");
   await expect(page.locator("[data-smart-cube-connect]")).toBeVisible();
   await expect(page.locator("[data-smart-cube-dock]")).toBeHidden();
+  await expect(page.locator("[data-smart-cube-sync]")).toBeHidden();
   expect(bluetoothWarnings).toEqual([]);
   const autoOrbit = page.locator("[data-auto-orbit]");
   const turnGuides = page.locator("[data-turn-guides]");

@@ -250,6 +250,7 @@ body {
   white-space: nowrap;
 }
 
+.smart-cube-sync,
 .smart-cube-orientation,
 .smart-cube-disconnect {
   flex: 0 0 auto;

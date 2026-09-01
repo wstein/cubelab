@@ -155,6 +155,7 @@ if (root) {
   const smartCubeDock = root.querySelector<HTMLElement>("[data-smart-cube-dock]")!;
   const smartCubeStatus = root.querySelector<HTMLElement>("[data-smart-cube-status]")!;
   const smartCubeBattery = root.querySelector<HTMLElement>("[data-smart-cube-battery]")!;
+  const smartCubeSync = root.querySelector<HTMLButtonElement>("[data-smart-cube-sync]")!;
   const smartCubeOrientation = root.querySelector<HTMLButtonElement>("[data-smart-cube-orientation]")!;
   const smartCubeDisconnect = root.querySelector<HTMLButtonElement>("[data-smart-cube-disconnect]")!;
   const initialState = readHash(window.location.hash);
@@ -414,6 +415,7 @@ if (root) {
   let smartCubeConnected = false;
   let smartCubeDeviceName = "Smart cube";
   let smartCubeLiveState: CubeState | null = null;
+  let smartCubeStateSyncPending = false;
   let smartCubeOrientationTracking = false;
   let latestSmartCubeOrientation: SmartCubeOrientationEvent["quaternion"] | null = null;
   let smartCubeMovesInFlight = 0;
@@ -1148,6 +1150,11 @@ if (root) {
     renderState(smartCubeLiveState, `${smartCubeDeviceName} · Live physical state`);
   };
 
+  const mirrorSmartCubeFaceletsToInput = (facelets: string) => {
+    if (input.value === facelets) return;
+    store.patch({size: 3, input: facelets});
+  };
+
   const pulseSmartCubeMilestone = (label: string, state: CubeState, phaseNumber: number) => {
     viewport?.setMilestone({
       positions: phaseMilestonePositions(state, phaseNumber),
@@ -1216,6 +1223,13 @@ if (root) {
     }
 
     await animateSmartCubeMove(move);
+    // Full-state drivers emit a canonical facelet event alongside each move.
+    // Keep that physical state in the editor instead of replacing it with a
+    // move recording. Move-only drivers retain the recording fallback below.
+    if (smartCubeLiveState) {
+      renderSmartCubeLiveState();
+      return;
+    }
     const source = activeRecognized?.timeline ? input.value : "";
     const next = appendRecordedMove(source, move);
     if (next.length > 20_000) {
@@ -1246,6 +1260,7 @@ if (root) {
     root.dataset.smartCubePhase = connectionState.phase;
     smartCubeDock.dataset.phase = connectionState.phase;
     const connected = connectionState.phase === "connected" && connectionState.device !== null;
+    const wasConnected = smartCubeConnected;
     smartCubeConnected = connected;
     smartCubeConnect.hidden = connected;
     smartCubeConnect.disabled = connectionState.phase === "connecting"
@@ -1263,14 +1278,20 @@ if (root) {
       smartCubeDeviceName = connectionState.device.name;
       smartCubeStatus.textContent = `${connectionState.device.brandName} · ${connectionState.device.name} · Live sync`;
       const supportsOrientation = connectionState.device.capabilities.orientation;
+      const supportsFacelets = connectionState.device.capabilities.facelets;
+      smartCubeSync.hidden = !supportsFacelets;
+      smartCubeSync.disabled = !supportsFacelets;
+      if (!wasConnected && supportsFacelets) smartCubeStateSyncPending = true;
       smartCubeOrientation.hidden = !supportsOrientation;
       smartCubeOrientation.disabled = !supportsOrientation;
       setSmartCubeOrientationTracking(false);
     } else {
+      smartCubeSync.hidden = true;
       smartCubeOrientation.hidden = true;
       smartCubeBattery.hidden = true;
       if (connectionState.phase !== "connecting") {
         setSmartCubeOrientationTracking(false);
+        smartCubeStateSyncPending = false;
         smartCubeLiveState = null;
         scheduleUpdate();
       }
@@ -1295,7 +1316,15 @@ if (root) {
         const parsed = FaceletCodec.parse(3, event.facelets) as Result<CubeState>;
         if (parsed.TAG === "Ok") {
           smartCubeLiveState = parsed._0;
+          if (smartCubeStateSyncPending) {
+            smartCubeStateSyncPending = false;
+            mirrorSmartCubeFaceletsToInput(event.facelets);
+            smartCubeStatus.textContent = `${smartCubeDeviceName} · State synced`;
+          }
           if (smartCubeMovesInFlight === 0) renderSmartCubeLiveState();
+        } else if (smartCubeStateSyncPending) {
+          smartCubeStateSyncPending = false;
+          smartCubeStatus.textContent = "The physical cube returned an invalid facelet state";
         }
         break;
       }
@@ -1921,6 +1950,7 @@ if (root) {
     store.patch({size: 3});
     try {
       const manager = await loadSmartCubeManager();
+      smartCubeStateSyncPending = true;
       await manager.connect({
         enableAddressSearch: true,
         macAddressProvider: async (device) => {
@@ -1943,6 +1973,22 @@ if (root) {
   });
   smartCubeDisconnect.addEventListener("click", () => {
     void smartCubeManager?.disconnect();
+  });
+  smartCubeSync.addEventListener("click", async () => {
+    if (!smartCubeConnected || !smartCubeManager) return;
+    smartCubeStateSyncPending = true;
+    smartCubeSync.disabled = true;
+    smartCubeSync.textContent = "Syncing…";
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · Reading physical state…`;
+    try {
+      await smartCubeManager.refresh();
+    } catch (reason) {
+      smartCubeStateSyncPending = false;
+      smartCubeStatus.textContent = reason instanceof Error ? reason.message : String(reason);
+    } finally {
+      smartCubeSync.disabled = false;
+      smartCubeSync.textContent = "Sync state";
+    }
   });
   smartCubeOrientation.addEventListener("click", () => {
     setSmartCubeOrientationTracking(!smartCubeOrientationTracking);
