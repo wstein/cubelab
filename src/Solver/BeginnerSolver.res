@@ -33,6 +33,11 @@ type searchNode = {
   path: array<action>,
 }
 
+type distanceTable = {
+  piece: int,
+  distances: array<int>,
+}
+
 exception BuildFailure(solverError)
 
 let generatedLoc = {start: 0, end_: 0}
@@ -158,13 +163,93 @@ let projectionKey = (state: PieceReducer.pieceState, corners, edges) => {
   cornerKey ++ "|" ++ edgeKey
 }
 
+let nextCornerCoordinate = (coordinate, transition: PieceReducer.pieceState) => {
+  let oldSlot = coordinate / 3
+  let orientation = coordinate % 3
+  let newSlot = transition.cp->Array.findIndex(source => source == oldSlot)
+  newSlot * 3 + (orientation + Belt.Array.getUnsafe(transition.co, newSlot)) % 3
+}
+
+let nextEdgeCoordinate = (coordinate, transition: PieceReducer.pieceState) => {
+  let oldSlot = coordinate / 2
+  let orientation = coordinate % 2
+  let newSlot = transition.ep->Array.findIndex(source => source == oldSlot)
+  newSlot * 2 + (orientation + Belt.Array.getUnsafe(transition.eo, newSlot)) % 2
+}
+
+let coordinateDistances = (~goal, ~coordinateCount, ~actions, ~nextCoordinate) => {
+  let distances = Array.make(~length=coordinateCount, 99)
+  let queue = [goal]
+  let head = ref(0)
+  distances[goal] = 0
+  while head.contents < queue->Array.length {
+    let coordinate = Belt.Array.getUnsafe(queue, head.contents)
+    head := head.contents + 1
+    let distance = Belt.Array.getUnsafe(distances, coordinate)
+    actions->Array.forEach(action => {
+      let next = nextCoordinate(coordinate, action.transition)
+      if Belt.Array.getUnsafe(distances, next) == 99 {
+        distances[next] = distance + 1
+        queue->Array.push(next)
+      }
+    })
+  }
+  distances
+}
+
+let atomicDistanceTables = (~corners, ~edges, ~actions) => {
+  let cornerTables = corners->Array.map(piece => {
+    piece,
+    distances: coordinateDistances(
+      ~goal=piece * 3,
+      ~coordinateCount=24,
+      ~actions,
+      ~nextCoordinate=nextCornerCoordinate,
+    ),
+  })
+  let edgeTables = edges->Array.map(piece => {
+    piece,
+    distances: coordinateDistances(
+      ~goal=piece * 2,
+      ~coordinateCount=24,
+      ~actions,
+      ~nextCoordinate=nextEdgeCoordinate,
+    ),
+  })
+  (cornerTables, edgeTables)
+}
+
+let atomicDistanceLowerBound = (state: PieceReducer.pieceState, cornerTables, edgeTables) => {
+  let lowerBound = ref(0)
+  cornerTables->Array.forEach(table => {
+    let slot = findPiece(state.cp, table.piece)
+    let coordinate = slot * 3 + Belt.Array.getUnsafe(state.co, slot)
+    let distance = Belt.Array.getUnsafe(table.distances, coordinate)
+    if distance > lowerBound.contents {
+      lowerBound := distance
+    }
+  })
+  edgeTables->Array.forEach(table => {
+    let slot = findPiece(state.ep, table.piece)
+    let coordinate = slot * 2 + Belt.Array.getUnsafe(state.eo, slot)
+    let distance = Belt.Array.getUnsafe(table.distances, coordinate)
+    if distance > lowerBound.contents {
+      lowerBound := distance
+    }
+  })
+  lowerBound.contents
+}
+
 let searchAtomicWithLimit = (~state, ~corners, ~edges, ~actions, ~maxDepth, ~maxNodes) => {
   if lockedGoal(state, corners, edges) {
     Some([])
   } else {
+    let (cornerTables, edgeTables) = atomicDistanceTables(~corners, ~edges, ~actions)
     let rec dfs = (current, remaining, previousFace, previousAxis, path, seen, nodes) => {
       nodes := nodes.contents + 1
       if nodes.contents > maxNodes {
+        None
+      } else if atomicDistanceLowerBound(current, cornerTables, edgeTables) > remaining {
         None
       } else if remaining == 0 {
         if lockedGoal(current, corners, edges) {
@@ -173,7 +258,12 @@ let searchAtomicWithLimit = (~state, ~corners, ~edges, ~actions, ~maxDepth, ~max
           None
         }
       } else {
-        let key = projectionKey(current, corners, edges)
+        let key =
+          projectionKey(current, corners, edges) ++
+          "|" ++
+          previousFace->Int.toString ++
+          ":" ++
+          previousAxis->Int.toString
         let alreadySeen = switch Dict.get(seen, key) {
         | Some(depth) => depth >= remaining
         | None => false

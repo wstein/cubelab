@@ -13,6 +13,7 @@ import {
   planSequenceStep,
   planTimelineClick,
   physicalMoveProgress,
+  tutorialSequenceDescription,
 } from "../../src/client/playback";
 
 describe("algorithm playback timeline", () => {
@@ -34,9 +35,33 @@ describe("algorithm playback timeline", () => {
     expect(describeTimelineGroup(entries, {
       method: "cfop",
       number: 2,
-      title: "F2L Foundation",
+      title: "F2L Pairs",
       instruction: "Complete the first two layers.",
-    })).toContain("F2L foundation");
+    })).toContain("F2L");
+  });
+
+  test("uses solver-provided case recognition for Academy sequence groups", () => {
+    const steps = [
+      {groupId: 7},
+      {groupId: 7},
+      {durationMs: 500},
+      {groupId: 8},
+      {groupId: 8},
+    ];
+    const phase = {
+      number: 2,
+      title: "F2L Pairs",
+      instruction: "Solve four pairs.",
+      method: "cfop" as const,
+      start: 0,
+      sequences: [
+        "Solve the white–green–red pair — connected pair in the top layer.",
+        "Solve the white–blue–orange pair — edge trapped in an F2L slot.",
+      ],
+    };
+    expect(tutorialSequenceDescription(steps, 0, phase)).toContain("white–green–red");
+    expect(tutorialSequenceDescription(steps, 3, phase)).toContain("white–blue–orange");
+    expect(tutorialSequenceDescription(steps, 2, phase)).toBeNull();
   });
 
   test("expands composite algorithms into labeled canonical states", () => {

@@ -2,27 +2,47 @@
 
 `src/Solver/CfopSolver.res` builds a four-stage, replay-verified 3×3 teaching solution:
 
-1. **Cross** — build the white cross on the bottom and align all side colours.
-2. **F2L Foundation** — complete the first two layers with corner placement followed by
-   beginner left/right edge insertions.
-3. **Two-Look OLL** — orient last-layer edges, then corners.
-4. **Two-Look PLL** — permute last-layer corners, then edges.
+1. **Cross** — search for the complete white cross, build it on the bottom, and align all
+   four side colours.
+2. **F2L Pairs** — solve each matching white corner and middle edge together while locking
+   the cross and every completed pair.
+3. **Two-Look OLL** — recognize and orient the edge case, then recognize and orient the
+   corner case.
+4. **Two-Look PLL** — recognize and permute the corners, then solve the Ua, Ub, H, or Z
+   edge case.
 
-The F2L label is intentionally qualified as a foundation. This version teaches and
-verifies the F2L goal but does not claim pair-first or slot-optimized advanced F2L. That
-distinction remains visible in both the Academy copy and its generated comments.
+This is explicit **two-look CFOP**, not a claim to include the full 57 OLL and 21 PLL
+libraries. Its F2L stage is pair-first: each sequence records the pair colours, current
+corner and edge positions, white-sticker direction, edge orientation, and whether the
+pieces are connected, separated, or trapped.
+
+## Planning and scoring
+
+Cross uses a complete bounded search over all four cross edges instead of solving them
+one at a time. F2L evaluates every remaining pair, searches candidate insertions, scores
+them in the white-bottom human frame, and backtracks over pair order when the cheapest
+immediate choice prevents a later locked slot. The score accounts for physical turns,
+half turns, explicit rotations, estimated regrips, and penalties for less ergonomic back,
+left, and slice turns.
+
+The fast F2L tier considers the destination faces plus the faces containing the current
+pieces. A bounded all-side fallback handles pairs trapped in unrelated slots. A
+single-cubie distance lower bound prunes paths that cannot reach the locked goal within
+the remaining depth.
 
 ## Frame and replay guarantees
 
-The solver derives its bounded piece-solving path from `BeginnerSolver`, then changes the
-teaching frame so Cross and F2L run with white on the bottom. The OLL and PLL stages keep
-yellow on top. Whole-cube `x`, `y`, and `z` regrips remain visible but do not count as
-physical moves.
+The solver shares the verified cubie transition and bounded-search primitives from
+`BeginnerSolver`, but owns its CFOP planning, pair selection, case libraries, and phase
+goals. Cross and F2L run with white on the bottom; OLL and PLL keep yellow on top.
+Whole-cube `x`, `y`, and `z` regrips remain visible but do not count as physical moves.
 
 The four stage algorithms are concatenated and replayed against the recognized input.
-CFOP Academy returns a solution only when the resulting 54 facelets equal the canonical
-solved state. Invalid, unreachable, and non-3×3 inputs preserve the existing solver error
-behavior.
+The solver verifies the Cross after phase 1, the cross plus all four F2L slots after phase
+2, complete last-layer orientation after phase 3, and the solved permutation after phase
+4. It then replays the concatenated algorithm against the original input and returns a
+solution only when all 54 facelets equal the canonical solved state. Invalid, unreachable,
+and non-3×3 inputs preserve the existing solver error behavior.
 
 Parenthesized sequences retain the standard 0.5-second teaching delay. Only the three
 major CFOP boundaries retain the 1.2-second phase delay.

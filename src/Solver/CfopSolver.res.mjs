@@ -66,38 +66,84 @@ function applyPath(state, path) {
   return Stdlib_Array.reduce(path, state, (current, action) => BeginnerSolver.applyCubie(current, action.transition));
 }
 
-function physicalScore(alg) {
+function physicalCost(alg) {
   let steps = MoveExecutor.expand(alg);
-  if (steps.TAG === "Ok") {
-    return Stdlib_Array.reduce(steps._0, 0, (score, step) => {
-      let turnCost = step.turns % 2 === 0 ? 180 : 100;
-      let match = step.move;
-      switch (match.TAG) {
-        case "FaceTurn" :
-          switch (match._0) {
-            case "L" :
-              return (score + turnCost | 0) + 4 | 0;
-            case "B" :
-              return (score + turnCost | 0) + 10 | 0;
-            default:
-              return score + turnCost | 0;
-          }
-        case "SliceTurn" :
-          return score + turnCost | 0;
-        case "Rotation" :
-          return score + 18 | 0;
-      }
-    });
-  } else {
-    return 1000000;
+  if (steps.TAG !== "Ok") {
+    return {
+      total: 1000000,
+      physicalMoves: 0,
+      rotations: 0,
+      estimatedRegrips: 0,
+      ergonomicPenalty: 0
+    };
   }
+  let physicalMoves = {
+    contents: 0
+  };
+  let halfTurns = {
+    contents: 0
+  };
+  let rotations = {
+    contents: 0
+  };
+  let estimatedRegrips = {
+    contents: 0
+  };
+  let ergonomicPenalty = {
+    contents: 0
+  };
+  steps._0.forEach(step => {
+    if (step.turns % 2 === 0) {
+      halfTurns.contents = halfTurns.contents + 1 | 0;
+    }
+    let match = step.move;
+    switch (match.TAG) {
+      case "FaceTurn" :
+        switch (match._0) {
+          case "L" :
+            physicalMoves.contents = physicalMoves.contents + 1 | 0;
+            ergonomicPenalty.contents = ergonomicPenalty.contents + 5 | 0;
+            return;
+          case "B" :
+            physicalMoves.contents = physicalMoves.contents + 1 | 0;
+            estimatedRegrips.contents = estimatedRegrips.contents + 1 | 0;
+            ergonomicPenalty.contents = ergonomicPenalty.contents + 12 | 0;
+            return;
+          default:
+            physicalMoves.contents = physicalMoves.contents + 1 | 0;
+            return;
+        }
+      case "SliceTurn" :
+        physicalMoves.contents = physicalMoves.contents + 1 | 0;
+        ergonomicPenalty.contents = ergonomicPenalty.contents + 8 | 0;
+        return;
+      case "Rotation" :
+        rotations.contents = rotations.contents + 1 | 0;
+        estimatedRegrips.contents = estimatedRegrips.contents + 1 | 0;
+        return;
+    }
+  });
+  return {
+    total: ((((physicalMoves.contents * 100 | 0) + (halfTurns.contents * 25 | 0) | 0) + (rotations.contents * 35 | 0) | 0) + (estimatedRegrips.contents * 18 | 0) | 0) + ergonomicPenalty.contents | 0,
+    physicalMoves: physicalMoves.contents,
+    rotations: rotations.contents,
+    estimatedRegrips: estimatedRegrips.contents,
+    ergonomicPenalty: ergonomicPenalty.contents
+  };
+}
+
+function physicalScore(alg) {
+  return physicalCost(alg).total;
 }
 
 function rankedActions(actions) {
-  let ranked = actions.map(action => [
-    action,
-    physicalScore(action.alg)
-  ]);
+  let ranked = actions.map(action => {
+    let alg = MoveTransform.rotate(action.alg, "X", 2);
+    return [
+      action,
+      physicalCost(alg).total
+    ];
+  });
   ranked.sort((left, right) => left[1] - right[1] | 0);
   return ranked.map(param => param[0]);
 }
@@ -180,44 +226,77 @@ function describePairCase(state, pair) {
   let edgeSlot = BeginnerSolver.findPiece(state.ep, 8 + pair | 0);
   let cornerPosition = physicalPosition(cornerSlots[cornerSlot]);
   let edgePosition = physicalPosition(edgeSlots[edgeSlot]);
-  let situation = cornerSlot >= 4 && edgeSlot >= 4 && edgeSlot <= 7 ? "both pieces in the top layer" : (
-      cornerSlot >= 4 && edgeSlot >= 8 ? "corner on top; edge trapped in an F2L slot" : (
-          cornerSlot < 4 ? "corner trapped in the first layer" : "separated corner-edge pair"
+  let connected = edgePosition.split("").every(face => cornerPosition.includes(face));
+  let situation = connected && cornerSlot >= 4 && edgeSlot >= 4 && edgeSlot <= 7 ? "connected pair in the top layer" : (
+      connected ? "connected pair outside its target slot" : (
+          cornerSlot >= 4 && edgeSlot >= 4 && edgeSlot <= 7 ? "both pieces separated in the top layer" : (
+              cornerSlot >= 4 && edgeSlot >= 8 ? "corner on top; edge trapped in an F2L slot" : (
+                  cornerSlot < 4 ? "corner trapped in the first layer" : "separated corner-edge pair"
+                )
+            )
         )
     );
-  return `Solve the ` + pairNames[pair] + ` pair — ` + situation + ` (corner ` + cornerPosition + `, edge ` + edgePosition + `).`;
-}
-
-function f2lFaces(pair) {
-  switch (pair) {
-    case 0 :
-      return [
-        1,
-        2,
-        4
-      ];
-    case 1 :
-      return [
-        1,
-        4,
-        3
-      ];
-    case 2 :
-      return [
-        1,
-        3,
-        5
-      ];
+  let whiteFace = cornerPosition.split("")[state.co[cornerSlot]];
+  let whiteOrientation;
+  switch (whiteFace) {
+    case "D" :
+      whiteOrientation = "white sticker faces down";
+      break;
+    case "U" :
+      whiteOrientation = "white sticker faces up";
+      break;
     default:
-      return [
-        1,
-        5,
-        2
-      ];
+      whiteOrientation = `white sticker faces ` + whiteFace;
   }
+  let edgeOrientation = state.eo[edgeSlot] === 0 ? "edge oriented" : "edge flipped";
+  return `Solve the ` + pairNames[pair] + ` pair — ` + situation + `; ` + whiteOrientation + `; ` + edgeOrientation + ` (corner ` + cornerPosition + `, edge ` + edgePosition + `).`;
 }
 
-function findPairCandidate(state, completed, pair, atomics) {
+function addPositionFaces(faces, position) {
+  position.split("").forEach(face => {
+    let index;
+    switch (face) {
+      case "B" :
+        index = 5;
+        break;
+      case "F" :
+        index = 4;
+        break;
+      case "L" :
+        index = 3;
+        break;
+      case "R" :
+        index = 2;
+        break;
+      default:
+        index = -1;
+    }
+    if (index !== -1 && !faces.some(candidate => candidate === index)) {
+      faces.push(index);
+      return;
+    }
+  });
+}
+
+function f2lFaces(state, pair, allSides) {
+  if (allSides) {
+    return [
+      1,
+      2,
+      3,
+      4,
+      5
+    ];
+  }
+  let faces = [1];
+  addPositionFaces(faces, cornerSlots[pair]);
+  addPositionFaces(faces, edgeSlots[8 + pair | 0]);
+  addPositionFaces(faces, cornerSlots[BeginnerSolver.findPiece(state.cp, pair)]);
+  addPositionFaces(faces, edgeSlots[BeginnerSolver.findPiece(state.ep, 8 + pair | 0)]);
+  return faces;
+}
+
+function findPairCandidate(state, completed, pair, atomics, maxDepth, maxNodes, allSides) {
   let targets = completed.concat([pair]);
   let edges = [
     0,
@@ -225,27 +304,81 @@ function findPairCandidate(state, completed, pair, atomics) {
     2,
     3
   ].concat(targets.map(value => 8 + value | 0));
-  let faces = f2lFaces(pair);
+  let faces = f2lFaces(state, pair, allSides);
   let actions = atomics.filter(action => faces.some(face => face === action.faceIndex));
-  let path = BeginnerSolver.searchAtomicWithLimit(state, targets, edges, actions, 11, 180000);
+  let path = BeginnerSolver.searchAtomicWithLimit(state, targets, edges, actions, maxDepth, maxNodes);
   if (path === undefined) {
     return;
   }
   let alg = BeginnerSolver.flattenActions(path);
+  let humanAlg = MoveTransform.rotate(alg, "X", 2);
   return {
     pair: pair,
     path: path,
-    score: physicalScore(alg),
+    score: physicalCost(humanAlg).total,
     label: describePairCase(state, pair)
   };
 }
 
-function betterPair(candidate, current) {
-  if (current !== undefined && !(candidate.score < current.score || candidate.score === current.score && candidate.path.length < current.path.length)) {
-    return current;
+function comparePairs(left, right) {
+  let scoreDifference = left.score - right.score | 0;
+  if (scoreDifference !== 0) {
+    return scoreDifference;
   } else {
-    return candidate;
+    return left.path.length - right.path.length | 0;
   }
+}
+
+function f2lPlanKey(state, completed) {
+  return BeginnerSolver.fullKey(state) + "|" + [
+    0,
+    1,
+    2,
+    3
+  ].map(pair => {
+    if (completed.some(value => value === pair)) {
+      return "1";
+    } else {
+      return "0";
+    }
+  }).join("");
+}
+
+function planF2l(state, completed, atomics, maxDepth, maxNodes, allSides, failed) {
+  if (completed.length === 4) {
+    return [];
+  }
+  let key = f2lPlanKey(state, completed);
+  let match = failed[key];
+  if (match !== undefined) {
+    return;
+  }
+  let candidates = [];
+  for (let pair = 0; pair <= 3; ++pair) {
+    if (!completed.some(value => value === pair)) {
+      let candidate = findPairCandidate(state, completed, pair, atomics, maxDepth, maxNodes, allSides);
+      if (candidate !== undefined) {
+        candidates.push(candidate);
+      }
+    }
+  }
+  candidates.sort(comparePairs);
+  let result;
+  for (let index = 0, index_finish = candidates.length; index < index_finish; ++index) {
+    if (result === undefined) {
+      let candidate$1 = candidates[index];
+      let nextState = applyPath(state, candidate$1.path);
+      let nextCompleted = completed.concat([candidate$1.pair]);
+      let rest = planF2l(nextState, nextCompleted, atomics, maxDepth, maxNodes, allSides, failed);
+      if (rest !== undefined) {
+        result = [candidate$1].concat(rest);
+      }
+    }
+  }
+  if (result === undefined) {
+    failed[key] = true;
+  }
+  return result;
 }
 
 function describeEdgeOrientation(state) {
@@ -431,8 +564,10 @@ function solve(input) {
       };
     }
     let atomics = BeginnerSolver.atomicActions(solved);
-    let current = start;
-    let path = BeginnerSolver.searchAtomic(current, [], [
+    let current = {
+      contents: start
+    };
+    let path = BeginnerSolver.searchAtomic(current.contents, [], [
       0,
       1,
       2,
@@ -451,8 +586,8 @@ function solve(input) {
         Error: new Error()
       };
     }
-    current = applyPath(current, crossPath);
-    if (!BeginnerSolver.lockedGoal(current, [], [
+    current.contents = applyPath(current.contents, crossPath);
+    if (!BeginnerSolver.lockedGoal(current.contents, [], [
         0,
         1,
         2,
@@ -464,34 +599,32 @@ function solve(input) {
         Error: new Error()
       };
     }
-    let f2lAlg = [];
-    let f2lLabels = [];
-    let completedPairs = [];
-    while (completedPairs.length < 4) {
-      let best;
-      for (let pair = 0; pair <= 3; ++pair) {
-        if (!completedPairs.some(value => value === pair)) {
-          let candidate = findPairCandidate(current, completedPairs, pair, atomics);
-          if (candidate !== undefined) {
-            best = betterPair(candidate, best);
-          }
-        }
-      }
-      let candidate$1 = best;
-      let selected;
-      if (candidate$1 !== undefined) {
-        selected = candidate$1;
+    let fastF2lPlan = planF2l(current.contents, [], atomics, 11, 180000, false, {});
+    let f2lPlan;
+    if (fastF2lPlan !== undefined) {
+      f2lPlan = fastF2lPlan;
+    } else {
+      let plan = planF2l(current.contents, [], atomics, 12, 600000, true, {});
+      if (plan !== undefined) {
+        f2lPlan = plan;
       } else {
         throw {
           RE_EXN_ID: BuildFailure,
           _1: {
             TAG: "SearchFailed",
-            _0: "a locked F2L corner-edge pair"
+            _0: "four locked F2L corner-edge pairs"
           },
           Error: new Error()
         };
       }
-      current = applyPath(current, selected.path);
+    }
+    let f2lAlg = {
+      contents: []
+    };
+    let f2lLabels = [];
+    let completedPairs = [];
+    f2lPlan.forEach(selected => {
+      current.contents = applyPath(current.contents, selected.path);
       completedPairs.push(selected.pair);
       let lockedEdges = [
         0,
@@ -499,17 +632,17 @@ function solve(input) {
         2,
         3
       ].concat(completedPairs.map(pair => 8 + pair | 0));
-      if (!BeginnerSolver.lockedGoal(current, completedPairs, lockedEdges)) {
+      if (!BeginnerSolver.lockedGoal(current.contents, completedPairs, lockedEdges)) {
         throw {
           RE_EXN_ID: BuildFailure,
           _1: "VerificationFailed",
           Error: new Error()
         };
       }
-      f2lAlg = f2lAlg.concat(BeginnerSolver.groupedSequence(BeginnerSolver.flattenActions(selected.path)));
+      f2lAlg.contents = f2lAlg.contents.concat(BeginnerSolver.groupedSequence(BeginnerSolver.flattenActions(selected.path)));
       f2lLabels.push(selected.label);
-    };
-    if (!BeginnerSolver.firstTwoLayersGoal(current)) {
+    });
+    if (!BeginnerSolver.firstTwoLayersGoal(current.contents)) {
       throw {
         RE_EXN_ID: BuildFailure,
         _1: "VerificationFailed",
@@ -519,7 +652,7 @@ function solve(input) {
     let ollEdgePrimitives = BeginnerSolver.macroVariants(solved, "F R U R' U' F'").concat(BeginnerSolver.macroVariants(solved, "F U R U' R' F'")).concat(BeginnerSolver.macroVariants(solved, "F R U R' U' F' U2 F U R U' R' F'"));
     let ollEdgeCases = rankedActions(ollEdgePrimitives);
     let ollEdgeActions = rankedActions(BeginnerSolver.downTurns(solved).concat(ollEdgeCases));
-    let path$1 = BeginnerSolver.searchMacros(current, ollEdgeActions, BeginnerSolver.orientedLastEdgesGoal, undefined, 2);
+    let path$1 = BeginnerSolver.searchMacros(current.contents, ollEdgeActions, BeginnerSolver.orientedLastEdgesGoal, undefined, 2);
     let ollEdgePath;
     if (path$1 !== undefined) {
       ollEdgePath = path$1;
@@ -533,8 +666,8 @@ function solve(input) {
         Error: new Error()
       };
     }
-    let match$1 = groupedPathWithLabels(current, ollEdgePath, describeEdgeOrientation);
-    current = match$1[2];
+    let match$1 = groupedPathWithLabels(current.contents, ollEdgePath, describeEdgeOrientation);
+    current.contents = match$1[2];
     let ollCornerAlgorithms = [
       "R U R' U R U2 R'",
       "R U2 R' U' R U' R'",
@@ -547,7 +680,7 @@ function solve(input) {
     let ollCornerPrimitives = Stdlib_Array.reduce(ollCornerAlgorithms, [], (all, algorithm) => all.concat(BeginnerSolver.macroVariants(solved, algorithm)));
     let ollCornerCases = rankedActions(ollCornerPrimitives);
     let ollCornerActions = rankedActions(BeginnerSolver.downTurns(solved).concat(ollCornerCases));
-    let path$2 = BeginnerSolver.searchMacros(current, ollCornerActions, BeginnerSolver.orientedLastCornersGoal, undefined, 2);
+    let path$2 = BeginnerSolver.searchMacros(current.contents, ollCornerActions, BeginnerSolver.orientedLastCornersGoal, undefined, 2);
     let ollCornerPath;
     if (path$2 !== undefined) {
       ollCornerPath = path$2;
@@ -561,9 +694,9 @@ function solve(input) {
         Error: new Error()
       };
     }
-    let match$2 = groupedPathWithLabels(current, ollCornerPath, describeCornerOrientation);
-    current = match$2[2];
-    if (!BeginnerSolver.orientedLastCornersGoal(current)) {
+    let match$2 = groupedPathWithLabels(current.contents, ollCornerPath, describeCornerOrientation);
+    current.contents = match$2[2];
+    if (!BeginnerSolver.orientedLastCornersGoal(current.contents)) {
       throw {
         RE_EXN_ID: BuildFailure,
         _1: "VerificationFailed",
@@ -582,7 +715,7 @@ function solve(input) {
       2,
       3
     ].map(y => BeginnerSolver.macroVariant(solved, MoveTransform.invert(cornerPll), y))));
-    let path$3 = BeginnerSolver.searchMacros(current, pllCornerActions, BeginnerSolver.positionedLastCornersGoal, undefined, 5);
+    let path$3 = BeginnerSolver.searchMacros(current.contents, pllCornerActions, BeginnerSolver.positionedLastCornersGoal, undefined, 5);
     let pllCornerPath;
     if (path$3 !== undefined) {
       pllCornerPath = path$3;
@@ -596,8 +729,8 @@ function solve(input) {
         Error: new Error()
       };
     }
-    let match$3 = groupedPathWithLabels(current, pllCornerPath, describeCornerPermutation);
-    current = match$3[2];
+    let match$3 = groupedPathWithLabels(current.contents, pllCornerPath, describeCornerPermutation);
+    current.contents = match$3[2];
     let ua = BeginnerSolver.parseInternal("R U' R U R U R U' R' U' R2");
     let ub = MoveTransform.invert(ua);
     let h = BeginnerSolver.parseInternal("M2 U M2 U2 M2 U M2");
@@ -613,7 +746,7 @@ function solve(input) {
       2,
       3
     ].map(y => BeginnerSolver.macroVariant(solved, algorithm, y))))));
-    let path$4 = BeginnerSolver.searchMacros(current, pllEdgeActions, BeginnerSolver.solvedCubiesGoal, undefined, 4);
+    let path$4 = BeginnerSolver.searchMacros(current.contents, pllEdgeActions, BeginnerSolver.solvedCubiesGoal, undefined, 4);
     let pllEdgePath;
     if (path$4 !== undefined) {
       pllEdgePath = path$4;
@@ -627,16 +760,16 @@ function solve(input) {
         Error: new Error()
       };
     }
-    let match$4 = groupedPathWithLabels(current, pllEdgePath, describeEdgePermutation);
-    current = match$4[2];
-    if (!BeginnerSolver.solvedCubiesGoal(current)) {
+    let match$4 = groupedPathWithLabels(current.contents, pllEdgePath, describeEdgePermutation);
+    current.contents = match$4[2];
+    if (!BeginnerSolver.solvedCubiesGoal(current.contents)) {
       throw {
         RE_EXN_ID: BuildFailure,
         _1: "VerificationFailed",
         Error: new Error()
       };
     }
-    let hasPhysicalWork = crossPath.length !== 0 || f2lAlg.length !== 0 || ollEdgePath.length !== 0 || ollCornerPath.length !== 0 || pllCornerPath.length !== 0 || pllEdgePath.length !== 0;
+    let hasPhysicalWork = crossPath.length !== 0 || f2lAlg.contents.length !== 0 || ollEdgePath.length !== 0 || ollCornerPath.length !== 0 || pllCornerPath.length !== 0 || pllEdgePath.length !== 0;
     let whiteDown = [{
         desc: {
           TAG: "Move",
@@ -662,7 +795,7 @@ function solve(input) {
         crossLabels.push(`Build the move-optimized white cross in ` + crossPath.length.toString() + ` moves.`);
       }
     }
-    let transformedF2l = MoveTransform.rotate(f2lAlg, "X", 2);
+    let transformedF2l = MoveTransform.rotate(f2lAlg.contents, "X", 2);
     let transformedOll = MoveTransform.rotate(match$1[0].concat(match$2[0]), "X", 2);
     let transformedPll = MoveTransform.rotate(match$3[0].concat(match$4[0]), "X", 2);
     let pllAlg = hasPhysicalWork ? transformedPll.concat(BeginnerSolver.groupedSequence(whiteDown)) : transformedPll;
@@ -753,6 +886,7 @@ export {
   grouped,
   withPhasePause,
   applyPath,
+  physicalCost,
   physicalScore,
   rankedActions,
   actionIsAlignment,
@@ -761,9 +895,12 @@ export {
   edgeSlots,
   physicalPosition,
   describePairCase,
+  addPositionFaces,
   f2lFaces,
   findPairCandidate,
-  betterPair,
+  comparePairs,
+  f2lPlanKey,
+  planF2l,
   describeEdgeOrientation,
   describeCornerOrientation,
   describeCornerPermutation,

@@ -30,6 +30,7 @@ import {
   planSequenceStep,
   planTimelineClick,
   physicalMoveProgress,
+  tutorialSequenceDescription,
   type AlgorithmTimeline,
 } from "./playback";
 import {
@@ -63,7 +64,13 @@ type RecognizedInput = {
   timelineKey?: string;
 };
 type TutorialMethod = "beginner" | "cfop";
-type TutorialPhase = {number: number; title: string; instruction: string; alg: unknown[]};
+type TutorialPhase = {
+  number: number;
+  title: string;
+  instruction: string;
+  alg: unknown[];
+  sequences?: string[];
+};
 type TutorialSolution = {phases: TutorialPhase[]; alg: unknown[]; moveCount: number};
 type TutorialPhaseRange = TutorialPhase & {method: TutorialMethod; start: number; end: number};
 type ExpandedTutorialEntry = {comment?: string};
@@ -541,8 +548,13 @@ if (root) {
     const current = tutorialPhases.find((phase) =>
       phase.end > phase.start && activeIndex >= phase.start && activeIndex < phase.end
     ) ?? (activeIndex === 0 ? tutorialPhases[0] : tutorialPhases.at(-1))!;
+    showTutorialPhase(current);
+  };
+
+  const showTutorialPhase = (current: TutorialPhaseRange, alreadySatisfied = false) => {
+    if (activeAcademy === null) return;
     activeAcademy.current.hidden = false;
-    activeAcademy.current.textContent = `Step ${current.number}: ${current.title} — ${current.instruction}`;
+    activeAcademy.current.textContent = `Step ${current.number}: ${current.title} — ${current.instruction}${alreadySatisfied ? " Already satisfied by the preceding plan." : ""}`;
     activeAcademy.phases.querySelectorAll<HTMLElement>("[data-tutorial-phase]").forEach((button) => {
       button.classList.toggle("active", Number(button.dataset.tutorialPhase) === current.number);
     });
@@ -609,7 +621,8 @@ if (root) {
         const entries = [...groupEntries];
         const groupIndex = activeTimeline.steps.indexOf(groupEntries[0]);
         const phase = tutorialPhases.find((item) => groupIndex >= item.start && groupIndex < item.end);
-        const description = describeTimelineGroup(groupEntries, phase);
+        const description = tutorialSequenceDescription(activeTimeline.steps, groupIndex, phase)
+          ?? describeTimelineGroup(groupEntries, phase);
         container.dataset.groupStart = String(groupIndex);
         container.dataset.groupEnd = String(groupIndex + entries.length);
         container.dataset.sequenceDescription = description;
@@ -1256,6 +1269,7 @@ if (root) {
       button.className = "academy-phase";
       button.dataset.tutorialPhase = String(phase.number);
       button.dataset.tutorialPhaseStart = String(phase.start);
+      button.dataset.tutorialPhaseEnd = String(phase.end);
       if (academy.method === "beginner") {
         button.dataset.beginnerPhase = String(phase.number);
         button.dataset.beginnerPhaseStart = String(phase.start);
@@ -1344,7 +1358,16 @@ if (root) {
   academies.forEach((academy) => {
     academy.phases.addEventListener("click", (event) => {
       const button = (event.target as Element).closest<HTMLButtonElement>("[data-tutorial-phase-start]");
-      if (button) void seek(Number(button.dataset.tutorialPhaseStart), false);
+      if (!button) return;
+      const start = Number(button.dataset.tutorialPhaseStart);
+      const end = Number(button.dataset.tutorialPhaseEnd);
+      void seek(start, false);
+      if (start === end) {
+        const selected = tutorialPhases.find(
+          (phase) => phase.number === Number(button.dataset.tutorialPhase),
+        );
+        if (selected) showTutorialPhase(selected, true);
+      }
     });
     academy.copy.addEventListener("click", async () => {
       if (activeAcademy !== academy || commentedTutorialSolution === "") return;

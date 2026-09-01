@@ -4,16 +4,15 @@ Cube Rosetta uses four client-side workspace views over one canonical state:
 
 - **Converter** presents the six size-aware state formats and copy controls.
 - **Beginner Academy** generates and explains a seven-phase 3×3 LBL tutorial.
-- **CFOP Academy** teaches a replay-verified Cross, F2L foundation, two-look OLL, and
-  two-look PLL path.
+- **CFOP Academy** teaches a replay-verified Cross, four recognized and locked F2L pairs,
+  two-look OLL, and two-look PLL path.
 - **Alg Workbench** contains transformations and the state-verified NISS helper.
 
 The tabs are visibility controls, not routes or hydrated framework components. The page
 contains one `CubeViewport` instance outside the changing left-hand panels, so switching
 views does not recreate the WebGL context, mesh buffers, camera, or tape player. The
-active tab is stored as `tab=converter|beginner|workbench` in the URL hash alongside the
-current input and settings. The supported values are
-`tab=converter|beginner|cfop|workbench`.
+active tab is stored in the URL hash alongside the current input and settings. The
+supported values are `tab=converter|beginner|cfop|workbench`.
 
 ## Shared-state behavior
 

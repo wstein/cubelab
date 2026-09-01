@@ -20,6 +20,8 @@ export type TutorialGroupContext = {
   title: string;
   instruction: string;
   method?: "beginner" | "cfop";
+  start?: number;
+  sequences?: string[];
 };
 export type TimelineClickPlan = {
   jumpTo: number | null;
@@ -192,6 +194,23 @@ export const describeTimelineGroup = (
         ? `${phase.title}: ${phase.instruction}`
         : "Execute this parenthesized algorithm as one sequence.";
   }
+};
+
+export const tutorialSequenceDescription = (
+  steps: TimelineEntry[],
+  groupIndex: number,
+  phase?: TutorialGroupContext,
+): string | null => {
+  if (phase?.start === undefined || !phase.sequences?.length) return null;
+  const groupId = steps[groupIndex]?.groupId;
+  if (groupId === undefined) return null;
+  const groupIds = [...new Set(
+    steps
+      .slice(phase.start, groupIndex + 1)
+      .flatMap((entry) => entry.groupId === undefined ? [] : [entry.groupId]),
+  )];
+  const sequenceIndex = groupIds.indexOf(groupId);
+  return sequenceIndex < 0 ? null : phase.sequences[sequenceIndex] ?? null;
 };
 
 export type AlgorithmTimeline = {

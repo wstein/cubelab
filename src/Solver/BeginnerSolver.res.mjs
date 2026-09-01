@@ -237,13 +237,94 @@ function projectionKey(state, corners, edges) {
   return cornerKey + "|" + edgeKey;
 }
 
+function nextCornerCoordinate(coordinate, transition) {
+  let oldSlot = coordinate / 3 | 0;
+  let orientation = coordinate % 3;
+  let newSlot = transition.cp.findIndex(source => source === oldSlot);
+  return (newSlot * 3 | 0) + (orientation + transition.co[newSlot] | 0) % 3 | 0;
+}
+
+function nextEdgeCoordinate(coordinate, transition) {
+  let oldSlot = coordinate / 2 | 0;
+  let orientation = coordinate % 2;
+  let newSlot = transition.ep.findIndex(source => source === oldSlot);
+  return (newSlot << 1) + (orientation + transition.eo[newSlot] | 0) % 2 | 0;
+}
+
+function coordinateDistances(goal, coordinateCount, actions, nextCoordinate) {
+  let distances = Stdlib_Array.make(coordinateCount, 99);
+  let queue = [goal];
+  let head = 0;
+  distances[goal] = 0;
+  while (head < queue.length) {
+    let coordinate = queue[head];
+    head = head + 1 | 0;
+    let distance = distances[coordinate];
+    actions.forEach(action => {
+      let next = nextCoordinate(coordinate, action.transition);
+      if (distances[next] === 99) {
+        distances[next] = distance + 1 | 0;
+        queue.push(next);
+        return;
+      }
+    });
+  };
+  return distances;
+}
+
+function atomicDistanceTables(corners, edges, actions) {
+  let cornerTables = corners.map(piece => ({
+    piece: piece,
+    distances: coordinateDistances(piece * 3 | 0, 24, actions, nextCornerCoordinate)
+  }));
+  let edgeTables = edges.map(piece => ({
+    piece: piece,
+    distances: coordinateDistances((piece << 1), 24, actions, nextEdgeCoordinate)
+  }));
+  return [
+    cornerTables,
+    edgeTables
+  ];
+}
+
+function atomicDistanceLowerBound(state, cornerTables, edgeTables) {
+  let lowerBound = {
+    contents: 0
+  };
+  cornerTables.forEach(table => {
+    let slot = findPiece(state.cp, table.piece);
+    let coordinate = (slot * 3 | 0) + state.co[slot] | 0;
+    let distance = table.distances[coordinate];
+    if (distance > lowerBound.contents) {
+      lowerBound.contents = distance;
+      return;
+    }
+  });
+  edgeTables.forEach(table => {
+    let slot = findPiece(state.ep, table.piece);
+    let coordinate = (slot << 1) + state.eo[slot] | 0;
+    let distance = table.distances[coordinate];
+    if (distance > lowerBound.contents) {
+      lowerBound.contents = distance;
+      return;
+    }
+  });
+  return lowerBound.contents;
+}
+
 function searchAtomicWithLimit(state, corners, edges, actions, maxDepth, maxNodes) {
   if (lockedGoal(state, corners, edges)) {
     return [];
   }
+  let match = atomicDistanceTables(corners, edges, actions);
+  let edgeTables = match[1];
+  let cornerTables = match[0];
   let dfs = (current, remaining, previousFace, previousAxis, path, seen, nodes) => {
     nodes.contents = nodes.contents + 1 | 0;
     if (nodes.contents > maxNodes) {
+      return;
+    }
+    if (atomicDistanceLowerBound(current, cornerTables, edgeTables) > remaining) {
       return;
     }
     if (remaining === 0) {
@@ -253,7 +334,7 @@ function searchAtomicWithLimit(state, corners, edges, actions, maxDepth, maxNode
         return;
       }
     }
-    let key = projectionKey(current, corners, edges);
+    let key = projectionKey(current, corners, edges) + "|" + previousFace.toString() + ":" + previousAxis.toString();
     let depth = seen[key];
     let alreadySeen = depth !== undefined ? depth >= remaining : false;
     if (alreadySeen) {
@@ -1056,6 +1137,11 @@ export {
   lockedGoal,
   findPiece,
   projectionKey,
+  nextCornerCoordinate,
+  nextEdgeCoordinate,
+  coordinateDistances,
+  atomicDistanceTables,
+  atomicDistanceLowerBound,
   searchAtomicWithLimit,
   searchAtomic,
   flattenActions,

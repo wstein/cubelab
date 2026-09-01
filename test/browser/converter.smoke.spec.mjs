@@ -472,7 +472,7 @@ test("opens CFOP Academy and builds its four replay-verified stages", async ({pa
   await expect(page.locator("[data-cfop-status]")).toContainText("Verified CFOP solution");
   await expect(page.locator("[data-cfop-phase]")).toHaveCount(4);
   await expect(page.locator("[data-cfop-phase]").nth(0)).toContainText("Cross");
-  await expect(page.locator("[data-cfop-phase]").nth(1)).toContainText("F2L Foundation");
+  await expect(page.locator("[data-cfop-phase]").nth(1)).toContainText("F2L Pairs");
   await expect(page.locator("[data-cfop-phase]").nth(2)).toContainText("Two-Look OLL");
   await expect(page.locator("[data-cfop-phase]").nth(3)).toContainText("Two-Look PLL");
   await expect(page.locator("[data-cfop-solution]")).toContainText("// CFOP 1: Cross");
@@ -481,7 +481,7 @@ test("opens CFOP Academy and builds its four replay-verified stages", async ({pa
 
   const f2l = page.locator("[data-cfop-phase]").nth(1);
   await f2l.click();
-  await expect(page.locator("[data-cfop-current]")).toContainText("Step 2: F2L Foundation");
+  await expect(page.locator("[data-cfop-current]")).toContainText("Step 2: F2L Pairs");
   await expect(canvas).toHaveAttribute("data-cfop-persistence-probe", "mounted");
 
   await page.getByRole("button", {name: "Converter"}).click();
