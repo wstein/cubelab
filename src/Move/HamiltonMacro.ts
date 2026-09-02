@@ -128,3 +128,42 @@ export const measure = (program: Program, name = program.exportName): Measuremen
   };
   return definition(name);
 };
+
+const invertToken = (token: string): string => token.endsWith("2")
+  ? token
+  : token.endsWith("'") ? token.slice(0, -1) : `${token}'`;
+
+/** Streams atomic moves without materializing a macro expansion. */
+export function* stream(program: Program, name = program.exportName): Generator<string> {
+  const walkDefinition = function* (key: string, inverted: boolean): Generator<string> {
+    const body = program.definitions.get(key);
+    if (!body) fail(`undefined macro '${key}'`);
+    yield* walkItems(body, inverted);
+  };
+  const walkItems = function* (items: Node[], inverted: boolean): Generator<string> {
+    const ordered = inverted ? [...items].reverse() : items;
+    for (const item of ordered) yield* walk(item, inverted);
+  };
+  const walk = function* (node: Node, inheritedInverse: boolean): Generator<string> {
+    if (node.kind === "move") {
+      yield inheritedInverse ? invertToken(node.token) : node.token;
+      return;
+    }
+    const repeat = node.repeat < 0n ? -node.repeat : node.repeat;
+    const inverted = inheritedInverse !== (node.repeat < 0n);
+    for (let index = 0n; index < repeat; index += 1n) {
+      if (node.kind === "reference") yield* walkDefinition(node.name, inverted);
+      else yield* walkItems(node.items, inverted);
+    }
+  };
+  yield* walkDefinition(name, false);
+}
+
+export const prefix = (program: Program, limit: number, name = program.exportName): string[] => {
+  const output: string[] = [];
+  for (const token of stream(program, name)) {
+    output.push(token);
+    if (output.length >= limit) break;
+  }
+  return output;
+};

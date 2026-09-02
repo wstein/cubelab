@@ -1,6 +1,6 @@
 import {describe, expect, test} from "vitest";
 
-import {measure, parse} from "../src/Move/HamiltonMacro.ts";
+import {measure, parse, prefix} from "../src/Move/HamiltonMacro.ts";
 
 describe("Hamilton macro programs", () => {
   test("measures recursive definitions without unfolding them", () => {
@@ -20,5 +20,11 @@ describe("Hamilton macro programs", () => {
     const program = parse(`def a = (U R)3\ndef b = a a\nexport b`);
     expect(measure(program).quarterTurns).toBe(12n);
     expect(() => measure(parse(`def a = b\ndef b = a\nexport a`))).toThrow(/a -> b -> a/);
+  });
+
+  test("streams selected macro prefixes and inverses without unfolding the root", () => {
+    const program = parse(`def b = U R\ndef a = (b)2 b'\nexport a`);
+    expect(prefix(program, 10)).toEqual(["U", "R", "U", "R", "R'", "U'"]);
+    expect(prefix(program, 2, "b")).toEqual(["U", "R"]);
   });
 });
