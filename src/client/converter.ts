@@ -2803,12 +2803,22 @@ if (root) {
           const simplified = MoveTransform.simplify(alg) as Result<unknown[], string>;
           if (simplified.TAG === "Ok") {
             commitTransformedAlgorithm(MoveTransform.serialize(simplified._0));
+            if (simplified._0.length === 0 && alg.length > 0) {
+              const original = button.textContent;
+              button.textContent = "Already solved (0 moves)";
+              window.setTimeout(() => {
+                button.textContent = original;
+              }, 1800);
+            }
           } else {
             error.textContent = "The algorithm exceeds the safe transformation limit.";
             error.hidden = false;
           }
           break;
         }
+        case "normalize":
+          commitTransformedAlgorithm(MoveTransform.serialize(alg));
+          break;
         case "mirror-lr":
           commitTransformedAlgorithm(MoveTransform.serialize(MoveTransform.mirror(alg, "LR")));
           break;

@@ -255,6 +255,13 @@ const cards = [
               <button
                 type="button"
                 class="transform-btn"
+                data-alg-transform="normalize"
+                title="Rewrite in CubeLab's canonical notation without changing the move sequence"
+                disabled>🧭 Normalize</button
+              >
+              <button
+                type="button"
+                class="transform-btn"
                 data-alg-transform="mirror-lr"
                 disabled>↔ Mirror L/R</button
               >
@@ -358,9 +365,13 @@ const cards = [
               Lowercase moves use modern SiGN wide turns by default (<code
                 >r = Rw</code
               >). Use <code>2R</code> for a portable single inner-layer turn. Unicode
-              Ruwix subscripts such as <code>R₂'</code> are recognized directly; ambiguous
-              plaintext such as <code>R2'</code> requires Ruwix suffix mode. Practice
+              Ruwix subscripts such as <code>R₂'</code> are recognized directly; ambiguous plaintext
+              such as <code>R2'</code> requires Ruwix suffix mode. Practice
               scramble is quick-load testing only, not official WCA scramble data.
+              <strong>Simplify</strong> resolves nested repeat/invert notation algebraically
+              (<code>(U3')2'</code> → <code>U2</code>) as well as merging adjacent same-face
+              turns. <strong>Normalize</strong> rewrites the same move sequence in CubeLab's
+              canonical spelling without merging or expanding anything.
             </p>
             <div class="compatibility-strip" data-compatibility hidden>
               <span class="compatibility-label">Source compatibility</span>

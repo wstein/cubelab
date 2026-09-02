@@ -1074,6 +1074,21 @@ test("applies algorithm workbench actions and generates size-aware practice scra
   await page.getByRole("button", {name: "Simplify"}).click();
   await expect(input).toHaveValue("L");
 
+  await input.fill("(U3')2'");
+  const simplify = page.locator('[data-alg-transform="simplify"]');
+  await simplify.click();
+  await expect(input).toHaveValue("U2");
+
+  await input.fill("(F2)2");
+  await simplify.click();
+  await expect(simplify).toHaveText("Already solved (0 moves)");
+  await expect(input).toHaveValue("");
+  await expect(simplify).toHaveText("⚡ Simplify", {timeout: 3000});
+
+  await input.fill("Rw2 fw'");
+  await page.getByRole("button", {name: "Normalize"}).click();
+  await expect(input).toHaveValue("Rw2 Fw'");
+
   await input.fill("R U R'");
   await page.getByRole("button", {name: "Mirror L/R"}).click();
   await expect(input).toHaveValue("L' U' L");
