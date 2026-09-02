@@ -22,6 +22,67 @@ let middleSliceIsPlaced = edgePermutation => {
   placed.contents
 }
 
+let generatedLoc = {start: 0, end_: 0}
+let located = desc => {desc, loc: generatedLoc}
+let outerRange = {from_: 1, to_: 1}
+
+type searchAction = {alg: alg, faceIndex: int}
+
+let searchActions = () => {
+  let actions = []
+  let faces = [U, D, R, L, F, B]
+  let turns = [1, 2, -1]
+  faces->Array.forEachWithIndex((face, faceIndex) =>
+    turns->Array.forEach(turn =>
+      actions->Array.push({
+        alg: [located(Move(FaceTurn(face, outerRange), turn))],
+        faceIndex,
+      })
+    )
+  )
+  actions
+}
+
+let solvedPieces = (pieces: PieceReducer.pieceState) =>
+  isIdentity(pieces.cp) && allZero(pieces.co) && isIdentity(pieces.ep) && allZero(pieces.eo)
+
+let rec exactSearch = (state, depth, lastFace): option<alg> => {
+  switch PieceReducer.reduce(state) {
+  | Error(_) => None
+  | Ok(pieces) =>
+    if solvedPieces(pieces) {
+      Some([])
+    } else if depth == 0 {
+      None
+    } else {
+      let found = ref(None)
+      searchActions()->Array.forEach(action => {
+        if found.contents == None && action.faceIndex != lastFace {
+          switch MoveExecutor.applyAlg(state, action.alg) {
+          | Error(_) => ()
+          | Ok(next) =>
+            switch exactSearch(next, depth - 1, action.faceIndex) {
+            | None => ()
+            | Some(tail) => found := Some(action.alg->Array.concat(tail))
+            }
+          }
+        }
+      })
+      found.contents
+    }
+  }
+}
+
+let shallowOptimalSearch = state => {
+  let result = ref(None)
+  for depth in 0 to 6 {
+    if result.contents == None {
+      result := exactSearch(state, depth, -1)
+    }
+  }
+  result.contents
+}
+
 let isPhase1Solved = (state: cubeState): bool =>
   switch PieceReducer.reduce(state) {
   | Error(_) => false
@@ -36,12 +97,13 @@ let solve = (state: cubeState): result<solution, solverError> =>
     switch PieceReducer.reduce(state) {
     | Error(error) => Error(InvalidState(error))
     | Ok(pieces) =>
-      if (
-        isIdentity(pieces.cp) && allZero(pieces.co) && isIdentity(pieces.ep) && allZero(pieces.eo)
-      ) {
+      if solvedPieces(pieces) {
         Ok({alg: [], moveCount: 0})
       } else {
-        Error(SearchFailed)
+        switch shallowOptimalSearch(state) {
+        | Some(alg) => Ok({alg, moveCount: alg->Array.length})
+        | None => Error(SearchFailed)
+        }
       }
     }
   }
