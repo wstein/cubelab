@@ -2252,7 +2252,7 @@ if (root) {
             window.location.reload();
             return new Promise<SmartCubeManager>(() => {});
           }
-          throw new Error("The smart-cube module could not load. Reload Cube Rosetta and try again.");
+          throw new Error("The smart-cube module could not load. Reload CubeLab and try again.");
         });
     }
     return smartCubeManagerLoading;
@@ -2832,7 +2832,7 @@ if (root) {
     } catch {}
   };
   if (smartCubeChunkReloadAttempted()) {
-    showBluetoothUnavailable("Cube Rosetta was updated while this page was open. Click Connect cube again.");
+    showBluetoothUnavailable("CubeLab was updated while this page was open. Click Connect cube again.");
     smartCubeDock.dataset.phase = "disconnected";
   }
   const bluetoothChooserWasCancelled = (reason: unknown) => {
@@ -2854,7 +2854,7 @@ if (root) {
       if (usingBrave) return braveBluetoothHelp;
       return window.self === window.top
         ? "Bluetooth is blocked by the browser. Allow Bluetooth devices in Chrome or Edge site settings and enable the browser in macOS Privacy & Security, then retry."
-        : "Bluetooth is blocked in this embedded preview. Open Cube Rosetta directly in Chrome or Edge, then connect again.";
+        : "Bluetooth is blocked in this embedded preview. Open CubeLab directly in Chrome or Edge, then connect again.";
     }
     if (/denied.*(?:scan|permission)|not allowed/i.test(detail)) {
       return "Bluetooth scanning was denied. Allow Bluetooth access for this browser and site, then retry.";

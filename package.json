@@ -1,5 +1,5 @@
 {
-  "name": "cube-rosetta",
+  "name": "cubelab",
   "version": "0.0.0",
   "scripts": {
     "format": "rescript format src/*.res src/State/*.res src/Move/*.res src/Render/*.res src/Solver/*.res",
@@ -11,6 +11,7 @@
     "res:build": "rescript",
     "res:clean": "rescript clean",
     "res:dev": "rescript watch",
+    "dev": "astro dev",
     "astro:dev": "astro dev",
     "astro:build": "astro build",
     "astro:preview": "astro preview",

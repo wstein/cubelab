@@ -43,7 +43,7 @@ const cards = [
       name="description"
       content="Convert Rubik's Cube states between facelets, ASCII nets, colour notation, cubie coordinates, and Orbit64."
     />
-    <title>Cube Rosetta — Cube State Converter</title>
+    <title>CubeLab — Interactive Cube Studio &amp; Algorithmic Suite</title>
   </head>
   <body>
     <main class="container" data-converter>
@@ -51,11 +51,11 @@ const cards = [
         <div class="brand-lockup">
           <span class="badge-tag">2×2×2 — 5×5×5</span>
           <div>
-            <h1 class="title-gradient">Cube Rosetta</h1>
-            <p class="subtitle">Strict cube-state conversion and interactive coaching.</p>
+            <h1 class="title-gradient">CubeLab</h1>
+            <p class="subtitle">Strict cube-state conversion, algorithm workbench, and interactive solvers.</p>
           </div>
         </div>
-        <nav class="workspace-tabs" aria-label="Cube Rosetta workspace">
+        <nav class="workspace-tabs" aria-label="CubeLab workspace">
           <button type="button" class="workspace-tab active" data-workspace-tab="converter" aria-selected="true">
             🔄 Converter
           </button>
@@ -64,6 +64,9 @@ const cards = [
           </button>
           <button type="button" class="workspace-tab" data-workspace-tab="workbench" aria-selected="false">
             ⚡ Alg Workbench
+          </button>
+          <button type="button" class="workspace-tab" data-workspace-tab="patterns" aria-selected="false">
+            🧩 Pattern Catalog
           </button>
         </nav>
       </header>
@@ -187,7 +190,7 @@ const cards = [
           <summary>NISS helper (3×3 FMC)</summary>
           <p class="niss-help">
             Record normal-side moves as <code>N</code> and inverse-side moves as
-            <code>I</code>. Cube Rosetta constructs <code>N · I⁻¹</code> and accepts it only
+            <code>I</code>. CubeLab constructs <code>N · I⁻¹</code> and accepts it only
             when replay proves that it solves the current scramble.
           </p>
           <div class="niss-inverse-row">
