@@ -811,6 +811,49 @@ if (root) {
     }
   };
 
+  const pastMoveTokens = (timelineIndex: number, count = 60): string[] => {
+    if (!activeTimeline?.labels) return [];
+    const result: string[] = [];
+    for (let i = timelineIndex - 1; i >= 0 && result.length < count; i--) {
+      const step = activeTimeline.steps[i];
+      const label = activeTimeline.labels[i];
+      if (label && step?.step && step.kind !== "pause") {
+        result.unshift(label);
+      }
+    }
+    return result;
+  };
+
+  const upcomingMoveTokens = (timelineIndex: number, count = 60): string[] => {
+    if (!activeTimeline?.labels) return [];
+    const result: string[] = [];
+    for (let i = timelineIndex + 1; i < activeTimeline.labels.length && result.length < count; i++) {
+      const step = activeTimeline.steps[i];
+      const label = activeTimeline.labels[i];
+      if (label && step?.step && step.kind !== "pause") {
+        result.push(label);
+      }
+    }
+    return result;
+  };
+
+  const syncMoveRibbon = (timelineIndex = activeIndex) => {
+    if (!viewport?.setMoveRibbon) return;
+    if (!activeTimeline?.labels || activeTimeline.labels.length === 0) {
+      viewport.setMoveRibbon(null);
+      return;
+    }
+    const safeIdx = Math.max(0, Math.min(activeTimeline.labels.length - 1, timelineIndex));
+    const currentLabel = activeTimeline.labels[safeIdx] ?? "";
+    const step = activeTimeline.steps[safeIdx]?.step;
+    viewport.setMoveRibbon({
+      step,
+      label: currentLabel,
+      past: pastMoveTokens(safeIdx, 60),
+      upcoming: upcomingMoveTokens(safeIdx, 60),
+    });
+  };
+
   const activateTurnGuide = (
     token: HTMLElement,
     step: MoveStep,
@@ -823,7 +866,12 @@ if (root) {
     viewport?.setTurnPreview(null);
     guidedToken?.classList.remove("turn-guided");
     guidedToken = token;
-    activeTurnGuide = {step, label};
+    activeTurnGuide = {
+      step,
+      label,
+      past: pastMoveTokens(moveIndex, 8),
+      upcoming: upcomingMoveTokens(moveIndex, 12),
+    };
     token.classList.add("turn-guided");
     const before = activeTimeline?.states?.[moveIndex];
     if (before) {
@@ -1237,6 +1285,7 @@ if (root) {
     renderState(activeTimeline.states[activeIndex], status.textContent ?? "Algorithm");
     refreshTutorialFocus();
     updatePlaybackUi();
+    syncMoveRibbon(activeIndex);
   };
 
   const setSmartCubeTimelineIndex = (index: number) => {
@@ -1244,6 +1293,7 @@ if (root) {
     activeIndex = Math.max(0, Math.min(index, activeTimeline.steps.length));
     refreshTutorialFocus();
     updatePlaybackUi();
+    syncMoveRibbon(activeIndex);
   };
 
   const transitionTo = async (
@@ -1339,7 +1389,24 @@ if (root) {
       * (Math.abs(transform.angle) > Math.PI / 2 + 0.01 ? 1.35 : 1)
       / playbackSpeed
       / speedMultiplier;
-    await viewport.animateTurn(transform, duration);
+
+    if (turnGuides) {
+      const guideLabel = activeTimeline.labels[stepIndex] ?? "";
+      viewport.setTurnGuide({
+        step: animatedStep,
+        label: guideLabel,
+        past: pastMoveTokens(stepIndex, 8),
+        upcoming: upcomingMoveTokens(stepIndex, 12),
+      });
+    }
+
+    try {
+      await viewport.animateTurn(transform, duration);
+    } finally {
+      if (turnGuides && !activeTurnGuide) {
+        viewport.setTurnGuide(null);
+      }
+    }
     if (generation !== playbackGeneration) return false;
     renderTimelineIndex(bounded);
     return true;
@@ -1547,7 +1614,16 @@ if (root) {
       token.scrollIntoView({block: "nearest", inline: "nearest"});
     }
     if (step) {
-      activeTurnGuide = {step, label: `Undo ${undo}`, tone: "recovery"};
+      activeTurnGuide = {
+        step,
+        label: `Undo ${undo}`,
+        tone: "recovery",
+        past: pastMoveTokens(smartCubeRecovery.expected.timelineIndex, 60),
+        upcoming: [
+          activeTimeline?.labels[smartCubeRecovery.expected.timelineIndex] ?? "",
+          ...upcomingMoveTokens(smartCubeRecovery.expected.timelineIndex, 60),
+        ].filter(Boolean),
+      };
       viewport?.setTurnPreview(turnTransform(size, step));
       viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
     }
@@ -1604,7 +1680,12 @@ if (root) {
       quarterTurn,
     ) as CubeState;
     viewport.setState(halfway, viewportPalette());
-    activeTurnGuide = {step: quarterTurn, label: quarterLabel};
+    activeTurnGuide = {
+      step: quarterTurn,
+      label: quarterLabel,
+      past: pastMoveTokens(action.timelineIndex, 60),
+      upcoming: upcomingMoveTokens(action.timelineIndex, 60),
+    };
     viewport.setTurnPreview(turnTransform(size, quarterTurn));
     viewport.setTurnGuide(turnGuides ? activeTurnGuide : null);
     await viewport.animateTurn(transform, duration);
@@ -1666,7 +1747,12 @@ if (root) {
       const step = activeTimeline.steps[action.timelineIndex]?.step;
       if (step && token) {
         guidedToken = token;
-        activeTurnGuide = {step, label: action.token};
+        activeTurnGuide = {
+          step,
+          label: action.token,
+          past: pastMoveTokens(action.timelineIndex, 60),
+          upcoming: upcomingMoveTokens(action.timelineIndex, 60),
+        };
         token.classList.add("turn-guided");
         token.scrollIntoView({block: "nearest", inline: "nearest"});
         viewport?.setTurnPreview(turnTransform(size, step));
@@ -1730,6 +1816,8 @@ if (root) {
         // in the guide so the viewport can show the required `2×` indicator.
         step: step ?? quarterStep,
         label: progress ? quarterToken : expected.token,
+        past: pastMoveTokens(expected.timelineIndex, 60),
+        upcoming: upcomingMoveTokens(expected.timelineIndex, 60),
       };
       if (progress) {
         token.textContent = `${quarterToken} ${quarterToken}`;
@@ -2112,7 +2200,12 @@ if (root) {
             token.textContent = `${quarterLabel} ${quarterLabel}`;
             token.dataset.halfTurnProgress = "true";
           }
-          activeTurnGuide = {step: quarterStep, label: quarterLabel};
+          activeTurnGuide = {
+            step: quarterStep,
+            label: quarterLabel,
+            past: pastMoveTokens(pending.action.timelineIndex, 60),
+            upcoming: upcomingMoveTokens(pending.action.timelineIndex, 60),
+          };
           viewport?.setTurnPreview(turnTransform(size, quarterStep));
           viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
           smartCubeStatus.textContent = `${smartCubeDeviceName} · ${pending.action.token} halfway`;

@@ -4,7 +4,7 @@ export type Vector3 = [number, number, number];
 export type ProjectedPoint = {x: number; y: number; depth: number; inFront: boolean};
 export type SurfaceAnchor = {point: Vector3; normal: Vector3; visible: boolean};
 export type TurnSurfaceArrowPath = {normal: Vector3; points: Vector3[]};
-const FACE_SURFACE = 1.505;
+const FACE_SURFACE = 1.70;
 
 const dot = (left: Vector3, right: Vector3): number =>
   left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
@@ -105,6 +105,66 @@ export const surfaceFacingScore = (
   return dot(normalize([transformed[0], transformed[1], transformed[2]]), view);
 };
 
+const roundedSquare = (theta: number, half = 1.58, cornerR = 0.18): [number, number] => {
+  const cos = Math.cos(theta);
+  const sin = Math.sin(theta);
+  const k = half - cornerR;
+  const cx = Math.max(-k, Math.min(k, (half * cos) / (Math.abs(cos) + 0.0001)));
+  const cy = Math.max(-k, Math.min(k, (half * sin) / (Math.abs(sin) + 0.0001)));
+  return [cx + cornerR * cos, cy + cornerR * sin];
+};
+
+export const turnLayerArcPaths = (
+  transform: TurnTransform,
+  step: MoveStep,
+  modelView: ArrayLike<number>,
+  size = 3,
+  samples = 72,
+): Vector3[][] => {
+  const axis = normalize(transform.axis);
+  const cell = 3 / Math.max(2, size);
+  const outer = 1.5 - cell / 2;
+  const layerCentres = step.move.TAG === "FaceTurn"
+    ? Array.from({length: size}, (_, index) => outer - index * cell)
+      .filter((coordinate) => coordinate >= transform.min && coordinate <= transform.max)
+    : [0];
+  const dir = Math.sign(transform.angle || 1);
+
+  const u: Vector3 = Math.abs(axis[1]) > 0.8 ? [1, 0, 0] : [0, 1, 0];
+  const v = normalize(cross(axis, u));
+  const uOrth = normalize(cross(v, axis));
+
+  return layerCentres.map((layerCoord) => {
+    const points: Array<{angle: number; pt: Vector3; visible: boolean}> = [];
+    for (let i = 0; i < samples; i++) {
+      const angle = (i / samples) * Math.PI * 2;
+      const [x, y] = roundedSquare(angle, 1.58, 0.18);
+      const pt: Vector3 = add(scale(axis, layerCoord), add(scale(uOrth, x), scale(v, y)));
+      const normal: Vector3 = add(scale(uOrth, Math.cos(angle)), scale(v, Math.sin(angle)));
+      const score = surfaceFacingScore(normal, pt, modelView);
+      points.push({angle, pt, visible: score > 0.08});
+    }
+
+    let bestRun: Array<{angle: number; pt: Vector3; visible: boolean}> = [];
+    let currentRun: Array<{angle: number; pt: Vector3; visible: boolean}> = [];
+    for (let stepIdx = 0; stepIdx < samples * 2; stepIdx++) {
+      const idx = stepIdx % samples;
+      if (points[idx]!.visible) {
+        currentRun.push(points[idx]!);
+      } else {
+        if (currentRun.length > bestRun.length) bestRun = currentRun;
+        currentRun = [];
+      }
+    }
+    if (currentRun.length > bestRun.length) bestRun = currentRun;
+
+    if (bestRun.length < 5) return [];
+
+    const ordered = dir < 0 ? [...bestRun].reverse() : bestRun;
+    return ordered.map((item) => item.pt);
+  }).filter((arc) => arc.length >= 4);
+};
+
 export const turnSurfaceArrowPaths = (
   transform: TurnTransform,
   step: MoveStep,
@@ -138,12 +198,45 @@ export const turnSurfaceArrowPaths = (
   });
 };
 
+export const wholeCubeArcPoints = (
+  transform: TurnTransform,
+  modelView: ArrayLike<number>,
+  radius = 2.22,
+  count = 36,
+): Vector3[] => {
+  const axis = normalize(transform.axis);
+  const u: Vector3 = Math.abs(axis[1]) > 0.8 ? [1, 0, 0] : [0, 1, 0];
+  const v = normalize(cross(axis, u));
+  const uOrth = normalize(cross(v, axis));
+
+  // Find angle in rotation plane closest to the camera (front-most point)
+  const A = modelView[2] * uOrth[0] + modelView[6] * uOrth[1] + modelView[10] * uOrth[2];
+  const B = modelView[2] * v[0] + modelView[6] * v[1] + modelView[10] * v[2];
+  const thetaFront = Math.atan2(B, A);
+
+  const dir = Math.sign(transform.angle || 1);
+  // Span an elegant sweeping arc (~100 degrees) across the front view
+  const arcSpan = 1.75;
+  const startAngle = thetaFront - arcSpan * 0.60 * dir;
+  const endAngle = thetaFront + arcSpan * 0.40 * dir;
+
+  return Array.from({length: count + 1}, (_, index) => {
+    const progress = index / count;
+    const angle = startAngle + progress * (endAngle - startAngle);
+    return add(
+      scale(uOrth, radius * Math.cos(angle)),
+      scale(v, radius * Math.sin(angle)),
+    );
+  });
+};
+
 export const turnRepeatIndicator = (step: MoveStep): string | null => {
   const turns = ((step.turns % 4) + 4) % 4;
   if (turns === 0) return null;
   if (step.move.TAG === "Rotation") {
-    if (turns === 2) return "⟳ 2×";
-    return turns === 3 ? "⟲" : "⟳";
+    const axis = step.move._0.toLowerCase();
+    if (turns === 2) return `${axis}2`;
+    return turns === 3 ? `${axis}'` : axis;
   }
   return turns === 2 ? "2×" : null;
 };

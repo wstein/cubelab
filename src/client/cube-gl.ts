@@ -5,8 +5,10 @@ import {
   pieceColourLabel,
   projectPoint,
   surfaceFacingScore,
+  turnLayerArcPaths,
   turnSurfaceArrowPaths,
   turnRepeatIndicator,
+  wholeCubeArcPoints,
   type ProjectedPoint,
 } from "./motion-overlay";
 
@@ -38,7 +40,13 @@ export type TurnTransform = {
   angle: number;
 };
 export type CameraTarget = { yaw: number; pitch: number };
-type TurnGuide = { step: MoveStep; label: string; tone?: "normal" | "recovery" };
+export type TurnGuide = {
+  step?: MoveStep;
+  label?: string;
+  tone?: "normal" | "recovery";
+  past?: string[];
+  upcoming?: string[];
+};
 
 const DEFAULT_YAW = -0.62;
 const DEFAULT_PITCH = 0.48;
@@ -560,6 +568,7 @@ export type CubeViewport = {
   setFocus: (focus: CubieFocus | null) => void;
   setMilestone: (milestone: MilestoneFocus | null) => void;
   setTurnGuide: (guide: TurnGuide | null) => void;
+  setMoveRibbon: (ribbon: TurnGuide | null) => void;
   smoothOrbitTo: (yaw: number, pitch: number, duration?: number) => Promise<void>;
   setDeviceOrientation: (
     orientation: OrientationQuaternion | null,
@@ -641,6 +650,7 @@ export const createCubeViewport = (
   let focus: CubieFocus | null = null;
   let milestone: MilestoneFocus | null = null;
   let turnGuide: TurnGuide | null = null;
+  let moveRibbon: TurnGuide | null = null;
   let turnFrame: number | null = null;
   let turnGeneration = 0;
   let autoOrbit = false;
@@ -700,15 +710,19 @@ export const createCubeViewport = (
     context.translate(to.x, to.y);
     context.rotate(angle);
     context.beginPath();
-    context.moveTo(-size * 0.72, -size * 0.62);
-    context.lineTo(0, 0);
-    context.lineTo(-size * 0.72, size * 0.62);
-    context.strokeStyle = colour;
-    context.lineWidth = size * 0.3;
-    context.lineCap = "round";
-    context.lineJoin = "round";
+    // Aerodynamic solid barbed arrowhead matching the whole-cube arrow style
+    context.moveTo(0, 0);
+    context.lineTo(-size * 0.95, -size * 0.55);
+    context.lineTo(-size * 0.60, 0);
+    context.lineTo(-size * 0.95, size * 0.55);
+    context.closePath();
+    context.fillStyle = colour;
     context.shadowColor = colour;
-    context.shadowBlur = size * 0.65;
+    context.shadowBlur = size * 0.8;
+    context.fill();
+    context.strokeStyle = "rgba(8, 15, 30, 0.85)";
+    context.lineWidth = Math.max(1, size * 0.12);
+    context.lineJoin = "round";
     context.stroke();
     context.restore();
   };
@@ -778,6 +792,227 @@ export const createCubeViewport = (
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.fillText(text, left + width / 2, top + height / 2);
+    context.restore();
+  };
+
+  const drawMoveSequenceRibbon = (
+    context: CanvasRenderingContext2D,
+    guide: TurnGuide,
+    width: number,
+    dpr: number,
+  ) => {
+    const step = guide.step;
+    const isRotation = step?.move.TAG === "Rotation";
+    const tone = guide.tone ?? "normal";
+    const isRecovery = tone === "recovery";
+    const turns = step ? ((step.turns % 4) + 4) % 4 : 0;
+    const isHalfTurn = turns === 2;
+    const currentLabel = guide.label || (step && isRotation
+      ? (isHalfTurn ? `${step.move._0.toLowerCase()}2` : `${step.move._0.toLowerCase()}${turns === 3 ? "'" : ""}`)
+      : "");
+    if (!currentLabel && (!guide.upcoming || guide.upcoming.length === 0)) return;
+
+    const upcoming = guide.upcoming ?? [];
+    const past = guide.past ?? [];
+
+    const colour = isRecovery ? "#fde68a" : "#38bdf8";
+    const textColour = isRecovery ? "#fef3c7" : "#f0f9ff";
+    const accentColour = isRecovery ? "#f59e0b" : "#22d3ee";
+    const glowColour = isRecovery ? "rgba(245, 158, 11, 0.75)" : "rgba(34, 211, 238, 0.75)";
+
+    const ribbonHeight = 44 * dpr;
+    const centerY = ribbonHeight / 2;
+
+    context.save();
+
+    // 100% width endless ribbon backdrop (no outer card frame)
+    context.fillStyle = "rgba(8, 15, 30, 0.70)";
+    context.fillRect(0, 0, width, ribbonHeight);
+    context.strokeStyle = "rgba(51, 65, 85, 0.35)";
+    context.lineWidth = 1 * dpr;
+    context.beginPath();
+    context.moveTo(0, ribbonHeight);
+    context.lineTo(width, ribbonHeight);
+    context.stroke();
+
+    // Calculate Active Move Capsule
+    context.font = `800 ${18 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+    const currentTextWidth = context.measureText(currentLabel).width;
+    const activePillPadX = 14 * dpr;
+    const activePillWidth = currentTextWidth + activePillPadX * 2;
+    const pillHeight = 32 * dpr;
+
+    const centerX = width / 2;
+    const activeLeft = centerX - activePillWidth / 2;
+    const activeTop = centerY - pillHeight / 2;
+
+    // Draw active highlighted pill
+    context.fillStyle = isRecovery ? "rgba(245, 158, 11, 0.22)" : "rgba(34, 211, 238, 0.20)";
+    context.strokeStyle = accentColour;
+    context.lineWidth = 2.0 * dpr;
+    context.shadowColor = glowColour;
+    context.shadowBlur = 10 * dpr;
+    context.beginPath();
+    context.roundRect(activeLeft, activeTop, activePillWidth, pillHeight, 8 * dpr);
+    context.fill();
+    context.stroke();
+    context.shadowBlur = 0;
+
+    // Draw active token text centered in capsule
+    context.fillStyle = textColour;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(currentLabel, centerX, centerY);
+
+    // Draw upcoming moves to the right (endless ribbon flow filling full width)
+    context.font = `700 ${14 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+    let currX = activeLeft + activePillWidth + 8 * dpr;
+    for (const token of upcoming) {
+      if (currX >= width) break;
+      const textW = context.measureText(token).width;
+      const itemW = textW + 14 * dpr;
+
+      const itemTop = centerY - 14 * dpr;
+      context.fillStyle = "rgba(30, 41, 59, 0.55)";
+      context.strokeStyle = "rgba(71, 85, 105, 0.4)";
+      context.lineWidth = 1 * dpr;
+      context.beginPath();
+      context.roundRect(currX, itemTop, itemW, 28 * dpr, 6 * dpr);
+      context.fill();
+      context.stroke();
+
+      context.fillStyle = "rgba(226, 232, 240, 0.88)";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(token, currX + itemW / 2, centerY);
+
+      currX += itemW + 6 * dpr;
+    }
+
+    // Draw past moves to the left (faded endless ribbon flow filling full width)
+    let leftX = activeLeft - 8 * dpr;
+    for (let i = past.length - 1; i >= 0; i--) {
+      if (leftX <= 0) break;
+      const token = past[i]!;
+      const textW = context.measureText(token).width;
+      const itemW = textW + 14 * dpr;
+      const itemLeft = leftX - itemW;
+
+      const itemTop = centerY - 14 * dpr;
+      context.fillStyle = "rgba(30, 41, 59, 0.35)";
+      context.beginPath();
+      context.roundRect(itemLeft, itemTop, itemW, 28 * dpr, 6 * dpr);
+      context.fill();
+
+      context.fillStyle = "rgba(148, 163, 184, 0.60)";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(token, itemLeft + itemW / 2, centerY);
+
+      leftX = itemLeft - 6 * dpr;
+    }
+
+    // Left and Right smooth edge fades
+    const fadeWidth = 32 * dpr;
+    const leftGrad = context.createLinearGradient(0, 0, fadeWidth, 0);
+    leftGrad.addColorStop(0, "rgba(8, 15, 30, 0.95)");
+    leftGrad.addColorStop(1, "rgba(8, 15, 30, 0)");
+    context.fillStyle = leftGrad;
+    context.fillRect(0, 0, fadeWidth, ribbonHeight);
+
+    const rightGrad = context.createLinearGradient(width - fadeWidth, 0, width, 0);
+    rightGrad.addColorStop(0, "rgba(8, 15, 30, 0)");
+    rightGrad.addColorStop(1, "rgba(8, 15, 30, 0.95)");
+    context.fillStyle = rightGrad;
+    context.fillRect(width - fadeWidth, 0, fadeWidth, ribbonHeight);
+
+    context.restore();
+  };
+
+  const drawTaperedArrow = (
+    context: CanvasRenderingContext2D,
+    projectedPoints: ProjectedPoint[],
+    dpr: number,
+    colour: string,
+    glowColour: string,
+    scale = 1.0,
+  ) => {
+    const n = projectedPoints.length;
+    if (n < 4) return;
+
+    const startW = 1.8 * dpr * scale;
+    const endW = 10 * dpr * scale;
+    const lefts: Array<{x: number; y: number}> = [];
+    const rights: Array<{x: number; y: number}> = [];
+
+    const shaftCount = Math.max(3, Math.floor(n * 0.82));
+
+    for (let i = 0; i < shaftCount; i++) {
+      const prev = projectedPoints[Math.max(0, i - 1)];
+      const next = projectedPoints[Math.min(shaftCount - 1, i + 1)];
+      const dx = next.x - prev.x;
+      const dy = next.y - prev.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len;
+      const ny = dx / len;
+      const t = i / (shaftCount - 1);
+      const w = startW + (endW - startW) * Math.pow(t, 1.4);
+      lefts.push({x: projectedPoints[i].x + nx * (w / 2), y: projectedPoints[i].y + ny * (w / 2)});
+      rights.push({x: projectedPoints[i].x - nx * (w / 2), y: projectedPoints[i].y - ny * (w / 2)});
+    }
+
+    const lastShaft = projectedPoints[shaftCount - 1];
+    const tip = projectedPoints[n - 1];
+    const headDx = tip.x - lastShaft.x;
+    const headDy = tip.y - lastShaft.y;
+    const headLen = Math.hypot(headDx, headDy) || 1;
+    const headDirX = headDx / headLen;
+    const headDirY = headDy / headLen;
+    const headNormX = -headDirY;
+    const headNormY = headDirX;
+
+    const headBaseW = 24 * dpr * scale;
+    const tipExtension = 6 * dpr * scale;
+    const tipPoint = {
+      x: tip.x + headDirX * tipExtension,
+      y: tip.y + headDirY * tipExtension,
+    };
+    const headLeft = {
+      x: lastShaft.x + headNormX * (headBaseW / 2),
+      y: lastShaft.y + headNormY * (headBaseW / 2),
+    };
+    const headRight = {
+      x: lastShaft.x - headNormX * (headBaseW / 2),
+      y: lastShaft.y - headNormY * (headBaseW / 2),
+    };
+
+    context.save();
+    context.fillStyle = colour;
+    context.strokeStyle = "rgba(8, 15, 30, 0.92)";
+    context.lineWidth = 1.4 * dpr;
+    context.lineJoin = "round";
+    context.lineCap = "round";
+    context.shadowColor = glowColour;
+    context.shadowBlur = 12 * dpr;
+
+    // Draw solid sweeping tapered arrow
+    context.beginPath();
+    context.moveTo(lefts[0].x, lefts[0].y);
+    for (let i = 1; i < lefts.length; i++) {
+      context.lineTo(lefts[i].x, lefts[i].y);
+    }
+    // Bold triangular arrowhead with clean barbs
+    context.lineTo(headLeft.x, headLeft.y);
+    context.lineTo(tipPoint.x, tipPoint.y);
+    context.lineTo(headRight.x, headRight.y);
+    context.lineTo(rights[rights.length - 1].x, rights[rights.length - 1].y);
+    for (let i = rights.length - 2; i >= 0; i--) {
+      context.lineTo(rights[i].x, rights[i].y);
+    }
+    context.closePath();
+    context.fill();
+    context.stroke();
+
     context.restore();
   };
 
@@ -941,88 +1176,73 @@ export const createCubeViewport = (
       }
     }
 
-    if (turnGuide) {
+    if (turnGuide?.step) {
       const transform = turnTransform(state?.size ?? 3, turnGuide.step);
       if (transform) {
         const recovery = turnGuide.tone === "recovery";
-        const railColour = recovery ? "rgba(251, 191, 36, 0.46)" : "rgba(103, 232, 249, 0.38)";
-        const glowColour = recovery ? "rgba(245, 158, 11, 0.65)" : "rgba(34, 211, 238, 0.5)";
-        const chevronColour = recovery ? [253, 230, 138] : [165, 243, 252];
-        const surfacePaths = turnSurfaceArrowPaths(transform, turnGuide.step, state?.size ?? 3);
-        const visibleFaces = surfacePaths.filter(({ normal, points }) => {
-          const facing = surfaceFacingScore(
-            normal,
-            points[Math.floor(points.length / 2)],
-            matrices.modelView,
-          );
-          return facing > 0.05;
-        });
-        if (visibleFaces.length === 0) return;
+        const isRotation = turnGuide.step.move.TAG === "Rotation";
 
-        overlay.save();
-        overlay.lineCap = "round";
-        overlay.lineJoin = "round";
+        if (isRotation) {
+          // Whole-cube rotation: Render sweeping front-facing tapered curved arrow
+          const arcPoints = wholeCubeArcPoints(transform, matrices.modelView, 2.25, 36);
+          const projectedArc = arcPoints
+            .map((pt) => projectPoint(pt, matrices.modelView, matrices.projection, width, height))
+            .filter(({inFront}) => inFront);
 
-        const allProjectedFaces: Array<ProjectedPoint[]> = [];
-
-        visibleFaces.forEach(({ points }) => {
-          const projected = points
-            .map((point) => transformTurnPoint(point, activeTurn))
-            .map((point) => projectPoint(point, matrices.modelView, matrices.projection, width, height))
-            .filter(({ inFront }) => inFront);
-          if (projected.length < 3) return;
-          allProjectedFaces.push(projected);
-
-          // Subtle glowing guide rail along the layer surface
-          overlay.shadowColor = glowColour;
-          overlay.shadowBlur = 6 * dpr;
-          overlay.strokeStyle = railColour;
-          overlay.lineWidth = 2 * dpr;
-          traceProjected(overlay, projected);
-          overlay.stroke();
-
-          // Static chevrons mark direction without adding distracting motion.
-          const numChevrons = 5;
-          for (let i = 0; i < numChevrons; i++) {
-            const progress = (i + 0.5) / numChevrons;
-            const idx = Math.max(1, Math.min(
-              projected.length - 1,
-              Math.round(progress * (projected.length - 1)),
-            ));
-            const prev = projected[idx - 1];
-            const curr = projected[idx];
-
-            // Pulsing brightness based on position on face
-            const edgeFade = Math.sin(progress * Math.PI);
-            const alpha = Math.max(0.2, edgeFade * 0.95);
-
-            drawChevron(
-              overlay,
-              prev,
-              curr,
-              11 * dpr,
-              `rgba(${chevronColour.join(", ")}, ${alpha})`,
-            );
+          if (projectedArc.length >= 4) {
+            const colour = recovery ? "#fde68a" : "#38bdf8";
+            const glowColour = recovery ? "rgba(245, 158, 11, 0.85)" : "rgba(34, 211, 238, 0.85)";
+            drawTaperedArrow(overlay, projectedArc, dpr, colour, glowColour, 1.15);
           }
-        });
-        overlay.restore();
+        } else {
+          const surfacePaths = turnSurfaceArrowPaths(transform, turnGuide.step, state?.size ?? 3);
+          const visibleFacesWithScore = surfacePaths
+            .map((item) => {
+              const facing = surfaceFacingScore(
+                item.normal,
+                item.points[Math.floor(item.points.length / 2)],
+                matrices.modelView,
+              );
+              return {...item, facing};
+            })
+            .filter(({facing}) => facing > 0.15)
+            .sort((a, b) => b.facing - a.facing);
 
-        const repeatIndicator = turnRepeatIndicator(turnGuide.step);
-        if (repeatIndicator) {
-          // Keep half-turn guidance in a stable viewport position. An
-          // arrow-relative badge can land behind a steep top/side guide or
-          // outside the clipped canvas, which makes the essential `2×`
-          // instruction disappear even though the turn itself is highlighted.
-          drawRepeatIndicator(
-            overlay,
-            repeatIndicator,
-            width / 2,
-            44 * dpr,
-            dpr,
-            recovery ? "recovery" : "normal",
-          );
+          if (visibleFacesWithScore.length > 0) {
+            // Pick the single best front-facing orientation (highest facing score)
+            const bestNormal = visibleFacesWithScore[0]!.normal;
+            const bestFaces = visibleFacesWithScore.filter(
+              (face) =>
+                face.normal[0] === bestNormal[0] &&
+                face.normal[1] === bestNormal[1] &&
+                face.normal[2] === bestNormal[2],
+            );
+
+            bestFaces.forEach(({points}) => {
+              // Do NOT rotate with the moving cube row — keep stationary in space
+              const projected = points
+                .map((point) => projectPoint(point, matrices.modelView, matrices.projection, width, height))
+                .filter(({inFront}) => inFront);
+              if (projected.length < 4) return;
+
+              const arrowColour = recovery ? "#fde68a" : "#38bdf8";
+              const glow = recovery ? "rgba(245, 158, 11, 0.85)" : "rgba(34, 211, 238, 0.85)";
+              drawTaperedArrow(overlay, projected, dpr, arrowColour, glow, 0.95);
+            });
+          }
         }
       }
+    }
+
+    // Always render 100% width endless Move Ribbon if active guide or timeline ribbon is available
+    const ribbon = turnGuide ?? moveRibbon;
+    if (ribbon) {
+      drawMoveSequenceRibbon(
+        overlay,
+        ribbon,
+        width,
+        dpr,
+      );
     }
   };
 
@@ -1385,7 +1605,7 @@ export const createCubeViewport = (
       if (nextGuide) {
         overlayCanvas.dataset.turnGuide = nextGuide.label;
         overlayCanvas.dataset.turnGuideTone = nextGuide.tone ?? "normal";
-        const repeat = turnRepeatIndicator(nextGuide.step);
+        const repeat = nextGuide.step ? turnRepeatIndicator(nextGuide.step) : undefined;
         if (repeat) overlayCanvas.dataset.turnRepeat = repeat;
         else delete overlayCanvas.dataset.turnRepeat;
       } else {
@@ -1393,6 +1613,10 @@ export const createCubeViewport = (
         delete overlayCanvas.dataset.turnGuideTone;
         delete overlayCanvas.dataset.turnRepeat;
       }
+      requestRender();
+    },
+    setMoveRibbon(nextRibbon) {
+      moveRibbon = nextRibbon;
       requestRender();
     },
     smoothOrbitTo,

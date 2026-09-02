@@ -44,7 +44,7 @@ describe("projected motion overlay math", () => {
     const surfaceArrows = turnSurfaceArrowPaths(transform, left);
     expect(surfaceArrows).toHaveLength(4);
     expect(surfaceArrows.every(({normal, points}) => points.every((point) =>
-      Math.abs(point[normal.findIndex((value) => value !== 0)] - 1.505 * normal.find((value) => value !== 0)!) < 0.0001
+      Math.abs(point[normal.findIndex((value) => value !== 0)] - 1.70 * normal.find((value) => value !== 0)!) < 0.0001
     ))).toBe(true);
     expect(Math.max(...surfaceArrows.map(({normal, points}) =>
       surfaceFacingScore(normal, points[Math.floor(points.length / 2)], matrices.modelView)
@@ -52,9 +52,9 @@ describe("projected motion overlay math", () => {
     expect(turnRepeatIndicator(left)).toBe("2×");
     expect(turnRepeatIndicator({...left, turns: 1})).toBeNull();
     expect(turnRepeatIndicator({...left, turns: 3})).toBeNull();
-    expect(turnRepeatIndicator({move: {TAG: "Rotation", _0: "X"}, turns: 1})).toBe("⟳");
-    expect(turnRepeatIndicator({move: {TAG: "Rotation", _0: "Y"}, turns: -1})).toBe("⟲");
-    expect(turnRepeatIndicator({move: {TAG: "Rotation", _0: "Z"}, turns: 2})).toBe("⟳ 2×");
+    expect(turnRepeatIndicator({move: {TAG: "Rotation", _0: "X"}, turns: 1})).toBe("x");
+    expect(turnRepeatIndicator({move: {TAG: "Rotation", _0: "Y"}, turns: -1})).toBe("y'");
+    expect(turnRepeatIndicator({move: {TAG: "Rotation", _0: "Z"}, turns: 2})).toBe("z2");
   });
 
   test("names focused pieces using the active colour scheme", () => {

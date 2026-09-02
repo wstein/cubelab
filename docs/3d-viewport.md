@@ -116,7 +116,15 @@ anchors and outlines attached during the 4° move preview. Layer membership is d
 once from the owning cubie centre—matching the shader—so every projected frame corner
 moves as one rigid sticker outline rather than drifting at an outer layer boundary.
 Hovering an individual
-move also projects a direction-correct layer-turn ring and canonical angle label. Active
+move projects a single elegant, solid tapered direction arrow elevated cleanly above the primary front-facing
+layer face with an integrated aerodynamic barbed arrowhead (matching the design language of whole-cube curved
+arrows) and a persistent 100% width Move Sequence Ribbon at the top of the 3D viewport. The guide arrow hovers
+stationary in fixed space as the cube row rotates beneath it rather than spinning with the animated slice.
+The endless ribbon spans edge-to-edge across the entire viewport width, displaying past moves to the left,
+the prominent glowing active move pill in the center (clean text notation without icons, including amber "Undo"
+recovery cues seamlessly embedded in the ribbon), and upcoming moves filling the full available canvas width to
+the right with smooth edge fades. Whole-cube `x`, `y`, and `z` rotations suppress single-layer face arrows and
+project an elevated sweeping tapered front-facing arc arrow indicating the whole-cube rotation. Active
 pieces and the currently turning layer remain at full material brightness; unrelated
 layers receive only a soft saturation and brightness reduction. Hidden destinations dim
 the guide and request that the user orbit to the back. The group's pedagogical purpose
