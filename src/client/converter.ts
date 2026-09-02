@@ -204,6 +204,7 @@ if (root) {
   const nissResult = root.querySelector<HTMLOutputElement>("[data-niss-result]")!;
   const academySolve = root.querySelector<HTMLButtonElement>("[data-academy-solve]")!;
   const twoPhaseSolve = root.querySelector<HTMLButtonElement>("[data-two-phase-solve]")!;
+  const twoPhaseApply = root.querySelector<HTMLButtonElement>("[data-two-phase-apply]")!;
   const twoPhaseResult = root.querySelector<HTMLOutputElement>("[data-two-phase-result]")!;
   const academyTarget = root.querySelector<HTMLInputElement>("[data-academy-target]")!;
   const academyDom = (prefix: string) => ({
@@ -311,10 +312,17 @@ if (root) {
   const solverClient = createSolverClient<CubeState, TutorialSolution>(
     new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
   );
-  const twoPhaseSolverClient = createTwoPhaseSolverClient<CubeState, TwoPhaseSolution>(
-    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
-  );
   let twoPhaseSolveBusy = false;
+  let twoPhaseRequest = 0;
+  let twoPhaseAlgorithm = "";
+  let twoPhaseSolutionState: CubeState | null = null;
+  const newTwoPhaseSolverClient = () => createTwoPhaseSolverClient<CubeState, TwoPhaseSolution>(
+    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+    (stage) => {
+      if (twoPhaseSolveBusy) twoPhaseResult.textContent = stage;
+    },
+  );
+  let twoPhaseSolverClient = newTwoPhaseSolverClient();
   const viewport = createCubeViewport(canvas, motionOverlay, (message) => {
     viewportFallback.textContent = `${message} Text conversions remain fully functional.`;
     viewportFallback.hidden = false;
@@ -628,7 +636,7 @@ if (root) {
     const orbitQuickCopy = root.querySelector<HTMLButtonElement>("[data-copy-orbit64]");
     if (orbitQuickCopy) orbitQuickCopy.hidden = size !== 3;
     nissPanel.hidden = size !== 3 || activeTab !== "workbench";
-    twoPhaseSolve.disabled = size !== 3 || twoPhaseSolveBusy;
+    twoPhaseSolve.disabled = size !== 3;
     if (size !== 3 && !twoPhaseSolveBusy) {
       twoPhaseResult.textContent = "Two-phase solving is available for 3×3 states.";
       twoPhaseResult.classList.remove("success", "failure");
@@ -3004,19 +3012,35 @@ if (root) {
   });
 
   twoPhaseSolve.addEventListener("click", async () => {
-    if (size !== 3 || twoPhaseSolveBusy) return;
+    if (size !== 3) return;
+    if (twoPhaseSolveBusy) {
+      twoPhaseRequest += 1;
+      twoPhaseSolverClient.terminate();
+      twoPhaseSolverClient = newTwoPhaseSolverClient();
+      twoPhaseSolveBusy = false;
+      twoPhaseSolve.textContent = "Find two-phase solution";
+      twoPhaseSolve.disabled = false;
+      twoPhaseResult.textContent = "Two-phase search cancelled.";
+      twoPhaseResult.classList.remove("success", "failure");
+      return;
+    }
     const workspace = parseWorkspaceState();
     if (workspace.TAG === "Error") {
       twoPhaseResult.textContent = workspace._0;
       twoPhaseResult.classList.add("failure");
       return;
     }
+    const request = ++twoPhaseRequest;
+    twoPhaseAlgorithm = "";
+    twoPhaseSolutionState = null;
+    twoPhaseApply.disabled = true;
     twoPhaseSolveBusy = true;
-    twoPhaseSolve.disabled = true;
-    twoPhaseResult.textContent = "Building tables and searching in the background…";
+    twoPhaseSolve.textContent = "Cancel search";
+    twoPhaseResult.textContent = "Starting two-phase search…";
     twoPhaseResult.classList.remove("failure", "success");
     try {
       const solution = await twoPhaseSolverClient.solve(workspace._0.state);
+      if (request !== twoPhaseRequest) return;
       const replay = MoveExecutor.applyAlg(workspace._0.state, solution.alg) as Result<CubeState, unknown>;
       const solved = StateTypes.solved(3) as Result<CubeState, unknown>;
       if (replay.TAG !== "Ok" || solved.TAG !== "Ok") {
@@ -3026,15 +3050,29 @@ if (root) {
         throw new Error("The two-phase solution did not replay to solved.");
       }
       const algorithm = MoveTransform.serialize(solution.alg) as string;
+      twoPhaseAlgorithm = algorithm;
+      twoPhaseSolutionState = workspace._0.state;
+      twoPhaseApply.disabled = false;
       twoPhaseResult.textContent = `${solution.moveCount} HTM · ${algorithm || "Solved"}`;
       twoPhaseResult.classList.add("success");
     } catch (reason) {
+      if (request !== twoPhaseRequest) return;
       twoPhaseResult.textContent = reason instanceof Error ? reason.message : "The two-phase solver failed.";
       twoPhaseResult.classList.add("failure");
     } finally {
+      if (request !== twoPhaseRequest) return;
       twoPhaseSolveBusy = false;
+      twoPhaseSolve.textContent = "Find two-phase solution";
       twoPhaseSolve.disabled = size !== 3;
     }
+  });
+
+  twoPhaseApply.addEventListener("click", () => {
+    if (twoPhaseSolutionState === null) return;
+    store.patch({
+      input: FaceletCodec.render(twoPhaseSolutionState),
+      moves: twoPhaseAlgorithm,
+    });
   });
 
   nissUseInverse.addEventListener("click", () => {

@@ -807,6 +807,19 @@ function buildEdgeSlicePruningTable() {
   return table$1;
 }
 
+function prepareTables() {
+  buildTwistMoveTable();
+  buildFlipMoveTable();
+  buildSliceMoveTable();
+  buildCornerMoveTable();
+  buildEdgeMoveTable();
+  buildSlicePermutationMoveTable();
+  buildSliceTwistPruningTable();
+  buildSliceFlipPruningTable();
+  buildCornerSlicePruningTable();
+  buildEdgeSlicePruningTable();
+}
+
 function solvedPieces(pieces) {
   if (isIdentity(pieces.cp) && allZero(pieces.co) && isIdentity(pieces.ep)) {
     return allZero(pieces.eo);
@@ -1083,6 +1096,7 @@ export {
   buildPhase2PruningTable,
   buildCornerSlicePruningTable,
   buildEdgeSlicePruningTable,
+  prepareTables,
   solvedPieces,
   maximum,
   phase1Distance,

@@ -621,6 +621,19 @@ let buildEdgeSlicePruningTable = () =>
     }
   }
 
+let prepareTables = () => {
+  buildTwistMoveTable()->ignore
+  buildFlipMoveTable()->ignore
+  buildSliceMoveTable()->ignore
+  buildCornerMoveTable()->ignore
+  buildEdgeMoveTable()->ignore
+  buildSlicePermutationMoveTable()->ignore
+  buildSliceTwistPruningTable()->ignore
+  buildSliceFlipPruningTable()->ignore
+  buildCornerSlicePruningTable()->ignore
+  buildEdgeSlicePruningTable()->ignore
+}
+
 let solvedPieces = (pieces: PieceReducer.pieceState) =>
   isIdentity(pieces.cp) && allZero(pieces.co) && isIdentity(pieces.ep) && allZero(pieces.eo)
 

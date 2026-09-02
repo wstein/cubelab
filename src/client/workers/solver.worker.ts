@@ -31,6 +31,9 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
   const request = event.data;
   try {
     if (request.type === "solveTwoPhase") {
+      self.postMessage({id: request.id, type: "twoPhaseProgress", stage: "Preparing transition and pruning tables…"});
+      TwoPhaseSolver.prepareTables();
+      self.postMessage({id: request.id, type: "twoPhaseProgress", stage: "Searching phase one and phase two…"});
       const result = TwoPhaseSolver.solve(request.state);
       self.postMessage(result.TAG === "Ok"
         ? {id: request.id, ok: true, solution: result._0}

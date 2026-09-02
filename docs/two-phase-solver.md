@@ -34,4 +34,6 @@ HTM-optimal solution: phase one is completed before phase two begins.
 The converter exposes full solutions through the dedicated worker request
 `solveTwoPhase`, separate from Academy's tutorial request contract. Its 3×3
 control solves the current Setup plus Moves state off the UI thread and reports
-the HTM count and canonical algorithm.
+the HTM count and canonical algorithm. It reports table-preparation and search
+stages; Cancel terminates and replaces only the dedicated worker. Apply solution
+loads the exact verified input snapshot and algorithm into playback.

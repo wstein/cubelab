@@ -2,6 +2,7 @@ export type TutorialSolverMethod = "beginner" | "advancedLbl" | "beginnerCfop" |
 type WorkerSuccess<T> = {id: number; ok: true; solution: T};
 type WorkerFailure = {id: number; ok: false; error: string};
 type WorkerResponse<T> = WorkerSuccess<T> | WorkerFailure;
+type TwoPhaseProgress = {id: number; type: "twoPhaseProgress"; stage: string};
 
 /** Request/response boundary for expensive searches; the UI thread never waits for them. */
 export const createSolverClient = <TState, TSolution>(worker: Worker) => {
@@ -36,11 +37,18 @@ export const createSolverClient = <TState, TSolution>(worker: Worker) => {
 };
 
 /** Dedicated request contract for full-cube two-phase searches. */
-export const createTwoPhaseSolverClient = <TState, TSolution>(worker: Worker) => {
+export const createTwoPhaseSolverClient = <TState, TSolution>(
+  worker: Worker,
+  onProgress?: (stage: string) => void,
+) => {
   let nextId = 0;
   const pending = new Map<number, {resolve: (value: TSolution) => void; reject: (reason: Error) => void}>();
-  worker.addEventListener("message", (event: MessageEvent<WorkerResponse<TSolution>>) => {
+  worker.addEventListener("message", (event: MessageEvent<WorkerResponse<TSolution> | TwoPhaseProgress>) => {
     const response = event.data;
+    if ("type" in response && response.type === "twoPhaseProgress") {
+      onProgress?.(response.stage);
+      return;
+    }
     const request = pending.get(response.id);
     if (!request) return;
     pending.delete(response.id);
