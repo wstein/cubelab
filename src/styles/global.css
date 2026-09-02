@@ -1290,6 +1290,56 @@ body {
   font-size: 0.72rem;
 }
 
+.pattern-preview {
+  display: grid;
+  justify-items: start;
+  gap: 0.35rem;
+  margin-top: 0.3rem;
+}
+
+.pattern-preview-label {
+  color: var(--text-muted);
+  font: 600 0.66rem var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pattern-preview-net {
+  display: grid;
+  grid-template-columns: repeat(4, min-content);
+  grid-template-areas:
+    ". u . ."
+    "l f r b"
+    ". d . .";
+  gap: 2px;
+}
+
+.pattern-preview-face {
+  display: grid;
+  grid-template-columns: repeat(var(--pattern-size), 7px);
+  grid-template-rows: repeat(var(--pattern-size), 7px);
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 3px;
+  background: #020617;
+}
+
+.pattern-preview-face-U { grid-area: u; }
+.pattern-preview-face-R { grid-area: r; }
+.pattern-preview-face-F { grid-area: f; }
+.pattern-preview-face-D { grid-area: d; }
+.pattern-preview-face-L { grid-area: l; }
+.pattern-preview-face-B { grid-area: b; }
+
+.pattern-preview-sticker { border-radius: 1px; }
+.pattern-preview-sticker-U { background: #f8fafc; }
+.pattern-preview-sticker-R { background: #ef4444; }
+.pattern-preview-sticker-F { background: #22c55e; }
+.pattern-preview-sticker-D { background: #facc15; }
+.pattern-preview-sticker-L { background: #f97316; }
+.pattern-preview-sticker-B { background: #3b82f6; }
+
 .pattern-detected {
   display: grid;
   gap: 0.45rem;

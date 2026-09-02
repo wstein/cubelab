@@ -173,6 +173,7 @@ if (root) {
   const patternName = root.querySelector<HTMLElement>("[data-pattern-name]")!;
   const patternMeta = root.querySelector<HTMLElement>("[data-pattern-meta]")!;
   const patternConstruction = root.querySelector<HTMLElement>("[data-pattern-construction]")!;
+  const patternPreview = root.querySelector<HTMLElement>("[data-pattern-preview]")!;
   const patternLoad = root.querySelector<HTMLButtonElement>("[data-pattern-load]")!;
   const patternSource = root.querySelector<HTMLAnchorElement>("[data-pattern-source]")!;
   const patternExtremalFilter = root.querySelector<HTMLInputElement>("[data-pattern-extremal-filter]")!;
@@ -339,6 +340,43 @@ if (root) {
     anchor.textContent = `🏆 ${tag.label} · ${tag.referenceLabel}`;
   };
 
+  const faceNames = ["U", "R", "F", "D", "L", "B"] as const;
+  const renderPatternPreview = (pattern: ImportedPattern | null) => {
+    patternPreview.replaceChildren();
+    if (!pattern) {
+      patternPreview.hidden = true;
+      return;
+    }
+    const evaluated = evaluateAlgorithm(pattern.size, "Wide", "Modern", pattern.construction);
+    if (evaluated.TAG === "Error") {
+      patternPreview.hidden = true;
+      return;
+    }
+    const title = document.createElement("span");
+    title.className = "pattern-preview-label";
+    title.textContent = "Preview";
+    const net = document.createElement("div");
+    net.className = "pattern-preview-net";
+    net.style.setProperty("--pattern-size", String(pattern.size));
+    const facelets = FaceletCodec.render(evaluated._0.finalState);
+    const faceLength = pattern.size * pattern.size;
+    faceNames.forEach((face, index) => {
+      const faceElement = document.createElement("div");
+      faceElement.className = `pattern-preview-face pattern-preview-face-${face}`;
+      faceElement.setAttribute("aria-label", `${face} face`);
+      const stickers = facelets.slice(index * faceLength, (index + 1) * faceLength);
+      for (const sticker of stickers) {
+        const tile = document.createElement("i");
+        tile.className = `pattern-preview-sticker pattern-preview-sticker-${sticker}`;
+        tile.setAttribute("aria-hidden", "true");
+        faceElement.append(tile);
+      }
+      net.append(faceElement);
+    });
+    patternPreview.append(title, net);
+    patternPreview.hidden = false;
+  };
+
   const renderSelectedPattern = () => {
     selectedPattern = visiblePatterns[Number(patternSelect.value)] ?? visiblePatterns[0] ?? null;
     patternLoad.disabled = selectedPattern === null;
@@ -349,6 +387,7 @@ if (root) {
       patternSource.removeAttribute("href");
       patternSource.hidden = true;
       applyExtremalBadge(patternExtremalBadge, null);
+      renderPatternPreview(null);
       return;
     }
     patternName.textContent = selectedPattern.name;
@@ -357,6 +396,7 @@ if (root) {
     patternSource.href = selectedPattern.sourceUrl;
     patternSource.hidden = false;
     applyExtremalBadge(patternExtremalBadge, selectedPattern.name);
+    renderPatternPreview(selectedPattern);
   };
 
   const renderPatternBrowser = () => {

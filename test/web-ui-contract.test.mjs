@@ -164,6 +164,8 @@ test("the patterns workspace exposes the complete attributed pattern catalog and
   assert.match(page, /230 designs · 2×2–5×5/);
   assert.match(page, /data-pattern-search/);
   assert.match(page, /data-pattern-select/);
+  assert.match(page, /data-pattern-preview/);
+  assert.match(client, /const renderPatternPreview/);
   assert.match(page, /data-pattern-extremal-filter/);
   assert.match(page, /data-pattern-extremal-badge/);
   assert.match(page, /data-pattern-detected/);
