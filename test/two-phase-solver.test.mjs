@@ -133,3 +133,9 @@ test("flip and slice move tables agree with direct coordinate transitions", () =
   assert.equal(flipTable[source.flip][13], direct.flip);
   assert.equal(sliceTable[source.slice][13], direct.slice);
 });
+
+test("phase-one twist pruning has zero distance at the solved coordinate", () => {
+  const table = TwoPhaseSolver.buildSliceTwistPruningTable();
+  assert.ok(table instanceof Uint8Array);
+  assert.equal(TwoPhaseSolver.pruningDistance(table, 0), 0);
+});
