@@ -243,6 +243,8 @@ if (root) {
   let academyMethod: AcademyMethod = initialState.academyMethod;
   let inverseScramble = "";
   let verifiedNissSolution = "";
+  let verifiedNissAlg: unknown[] | null = null;
+  let verifiedNissStart: CubeState | null = null;
   let pendingShortenedAlg: unknown[] | null = null;
   let visiblePatterns: ImportedPattern[] = [];
   let selectedPattern: ImportedPattern | null = null;
@@ -669,6 +671,8 @@ if (root) {
 
   const resetNissResult = () => {
     verifiedNissSolution = "";
+    verifiedNissAlg = null;
+    verifiedNissStart = null;
     nissLoad.disabled = true;
     nissResult.classList.remove("success", "failure");
     nissResult.textContent = "Enter both sides to verify a candidate solution.";
@@ -3186,6 +3190,12 @@ if (root) {
       return;
     }
     verifiedNissSolution = MoveTransform.serialize(verification._0.solution);
+    const solved = StateTypes.solved(3) as Result<CubeState, unknown>;
+    const start = solved.TAG === "Ok"
+      ? MoveExecutor.applyAlg(solved._0, scramble._0) as Result<CubeState, unknown>
+      : {TAG: "Error"};
+    verifiedNissAlg = start.TAG === "Ok" ? verification._0.solution : null;
+    verifiedNissStart = start.TAG === "Ok" ? start._0 : null;
     nissResult.textContent = `Verified · ${verification._0.moveCount} moves · ${verifiedNissSolution || "Solved"}`;
     nissResult.classList.add("success");
     nissResult.classList.remove("failure");
@@ -3193,7 +3203,15 @@ if (root) {
   });
 
   nissLoad.addEventListener("click", () => {
-    if (verifiedNissSolution !== "") commitTransformedAlgorithm(verifiedNissSolution);
+    if (verifiedNissAlg === null || verifiedNissStart === null) return;
+    const timeline = buildTimeline(verifiedNissStart, verifiedNissAlg);
+    if (timeline.TAG === "Error") return;
+    stopPlayback();
+    activeTimeline = timeline._0;
+    activeTimelineKey = null;
+    activeIndex = 0;
+    renderState(verifiedNissStart, "NISS recombined solution");
+    updatePlaybackUi(true);
   });
 
   const presentTutorialSolution = (

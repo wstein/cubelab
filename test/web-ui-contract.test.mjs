@@ -122,6 +122,7 @@ test("the web UI exposes a state-verified 3x3 NISS helper", () => {
   assert.match(page, /data-niss-normal/);
   assert.match(page, /data-niss-inverse-moves/);
   assert.match(page, /data-niss-verify/);
+  assert.match(page, /Preview recombined solution/);
   assert.match(page, /N · I⁻¹/);
   assert.match(client, /MoveNiss\.invertScramble/);
   assert.match(client, /MoveNiss\.verify/);
@@ -131,6 +132,8 @@ test("the web UI exposes a state-verified 3x3 NISS helper", () => {
   assert.match(page, /data-niss-virtual-badge/);
   assert.match(client, /const setNissSide/);
   assert.match(client, /nissInverseState/);
+  assert.match(client, /renderState\(verifiedNissStart, "NISS recombined solution"\)/);
+  assert.match(client, /activeTimeline = timeline\._0/);
 });
 
 test("the SPA workspace keeps one viewport beside four URL-addressable destinations", () => {

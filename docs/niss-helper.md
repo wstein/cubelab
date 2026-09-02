@@ -32,7 +32,8 @@ semantics.
 - The helper is visible only for 3×3, matching WCA FMC practice.
 - Normal- and inverse-side fields use modern SiGN parsing.
 - The current scramble retains its selected source dialect while it is parsed.
-- A successful result reports the expanded move count and can be loaded into the main
-  algorithm editor and tape player.
+- A successful result reports the expanded move count and can be previewed as one linear,
+  recombined tape beginning at the scrambled state; the source Setup and Moves fields are
+  not replaced.
 - A failed replay leaves the candidate unloaded and explains that its side assignment
   or order must be corrected.
