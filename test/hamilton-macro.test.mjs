@@ -1,6 +1,6 @@
 import {describe, expect, test} from "vitest";
 
-import {measure, parse, prefix} from "../src/Move/HamiltonMacro.ts";
+import {measure, parse, prefix, window} from "../src/Move/HamiltonMacro.ts";
 
 describe("Hamilton macro programs", () => {
   test("measures recursive definitions without unfolding them", () => {
@@ -26,5 +26,12 @@ describe("Hamilton macro programs", () => {
     const program = parse(`def b = U R\ndef a = (b)2 b'\nexport a`);
     expect(prefix(program, 10)).toEqual(["U", "R", "U", "R", "R'", "U'"]);
     expect(prefix(program, 2, "b")).toEqual(["U", "R"]);
+  });
+
+  test("measures and streams source-element slices independently of move offsets", () => {
+    const program = parse(`def t = U a R a\ndef a = (F D)2\ndef excerpt = t(1,3)\nexport excerpt`);
+    expect(measure(program)).toMatchObject({quarterTurns: 5n, sourceElements: 2n});
+    expect(prefix(program, 12)).toEqual(["F", "D", "F", "D", "R"]);
+    expect(window(program, 2n, 3)).toEqual(["F", "D", "R"]);
   });
 });

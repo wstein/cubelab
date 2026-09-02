@@ -2,6 +2,7 @@
 export type Node =
   | {kind: "move"; token: string; quarterTurns: bigint}
   | {kind: "reference"; name: string; repeat: bigint}
+  | {kind: "slice"; name: string; start: number; end?: number; repeat: bigint}
   | {kind: "sequence"; items: Node[]; repeat: bigint};
 
 export type Program = {definitions: Map<string, Node[]>; exportName: string};
@@ -45,6 +46,10 @@ class ExpressionParser {
           const inverted = token.endsWith("'");
           const name = inverted ? token.slice(0, -1) : token;
           if (identifier.test(name)) {
+            if (!inverted && this.source[this.cursor] === "(") {
+              items.push(this.slice(name));
+              continue;
+            }
             const repeat = this.suffix();
             items.push({kind: "reference", name, repeat: inverted ? -repeat : repeat});
           } else {
@@ -54,6 +59,26 @@ class ExpressionParser {
       }
     }
     return items;
+  }
+
+  private slice(name: string): Node {
+    this.cursor += 1;
+    const start = this.integer();
+    let end: number | undefined;
+    if (this.source[this.cursor] === ",") {
+      this.cursor += 1;
+      end = this.integer();
+    }
+    if (this.source[this.cursor] !== ")") fail("unclosed macro slice");
+    this.cursor += 1;
+    return {kind: "slice", name, start, end, repeat: this.suffix()};
+  }
+
+  private integer(): number {
+    const start = this.cursor;
+    while (/\d/.test(this.source[this.cursor] ?? "")) this.cursor += 1;
+    if (start === this.cursor) fail("macro slice indices must be non-negative integers");
+    return Number(this.source.slice(start, this.cursor));
   }
 
   private suffix(): bigint {
@@ -107,6 +132,17 @@ export const measure = (program: Program, name = program.exportName): Measuremen
       const base = definition(value.name);
       return {quarterTurns: base.quarterTurns * (value.repeat < 0n ? -value.repeat : value.repeat), sourceElements: 1n, depth: base.depth + 1};
     }
+    if (value.kind === "slice") {
+      const body = program.definitions.get(value.name);
+      if (!body) fail(`undefined macro '${value.name}'`);
+      const end = value.end ?? body.length;
+      if (value.start > end || end > body.length) fail(`slice '${value.name}(${value.start},${end})' is outside its ${body.length} source elements`);
+      const base = body.slice(value.start, end).reduce((total, item) => {
+        const next = node(item);
+        return {quarterTurns: total.quarterTurns + next.quarterTurns, sourceElements: total.sourceElements + next.sourceElements, depth: Math.max(total.depth, next.depth)};
+      }, {quarterTurns: 0n, sourceElements: 0n, depth: 1});
+      return {quarterTurns: base.quarterTurns * (value.repeat < 0n ? -value.repeat : value.repeat), sourceElements: BigInt(end - value.start), depth: base.depth + 1};
+    }
     const base = value.items.reduce((total, item) => {
       const next = node(item);
       return {quarterTurns: total.quarterTurns + next.quarterTurns, sourceElements: total.sourceElements + next.sourceElements, depth: Math.max(total.depth, next.depth)};
@@ -153,7 +189,13 @@ export function* stream(program: Program, name = program.exportName): Generator<
     const inverted = inheritedInverse !== (node.repeat < 0n);
     for (let index = 0n; index < repeat; index += 1n) {
       if (node.kind === "reference") yield* walkDefinition(node.name, inverted);
-      else yield* walkItems(node.items, inverted);
+      else if (node.kind === "slice") {
+        const body = program.definitions.get(node.name);
+        if (!body) fail(`undefined macro '${node.name}'`);
+        const end = node.end ?? body.length;
+        if (node.start > end || end > body.length) fail(`slice '${node.name}(${node.start},${end})' is outside its ${body.length} source elements`);
+        yield* walkItems(body.slice(node.start, end), inverted);
+      } else yield* walkItems(node.items, inverted);
     }
   };
   yield* walkDefinition(name, false);
@@ -164,6 +206,18 @@ export const prefix = (program: Program, limit: number, name = program.exportNam
   for (const token of stream(program, name)) {
     output.push(token);
     if (output.length >= limit) break;
+  }
+  return output;
+};
+
+/** Streams a bounded move window; the stream is never materialized. */
+export const window = (program: Program, start: bigint, length: number, name = program.exportName): string[] => {
+  const output: string[] = [];
+  let index = 0n;
+  for (const token of stream(program, name)) {
+    if (index >= start) output.push(token);
+    if (output.length >= length) break;
+    index += 1n;
   }
   return output;
 };
