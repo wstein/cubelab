@@ -199,6 +199,8 @@ if (root) {
   const nissNormal = root.querySelector<HTMLTextAreaElement>("[data-niss-normal]")!;
   const nissInverseMoves = root.querySelector<HTMLTextAreaElement>("[data-niss-inverse-moves]")!;
   const nissUseInverse = root.querySelector<HTMLButtonElement>("[data-niss-use-inverse]")!;
+  const nissSideButtons = root.querySelectorAll<HTMLButtonElement>("[data-niss-side]");
+  const nissVirtualBadge = root.querySelector<HTMLElement>("[data-niss-virtual-badge]")!;
   const nissVerify = root.querySelector<HTMLButtonElement>("[data-niss-verify]")!;
   const nissLoad = root.querySelector<HTMLButtonElement>("[data-niss-load]")!;
   const nissResult = root.querySelector<HTMLOutputElement>("[data-niss-result]")!;
@@ -313,6 +315,9 @@ if (root) {
     new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
   );
   let twoPhaseSolveBusy = false;
+  let nissSide: "normal" | "inverse" = "normal";
+  let nissNormalState: CubeState | null = null;
+  let nissInverseState: CubeState | null = null;
   let twoPhaseCancelling = false;
   let twoPhaseRequest = 0;
   let twoPhaseAlgorithm = "";
@@ -670,13 +675,41 @@ if (root) {
   };
 
   const updateNissSource = (recognized: RecognizedInput | null) => {
+    nissNormalState = recognized?.state ?? null;
     inverseScramble = recognized?.timeline
       ? MoveTransform.serialize(MoveNiss.invertScramble(recognized.timeline.alg))
       : "";
+    let inverseState: CubeState | null = null;
+    const solved = StateTypes.solved(3) as Result<CubeState, unknown>;
+    if (inverseScramble !== "" && solved.TAG === "Ok") {
+      const inverse = MoveParser.parseWithOptions(3, "Wide", "Modern", inverseScramble) as Result<unknown[], unknown>;
+      if (inverse.TAG === "Ok") {
+        const applied = MoveExecutor.applyAlg(solved._0, inverse._0) as Result<CubeState, unknown>;
+        if (applied.TAG === "Ok") inverseState = applied._0;
+      }
+    }
+    nissInverseState = inverseState;
     nissInverseOutput.textContent = inverseScramble || "—";
     nissUseInverse.disabled = inverseScramble === "" || size !== 3;
     nissVerify.disabled = !recognized?.timeline || size !== 3;
     resetNissResult();
+  };
+
+  const setNissSide = (side: "normal" | "inverse") => {
+    if (side === "inverse" && nissInverseState === null) return;
+    nissSide = side;
+    nissSideButtons.forEach((button) => {
+      const active = button.dataset.nissSide === side;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    nissVirtualBadge.hidden = side !== "inverse";
+    const state = side === "inverse" ? nissInverseState : nissNormalState;
+    if (state) {
+      const palette: CubePalette = schemeSelect.value === "Japanese" ? "Japanese" : "Western";
+      viewport?.setScene(state, palette, cubeStyle);
+    }
+    (side === "inverse" ? nissInverseMoves : nissNormal).focus();
   };
 
   const renderState = (state: CubeState, label: string) => {
@@ -3105,6 +3138,10 @@ if (root) {
 
   nissUseInverse.addEventListener("click", () => {
     if (inverseScramble !== "") commitTransformedAlgorithm(inverseScramble);
+  });
+
+  nissSideButtons.forEach((button) => {
+    button.addEventListener("click", () => setNissSide(button.dataset.nissSide as "normal" | "inverse"));
   });
 
   const parseNissAlg = (value: string): Result<unknown[], {message: string}> =>

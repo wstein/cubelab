@@ -126,6 +126,11 @@ test("the web UI exposes a state-verified 3x3 NISS helper", () => {
   assert.match(client, /MoveNiss\.invertScramble/);
   assert.match(client, /MoveNiss\.verify/);
   assert.match(client, /MoveNiss\.describeError/);
+  assert.match(page, /data-niss-side="normal"/);
+  assert.match(page, /data-niss-side="inverse"/);
+  assert.match(page, /data-niss-virtual-badge/);
+  assert.match(client, /const setNissSide/);
+  assert.match(client, /nissInverseState/);
 });
 
 test("the SPA workspace keeps one viewport beside four URL-addressable destinations", () => {

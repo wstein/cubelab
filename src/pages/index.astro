@@ -358,6 +358,15 @@ const cards = [
                 <code>I</code>. CubeLab constructs <code>N · I⁻¹</code> and accepts
                 it only when replay proves that it solves the current scramble.
               </p>
+              <div class="niss-actions" aria-label="NISS workspace side">
+                <button type="button" class="transform-btn active" data-niss-side="normal" aria-pressed="true">
+                  Normal scramble
+                </button>
+                <button type="button" class="transform-btn" data-niss-side="inverse" aria-pressed="false">
+                  ⇄ Inverse scramble
+                </button>
+                <span class="niss-field-label" data-niss-virtual-badge hidden>Virtual inverse state</span>
+              </div>
               <div class="niss-inverse-row">
                 <span class="niss-field-label">Inverse scramble</span>
                 <code class="niss-code" data-niss-inverse>—</code>
