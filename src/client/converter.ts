@@ -1848,6 +1848,12 @@ if (root) {
       move,
       smartCubeHalfTurnProgress,
     );
+    console.log("[SmartCube Move] Assessing timeline move:", {
+      expectedToken: action?.token,
+      receivedMove: move,
+      status: assessment.status,
+      completedHalfTurn: assessment.status === "matched" ? assessment.completedHalfTurn : undefined,
+    });
     if (assessment.status === "complete") {
       smartCubeHalfTurnProgress = null;
       return true;
@@ -2005,6 +2011,7 @@ if (root) {
 
   const applySmartCubeMove = async (record: QueuedSmartCubeMove): Promise<void> => {
     const move = record.move;
+    console.log("[SmartCube Move] Received physical face move from Bluetooth:", move);
     const continueCoaching = smartCubeCoachingWaiting;
     clearTutorialFocus();
     clearTurnGuide();

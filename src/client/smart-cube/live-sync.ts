@@ -207,12 +207,16 @@ const physicalPlanForStep = (
 
   const rotation = faceAxis(face);
   if (from_ === 1 && to_ === 2) {
-    // Rw=x L, Lw=x' R, Uw=y D, Dw=y' U, Fw=z B, Bw=z' F.
-    const physicalFace = physicalFaceInFixedFrame(oppositeFace(face), rotations);
+    // Rw=x L (or R with slice), Lw=x' R (or L with slice), Uw=y D (or U), etc.
+    const oppFace = physicalFaceInFixedFrame(oppositeFace(face), rotations);
+    const primaryFace = physicalFaceInFixedFrame(face, rotations);
     return {
       timelineIndex,
       token: fallback,
-      sequences: packetSequences([{face: physicalFace, turns: step.turns}]),
+      sequences: uniqueSequences([
+        ...packetSequences([{face: oppFace, turns: step.turns}]),
+        ...packetSequences([{face: primaryFace, turns: step.turns}]),
+      ]),
       implicitRotation: {axis: rotation.axis, turns: rotation.turns * step.turns},
       skip: false,
     };

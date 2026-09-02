@@ -218,8 +218,17 @@ describe("smart cube live synchronization", () => {
     expect(nextExpectedSmartCubeMove(wideThenUp, ["Rw", "U"], 0))
       .toEqual({timelineIndex: 0, token: "Rw"});
     expect(assessSmartCubeMove(wideThenUp, ["Rw", "U"], 0, "L").status).toBe("matched");
+    expect(assessSmartCubeMove(wideThenUp, ["Rw", "U"], 0, "R").status).toBe("matched");
     expect(nextExpectedSmartCubeMove(wideThenUp, ["Rw", "U"], 1))
       .toEqual({timelineIndex: 1, token: "F"});
+
+    const wideHalf = [{
+      step: {move: {TAG: "FaceTurn" as const, _0: "R" as const, _1: {from_: 1, to_: 2}}, turns: 2},
+    }];
+    expect(assessSmartCubeMove(wideHalf, ["Rw2"], 0, "L2").status).toBe("matched");
+    expect(assessSmartCubeMove(wideHalf, ["Rw2"], 0, "R2").status).toBe("matched");
+    expect(assessSequence(wideHalf, ["Rw2"], ["L", "L"])?.status).toBe("matched");
+    expect(assessSequence(wideHalf, ["Rw2"], ["R", "R"])?.status).toBe("matched");
 
     const inner = [{
       step: {move: {TAG: "FaceTurn" as const, _0: "R" as const, _1: {from_: 2, to_: 2}}, turns: 1},
