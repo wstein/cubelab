@@ -858,34 +858,6 @@ function algorithmForMoves(moves) {
   return algorithm.contents;
 }
 
-function searchPhase1(coordinates, depth, lastFace, twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip) {
-  if (coordinates.twist === 0 && coordinates.flip === 0 && coordinates.slice === 0) {
-    return [];
-  }
-  if (depth === 0 || phase1Distance(coordinates, sliceTwist, sliceFlip) > depth) {
-    return;
-  }
-  let found;
-  for (let moveIndex = 0; moveIndex <= 17; ++moveIndex) {
-    let face = moveIndex / 3 | 0;
-    if (found === undefined && face !== lastFace) {
-      let next_twist = twistMoves[coordinates.twist][moveIndex];
-      let next_flip = flipMoves[coordinates.flip][moveIndex];
-      let next_slice = sliceMoves[coordinates.slice][moveIndex];
-      let next = {
-        twist: next_twist,
-        flip: next_flip,
-        slice: next_slice
-      };
-      let tail = searchPhase1(next, depth - 1 | 0, face, twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip);
-      if (tail !== undefined) {
-        found = [moveIndex].concat(tail);
-      }
-    }
-  }
-  return found;
-}
-
 function searchPhase2(coordinates, depth, lastFace, cornerMoves, edgeMoves, sliceMoves, cornerSlice, edgeSlice) {
   if (coordinates.corners === 0 && coordinates.edges === 0 && coordinates.slice === 0) {
     return [];
@@ -918,31 +890,68 @@ function searchPhase2(coordinates, depth, lastFace, cornerMoves, edgeMoves, slic
   return found.contents;
 }
 
-function phase1Search(coordinates) {
-  let twistMoves = buildTwistMoveTable();
-  let flipMoves = buildFlipMoveTable();
-  let sliceMoves = buildSliceMoveTable();
-  let sliceTwist = buildSliceTwistPruningTable();
-  let sliceFlip = buildSliceFlipPruningTable();
+function searchPhase1WithinTotal(state, coordinates, phase1Depth, totalDepth, lastFace, moves, twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice) {
+  if (phase1Depth === 0) {
+    if (coordinates.twist !== 0 || coordinates.flip !== 0 || coordinates.slice !== 0) {
+      return;
+    }
+    let phase1State = MoveExecutor.applyAlg(state, algorithmForMoves(moves));
+    if (phase1State.TAG !== "Ok") {
+      return;
+    }
+    let phase2Coordinates$1 = phase2Coordinates(phase1State._0);
+    if (phase2Coordinates$1.TAG !== "Ok") {
+      return;
+    }
+    let phase2Moves = searchPhase2(phase2Coordinates$1._0, totalDepth - moves.length | 0, -1, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice);
+    if (phase2Moves !== undefined) {
+      return moves.concat(phase2Moves);
+    } else {
+      return;
+    }
+  }
+  if (phase1Distance(coordinates, sliceTwist, sliceFlip) > phase1Depth) {
+    return;
+  }
   let found;
-  for (let depth = phase1Distance(coordinates, sliceTwist, sliceFlip); depth <= 12; ++depth) {
-    if (found === undefined) {
-      found = searchPhase1(coordinates, depth, -1, twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip);
+  for (let moveIndex = 0; moveIndex <= 17; ++moveIndex) {
+    let face = moveIndex / 3 | 0;
+    if (found === undefined && face !== lastFace) {
+      let next_twist = twistMoves[coordinates.twist][moveIndex];
+      let next_flip = flipMoves[coordinates.flip][moveIndex];
+      let next_slice = sliceMoves[coordinates.slice][moveIndex];
+      let next = {
+        twist: next_twist,
+        flip: next_flip,
+        slice: next_slice
+      };
+      found = searchPhase1WithinTotal(state, next, phase1Depth - 1 | 0, totalDepth, face, moves.concat([moveIndex]), twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice);
     }
   }
   return found;
 }
 
-function phase2Search(coordinates) {
+function totalDepthSearch(state, coordinates) {
+  let twistMoves = buildTwistMoveTable();
+  let flipMoves = buildFlipMoveTable();
+  let sliceMoves = buildSliceMoveTable();
+  let sliceTwist = buildSliceTwistPruningTable();
+  let sliceFlip = buildSliceFlipPruningTable();
   let cornerMoves = buildCornerMoveTable();
   let edgeMoves = buildEdgeMoveTable();
-  let sliceMoves = buildSlicePermutationMoveTable();
+  let slicePermutationMoves = buildSlicePermutationMoveTable();
   let cornerSlice = buildCornerSlicePruningTable();
   let edgeSlice = buildEdgeSlicePruningTable();
   let found;
-  for (let depth = phase2Distance(coordinates, cornerSlice, edgeSlice); depth <= 18; ++depth) {
+  for (let totalDepth = 0; totalDepth <= 21; ++totalDepth) {
     if (found === undefined) {
-      found = searchPhase2(coordinates, depth, -1, cornerMoves, edgeMoves, sliceMoves, cornerSlice, edgeSlice);
+      let minimumPhase1Depth = phase1Distance(coordinates, sliceTwist, sliceFlip);
+      let maximumPhase1Depth = totalDepth < 12 ? totalDepth : 12;
+      for (let phase1Depth = minimumPhase1Depth; phase1Depth <= maximumPhase1Depth; ++phase1Depth) {
+        if (found === undefined) {
+          found = searchPhase1WithinTotal(state, coordinates, phase1Depth, totalDepth, -1, [], twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice);
+        }
+      }
     }
   }
   return found;
@@ -997,36 +1006,14 @@ function solve(state) {
       _0: error$1._0
     };
   }
-  let phase1Moves = phase1Search(error$1._0);
-  if (phase1Moves === undefined) {
+  let moves = totalDepthSearch(state, error$1._0);
+  if (moves === undefined) {
     return {
       TAG: "Error",
       _0: "SearchFailed"
     };
   }
-  let phase1Alg = algorithmForMoves(phase1Moves);
-  let phase1State = MoveExecutor.applyAlg(state, phase1Alg);
-  if (phase1State.TAG !== "Ok") {
-    return {
-      TAG: "Error",
-      _0: "SearchFailed"
-    };
-  }
-  let error$2 = phase2Coordinates(phase1State._0);
-  if (error$2.TAG !== "Ok") {
-    return {
-      TAG: "Error",
-      _0: error$2._0
-    };
-  }
-  let phase2Moves = phase2Search(error$2._0);
-  if (phase2Moves === undefined) {
-    return {
-      TAG: "Error",
-      _0: "SearchFailed"
-    };
-  }
-  let alg = phase1Alg.concat(algorithmForMoves(phase2Moves));
+  let alg = algorithmForMoves(moves);
   return {
     TAG: "Ok",
     _0: {
@@ -1103,10 +1090,9 @@ export {
   phase2Distance,
   moveAlgorithm,
   algorithmForMoves,
-  searchPhase1,
   searchPhase2,
-  phase1Search,
-  phase2Search,
+  searchPhase1WithinTotal,
+  totalDepthSearch,
   isPhase1Solved,
   solve,
 }

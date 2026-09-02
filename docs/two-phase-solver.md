@@ -29,7 +29,10 @@ pieces for every table cell.
 of its slice×twist and slice×flip distances; phase two uses the maximum of its
 corner×slice and edge×slice distances. Both bounds are admissible. The returned
 algorithm is replay-verified by the caller-facing test suite, but it is not an
-HTM-optimal solution: phase one is completed before phase two begins.
+HTM-optimal solution. It explores phase-one candidates against a shared total
+depth budget and returns only solutions of at most 21 HTM. If no candidate fits
+that limit, the solver reports `SearchFailed` rather than returning a longer
+algorithm.
 
 The converter exposes full solutions through the dedicated worker request
 `solveTwoPhase`, separate from Academy's tutorial request contract. Its 3×3
