@@ -55,6 +55,7 @@ let phase2MoveIndices = () => [0, 1, 2, 3, 4, 5, 7, 10, 13, 16]
 type solverError =
   | UnsupportedSize(int)
   | InvalidState(PieceReducer.pieceError)
+  | InvalidCoordinate(string)
   | SearchFailed
 
 let isIdentity = permutation => permutation->Array.everyWithIndex((piece, slot) => piece == slot)
@@ -95,6 +96,47 @@ let sliceCoordinate = edgePermutation => {
   494 - rank.contents
 }
 
+let orientationState = (coordinate, base, length) => {
+  let orientations = Array.make(~length, 0)
+  let remaining = ref(coordinate)
+  let sum = ref(0)
+  for slot in length - 2 downto 0 {
+    let value = remaining.contents % base
+    orientations[slot] = value
+    sum := sum.contents + value
+    remaining := remaining.contents / base
+  }
+  orientations[length - 1] = (base - sum.contents % base) % base
+  orientations
+}
+
+let sliceState = coordinate => {
+  let selected = Array.make(~length=12, false)
+  let remaining = ref(494 - coordinate)
+  let candidate = ref(11)
+  for count in 4 downto 1 {
+    while choose(candidate.contents, count) > remaining.contents {
+      candidate := candidate.contents - 1
+    }
+    selected[candidate.contents] = true
+    remaining := remaining.contents - choose(candidate.contents, count)
+    candidate := candidate.contents - 1
+  }
+  let edges = Array.make(~length=12, 0)
+  let slicePiece = ref(8)
+  let otherPiece = ref(0)
+  for slot in 0 to 11 {
+    if Belt.Array.getUnsafe(selected, slot) {
+      edges[slot] = slicePiece.contents
+      slicePiece := slicePiece.contents + 1
+    } else {
+      edges[slot] = otherPiece.contents
+      otherPiece := otherPiece.contents + 1
+    }
+  }
+  edges
+}
+
 let permutationCoordinate = (permutation, length) => {
   let coordinate = ref(0)
   for left in 0 to length - 2 {
@@ -133,6 +175,23 @@ let phase1Coordinates = (state: cubeState): result<phase1Coordinates, solverErro
         slice: sliceCoordinate(pieces.ep),
       })
     }
+  }
+
+let phase1State = (coordinates: phase1Coordinates): result<cubeState, solverError> =>
+  if coordinates.twist < 0 || coordinates.twist >= 2187 {
+    Error(InvalidCoordinate("Twist must be between 0 and 2186."))
+  } else if coordinates.flip < 0 || coordinates.flip >= 2048 {
+    Error(InvalidCoordinate("Flip must be between 0 and 2047."))
+  } else if coordinates.slice < 0 || coordinates.slice >= 495 {
+    Error(InvalidCoordinate("Slice must be between 0 and 494."))
+  } else {
+    PieceReducer.reconstruct({
+      size: 3,
+      cp: [0, 1, 2, 3, 4, 5, 6, 7],
+      co: orientationState(coordinates.twist, 3, 8),
+      ep: sliceState(coordinates.slice),
+      eo: orientationState(coordinates.flip, 2, 12),
+    })->Result.mapError(error => InvalidState(error))
   }
 
 let phase2Coordinates = (state: cubeState): result<phase2Coordinates, solverError> =>

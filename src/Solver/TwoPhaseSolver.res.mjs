@@ -4,6 +4,7 @@ import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as Primitive_int from "@rescript/runtime/lib/es6/Primitive_int.js";
+import * as Stdlib_Result from "@rescript/runtime/lib/es6/Stdlib_Result.js";
 import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
 
 function createPruningTable(entries) {
@@ -95,6 +96,47 @@ function sliceCoordinate(edgePermutation) {
   return 494 - rank | 0;
 }
 
+function orientationState(coordinate, base, length) {
+  let orientations = Stdlib_Array.make(length, 0);
+  let remaining = coordinate;
+  let sum = 0;
+  for (let slot = length - 2 | 0; slot >= 0; --slot) {
+    let value = Primitive_int.mod_(remaining, base);
+    orientations[slot] = value;
+    sum = sum + value | 0;
+    remaining = Primitive_int.div(remaining, base);
+  }
+  orientations[length - 1 | 0] = Primitive_int.mod_(base - Primitive_int.mod_(sum, base) | 0, base);
+  return orientations;
+}
+
+function sliceState(coordinate) {
+  let selected = Stdlib_Array.make(12, false);
+  let remaining = 494 - coordinate | 0;
+  let candidate = 11;
+  for (let count = 4; count >= 1; --count) {
+    while (choose(candidate, count) > remaining) {
+      candidate = candidate - 1 | 0;
+    };
+    selected[candidate] = true;
+    remaining = remaining - choose(candidate, count) | 0;
+    candidate = candidate - 1 | 0;
+  }
+  let edges = Stdlib_Array.make(12, 0);
+  let slicePiece = 8;
+  let otherPiece = 0;
+  for (let slot = 0; slot <= 11; ++slot) {
+    if (selected[slot]) {
+      edges[slot] = slicePiece;
+      slicePiece = slicePiece + 1 | 0;
+    } else {
+      edges[slot] = otherPiece;
+      otherPiece = otherPiece + 1 | 0;
+    }
+  }
+  return edges;
+}
+
 function permutationCoordinate(permutation, length) {
   let coordinate = 0;
   for (let left = 0, left_finish = length - 2 | 0; left <= left_finish; ++left) {
@@ -147,6 +189,54 @@ function phase1Coordinates(state) {
       slice: sliceCoordinate(pieces.ep)
     }
   };
+}
+
+function phase1State(coordinates) {
+  if (coordinates.twist < 0 || coordinates.twist >= 2187) {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidCoordinate",
+        _0: "Twist must be between 0 and 2186."
+      }
+    };
+  } else if (coordinates.flip < 0 || coordinates.flip >= 2048) {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidCoordinate",
+        _0: "Flip must be between 0 and 2047."
+      }
+    };
+  } else if (coordinates.slice < 0 || coordinates.slice >= 495) {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidCoordinate",
+        _0: "Slice must be between 0 and 494."
+      }
+    };
+  } else {
+    return Stdlib_Result.mapError(PieceReducer.reconstruct({
+      size: 3,
+      cp: [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      co: orientationState(coordinates.twist, 3, 8),
+      ep: sliceState(coordinates.slice),
+      eo: orientationState(coordinates.flip, 2, 12)
+    }), error => ({
+      TAG: "InvalidState",
+      _0: error
+    }));
+  }
 }
 
 function phase2Coordinates(state) {
@@ -363,9 +453,12 @@ export {
   choose,
   orientationCoordinate,
   sliceCoordinate,
+  orientationState,
+  sliceState,
   permutationCoordinate,
   slicePermutationCoordinate,
   phase1Coordinates,
+  phase1State,
   phase2Coordinates,
   middleSliceIsPlaced,
   generatedLoc,

@@ -85,3 +85,12 @@ test("two-phase move domains preserve the G1 subgroup in phase two", () => {
     assert.equal(TwoPhaseSolver.isPhase1Solved(apply(tokens[index])), true, tokens[index]);
   }
 });
+
+test("phase-one coordinates round-trip through a canonical cubie state", () => {
+  const source = {twist: 1_264, flip: 1_337, slice: 271};
+  const state = TwoPhaseSolver.phase1State(source);
+  assert.equal(state.TAG, "Ok");
+  const roundTrip = TwoPhaseSolver.phase1Coordinates(state._0);
+  assert.equal(roundTrip.TAG, "Ok");
+  assert.deepEqual(roundTrip._0, source);
+});
