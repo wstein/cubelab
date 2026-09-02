@@ -24,3 +24,9 @@ The corner, edge, and slice-permutation tables are built by decoding a cubie
 permutation, composing it with one of ten static move permutations, and
 re-encoding it. This deliberately avoids reconstructing facelets and reducing
 pieces for every table cell.
+
+`solve` runs iterative-deepening A* in two stages. Phase one uses the maximum
+of its slice×twist and slice×flip distances; phase two uses the maximum of its
+corner×slice and edge×slice distances. Both bounds are admissible. The returned
+algorithm is replay-verified by the caller-facing test suite, but it is not an
+HTM-optimal solution: phase one is completed before phase two begins.

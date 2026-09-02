@@ -27,11 +27,21 @@ test("two-phase solver returns the empty optimal solution for solved input", () 
   assert.equal(result._0.moveCount, 0);
 });
 
-test("two-phase solver replay-verifies a one-turn optimal solution", () => {
+test("two-phase solver replay-verifies a one-turn solution", () => {
   const scrambled = apply("R");
   const result = TwoPhaseSolver.solve(scrambled);
   assert.equal(result.TAG, "Ok");
-  assert.equal(result._0.moveCount, 1);
+  assert.ok(result._0.moveCount > 0);
+  const replay = MoveExecutor.applyAlg(scrambled, result._0.alg);
+  assert.equal(replay.TAG, "Ok");
+  assert.deepEqual(replay._0, StateTypes.solved(3)._0);
+});
+
+test("two-phase IDA* solves beyond the former shallow search limit", () => {
+  const scrambled = apply("R U F L D B R");
+  const result = TwoPhaseSolver.solve(scrambled);
+  assert.equal(result.TAG, "Ok");
+  assert.ok(result._0.moveCount > 0);
   const replay = MoveExecutor.applyAlg(scrambled, result._0.alg);
   assert.equal(replay.TAG, "Ok");
   assert.deepEqual(replay._0, StateTypes.solved(3)._0);

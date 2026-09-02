@@ -211,13 +211,19 @@ let phase1State = (coordinates: phase1Coordinates): result<cubeState, solverErro
   } else if coordinates.slice < 0 || coordinates.slice >= 495 {
     Error(InvalidCoordinate("Slice must be between 0 and 494."))
   } else {
-    PieceReducer.reconstruct({
-      size: 3,
-      cp: [0, 1, 2, 3, 4, 5, 6, 7],
-      co: orientationState(coordinates.twist, 3, 8),
-      ep: sliceState(coordinates.slice),
-      eo: orientationState(coordinates.flip, 2, 12),
-    })->Result.mapError(error => InvalidState(error))
+    let reconstruct = cp =>
+      PieceReducer.reconstruct({
+        size: 3,
+        cp,
+        co: orientationState(coordinates.twist, 3, 8),
+        ep: sliceState(coordinates.slice),
+        eo: orientationState(coordinates.flip, 2, 12),
+      })
+    switch reconstruct([0, 1, 2, 3, 4, 5, 6, 7]) {
+    | Ok(state) => Ok(state)
+    | Error(_) =>
+      reconstruct([1, 0, 2, 3, 4, 5, 6, 7])->Result.mapError(error => InvalidState(error))
+    }
   }
 
 let phase2Coordinates = (state: cubeState): result<phase2Coordinates, solverError> =>
@@ -618,41 +624,173 @@ let buildEdgeSlicePruningTable = () =>
 let solvedPieces = (pieces: PieceReducer.pieceState) =>
   isIdentity(pieces.cp) && allZero(pieces.co) && isIdentity(pieces.ep) && allZero(pieces.eo)
 
-let rec exactSearch = (state, depth, lastFace): option<alg> => {
-  switch PieceReducer.reduce(state) {
-  | Error(_) => None
-  | Ok(pieces) =>
-    if solvedPieces(pieces) {
-      Some([])
-    } else if depth == 0 {
-      None
-    } else {
-      let found = ref(None)
-      searchActions()->Array.forEach(action => {
-        if found.contents == None && action.faceIndex != lastFace {
-          switch MoveExecutor.applyAlg(state, action.alg) {
-          | Error(_) => ()
-          | Ok(next) =>
-            switch exactSearch(next, depth - 1, action.faceIndex) {
-            | None => ()
-            | Some(tail) => found := Some(action.alg->Array.concat(tail))
-            }
-          }
-        }
-      })
-      found.contents
-    }
+let maximum = (left, right) =>
+  if left > right {
+    left
+  } else {
+    right
   }
+
+let phase1Distance = (coordinates: phase1Coordinates, sliceTwist, sliceFlip) =>
+  maximum(
+    pruningDistance(sliceTwist, coordinates.twist * 495 + coordinates.slice),
+    pruningDistance(sliceFlip, coordinates.flip * 495 + coordinates.slice),
+  )
+
+let phase2Distance = (coordinates: phase2Coordinates, cornerSlice, edgeSlice) =>
+  maximum(
+    pruningDistance(cornerSlice, coordinates.corners * 24 + coordinates.slice),
+    pruningDistance(edgeSlice, coordinates.edges * 24 + coordinates.slice),
+  )
+
+let moveAlgorithm = moveIndex => Belt.Array.getUnsafe(searchActions(), moveIndex).alg
+
+let algorithmForMoves = moves => {
+  let algorithm = ref([])
+  moves->Array.forEach(moveIndex =>
+    algorithm := algorithm.contents->Array.concat(moveAlgorithm(moveIndex))
+  )
+  algorithm.contents
 }
 
-let shallowOptimalSearch = state => {
-  let result = ref(None)
-  for depth in 0 to 6 {
-    if result.contents == None {
-      result := exactSearch(state, depth, -1)
+let rec searchPhase1 = (
+  coordinates: phase1Coordinates,
+  depth,
+  lastFace,
+  twistMoves,
+  flipMoves,
+  sliceMoves,
+  sliceTwist,
+  sliceFlip,
+) =>
+  if coordinates.twist == 0 && coordinates.flip == 0 && coordinates.slice == 0 {
+    Some([])
+  } else if depth == 0 || phase1Distance(coordinates, sliceTwist, sliceFlip) > depth {
+    None
+  } else {
+    let found = ref(None)
+    for moveIndex in 0 to 17 {
+      let face = moveIndex / 3
+      if found.contents == None && face != lastFace {
+        let next: phase1Coordinates = {
+          twist: Belt.Array.getUnsafe(
+            Belt.Array.getUnsafe(twistMoves, coordinates.twist),
+            moveIndex,
+          ),
+          flip: Belt.Array.getUnsafe(Belt.Array.getUnsafe(flipMoves, coordinates.flip), moveIndex),
+          slice: Belt.Array.getUnsafe(
+            Belt.Array.getUnsafe(sliceMoves, coordinates.slice),
+            moveIndex,
+          ),
+        }
+        switch searchPhase1(
+          next,
+          depth - 1,
+          face,
+          twistMoves,
+          flipMoves,
+          sliceMoves,
+          sliceTwist,
+          sliceFlip,
+        ) {
+        | Some(tail) => found := Some([moveIndex]->Array.concat(tail))
+        | None => ()
+        }
+      }
+    }
+    found.contents
+  }
+
+let rec searchPhase2 = (
+  coordinates: phase2Coordinates,
+  depth,
+  lastFace,
+  cornerMoves,
+  edgeMoves,
+  sliceMoves,
+  cornerSlice,
+  edgeSlice,
+) =>
+  if coordinates.corners == 0 && coordinates.edges == 0 && coordinates.slice == 0 {
+    Some([])
+  } else if depth == 0 || phase2Distance(coordinates, cornerSlice, edgeSlice) > depth {
+    None
+  } else {
+    let found = ref(None)
+    phase2MoveIndices()->Array.forEachWithIndex((moveIndex, column) => {
+      let face = moveIndex / 3
+      if found.contents == None && face != lastFace {
+        let next: phase2Coordinates = {
+          corners: getPhase2Move(cornerMoves, phase2MoveTableIndex(coordinates.corners, column)),
+          edges: getPhase2Move(edgeMoves, phase2MoveTableIndex(coordinates.edges, column)),
+          slice: getPhase2Move(sliceMoves, phase2MoveTableIndex(coordinates.slice, column)),
+        }
+        switch searchPhase2(
+          next,
+          depth - 1,
+          face,
+          cornerMoves,
+          edgeMoves,
+          sliceMoves,
+          cornerSlice,
+          edgeSlice,
+        ) {
+        | Some(tail) => found := Some([moveIndex]->Array.concat(tail))
+        | None => ()
+        }
+      }
+    })
+    found.contents
+  }
+
+let phase1Search = coordinates => {
+  let twistMoves = buildTwistMoveTable()
+  let flipMoves = buildFlipMoveTable()
+  let sliceMoves = buildSliceMoveTable()
+  let sliceTwist = buildSliceTwistPruningTable()
+  let sliceFlip = buildSliceFlipPruningTable()
+  let found = ref(None)
+  for depth in phase1Distance(coordinates, sliceTwist, sliceFlip) to 12 {
+    if found.contents == None {
+      found :=
+        searchPhase1(
+          coordinates,
+          depth,
+          -1,
+          twistMoves,
+          flipMoves,
+          sliceMoves,
+          sliceTwist,
+          sliceFlip,
+        )
     }
   }
-  result.contents
+  found.contents
+}
+
+let phase2Search = coordinates => {
+  let cornerMoves = buildCornerMoveTable()
+  let edgeMoves = buildEdgeMoveTable()
+  let sliceMoves = buildSlicePermutationMoveTable()
+  let cornerSlice = buildCornerSlicePruningTable()
+  let edgeSlice = buildEdgeSlicePruningTable()
+  let found = ref(None)
+  for depth in phase2Distance(coordinates, cornerSlice, edgeSlice) to 18 {
+    if found.contents == None {
+      found :=
+        searchPhase2(
+          coordinates,
+          depth,
+          -1,
+          cornerMoves,
+          edgeMoves,
+          sliceMoves,
+          cornerSlice,
+          edgeSlice,
+        )
+    }
+  }
+  found.contents
 }
 
 let isPhase1Solved = (state: cubeState): bool =>
@@ -672,9 +810,29 @@ let solve = (state: cubeState): result<solution, solverError> =>
       if solvedPieces(pieces) {
         Ok({alg: [], moveCount: 0})
       } else {
-        switch shallowOptimalSearch(state) {
-        | Some(alg) => Ok({alg, moveCount: alg->Array.length})
-        | None => Error(SearchFailed)
+        switch phase1Coordinates(state) {
+        | Error(error) => Error(error)
+        | Ok(coordinates) =>
+          switch phase1Search(coordinates) {
+          | None => Error(SearchFailed)
+          | Some(phase1Moves) =>
+            let phase1Alg = algorithmForMoves(phase1Moves)
+            switch MoveExecutor.applyAlg(state, phase1Alg) {
+            | Error(_) => Error(SearchFailed)
+            | Ok(phase1State) =>
+              switch phase2Coordinates(phase1State) {
+              | Error(error) => Error(error)
+              | Ok(coordinates) =>
+                switch phase2Search(coordinates) {
+                | None => Error(SearchFailed)
+                | Some(phase2Moves) => {
+                    let alg = phase1Alg->Array.concat(algorithmForMoves(phase2Moves))
+                    Ok({alg, moveCount: alg->Array.length})
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }

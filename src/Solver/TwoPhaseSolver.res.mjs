@@ -246,7 +246,8 @@ function phase1State(coordinates) {
         _0: "Twist must be between 0 and 2186."
       }
     };
-  } else if (coordinates.flip < 0 || coordinates.flip >= 2048) {
+  }
+  if (coordinates.flip < 0 || coordinates.flip >= 2048) {
     return {
       TAG: "Error",
       _0: {
@@ -254,7 +255,8 @@ function phase1State(coordinates) {
         _0: "Flip must be between 0 and 2047."
       }
     };
-  } else if (coordinates.slice < 0 || coordinates.slice >= 495) {
+  }
+  if (coordinates.slice < 0 || coordinates.slice >= 495) {
     return {
       TAG: "Error",
       _0: {
@@ -262,23 +264,40 @@ function phase1State(coordinates) {
         _0: "Slice must be between 0 and 494."
       }
     };
+  }
+  let reconstruct = cp => PieceReducer.reconstruct({
+    size: 3,
+    cp: cp,
+    co: orientationState(coordinates.twist, 3, 8),
+    ep: sliceState(coordinates.slice),
+    eo: orientationState(coordinates.flip, 2, 12)
+  });
+  let state = reconstruct([
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ]);
+  if (state.TAG === "Ok") {
+    return {
+      TAG: "Ok",
+      _0: state._0
+    };
   } else {
-    return Stdlib_Result.mapError(PieceReducer.reconstruct({
-      size: 3,
-      cp: [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7
-      ],
-      co: orientationState(coordinates.twist, 3, 8),
-      ep: sliceState(coordinates.slice),
-      eo: orientationState(coordinates.flip, 2, 12)
-    }), error => ({
+    return Stdlib_Result.mapError(reconstruct([
+      1,
+      0,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ]), error => ({
       TAG: "InvalidState",
       _0: error
     }));
@@ -796,45 +815,124 @@ function solvedPieces(pieces) {
   }
 }
 
-function exactSearch(state, depth, lastFace) {
-  let pieces = PieceReducer.reduce(state);
-  if (pieces.TAG !== "Ok") {
-    return;
+function maximum(left, right) {
+  if (Primitive_object.greaterthan(left, right)) {
+    return left;
+  } else {
+    return right;
   }
-  if (solvedPieces(pieces._0)) {
+}
+
+function phase1Distance(coordinates, sliceTwist, sliceFlip) {
+  return maximum(pruningDistance(sliceTwist, (coordinates.twist * 495 | 0) + coordinates.slice | 0), pruningDistance(sliceFlip, (coordinates.flip * 495 | 0) + coordinates.slice | 0));
+}
+
+function phase2Distance(coordinates, cornerSlice, edgeSlice) {
+  return maximum(pruningDistance(cornerSlice, (coordinates.corners * 24 | 0) + coordinates.slice | 0), pruningDistance(edgeSlice, (coordinates.edges * 24 | 0) + coordinates.slice | 0));
+}
+
+function moveAlgorithm(moveIndex) {
+  return searchActions()[moveIndex].alg;
+}
+
+function algorithmForMoves(moves) {
+  let algorithm = {
+    contents: []
+  };
+  moves.forEach(moveIndex => {
+    algorithm.contents = algorithm.contents.concat(moveAlgorithm(moveIndex));
+  });
+  return algorithm.contents;
+}
+
+function searchPhase1(coordinates, depth, lastFace, twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip) {
+  if (coordinates.twist === 0 && coordinates.flip === 0 && coordinates.slice === 0) {
     return [];
   }
-  if (depth === 0) {
+  if (depth === 0 || phase1Distance(coordinates, sliceTwist, sliceFlip) > depth) {
+    return;
+  }
+  let found;
+  for (let moveIndex = 0; moveIndex <= 17; ++moveIndex) {
+    let face = moveIndex / 3 | 0;
+    if (found === undefined && face !== lastFace) {
+      let next_twist = twistMoves[coordinates.twist][moveIndex];
+      let next_flip = flipMoves[coordinates.flip][moveIndex];
+      let next_slice = sliceMoves[coordinates.slice][moveIndex];
+      let next = {
+        twist: next_twist,
+        flip: next_flip,
+        slice: next_slice
+      };
+      let tail = searchPhase1(next, depth - 1 | 0, face, twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip);
+      if (tail !== undefined) {
+        found = [moveIndex].concat(tail);
+      }
+    }
+  }
+  return found;
+}
+
+function searchPhase2(coordinates, depth, lastFace, cornerMoves, edgeMoves, sliceMoves, cornerSlice, edgeSlice) {
+  if (coordinates.corners === 0 && coordinates.edges === 0 && coordinates.slice === 0) {
+    return [];
+  }
+  if (depth === 0 || phase2Distance(coordinates, cornerSlice, edgeSlice) > depth) {
     return;
   }
   let found = {
     contents: undefined
   };
-  searchActions().forEach(action => {
-    if (found.contents !== undefined || action.faceIndex === lastFace) {
+  phase2MoveIndices().forEach((moveIndex, column) => {
+    let face = moveIndex / 3 | 0;
+    if (found.contents !== undefined || face === lastFace) {
       return;
     }
-    let next = MoveExecutor.applyAlg(state, action.alg);
-    if (next.TAG !== "Ok") {
-      return;
-    }
-    let tail = exactSearch(next._0, depth - 1 | 0, action.faceIndex);
+    let next_corners = cornerMoves[phase2MoveTableIndex(coordinates.corners, column)];
+    let next_edges = edgeMoves[phase2MoveTableIndex(coordinates.edges, column)];
+    let next_slice = sliceMoves[phase2MoveTableIndex(coordinates.slice, column)];
+    let next = {
+      corners: next_corners,
+      edges: next_edges,
+      slice: next_slice
+    };
+    let tail = searchPhase2(next, depth - 1 | 0, face, cornerMoves, edgeMoves, sliceMoves, cornerSlice, edgeSlice);
     if (tail !== undefined) {
-      found.contents = action.alg.concat(tail);
+      found.contents = [moveIndex].concat(tail);
       return;
     }
   });
   return found.contents;
 }
 
-function shallowOptimalSearch(state) {
-  let result;
-  for (let depth = 0; depth <= 6; ++depth) {
-    if (result === undefined) {
-      result = exactSearch(state, depth, -1);
+function phase1Search(coordinates) {
+  let twistMoves = buildTwistMoveTable();
+  let flipMoves = buildFlipMoveTable();
+  let sliceMoves = buildSliceMoveTable();
+  let sliceTwist = buildSliceTwistPruningTable();
+  let sliceFlip = buildSliceFlipPruningTable();
+  let found;
+  for (let depth = phase1Distance(coordinates, sliceTwist, sliceFlip); depth <= 12; ++depth) {
+    if (found === undefined) {
+      found = searchPhase1(coordinates, depth, -1, twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip);
     }
   }
-  return result;
+  return found;
+}
+
+function phase2Search(coordinates) {
+  let cornerMoves = buildCornerMoveTable();
+  let edgeMoves = buildEdgeMoveTable();
+  let sliceMoves = buildSlicePermutationMoveTable();
+  let cornerSlice = buildCornerSlicePruningTable();
+  let edgeSlice = buildEdgeSlicePruningTable();
+  let found;
+  for (let depth = phase2Distance(coordinates, cornerSlice, edgeSlice); depth <= 18; ++depth) {
+    if (found === undefined) {
+      found = searchPhase2(coordinates, depth, -1, cornerMoves, edgeMoves, sliceMoves, cornerSlice, edgeSlice);
+    }
+  }
+  return found;
 }
 
 function isPhase1Solved(state) {
@@ -879,21 +977,50 @@ function solve(state) {
       }
     };
   }
-  let alg = shallowOptimalSearch(state);
-  if (alg !== undefined) {
+  let error$1 = phase1Coordinates(state);
+  if (error$1.TAG !== "Ok") {
     return {
-      TAG: "Ok",
-      _0: {
-        alg: alg,
-        moveCount: alg.length
-      }
+      TAG: "Error",
+      _0: error$1._0
     };
-  } else {
+  }
+  let phase1Moves = phase1Search(error$1._0);
+  if (phase1Moves === undefined) {
     return {
       TAG: "Error",
       _0: "SearchFailed"
     };
   }
+  let phase1Alg = algorithmForMoves(phase1Moves);
+  let phase1State = MoveExecutor.applyAlg(state, phase1Alg);
+  if (phase1State.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: "SearchFailed"
+    };
+  }
+  let error$2 = phase2Coordinates(phase1State._0);
+  if (error$2.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: error$2._0
+    };
+  }
+  let phase2Moves = phase2Search(error$2._0);
+  if (phase2Moves === undefined) {
+    return {
+      TAG: "Error",
+      _0: "SearchFailed"
+    };
+  }
+  let alg = phase1Alg.concat(algorithmForMoves(phase2Moves));
+  return {
+    TAG: "Ok",
+    _0: {
+      alg: alg,
+      moveCount: alg.length
+    }
+  };
 }
 
 let phase2MoveCount = 10;
@@ -957,8 +1084,15 @@ export {
   buildCornerSlicePruningTable,
   buildEdgeSlicePruningTable,
   solvedPieces,
-  exactSearch,
-  shallowOptimalSearch,
+  maximum,
+  phase1Distance,
+  phase2Distance,
+  moveAlgorithm,
+  algorithmForMoves,
+  searchPhase1,
+  searchPhase2,
+  phase1Search,
+  phase2Search,
   isPhase1Solved,
   solve,
 }
