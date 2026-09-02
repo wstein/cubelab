@@ -998,10 +998,7 @@ let advancedLayerTriggers = solved => {
     let base = BeginnerSolver.parseInternal(source)
     for yTurns in 0 to 3 {
       output->Array.push(
-        BeginnerSolver.macroAction(
-          solved,
-          base->MoveTransform.rotate(~axis=Y, ~turns=yTurns),
-        ),
+        BeginnerSolver.macroAction(solved, base->MoveTransform.rotate(~axis=Y, ~turns=yTurns)),
       )
     }
   })
@@ -1072,8 +1069,8 @@ let rec planLayerPiecesFrom = (
                 path,
                 score,
                 label: Belt.Array.getUnsafe(labels, labelIndex),
-            })
-          }
+              })
+            }
           | None =>
             switch BeginnerSolver.searchAtomicWithLimit(
               ~state,
