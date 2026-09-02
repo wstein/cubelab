@@ -29,6 +29,7 @@ test("the converter exposes full two-phase solutions through a dedicated worker 
   assert.match(page, /data-two-phase-result/);
   assert.match(client, /createTwoPhaseSolverClient/);
   assert.match(client, /twoPhaseSolverClient\.solve\(workspace\._0\.state\)/);
+  assert.match(client, /The two-phase solution did not replay to solved/);
   assert.match(solverWorker, /type: "solveTwoPhase"/);
   assert.match(solverWorker, /TwoPhaseSolver\.solve\(request\.state\)/);
 });

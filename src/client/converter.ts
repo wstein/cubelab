@@ -3017,6 +3017,14 @@ if (root) {
     twoPhaseResult.classList.remove("failure", "success");
     try {
       const solution = await twoPhaseSolverClient.solve(workspace._0.state);
+      const replay = MoveExecutor.applyAlg(workspace._0.state, solution.alg) as Result<CubeState, unknown>;
+      const solved = StateTypes.solved(3) as Result<CubeState, unknown>;
+      if (replay.TAG !== "Ok" || solved.TAG !== "Ok") {
+        throw new Error("The two-phase solution did not replay to solved.");
+      }
+      if (FaceletCodec.render(replay._0) !== FaceletCodec.render(solved._0)) {
+        throw new Error("The two-phase solution did not replay to solved.");
+      }
       const algorithm = MoveTransform.serialize(solution.alg) as string;
       twoPhaseResult.textContent = `${solution.moveCount} HTM · ${algorithm || "Solved"}`;
       twoPhaseResult.classList.add("success");
