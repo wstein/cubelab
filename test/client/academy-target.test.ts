@@ -55,3 +55,16 @@ test("Academy targets reject a rotated centre frame", () => {
   assert.equal(result.TAG, "Error");
   assert.match(result._0, /standard U\/R\/F centre orientation/);
 });
+
+test("a verified Academy solver route replays from setup to target", () => {
+  const setup = apply("R U");
+  const target = apply("F");
+  const relative = relativeAcademyState(setup, target);
+  assert.equal(relative.TAG, "Ok", relative.TAG === "Error" ? relative._0 : "");
+
+  const plan = BeginnerSolver.solve(relative._0);
+  assert.equal(plan.TAG, "Ok", plan.TAG === "Error" ? plan._0 : "");
+  const replay = MoveExecutor.applyAlg(setup, plan._0.alg);
+  assert.equal(replay.TAG, "Ok");
+  assert.equal(FaceletCodec.render(replay._0 as CubeState), FaceletCodec.render(target));
+});
