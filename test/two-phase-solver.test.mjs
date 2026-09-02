@@ -61,3 +61,18 @@ test("two-phase coordinates encode canonical solved and G1 states", () => {
   assert.ok(phaseTwo.edges >= 0 && phaseTwo.edges < 40_320);
   assert.ok(phaseTwo.slice >= 0 && phaseTwo.slice < 24);
 });
+
+test("packed pruning tables store two four-bit distances per Uint8Array byte", () => {
+  const table = TwoPhaseSolver.createPruningTable(5);
+  assert.ok(table instanceof Uint8Array);
+  assert.equal(table.length, 3);
+  assert.equal(TwoPhaseSolver.pruningDistance(table, 0), 15);
+  assert.equal(TwoPhaseSolver.pruningDistance(table, 4), 15);
+
+  TwoPhaseSolver.setPruningDistance(table, 0, 3);
+  TwoPhaseSolver.setPruningDistance(table, 1, 12);
+  TwoPhaseSolver.setPruningDistance(table, 4, 7);
+  assert.equal(TwoPhaseSolver.pruningDistance(table, 0), 3);
+  assert.equal(TwoPhaseSolver.pruningDistance(table, 1), 12);
+  assert.equal(TwoPhaseSolver.pruningDistance(table, 4), 7);
+});

@@ -5,6 +5,31 @@ import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import * as Primitive_int from "@rescript/runtime/lib/es6/Primitive_int.js";
 import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
 
+function createPruningTable(entries) {
+  let table = new Uint8Array((entries + 1 | 0) / 2 | 0);
+  for (let index = 0, index_finish = (entries + 1 | 0) / 2 | 0; index < index_finish; ++index) {
+    table[index] = 255;
+  }
+  return table;
+}
+
+function pruningDistance(table, index) {
+  let byte = table[index / 2 | 0];
+  if (index % 2 === 0) {
+    return byte % 16;
+  } else {
+    return byte / 16 | 0;
+  }
+}
+
+function setPruningDistance(table, index, distance) {
+  let byteIndex = index / 2 | 0;
+  let byte = table[byteIndex];
+  let value = distance % 16;
+  let next = index % 2 === 0 ? ((byte / 16 | 0) << 4) + value | 0 : byte % 16 + (value << 4) | 0;
+  table[byteIndex] = next;
+}
+
 function isIdentity(permutation) {
   return permutation.every((piece, slot) => piece === slot);
 }
@@ -304,6 +329,9 @@ function solve(state) {
 }
 
 export {
+  createPruningTable,
+  pruningDistance,
+  setPruningDistance,
   isIdentity,
   allZero,
   choose,

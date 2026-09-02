@@ -5,6 +5,40 @@ type solution = {alg: alg, moveCount: int}
 
 type phase1Coordinates = {twist: int, flip: int, slice: int}
 type phase2Coordinates = {corners: int, edges: int, slice: int}
+type pruningTable
+
+@new external createUint8Array: int => pruningTable = "Uint8Array"
+@get_index external getPruningByte: (pruningTable, int) => int = ""
+@set_index external setPruningByte: (pruningTable, int, int) => unit = ""
+
+let createPruningTable = entries => {
+  let table = createUint8Array((entries + 1) / 2)
+  for index in 0 to (entries + 1) / 2 - 1 {
+    setPruningByte(table, index, 255)
+  }
+  table
+}
+
+let pruningDistance = (table, index) => {
+  let byte = getPruningByte(table, index / 2)
+  if index % 2 == 0 {
+    byte % 16
+  } else {
+    byte / 16
+  }
+}
+
+let setPruningDistance = (table, index, distance) => {
+  let byteIndex = index / 2
+  let byte = getPruningByte(table, byteIndex)
+  let value = distance % 16
+  let next = if index % 2 == 0 {
+    byte / 16 * 16 + value
+  } else {
+    byte % 16 + value * 16
+  }
+  setPruningByte(table, byteIndex, next)
+}
 
 type solverError =
   | UnsupportedSize(int)
