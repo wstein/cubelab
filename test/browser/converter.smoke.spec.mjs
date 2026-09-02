@@ -432,7 +432,6 @@ test("uses GoCube orientation as an x/y/z checkpoint without live-tracking solve
 
   await page.goto("/#size=3&alg=x+y+R");
   await page.locator("[data-smart-cube-connect]").click();
-  await page.locator("[data-smart-cube-orientation]").click();
   await page.evaluate(() => window.__emitSmartCubeEvent({
     type: "orientation",
     quaternion: {x: 0, y: 0, z: 0, w: 1},

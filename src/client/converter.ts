@@ -2134,7 +2134,7 @@ if (root) {
       if (!wasConnected && supportsFacelets) smartCubeStateSyncPending = true;
       smartCubeOrientation.hidden = !supportsOrientation;
       smartCubeOrientation.disabled = !supportsOrientation;
-      setSmartCubeOrientationTracking(false);
+      setSmartCubeOrientationTracking(supportsOrientation);
       updateSmartCubeMistakeUi();
     } else {
       smartCubeLedFeedback = false;
