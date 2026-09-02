@@ -40,6 +40,17 @@ let setPruningDistance = (table, index, distance) => {
   setPruningByte(table, byteIndex, next)
 }
 
+let phase1MoveIndices = () => {
+  let moves = Array.make(~length=18, 0)
+  for index in 0 to 17 {
+    moves[index] = index
+  }
+  moves
+}
+
+// U/D may turn by a quarter; the four side faces may only turn by a half.
+let phase2MoveIndices = () => [0, 1, 2, 4, 7, 9, 10, 11, 13, 16]
+
 type solverError =
   | UnsupportedSize(int)
   | InvalidState(PieceReducer.pieceError)

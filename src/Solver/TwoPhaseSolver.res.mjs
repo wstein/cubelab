@@ -2,6 +2,7 @@
 
 import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
+import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as Primitive_int from "@rescript/runtime/lib/es6/Primitive_int.js";
 import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
 
@@ -28,6 +29,29 @@ function setPruningDistance(table, index, distance) {
   let value = distance % 16;
   let next = index % 2 === 0 ? ((byte / 16 | 0) << 4) + value | 0 : byte % 16 + (value << 4) | 0;
   table[byteIndex] = next;
+}
+
+function phase1MoveIndices() {
+  let moves = Stdlib_Array.make(18, 0);
+  for (let index = 0; index <= 17; ++index) {
+    moves[index] = index;
+  }
+  return moves;
+}
+
+function phase2MoveIndices() {
+  return [
+    0,
+    1,
+    2,
+    4,
+    7,
+    9,
+    10,
+    11,
+    13,
+    16
+  ];
 }
 
 function isIdentity(permutation) {
@@ -332,6 +356,8 @@ export {
   createPruningTable,
   pruningDistance,
   setPruningDistance,
+  phase1MoveIndices,
+  phase2MoveIndices,
   isIdentity,
   allZero,
   choose,

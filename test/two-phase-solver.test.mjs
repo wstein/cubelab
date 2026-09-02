@@ -76,3 +76,8 @@ test("packed pruning tables store two four-bit distances per Uint8Array byte", (
   assert.equal(TwoPhaseSolver.pruningDistance(table, 1), 12);
   assert.equal(TwoPhaseSolver.pruningDistance(table, 4), 7);
 });
+
+test("two-phase move domains preserve the G1 subgroup in phase two", () => {
+  assert.deepEqual(TwoPhaseSolver.phase1MoveIndices(), Array.from({length: 18}, (_, index) => index));
+  assert.deepEqual(TwoPhaseSolver.phase2MoveIndices(), [0, 1, 2, 4, 7, 9, 10, 11, 13, 16]);
+});
