@@ -1132,8 +1132,10 @@ test("explains solved Academy input and solves a scrambled compact-facelet state
   await expect(page.locator("[data-playback-position]")).toHaveText("Move 0 of 0");
 
   await input.fill("R U R' U'");
+  await expect(page.locator("[data-status]")).toHaveText("Algorithm · SiGN");
   const scrambledFacelets = await page.locator('[data-output="facelets"]').textContent();
   expect(scrambledFacelets).toBeTruthy();
+  expect(scrambledFacelets).not.toBe("UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB");
   await input.fill(scrambledFacelets ?? "");
   await expect(page.locator("[data-status]")).toHaveText("Compact facelets");
   await expect(page.getByRole("button", {name: "Generate verified solution"})).toBeEnabled();
