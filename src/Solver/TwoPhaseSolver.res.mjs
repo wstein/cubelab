@@ -472,6 +472,34 @@ function buildSliceTwistPruningTable() {
   return table;
 }
 
+function buildSliceFlipPruningTable() {
+  let flipMoves = buildFlipMoveTable();
+  let sliceMoves = buildSliceMoveTable();
+  let table = createPruningTable(1013760);
+  let queue = Stdlib_Array.make(1013760, 0);
+  let head = 0;
+  let tail = 1;
+  setPruningDistance(table, 0, 0);
+  while (head < tail) {
+    let index = queue[head];
+    head = head + 1 | 0;
+    let depth = pruningDistance(table, index);
+    let slice = index % 495;
+    let flip = index / 495 | 0;
+    for (let moveIndex = 0; moveIndex <= 17; ++moveIndex) {
+      let nextFlip = flipMoves[flip][moveIndex];
+      let nextSlice = sliceMoves[slice][moveIndex];
+      let next = (nextFlip * 495 | 0) + nextSlice | 0;
+      if (pruningDistance(table, next) === 15) {
+        setPruningDistance(table, next, depth + 1 | 0);
+        queue[tail] = next;
+        tail = tail + 1 | 0;
+      }
+    }
+  };
+  return table;
+}
+
 function solvedPieces(pieces) {
   if (isIdentity(pieces.cp) && allZero(pieces.co) && isIdentity(pieces.ep)) {
     return allZero(pieces.eo);
@@ -609,6 +637,7 @@ export {
   buildFlipMoveTable,
   buildSliceMoveTable,
   buildSliceTwistPruningTable,
+  buildSliceFlipPruningTable,
   solvedPieces,
   exactSearch,
   shallowOptimalSearch,

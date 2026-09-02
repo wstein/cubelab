@@ -139,3 +139,9 @@ test("phase-one twist pruning has zero distance at the solved coordinate", () =>
   assert.ok(table instanceof Uint8Array);
   assert.equal(TwoPhaseSolver.pruningDistance(table, 0), 0);
 });
+
+test("phase-one flip pruning has zero distance at the solved coordinate", () => {
+  const table = TwoPhaseSolver.buildSliceFlipPruningTable();
+  assert.ok(table instanceof Uint8Array);
+  assert.equal(TwoPhaseSolver.pruningDistance(table, 0), 0);
+});

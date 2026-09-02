@@ -340,6 +340,35 @@ let buildSliceTwistPruningTable = () => {
   table
 }
 
+let buildSliceFlipPruningTable = () => {
+  let flipMoves = buildFlipMoveTable()
+  let sliceMoves = buildSliceMoveTable()
+  let size = 495 * 2048
+  let table = createPruningTable(size)
+  let queue = Array.make(~length=size, 0)
+  let head = ref(0)
+  let tail = ref(1)
+  setPruningDistance(table, 0, 0)
+  while head.contents < tail.contents {
+    let index = Belt.Array.getUnsafe(queue, head.contents)
+    head := head.contents + 1
+    let depth = pruningDistance(table, index)
+    let slice = index % 495
+    let flip = index / 495
+    for moveIndex in 0 to 17 {
+      let nextFlip = Belt.Array.getUnsafe(Belt.Array.getUnsafe(flipMoves, flip), moveIndex)
+      let nextSlice = Belt.Array.getUnsafe(Belt.Array.getUnsafe(sliceMoves, slice), moveIndex)
+      let next = nextFlip * 495 + nextSlice
+      if pruningDistance(table, next) == 15 {
+        setPruningDistance(table, next, depth + 1)
+        queue[tail.contents] = next
+        tail := tail.contents + 1
+      }
+    }
+  }
+  table
+}
+
 let solvedPieces = (pieces: PieceReducer.pieceState) =>
   isIdentity(pieces.cp) && allZero(pieces.co) && isIdentity(pieces.ep) && allZero(pieces.eo)
 
