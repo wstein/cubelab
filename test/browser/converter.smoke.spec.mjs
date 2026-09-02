@@ -497,13 +497,13 @@ test("uses GoCube orientation as an x/y/z checkpoint without live-tracking solve
   await expect(page.locator("[data-smart-cube-mistakes]")).toBeHidden();
   await expect(page.locator("[data-smart-cube-recovery-block]")).toHaveCount(0);
 
-  // After x, logical Y lies on the gyro's fixed physical Z axis.
+  // Performing the requested logical y regrip from the rebased pose.
   await page.evaluate((q) => window.__emitSmartCubeEvent({
     type: "orientation",
     quaternion: q,
     coordinateFrame: "gocube-wire",
     timestamp: Date.now(),
-  }), {x: 0, y: -half, z: 0, w: half});
+  }), {x: -half, y: 0, z: 0, w: half});
   await expect(page.locator("[data-playback-position]")).toHaveText("Move 2 of 3");
   await expect(page.locator("[data-smart-cube-status]")).toContainText("Waiting for");
   await expect(canvas).not.toHaveAttribute("data-device-orientation", "tracking");

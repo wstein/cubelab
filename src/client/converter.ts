@@ -64,7 +64,6 @@ import {
   nextExpectedSmartCubeMove,
   nextSmartCubeProgressMoves,
   smartCubeMoveInLessonFrame,
-  smartCubeRotationInPhysicalFrame,
   type ExpectedSmartCubeAction,
   type SmartCubeHalfTurnProgress,
   type SmartCubeMoveAssessment,
@@ -2046,20 +2045,13 @@ if (root) {
     if (pending.baseline.coordinateFrame !== event.coordinateFrame) return;
     const step = activeTimeline.steps[pending.action.timelineIndex]?.step;
     if (!step || step.move.TAG !== "Rotation") return;
-    const physicalRotation = smartCubeRotationInPhysicalFrame(
-      activeTimeline.steps,
-      activeTimeline.labels,
-      pending.action.timelineIndex,
-      step.move._0,
-      step.turns,
-    );
     const assessment = assessGyroRotation(
       pending.baseline.quaternion,
       event.quaternion,
       event.coordinateFrame,
-      physicalRotation.axis,
-      physicalRotation.turns,
-      "local",
+      step.move._0,
+      step.turns,
+      "world",
     );
     if (!assessment.matched) {
       if (assessment.partial && pending.partialTurn === 0) {
@@ -2087,7 +2079,7 @@ if (root) {
         pending.baseline.quaternion,
         event.quaternion,
         event.coordinateFrame,
-        "local",
+        "world",
       )) {
         pending.baseline = {
           quaternion: event.quaternion,

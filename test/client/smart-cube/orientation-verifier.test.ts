@@ -65,4 +65,29 @@ describe("smart-cube gyro rotation feedback", () => {
       "viewport",
     )).toBeNull();
   });
+
+  test("accurately verifies rotations in gocube-wire frame across all axes", () => {
+    const half = Math.sqrt(0.5);
+    // GoCube wire X rotation: x is negative for clockwise x
+    expect(assessGyroRotation(identity, {x: -half, y: 0, z: 0, w: half}, "gocube-wire", "X", 1).matched)
+      .toBe(true);
+    // GoCube wire Y rotation: y is positive on wire (negated in viewport)
+    expect(assessGyroRotation(identity, {x: 0, y: half, z: 0, w: half}, "gocube-wire", "Y", 1).matched)
+      .toBe(true);
+    // GoCube wire Z rotation: z is negative for clockwise z
+    expect(assessGyroRotation(identity, {x: 0, y: 0, z: -half, w: half}, "gocube-wire", "Z", 1).matched)
+      .toBe(true);
+  });
+
+  test("verifies sequential world rotations from an arbitrary base pose", () => {
+    const half = Math.sqrt(0.5);
+    const basePose = {x: -half, y: 0, z: 0, w: half}; // after an X rotation
+    // User performs Y rotation in world view:
+    const rotY = {x: 0, y: -half, z: 0, w: half};
+    const currentPose = multiplyQuaternions(rotY, basePose);
+    expect(assessGyroRotation(basePose, currentPose, "viewport", "Y", 1, "world").matched)
+      .toBe(true);
+    expect(assessGyroRotation(basePose, currentPose, "viewport", "X", 1, "world").matched)
+      .toBe(false);
+  });
 });
