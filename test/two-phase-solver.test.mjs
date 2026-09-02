@@ -154,3 +154,12 @@ test("phase-two coordinates round-trip through a parity-valid G1 state", () => {
   assert.equal(roundTrip.TAG, "Ok");
   assert.deepEqual(roundTrip._0, source);
 });
+
+test("phase-two transitions use only G1-preserving moves", () => {
+  const source = {corners: 1_234, edges: 2_469, slice: 17};
+  const next = TwoPhaseSolver.phase2Transition(source, 13);
+  assert.equal(next.TAG, "Ok");
+  const state = TwoPhaseSolver.phase2State(next._0);
+  assert.equal(state.TAG, "Ok");
+  assert.equal(TwoPhaseSolver.isPhase1Solved(state._0), true);
+});

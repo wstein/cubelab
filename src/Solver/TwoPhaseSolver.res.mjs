@@ -455,6 +455,44 @@ function phase1TransitionRow(coordinates) {
   }
 }
 
+function phase2Transition(coordinates, moveIndex) {
+  let match = phase2State(coordinates);
+  let match$1 = Belt_Array.get(searchActions(), moveIndex);
+  if (match.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: match._0
+    };
+  }
+  if (match$1 === undefined) {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidCoordinate",
+        _0: "Phase-two move index must be between 0 and 17."
+      }
+    };
+  }
+  if (!phase2MoveIndices().some(index => index === moveIndex)) {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidCoordinate",
+        _0: "Phase-two moves must preserve G1."
+      }
+    };
+  }
+  let next = MoveExecutor.applyAlg(match._0, match$1.alg);
+  if (next.TAG === "Ok") {
+    return phase2Coordinates(next._0);
+  } else {
+    return {
+      TAG: "Error",
+      _0: "SearchFailed"
+    };
+  }
+}
+
 function buildTwistMoveTable() {
   let table = Stdlib_Array.make(2187, 0).map(param => Stdlib_Array.make(18, 0));
   for (let twist = 0; twist <= 2186; ++twist) {
@@ -698,6 +736,7 @@ export {
   searchActions,
   phase1Transition,
   phase1TransitionRow,
+  phase2Transition,
   buildTwistMoveTable,
   buildFlipMoveTable,
   buildSliceMoveTable,

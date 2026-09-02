@@ -332,6 +332,24 @@ let phase1TransitionRow = (coordinates: phase1Coordinates): result<
   }
 }
 
+let phase2Transition = (coordinates: phase2Coordinates, moveIndex: int): result<
+  phase2Coordinates,
+  solverError,
+> =>
+  switch (phase2State(coordinates), Belt.Array.get(searchActions(), moveIndex)) {
+  | (Error(error), _) => Error(error)
+  | (_, None) => Error(InvalidCoordinate("Phase-two move index must be between 0 and 17."))
+  | (Ok(state), Some(action)) =>
+    if !(phase2MoveIndices()->Array.some(index => index == moveIndex)) {
+      Error(InvalidCoordinate("Phase-two moves must preserve G1."))
+    } else {
+      switch MoveExecutor.applyAlg(state, action.alg) {
+      | Error(_) => Error(SearchFailed)
+      | Ok(next) => phase2Coordinates(next)
+      }
+    }
+  }
+
 let buildTwistMoveTable = () => {
   let table = Array.make(~length=2187, 0)->Array.map(_ => Array.make(~length=18, 0))
   for twist in 0 to 2186 {
