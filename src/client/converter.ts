@@ -490,12 +490,6 @@ if (root) {
   const parseWorkspaceState = (): Result<RecognizedInput> => {
     const setup = parseState(input.value);
     if (setup.TAG === "Error" || movesInput.value.trim() === "") return setup;
-    if (setup._0.timeline) {
-      return {
-        TAG: "Error",
-        _0: "Enter a cube state in Setup before adding Moves. To replay one algorithm, leave Moves empty.",
-      };
-    }
     const moves = MoveParser.parseWithOptions(
       size,
       lowercaseMode,
@@ -503,9 +497,17 @@ if (root) {
       movesInput.value,
     ) as Result<unknown[], {message?: string}>;
     if (moves.TAG === "Error") return {TAG: "Error", _0: moves._0.message ?? "Invalid moves."};
-    const applied = MoveExecutor.applyAlg(setup._0.state, moves._0) as Result<CubeState, unknown>;
+    let baseState = setup._0.state;
+    let combinedAlg = moves._0;
+    if (setup._0.timeline) {
+      const solved = StateTypes.solved(size) as Result<CubeState, unknown>;
+      if (solved.TAG === "Error") return {TAG: "Error", _0: "Cube size must be between 2 and 5."};
+      baseState = solved._0;
+      combinedAlg = [...setup._0.timeline.alg, ...moves._0];
+    }
+    const applied = MoveExecutor.applyAlg(baseState, combinedAlg) as Result<CubeState, unknown>;
     if (applied.TAG === "Error") return {TAG: "Error", _0: "Could not apply Moves to Setup."};
-    const timeline = buildTimeline(setup._0.state, moves._0);
+    const timeline = buildTimeline(baseState, combinedAlg);
     if (timeline.TAG === "Error") return {TAG: "Error", _0: "Could not build the Setup + Moves timeline."};
     return {
       TAG: "Ok",
@@ -909,6 +911,14 @@ if (root) {
     const before = activeTimeline?.states?.[moveIndex];
     if (before) {
       previewedMoveIndex = moveIndex;
+      if (moveIndex === (hoverPreviewCursor ?? activeIndex)) {
+        setHoverPreviewState(moveIndex);
+        viewport?.setTurnPreview(turnTransform(before.size, step));
+        canvas.dataset.previewMoveIndex = String(moveIndex);
+        canvas.dataset.previewFacelets = FaceletCodec.render(before);
+        viewport?.setTurnGuide(turnGuides && activeTurnGuide ? activeTurnGuide : null);
+        return;
+      }
       viewport?.setTurnGuide(null);
       void animateHoverPreviewTo(moveIndex, generation).then((arrived) => {
         if (!arrived || generation !== hoverPreviewGeneration || guidedToken !== token) return;
@@ -1841,29 +1851,30 @@ if (root) {
     const progress = smartCubeHalfTurnProgress?.timelineIndex === expected.timelineIndex
       ? smartCubeHalfTurnProgress
       : null;
-    const step = activeTimeline.steps[expected.timelineIndex]?.step;
-    const isHalfTurn = step && Math.abs(step.turns) % 4 === 2;
-    const quarterStep = isHalfTurn
-      ? {...step, turns: step.turns < 0 ? -1 : 1}
-      : step;
     const quarterToken = expected.token.endsWith("2")
       ? expected.token.slice(0, -1)
       : expected.token.endsWith("2'")
         ? `${expected.token.slice(0, -2)}'`
         : expected.token;
+    const lessonQuarterMove = smartCubeLessonMove(quarterToken, expected.timelineIndex);
+    const quarterStep = smartCubeStep(lessonQuarterMove)
+      ?? activeTimeline.steps[expected.timelineIndex]?.step;
+    const lessonFullMove = smartCubeLessonMove(expected.token, expected.timelineIndex);
+    const fullStep = smartCubeStep(lessonFullMove)
+      ?? activeTimeline.steps[expected.timelineIndex]?.step;
 
     if (quarterStep && token) {
       guidedToken = token;
       activeTurnGuide = {
         // Preview one physical quarter-turn, but retain the logical half-turn
-        // in the guide so the viewport can show the required `2×` indicator.
-        step: step ?? quarterStep,
+        // in the guide so the viewport can show the required `2×` indicator before progress.
+        step: progress ? quarterStep : (fullStep ?? quarterStep),
         label: progress ? quarterToken : expected.token,
         past: pastMoveTokens(expected.timelineIndex, 60),
         upcoming: upcomingMoveTokens(expected.timelineIndex, 60),
       };
       if (progress) {
-        token.textContent = `${quarterToken} ${quarterToken}`;
+        token.textContent = `${lessonQuarterMove} ${lessonQuarterMove}`;
         token.dataset.halfTurnProgress = "true";
       }
       token.classList.add("turn-guided");
@@ -1885,6 +1896,7 @@ if (root) {
     assessment: Extract<SmartCubeMoveAssessment, {status: "partial"}>,
   ): Promise<void> => {
     smartCubeHalfTurnProgress = assessment.progress;
+    waitForSmartCubeMove();
     await animateSmartCubeMove(assessment.received, assessment.expected.timelineIndex);
     const quarterToken = assessment.expected.token.endsWith("2")
       ? assessment.expected.token.slice(0, -1)
@@ -2012,6 +2024,7 @@ if (root) {
     }
     if (assessment.status === "partial") {
       await applyPartialHalfTurn(assessment);
+      waitForSmartCubeMove();
       return true;
     }
     if (assessment.status === "unsupported") {
@@ -2124,6 +2137,7 @@ if (root) {
     }
     if (assessment.status === "partial") {
       await applyPartialHalfTurn(assessment);
+      waitForSmartCubeMove();
       return true;
     }
     if (assessment.status === "unsupported") {

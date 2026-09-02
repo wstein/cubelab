@@ -36,7 +36,8 @@ test("the editor separates a synchronized setup from optional replay moves", () 
   assert.match(page, /class="cube-textarea setup-textarea"[\s\S]*rows="1"[\s\S]*wrap="off"/);
   assert.match(page, /Smart-cube Sync loads this field/);
   assert.match(client, /const parseWorkspaceState/);
-  assert.match(client, /MoveExecutor\.applyAlg\(setup\._0\.state, moves\._0\)/);
+  assert.match(client, /MoveExecutor\.applyAlg\(baseState, combinedAlg\)/);
+  assert.match(client, /combinedAlg = \[\.\.\.setup\._0\.timeline\.alg, \.\.\.moves\._0\]/);
 });
 
 test("the Vanilla DOM client wires reachability-aware outputs", () => {

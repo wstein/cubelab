@@ -45,10 +45,13 @@ remains a random-turn practice sequence and is not labeled as an official WCA sc
 ## Setup and moves
 
 The editor separates **Setup (state)** from optional **Moves**. Setup accepts compact
-facelets, compact colours, canonical nets, cubie coordinates, and 3×3 Orbit64. Moves are
-parsed with the selected notation dialect and replayed from that setup, so the viewport and
-all converted outputs show the resulting state. The old single-field algorithm workflow is
-still available: when Moves is empty, an algorithm entered in Setup is evaluated from solved.
+facelets, compact colours, canonical nets, cubie coordinates, 3×3 Orbit64, or an algorithm.
+Moves are parsed with the selected notation dialect and replayed from whatever Setup
+resolves to. When Setup is a raw state, Moves replay from that state. When Setup is itself
+an algorithm, Moves extend it into one continuous algorithm evaluated from solved, so the
+whole thing plays back as a single timeline. The old single-field algorithm workflow is
+still available: when Moves is empty, an algorithm entered in Setup is evaluated from solved
+on its own.
 
 **Sync state** from a connected smart cube writes its physical facelet state into Setup. It
 does not change the optional Moves field, allowing a user to inspect or replay a sequence

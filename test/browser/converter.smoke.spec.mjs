@@ -181,8 +181,21 @@ test("replays optional moves from a setup state and keeps both fields shareable"
   await expect(page).toHaveURL(/moves=U\+F2/);
 
   await setup.fill("R U");
-  await expect(page.locator("[data-status]")).toHaveText("Parse error");
-  await expect(page.locator("[data-error]")).toContainText("Enter a cube state in Setup");
+  await expect(page.locator("[data-status]")).toHaveText("Algorithm · SiGN + moves");
+  await expect(page.locator('[data-output="facelets"]')).toHaveText(algorithmFacelets("R U U F2"));
+});
+
+test("extends an algorithm entered in Setup with the Moves field", async ({page}) => {
+  await page.goto("/");
+  const setup = page.locator("[data-input]");
+  const moves = page.locator("[data-moves-input]");
+
+  await setup.fill("F L2 R2 F B' U2 L D U' L F' B D' F' R2 D'");
+  await moves.fill("B");
+  await expect(page.locator("[data-status]")).toHaveText("Algorithm · SiGN + moves");
+  await expect(page.locator('[data-output="facelets"]')).toHaveText(
+    algorithmFacelets("F L2 R2 F B' U2 L D U' L F' B D' F' R2 D' B"),
+  );
 });
 
 test("restores shareable studio state and quick-load presets", async ({page}) => {

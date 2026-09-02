@@ -186,8 +186,9 @@ const cards = [
           spellcheck="false"
         ></textarea>
         <p class="input-help">
-          Setup is the current cube state; Sync state replaces it from the connected smart cube. Moves are replayed from that setup.
-          If you only enter an algorithm in Setup, Cube Rosetta keeps the established single-field workflow.
+          Setup accepts a cube state or an algorithm; Sync state replaces it from the connected smart
+          cube. Moves are replayed from whatever Setup resolves to, so an algorithm in Setup plus Moves
+          plays back as one continuous timeline from solved. Leave Moves empty to use Setup alone.
         </p>
         <div class="transform-row" data-workspace-panel="workbench" aria-label="Algorithm transformations" hidden>
           <span class="transform-label">Transforms</span>
