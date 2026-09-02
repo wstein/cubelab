@@ -2,6 +2,8 @@
 
 import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
+import * as Primitive_int from "@rescript/runtime/lib/es6/Primitive_int.js";
+import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
 
 function isIdentity(permutation) {
   return permutation.every((piece, slot) => piece === slot);
@@ -9,6 +11,124 @@ function isIdentity(permutation) {
 
 function allZero(values) {
   return values.every(value => value === 0);
+}
+
+function choose(n, k) {
+  if (k < 0 || k > n) {
+    return 0;
+  }
+  let numerator = 1;
+  let denominator = 1;
+  for (let factor = 1; factor <= k; ++factor) {
+    numerator = numerator * ((n - k | 0) + factor | 0) | 0;
+    denominator = denominator * factor | 0;
+  }
+  return Primitive_int.div(numerator, denominator);
+}
+
+function orientationCoordinate(orientations, base, limit) {
+  let coordinate = 0;
+  for (let slot = 0; slot < limit; ++slot) {
+    coordinate = (coordinate * base | 0) + orientations[slot] | 0;
+  }
+  return coordinate;
+}
+
+function sliceCoordinate(edgePermutation) {
+  let rank = 0;
+  let selected = 0;
+  for (let slot = 0; slot <= 11; ++slot) {
+    if (edgePermutation[slot] >= 8) {
+      selected = selected + 1 | 0;
+      rank = rank + choose(slot, selected) | 0;
+    }
+  }
+  return 494 - rank | 0;
+}
+
+function permutationCoordinate(permutation, length) {
+  let coordinate = 0;
+  for (let left = 0, left_finish = length - 2 | 0; left <= left_finish; ++left) {
+    let smaller = 0;
+    for (let right = left + 1 | 0; right < length; ++right) {
+      if (Primitive_object.lessthan(permutation[right], permutation[left])) {
+        smaller = smaller + 1 | 0;
+      }
+    }
+    coordinate = (coordinate * (length - left | 0) | 0) + smaller | 0;
+  }
+  return coordinate;
+}
+
+function slicePermutationCoordinate(edgePermutation) {
+  return permutationCoordinate([
+    edgePermutation[8] - 8 | 0,
+    edgePermutation[9] - 8 | 0,
+    edgePermutation[10] - 8 | 0,
+    edgePermutation[11] - 8 | 0
+  ], 4);
+}
+
+function phase1Coordinates(state) {
+  if (state.size !== 3) {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "UnsupportedSize",
+        _0: state.size
+      }
+    };
+  }
+  let error = PieceReducer.reduce(state);
+  if (error.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidState",
+        _0: error._0
+      }
+    };
+  }
+  let pieces = error._0;
+  return {
+    TAG: "Ok",
+    _0: {
+      twist: orientationCoordinate(pieces.co, 3, 7),
+      flip: orientationCoordinate(pieces.eo, 2, 11),
+      slice: sliceCoordinate(pieces.ep)
+    }
+  };
+}
+
+function phase2Coordinates(state) {
+  if (state.size !== 3) {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "UnsupportedSize",
+        _0: state.size
+      }
+    };
+  }
+  let error = PieceReducer.reduce(state);
+  if (error.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidState",
+        _0: error._0
+      }
+    };
+  }
+  let pieces = error._0;
+  return {
+    TAG: "Ok",
+    _0: {
+      corners: permutationCoordinate(pieces.cp, 8),
+      edges: permutationCoordinate(pieces.ep, 8),
+      slice: slicePermutationCoordinate(pieces.ep)
+    }
+  };
 }
 
 function middleSliceIsPlaced(edgePermutation) {
@@ -186,6 +306,13 @@ function solve(state) {
 export {
   isIdentity,
   allZero,
+  choose,
+  orientationCoordinate,
+  sliceCoordinate,
+  permutationCoordinate,
+  slicePermutationCoordinate,
+  phase1Coordinates,
+  phase2Coordinates,
   middleSliceIsPlaced,
   generatedLoc,
   located,

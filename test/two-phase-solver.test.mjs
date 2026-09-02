@@ -35,3 +35,29 @@ test("two-phase solver replay-verifies a one-turn optimal solution", () => {
   assert.equal(replay.TAG, "Ok");
   assert.deepEqual(replay._0, StateTypes.solved(3)._0);
 });
+
+test("two-phase coordinates encode canonical solved and G1 states", () => {
+  const solved = StateTypes.solved(3)._0;
+  const solvedPhaseOne = TwoPhaseSolver.phase1Coordinates(solved);
+  assert.equal(solvedPhaseOne.TAG, "Ok");
+  assert.deepEqual(solvedPhaseOne._0, {twist: 0, flip: 0, slice: 0});
+  const solvedPhaseTwo = TwoPhaseSolver.phase2Coordinates(solved);
+  assert.equal(solvedPhaseTwo.TAG, "Ok");
+  assert.deepEqual(solvedPhaseTwo._0, {
+    corners: 0,
+    edges: 0,
+    slice: 0,
+  });
+
+  const phaseOne = TwoPhaseSolver.phase1Coordinates(apply("F"))._0;
+  assert.notEqual(phaseOne.twist, 0);
+  assert.notEqual(phaseOne.flip, 0);
+  assert.ok(phaseOne.slice >= 0 && phaseOne.slice < 495);
+
+  const g1 = apply("U R2 F2 D'");
+  assert.equal(TwoPhaseSolver.isPhase1Solved(g1), true);
+  const phaseTwo = TwoPhaseSolver.phase2Coordinates(g1)._0;
+  assert.ok(phaseTwo.corners >= 0 && phaseTwo.corners < 40_320);
+  assert.ok(phaseTwo.edges >= 0 && phaseTwo.edges < 40_320);
+  assert.ok(phaseTwo.slice >= 0 && phaseTwo.slice < 24);
+});
