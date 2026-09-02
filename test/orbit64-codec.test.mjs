@@ -72,7 +72,8 @@ test("decoding rejects malformed length, alphabet, header, and parity", () => {
   const oddEdgePermutation = packIndependent(0, 0, 39916800, 0);
   const parityResult = Orbit64Codec.decode(oddEdgePermutation);
   assert.equal(parityResult._0.TAG, "InvalidCoordinates");
-  assert.equal(parityResult._0._0, "ParityMismatch");
+  assert.equal(parityResult._0._0.TAG, "SolvabilityViolation");
+  assert.equal(parityResult._0._0._0, "PermutationParityMismatch");
 });
 
 test("encoding rejects non-3x3 and unreachable coordinate states", () => {
