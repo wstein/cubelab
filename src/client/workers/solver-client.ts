@@ -3,6 +3,7 @@ type WorkerSuccess<T> = {id: number; ok: true; solution: T};
 type WorkerFailure = {id: number; ok: false; error: string};
 type WorkerResponse<T> = WorkerSuccess<T> | WorkerFailure;
 type TwoPhaseProgress = {id: number; type: "twoPhaseProgress"; stage: string};
+type TwoPhaseCandidate<T> = {id: number; type: "twoPhaseCandidate"; solution: T};
 
 /** Request/response boundary for expensive searches; the UI thread never waits for them. */
 export const createSolverClient = <TState, TSolution>(worker: Worker) => {
@@ -40,13 +41,18 @@ export const createSolverClient = <TState, TSolution>(worker: Worker) => {
 export const createTwoPhaseSolverClient = <TState, TSolution>(
   worker: Worker,
   onProgress?: (stage: string) => void,
+  onCandidate?: (solution: TSolution) => void,
 ) => {
   let nextId = 0;
   const pending = new Map<number, {resolve: (value: TSolution) => void; reject: (reason: Error) => void}>();
-  worker.addEventListener("message", (event: MessageEvent<WorkerResponse<TSolution> | TwoPhaseProgress>) => {
+  worker.addEventListener("message", (event: MessageEvent<WorkerResponse<TSolution> | TwoPhaseProgress | TwoPhaseCandidate<TSolution>>) => {
     const response = event.data;
     if ("type" in response && response.type === "twoPhaseProgress") {
       onProgress?.(response.stage);
+      return;
+    }
+    if ("type" in response && response.type === "twoPhaseCandidate") {
+      onCandidate?.(response.solution);
       return;
     }
     const request = pending.get(response.id);
@@ -66,6 +72,9 @@ export const createTwoPhaseSolverClient = <TState, TSolution>(
         pending.set(id, {resolve, reject});
         worker.postMessage({id, type: "solveTwoPhase", state});
       });
+    },
+    cancel(): void {
+      pending.forEach((_request, id) => worker.postMessage({id, type: "cancelTwoPhase"}));
     },
     terminate(): void {
       pending.forEach(({reject}) => reject(new Error("The two-phase solver was stopped.")));

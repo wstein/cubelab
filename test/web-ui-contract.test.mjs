@@ -33,9 +33,10 @@ test("the converter exposes full two-phase solutions through a dedicated worker 
   assert.match(client, /The two-phase solution did not replay to solved/);
   assert.match(solverWorker, /type: "solveTwoPhase"/);
   assert.match(solverWorker, /twoPhaseProgress/);
-  assert.match(solverWorker, /TwoPhaseSolver\.solve\(request\.state\)/);
-  assert.match(client, /Two-phase search cancelled/);
-  assert.match(client, /twoPhaseSolverClient\.terminate\(\)/);
+  assert.match(solverWorker, /TwoPhaseSolver\.solveAtDepth\(request\.state, bound\)/);
+  assert.match(solverWorker, /twoPhaseCandidate/);
+  assert.match(client, /twoPhaseSolverClient\.cancel\(\)/);
+  assert.match(client, /Best so far:/);
   assert.match(client, /twoPhaseApply\.addEventListener/);
   assert.match(client, /Setup or Moves changed; generate a new two-phase solution/);
   assert.match(client, /store\.patch\(\{moves:/);

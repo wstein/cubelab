@@ -931,7 +931,7 @@ function searchPhase1WithinTotal(state, coordinates, phase1Depth, totalDepth, la
   return found;
 }
 
-function totalDepthSearch(state, coordinates) {
+function totalDepthSearch(state, coordinates, totalDepth) {
   let twistMoves = buildTwistMoveTable();
   let flipMoves = buildFlipMoveTable();
   let sliceMoves = buildSliceMoveTable();
@@ -943,18 +943,76 @@ function totalDepthSearch(state, coordinates) {
   let cornerSlice = buildCornerSlicePruningTable();
   let edgeSlice = buildEdgeSlicePruningTable();
   let found;
-  for (let totalDepth = 0; totalDepth <= 21; ++totalDepth) {
+  let minimumPhase1Depth = phase1Distance(coordinates, sliceTwist, sliceFlip);
+  let maximumPhase1Depth = totalDepth < 12 ? totalDepth : 12;
+  for (let phase1Depth = minimumPhase1Depth; phase1Depth <= maximumPhase1Depth; ++phase1Depth) {
     if (found === undefined) {
-      let minimumPhase1Depth = phase1Distance(coordinates, sliceTwist, sliceFlip);
-      let maximumPhase1Depth = totalDepth < 12 ? totalDepth : 12;
-      for (let phase1Depth = minimumPhase1Depth; phase1Depth <= maximumPhase1Depth; ++phase1Depth) {
-        if (found === undefined) {
-          found = searchPhase1WithinTotal(state, coordinates, phase1Depth, totalDepth, -1, [], twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice);
-        }
-      }
+      found = searchPhase1WithinTotal(state, coordinates, phase1Depth, totalDepth, -1, [], twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice);
     }
   }
   return found;
+}
+
+function solveAtDepth(state, totalDepth) {
+  if (totalDepth < 0 || totalDepth > 24) {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidCoordinate",
+        _0: "Two-phase depth must be between 0 and 24."
+      }
+    };
+  }
+  if (state.size !== 3) {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "UnsupportedSize",
+        _0: state.size
+      }
+    };
+  }
+  let match = PieceReducer.reduce(state);
+  let match$1 = phase1Coordinates(state);
+  if (match.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidState",
+        _0: match._0
+      }
+    };
+  }
+  if (match$1.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: match$1._0
+    };
+  }
+  if (solvedPieces(match._0)) {
+    return {
+      TAG: "Ok",
+      _0: {
+        alg: [],
+        moveCount: 0
+      }
+    };
+  }
+  let moves = totalDepthSearch(state, match$1._0, totalDepth);
+  if (moves === undefined) {
+    return {
+      TAG: "Error",
+      _0: "SearchFailed"
+    };
+  }
+  let alg = algorithmForMoves(moves);
+  return {
+    TAG: "Ok",
+    _0: {
+      alg: alg,
+      moveCount: alg.length
+    }
+  };
 }
 
 function isPhase1Solved(state) {
@@ -1006,7 +1064,7 @@ function solve(state) {
       _0: error$1._0
     };
   }
-  let moves = totalDepthSearch(state, error$1._0);
+  let moves = totalDepthSearch(state, error$1._0, 24);
   if (moves === undefined) {
     return {
       TAG: "Error",
@@ -1093,6 +1151,7 @@ export {
   searchPhase2,
   searchPhase1WithinTotal,
   totalDepthSearch,
+  solveAtDepth,
   isPhase1Solved,
   solve,
 }

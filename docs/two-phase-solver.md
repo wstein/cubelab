@@ -30,7 +30,7 @@ of its slice×twist and slice×flip distances; phase two uses the maximum of its
 corner×slice and edge×slice distances. Both bounds are admissible. The returned
 algorithm is replay-verified by the caller-facing test suite, but it is not an
 HTM-optimal solution. It explores phase-one candidates against a shared total
-depth budget and returns only solutions of at most 21 HTM. If no candidate fits
+depth budget and returns only solutions of at most 24 HTM. If no candidate fits
 that limit, the solver reports `SearchFailed` rather than returning a longer
 algorithm.
 
@@ -38,6 +38,7 @@ The converter exposes full solutions through the dedicated worker request
 `solveTwoPhase`, separate from Academy's tutorial request contract. Its 3×3
 control solves the current Setup plus Moves state off the UI thread and reports
 the HTM count and canonical algorithm. It reports table-preparation and search
-stages; Cancel terminates and replaces only the dedicated worker. Apply solution
+stages and publishes verified best-so-far candidates. Cancel retains the latest
+candidate while stopping further depth refinement. Apply solution
 preserves Setup and appends the verified algorithm to Moves; it asks for a new
 solution if either source field changed after the search.

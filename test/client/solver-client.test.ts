@@ -54,15 +54,19 @@ describe("solver worker client", () => {
   test("uses a dedicated request type for full two-phase solutions", async () => {
     const worker = new FakeWorker();
     const stages: string[] = [];
+    const candidates: number[] = [];
     const client = createTwoPhaseSolverClient<{id: string}, {moveCount: number}>(
       worker as unknown as Worker,
       (stage) => stages.push(stage),
+      (solution) => candidates.push(solution.moveCount),
     );
     const solution = client.solve({id: "cube"});
 
     expect(worker.requests).toEqual([{id: 0, type: "solveTwoPhase", state: {id: "cube"}}]);
     worker.respond({id: 0, type: "twoPhaseProgress", stage: "Preparing tables"});
     expect(stages).toEqual(["Preparing tables"]);
+    worker.respond({id: 0, type: "twoPhaseCandidate", solution: {moveCount: 21}});
+    expect(candidates).toEqual([21]);
     worker.respond({id: 0, ok: true, solution: {moveCount: 21}});
     await expect(solution).resolves.toEqual({moveCount: 21});
   });

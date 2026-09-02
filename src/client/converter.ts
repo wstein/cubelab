@@ -313,13 +313,32 @@ if (root) {
     new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
   );
   let twoPhaseSolveBusy = false;
+  let twoPhaseCancelling = false;
   let twoPhaseRequest = 0;
   let twoPhaseAlgorithm = "";
+  let twoPhaseBestMoveCount: number | null = null;
   let twoPhaseSourceKey = "";
+  let twoPhasePendingState: CubeState | null = null;
   const newTwoPhaseSolverClient = () => createTwoPhaseSolverClient<CubeState, TwoPhaseSolution>(
     new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
     (stage) => {
-      if (twoPhaseSolveBusy) twoPhaseResult.textContent = stage;
+      if (twoPhaseSolveBusy) {
+        twoPhaseResult.textContent = twoPhaseBestMoveCount === null
+          ? stage
+          : `Best so far: ${twoPhaseBestMoveCount} HTM · ${twoPhaseAlgorithm} · ${stage}`;
+      }
+    },
+    (solution) => {
+      if (!twoPhaseSolveBusy || twoPhasePendingState === null) return;
+      const replay = MoveExecutor.applyAlg(twoPhasePendingState, solution.alg) as Result<CubeState, unknown>;
+      const solved = StateTypes.solved(3) as Result<CubeState, unknown>;
+      if (replay.TAG !== "Ok" || solved.TAG !== "Ok"
+        || FaceletCodec.render(replay._0) !== FaceletCodec.render(solved._0)) return;
+      twoPhaseAlgorithm = MoveTransform.serialize(solution.alg) as string;
+      twoPhaseBestMoveCount = solution.moveCount;
+      twoPhaseApply.disabled = twoPhaseAlgorithm === "";
+      twoPhaseResult.textContent = `Best so far: ${solution.moveCount} HTM · ${twoPhaseAlgorithm}`;
+      twoPhaseResult.classList.remove("success", "failure");
     },
   );
   let twoPhaseSolverClient = newTwoPhaseSolverClient();
@@ -3014,13 +3033,13 @@ if (root) {
   twoPhaseSolve.addEventListener("click", async () => {
     if (size !== 3) return;
     if (twoPhaseSolveBusy) {
-      twoPhaseRequest += 1;
-      twoPhaseSolverClient.terminate();
-      twoPhaseSolverClient = newTwoPhaseSolverClient();
-      twoPhaseSolveBusy = false;
-      twoPhaseSolve.textContent = "Find two-phase solution";
-      twoPhaseSolve.disabled = false;
-      twoPhaseResult.textContent = "Two-phase search cancelled.";
+      twoPhaseCancelling = true;
+      twoPhaseSolverClient.cancel();
+      twoPhaseSolve.disabled = true;
+      twoPhaseSolve.textContent = "Stopping search…";
+      twoPhaseResult.textContent = twoPhaseAlgorithm === ""
+        ? "Stopping search; no solution has been found yet."
+        : `Stopping search; keeping ${twoPhaseAlgorithm}.`;
       twoPhaseResult.classList.remove("success", "failure");
       return;
     }
@@ -3032,7 +3051,10 @@ if (root) {
     }
     const request = ++twoPhaseRequest;
     twoPhaseAlgorithm = "";
-    twoPhaseSourceKey = "";
+    twoPhaseBestMoveCount = null;
+    twoPhaseSourceKey = `${input.value}\u0000${movesInput.value}`;
+    twoPhasePendingState = workspace._0.state;
+    twoPhaseCancelling = false;
     twoPhaseApply.disabled = true;
     twoPhaseSolveBusy = true;
     twoPhaseSolve.textContent = "Cancel search";
@@ -3052,9 +3074,11 @@ if (root) {
       const algorithm = MoveTransform.serialize(solution.alg) as string;
       twoPhaseAlgorithm = algorithm;
       twoPhaseSourceKey = `${input.value}\u0000${movesInput.value}`;
-      twoPhaseApply.disabled = false;
-      twoPhaseResult.textContent = `${solution.moveCount} HTM · ${algorithm || "Solved"}`;
-      twoPhaseResult.classList.add("success");
+      twoPhaseApply.disabled = algorithm === "";
+      twoPhaseResult.textContent = twoPhaseCancelling
+        ? `Search stopped · ${solution.moveCount} HTM · ${algorithm || "Solved"}`
+        : `${solution.moveCount} HTM · ${algorithm || "Solved"}`;
+      twoPhaseResult.classList.toggle("success", !twoPhaseCancelling);
     } catch (reason) {
       if (request !== twoPhaseRequest) return;
       twoPhaseResult.textContent = reason instanceof Error ? reason.message : "The two-phase solver failed.";
@@ -3062,6 +3086,7 @@ if (root) {
     } finally {
       if (request !== twoPhaseRequest) return;
       twoPhaseSolveBusy = false;
+      twoPhaseCancelling = false;
       twoPhaseSolve.textContent = "Find two-phase solution";
       twoPhaseSolve.disabled = size !== 3;
     }

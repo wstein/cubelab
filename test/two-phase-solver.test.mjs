@@ -32,7 +32,7 @@ test("two-phase solver replay-verifies a one-turn solution", () => {
   const result = TwoPhaseSolver.solve(scrambled);
   assert.equal(result.TAG, "Ok");
   assert.ok(result._0.moveCount > 0);
-  assert.ok(result._0.moveCount <= 21);
+  assert.ok(result._0.moveCount <= 24);
   const replay = MoveExecutor.applyAlg(scrambled, result._0.alg);
   assert.equal(replay.TAG, "Ok");
   assert.deepEqual(replay._0, StateTypes.solved(3)._0);
@@ -43,7 +43,7 @@ test("two-phase IDA* solves beyond the former shallow search limit", () => {
   const result = TwoPhaseSolver.solve(scrambled);
   assert.equal(result.TAG, "Ok");
   assert.ok(result._0.moveCount > 0);
-  assert.ok(result._0.moveCount <= 21);
+  assert.ok(result._0.moveCount <= 24);
   const replay = MoveExecutor.applyAlg(scrambled, result._0.alg);
   assert.equal(replay.TAG, "Ok");
   assert.deepEqual(replay._0, StateTypes.solved(3)._0);

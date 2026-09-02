@@ -794,7 +794,7 @@ let rec searchPhase1WithinTotal = (
     found.contents
   }
 
-let totalDepthSearch = (state, coordinates) => {
+let totalDepthSearch = (state, coordinates, totalDepth) => {
   let twistMoves = buildTwistMoveTable()
   let flipMoves = buildFlipMoveTable()
   let sliceMoves = buildSliceMoveTable()
@@ -806,41 +806,61 @@ let totalDepthSearch = (state, coordinates) => {
   let cornerSlice = buildCornerSlicePruningTable()
   let edgeSlice = buildEdgeSlicePruningTable()
   let found = ref(None)
-  for totalDepth in 0 to 21 {
+  let minimumPhase1Depth = phase1Distance(coordinates, sliceTwist, sliceFlip)
+  let maximumPhase1Depth = if totalDepth < 12 {
+    totalDepth
+  } else {
+    12
+  }
+  for phase1Depth in minimumPhase1Depth to maximumPhase1Depth {
     if found.contents == None {
-      let minimumPhase1Depth = phase1Distance(coordinates, sliceTwist, sliceFlip)
-      let maximumPhase1Depth = if totalDepth < 12 {
-        totalDepth
-      } else {
-        12
-      }
-      for phase1Depth in minimumPhase1Depth to maximumPhase1Depth {
-        if found.contents == None {
-          found :=
-            searchPhase1WithinTotal(
-              state,
-              coordinates,
-              phase1Depth,
-              totalDepth,
-              -1,
-              [],
-              twistMoves,
-              flipMoves,
-              sliceMoves,
-              sliceTwist,
-              sliceFlip,
-              cornerMoves,
-              edgeMoves,
-              slicePermutationMoves,
-              cornerSlice,
-              edgeSlice,
-            )
-        }
-      }
+      found :=
+        searchPhase1WithinTotal(
+          state,
+          coordinates,
+          phase1Depth,
+          totalDepth,
+          -1,
+          [],
+          twistMoves,
+          flipMoves,
+          sliceMoves,
+          sliceTwist,
+          sliceFlip,
+          cornerMoves,
+          edgeMoves,
+          slicePermutationMoves,
+          cornerSlice,
+          edgeSlice,
+        )
     }
   }
   found.contents
 }
+
+let solveAtDepth = (state: cubeState, totalDepth): result<solution, solverError> =>
+  if totalDepth < 0 || totalDepth > 24 {
+    Error(InvalidCoordinate("Two-phase depth must be between 0 and 24."))
+  } else if state.size != 3 {
+    Error(UnsupportedSize(state.size))
+  } else {
+    switch (PieceReducer.reduce(state), phase1Coordinates(state)) {
+    | (Error(error), _) => Error(InvalidState(error))
+    | (_, Error(error)) => Error(error)
+    | (Ok(pieces), Ok(coordinates)) =>
+      if solvedPieces(pieces) {
+        Ok({alg: [], moveCount: 0})
+      } else {
+        switch totalDepthSearch(state, coordinates, totalDepth) {
+        | None => Error(SearchFailed)
+        | Some(moves) => {
+            let alg = algorithmForMoves(moves)
+            Ok({alg, moveCount: alg->Array.length})
+          }
+        }
+      }
+    }
+  }
 
 let isPhase1Solved = (state: cubeState): bool =>
   switch PieceReducer.reduce(state) {
@@ -862,7 +882,7 @@ let solve = (state: cubeState): result<solution, solverError> =>
         switch phase1Coordinates(state) {
         | Error(error) => Error(error)
         | Ok(coordinates) =>
-          switch totalDepthSearch(state, coordinates) {
+          switch totalDepthSearch(state, coordinates, 24) {
           | None => Error(SearchFailed)
           | Some(moves) => {
               let alg = algorithmForMoves(moves)
