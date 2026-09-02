@@ -9,6 +9,7 @@ import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 import * as MoveNiss from "../Move/MoveNiss.res.mjs";
 import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
+import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
 import * as BeginnerSolver from "../Solver/BeginnerSolver.res.mjs";
 import * as CfopSolver from "../Solver/CfopSolver.res.mjs";
 import * as PetrusSolver from "../Solver/PetrusSolver.res.mjs";
@@ -188,6 +189,12 @@ if (root) {
   const patternPreviewSolution = root.querySelector<HTMLButtonElement>("[data-pattern-preview-solution]")!;
   const patternCopySolution = root.querySelector<HTMLButtonElement>("[data-pattern-copy-solution]")!;
   const transformButtons = root.querySelectorAll<HTMLButtonElement>("[data-alg-transform]");
+  const shortenSearch = root.querySelector<HTMLButtonElement>("[data-shorten-search]")!;
+  const shortenResult = root.querySelector<HTMLElement>("[data-shorten-result]")!;
+  const shortenSummary = root.querySelector<HTMLElement>("[data-shorten-summary]")!;
+  const shortenPreview = root.querySelector<HTMLElement>("[data-shorten-preview]")!;
+  const shortenApply = root.querySelector<HTMLButtonElement>("[data-shorten-apply]")!;
+  const shortenDismiss = root.querySelector<HTMLButtonElement>("[data-shorten-dismiss]")!;
   const nissPanel = root.querySelector<HTMLDetailsElement>("[data-niss-panel]")!;
   const nissInverseOutput = root.querySelector<HTMLElement>("[data-niss-inverse]")!;
   const nissNormal = root.querySelector<HTMLTextAreaElement>("[data-niss-normal]")!;
@@ -232,6 +239,7 @@ if (root) {
   let academyMethod: AcademyMethod = initialState.academyMethod;
   let inverseScramble = "";
   let verifiedNissSolution = "";
+  let pendingShortenedAlg: unknown[] | null = null;
   let visiblePatterns: ImportedPattern[] = [];
   let selectedPattern: ImportedPattern | null = null;
   let detectedPattern: RecognizedPattern | null = null;
@@ -1173,6 +1181,16 @@ if (root) {
       movesInput.value,
     ) as Result<unknown[], unknown>;
     return parsed.TAG === "Ok";
+  };
+
+  // AlgorithmOptimizer only supports 3x3 (it reuses BeginnerSolver's atomic
+  // per-piece distance tables, which are hardcoded to that size), so the
+  // shorten button has a stricter availability gate than the other
+  // Moves-targeting transforms above.
+  const updateShortenAvailability = () => {
+    shortenSearch.disabled = !movesTransformReady() || size !== 3;
+    shortenResult.hidden = true;
+    pendingShortenedAlg = null;
   };
 
   const updatePlaybackUi = (rebuild = false) => {
@@ -2566,6 +2584,7 @@ if (root) {
     updateCompatibility(recognized);
     updatePatternDetection(recognized);
     updateTransformAvailability(movesTransformReady());
+    updateShortenAvailability();
     if (!recognized.timeline || !recognized.timelineKey) {
       stopPlayback();
       activeTimeline = stateSnapshotTimeline(recognized.state);
@@ -2622,6 +2641,7 @@ if (root) {
       updateCompatibility(null);
       updatePatternDetection(null);
       updateTransformAvailability(movesTransformReady());
+      updateShortenAvailability();
       stopPlayback();
       activeTimeline = null;
       activeTimelineKey = null;
@@ -2784,6 +2804,9 @@ if (root) {
   });
   movesInput.addEventListener("input", () => {
     updateTransformAvailability(false);
+    shortenSearch.disabled = true;
+    shortenResult.hidden = true;
+    pendingShortenedAlg = null;
     updateAcademySource(null);
     store.patch({moves: movesInput.value});
     scheduleUpdate();
@@ -2863,6 +2886,86 @@ if (root) {
           break;
       }
     });
+  });
+
+  shortenSearch.addEventListener("click", () => {
+    const parsed = MoveParser.parseWithOptions(
+      size,
+      lowercaseMode,
+      notationDialect,
+      movesInput.value,
+    ) as Result<unknown[], {message: string}>;
+    if (parsed.TAG === "Error") return;
+    const alg = parsed._0;
+    const expanded = MoveExecutor.expand(alg) as Result<MoveStep[], unknown>;
+    if (expanded.TAG === "Error") return;
+    const currentMoveCount = expanded._0.filter((step) => step.move.TAG !== "Rotation").length;
+    const solvedState = StateTypes.solved(size) as Result<CubeState, unknown>;
+    if (solvedState.TAG === "Error") return;
+    const applied = MoveExecutor.applyAlg(solvedState._0, alg) as Result<CubeState, unknown>;
+    if (applied.TAG === "Error") return;
+    const target = PieceReducer.reduce(applied._0) as Result<unknown, unknown>;
+    if (target.TAG === "Error") return;
+
+    shortenSearch.disabled = true;
+    const originalLabel = shortenSearch.textContent;
+    shortenSearch.textContent = "Searching…";
+    shortenResult.hidden = true;
+    pendingShortenedAlg = null;
+
+    // The search is synchronous and can take up to a couple of seconds within
+    // its node budget, which would otherwise freeze the "Searching…" label
+    // unpainted for the whole duration; deferring the actual call lets the
+    // browser render the label first.
+    window.setTimeout(() => {
+      const outcome = AlgorithmOptimizer.shorten(
+        solvedState._0,
+        target._0,
+        currentMoveCount,
+        undefined,
+        undefined,
+      ) as Result<unknown, unknown>;
+      shortenSearch.textContent = originalLabel;
+      shortenSearch.disabled = !movesTransformReady() || size !== 3;
+      if (outcome.TAG === "Error") {
+        shortenSummary.textContent = "The search could not run on the current algorithm.";
+        shortenPreview.textContent = "";
+        shortenApply.hidden = true;
+        shortenResult.hidden = false;
+        return;
+      }
+      const tag = typeof outcome._0 === "string" ? outcome._0 : (outcome._0 as {TAG: string}).TAG;
+      if (tag === "Shortened") {
+        const shortened = outcome._0 as {alg: unknown[]; moveCount: number};
+        pendingShortenedAlg = shortened.alg;
+        const preview = MoveTransform.serialize(shortened.alg) as string;
+        shortenSummary.textContent = shortened.moveCount === 0
+          ? `Found an equivalent that solves in 0 moves (was ${currentMoveCount}).`
+          : `Found a shorter equivalent: ${shortened.moveCount} moves (was ${currentMoveCount}).`;
+        shortenPreview.textContent = preview === "" ? "(no moves)" : preview;
+        shortenApply.hidden = false;
+      } else {
+        pendingShortenedAlg = null;
+        shortenSummary.textContent = tag === "NoShorterFound"
+          ? "No shorter equivalent found within the search budget."
+          : "The search budget ran out before finding an answer either way.";
+        shortenPreview.textContent = "";
+        shortenApply.hidden = true;
+      }
+      shortenResult.hidden = false;
+    }, 0);
+  });
+
+  shortenApply.addEventListener("click", () => {
+    if (pendingShortenedAlg === null) return;
+    commitTransformedMoves(MoveTransform.serialize(pendingShortenedAlg) as string);
+    shortenResult.hidden = true;
+    pendingShortenedAlg = null;
+  });
+
+  shortenDismiss.addEventListener("click", () => {
+    shortenResult.hidden = true;
+    pendingShortenedAlg = null;
   });
 
   root.querySelector<HTMLButtonElement>("[data-practice-scramble]")!.addEventListener("click", () => {

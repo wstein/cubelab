@@ -296,6 +296,43 @@ const cards = [
                 disabled>↻ Rotate z</button
               >
             </div>
+            <div
+              class="shorten-panel"
+              data-workspace-panel="workbench"
+              hidden
+            >
+              <button
+                type="button"
+                class="transform-btn"
+                data-shorten-search
+                title="Bounded search for a strictly shorter equivalent algorithm (3×3 only)"
+                disabled>🔍 Try to shorten</button
+              >
+              <p class="shorten-hint">
+                Bounded search, 3×3 only. It may report no shorter equivalent
+                within its search budget even when one exists.
+              </p>
+              <div class="shorten-result" data-shorten-result hidden>
+                <span data-shorten-summary></span>
+                <code class="shorten-preview" data-shorten-preview></code>
+                <div class="shorten-actions">
+                  <button
+                    type="button"
+                    class="transform-btn"
+                    data-shorten-apply
+                  >
+                    Apply
+                  </button>
+                  <button
+                    type="button"
+                    class="transform-btn"
+                    data-shorten-dismiss
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
             <details
               class="niss-panel"
               data-niss-panel

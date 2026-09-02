@@ -1132,6 +1132,50 @@ test("applies algorithm workbench actions and generates size-aware practice scra
   expect(scramble.trim().split(/\s+/)).toHaveLength(11);
 });
 
+test("searches for a shorter equivalent algorithm and previews it before applying", async ({page}) => {
+  await page.goto("/");
+  await page.getByRole("button", {name: "Alg Workbench"}).click();
+  const moves = page.locator("[data-moves-input]");
+  const shorten = page.locator("[data-shorten-search]");
+  const result = page.locator("[data-shorten-result]");
+  const summary = page.locator("[data-shorten-summary]");
+  const preview = page.locator("[data-shorten-preview]");
+  const apply = page.locator("[data-shorten-apply]");
+  const dismiss = page.locator("[data-shorten-dismiss]");
+
+  // The optimizer only supports 3x3, so the button stays disabled on other sizes
+  // even with a non-empty, syntactically valid Moves field.
+  await page.locator('[data-size="2"]').click();
+  await moves.fill("R U R'");
+  await expect(shorten).toBeDisabled();
+
+  await page.locator('[data-size="3"]').click();
+  await expect(shorten).toBeDisabled();
+  await moves.fill("R R");
+  await expect(shorten).toBeEnabled();
+  await shorten.click();
+  await expect(result).toBeVisible({timeout: 5000});
+  await expect(summary).toHaveText(/shorter equivalent: 1 moves \(was 2\)/);
+  await expect(preview).toHaveText("R2");
+  await expect(apply).toBeVisible();
+
+  await apply.click();
+  await expect(moves).toHaveValue("R2");
+  await expect(result).toBeHidden();
+
+  await moves.fill("R U R' U R U2 R'");
+  await shorten.click();
+  await expect(result).toBeVisible({timeout: 5000});
+  await expect(summary).toHaveText("No shorter equivalent found within the search budget.");
+  await expect(apply).toBeHidden();
+
+  await dismiss.click();
+  await expect(result).toBeHidden();
+
+  await moves.fill("");
+  await expect(shorten).toBeDisabled();
+});
+
 test("recombines and replay-verifies NISS work before loading it", async ({page}) => {
   await page.goto("/");
   await page.getByRole("button", {name: "Alg Workbench"}).click();
