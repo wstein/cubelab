@@ -612,6 +612,17 @@ function selectColl(state, solved, signatures) {
         };
       }
     }
+    if (skip === undefined) {
+      let combinedPll = CfopSolver.selectBeginnerPll(state, solved);
+      let match = splitSelectionAtGoal(state, solved, combinedPll, BeginnerSolver.positionedLastCornersGoal);
+      let pllCorners = match[0];
+      skip = {
+        alg: pllCorners.alg,
+        labels: pllCorners.labels,
+        state: pllCorners.state,
+        caseId: "Oriented (Corner Permutation)"
+      };
+    }
   }
   let selection = skip;
   if (selection !== undefined) {

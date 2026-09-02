@@ -455,6 +455,22 @@ let selectColl = (~state, ~solved, ~signatures): option<collSelection> => {
         skip := Some({alg, labels, state: after, caseId: "Skip"})
       }
     }
+    if skip.contents == None {
+      let combinedPll = CfopSolver.selectBeginnerPll(~state, ~solved)
+      let (pllCorners, _) = splitSelectionAtGoal(
+        ~state,
+        ~solved,
+        ~selection=combinedPll,
+        ~isGoal=BeginnerSolver.positionedLastCornersGoal,
+      )
+      skip :=
+        Some({
+          alg: pllCorners.alg,
+          labels: pllCorners.labels,
+          state: pllCorners.state,
+          caseId: "Oriented (Corner Permutation)",
+        })
+    }
   }
   switch skip.contents {
   | Some(selection) => Some(selection)
@@ -612,7 +628,14 @@ let solveMethod = (input: cubeState, method): result<solution, solverError> => {
         let best = ref(None)
         let bestScore = ref(1000000)
         let enhancedExpansions = [
-          Belt.Array.getUnsafe(expansions, if expansions->Array.length > 2 {2} else {0}),
+          Belt.Array.getUnsafe(
+            expansions,
+            if expansions->Array.length > 2 {
+              2
+            } else {
+              0
+            },
+          ),
           Belt.Array.getUnsafe(expansions, 0),
         ]
         enhancedExpansions->Array.forEach(expansion => {
@@ -633,7 +656,8 @@ let solveMethod = (input: cubeState, method): result<solution, solverError> => {
                     candidate.eoPath->Array.length +
                     candidate.firstWing->Array.length +
                     candidate.secondWing->Array.length +
-                    physicalMoveCount(coll.alg) + physicalMoveCount(epll.alg)
+                    physicalMoveCount(coll.alg) +
+                    physicalMoveCount(epll.alg)
                   if score < bestScore.contents {
                     bestScore := score
                     best := Some((candidate, coll, epll))
