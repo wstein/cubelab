@@ -537,6 +537,102 @@ test("uses GoCube orientation as an x/y/z checkpoint without live-tracking solve
   await expect(page.locator('[data-output="facelets"]')).toHaveText(algorithmFacelets("x y"));
 });
 
+test("verifies live GoCube wire orientation across x, y, and z regrips", async ({page}) => {
+  await page.route(/(?:\/src\/client\/smart-cube\/index|\/_astro\/smart-cube\.)/, async (route) => {
+    await route.fulfill({
+      contentType: "application/javascript",
+      body: `
+        let stateListener = () => {};
+        let eventListener = () => {};
+        const device = {
+          name: "Mock GoCube", macAddress: null, brand: "gocube", brandName: "GoCube",
+          protocolId: "gocube", protocolName: "GoCube", capabilities: {
+            orientation: true, battery: false, facelets: false, hardware: false,
+            reset: false, led: false
+          }
+        };
+        window.__emitSmartCubeEvent = (event) => eventListener(event);
+        export const createSmartCubeManager = () => ({
+          getState: () => ({phase: "disconnected", message: "Disconnected", device: null, error: null}),
+          connect: async () => {
+            stateListener({phase: "connected", message: "Connected", device, error: null});
+            return device;
+          },
+          reconnect: async () => device,
+          disconnect: async () => stateListener({phase: "disconnected", message: "Disconnected", device: null, error: null}),
+          refresh: async () => {}, resetCubeState: async () => {}, flashLed: async () => {},
+          subscribeState: (listener) => {
+            stateListener = listener;
+            listener({phase: "disconnected", message: "Disconnected", device: null, error: null});
+            return () => {};
+          },
+          subscribeEvents: (listener) => { eventListener = listener; return () => {}; }
+        });
+      `,
+    });
+  });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "bluetooth", {
+      configurable: true,
+      value: {getAvailability: async () => true, requestDevice: async () => ({})},
+    });
+  });
+
+  await page.goto("/#size=3&alg=x+y+z+R");
+  await page.locator("[data-smart-cube-connect]").click();
+  await page.waitForFunction(() => typeof window.__emitSmartCubeEvent === "function");
+
+  // Initial GoCube wire pose
+  await page.evaluate(() => window.__emitSmartCubeEvent({
+    type: "orientation",
+    quaternion: {x: 0, y: 0, z: 0, w: 1},
+    coordinateFrame: "gocube-wire",
+    timestamp: Date.now(),
+  }));
+  const canvas = page.locator("[data-cube-canvas]");
+  await expect(canvas).toHaveAttribute("data-device-orientation", "tracking");
+
+  // Start playback into coaching mode
+  await page.locator("[data-playback-scrubber]").fill("0");
+  await page.getByRole("button", {name: "Play forward"}).click();
+  await expect(page.locator("[data-smart-cube-status]")).toContainText("Waiting for x regrip");
+  await expect(canvas).not.toHaveAttribute("data-device-orientation", "tracking");
+
+  const half = Math.sqrt(0.5);
+
+  // 1. Physical pitch forward (x) on GoCube wire:
+  await page.evaluate((q) => window.__emitSmartCubeEvent({
+    type: "orientation",
+    quaternion: q,
+    coordinateFrame: "gocube-wire",
+    timestamp: Date.now(),
+  }), {x: -half, y: 0, z: 0, w: half});
+  await expect(page.locator("[data-playback-position]")).toHaveText("Move 1 of 4");
+  await expect(page.locator("[data-smart-cube-status]")).toContainText("Waiting for y regrip");
+
+  // 2. Physical yaw left (y) on GoCube wire starting from the post-x pose:
+  // In world frame: q2 = yRot * q1 = {-0.5, 0.5, 0.5, 0.5}
+  await page.evaluate((q) => window.__emitSmartCubeEvent({
+    type: "orientation",
+    quaternion: q,
+    coordinateFrame: "gocube-wire",
+    timestamp: Date.now(),
+  }), {x: -0.5, y: 0.5, z: 0.5, w: 0.5});
+  await expect(page.locator("[data-playback-position]")).toHaveText("Move 2 of 4");
+  await expect(page.locator("[data-smart-cube-status]")).toContainText("Waiting for z regrip");
+
+  // 3. Physical roll clockwise (z) on GoCube wire starting from the post-y pose:
+  // In world frame: q3 = zRot * q2 = {0, half, 0, half}
+  await page.evaluate((q) => window.__emitSmartCubeEvent({
+    type: "orientation",
+    quaternion: q,
+    coordinateFrame: "gocube-wire",
+    timestamp: Date.now(),
+  }), {x: 0, y: half, z: 0, w: half});
+  await expect(page.locator("[data-playback-position]")).toHaveText("Move 3 of 4");
+  await expect(page.locator("[data-smart-cube-status]")).toContainText("Waiting for F");
+});
+
 test("resets the camera without dropping smart-cube orientation tracking", async ({page}) => {
   await page.route(/(?:\/src\/client\/smart-cube\/index|\/_astro\/smart-cube\.)/, async (route) => {
     await route.fulfill({
