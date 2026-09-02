@@ -1710,24 +1710,37 @@ if (root) {
     const progress = smartCubeHalfTurnProgress?.timelineIndex === expected.timelineIndex
       ? smartCubeHalfTurnProgress
       : null;
-    const guideMove = progress ? nextSmartCubeProgressMoves(progress)[0] : expected.token;
-    const physicalStep = guideMove
-      ? smartCubeStep(smartCubeLessonMove(guideMove, expected.timelineIndex))
-      : null;
-    if (physicalStep && token) {
+    const step = activeTimeline.steps[expected.timelineIndex]?.step;
+    const isHalfTurn = step && Math.abs(step.turns) % 4 === 2;
+    const quarterStep = isHalfTurn
+      ? {...step, turns: step.turns < 0 ? -1 : 1}
+      : step;
+    const quarterToken = expected.token.endsWith("2")
+      ? expected.token.slice(0, -1)
+      : expected.token.endsWith("2'")
+        ? `${expected.token.slice(0, -2)}'`
+        : expected.token;
+
+    if (quarterStep && token) {
       guidedToken = token;
-      activeTurnGuide = {step: physicalStep, label: expected.token};
+      activeTurnGuide = {
+        step: quarterStep,
+        label: progress ? quarterToken : expected.token,
+      };
+      if (progress) {
+        token.textContent = `${quarterToken} ${quarterToken}`;
+        token.dataset.halfTurnProgress = "true";
+      }
       token.classList.add("turn-guided");
       token.scrollIntoView({block: "nearest", inline: "nearest"});
-      viewport?.setTurnPreview(turnTransform(size, physicalStep));
+      viewport?.setTurnPreview(turnTransform(size, quarterStep));
       viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
     }
-    const nextPackets = progress ? nextSmartCubeProgressMoves(progress).join(" or ") : "";
     smartCubeStatus.textContent = progress
-      ? `${smartCubeDeviceName} · ${expected.token} in progress`
+      ? `${smartCubeDeviceName} · ${expected.token} halfway`
       : `${smartCubeDeviceName} · Waiting for ${expected.token}`;
     coachStatus.textContent = progress
-      ? `${progress.receivedMoves.join(" ")} detected. Complete ${expected.token} with ${nextPackets}.`
+      ? `${quarterToken} detected. Repeat it to complete ${expected.token}.`
       : `Next physical move: ${expected.token}. Waiting for the smart cube.`;
     updatePlaybackUi();
     syncSmartCubeTrackedOrientation();
@@ -1738,9 +1751,13 @@ if (root) {
   ): Promise<void> => {
     smartCubeHalfTurnProgress = assessment.progress;
     await animateSmartCubeMove(assessment.received, assessment.expected.timelineIndex);
-    const nextPackets = nextSmartCubeProgressMoves(assessment.progress).join(" or ");
-    smartCubeStatus.textContent = `${smartCubeDeviceName} · ${assessment.expected.token} in progress`;
-    coachStatus.textContent = `${assessment.received} detected. Repeat ${assessment.received} to complete ${assessment.expected.token}.`;
+    const quarterToken = assessment.expected.token.endsWith("2")
+      ? assessment.expected.token.slice(0, -1)
+      : assessment.expected.token.endsWith("2'")
+        ? `${assessment.expected.token.slice(0, -2)}'`
+        : assessment.expected.token;
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · ${assessment.expected.token} halfway`;
+    coachStatus.textContent = `${quarterToken} detected. Repeat it to complete ${assessment.expected.token}.`;
     signalSmartCubeFeedback("correct");
   };
 

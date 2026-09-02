@@ -77,5 +77,10 @@ export const detectGyroQuarterRotation = (
   const matched = candidates
     .filter((candidate) => candidate.assessment.matched)
     .sort((left, right) => right.assessment.axisAlignment - left.assessment.axisAlignment)[0];
+  if (matched) {
+    console.log(
+      `[SmartCube Gyro] Detected quarter rotation: ${matched.axis}${matched.turns < 0 ? "'" : ""} (alignment: ${(matched.assessment.axisAlignment * 100).toFixed(1)}%, angle: ${matched.assessment.signedDegrees.toFixed(1)}°)`,
+    );
+  }
   return matched ? {axis: matched.axis, turns: matched.turns} : null;
 };
