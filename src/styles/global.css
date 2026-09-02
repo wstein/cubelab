@@ -1151,6 +1151,22 @@ body {
   font: 0.8rem/1.4 var(--font-mono);
 }
 
+.hamilton-window-field {
+  margin: 0;
+}
+
+.hamilton-window-field input {
+  display: block;
+  width: 7.5rem;
+  margin-top: 0.2rem;
+  padding: 0.35rem 0.45rem;
+  background: var(--input-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font: 0.78rem var(--font-mono);
+}
+
 .niss-result {
   display: block;
   margin-top: 0.55rem;

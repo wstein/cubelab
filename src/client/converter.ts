@@ -201,6 +201,8 @@ if (root) {
   const hamiltonImport = root.querySelector<HTMLInputElement>("[data-hamilton-import]")!;
   const hamiltonInspect = root.querySelector<HTMLButtonElement>("[data-hamilton-inspect]")!;
   const hamiltonNode = root.querySelector<HTMLSelectElement>("[data-hamilton-node]")!;
+  const hamiltonWindowStart = root.querySelector<HTMLInputElement>("[data-hamilton-window-start]")!;
+  const hamiltonWindowLength = root.querySelector<HTMLInputElement>("[data-hamilton-window-length]")!;
   const hamiltonPreview = root.querySelector<HTMLButtonElement>("[data-hamilton-preview]")!;
   const hamiltonResult = root.querySelector<HTMLOutputElement>("[data-hamilton-result]")!;
   const nissInverseOutput = root.querySelector<HTMLElement>("[data-niss-inverse]")!;
@@ -3241,6 +3243,8 @@ if (root) {
       }));
       hamiltonNode.value = program.exportName;
       hamiltonNode.disabled = false;
+      hamiltonWindowStart.disabled = false;
+      hamiltonWindowLength.disabled = false;
       hamiltonPreview.disabled = false;
       const rootKind = importedProgram.implicitExport ? `Imported root ${program.exportName}` : `Export ${program.exportName}`;
       hamiltonResult.textContent = `${rootKind} · ${rootMeasurement.quarterTurns.toString()} QTM · ${rootMeasurement.sourceElements.toString()} source elements · depth ${rootMeasurement.depth}.`;
@@ -3249,6 +3253,8 @@ if (root) {
       hamiltonProgram = null;
       hamiltonNode.replaceChildren();
       hamiltonNode.disabled = true;
+      hamiltonWindowStart.disabled = true;
+      hamiltonWindowLength.disabled = true;
       hamiltonPreview.disabled = true;
       hamiltonResult.textContent = reason instanceof Error ? reason.message : "Could not parse Hamilton macros.";
       hamiltonResult.classList.add("failure");
@@ -3275,7 +3281,21 @@ if (root) {
 
   hamiltonPreview.addEventListener("click", () => {
     if (hamiltonProgram === null) return;
-    const source = HamiltonMacro.prefix(hamiltonProgram, 100, hamiltonNode.value).join(" ");
+    const startText = hamiltonWindowStart.value.trim();
+    const length = Number(hamiltonWindowLength.value);
+    if (!/^\d+$/.test(startText) || !Number.isInteger(length) || length < 1 || length > 500) {
+      hamiltonResult.textContent = "Preview start must be a non-negative integer and moves must be between 1 and 500.";
+      hamiltonResult.classList.add("failure");
+      return;
+    }
+    const start = BigInt(startText);
+    const moves = HamiltonMacro.window(hamiltonProgram, start, length, hamiltonNode.value);
+    if (moves.length === 0) {
+      hamiltonResult.textContent = `No moves are available from offset ${start.toString()} in ${hamiltonNode.value}.`;
+      hamiltonResult.classList.add("failure");
+      return;
+    }
+    const source = moves.join(" ");
     const parsed = MoveParser.parseWithOptions(3, "Wide", "Modern", source) as Result<unknown[], unknown>;
     const solved = StateTypes.solved(3) as Result<CubeState, unknown>;
     if (parsed.TAG !== "Ok" || solved.TAG !== "Ok") return;
@@ -3285,9 +3305,10 @@ if (root) {
     activeTimeline = timeline._0;
     activeTimelineKey = null;
     activeIndex = 0;
-    renderState(solved._0, `Hamilton macro preview · ${hamiltonNode.value}`);
+    renderState(solved._0, `Hamilton macro preview · ${hamiltonNode.value} at ${start.toString()}`);
     updatePlaybackUi(true);
-    hamiltonResult.textContent = `Previewing the first ${timeline._0.steps.length} moves of ${hamiltonNode.value}.`;
+    hamiltonResult.textContent = `Previewing ${timeline._0.steps.length} moves of ${hamiltonNode.value} from offset ${start.toString()}.`;
+    hamiltonResult.classList.remove("failure");
   });
 
   const presentTutorialSolution = (

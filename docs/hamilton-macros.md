@@ -20,6 +20,8 @@ not expanded moves. `stream`, `prefix`, and `window` consume the DAG lazily, so
 inspection of a short excerpt never allocates the exported program.
 
 The Workbench presents each definition with its DAG measurement and can send a
-bounded selected-node prefix into the existing linear playback timeline. Thus a
-program such as Bruce Norskog's 3,674,160-turn circuit can be validated and
-examined without allocating millions of moves or states.
+bounded selected-node window into the existing linear playback timeline. Its
+zero-based start accepts arbitrary non-negative integer offsets; playback is
+deliberately capped at 500 streamed moves per preview. Thus a program such as
+Bruce Norskog's 3,674,160-turn circuit can be validated and examined without
+allocating millions of moves or states.

@@ -141,10 +141,13 @@ test("the Workbench inspects and previews bounded Hamilton macro nodes", () => {
   assert.match(page, /data-hamilton-input/);
   assert.match(page, /data-hamilton-import/);
   assert.match(page, /data-hamilton-node/);
+  assert.match(page, /data-hamilton-window-start/);
+  assert.match(page, /data-hamilton-window-length/);
   assert.match(page, /data-hamilton-preview/);
   assert.match(client, /HamiltonMacro\.measure/);
   assert.match(client, /HamiltonMacro\.importAlg/);
-  assert.match(client, /HamiltonMacro\.prefix\(hamiltonProgram, 100/);
+  assert.match(client, /HamiltonMacro\.window\(hamiltonProgram, start, length/);
+  assert.match(client, /moves must be between 1 and 500/);
   assert.match(client, /Hamilton macro preview/);
 });
 

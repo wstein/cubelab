@@ -424,7 +424,7 @@ const cards = [
               <p class="niss-help">
                 Inspect recursive <code>def</code>/<code>export</code> programs without unfolding them.
                 Import <code>.alg</code> or legacy <code>.orbit64</code> sources, then select a node to
-                measure or preview only its first 100 moves.
+                measure or preview a bounded move window.
               </p>
               <label class="file-input-label">
                 Import macro source
@@ -435,7 +435,15 @@ const cards = [
               <div class="niss-actions">
                 <button type="button" class="transform-btn" data-hamilton-inspect>Inspect macros</button>
                 <select data-hamilton-node aria-label="Hamilton macro node" disabled></select>
-                <button type="button" class="transform-btn" data-hamilton-preview disabled>Preview selected node</button>
+                <label class="niss-field-label hamilton-window-field">
+                  Start (zero-based)
+                  <input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-hamilton-window-start aria-label="Hamilton preview start" disabled />
+                </label>
+                <label class="niss-field-label hamilton-window-field">
+                  Moves
+                  <input type="number" min="1" max="500" value="100" data-hamilton-window-length aria-label="Hamilton preview length" disabled />
+                </label>
+                <button type="button" class="transform-btn" data-hamilton-preview disabled>Preview window</button>
               </div>
               <output class="niss-result" data-hamilton-result aria-live="polite">
                 Parse a Hamilton macro program to measure its exported root.
