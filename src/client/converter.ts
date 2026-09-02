@@ -1676,12 +1676,12 @@ if (root) {
       const baseline = smartCubeOrientationTracking ? latestSmartCubeOrientation : null;
       smartCubeRotationWait = {action, generation, baseline, partialTurn: 0};
       if (baseline) {
-        console.log(`[SmartCube Gyro] Waiting for rotation: ${action.token}`, {
-          axis: step?.move.TAG === "Rotation" ? step.move._0 : undefined,
-          turns: step?.turns,
-          baseline: baseline.quaternion,
-          coordinateFrame: baseline.coordinateFrame,
-        });
+        // console.log(`[SmartCube Gyro] Waiting for rotation: ${action.token}`, {
+        //   axis: step?.move.TAG === "Rotation" ? step.move._0 : undefined,
+        //   turns: step?.turns,
+        //   baseline: baseline.quaternion,
+        //   coordinateFrame: baseline.coordinateFrame,
+        // });
         smartCubeStatus.textContent = `${smartCubeDeviceName} · Waiting for ${action.token} regrip`;
         coachStatus.textContent = `Rotate the physical cube ${action.token}. Gyro feedback will continue automatically.`;
       } else {
@@ -1867,12 +1867,12 @@ if (root) {
       move,
       smartCubeHalfTurnProgress,
     );
-    console.log("[SmartCube Move] Assessing timeline move:", {
-      expectedToken: action?.token,
-      receivedMove: move,
-      status: assessment.status,
-      completedHalfTurn: assessment.status === "matched" ? assessment.completedHalfTurn : undefined,
-    });
+    // console.log("[SmartCube Move] Assessing timeline move:", {
+    //   expectedToken: action?.token,
+    //   receivedMove: move,
+    //   status: assessment.status,
+    //   completedHalfTurn: assessment.status === "matched" ? assessment.completedHalfTurn : undefined,
+    // });
     if (assessment.status === "complete") {
       smartCubeHalfTurnProgress = null;
       return true;
@@ -2030,7 +2030,7 @@ if (root) {
 
   const applySmartCubeMove = async (record: QueuedSmartCubeMove): Promise<void> => {
     const move = record.move;
-    console.log("[SmartCube Move] Received physical face move from Bluetooth:", move);
+    // console.log("[SmartCube Move] Received physical face move from Bluetooth:", move);
     const continueCoaching = smartCubeCoachingWaiting;
     clearTutorialFocus();
     clearTurnGuide();
@@ -2087,14 +2087,14 @@ if (root) {
     );
 
     // Diagnostic logging for gyro tracking & verification:
-    if (Math.abs(assessment.signedDegrees) >= 15 || assessment.matched || assessment.partial) {
-      console.log(
-        `[SmartCube Gyro] Assessment: action=${pending.action.token} axis=${step.move._0} turns=${step.turns} ` +
-        `frame=${event.coordinateFrame} align=${(assessment.axisAlignment * 100).toFixed(1)}% ` +
-        `deg=${assessment.signedDegrees.toFixed(1)}° matched=${assessment.matched} partial=${assessment.partial} ` +
-        `rawQ=(${event.quaternion.x.toFixed(3)}, ${event.quaternion.y.toFixed(3)}, ${event.quaternion.z.toFixed(3)}, ${event.quaternion.w.toFixed(3)})`
-      );
-    }
+    // if (Math.abs(assessment.signedDegrees) >= 15 || assessment.matched || assessment.partial) {
+    //   console.log(
+    //     `[SmartCube Gyro] Assessment: action=${pending.action.token} axis=${step.move._0} turns=${step.turns} ` +
+    //     `frame=${event.coordinateFrame} align=${(assessment.axisAlignment * 100).toFixed(1)}% ` +
+    //     `deg=${assessment.signedDegrees.toFixed(1)}° matched=${assessment.matched} partial=${assessment.partial} ` +
+    //     `rawQ=(${event.quaternion.x.toFixed(3)}, ${event.quaternion.y.toFixed(3)}, ${event.quaternion.z.toFixed(3)}, ${event.quaternion.w.toFixed(3)})`
+    //   );
+    // }
 
     if (!assessment.matched) {
       if (assessment.partial) {
@@ -2102,7 +2102,7 @@ if (root) {
           pending.partialTurn = assessment.signedDegrees < 0 ? 1 : -1;
           const quarterStep: MoveStep = {...step, turns: pending.partialTurn};
           const quarterLabel = `${step.move._0.toLowerCase()}${pending.partialTurn < 0 ? "'" : ""}`;
-          console.log(`[SmartCube Gyro] Half-turn progress detected: ${quarterLabel} for ${pending.action.token}`);
+          // console.log(`[SmartCube Gyro] Half-turn progress detected: ${quarterLabel} for ${pending.action.token}`);
           const token = moveRibbon.querySelector<HTMLButtonElement>(
             `[data-move-index="${pending.action.timelineIndex + 1}"]`,
           );
@@ -2128,7 +2128,7 @@ if (root) {
         "world",
       );
       if (rebase && rebase.axis !== step.move._0) {
-        console.log(`[SmartCube Gyro] Detected off-axis regrip around ${rebase.axis} (${rebase.turns > 0 ? "clockwise" : "counter-clockwise"}). Rebasing baseline.`);
+        // console.log(`[SmartCube Gyro] Detected off-axis regrip around ${rebase.axis} (${rebase.turns > 0 ? "clockwise" : "counter-clockwise"}). Rebasing baseline.`);
         pending.baseline = {
           quaternion: event.quaternion,
           coordinateFrame: event.coordinateFrame,
@@ -2138,7 +2138,7 @@ if (root) {
       return;
     }
 
-    console.log(`[SmartCube Gyro] Rotation completed and verified for ${pending.action.token}!`);
+    // console.log(`[SmartCube Gyro] Rotation completed and verified for ${pending.action.token}!`);
     smartCubeRotationWait = null;
     clearTurnGuide();
     // Solve mode deliberately does not live-track the observed pose. Animate
@@ -2297,12 +2297,12 @@ if (root) {
           const cosy_cosp = 1 - 2 * (vq.y * vq.y + vq.z * vq.z);
           const roll = Math.atan2(siny_cosp, cosy_cosp) * 180 / Math.PI;
 
-          console.log(
-            `[SmartCube Orientation] Live trace: frame=${event.coordinateFrame} ` +
-            `rawQ=(${event.quaternion.x.toFixed(3)}, ${event.quaternion.y.toFixed(3)}, ${event.quaternion.z.toFixed(3)}, ${event.quaternion.w.toFixed(3)}) ` +
-            `euler(pitchX=${pitch.toFixed(1)}°, yawY=${yaw.toFixed(1)}°, rollZ=${roll.toFixed(1)}°) ` +
-            `tracking=${smartCubeOrientationTracking} waitingForRegrip=${Boolean(smartCubeRotationWait)}`
-          );
+          // console.log(
+          //   `[SmartCube Orientation] Live trace: frame=${event.coordinateFrame} ` +
+          //   `rawQ=(${event.quaternion.x.toFixed(3)}, ${event.quaternion.y.toFixed(3)}, ${event.quaternion.z.toFixed(3)}, ${event.quaternion.w.toFixed(3)}) ` +
+          //   `euler(pitchX=${pitch.toFixed(1)}°, yawY=${yaw.toFixed(1)}°, rollZ=${roll.toFixed(1)}°) ` +
+          //   `tracking=${smartCubeOrientationTracking} waitingForRegrip=${Boolean(smartCubeRotationWait)}`
+          // );
         }
         if (smartCubeOrientationTracking) {
           if (!smartCubeCoachingWaiting) {
