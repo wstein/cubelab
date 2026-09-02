@@ -240,6 +240,20 @@ let searchActions = () => {
   actions
 }
 
+let phase1Transition = (coordinates: phase1Coordinates, moveIndex: int): result<
+  phase1Coordinates,
+  solverError,
+> =>
+  switch (phase1State(coordinates), Belt.Array.get(searchActions(), moveIndex)) {
+  | (Error(error), _) => Error(error)
+  | (_, None) => Error(InvalidCoordinate("Phase-one move index must be between 0 and 17."))
+  | (Ok(state), Some(action)) =>
+    switch MoveExecutor.applyAlg(state, action.alg) {
+    | Error(_) => Error(SearchFailed)
+    | Ok(next) => phase1Coordinates(next)
+    }
+  }
+
 let solvedPieces = (pieces: PieceReducer.pieceState) =>
   isIdentity(pieces.cp) && allZero(pieces.co) && isIdentity(pieces.ep) && allZero(pieces.eo)
 

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {test} from "vitest";
 
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
+import * as MoveParser from "../src/Move/MoveParser.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
 import * as TwoPhaseSolver from "../src/Solver/TwoPhaseSolver.res.mjs";
 
@@ -93,4 +94,15 @@ test("phase-one coordinates round-trip through a canonical cubie state", () => {
   const roundTrip = TwoPhaseSolver.phase1Coordinates(state._0);
   assert.equal(roundTrip.TAG, "Ok");
   assert.deepEqual(roundTrip._0, source);
+});
+
+test("phase-one transitions match the facelet executor", () => {
+  const source = {twist: 1_264, flip: 1_337, slice: 271};
+  const state = TwoPhaseSolver.phase1State(source)._0;
+  const f2 = MoveParser.parseWithOptions(3, "Wide", "Modern", "F2")._0;
+  const expected = TwoPhaseSolver.phase1Coordinates(MoveExecutor.applyAlg(state, f2)._0)._0;
+  const actual = TwoPhaseSolver.phase1Transition(source, 13);
+  assert.equal(actual.TAG, "Ok");
+  assert.notDeepEqual(TwoPhaseSolver.phase1Coordinates(state)._0, expected);
+  assert.deepEqual(actual._0, expected);
 });
