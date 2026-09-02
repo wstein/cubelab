@@ -2983,7 +2983,11 @@ if (root) {
     setSmartCubeOrientationTracking(!smartCubeOrientationTracking);
   });
   const resetCameraView = () => {
-    setSmartCubeOrientationTracking(false);
+    if (smartCubeConnected && smartCubeManager) {
+      smartCubeManager.refresh().catch((reason) => {
+        smartCubeStatus.textContent = reason instanceof Error ? reason.message : String(reason);
+      });
+    }
     tutorialCameraGeneration += 1;
     tutorialCameraRestore = null;
     delete canvas.dataset.sequenceCameraRestoreYaw;
@@ -2992,6 +2996,7 @@ if (root) {
     autoOrbitButton.classList.remove("active");
     viewport?.setAutoOrbit(false);
     viewport?.resetCamera();
+    syncSmartCubeTrackedOrientation();
   };
   root.querySelector<HTMLButtonElement>("[data-reset-camera]")!.addEventListener("click", resetCameraView);
   shortcutsHelp.addEventListener("click", () => shortcutsDialog.showModal());
