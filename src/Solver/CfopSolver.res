@@ -838,12 +838,16 @@ let selectBeginnerOll = (~state, ~solved): lastLayerSelection => {
 
 let selectBeginnerPll = (~state, ~solved): lastLayerSelection => {
   let cornerPll = BeginnerSolver.parseInternal("R' F R' B2 R F' R' B2 R2")
+  let tPerm = BeginnerSolver.parseInternal("R U R' U' R' F R2 U' R' U' R U R' F'")
+  let yPerm = BeginnerSolver.parseInternal("F R U' R' U' R U R' F' R U R' U' R' F R F'")
+  let cornerAlgorithms = [cornerPll, MoveTransform.invert(cornerPll), tPerm, yPerm]
   let cornerActions =
     BeginnerSolver.downTurns(solved)
-    ->Array.concat([0, 1, 2, 3]->Array.map(y => BeginnerSolver.macroVariant(solved, cornerPll, y)))
     ->Array.concat(
-      [0, 1, 2, 3]->Array.map(y =>
-        BeginnerSolver.macroVariant(solved, MoveTransform.invert(cornerPll), y)
+      cornerAlgorithms->Array.reduce([], (all, algorithm) =>
+        all->Array.concat(
+          [0, 1, 2, 3]->Array.map(y => BeginnerSolver.macroVariant(solved, algorithm, y)),
+        )
       ),
     )
     ->rankedActions

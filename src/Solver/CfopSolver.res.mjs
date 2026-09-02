@@ -915,17 +915,20 @@ function selectBeginnerOll(state, solved) {
 
 function selectBeginnerPll(state, solved) {
   let cornerPll = BeginnerSolver.parseInternal("R' F R' B2 R F' R' B2 R2");
-  let cornerActions = rankedActions(BeginnerSolver.downTurns(solved).concat([
+  let tPerm = BeginnerSolver.parseInternal("R U R' U' R' F R2 U' R' U' R U R' F'");
+  let yPerm = BeginnerSolver.parseInternal("F R U' R' U' R U R' F' R U R' U' R' F R F'");
+  let cornerAlgorithms = [
+    cornerPll,
+    MoveTransform.invert(cornerPll),
+    tPerm,
+    yPerm
+  ];
+  let cornerActions = rankedActions(BeginnerSolver.downTurns(solved).concat(Stdlib_Array.reduce(cornerAlgorithms, [], (all, algorithm) => all.concat([
     0,
     1,
     2,
     3
-  ].map(y => BeginnerSolver.macroVariant(solved, cornerPll, y))).concat([
-    0,
-    1,
-    2,
-    3
-  ].map(y => BeginnerSolver.macroVariant(solved, MoveTransform.invert(cornerPll), y))));
+  ].map(y => BeginnerSolver.macroVariant(solved, algorithm, y))))));
   let path = BeginnerSolver.searchMacros(state, cornerActions, BeginnerSolver.positionedLastCornersGoal, undefined, 5);
   let cornerPath;
   if (path !== undefined) {
