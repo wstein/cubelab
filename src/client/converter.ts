@@ -81,8 +81,13 @@ import {
   quarterTurnsCancel,
   smartCubeRecoveryMatchesExpected,
   smartCubeRecoveryPrompt,
-  type SmartCubeRecoveryState,
-} from "./smart-cube/deviation-verifier";
+} from "../SmartCube/SmartCubeDeviation.res.mjs";
+
+type SmartCubeRecoveryState = {
+  expected: {timelineIndex: number; token: string};
+  undoMoves: string[];
+  deviations: string[];
+};
 import {
   extremalStateFor,
   patternCount,
@@ -1780,7 +1785,7 @@ if (root) {
     const assessment = assessSmartCubeRecovery(smartCubeRecovery, move);
     await animateSmartCubeMove(move, recoveryCursor);
 
-    if (assessment.status === "realigned") {
+    if (assessment.TAG === "Realigned") {
       const expected = smartCubeRecovery.expected.token;
       clearSmartCubeRecovery();
       signalSmartCubeFeedback("realigned");
@@ -1789,7 +1794,7 @@ if (root) {
       return true;
     }
 
-    if (assessment.status === "unsupported") {
+    if (assessment.TAG === "Unsupported") {
       signalSmartCubeFeedback("deviation");
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Unsupported recovery move ${assessment.received}`;
       return true;
@@ -1805,7 +1810,7 @@ if (root) {
       coachStatus.textContent = `${expected.token} reached directly; redundant undo and replay removed.`;
       return true;
     }
-    if (assessment.status === "extended") {
+    if (assessment.TAG === "Extended") {
       recordSmartCubeMistake(assessment.state.expected.token, assessment.received);
       signalSmartCubeFeedback("deviation");
     } else {

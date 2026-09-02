@@ -1,7 +1,7 @@
 # Smart cube transport
 
-`createSmartCubeManager()` is Cube Rosetta's Step 1–2 boundary for physical smart cubes. It wraps
-the commit-pinned `smartcube-web-bluetooth` transport and exposes normalized Cube Rosetta events.
+`createSmartCubeManager()` is CubeLab's Step 1–2 boundary for physical smart cubes. It wraps
+the commit-pinned `smartcube-web-bluetooth` transport and exposes normalized smart cube events.
 
 Supported protocol families:
 
@@ -16,9 +16,11 @@ opened programmatically. It reports explicit `unavailable`, `connecting`, `conne
 chooser again; the transport does not retain a public `BluetoothDevice` handle.
 
 Academy coaching adds a strict recovery stack above the transport. A wrong face turn is never
-silently folded into the lesson: Cube Rosetta asks for its inverse, stacks any further slips in
+silently folded into the lesson: CubeLab asks for its inverse, stacks any further slips in
 last-in-first-out order, and resumes the original expected move only after the physical cube is
-realigned. Visual feedback is always available; synthesized sound is user-controlled.
+realigned. Pure move inversion, canonical reductions, and LIFO deviation recovery are implemented
+in ReScript (`src/SmartCube/SmartCubeDeviation.res`). Visual feedback is always available;
+synthesized sound is user-controlled.
 
 The move tape shows this stack as a temporary red sequence block. Deviations appear to the left
 of a bright physical-cube cursor and their required inverses appear to the right. Each correct undo
@@ -27,7 +29,7 @@ removes its deviation/inverse pair; adjacent turns are reduced canonically (`R R
 
 Hardware light feedback is capability-gated. The manager calls a transport-provided `flashLed`
 writer when one exists, but the currently pinned `smartcube-web-bluetooth` GoCube connection does
-not expose such a command. Cube Rosetta therefore does not send speculative raw GATT packets.
+not expose such a command. CubeLab therefore does not send speculative raw GATT packets.
 
 Step 3 consumers subscribe to normalized events rather than importing the vendor transport. The
 viewport integration lazy-loads this module from the Connect button, records physical moves in the
