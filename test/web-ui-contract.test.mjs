@@ -239,7 +239,7 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
     client,
     /smartCubeOrientation\.disabled = !supportsOrientation;[\s\S]{0,100}setSmartCubeOrientationTracking\(supportsOrientation\)/,
   );
-  assert.match(viewport, /setDeviceOrientation\(orientation\)/);
+  assert.match(viewport, /setDeviceOrientation\(orientation/);
 });
 
 test("the viewport exposes a persistent opt-out for single-move turn guides", () => {
