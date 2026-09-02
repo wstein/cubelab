@@ -4,6 +4,7 @@ import {test} from "vitest";
 
 const page = await readFile(new URL("../src/pages/index.astro", import.meta.url), "utf8");
 const client = await readFile(new URL("../src/client/converter.ts", import.meta.url), "utf8");
+const solverWorker = await readFile(new URL("../src/client/workers/solver.worker.ts", import.meta.url), "utf8");
 const viewport = await readFile(new URL("../src/client/cube-gl.ts", import.meta.url), "utf8");
 const orientationVerifier = await readFile(
   new URL("../src/client/smart-cube/orientation-verifier.ts", import.meta.url),
@@ -138,13 +139,14 @@ test("the SPA workspace keeps one viewport beside four URL-addressable destinati
   assert.doesNotMatch(page, /data-(?:beginner|cfop)-solve/);
   assert.match(page, /data-beginner-phases/);
   assert.match(page, /data-beginner-copy/);
-  assert.match(client, /BeginnerSolver\.solve/);
-  assert.match(client, /CfopSolver\.solveBeginner/);
-  assert.match(client, /CfopSolver\.solveAdvancedLbl/);
-  assert.match(client, /CfopSolver\.solveFull/);
-  assert.match(client, /PetrusSolver\.solveClassical/);
-  assert.match(client, /PetrusSolver\.solveEnhanced/);
-  assert.match(client, /CfopSolver\.solveAdvanced/);
+  assert.match(client, /createSolverClient/);
+  assert.match(solverWorker, /BeginnerSolver\.solve/);
+  assert.match(solverWorker, /CfopSolver\.solveBeginner/);
+  assert.match(solverWorker, /CfopSolver\.solveAdvancedLbl/);
+  assert.match(solverWorker, /CfopSolver\.solveFull/);
+  assert.match(solverWorker, /PetrusSolver\.solveClassical/);
+  assert.match(solverWorker, /PetrusSolver\.solveEnhanced/);
+  assert.match(solverWorker, /CfopSolver\.solveAdvanced/);
   assert.match(client, /buildTimeline\(initialState, solution\.alg\)/);
   assert.match(client, /store\.patch\(\{activeTab:/);
   assert.match(client, /academyMethod:/);

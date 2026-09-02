@@ -83,6 +83,11 @@ search-limit or replay failure returns an error and no candidate tutorial. Tests
 assert every intermediate phase invariant and solve seeded random-turn states without
 depending on their source algorithms.
 
+In the web application, `BeginnerSolver.solve` runs in the dedicated solver worker along
+with the CFOP and Petrus implementations. The UI transfers the relative state to that
+worker, receives a structured solution or an explanatory error, and performs the final
+original-setup-to-target replay on the main thread before rendering the tutorial.
+
 Performance depends on the state. A 100-state, 25-turn development sample on Node.js
 averaged approximately 228 ms and had a sampled maximum of approximately 912 ms. These
 numbers are observations, not a runtime guarantee.

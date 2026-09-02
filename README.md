@@ -81,7 +81,9 @@ movement uses an explicit fixed-frame 3D coordinate mapping; odd-cube fixed cent
 stay in the fixed world frame while their stickers follow slice-layer and whole-cube
 rotations. The 3×3 piece reducer virtually restores the solved centre orientation
 before extracting cubie coordinates, then validates permutation parity and orientation
-sums.
+sums. For 2×2×2 and 3×3×3, the same reduction boundary rejects physically unreachable
+positions before they reach playback or a solver, with slot-aware diagnostics for corner
+twists and edge flips. See [physical state validation](docs/state-validation.md).
 
 Interactive playback caches canonical states for at most 500 expanded steps. Longer
 algorithms still convert completely, but their tape controls are disabled to keep
@@ -104,6 +106,11 @@ allows the result to be loaded as a solution.
 The [beginner tutorial solver](docs/beginner-solver.md) accepts any recognized 3×3 state,
 works through seven verified Layer-by-Layer goals, and refuses to return a solution unless
 the complete generated sequence solves all 54 facelets on replay.
+
+Academy searches execute in a dedicated module worker. The main thread sends the selected
+method and relative cube state, receives either a serializable solution or an explanatory
+failure, and independently replays a successful answer before presenting it. This keeps
+the viewport, editor, and playback controls responsive while bounded solver searches run.
 
 The [CFOP Academy solver](docs/cfop-academy.md) provides four-stage, pair-first two-look
 CFOP. It plans a complete white-bottom Cross, recognizes and locks four corner-edge F2L

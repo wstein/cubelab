@@ -10,9 +10,7 @@ import * as MoveNiss from "../Move/MoveNiss.res.mjs";
 import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
-import * as BeginnerSolver from "../Solver/BeginnerSolver.res.mjs";
-import * as CfopSolver from "../Solver/CfopSolver.res.mjs";
-import * as PetrusSolver from "../Solver/PetrusSolver.res.mjs";
+import {createSolverClient} from "./workers/solver-client";
 import {relativeAcademyState, type PieceState} from "./academy-target";
 import {
   createCubeViewport,
@@ -307,6 +305,9 @@ if (root) {
     method === "beginnerCfop" || method === "fullCfop" || method === "advancedCfop";
   const isPetrusMethod = (method: TutorialMethod): boolean =>
     method === "petrus" || method === "enhancedPetrus";
+  const solverClient = createSolverClient<CubeState, TutorialSolution>(
+    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+  );
   const viewport = createCubeViewport(canvas, motionOverlay, (message) => {
     viewportFallback.textContent = `${message} Text conversions remain fully functional.`;
     viewportFallback.hidden = false;
@@ -476,8 +477,19 @@ if (root) {
     }
   };
 
-  const recognize = (result: Result<CubeState>, label: string): Result<RecognizedInput> =>
-    result.TAG === "Ok" ? {TAG: "Ok", _0: {state: result._0, label}} : result;
+  const validatePhysicalState = (state: CubeState): string | null => {
+    if (state.size !== 2 && state.size !== 3) return null;
+    const pieces = PieceReducer.reduce(state) as Result<PieceState, unknown>;
+    return pieces.TAG === "Ok" ? null : PieceReducer.describeError(pieces._0);
+  };
+
+  const recognize = (result: Result<CubeState>, label: string): Result<RecognizedInput> => {
+    if (result.TAG === "Error") return result;
+    const diagnostic = validatePhysicalState(result._0);
+    return diagnostic === null
+      ? {TAG: "Ok", _0: {state: result._0, label}}
+      : {TAG: "Error", _0: diagnostic};
+  };
 
   const parseAlgorithm = (value: string): Result<RecognizedInput> => {
     const evaluated = evaluateAlgorithm(
@@ -2482,6 +2494,12 @@ if (root) {
       case "facelets": {
         const parsed = FaceletCodec.parse(3, event.facelets) as Result<CubeState>;
         if (parsed.TAG === "Ok") {
+          const diagnostic = validatePhysicalState(parsed._0);
+          if (diagnostic !== null) {
+            smartCubeStateSyncPending = false;
+            smartCubeStatus.textContent = diagnostic;
+            break;
+          }
           smartCubeLiveState = parsed._0;
           const pending = [...smartCubePendingMoves].reverse().find((move) => move.state === null);
           if (pending) pending.state = parsed._0;
@@ -3170,40 +3188,25 @@ if (root) {
     academy.status.textContent = method === "beginner"
       ? "Building and replay-verifying the seven beginner phases…"
       : `Building and replay-verifying the ${academy.phaseCount} ${academy.label} phases…`;
-    window.setTimeout(() => {
-      let result: Result<TutorialSolution, unknown>;
-      switch (method) {
-        case "beginner": result = BeginnerSolver.solve(relative._0); break;
-        case "advancedLbl": result = CfopSolver.solveAdvancedLbl(relative._0); break;
-        case "beginnerCfop": result = CfopSolver.solveBeginner(relative._0); break;
-        case "fullCfop": result = CfopSolver.solveFull(relative._0); break;
-        case "advancedCfop": result = CfopSolver.solveAdvanced(relative._0); break;
-        case "petrus": result = PetrusSolver.solveClassical(relative._0); break;
-        case "enhancedPetrus": result = PetrusSolver.solveEnhanced(relative._0); break;
-      }
+    void solverClient.solve(method, relative._0).then((solution) => {
       academySolveBusy = false;
-      if (result.TAG === "Error") {
-        academy.status.textContent = method === "beginner"
-          ? BeginnerSolver.describeError(result._0)
-          : isPetrusMethod(method)
-            ? PetrusSolver.describeError(result._0)
-            : CfopSolver.describeError(result._0);
-        academy.status.classList.add("error");
-        updateAcademySolveButton();
-        return;
-      }
-      const replay = MoveExecutor.applyAlg(initialState, result._0.alg) as Result<CubeState, unknown>;
+      const replay = MoveExecutor.applyAlg(initialState, solution.alg) as Result<CubeState, unknown>;
       if (replay.TAG === "Error" || FaceletCodec.render(replay._0) !== FaceletCodec.render(target._0)) {
         academy.status.textContent = "The generated solution did not replay from setup to the target pattern.";
         academy.status.classList.add("error");
         updateAcademySolveButton();
         return;
       }
-      savedTutorialSolutions.set(method, {initialState, solution: result._0});
+      savedTutorialSolutions.set(method, {initialState, solution});
       updateAcademyComparison();
       updateAcademySolveButton();
-      presentTutorialSolution(initialState, result._0, academy);
-    }, 0);
+      presentTutorialSolution(initialState, solution, academy);
+    }).catch((reason: unknown) => {
+      academySolveBusy = false;
+      academy.status.textContent = reason instanceof Error ? reason.message : String(reason);
+      academy.status.classList.add("error");
+      updateAcademySolveButton();
+    });
   });
 
   academyTarget.addEventListener("input", () => {

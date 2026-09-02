@@ -58,6 +58,11 @@ does not change the optional Moves field, allowing a user to inspect or replay a
 from a freshly synchronized physical position. Both fields are shareable in the URL hash as
 `alg` (setup) and `moves`.
 
+For 2×2×2 and 3×3×3, Setup and smart-cube facelets must also describe a physically
+reachable position. CubeLab rejects a twisted-corner, flipped-edge, or permutation-parity
+mismatch before it updates the viewport or begins solving; its diagnostic names affected
+cubie slots when that is mathematically determinable.
+
 ## Academy targets
 
 Academy normally solves the recognized setup to solved. Its optional **Target pattern** field
@@ -69,3 +74,18 @@ It presents a solution only if the final 54 facelets exactly equal the requested
 Target patterns use the standard U/R/F centre orientation. Whole-cube rotations are hand
 regrips, not target-state changes; rotate an input back to the standard centre frame before
 using it as a target.
+
+## Background Academy searches
+
+Academy solving crosses a worker boundary at `src/client/workers/solver-client.ts`. The
+main thread posts a request containing the selected method and relative 3×3 state to
+`solver.worker.ts`; that worker imports and dispatches the existing Beginner, CFOP, and
+Petrus solvers. It returns only a solution or a human-readable error. The main thread
+remains responsible for replaying a returned solution from the original setup to the
+requested target before showing it, so the worker is a responsiveness boundary rather than
+a weaker correctness boundary.
+
+The worker client uses request identifiers and supports multiple future solver requests
+without conflating their responses. Any worker startup or runtime error rejects the pending
+request and appears in the Academy status area. Table-based or deep searches added later
+should use this same client boundary instead of running on the UI thread.
