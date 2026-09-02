@@ -10,7 +10,7 @@ import * as MoveNiss from "../Move/MoveNiss.res.mjs";
 import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
-import {createSolverClient} from "./workers/solver-client";
+import {createSolverClient, createTwoPhaseSolverClient} from "./workers/solver-client";
 import {relativeAcademyState, type PieceState} from "./academy-target";
 import {
   createCubeViewport,
@@ -124,6 +124,7 @@ type TutorialPhase = {
   sequences?: string[];
 };
 type TutorialSolution = {phases: TutorialPhase[]; alg: unknown[]; moveCount: number};
+type TwoPhaseSolution = {alg: unknown[]; moveCount: number};
 type SavedTutorialSolution = {initialState: CubeState; solution: TutorialSolution};
 type TutorialPhaseRange = TutorialPhase & {method: TutorialMethod; start: number; end: number};
 type ExpandedTutorialEntry = {comment?: string};
@@ -202,6 +203,8 @@ if (root) {
   const nissLoad = root.querySelector<HTMLButtonElement>("[data-niss-load]")!;
   const nissResult = root.querySelector<HTMLOutputElement>("[data-niss-result]")!;
   const academySolve = root.querySelector<HTMLButtonElement>("[data-academy-solve]")!;
+  const twoPhaseSolve = root.querySelector<HTMLButtonElement>("[data-two-phase-solve]")!;
+  const twoPhaseResult = root.querySelector<HTMLOutputElement>("[data-two-phase-result]")!;
   const academyTarget = root.querySelector<HTMLInputElement>("[data-academy-target]")!;
   const academyDom = (prefix: string) => ({
     status: root.querySelector<HTMLElement>(`[data-${prefix}-status]`)!,
@@ -308,6 +311,10 @@ if (root) {
   const solverClient = createSolverClient<CubeState, TutorialSolution>(
     new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
   );
+  const twoPhaseSolverClient = createTwoPhaseSolverClient<CubeState, TwoPhaseSolution>(
+    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+  );
+  let twoPhaseSolveBusy = false;
   const viewport = createCubeViewport(canvas, motionOverlay, (message) => {
     viewportFallback.textContent = `${message} Text conversions remain fully functional.`;
     viewportFallback.hidden = false;
@@ -621,6 +628,11 @@ if (root) {
     const orbitQuickCopy = root.querySelector<HTMLButtonElement>("[data-copy-orbit64]");
     if (orbitQuickCopy) orbitQuickCopy.hidden = size !== 3;
     nissPanel.hidden = size !== 3 || activeTab !== "workbench";
+    twoPhaseSolve.disabled = size !== 3 || twoPhaseSolveBusy;
+    if (size !== 3 && !twoPhaseSolveBusy) {
+      twoPhaseResult.textContent = "Two-phase solving is available for 3×3 states.";
+      twoPhaseResult.classList.remove("success", "failure");
+    }
   };
 
   const resetNissResult = () => {
@@ -2989,6 +3001,32 @@ if (root) {
   root.querySelector<HTMLButtonElement>("[data-practice-scramble]")!.addEventListener("click", () => {
     const scramble = MoveTransform.practiceScramble(size) as Result<string, string>;
     if (scramble.TAG === "Ok") commitTransformedAlgorithm(scramble._0);
+  });
+
+  twoPhaseSolve.addEventListener("click", async () => {
+    if (size !== 3 || twoPhaseSolveBusy) return;
+    const workspace = parseWorkspaceState();
+    if (workspace.TAG === "Error") {
+      twoPhaseResult.textContent = workspace._0;
+      twoPhaseResult.classList.add("failure");
+      return;
+    }
+    twoPhaseSolveBusy = true;
+    twoPhaseSolve.disabled = true;
+    twoPhaseResult.textContent = "Building tables and searching in the background…";
+    twoPhaseResult.classList.remove("failure", "success");
+    try {
+      const solution = await twoPhaseSolverClient.solve(workspace._0.state);
+      const algorithm = MoveTransform.serialize(solution.alg) as string;
+      twoPhaseResult.textContent = `${solution.moveCount} HTM · ${algorithm || "Solved"}`;
+      twoPhaseResult.classList.add("success");
+    } catch (reason) {
+      twoPhaseResult.textContent = reason instanceof Error ? reason.message : "The two-phase solver failed.";
+      twoPhaseResult.classList.add("failure");
+    } finally {
+      twoPhaseSolveBusy = false;
+      twoPhaseSolve.disabled = size !== 3;
+    }
   });
 
   nissUseInverse.addEventListener("click", () => {

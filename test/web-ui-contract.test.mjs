@@ -24,6 +24,15 @@ test("the static shell declares size-scoped cubie and Orbit64 cards", () => {
   assert.match(page, />Copy Orbit64</);
 });
 
+test("the converter exposes full two-phase solutions through a dedicated worker contract", () => {
+  assert.match(page, /data-two-phase-solve/);
+  assert.match(page, /data-two-phase-result/);
+  assert.match(client, /createTwoPhaseSolverClient/);
+  assert.match(client, /twoPhaseSolverClient\.solve\(workspace\._0\.state\)/);
+  assert.match(solverWorker, /type: "solveTwoPhase"/);
+  assert.match(solverWorker, /TwoPhaseSolver\.solve\(request\.state\)/);
+});
+
 test("Academy exposes an optional target pattern field", () => {
   assert.match(page, /data-academy-target/);
   assert.match(page, /Target pattern/);

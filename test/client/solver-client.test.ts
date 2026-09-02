@@ -1,6 +1,6 @@
 import {describe, expect, test} from "vitest";
 
-import {createSolverClient} from "../../src/client/workers/solver-client";
+import {createSolverClient, createTwoPhaseSolverClient} from "../../src/client/workers/solver-client";
 
 type Listener = (event: MessageEvent<unknown>) => void;
 
@@ -49,5 +49,15 @@ describe("solver worker client", () => {
     worker.fail();
     await expect(first).rejects.toThrow("could not start");
     await expect(second).rejects.toThrow("could not start");
+  });
+
+  test("uses a dedicated request type for full two-phase solutions", async () => {
+    const worker = new FakeWorker();
+    const client = createTwoPhaseSolverClient<{id: string}, {moveCount: number}>(worker as unknown as Worker);
+    const solution = client.solve({id: "cube"});
+
+    expect(worker.requests).toEqual([{id: 0, type: "solveTwoPhase", state: {id: "cube"}}]);
+    worker.respond({id: 0, ok: true, solution: {moveCount: 21}});
+    await expect(solution).resolves.toEqual({moveCount: 21});
   });
 });

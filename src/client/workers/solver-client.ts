@@ -34,3 +34,35 @@ export const createSolverClient = <TState, TSolution>(worker: Worker) => {
     },
   };
 };
+
+/** Dedicated request contract for full-cube two-phase searches. */
+export const createTwoPhaseSolverClient = <TState, TSolution>(worker: Worker) => {
+  let nextId = 0;
+  const pending = new Map<number, {resolve: (value: TSolution) => void; reject: (reason: Error) => void}>();
+  worker.addEventListener("message", (event: MessageEvent<WorkerResponse<TSolution>>) => {
+    const response = event.data;
+    const request = pending.get(response.id);
+    if (!request) return;
+    pending.delete(response.id);
+    if (response.ok) request.resolve(response.solution);
+    else request.reject(new Error(response.error));
+  });
+  worker.addEventListener("error", () => {
+    pending.forEach(({reject}) => reject(new Error("The two-phase solver worker could not start.")));
+    pending.clear();
+  });
+  return {
+    solve(state: TState): Promise<TSolution> {
+      const id = nextId++;
+      return new Promise((resolve, reject) => {
+        pending.set(id, {resolve, reject});
+        worker.postMessage({id, type: "solveTwoPhase", state});
+      });
+    },
+    terminate(): void {
+      pending.forEach(({reject}) => reject(new Error("The two-phase solver was stopped.")));
+      pending.clear();
+      worker.terminate();
+    },
+  };
+};

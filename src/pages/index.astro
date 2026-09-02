@@ -233,6 +233,15 @@ const cards = [
               as one continuous timeline from solved. Leave Moves empty to use
               Setup alone.
             </p>
+            <div class="transform-row" aria-label="Two-phase solver">
+              <span class="transform-label">3×3 solver</span>
+              <button type="button" class="transform-btn" data-two-phase-solve>
+                Find two-phase solution
+              </button>
+              <output class="niss-result" data-two-phase-result aria-live="polite">
+                Solve the current 3×3 state in the background.
+              </output>
+            </div>
             <div
               class="transform-row"
               data-workspace-panel="workbench"
