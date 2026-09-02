@@ -22,6 +22,11 @@ The inverse-scramble display is produced by structured AST inversion rather than
 reversal. Groups, commutators, conjugates, rotations, ranges, and turn amounts therefore
 retain their mathematical meaning.
 
+The Workbench also uses an opt-in `Fmc` parser dialect for compact NISS entry: top-level
+parentheses denote inverse-side work. For example, `B' U2 (F R' D) L` recombines as
+`B' U2 L · (F R' D)⁻¹`. Modern and Ruwix parsing retain their normal parenthesized-group
+semantics.
+
 ## Scope and limits
 
 - The helper is visible only for 3×3, matching WCA FMC practice.

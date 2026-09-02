@@ -824,9 +824,87 @@ function parseWithOptions(size, lowercaseMode, notationDialect, input) {
     if (parser.cursor !== parser.input.length) {
       fail(parser, "Unexpected trailing input.", undefined, undefined);
     }
+    if (notationDialect !== "Fmc") {
+      return {
+        TAG: "Ok",
+        _0: units
+      };
+    }
+    let normal = {
+      contents: []
+    };
+    let inverse = {
+      contents: []
+    };
+    units.forEach(unit => {
+      let match = unit.desc;
+      if (typeof match === "object" && match.TAG === "Group") {
+        inverse.contents = inverse.contents.concat([unit]);
+        return;
+      }
+      normal.contents = normal.contents.concat([unit]);
+    });
+    let inverted = [];
+    for (let offset = 0, offset_finish = inverse.contents.length; offset < offset_finish; ++offset) {
+      let unit = inverse.contents[(inverse.contents.length - 1 | 0) - offset | 0];
+      let seconds = unit.desc;
+      let desc;
+      if (typeof seconds !== "object") {
+        desc = "Pause";
+      } else {
+        switch (seconds.TAG) {
+          case "Move" :
+            desc = {
+              TAG: "Move",
+              _0: seconds._0,
+              _1: -seconds._1 | 0
+            };
+            break;
+          case "TimedPause" :
+            desc = {
+              TAG: "TimedPause",
+              _0: seconds._0
+            };
+            break;
+          case "BlockComment" :
+            desc = {
+              TAG: "BlockComment",
+              _0: seconds._0
+            };
+            break;
+          case "Group" :
+            desc = {
+              TAG: "Group",
+              _0: seconds._0,
+              _1: -seconds._1 | 0
+            };
+            break;
+          case "Commutator" :
+            desc = {
+              TAG: "Commutator",
+              _0: seconds._0,
+              _1: seconds._1,
+              _2: -seconds._2 | 0
+            };
+            break;
+          case "Conjugate" :
+            desc = {
+              TAG: "Conjugate",
+              _0: seconds._0,
+              _1: seconds._1,
+              _2: -seconds._2 | 0
+            };
+            break;
+        }
+      }
+      inverted.push({
+        desc: desc,
+        loc: unit.loc
+      });
+    }
     return {
       TAG: "Ok",
-      _0: units
+      _0: normal.contents.concat(inverted)
     };
   } catch (raw_error) {
     let error = Primitive_exceptions.internalToException(raw_error);

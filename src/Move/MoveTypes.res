@@ -20,6 +20,7 @@ type lowercaseMode =
 type notationDialect =
   | Modern
   | Ruwix
+  | Fmc
 
 type layerRange = {
   from_: int,

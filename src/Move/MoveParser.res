@@ -574,7 +574,36 @@ let parseWithOptions = (
       if parser.cursor != parser.input->String.length {
         fail(parser, "Unexpected trailing input.")
       }
-      Ok(units)
+      if notationDialect == Fmc {
+        let normal = ref([])
+        let inverse = ref([])
+        units->Array.forEach(unit =>
+          switch unit.desc {
+          | Group(_, _) => inverse := inverse.contents->Array.concat([unit])
+          | _ => normal := normal.contents->Array.concat([unit])
+          }
+        )
+        let inverted = []
+        for offset in 0 to inverse.contents->Array.length - 1 {
+          let unit = Belt.Array.getUnsafe(
+            inverse.contents,
+            inverse.contents->Array.length - 1 - offset,
+          )
+          let desc = switch unit.desc {
+          | Move(move, turns) => Move(move, -turns)
+          | Pause => Pause
+          | TimedPause(seconds) => TimedPause(seconds)
+          | BlockComment(text) => BlockComment(text)
+          | Group(body, repeat) => Group(body, -repeat)
+          | Commutator(left, right, repeat) => Commutator(left, right, -repeat)
+          | Conjugate(left, right, repeat) => Conjugate(left, right, -repeat)
+          }
+          inverted->Array.push({desc, loc: unit.loc})
+        }
+        Ok(normal.contents->Array.concat(inverted))
+      } else {
+        Ok(units)
+      }
     } catch {
     | ParseFailure(error) => Error(error)
     }
