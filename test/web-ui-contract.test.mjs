@@ -30,6 +30,14 @@ test("Academy exposes an optional target pattern field", () => {
   assert.match(client, /generated solution did not replay from setup to the target pattern/);
 });
 
+test("the editor separates a synchronized setup from optional replay moves", () => {
+  assert.match(page, /Setup \(state\)/);
+  assert.match(page, /data-moves-input/);
+  assert.match(page, /Smart-cube Sync loads this field/);
+  assert.match(client, /const parseWorkspaceState/);
+  assert.match(client, /MoveExecutor\.applyAlg\(setup\._0\.state, moves\._0\)/);
+});
+
 test("the Vanilla DOM client wires reachability-aware outputs", () => {
   assert.match(client, /PieceReducer\.reduce\(state\)/);
   assert.match(client, /PieceReducer\.parseState\(size, compact\)/);

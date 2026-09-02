@@ -46,3 +46,12 @@ and non-3×3 inputs preserve the existing solver error behavior.
 
 Parenthesized sequences retain the standard 0.5-second teaching delay. Only the three
 major CFOP boundaries retain the 1.2-second phase delay.
+
+## Target-pattern replay
+
+The Academy target field may replace canonical solved with a standard-frame 3×3 target
+pattern. The client derives `target⁻¹ ∘ setup` before invoking the solver, then replays the
+returned algorithm against `setup` and accepts it only when every target facelet matches.
+This preserves the solver's solved-state phase checks while making the user-facing route
+state-to-state. Whole-cube rotated targets are rejected because their centre frame is a
+regrip convention rather than a cubie permutation.

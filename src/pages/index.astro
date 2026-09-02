@@ -157,7 +157,7 @@ const cards = [
 
       <section class="input-panel">
         <div class="input-header">
-          <label class="panel-label" for="cube-input">Algorithm or cube state</label>
+          <label class="panel-label" for="cube-input">Setup (state)</label>
           <div class="input-header-actions">
             <span class="sniffer-badge" data-status aria-live="polite">Solved default</span>
             <button
@@ -172,9 +172,21 @@ const cards = [
           id="cube-input"
           class="cube-textarea"
           data-input
-          placeholder="Paste an algorithm, compact facelets, compact colours, or a canonical net. Leave blank for solved."
+          placeholder="Paste compact facelets, compact colours, a canonical net, or an Orbit64 state. Smart-cube Sync loads this field. Leave blank for solved."
           spellcheck="false"
         ></textarea>
+        <label class="moves-input-label" for="cube-moves">Moves</label>
+        <textarea
+          id="cube-moves"
+          class="cube-textarea moves-textarea"
+          data-moves-input
+          placeholder="Optional moves to apply from setup, e.g. R U R' U'"
+          spellcheck="false"
+        ></textarea>
+        <p class="input-help">
+          Setup is the current cube state; Sync state replaces it from the connected smart cube. Moves are replayed from that setup.
+          If you only enter an algorithm in Setup, Cube Rosetta keeps the established single-field workflow.
+        </p>
         <div class="transform-row" data-workspace-panel="workbench" aria-label="Algorithm transformations" hidden>
           <span class="transform-label">Transforms</span>
           <button type="button" class="transform-btn" data-alg-transform="invert" disabled>↶ Invert</button>

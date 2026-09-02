@@ -19,6 +19,7 @@ describe("application state store", () => {
       ...defaultAppState,
       size: 5,
       input: "Rw U2 r' // parity",
+      moves: "U R U' R'",
       scheme: "Japanese" as const,
       lowercaseMode: "InnerSlice" as const,
       notationDialect: "Ruwix" as const,
@@ -40,6 +41,7 @@ describe("application state store", () => {
     expect(parsed.cubeStyle).toBe("Standard");
     expect(parsed.turnGuides).toBe(true);
     expect(parsed.input).toHaveLength(20_000);
+    expect(parsed.moves).toBe("");
     expect(parsed.activeTab).toBe("converter");
   });
 

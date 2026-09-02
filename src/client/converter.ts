@@ -143,6 +143,7 @@ const root = document.querySelector<HTMLElement>("[data-converter]");
 
 if (root) {
   const input = root.querySelector<HTMLTextAreaElement>("[data-input]")!;
+  const movesInput = root.querySelector<HTMLTextAreaElement>("[data-moves-input]")!;
   const schemeSelect = root.querySelector<HTMLSelectElement>("[data-scheme]")!;
   const customScheme = root.querySelector<HTMLInputElement>("[data-custom-scheme]")!;
   const status = root.querySelector<HTMLElement>("[data-status]")!;
@@ -484,6 +485,37 @@ if (root) {
     return colours.TAG === "Ok"
       ? recognize(colours, "Compact colours")
       : parseAlgorithm(inputValue);
+  };
+
+  const parseWorkspaceState = (): Result<RecognizedInput> => {
+    const setup = parseState(input.value);
+    if (setup.TAG === "Error" || movesInput.value.trim() === "") return setup;
+    if (setup._0.timeline) {
+      return {
+        TAG: "Error",
+        _0: "Enter a cube state in Setup before adding Moves. To replay one algorithm, leave Moves empty.",
+      };
+    }
+    const moves = MoveParser.parseWithOptions(
+      size,
+      lowercaseMode,
+      notationDialect,
+      movesInput.value,
+    ) as Result<unknown[], {message?: string}>;
+    if (moves.TAG === "Error") return {TAG: "Error", _0: moves._0.message ?? "Invalid moves."};
+    const applied = MoveExecutor.applyAlg(setup._0.state, moves._0) as Result<CubeState, unknown>;
+    if (applied.TAG === "Error") return {TAG: "Error", _0: "Could not apply Moves to Setup."};
+    const timeline = buildTimeline(setup._0.state, moves._0);
+    if (timeline.TAG === "Error") return {TAG: "Error", _0: "Could not build the Setup + Moves timeline."};
+    return {
+      TAG: "Ok",
+      _0: {
+        state: applied._0,
+        label: `${setup._0.label} + moves`,
+        timeline: timeline._0,
+        timelineKey: `${size}\u0000${lowercaseMode}\u0000${notationDialect}\u0000${input.value}\u0000${movesInput.value}`,
+      },
+    };
   };
 
   const updateLowercaseUi = () => {
@@ -2515,7 +2547,7 @@ if (root) {
     updateCardVisibility();
     updateLowercaseUi();
     updateDialectUi();
-    const parsed = parseState(input.value);
+    const parsed = parseWorkspaceState();
     if (parsed.TAG === "Error") {
       updateAcademySource(null);
       updateNissSource(null);
@@ -2560,6 +2592,7 @@ if (root) {
       || notationDialect !== state.notationDialect
       || cubeStyle !== state.cubeStyle
       || input.value !== state.input
+      || movesInput.value !== state.moves
       || schemeSelect.value !== state.scheme
       || customScheme.value !== state.customScheme;
     size = state.size;
@@ -2572,6 +2605,7 @@ if (root) {
     activeTab = state.activeTab;
     academyMethod = state.academyMethod;
     if (input.value !== state.input) input.value = state.input;
+    if (movesInput.value !== state.moves) movesInput.value = state.moves;
     if (schemeSelect.value !== state.scheme) schemeSelect.value = state.scheme;
     if (customScheme.value !== state.customScheme) customScheme.value = state.customScheme;
     customScheme.hidden = state.scheme !== "Custom";
@@ -2679,6 +2713,11 @@ if (root) {
     updateTransformAvailability(false);
     updateAcademySource(null);
     store.patch({input: input.value});
+    scheduleUpdate();
+  });
+  movesInput.addEventListener("input", () => {
+    updateAcademySource(null);
+    store.patch({moves: movesInput.value});
     scheduleUpdate();
   });
 

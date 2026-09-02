@@ -961,6 +961,20 @@ body {
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
+.moves-input-label {
+  display: block;
+  margin: 0.85rem 0 0.45rem;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.moves-textarea {
+  min-height: 4.9rem;
+}
+
 .input-help {
   margin-top: 0.6rem;
   color: var(--text-muted);

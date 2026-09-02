@@ -16,6 +16,7 @@ export type AcademyMethod =
 export type AppState = {
   size: number;
   input: string;
+  moves: string;
   scheme: SchemeName;
   customScheme: string;
   lowercaseMode: LowercaseMode;
@@ -29,6 +30,7 @@ export type AppState = {
 export const defaultAppState: AppState = {
   size: 3,
   input: "",
+  moves: "",
   scheme: "Western",
   customScheme: "WOGRBY",
   lowercaseMode: "Wide",
@@ -119,9 +121,11 @@ export const readHash = (hash: string): AppState => {
           ? "fullCfop"
           : "beginner";
   const input = (params.get("alg") ?? "").slice(0, 20_000);
+  const moves = (params.get("moves") ?? "").slice(0, 20_000);
   return {
     size,
     input,
+    moves,
     scheme,
     customScheme,
     lowercaseMode,
@@ -137,6 +141,7 @@ export const writeHash = (state: AppState): string => {
   const params = new URLSearchParams();
   params.set("size", String(state.size));
   if (state.input !== "") params.set("alg", state.input);
+  if (state.moves !== "") params.set("moves", state.moves);
   if (state.scheme !== "Western") params.set("scheme", state.scheme);
   if (state.scheme === "Custom") params.set("custom", state.customScheme);
   if (state.lowercaseMode !== "Wide") params.set("lowercase", state.lowercaseMode);

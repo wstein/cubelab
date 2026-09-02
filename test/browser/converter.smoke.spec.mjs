@@ -169,6 +169,22 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   expect(pageErrors).toEqual([]);
 });
 
+test("replays optional moves from a setup state and keeps both fields shareable", async ({page}) => {
+  await page.goto("/");
+  const setup = page.locator("[data-input]");
+  const moves = page.locator("[data-moves-input]");
+
+  await setup.fill(algorithmFacelets("R"));
+  await moves.fill("U F2");
+  await expect(page.locator("[data-status]")).toHaveText("Compact facelets + moves");
+  await expect(page.locator('[data-output="facelets"]')).toHaveText(algorithmFacelets("R U F2"));
+  await expect(page).toHaveURL(/moves=U\+F2/);
+
+  await setup.fill("R U");
+  await expect(page.locator("[data-status]")).toHaveText("Parse error");
+  await expect(page.locator("[data-error]")).toContainText("Enter a cube state in Setup");
+});
+
 test("restores shareable studio state and quick-load presets", async ({page}) => {
   await page.goto("/#size=4&alg=Rw+U2&style=Speed&lowercase=InnerSlice");
   const input = page.locator("[data-input]");

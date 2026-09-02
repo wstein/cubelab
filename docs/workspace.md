@@ -19,7 +19,7 @@ supported values are `tab=converter|academy|workbench|patterns`.
 
 ## Shared-state behavior
 
-The puzzle size, notation settings, input, recognized cube state, viewport style, and
+The puzzle size, notation settings, setup, moves, recognized cube state, viewport style, and
 turn-guide preference remain shareable URL state. The playback timeline remains shared
 in memory. Tab-only state changes do not reparse the input or reset
 playback. Editing the source or changing a conversion setting intentionally rebuilds the
@@ -41,3 +41,28 @@ sequence-purpose visualization.
 
 Practice scramble is located in **Quick load**, not among algebraic transformations. It
 remains a random-turn practice sequence and is not labeled as an official WCA scramble.
+
+## Setup and moves
+
+The editor separates **Setup (state)** from optional **Moves**. Setup accepts compact
+facelets, compact colours, canonical nets, cubie coordinates, and 3×3 Orbit64. Moves are
+parsed with the selected notation dialect and replayed from that setup, so the viewport and
+all converted outputs show the resulting state. The old single-field algorithm workflow is
+still available: when Moves is empty, an algorithm entered in Setup is evaluated from solved.
+
+**Sync state** from a connected smart cube writes its physical facelet state into Setup. It
+does not change the optional Moves field, allowing a user to inspect or replay a sequence
+from a freshly synchronized physical position. Both fields are shareable in the URL hash as
+`alg` (setup) and `moves`.
+
+## Academy targets
+
+Academy normally solves the recognized setup to solved. Its optional **Target pattern** field
+instead accepts a 3×3 state in the same formats and generates a route from the current setup
+to that target. The Academy builds the relative cubie state `target⁻¹ ∘ setup`, runs its
+existing verified solver, and then replays the returned algorithm against the original setup.
+It presents a solution only if the final 54 facelets exactly equal the requested target.
+
+Target patterns use the standard U/R/F centre orientation. Whole-cube rotations are hand
+regrips, not target-state changes; rotate an input back to the standard centre frame before
+using it as a target.
