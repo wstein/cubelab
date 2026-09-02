@@ -3,8 +3,8 @@ import {curatedPatterns, extremalStateFor, type CuratedPattern} from "./extremal
 import {
   patternStateKey,
   solutionForPatternState,
-  type PatternCubeState,
-} from "./pattern-state";
+} from "../State/PatternState.res.mjs";
+import type {cubeState as PatternCubeState} from "../State/StateTypes.res.mjs";
 
 export type ImportedPattern = CuratedPattern;
 

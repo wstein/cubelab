@@ -68,9 +68,11 @@ independent of the flix-cubesolve import — `bun run patterns:import` never tou
   are no fixed centers to pin a frame.
 - 3×3 recognition follows the source corpus's 24 conjugations, keeping fixed centers
   as the reference frame.
-- 4×4 and 5×5 use Cube Rosetta's documented center-relative 24-way conjugation as a
+- 4×4 and 5×5 use CubeLab's documented center-relative 24-way conjugation as a
   practical visual-recognition extension. The source corpus does not claim that its
   larger-cube canonical tokens define a holding equivalence.
+- Recognition, invariant key generation, and holding adaptation are implemented natively in
+  ReScript (`src/State/PatternState.res`).
 - Every offered solution is replayed against the detected state before the UI enables
   it. A solution is rewritten for the detected holding and must restore every facelet.
 - Only the 2×2 solutions are described as proven optimal. The 3×3 inverses are known,

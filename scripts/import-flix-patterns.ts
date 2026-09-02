@@ -5,7 +5,7 @@ import {
   inverseAlgorithm,
   patternStateFromAlgorithm,
   patternStateKey,
-} from "../src/client/pattern-state";
+} from "../src/State/PatternState.res.mjs";
 
 type Imported = {
   size: number;

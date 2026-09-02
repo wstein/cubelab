@@ -4,7 +4,7 @@ import * as MoveParser from "../../src/Move/MoveParser.res.mjs";
 import * as MoveTransform from "../../src/Move/MoveTransform.res.mjs";
 import * as StateTypes from "../../src/State/StateTypes.res.mjs";
 import {importedPatterns} from "../../src/client/patterns.generated";
-import {patternStateFromAlgorithm} from "../../src/client/pattern-state";
+import {patternStateFromAlgorithm} from "../../src/State/PatternState.res.mjs";
 import {patternsForSize, recognizePattern, extremalStateFor} from "../../src/client/patterns";
 
 describe("imported pattern catalog", () => {
