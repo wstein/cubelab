@@ -1008,27 +1008,16 @@ export const createCubeViewport = (
         overlay.restore();
 
         const repeatIndicator = turnRepeatIndicator(turnGuide.step);
-        if (repeatIndicator && allProjectedFaces.length > 0) {
-          const primaryPath = allProjectedFaces[0];
-          const anchor = primaryPath[Math.floor(primaryPath.length * 0.5)];
-          const first = primaryPath[0];
-          const last = primaryPath.at(-1)!;
-          const pathLength = Math.max(1, Math.hypot(last.x - first.x, last.y - first.y));
-          let normalX = -(last.y - first.y) / pathLength;
-          let normalY = (last.x - first.x) / pathLength;
-          const outsideX = anchor.x - width / 2;
-          const outsideY = anchor.y - height / 2;
-          if (normalX * outsideX + normalY * outsideY < 0) {
-            normalX *= -1;
-            normalY *= -1;
-          }
-          const badgeX = anchor.x + normalX * 42 * dpr;
-          const badgeY = anchor.y + normalY * 42 * dpr;
+        if (repeatIndicator) {
+          // Keep half-turn guidance in a stable viewport position. An
+          // arrow-relative badge can land behind a steep top/side guide or
+          // outside the clipped canvas, which makes the essential `2×`
+          // instruction disappear even though the turn itself is highlighted.
           drawRepeatIndicator(
             overlay,
             repeatIndicator,
-            badgeX,
-            badgeY,
+            width / 2,
+            44 * dpr,
             dpr,
             recovery ? "recovery" : "normal",
           );
