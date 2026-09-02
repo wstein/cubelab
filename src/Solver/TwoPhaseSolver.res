@@ -209,6 +209,66 @@ let phase2Coordinates = (state: cubeState): result<phase2Coordinates, solverErro
     }
   }
 
+let factorial = value => {
+  let result = ref(1)
+  for factor in 2 to value {
+    result := result.contents * factor
+  }
+  result.contents
+}
+
+let permutationState = (coordinate, length) => {
+  let available = Array.make(~length, 0)
+  for index in 0 to length - 1 {
+    available[index] = index
+  }
+  let permutation = Array.make(~length, 0)
+  let remaining = ref(coordinate)
+  for slot in 0 to length - 1 {
+    let factor = factorial(length - slot - 1)
+    let selected = if factor == 0 {
+      0
+    } else {
+      remaining.contents / factor
+    }
+    permutation[slot] = Belt.Array.getUnsafe(available, selected)
+    for index in selected to length - slot - 2 {
+      available[index] = Belt.Array.getUnsafe(available, index + 1)
+    }
+    remaining := if factor == 0 {
+        0
+      } else {
+        remaining.contents % factor
+      }
+  }
+  permutation
+}
+
+let phase2State = (coordinates: phase2Coordinates): result<cubeState, solverError> =>
+  if (
+    coordinates.corners < 0 ||
+    coordinates.corners >= 40320 ||
+    coordinates.edges < 0 ||
+    coordinates.edges >= 40320 ||
+    coordinates.slice < 0 ||
+    coordinates.slice >= 24
+  ) {
+    Error(InvalidCoordinate("Phase-two coordinates are outside their valid ranges."))
+  } else {
+    let slice = permutationState(coordinates.slice, 4)->Array.map(value => value + 8)
+    let edges = permutationState(coordinates.edges, 8)->Array.concat(slice)
+    switch PieceReducer.reconstruct({
+      size: 3,
+      cp: permutationState(coordinates.corners, 8),
+      co: Array.make(~length=8, 0),
+      ep: edges,
+      eo: Array.make(~length=12, 0),
+    }) {
+    | Ok(state) => Ok(state)
+    | Error(error) => Error(InvalidState(error))
+    }
+  }
+
 let middleSliceIsPlaced = edgePermutation => {
   let placed = ref(true)
   for slot in 8 to 11 {

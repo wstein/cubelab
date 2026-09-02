@@ -145,3 +145,12 @@ test("phase-one flip pruning has zero distance at the solved coordinate", () => 
   assert.ok(table instanceof Uint8Array);
   assert.equal(TwoPhaseSolver.pruningDistance(table, 0), 0);
 });
+
+test("phase-two coordinates round-trip through a parity-valid G1 state", () => {
+  const source = {corners: 1_234, edges: 2_469, slice: 17};
+  const state = TwoPhaseSolver.phase2State(source);
+  assert.equal(state.TAG, "Ok");
+  const roundTrip = TwoPhaseSolver.phase2Coordinates(state._0);
+  assert.equal(roundTrip.TAG, "Ok");
+  assert.deepEqual(roundTrip._0, source);
+});

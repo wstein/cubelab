@@ -271,6 +271,68 @@ function phase2Coordinates(state) {
   };
 }
 
+function factorial(value) {
+  let result = 1;
+  for (let factor = 2; factor <= value; ++factor) {
+    result = result * factor | 0;
+  }
+  return result;
+}
+
+function permutationState(coordinate, length) {
+  let available = Stdlib_Array.make(length, 0);
+  for (let index = 0; index < length; ++index) {
+    available[index] = index;
+  }
+  let permutation = Stdlib_Array.make(length, 0);
+  let remaining = coordinate;
+  for (let slot = 0; slot < length; ++slot) {
+    let factor = factorial((length - slot | 0) - 1 | 0);
+    let selected = factor === 0 ? 0 : Primitive_int.div(remaining, factor);
+    permutation[slot] = available[selected];
+    for (let index$1 = selected, index_finish = (length - slot | 0) - 2 | 0; index$1 <= index_finish; ++index$1) {
+      available[index$1] = available[index$1 + 1 | 0];
+    }
+    remaining = factor === 0 ? 0 : Primitive_int.mod_(remaining, factor);
+  }
+  return permutation;
+}
+
+function phase2State(coordinates) {
+  if (coordinates.corners < 0 || coordinates.corners >= 40320 || coordinates.edges < 0 || coordinates.edges >= 40320 || coordinates.slice < 0 || coordinates.slice >= 24) {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidCoordinate",
+        _0: "Phase-two coordinates are outside their valid ranges."
+      }
+    };
+  }
+  let slice = permutationState(coordinates.slice, 4).map(value => value + 8 | 0);
+  let edges = permutationState(coordinates.edges, 8).concat(slice);
+  let state = PieceReducer.reconstruct({
+    size: 3,
+    cp: permutationState(coordinates.corners, 8),
+    co: Stdlib_Array.make(8, 0),
+    ep: edges,
+    eo: Stdlib_Array.make(12, 0)
+  });
+  if (state.TAG === "Ok") {
+    return {
+      TAG: "Ok",
+      _0: state._0
+    };
+  } else {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidState",
+        _0: state._0
+      }
+    };
+  }
+}
+
 function middleSliceIsPlaced(edgePermutation) {
   let placed = true;
   for (let slot = 8; slot <= 11; ++slot) {
@@ -626,6 +688,9 @@ export {
   phase1Coordinates,
   phase1State,
   phase2Coordinates,
+  factorial,
+  permutationState,
+  phase2State,
   middleSliceIsPlaced,
   generatedLoc,
   located,
