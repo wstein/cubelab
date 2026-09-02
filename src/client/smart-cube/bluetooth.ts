@@ -80,11 +80,24 @@ export const normalizeTransportEvent = (
       };
     case "GYRO":
       if (!Object.values(event.quaternion).every(Number.isFinite)) return null;
+      let quaternion = event.quaternion;
+      let coordinateFrame: OrientationCoordinateFrame = "viewport";
+      if (protocolId === "gocube") {
+        quaternion = {
+          x: event.quaternion.x,
+          y: -event.quaternion.z,
+          z: -event.quaternion.y,
+          w: event.quaternion.w,
+        };
+        coordinateFrame = "gocube-wire";
+      } else if (protocolId === "gan") {
+        coordinateFrame = "gan-wire";
+      }
       return {
         type: "orientation",
         timestamp: event.timestamp,
-        quaternion: event.quaternion,
-        coordinateFrame: "viewport",
+        quaternion,
+        coordinateFrame,
         ...(event.velocity ? {angularVelocity: event.velocity} : {}),
       };
     case "BATTERY":

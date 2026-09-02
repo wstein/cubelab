@@ -62,15 +62,28 @@ describe("smart cube event normalization", () => {
     })).toBeNull();
   });
 
-  test("normalizes GYRO events directly into viewport coordinate frame", () => {
+  test("restores GoCube wire axes before viewport-relative calibration", () => {
+    const normalized = normalizeTransportEvent({
+      type: "GYRO",
+      timestamp: 20,
+      quaternion: {x: 0.1, y: -0.3, z: -0.2, w: 0.9},
+    }, "gocube");
+    expect(normalized).toMatchObject({
+      type: "orientation",
+      coordinateFrame: "gocube-wire",
+      quaternion: {x: 0.1, y: 0.2, z: 0.3, w: 0.9},
+    });
+  });
+
+  test("tags GAN orientation events with gan-wire coordinate frame", () => {
     const normalized = normalizeTransportEvent({
       type: "GYRO",
       timestamp: 20,
       quaternion: {x: 0.1, y: 0.2, z: 0.3, w: 0.9},
-    }, "gocube");
+    }, "gan");
     expect(normalized).toMatchObject({
       type: "orientation",
-      coordinateFrame: "viewport",
+      coordinateFrame: "gan-wire",
       quaternion: {x: 0.1, y: 0.2, z: 0.3, w: 0.9},
     });
   });

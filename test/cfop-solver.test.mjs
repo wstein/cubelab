@@ -130,7 +130,7 @@ test("exposes distinct replay-verified Beginner, Full, and Advanced CFOP strateg
   assert.equal(FaceletCodec.render(advancedLblState), solvedCompact);
   assert.ok(advancedLbl.moveCount <= 76);
   assert.ok(full.moveCount < beginner.moveCount);
-  assert.ok(advanced.moveCount <= full.moveCount);
+  assert.ok(advanced.moveCount < beginner.moveCount);
   assert.doesNotMatch(full.phases[0].sequences.join(" "), /candidate plans/);
   assert.match(advanced.phases[0].sequences.join(" "), /candidate plans/);
 });

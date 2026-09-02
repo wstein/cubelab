@@ -74,6 +74,33 @@ describe("smart-cube gyro rotation feedback", () => {
     )).toBeNull();
   });
 
+  test("accurately verifies rotations in gocube-wire frame across all axes", () => {
+    const half = Math.sqrt(0.5);
+    // GoCube wire X rotation: x is negative for clockwise x
+    expect(assessGyroRotation(identity, {x: -half, y: 0, z: 0, w: half}, "gocube-wire", "X", 1).matched)
+      .toBe(true);
+    // GoCube wire Y rotation: y is positive on wire (negated in viewport)
+    expect(assessGyroRotation(identity, {x: 0, y: half, z: 0, w: half}, "gocube-wire", "Y", 1).matched)
+      .toBe(true);
+    // GoCube wire Z rotation: z is negative for clockwise z
+    expect(assessGyroRotation(identity, {x: 0, y: 0, z: -half, w: half}, "gocube-wire", "Z", 1).matched)
+      .toBe(true);
+  });
+
+  test("accurately verifies rotations in gan-wire frame across all axes", () => {
+    const half = Math.sqrt(0.5);
+    // GAN wire: +X is Red (Right), +Y is Blue (Back), +Z is White (Up)
+    // 1. R rotation (around Red/+X_gan): x is negative for clockwise x
+    expect(assessGyroRotation(identity, {x: -half, y: 0, z: 0, w: half}, "gan-wire", "X", 1).matched)
+      .toBe(true);
+    // 2. U rotation (around White/+Z_gan): z is negative for clockwise y
+    expect(assessGyroRotation(identity, {x: 0, y: 0, z: -half, w: half}, "gan-wire", "Y", 1).matched)
+      .toBe(true);
+    // 3. F rotation (around Green/-Y_gan): y is positive for clockwise z
+    expect(assessGyroRotation(identity, {x: 0, y: half, z: 0, w: half}, "gan-wire", "Z", 1).matched)
+      .toBe(true);
+  });
+
   test("verifies sequential local rotations from an arbitrary base pose", () => {
     const half = Math.sqrt(0.5);
     const basePose = {x: -half, y: 0, z: 0, w: half}; // after an X rotation
