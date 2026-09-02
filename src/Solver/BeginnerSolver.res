@@ -280,6 +280,33 @@ let atomicJointDistanceTables = (~targets, ~actions) => {
   tables
 }
 
+// Once a search preserves more than four pieces, a complete pair table for
+// every target pair is needlessly expensive. The active corner-edge pair is
+// still the useful interaction: the first target corner and the newest edge
+// target. Keep that one compact admissible PDB for opening F2L searches.
+let atomicActivePairTable = (~targets, ~actions) => {
+  if targets->Array.length <= 4 {
+    []
+  } else {
+    let leftIndex = 0
+    let rightIndex = targets->Array.length - 1
+    let left = Belt.Array.getUnsafe(targets, leftIndex)
+    let right = Belt.Array.getUnsafe(targets, rightIndex)
+    let distances = coordinateDistances(
+      ~goal=left.goal * 24 + right.goal,
+      ~coordinateCount=24 * 24,
+      ~actions,
+      ~nextCoordinate=(coordinate, transition) => {
+        let leftCoordinate = coordinate / 24
+        let rightCoordinate = coordinate % 24
+        nextTargetCoordinate(leftCoordinate, left, transition) * 24 +
+          nextTargetCoordinate(rightCoordinate, right, transition)
+      },
+    )
+    [{leftIndex, rightIndex, distances}]
+  }
+}
+
 let atomicHeuristicKey = (corners, edges, actions: array<action>) =>
   corners->Array.map(value => value->Int.toString)->Array.join(",") ++
   "|" ++
@@ -299,6 +326,8 @@ let atomicHeuristicTables = (~corners, ~edges, ~actions) => {
         edgeTables,
         jointTables: if targets->Array.length <= 4 {
           atomicJointDistanceTables(~targets, ~actions)
+        } else if actions->Array.length < 18 {
+          atomicActivePairTable(~targets, ~actions)
         } else {
           []
         },

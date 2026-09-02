@@ -346,6 +346,25 @@ function atomicJointDistanceTables(targets, actions) {
   return tables;
 }
 
+function atomicActivePairTable(targets, actions) {
+  if (targets.length <= 4) {
+    return [];
+  }
+  let rightIndex = targets.length - 1 | 0;
+  let left = targets[0];
+  let right = targets[rightIndex];
+  let distances = coordinateDistances((left.goal * 24 | 0) + right.goal | 0, 576, actions, (coordinate, transition) => {
+    let leftCoordinate = coordinate / 24 | 0;
+    let rightCoordinate = coordinate % 24;
+    return (nextTargetCoordinate(leftCoordinate, left, transition) * 24 | 0) + nextTargetCoordinate(rightCoordinate, right, transition) | 0;
+  });
+  return [{
+      leftIndex: 0,
+      rightIndex: rightIndex,
+      distances: distances
+    }];
+}
+
 function atomicHeuristicKey(corners, edges, actions) {
   return corners.map(value => value.toString()).join(",") + "|" + edges.map(value => value.toString()).join(",") + "|" + actions.map(action => MoveTransform.serialize(action.alg)).join(";");
 }
@@ -360,7 +379,9 @@ function atomicHeuristicTables(corners, edges, actions) {
   let targets = atomicCoordinateTargets(corners, edges);
   let tables_cornerTables = match[0];
   let tables_edgeTables = match[1];
-  let tables_jointTables = targets.length <= 4 ? atomicJointDistanceTables(targets, actions) : [];
+  let tables_jointTables = targets.length <= 4 ? atomicJointDistanceTables(targets, actions) : (
+      actions.length < 18 ? atomicActivePairTable(targets, actions) : []
+    );
   let tables$1 = {
     cornerTables: tables_cornerTables,
     edgeTables: tables_edgeTables,
@@ -1270,6 +1291,7 @@ export {
   atomicCoordinateTargets,
   nextTargetCoordinate,
   atomicJointDistanceTables,
+  atomicActivePairTable,
   atomicHeuristicKey,
   atomicHeuristicTables,
   atomicDistanceLowerBound,
