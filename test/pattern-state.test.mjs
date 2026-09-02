@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import {test} from "vitest";
 
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
 import * as MoveParser from "../src/Move/MoveParser.res.mjs";

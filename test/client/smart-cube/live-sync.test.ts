@@ -1,4 +1,4 @@
-import {describe, expect, test} from "bun:test";
+import {describe, expect, test} from "vitest";
 
 import * as FaceletCodec from "../../../src/State/FaceletCodec.res.mjs";
 import * as StateTypes from "../../../src/State/StateTypes.res.mjs";

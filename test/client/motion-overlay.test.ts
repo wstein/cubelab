@@ -1,4 +1,4 @@
-import {describe, expect, test} from "bun:test";
+import {describe, expect, test} from "vitest";
 
 import {cameraMatrices, turnTransform, type MoveStep} from "../../src/client/cube-gl";
 import {

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import {test} from "vitest";
 
 import * as ColorCodec from "../src/State/ColorCodec.res.mjs";
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";

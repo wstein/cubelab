@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import {test} from "vitest";
 
 import * as CfopSolver from "../src/Solver/CfopSolver.res.mjs";
 import * as CfopCases from "../src/Solver/CfopCases.res.mjs";

@@ -1,4 +1,4 @@
-import {describe, expect, test} from "bun:test";
+import {describe, expect, test} from "vitest";
 
 import * as MoveExecutor from "../../src/Move/MoveExecutor.res.mjs";
 import * as StateTypes from "../../src/State/StateTypes.res.mjs";

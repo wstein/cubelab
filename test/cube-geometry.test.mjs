@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import {test} from "vitest";
 
 import * as CubeGeometry from "../src/Render/CubeGeometry.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";

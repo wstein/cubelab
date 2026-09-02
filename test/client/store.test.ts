@@ -1,4 +1,4 @@
-import {describe, expect, test} from "bun:test";
+import {describe, expect, test} from "vitest";
 
 import {createStore, defaultAppState, readHash, writeHash} from "../../src/client/store";
 
