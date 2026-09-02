@@ -49,7 +49,8 @@ let phase1MoveIndices = () => {
 }
 
 // U/D may turn by a quarter; the four side faces may only turn by a half.
-let phase2MoveIndices = () => [0, 1, 2, 4, 7, 9, 10, 11, 13, 16]
+// searchActions orders faces as U, D, R, L, F, B.
+let phase2MoveIndices = () => [0, 1, 2, 3, 4, 5, 7, 10, 13, 16]
 
 type solverError =
   | UnsupportedSize(int)

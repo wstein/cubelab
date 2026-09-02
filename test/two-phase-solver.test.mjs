@@ -79,5 +79,9 @@ test("packed pruning tables store two four-bit distances per Uint8Array byte", (
 
 test("two-phase move domains preserve the G1 subgroup in phase two", () => {
   assert.deepEqual(TwoPhaseSolver.phase1MoveIndices(), Array.from({length: 18}, (_, index) => index));
-  assert.deepEqual(TwoPhaseSolver.phase2MoveIndices(), [0, 1, 2, 4, 7, 9, 10, 11, 13, 16]);
+  assert.deepEqual(TwoPhaseSolver.phase2MoveIndices(), [0, 1, 2, 3, 4, 5, 7, 10, 13, 16]);
+  const tokens = ["U", "U2", "U'", "D", "D2", "D'", "R", "R2", "R'", "L", "L2", "L'", "F", "F2", "F'", "B", "B2", "B'"];
+  for (const index of TwoPhaseSolver.phase2MoveIndices()) {
+    assert.equal(TwoPhaseSolver.isPhase1Solved(apply(tokens[index])), true, tokens[index]);
+  }
 });
