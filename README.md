@@ -117,6 +117,10 @@ CFOP. It plans a complete white-bottom Cross, recognizes and locks four corner-e
 pairs, applies explicit two-look OLL/PLL case libraries, and verifies every phase plus the
 final 54-facelet replay.
 
+The [two-phase solver coordinate foundation](docs/two-phase-solver.md) provides packed
+first-phase pruning tables and direct cubie-permutation transition tables for the G1
+second phase.
+
 Converter, Beginner Academy, CFOP Academy, and Alg Workbench are views in a
 [single-page workspace](docs/workspace.md). The WebGL viewport and tape player stay
 mounted across tab switches, and the selected view is preserved in the URL hash.

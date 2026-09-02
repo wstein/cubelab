@@ -5,11 +5,20 @@ type solution = {alg: alg, moveCount: int}
 
 type phase1Coordinates = {twist: int, flip: int, slice: int}
 type phase2Coordinates = {corners: int, edges: int, slice: int}
+type phase2MovePermutations = {
+  corners: array<array<int>>,
+  edges: array<array<int>>,
+  slice: array<array<int>>,
+}
 type pruningTable
+type phase2MoveTable
 
 @new external createUint8Array: int => pruningTable = "Uint8Array"
 @get_index external getPruningByte: (pruningTable, int) => int = ""
 @set_index external setPruningByte: (pruningTable, int, int) => unit = ""
+@new external createUint16Array: int => phase2MoveTable = "Uint16Array"
+@get_index external getPhase2Move: (phase2MoveTable, int) => int = ""
+@set_index external setPhase2Move: (phase2MoveTable, int, int) => unit = ""
 
 let createPruningTable = entries => {
   let table = createUint8Array((entries + 1) / 2)
@@ -51,6 +60,8 @@ let phase1MoveIndices = () => {
 // U/D may turn by a quarter; the four side faces may only turn by a half.
 // searchActions orders faces as U, D, R, L, F, B.
 let phase2MoveIndices = () => [0, 1, 2, 3, 4, 5, 7, 10, 13, 16]
+let phase2MoveCount = 10
+let phase2MoveTableIndex = (coordinate, move) => coordinate * phase2MoveCount + move
 
 type solverError =
   | UnsupportedSize(int)
@@ -349,6 +360,62 @@ let phase2Transition = (coordinates: phase2Coordinates, moveIndex: int): result<
       }
     }
   }
+
+let phase2MovePermutations = (): phase2MovePermutations => {
+  let moves = phase2MoveIndices()
+  let corners = Array.make(~length=phase2MoveCount, Array.make(~length=8, 0))
+  let edges = Array.make(~length=phase2MoveCount, Array.make(~length=8, 0))
+  let slice = Array.make(~length=phase2MoveCount, Array.make(~length=4, 0))
+  moves->Array.forEachWithIndex((moveIndex, column) =>
+    switch phase2Transition({corners: 0, edges: 0, slice: 0}, moveIndex) {
+    | Ok(next) => {
+        corners[column] = permutationState(next.corners, 8)
+        edges[column] = permutationState(next.edges, 8)
+        slice[column] = permutationState(next.slice, 4)
+      }
+    | Error(_) => ()
+    }
+  )
+  {corners, edges, slice}
+}
+
+let composePermutation = (permutation, move) => {
+  let next = Array.make(~length=permutation->Array.length, 0)
+  for slot in 0 to next->Array.length - 1 {
+    next[slot] = Belt.Array.getUnsafe(permutation, Belt.Array.getUnsafe(move, slot))
+  }
+  next
+}
+
+let buildPhase2PermutationMoveTable = (length, moves) => {
+  let table = createUint16Array(factorial(length) * phase2MoveCount)
+  for coordinate in 0 to factorial(length) - 1 {
+    let permutation = permutationState(coordinate, length)
+    moves->Array.forEachWithIndex((move, column) =>
+      setPhase2Move(
+        table,
+        phase2MoveTableIndex(coordinate, column),
+        permutationCoordinate(composePermutation(permutation, move), length),
+      )
+    )
+  }
+  table
+}
+
+let buildCornerMoveTable = () => {
+  let permutations = phase2MovePermutations()
+  buildPhase2PermutationMoveTable(8, permutations.corners)
+}
+
+let buildEdgeMoveTable = () => {
+  let permutations = phase2MovePermutations()
+  buildPhase2PermutationMoveTable(8, permutations.edges)
+}
+
+let buildSlicePermutationMoveTable = () => {
+  let permutations = phase2MovePermutations()
+  buildPhase2PermutationMoveTable(4, permutations.slice)
+}
 
 let buildTwistMoveTable = () => {
   let table = Array.make(~length=2187, 0)->Array.map(_ => Array.make(~length=18, 0))

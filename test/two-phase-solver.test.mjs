@@ -163,3 +163,19 @@ test("phase-two transitions use only G1-preserving moves", () => {
   assert.equal(state.TAG, "Ok");
   assert.equal(TwoPhaseSolver.isPhase1Solved(state._0), true);
 });
+
+test("phase-two permutation tables agree with direct coordinate transitions", () => {
+  const cornerTable = TwoPhaseSolver.buildCornerMoveTable();
+  const edgeTable = TwoPhaseSolver.buildEdgeMoveTable();
+  const sliceTable = TwoPhaseSolver.buildSlicePermutationMoveTable();
+  const source = {corners: 1_234, edges: 2_469, slice: 17};
+  const direct = TwoPhaseSolver.phase2Transition(source, 13);
+  const column = TwoPhaseSolver.phase2MoveIndices().indexOf(13);
+  assert.ok(cornerTable instanceof Uint16Array);
+  assert.equal(cornerTable.length, 40_320 * 10);
+  assert.equal(edgeTable.length, 40_320 * 10);
+  assert.equal(sliceTable.length, 24 * 10);
+  assert.equal(cornerTable[TwoPhaseSolver.phase2MoveTableIndex(source.corners, column)], direct._0.corners);
+  assert.equal(edgeTable[TwoPhaseSolver.phase2MoveTableIndex(source.edges, column)], direct._0.edges);
+  assert.equal(sliceTable[TwoPhaseSolver.phase2MoveTableIndex(source.slice, column)], direct._0.slice);
+});

@@ -56,6 +56,10 @@ function phase2MoveIndices() {
   ];
 }
 
+function phase2MoveTableIndex(coordinate, move) {
+  return (coordinate * 10 | 0) + move | 0;
+}
+
 function isIdentity(permutation) {
   return permutation.every((piece, slot) => piece === slot);
 }
@@ -493,6 +497,66 @@ function phase2Transition(coordinates, moveIndex) {
   }
 }
 
+function phase2MovePermutations() {
+  let moves = phase2MoveIndices();
+  let corners = Stdlib_Array.make(10, Stdlib_Array.make(8, 0));
+  let edges = Stdlib_Array.make(10, Stdlib_Array.make(8, 0));
+  let slice = Stdlib_Array.make(10, Stdlib_Array.make(4, 0));
+  moves.forEach((moveIndex, column) => {
+    let next = phase2Transition({
+      corners: 0,
+      edges: 0,
+      slice: 0
+    }, moveIndex);
+    if (next.TAG !== "Ok") {
+      return;
+    }
+    let next$1 = next._0;
+    corners[column] = permutationState(next$1.corners, 8);
+    edges[column] = permutationState(next$1.edges, 8);
+    slice[column] = permutationState(next$1.slice, 4);
+  });
+  return {
+    corners: corners,
+    edges: edges,
+    slice: slice
+  };
+}
+
+function composePermutation(permutation, move) {
+  let next = Stdlib_Array.make(permutation.length, 0);
+  for (let slot = 0, slot_finish = next.length; slot < slot_finish; ++slot) {
+    next[slot] = permutation[move[slot]];
+  }
+  return next;
+}
+
+function buildPhase2PermutationMoveTable(length, moves) {
+  let table = new Uint16Array(factorial(length) * 10 | 0);
+  for (let coordinate = 0, coordinate_finish = factorial(length); coordinate < coordinate_finish; ++coordinate) {
+    let permutation = permutationState(coordinate, length);
+    moves.forEach((move, column) => {
+      table[phase2MoveTableIndex(coordinate, column)] = permutationCoordinate(composePermutation(permutation, move), length);
+    });
+  }
+  return table;
+}
+
+function buildCornerMoveTable() {
+  let permutations = phase2MovePermutations();
+  return buildPhase2PermutationMoveTable(8, permutations.corners);
+}
+
+function buildEdgeMoveTable() {
+  let permutations = phase2MovePermutations();
+  return buildPhase2PermutationMoveTable(8, permutations.edges);
+}
+
+function buildSlicePermutationMoveTable() {
+  let permutations = phase2MovePermutations();
+  return buildPhase2PermutationMoveTable(4, permutations.slice);
+}
+
 function buildTwistMoveTable() {
   let table = Stdlib_Array.make(2187, 0).map(param => Stdlib_Array.make(18, 0));
   for (let twist = 0; twist <= 2186; ++twist) {
@@ -708,12 +772,16 @@ function solve(state) {
   }
 }
 
+let phase2MoveCount = 10;
+
 export {
   createPruningTable,
   pruningDistance,
   setPruningDistance,
   phase1MoveIndices,
   phase2MoveIndices,
+  phase2MoveCount,
+  phase2MoveTableIndex,
   isIdentity,
   allZero,
   choose,
@@ -737,6 +805,12 @@ export {
   phase1Transition,
   phase1TransitionRow,
   phase2Transition,
+  phase2MovePermutations,
+  composePermutation,
+  buildPhase2PermutationMoveTable,
+  buildCornerMoveTable,
+  buildEdgeMoveTable,
+  buildSlicePermutationMoveTable,
   buildTwistMoveTable,
   buildFlipMoveTable,
   buildSliceMoveTable,
