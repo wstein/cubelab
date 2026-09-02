@@ -961,6 +961,10 @@ body {
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
+.setup-textarea {
+  min-height: 3.25rem;
+}
+
 .moves-input-label {
   display: block;
   margin: 0.85rem 0 0.45rem;
@@ -1340,6 +1344,7 @@ body {
 
 .academy-action-row {
   display: flex;
+  flex-direction: column;
   align-items: stretch;
   gap: 0.55rem;
 }
@@ -1348,7 +1353,8 @@ body {
   display: grid;
   align-content: center;
   gap: 0.28rem;
-  min-width: min(100%, 20rem);
+  width: min(100%, 42rem);
+  min-width: 0;
   color: var(--text-muted);
   font: 600 0.72rem var(--font-mono);
   letter-spacing: 0.04em;
