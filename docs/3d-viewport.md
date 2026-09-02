@@ -43,7 +43,9 @@ and style changes reuse it through `bufferSubData`.
 
 Rendering is scheduled only after a state, style, camera, visibility, size, or visual
 guide change. There is no perpetual animation loop by default. The **Auto orbit** toggle
-deliberately starts a slow camera loop; disabling it restores zero idle rendering.
+deliberately starts a slow camera loop; disabling it restores zero idle rendering. When
+smart-cube orientation tracking is active, auto orbit is disabled and suppressed to ensure
+the physical device solely drives the object orientation.
 An `IntersectionObserver` suspends both drawing and auto orbit while the viewport is
 off screen, and the Page Visibility API does the same while the document is hidden.
 Animation resumes without accumulating a large time delta. The backing canvas clamps

@@ -563,11 +563,18 @@ test("resets the camera without dropping smart-cube orientation tracking", async
     timestamp: Date.now(),
   }));
   const canvas = page.locator("[data-cube-canvas]");
+  const autoOrbit = page.locator("[data-auto-orbit]");
   await expect(canvas).toHaveAttribute("data-device-orientation", "tracking");
+  await expect(autoOrbit).toBeDisabled();
+  await expect(autoOrbit).toHaveAttribute("aria-pressed", "false");
 
   await page.getByRole("button", {name: "Reset view"}).click();
   await expect(canvas).toHaveAttribute("data-device-orientation", "tracking");
+  await expect(autoOrbit).toBeDisabled();
   await expect.poll(() => page.evaluate(() => window.__refreshCalls)).toBe(1);
+
+  await page.locator("[data-smart-cube-orientation]").click();
+  await expect(autoOrbit).toBeEnabled();
 });
 
 test("ends solve mode and resumes orientation tracking once the timeline completes", async ({page}) => {

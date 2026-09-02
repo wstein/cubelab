@@ -1080,7 +1080,7 @@ export const createCubeViewport = (
     frame = window.requestAnimationFrame(render);
   };
 
-  const canAutoOrbit = () => autoOrbit && visible && !document.hidden && !disposed;
+  const canAutoOrbit = () => autoOrbit && !deviceOrientation && visible && !document.hidden && !disposed;
 
   const stopAutoOrbitFrame = () => {
     if (autoOrbitFrame !== null) window.cancelAnimationFrame(autoOrbitFrame);
@@ -1411,6 +1411,7 @@ export const createCubeViewport = (
       requestRender();
     },
     setAutoOrbit(enabled) {
+      if (deviceOrientation && enabled) enabled = false;
       if (autoOrbit === enabled) return;
       autoOrbit = enabled;
       canvas.dataset.autoOrbitState = enabled ? "on" : "off";

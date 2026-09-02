@@ -2121,7 +2121,10 @@ if (root) {
     if (smartCubeOrientationTracking) {
       autoOrbitButton.setAttribute("aria-pressed", "false");
       autoOrbitButton.classList.remove("active");
+      autoOrbitButton.disabled = true;
       viewport?.setAutoOrbit(false);
+    } else {
+      autoOrbitButton.disabled = !viewport;
     }
     syncSmartCubeTrackedOrientation();
     if (wasTracking && !smartCubeOrientationTracking && smartCubeRotationWait?.baseline) {
@@ -3033,8 +3036,8 @@ if (root) {
   shortcutsHelp.addEventListener("click", () => shortcutsDialog.showModal());
   shortcutsClose.addEventListener("click", () => shortcutsDialog.close());
   autoOrbitButton.addEventListener("click", () => {
+    if (smartCubeOrientationTracking) return;
     const enabled = autoOrbitButton.getAttribute("aria-pressed") !== "true";
-    if (enabled) setSmartCubeOrientationTracking(false);
     autoOrbitButton.setAttribute("aria-pressed", String(enabled));
     autoOrbitButton.classList.toggle("active", enabled);
     viewport?.setAutoOrbit(enabled);
