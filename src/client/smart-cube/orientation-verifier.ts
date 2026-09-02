@@ -15,7 +15,7 @@ export type GyroRotationAssessment = {
 };
 
 export type GyroDeltaFrame = "world" | "local";
-export type DetectedGyroRotation = {axis: "X" | "Y" | "Z"; turns: -1 | 1};
+export type DetectedGyroRotation = { axis: "X" | "Y" | "Z"; turns: -1 | 1 };
 
 const normalizedTurns = (turns: number): number => {
   const normalized = ((turns % 4) + 4) % 4;
@@ -35,7 +35,7 @@ export const assessGyroRotation = (
   let delta = relative;
   // q and -q encode the same pose; select the representation at most 180° from the baseline.
   if (delta.w < 0) {
-    delta = {x: -delta.x, y: -delta.y, z: -delta.z, w: -delta.w};
+    delta = { x: -delta.x, y: -delta.y, z: -delta.z, w: -delta.w };
   }
   const vectorLength = Math.hypot(delta.x, delta.y, delta.z);
   const angle = 2 * Math.atan2(vectorLength, Math.max(0, delta.w));
@@ -79,5 +79,5 @@ export const detectGyroQuarterRotation = (
   //     `[SmartCube Gyro] Detected quarter rotation: ${matched.axis}${matched.turns < 0 ? "'" : ""} (alignment: ${(matched.assessment.axisAlignment * 100).toFixed(1)}%, angle: ${matched.assessment.signedDegrees.toFixed(1)}°)`,
   //   );
   // }
-  return matched ? {axis: matched.axis, turns: matched.turns} : null;
+  return matched ? { axis: matched.axis, turns: matched.turns } : null;
 };
