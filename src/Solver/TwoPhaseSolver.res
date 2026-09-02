@@ -285,6 +285,32 @@ let buildTwistMoveTable = () => {
   table
 }
 
+let buildFlipMoveTable = () => {
+  let table = Array.make(~length=2048, 0)->Array.map(_ => Array.make(~length=18, 0))
+  for flip in 0 to 2047 {
+    for moveIndex in 0 to 17 {
+      switch phase1Transition({twist: 0, flip, slice: 0}, moveIndex) {
+      | Ok(next) => Belt.Array.getUnsafe(table, flip)[moveIndex] = next.flip
+      | Error(_) => ()
+      }
+    }
+  }
+  table
+}
+
+let buildSliceMoveTable = () => {
+  let table = Array.make(~length=495, 0)->Array.map(_ => Array.make(~length=18, 0))
+  for slice in 0 to 494 {
+    for moveIndex in 0 to 17 {
+      switch phase1Transition({twist: 0, flip: 0, slice}, moveIndex) {
+      | Ok(next) => Belt.Array.getUnsafe(table, slice)[moveIndex] = next.slice
+      | Error(_) => ()
+      }
+    }
+  }
+  table
+}
+
 let solvedPieces = (pieces: PieceReducer.pieceState) =>
   isIdentity(pieces.cp) && allZero(pieces.co) && isIdentity(pieces.ep) && allZero(pieces.eo)
 

@@ -122,3 +122,14 @@ test("the twist move table agrees with direct coordinate transitions", () => {
   const direct = TwoPhaseSolver.phase1Transition({twist: 1_264, flip: 0, slice: 0}, 13);
   assert.equal(table[1_264][13], direct._0.twist);
 });
+
+test("flip and slice move tables agree with direct coordinate transitions", () => {
+  const flipTable = TwoPhaseSolver.buildFlipMoveTable();
+  const sliceTable = TwoPhaseSolver.buildSliceMoveTable();
+  assert.equal(flipTable.length, 2_048);
+  assert.equal(sliceTable.length, 495);
+  const source = {twist: 0, flip: 1_337, slice: 271};
+  const direct = TwoPhaseSolver.phase1Transition(source, 13)._0;
+  assert.equal(flipTable[source.flip][13], direct.flip);
+  assert.equal(sliceTable[source.slice][13], direct.slice);
+});

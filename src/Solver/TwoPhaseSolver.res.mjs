@@ -410,6 +410,40 @@ function buildTwistMoveTable() {
   return table;
 }
 
+function buildFlipMoveTable() {
+  let table = Stdlib_Array.make(2048, 0).map(param => Stdlib_Array.make(18, 0));
+  for (let flip = 0; flip <= 2047; ++flip) {
+    for (let moveIndex = 0; moveIndex <= 17; ++moveIndex) {
+      let next = phase1Transition({
+        twist: 0,
+        flip: flip,
+        slice: 0
+      }, moveIndex);
+      if (next.TAG === "Ok") {
+        table[flip][moveIndex] = next._0.flip;
+      }
+    }
+  }
+  return table;
+}
+
+function buildSliceMoveTable() {
+  let table = Stdlib_Array.make(495, 0).map(param => Stdlib_Array.make(18, 0));
+  for (let slice = 0; slice <= 494; ++slice) {
+    for (let moveIndex = 0; moveIndex <= 17; ++moveIndex) {
+      let next = phase1Transition({
+        twist: 0,
+        flip: 0,
+        slice: slice
+      }, moveIndex);
+      if (next.TAG === "Ok") {
+        table[slice][moveIndex] = next._0.slice;
+      }
+    }
+  }
+  return table;
+}
+
 function solvedPieces(pieces) {
   if (isIdentity(pieces.cp) && allZero(pieces.co) && isIdentity(pieces.ep)) {
     return allZero(pieces.eo);
@@ -544,6 +578,8 @@ export {
   phase1Transition,
   phase1TransitionRow,
   buildTwistMoveTable,
+  buildFlipMoveTable,
+  buildSliceMoveTable,
   solvedPieces,
   exactSearch,
   shallowOptimalSearch,
