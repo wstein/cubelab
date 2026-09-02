@@ -106,3 +106,11 @@ test("phase-one transitions match the facelet executor", () => {
   assert.notDeepEqual(TwoPhaseSolver.phase1Coordinates(state)._0, expected);
   assert.deepEqual(actual._0, expected);
 });
+
+test("phase-one transition rows retain every move in canonical order", () => {
+  const source = {twist: 1_264, flip: 1_337, slice: 271};
+  const row = TwoPhaseSolver.phase1TransitionRow(source);
+  assert.equal(row.TAG, "Ok");
+  assert.equal(row._0.length, 18);
+  assert.deepEqual(row._0[13], TwoPhaseSolver.phase1Transition(source, 13)._0);
+});

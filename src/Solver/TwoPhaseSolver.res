@@ -254,6 +254,24 @@ let phase1Transition = (coordinates: phase1Coordinates, moveIndex: int): result<
     }
   }
 
+let phase1TransitionRow = (coordinates: phase1Coordinates): result<
+  array<phase1Coordinates>,
+  solverError,
+> => {
+  let row = Array.make(~length=18, {twist: 0, flip: 0, slice: 0})
+  let failure = ref(None)
+  for moveIndex in 0 to 17 {
+    switch phase1Transition(coordinates, moveIndex) {
+    | Ok(next) => row[moveIndex] = next
+    | Error(error) => failure := Some(error)
+    }
+  }
+  switch failure.contents {
+  | Some(error) => Error(error)
+  | None => Ok(row)
+  }
+}
+
 let solvedPieces = (pieces: PieceReducer.pieceState) =>
   isIdentity(pieces.cp) && allZero(pieces.co) && isIdentity(pieces.ep) && allZero(pieces.eo)
 

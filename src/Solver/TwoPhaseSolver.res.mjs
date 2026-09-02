@@ -364,6 +364,35 @@ function phase1Transition(coordinates, moveIndex) {
   }
 }
 
+function phase1TransitionRow(coordinates) {
+  let row = Stdlib_Array.make(18, {
+    twist: 0,
+    flip: 0,
+    slice: 0
+  });
+  let failure;
+  for (let moveIndex = 0; moveIndex <= 17; ++moveIndex) {
+    let next = phase1Transition(coordinates, moveIndex);
+    if (next.TAG === "Ok") {
+      row[moveIndex] = next._0;
+    } else {
+      failure = next._0;
+    }
+  }
+  let error = failure;
+  if (error !== undefined) {
+    return {
+      TAG: "Error",
+      _0: error
+    };
+  } else {
+    return {
+      TAG: "Ok",
+      _0: row
+    };
+  }
+}
+
 function solvedPieces(pieces) {
   if (isIdentity(pieces.cp) && allZero(pieces.co) && isIdentity(pieces.ep)) {
     return allZero(pieces.eo);
@@ -496,6 +525,7 @@ export {
   outerRange,
   searchActions,
   phase1Transition,
+  phase1TransitionRow,
   solvedPieces,
   exactSearch,
   shallowOptimalSearch,
