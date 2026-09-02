@@ -8,7 +8,11 @@ const cards = [
     title: "Compact Facelets",
     provenance: "Kociemba URFDLB row-major convention",
   },
-  {key: "net", title: "Standard 2D Net", provenance: "Canonical U / L-F-R-B / D cross layout"},
+  {
+    key: "net",
+    title: "Standard 2D Net",
+    provenance: "Canonical U / L-F-R-B / D cross layout",
+  },
   {
     key: "colours",
     title: "Compact Colours",
@@ -52,20 +56,44 @@ const cards = [
           <span class="badge-tag">2×2×2 — 5×5×5</span>
           <div>
             <h1 class="title-gradient">CubeLab</h1>
-            <p class="subtitle">Strict cube-state conversion, algorithm workbench, and interactive solvers.</p>
+            <p class="subtitle">
+              Strict cube-state conversion, algorithm workbench, and interactive
+              solvers.
+            </p>
           </div>
         </div>
         <nav class="workspace-tabs" aria-label="CubeLab workspace">
-          <button type="button" class="workspace-tab active" data-workspace-tab="converter" aria-selected="true">
+          <button
+            type="button"
+            class="workspace-tab active"
+            data-workspace-tab="converter"
+            aria-selected="true"
+          >
             🔄 Converter
           </button>
-          <button type="button" class="workspace-tab" data-workspace-tab="academy" aria-label="Academy" aria-selected="false">
+          <button
+            type="button"
+            class="workspace-tab"
+            data-workspace-tab="academy"
+            aria-label="Academy"
+            aria-selected="false"
+          >
             🎓 Academy
           </button>
-          <button type="button" class="workspace-tab" data-workspace-tab="workbench" aria-selected="false">
+          <button
+            type="button"
+            class="workspace-tab"
+            data-workspace-tab="workbench"
+            aria-selected="false"
+          >
             ⚡ Alg Workbench
           </button>
-          <button type="button" class="workspace-tab" data-workspace-tab="patterns" aria-selected="false">
+          <button
+            type="button"
+            class="workspace-tab"
+            data-workspace-tab="patterns"
+            aria-selected="false"
+          >
             🧩 Pattern Catalog
           </button>
         </nav>
@@ -73,539 +101,896 @@ const cards = [
 
       <section class="studio">
         <div class="studio-controls">
-      <section class="toolbar compact-toolbar" aria-label="Converter settings">
-        <div class="toolbar-group">
-          <span class="panel-label">Puzzle size</span>
-          <div class="segmented-control" data-size-control>
-            {[2, 3, 4, 5].map((size) => (
+          <section
+            class="toolbar compact-toolbar"
+            aria-label="Converter settings"
+          >
+            <div class="toolbar-group">
+              <span class="panel-label">Puzzle size</span>
+              <div class="segmented-control" data-size-control>
+                {
+                  [2, 3, 4, 5].map((size) => (
+                    <button
+                      type="button"
+                      class:list={["segmented-btn", { active: size === 3 }]}
+                      data-size={size}
+                      aria-pressed={size === 3 ? "true" : "false"}
+                    >
+                      {size}×{size}×{size}
+                    </button>
+                  ))
+                }
+              </div>
+            </div>
+
+            <div class="toolbar-group">
+              <label class="panel-label" for="scheme">Colour scheme</label>
+              <select id="scheme" class="select-control" data-scheme>
+                <option value="Western">Western (BOY)</option>
+                <option value="Japanese">Japanese</option>
+                <option value="Custom">Custom</option>
+              </select>
+              <label class="visually-hidden" for="custom-scheme"
+                >Custom mapping in U,L,F,R,B,D order</label
+              >
+              <input
+                id="custom-scheme"
+                class="select-control custom-scheme-input"
+                data-custom-scheme
+                value="WOGRBY"
+                maxlength="6"
+                spellcheck="false"
+                aria-label="Custom mapping in U,L,F,R,B,D order"
+                hidden
+              />
+            </div>
+
+            <div class="toolbar-group" data-lowercase-controls hidden>
+              <span class="panel-label">Lowercase moves</span>
+              <div
+                class="segmented-control"
+                aria-label="Lowercase move interpretation"
+              >
+                <button
+                  type="button"
+                  class="segmented-btn active"
+                  data-lowercase-mode="Wide"
+                  aria-pressed="true"
+                >
+                  Wide (r = Rw)
+                </button>
+                <button
+                  type="button"
+                  class="segmented-btn"
+                  data-lowercase-mode="InnerSlice"
+                  aria-pressed="false"
+                >
+                  Inner slice (r = 2R)
+                </button>
+              </div>
+            </div>
+
+            <div class="toolbar-group" data-notation-controls hidden>
+              <span class="panel-label">Layer syntax</span>
+              <div
+                class="segmented-control"
+                aria-label="Numbered layer notation"
+              >
+                <button
+                  type="button"
+                  class="segmented-btn active"
+                  data-notation-dialect="Modern"
+                  aria-pressed="true"
+                >
+                  SiGN prefix (2R)
+                </button>
+                <button
+                  type="button"
+                  class="segmented-btn"
+                  data-notation-dialect="Ruwix"
+                  aria-pressed="false"
+                >
+                  Ruwix suffix (R₂)
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section class="input-panel">
+            <div class="input-header">
+              <label class="panel-label" for="cube-input">Setup (state)</label>
+              <div class="input-header-actions">
+                <span class="sniffer-badge" data-status aria-live="polite"
+                  >Solved default</span
+                >
+                <button
+                  type="button"
+                  class="copy-btn input-orbit-copy"
+                  data-copy="orbit64"
+                  data-copy-orbit64>Copy Orbit64</button
+                >
+              </div>
+            </div>
+            <textarea
+              id="cube-input"
+              class="cube-textarea setup-textarea"
+              data-input
+              rows="1"
+              wrap="off"
+              placeholder="Paste compact facelets, compact colours, a canonical net, or an Orbit64 state. Smart-cube Sync loads this field. Leave blank for solved."
+              spellcheck="false"></textarea>
+            <label class="moves-input-label" for="cube-moves">Moves</label>
+            <textarea
+              id="cube-moves"
+              class="cube-textarea moves-textarea"
+              data-moves-input
+              placeholder="Optional moves to apply from setup, e.g. R U R' U'"
+              spellcheck="false"></textarea>
+            <p class="input-help">
+              Setup accepts a cube state or an algorithm; Sync state replaces it
+              from the connected smart cube. Moves are replayed from whatever
+              Setup resolves to, so an algorithm in Setup plus Moves plays back
+              as one continuous timeline from solved. Leave Moves empty to use
+              Setup alone.
+            </p>
+            <div
+              class="transform-row"
+              data-workspace-panel="workbench"
+              aria-label="Algorithm transformations"
+              hidden
+            >
+              <span class="transform-label">Transforms</span>
               <button
                 type="button"
-                class:list={["segmented-btn", {active: size === 3}]}
-                data-size={size}
-                aria-pressed={size === 3 ? "true" : "false"}
+                class="transform-btn"
+                data-alg-transform="invert"
+                disabled>↶ Invert</button
               >
-                {size}×{size}×{size}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div class="toolbar-group">
-          <label class="panel-label" for="scheme">Colour scheme</label>
-          <select id="scheme" class="select-control" data-scheme>
-            <option value="Western">Western (BOY)</option>
-            <option value="Japanese">Japanese</option>
-            <option value="Custom">Custom</option>
-          </select>
-          <label class="visually-hidden" for="custom-scheme">Custom mapping in U,L,F,R,B,D order</label>
-          <input
-            id="custom-scheme"
-            class="select-control custom-scheme-input"
-            data-custom-scheme
-            value="WOGRBY"
-            maxlength="6"
-            spellcheck="false"
-            aria-label="Custom mapping in U,L,F,R,B,D order"
-            hidden
-          />
-        </div>
-
-        <div class="toolbar-group" data-lowercase-controls hidden>
-          <span class="panel-label">Lowercase moves</span>
-          <div class="segmented-control" aria-label="Lowercase move interpretation">
-            <button
-              type="button"
-              class="segmented-btn active"
-              data-lowercase-mode="Wide"
-              aria-pressed="true"
+              <button
+                type="button"
+                class="transform-btn"
+                data-alg-transform="simplify"
+                disabled>⚡ Simplify</button
+              >
+              <button
+                type="button"
+                class="transform-btn"
+                data-alg-transform="mirror-lr"
+                disabled>↔ Mirror L/R</button
+              >
+              <button
+                type="button"
+                class="transform-btn"
+                data-alg-transform="mirror-fb"
+                disabled>↕ Mirror F/B</button
+              >
+              <button
+                type="button"
+                class="transform-btn"
+                data-alg-transform="mirror-ud"
+                disabled>⇅ Mirror U/D</button
+              >
+              <button
+                type="button"
+                class="transform-btn"
+                data-alg-transform="rotate-x"
+                disabled>↻ Rotate x</button
+              >
+              <button
+                type="button"
+                class="transform-btn"
+                data-alg-transform="rotate-y"
+                disabled>↻ Rotate y</button
+              >
+              <button
+                type="button"
+                class="transform-btn"
+                data-alg-transform="rotate-z"
+                disabled>↻ Rotate z</button
+              >
+            </div>
+            <details
+              class="niss-panel"
+              data-niss-panel
+              data-workspace-panel="workbench"
+              hidden
             >
-              Wide (r = Rw)
-            </button>
-            <button
-              type="button"
-              class="segmented-btn"
-              data-lowercase-mode="InnerSlice"
-              aria-pressed="false"
-            >
-              Inner slice (r = 2R)
-            </button>
-          </div>
-        </div>
-
-        <div class="toolbar-group" data-notation-controls hidden>
-          <span class="panel-label">Layer syntax</span>
-          <div class="segmented-control" aria-label="Numbered layer notation">
-            <button
-              type="button"
-              class="segmented-btn active"
-              data-notation-dialect="Modern"
-              aria-pressed="true"
-            >
-              SiGN prefix (2R)
-            </button>
-            <button
-              type="button"
-              class="segmented-btn"
-              data-notation-dialect="Ruwix"
-              aria-pressed="false"
-            >
-              Ruwix suffix (R₂)
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section class="input-panel">
-        <div class="input-header">
-          <label class="panel-label" for="cube-input">Setup (state)</label>
-          <div class="input-header-actions">
-            <span class="sniffer-badge" data-status aria-live="polite">Solved default</span>
-            <button
-              type="button"
-              class="copy-btn input-orbit-copy"
-              data-copy="orbit64"
-              data-copy-orbit64
-            >Copy Orbit64</button>
-          </div>
-        </div>
-        <textarea
-          id="cube-input"
-          class="cube-textarea setup-textarea"
-          data-input
-          rows="1"
-          wrap="off"
-          placeholder="Paste compact facelets, compact colours, a canonical net, or an Orbit64 state. Smart-cube Sync loads this field. Leave blank for solved."
-          spellcheck="false"
-        ></textarea>
-        <label class="moves-input-label" for="cube-moves">Moves</label>
-        <textarea
-          id="cube-moves"
-          class="cube-textarea moves-textarea"
-          data-moves-input
-          placeholder="Optional moves to apply from setup, e.g. R U R' U'"
-          spellcheck="false"
-        ></textarea>
-        <p class="input-help">
-          Setup accepts a cube state or an algorithm; Sync state replaces it from the connected smart
-          cube. Moves are replayed from whatever Setup resolves to, so an algorithm in Setup plus Moves
-          plays back as one continuous timeline from solved. Leave Moves empty to use Setup alone.
-        </p>
-        <div class="transform-row" data-workspace-panel="workbench" aria-label="Algorithm transformations" hidden>
-          <span class="transform-label">Transforms</span>
-          <button type="button" class="transform-btn" data-alg-transform="invert" disabled>↶ Invert</button>
-          <button type="button" class="transform-btn" data-alg-transform="simplify" disabled>⚡ Simplify</button>
-          <button type="button" class="transform-btn" data-alg-transform="mirror-lr" disabled>↔ Mirror L/R</button>
-          <button type="button" class="transform-btn" data-alg-transform="mirror-fb" disabled>↕ Mirror F/B</button>
-          <button type="button" class="transform-btn" data-alg-transform="mirror-ud" disabled>⇅ Mirror U/D</button>
-          <button type="button" class="transform-btn" data-alg-transform="rotate-x" disabled>↻ Rotate x</button>
-          <button type="button" class="transform-btn" data-alg-transform="rotate-y" disabled>↻ Rotate y</button>
-          <button type="button" class="transform-btn" data-alg-transform="rotate-z" disabled>↻ Rotate z</button>
-        </div>
-        <details class="niss-panel" data-niss-panel data-workspace-panel="workbench" hidden>
-          <summary>NISS helper (3×3 FMC)</summary>
-          <p class="niss-help">
-            Record normal-side moves as <code>N</code> and inverse-side moves as
-            <code>I</code>. CubeLab constructs <code>N · I⁻¹</code> and accepts it only
-            when replay proves that it solves the current scramble.
-          </p>
-          <div class="niss-inverse-row">
-            <span class="niss-field-label">Inverse scramble</span>
-            <code class="niss-code" data-niss-inverse>—</code>
-            <button type="button" class="transform-btn" data-niss-use-inverse disabled>
-              Use inverse
-            </button>
-          </div>
-          <div class="niss-fields">
-            <label>
-              <span class="niss-field-label">Normal-side moves (N)</span>
-              <textarea class="niss-textarea" data-niss-normal rows="2" spellcheck="false"></textarea>
-            </label>
-            <label>
-              <span class="niss-field-label">Inverse-side moves (I)</span>
-              <textarea class="niss-textarea" data-niss-inverse-moves rows="2" spellcheck="false"></textarea>
-            </label>
-          </div>
-          <div class="niss-actions">
-            <button type="button" class="transform-btn" data-niss-verify disabled>
-              Recombine and verify
-            </button>
-            <button type="button" class="transform-btn" data-niss-load disabled>
-              Load verified solution
-            </button>
-          </div>
-          <output class="niss-result" data-niss-result aria-live="polite">
-            Enter both sides to verify a candidate solution.
-          </output>
-        </details>
-        <p class="input-help">
-          Lowercase moves use modern SiGN wide turns by default (<code>r = Rw</code>).
-          Use <code>2R</code> for a portable single inner-layer turn. Unicode Ruwix
-          subscripts such as <code>R₂'</code> are recognized directly; ambiguous plaintext
-          such as <code>R2'</code> requires Ruwix suffix mode.
-          Practice scramble is quick-load testing only, not official WCA scramble data.
-        </p>
-        <div class="compatibility-strip" data-compatibility hidden>
-          <span class="compatibility-label">Source compatibility</span>
-          <div class="compatibility-badges" aria-label="Notation source compatibility">
-            <span class="compatibility-pill" data-compatibility-profile="wca" tabindex="0">WCA tokens</span>
-            <span class="compatibility-pill" data-compatibility-profile="signLgn" tabindex="0">SiGN / LGN</span>
-            <span class="compatibility-pill" data-compatibility-profile="cubingJs" tabindex="0">cubing.js / Twizzle</span>
-            <span class="compatibility-pill" data-compatibility-profile="speedsolving" tabindex="0">SpeedSolving Wiki</span>
-            <span class="compatibility-pill" data-compatibility-profile="ruwix" tabindex="0">Ruwix Advanced</span>
-          </div>
-        </div>
-        <div class="preset-row" aria-label="Example algorithms">
-          <span class="preset-label">Quick load</span>
-          <button type="button" class="preset-chip" data-preset="">Solved</button>
-          <button
-            type="button"
-            class="preset-chip"
-            data-preset="M2 E2 S2"
-            data-preset-size="3"
-            title="Checkerboard (Pons Asinorum) · Alternating 3x3 dual-color grid"
-          >🏁 Checkerboard</button>
-          <button
-            type="button"
-            class="preset-chip"
-            data-preset="((M' U)*4 x y (M' U)*4 x y (M' U)*4)"
-            data-preset-size="3"
-            title="Superflip · 20-move maximum distance antipode (all 12 edges flipped in place)"
-          >🌌 Superflip</button>
-          <button
-            type="button"
-            class="preset-chip"
-            data-preset="F L F U' R U F2 L2 U' L' B D' B' L2 U"
-            data-preset-size="3"
-            title="Cube in a Cube · Embedded 2x2 miniature sub-cube inside 3x3"
-          >🎲 Cube in Cube</button>
-          <button
-            type="button"
-            class="preset-chip"
-            data-preset="U D' R L' F B' U D'"
-            data-preset-size="3"
-            title="Six Spots (Center Dots) · Swaps all 6 face centers"
-          >🎯 Six Spots</button>
-          <button
-            type="button"
-            class="preset-chip"
-            data-preset="L U B' U' R L' B R' F B' D R D' F'"
-            data-preset-size="3"
-            title="Anaconda · Continuous winding colored ribbon across all faces"
-          >🐍 Anaconda</button>
-          <button
-            type="button"
-            class="preset-chip"
-            data-preset="R U R' U' R' F R2 U' R' U' R U R' F'"
-            data-preset-size="3"
-            title="T-Perm · Corner and edge speedcubing transposition (PLL)"
-          >🔀 T-Perm</button>
-          <button
-            type="button"
-            class="preset-chip"
-            data-preset="R U R' F' R U R' U' R' F R2 U' R'"
-            data-preset-size="3"
-            title="Jb-Perm · Adjacent corner-edge block swap (PLL)"
-          >📐 Jb-Perm</button>
-          <button
-            type="button"
-            class="preset-chip"
-            data-preset="M2 U M2 U2 M2 U M2"
-            data-preset-size="3"
-            title="H-Perm · Opposite edge 4-swap (PLL)"
-          >🎛️ H-Perm</button>
-          <button
-            type="button"
-            class="preset-chip"
-            data-preset="(R U R' U')6"
-            data-preset-size="3"
-            title="Sexy Move x6 · Commutator order-6 cycle returning to solved"
-          >🔁 Sexy ×6</button>
-          <button
-            type="button"
-            class="preset-chip"
-            data-preset="(R' F R F')6"
-            data-preset-size="3"
-            title="Sledgehammer x6 · Orientation commutator order-6 cycle"
-          >🔨 Sledge ×6</button>
-          <button
-            type="button"
-            class="preset-chip practice"
-            data-practice-scramble
-            title="Random-turn practice sequence; not an official WCA scramble"
-          >🎲 Practice scramble</button>
-        </div>
-        <div class="error-banner" data-error role="alert" hidden></div>
-      </section>
-
-      <section class="academy-panel" data-workspace-panel="academy" aria-labelledby="academy-title" hidden>
-        <header class="academy-workspace-header">
-          <div class="academy-workspace-title">
-            <span class="panel-label">Guided, replay-verified solving</span>
-            <h2 id="academy-title">Academy</h2>
-          </div>
-          <div class="academy-action-row">
-            <label class="academy-target-input">
-              <span>Target pattern</span>
-              <input
-                type="text"
-                data-academy-target
-                placeholder="Solved (default) · paste facelets, Orbit64, or pattern moves"
-                spellcheck="false"
-              />
-            </label>
-            <div class="academy-method-switch" role="group" aria-label="Academy level">
-              <button type="button" class="academy-method active" data-academy-method="beginner" aria-pressed="true">
-                <strong>🐣 Beginner LBL</strong><span>7 phases</span>
-              </button>
-              <button type="button" class="academy-method" data-academy-method="advancedLbl" aria-pressed="false">
-                <strong>⚡ Advanced LBL</strong><span>7 optimized phases</span>
-              </button>
-              <button type="button" class="academy-method" data-academy-method="beginnerCfop" aria-pressed="false">
-                <strong>🚀 Beginner CFOP</strong><span>Pair-first · 2-look LL</span>
-              </button>
-              <button type="button" class="academy-method" data-academy-method="fullCfop" aria-pressed="false">
-                <strong>🏆 Full CFOP</strong><span>57 OLL + 21 PLL</span>
-              </button>
-              <button type="button" class="academy-method" data-academy-method="advancedCfop" aria-pressed="false">
-                <strong>🚀 Advanced CFOP</strong><span>Ranked Cross + F2L</span>
-              </button>
-              <button type="button" class="academy-method" data-academy-method="petrus" aria-pressed="false">
-                <strong>🧩 Classical Petrus</strong><span>7 block-building phases</span>
-              </button>
-              <button type="button" class="academy-method" data-academy-method="enhancedPetrus" aria-pressed="false">
-                <strong>🏆 Enhanced Petrus</strong><span>5 phases · COLL/EPLL</span>
-              </button>
-            </div>
-            <button type="button" class="academy-solve-btn academy-shared-action" data-academy-solve disabled>
-              Generate verified solution
-            </button>
-          </div>
-        </header>
-        <div class="academy-comparison" data-academy-comparison aria-live="polite" hidden></div>
-
-        <div data-academy-method-panel="beginner">
-          <header class="feature-header academy-method-header">
-            <div>
-              <span class="panel-label">Seven-step Layer-by-Layer method</span>
-              <h3>Beginner Academy</h3>
-            </div>
-          </header>
-          <p class="academy-intro">
-            Build piece intuition through seven approachable stages. The solver verifies every
-            phase goal and loads the exact result into the persistent tape player.
-          </p>
-          <div class="academy-status" data-beginner-status aria-live="polite">Enter a valid 3×3 state to begin.</div>
-          <div class="academy-current" data-beginner-current hidden></div>
-          <div class="academy-phases" data-beginner-phases></div>
-          <div class="academy-solution-actions">
-            <button type="button" class="transform-btn" data-beginner-copy disabled>Copy commented solution</button>
-          </div>
-          <pre class="academy-solution" data-beginner-solution hidden></pre>
-        </div>
-
-        <div data-academy-method-panel="advancedLbl" hidden>
-          <header class="feature-header academy-method-header">
-            <div>
-              <span class="panel-label">Optimized seven-phase Layer-by-Layer bridge</span>
-              <h3>Advanced LBL Academy</h3>
-            </div>
-          </header>
-          <p class="academy-intro">
-            Keep the familiar seven-stage progression while replacing repetitive move spam
-            with a direct bottom Cross, optimized one-shot corner and middle-edge insertions,
-            and recognized two-look OLL and PLL cases.
-          </p>
-          <div class="academy-status" data-advanced-lbl-status aria-live="polite">Enter a valid 3×3 state to begin.</div>
-          <div class="academy-current" data-advanced-lbl-current hidden></div>
-          <div class="academy-phases" data-advanced-lbl-phases></div>
-          <div class="academy-solution-actions">
-            <button type="button" class="transform-btn" data-advanced-lbl-copy disabled>Copy commented solution</button>
-          </div>
-          <pre class="academy-solution" data-advanced-lbl-solution hidden></pre>
-        </div>
-
-        <div data-academy-method-panel="beginnerCfop" hidden>
-          <header class="feature-header academy-method-header">
-            <div>
-              <span class="panel-label">Pair-first CFOP with a compact algorithm set</span>
-              <h3>Beginner CFOP Academy</h3>
-            </div>
-          </header>
-          <p class="academy-intro">
-            Learn a direct white-bottom Cross and four corner-edge pairs, then finish with
-            memory-friendly two-look OLL and PLL. Every phase is replay-verified.
-          </p>
-          <div class="academy-status" data-beginner-cfop-status aria-live="polite">Enter a valid 3×3 state to begin.</div>
-          <div class="academy-current" data-beginner-cfop-current hidden></div>
-          <div class="academy-phases" data-beginner-cfop-phases></div>
-          <div class="academy-solution-actions">
-            <button type="button" class="transform-btn" data-beginner-cfop-copy disabled>Copy commented CFOP solution</button>
-          </div>
-          <pre class="academy-solution" data-beginner-cfop-solution hidden></pre>
-        </div>
-
-        <div data-academy-method-panel="fullCfop" hidden>
-          <header class="feature-header academy-method-header">
-            <div>
-              <span class="panel-label">Pair-first, one-look last layer</span>
-              <h3>Full CFOP Academy</h3>
-            </div>
-          </header>
-          <p class="academy-intro">
-            Plan a direct white-bottom Cross, solve four recognized corner-edge pairs while
-            preserving completed slots, then recognize one of all 57 OLL and 21 PLL cases.
-            The full-CFOP benchmark is ≤60 physical moves; the measured, replay-verified result
-            is reported without promising the target in advance.
-          </p>
-          <div class="academy-status" data-full-cfop-status aria-live="polite">Enter a valid 3×3 state to begin.</div>
-          <div class="academy-current" data-full-cfop-current hidden></div>
-          <div class="academy-phases" data-full-cfop-phases></div>
-          <div class="academy-solution-actions">
-            <button type="button" class="transform-btn" data-full-cfop-copy disabled>Copy commented CFOP solution</button>
-          </div>
-          <pre class="academy-solution" data-full-cfop-solution hidden></pre>
-        </div>
-
-        <div data-academy-method-panel="advancedCfop" hidden>
-          <header class="feature-header academy-method-header">
-            <div>
-              <span class="panel-label">Candidate-ranked competition planning</span>
-              <h3>Advanced CFOP Academy</h3>
-            </div>
-          </header>
-          <p class="academy-intro">
-            Use the complete 57-case OLL and 21-case PLL libraries with multi-candidate Cross
-            planning and stronger F2L continuation ranking. The solver reports the measured,
-            replay-verified move count without promising a target in advance.
-          </p>
-          <div class="academy-status" data-advanced-cfop-status aria-live="polite">Enter a valid 3×3 state to begin.</div>
-          <div class="academy-current" data-advanced-cfop-current hidden></div>
-          <div class="academy-phases" data-advanced-cfop-phases></div>
-          <div class="academy-solution-actions">
-            <button type="button" class="transform-btn" data-advanced-cfop-copy disabled>Copy commented CFOP solution</button>
-          </div>
-          <pre class="academy-solution" data-advanced-cfop-solution hidden></pre>
-        </div>
-
-        <div data-academy-method-panel="petrus" hidden>
-          <header class="feature-header academy-method-header">
-            <div>
-              <span class="panel-label">Connected blocks, edge orientation, two-generator finish</span>
-              <h3>Classical Petrus Academy</h3>
-            </div>
-          </header>
-          <p class="academy-intro">
-            Build a DBL 2×2×2 block, expand it into a 2×2×3 left slab, orient every bad edge,
-            and finish F2L using only physical R and U turns. The last layer is taught as
-            separate OCLL, CPLL, and EPLL phases, with every boundary replay-verified.
-          </p>
-          <div class="academy-status" data-petrus-status aria-live="polite">Enter a valid 3×3 state to begin.</div>
-          <div class="academy-current" data-petrus-current hidden></div>
-          <div class="academy-phases" data-petrus-phases></div>
-          <div class="academy-solution-actions">
-            <button type="button" class="transform-btn" data-petrus-copy disabled>Copy commented Petrus solution</button>
-          </div>
-          <pre class="academy-solution" data-petrus-solution hidden></pre>
-        </div>
-
-        <div data-academy-method-panel="enhancedPetrus" hidden>
-          <header class="feature-header academy-method-header">
-            <div>
-              <span class="panel-label">Modern Petrus with an EO-preserving last-layer finish</span>
-              <h3>Enhanced Petrus Academy</h3>
-            </div>
-          </header>
-          <p class="academy-intro">
-            Keep the same block-building and bad-edge foundation, then combine last-layer
-            corner orientation and permutation with a recognized 40-case COLL algorithm before
-            the final EPLL. The measured move count is reported from exact replay rather than promised.
-          </p>
-          <div class="academy-status" data-enhanced-petrus-status aria-live="polite">Enter a valid 3×3 state to begin.</div>
-          <div class="academy-current" data-enhanced-petrus-current hidden></div>
-          <div class="academy-phases" data-enhanced-petrus-phases></div>
-          <div class="academy-solution-actions">
-            <button type="button" class="transform-btn" data-enhanced-petrus-copy disabled>Copy commented Enhanced Petrus solution</button>
-          </div>
-          <pre class="academy-solution" data-enhanced-petrus-solution hidden></pre>
-        </div>
-
-      </section>
-
-      <section class="outputs-grid" data-workspace-panel="converter" aria-label="Converted state formats">
-        {cards.map(({key, title, provenance, sizes}) => (
-          <article class="output-card" data-output-card={key} data-sizes={sizes}>
-            <header class="card-header">
-              <h2 class="card-title" data-title={key}>{title}</h2>
-              <button type="button" class="copy-btn" data-copy={key}>Copy</button>
-            </header>
-            <div class="card-body">
-              <pre class="code-display"><code data-output={key}>—</code></pre>
-              <p class="provenance-tag">{provenance}</p>
-            </div>
-          </article>
-        ))}
-      </section>
-
-      <section class="academy-panel patterns-panel" data-workspace-panel="patterns" aria-labelledby="patterns-title" hidden>
-        <header class="academy-workspace-header">
-          <div class="academy-workspace-title">
-            <span class="panel-label">230 geometric constructions · 2×2–5×5</span>
-            <h2 id="patterns-title">Pattern Catalog</h2>
-          </div>
-        </header>
-        <details class="pattern-library" data-pattern-library>
-          <summary>
-            <span>✨ Pattern library</span>
-            <small>230 designs · 2×2–5×5</small>
-          </summary>
-          <div class="pattern-library-body">
-            <label class="pattern-search-label">
-              <span class="visually-hidden">Search patterns</span>
-              <input type="search" placeholder="Search this cube size…" data-pattern-search />
-            </label>
-            <select data-pattern-select aria-label="Known patterns"></select>
-            <label class="pattern-extremal-toggle">
-              <input type="checkbox" data-pattern-extremal-filter />
-              🏆 Mathematical antipodes &amp; extremal states only
-            </label>
-            <div class="pattern-detail" data-pattern-detail>
-              <strong data-pattern-name></strong>
-              <span data-pattern-meta></span>
-              <code data-pattern-construction></code>
-              <a class="pattern-extremal-badge" data-pattern-extremal-badge target="_blank" rel="noreferrer" hidden></a>
-              <div class="pattern-actions">
-                <button type="button" class="transform-btn" data-pattern-load>Load pattern</button>
-                <a data-pattern-source target="_blank" rel="noreferrer">View source</a>
+              <summary>NISS helper (3×3 FMC)</summary>
+              <p class="niss-help">
+                Record normal-side moves as <code>N</code> and inverse-side moves
+                as
+                <code>I</code>. CubeLab constructs <code>N · I⁻¹</code> and accepts
+                it only when replay proves that it solves the current scramble.
+              </p>
+              <div class="niss-inverse-row">
+                <span class="niss-field-label">Inverse scramble</span>
+                <code class="niss-code" data-niss-inverse>—</code>
+                <button
+                  type="button"
+                  class="transform-btn"
+                  data-niss-use-inverse
+                  disabled
+                >
+                  Use inverse
+                </button>
               </div>
-              <div class="pattern-preview" data-pattern-preview aria-label="Selected pattern preview"></div>
+              <div class="niss-fields">
+                <label>
+                  <span class="niss-field-label">Normal-side moves (N)</span>
+                  <textarea
+                    class="niss-textarea"
+                    data-niss-normal
+                    rows="2"
+                    spellcheck="false"></textarea>
+                </label>
+                <label>
+                  <span class="niss-field-label">Inverse-side moves (I)</span>
+                  <textarea
+                    class="niss-textarea"
+                    data-niss-inverse-moves
+                    rows="2"
+                    spellcheck="false"></textarea>
+                </label>
+              </div>
+              <div class="niss-actions">
+                <button
+                  type="button"
+                  class="transform-btn"
+                  data-niss-verify
+                  disabled
+                >
+                  Recombine and verify
+                </button>
+                <button
+                  type="button"
+                  class="transform-btn"
+                  data-niss-load
+                  disabled
+                >
+                  Load verified solution
+                </button>
+              </div>
+              <output class="niss-result" data-niss-result aria-live="polite">
+                Enter both sides to verify a candidate solution.
+              </output>
+            </details>
+            <p class="input-help">
+              Lowercase moves use modern SiGN wide turns by default (<code
+                >r = Rw</code
+              >). Use <code>2R</code> for a portable single inner-layer turn. Unicode
+              Ruwix subscripts such as <code>R₂'</code> are recognized directly; ambiguous
+              plaintext such as <code>R2'</code> requires Ruwix suffix mode. Practice
+              scramble is quick-load testing only, not official WCA scramble data.
+            </p>
+            <div class="compatibility-strip" data-compatibility hidden>
+              <span class="compatibility-label">Source compatibility</span>
+              <div
+                class="compatibility-badges"
+                aria-label="Notation source compatibility"
+              >
+                <span
+                  class="compatibility-pill"
+                  data-compatibility-profile="wca"
+                  tabindex="0">WCA tokens</span
+                >
+                <span
+                  class="compatibility-pill"
+                  data-compatibility-profile="signLgn"
+                  tabindex="0">SiGN / LGN</span
+                >
+                <span
+                  class="compatibility-pill"
+                  data-compatibility-profile="cubingJs"
+                  tabindex="0">cubing.js / Twizzle</span
+                >
+                <span
+                  class="compatibility-pill"
+                  data-compatibility-profile="speedsolving"
+                  tabindex="0">SpeedSolving Wiki</span
+                >
+                <span
+                  class="compatibility-pill"
+                  data-compatibility-profile="ruwix"
+                  tabindex="0">Ruwix Advanced</span
+                >
+              </div>
             </div>
-          </div>
-        </details>
-        <aside class="pattern-detected" data-pattern-detected aria-live="polite" hidden>
-          <div>
-            <span class="pattern-detected-label">Known pattern detected</span>
-            <strong data-pattern-detected-name></strong>
-            <small data-pattern-detected-meta></small>
-          </div>
-          <code data-pattern-detected-solution></code>
-          <a class="pattern-extremal-badge" data-pattern-detected-extremal-badge target="_blank" rel="noreferrer" hidden></a>
-          <div class="pattern-actions">
-            <button type="button" class="transform-btn" data-pattern-preview-solution>
-              Preview solution
-            </button>
-            <button type="button" class="transform-btn" data-pattern-copy-solution>
-              Copy solution
-            </button>
-          </div>
-        </aside>
-      </section>
+            <div class="preset-row" aria-label="Example algorithms">
+              <span class="preset-label">Quick load</span>
+              <button type="button" class="preset-chip" data-preset=""
+                >Solved</button
+              >
+              <button
+                type="button"
+                class="preset-chip"
+                data-preset="M2 E2 S2"
+                data-preset-size="3"
+                title="Checkerboard (Pons Asinorum) · Alternating 3x3 dual-color grid"
+                >🏁 Checkerboard</button
+              >
+              <button
+                type="button"
+                class="preset-chip"
+                data-preset="((M' U)*4 x y (M' U)*4 x y (M' U)*4)"
+                data-preset-size="3"
+                title="Superflip · 20-move maximum distance antipode (all 12 edges flipped in place)"
+                >🌌 Superflip</button
+              >
+              <button
+                type="button"
+                class="preset-chip"
+                data-preset="F L F U' R U F2 L2 U' L' B D' B' L2 U"
+                data-preset-size="3"
+                title="Cube in a Cube · Embedded 2x2 miniature sub-cube inside 3x3"
+                >🎲 Cube in Cube</button
+              >
+              <button
+                type="button"
+                class="preset-chip"
+                data-preset="U D' R L' F B' U D'"
+                data-preset-size="3"
+                title="Six Spots (Center Dots) · Swaps all 6 face centers"
+                >🎯 Six Spots</button
+              >
+              <button
+                type="button"
+                class="preset-chip"
+                data-preset="L U B' U' R L' B R' F B' D R D' F'"
+                data-preset-size="3"
+                title="Anaconda · Continuous winding colored ribbon across all faces"
+                >🐍 Anaconda</button
+              >
+              <button
+                type="button"
+                class="preset-chip"
+                data-preset="R U R' U' R' F R2 U' R' U' R U R' F'"
+                data-preset-size="3"
+                title="T-Perm · Corner and edge speedcubing transposition (PLL)"
+                >🔀 T-Perm</button
+              >
+              <button
+                type="button"
+                class="preset-chip"
+                data-preset="R U R' F' R U R' U' R' F R2 U' R'"
+                data-preset-size="3"
+                title="Jb-Perm · Adjacent corner-edge block swap (PLL)"
+                >📐 Jb-Perm</button
+              >
+              <button
+                type="button"
+                class="preset-chip"
+                data-preset="M2 U M2 U2 M2 U M2"
+                data-preset-size="3"
+                title="H-Perm · Opposite edge 4-swap (PLL)">🎛️ H-Perm</button
+              >
+              <button
+                type="button"
+                class="preset-chip"
+                data-preset="[R',U]6"
+                data-preset-size="3"
+                title="Sexy Move x6 · Commutator order-6 cycle returning to solved"
+                >🔁 Sexy ×6</button
+              >
+              <button
+                type="button"
+                class="preset-chip"
+                data-preset="[R',F]6"
+                data-preset-size="3"
+                title="Sledgehammer x6 · Orientation commutator order-6 cycle"
+                >🔨 Sledge ×6</button
+              >
+              <button
+                type="button"
+                class="preset-chip practice"
+                data-practice-scramble
+                title="Random-turn practice sequence; not an official WCA scramble"
+                >🎲 Practice scramble</button
+              >
+            </div>
+            <div class="error-banner" data-error role="alert" hidden></div>
+          </section>
+
+          <section
+            class="academy-panel"
+            data-workspace-panel="academy"
+            aria-labelledby="academy-title"
+            hidden
+          >
+            <header class="academy-workspace-header">
+              <div class="academy-workspace-title">
+                <span class="panel-label">Guided, replay-verified solving</span>
+                <h2 id="academy-title">Academy</h2>
+              </div>
+              <div class="academy-action-row">
+                <label class="academy-target-input">
+                  <span>Target pattern</span>
+                  <input
+                    type="text"
+                    data-academy-target
+                    placeholder="Solved (default) · paste facelets, Orbit64, or pattern moves"
+                    spellcheck="false"
+                  />
+                </label>
+                <div
+                  class="academy-method-switch"
+                  role="group"
+                  aria-label="Academy level"
+                >
+                  <button
+                    type="button"
+                    class="academy-method active"
+                    data-academy-method="beginner"
+                    aria-pressed="true"
+                  >
+                    <strong>🐣 Beginner LBL</strong><span>7 phases</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="academy-method"
+                    data-academy-method="advancedLbl"
+                    aria-pressed="false"
+                  >
+                    <strong>⚡ Advanced LBL</strong><span
+                      >7 optimized phases</span
+                    >
+                  </button>
+                  <button
+                    type="button"
+                    class="academy-method"
+                    data-academy-method="beginnerCfop"
+                    aria-pressed="false"
+                  >
+                    <strong>🚀 Beginner CFOP</strong><span
+                      >Pair-first · 2-look LL</span
+                    >
+                  </button>
+                  <button
+                    type="button"
+                    class="academy-method"
+                    data-academy-method="fullCfop"
+                    aria-pressed="false"
+                  >
+                    <strong>🏆 Full CFOP</strong><span>57 OLL + 21 PLL</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="academy-method"
+                    data-academy-method="advancedCfop"
+                    aria-pressed="false"
+                  >
+                    <strong>🚀 Advanced CFOP</strong><span
+                      >Ranked Cross + F2L</span
+                    >
+                  </button>
+                  <button
+                    type="button"
+                    class="academy-method"
+                    data-academy-method="petrus"
+                    aria-pressed="false"
+                  >
+                    <strong>🧩 Classical Petrus</strong><span
+                      >7 block-building phases</span
+                    >
+                  </button>
+                  <button
+                    type="button"
+                    class="academy-method"
+                    data-academy-method="enhancedPetrus"
+                    aria-pressed="false"
+                  >
+                    <strong>🏆 Enhanced Petrus</strong><span
+                      >5 phases · COLL/EPLL</span
+                    >
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  class="academy-solve-btn academy-shared-action"
+                  data-academy-solve
+                  disabled
+                >
+                  Generate verified solution
+                </button>
+              </div>
+            </header>
+            <div
+              class="academy-comparison"
+              data-academy-comparison
+              aria-live="polite"
+              hidden
+            >
+            </div>
+
+            <div data-academy-method-panel="beginner">
+              <header class="feature-header academy-method-header">
+                <div>
+                  <span class="panel-label"
+                    >Seven-step Layer-by-Layer method</span
+                  >
+                  <h3>Beginner Academy</h3>
+                </div>
+              </header>
+              <p class="academy-intro">
+                Build piece intuition through seven approachable stages. The
+                solver verifies every phase goal and loads the exact result into
+                the persistent tape player.
+              </p>
+              <div
+                class="academy-status"
+                data-beginner-status
+                aria-live="polite"
+              >
+                Enter a valid 3×3 state to begin.
+              </div>
+              <div class="academy-current" data-beginner-current hidden></div>
+              <div class="academy-phases" data-beginner-phases></div>
+              <div class="academy-solution-actions">
+                <button
+                  type="button"
+                  class="transform-btn"
+                  data-beginner-copy
+                  disabled>Copy commented solution</button
+                >
+              </div>
+              <pre class="academy-solution" data-beginner-solution hidden></pre>
+            </div>
+
+            <div data-academy-method-panel="advancedLbl" hidden>
+              <header class="feature-header academy-method-header">
+                <div>
+                  <span class="panel-label"
+                    >Optimized seven-phase Layer-by-Layer bridge</span
+                  >
+                  <h3>Advanced LBL Academy</h3>
+                </div>
+              </header>
+              <p class="academy-intro">
+                Keep the familiar seven-stage progression while replacing
+                repetitive move spam with a direct bottom Cross, optimized
+                one-shot corner and middle-edge insertions, and recognized
+                two-look OLL and PLL cases.
+              </p>
+              <div
+                class="academy-status"
+                data-advanced-lbl-status
+                aria-live="polite"
+              >
+                Enter a valid 3×3 state to begin.
+              </div>
+              <div class="academy-current" data-advanced-lbl-current hidden>
+              </div>
+              <div class="academy-phases" data-advanced-lbl-phases></div>
+              <div class="academy-solution-actions">
+                <button
+                  type="button"
+                  class="transform-btn"
+                  data-advanced-lbl-copy
+                  disabled>Copy commented solution</button
+                >
+              </div>
+              <pre class="academy-solution" data-advanced-lbl-solution hidden>
+              </pre>
+            </div>
+
+            <div data-academy-method-panel="beginnerCfop" hidden>
+              <header class="feature-header academy-method-header">
+                <div>
+                  <span class="panel-label"
+                    >Pair-first CFOP with a compact algorithm set</span
+                  >
+                  <h3>Beginner CFOP Academy</h3>
+                </div>
+              </header>
+              <p class="academy-intro">
+                Learn a direct white-bottom Cross and four corner-edge pairs,
+                then finish with memory-friendly two-look OLL and PLL. Every
+                phase is replay-verified.
+              </p>
+              <div
+                class="academy-status"
+                data-beginner-cfop-status
+                aria-live="polite"
+              >
+                Enter a valid 3×3 state to begin.
+              </div>
+              <div class="academy-current" data-beginner-cfop-current hidden>
+              </div>
+              <div class="academy-phases" data-beginner-cfop-phases></div>
+              <div class="academy-solution-actions">
+                <button
+                  type="button"
+                  class="transform-btn"
+                  data-beginner-cfop-copy
+                  disabled>Copy commented CFOP solution</button
+                >
+              </div>
+              <pre class="academy-solution" data-beginner-cfop-solution hidden>
+              </pre>
+            </div>
+
+            <div data-academy-method-panel="fullCfop" hidden>
+              <header class="feature-header academy-method-header">
+                <div>
+                  <span class="panel-label"
+                    >Pair-first, one-look last layer</span
+                  >
+                  <h3>Full CFOP Academy</h3>
+                </div>
+              </header>
+              <p class="academy-intro">
+                Plan a direct white-bottom Cross, solve four recognized
+                corner-edge pairs while preserving completed slots, then
+                recognize one of all 57 OLL and 21 PLL cases. The full-CFOP
+                benchmark is ≤60 physical moves; the measured, replay-verified
+                result is reported without promising the target in advance.
+              </p>
+              <div
+                class="academy-status"
+                data-full-cfop-status
+                aria-live="polite"
+              >
+                Enter a valid 3×3 state to begin.
+              </div>
+              <div class="academy-current" data-full-cfop-current hidden></div>
+              <div class="academy-phases" data-full-cfop-phases></div>
+              <div class="academy-solution-actions">
+                <button
+                  type="button"
+                  class="transform-btn"
+                  data-full-cfop-copy
+                  disabled>Copy commented CFOP solution</button
+                >
+              </div>
+              <pre class="academy-solution" data-full-cfop-solution hidden>
+              </pre>
+            </div>
+
+            <div data-academy-method-panel="advancedCfop" hidden>
+              <header class="feature-header academy-method-header">
+                <div>
+                  <span class="panel-label"
+                    >Candidate-ranked competition planning</span
+                  >
+                  <h3>Advanced CFOP Academy</h3>
+                </div>
+              </header>
+              <p class="academy-intro">
+                Use the complete 57-case OLL and 21-case PLL libraries with
+                multi-candidate Cross planning and stronger F2L continuation
+                ranking. The solver reports the measured, replay-verified move
+                count without promising a target in advance.
+              </p>
+              <div
+                class="academy-status"
+                data-advanced-cfop-status
+                aria-live="polite"
+              >
+                Enter a valid 3×3 state to begin.
+              </div>
+              <div class="academy-current" data-advanced-cfop-current hidden>
+              </div>
+              <div class="academy-phases" data-advanced-cfop-phases></div>
+              <div class="academy-solution-actions">
+                <button
+                  type="button"
+                  class="transform-btn"
+                  data-advanced-cfop-copy
+                  disabled>Copy commented CFOP solution</button
+                >
+              </div>
+              <pre class="academy-solution" data-advanced-cfop-solution hidden>
+              </pre>
+            </div>
+
+            <div data-academy-method-panel="petrus" hidden>
+              <header class="feature-header academy-method-header">
+                <div>
+                  <span class="panel-label"
+                    >Connected blocks, edge orientation, two-generator finish</span
+                  >
+                  <h3>Classical Petrus Academy</h3>
+                </div>
+              </header>
+              <p class="academy-intro">
+                Build a DBL 2×2×2 block, expand it into a 2×2×3 left slab,
+                orient every bad edge, and finish F2L using only physical R and
+                U turns. The last layer is taught as separate OCLL, CPLL, and
+                EPLL phases, with every boundary replay-verified.
+              </p>
+              <div class="academy-status" data-petrus-status aria-live="polite">
+                Enter a valid 3×3 state to begin.
+              </div>
+              <div class="academy-current" data-petrus-current hidden></div>
+              <div class="academy-phases" data-petrus-phases></div>
+              <div class="academy-solution-actions">
+                <button
+                  type="button"
+                  class="transform-btn"
+                  data-petrus-copy
+                  disabled>Copy commented Petrus solution</button
+                >
+              </div>
+              <pre class="academy-solution" data-petrus-solution hidden></pre>
+            </div>
+
+            <div data-academy-method-panel="enhancedPetrus" hidden>
+              <header class="feature-header academy-method-header">
+                <div>
+                  <span class="panel-label"
+                    >Modern Petrus with an EO-preserving last-layer finish</span
+                  >
+                  <h3>Enhanced Petrus Academy</h3>
+                </div>
+              </header>
+              <p class="academy-intro">
+                Keep the same block-building and bad-edge foundation, then
+                combine last-layer corner orientation and permutation with a
+                recognized 40-case COLL algorithm before the final EPLL. The
+                measured move count is reported from exact replay rather than
+                promised.
+              </p>
+              <div
+                class="academy-status"
+                data-enhanced-petrus-status
+                aria-live="polite"
+              >
+                Enter a valid 3×3 state to begin.
+              </div>
+              <div class="academy-current" data-enhanced-petrus-current hidden>
+              </div>
+              <div class="academy-phases" data-enhanced-petrus-phases></div>
+              <div class="academy-solution-actions">
+                <button
+                  type="button"
+                  class="transform-btn"
+                  data-enhanced-petrus-copy
+                  disabled>Copy commented Enhanced Petrus solution</button
+                >
+              </div>
+              <pre
+                class="academy-solution"
+                data-enhanced-petrus-solution
+                hidden>
+              </pre>
+            </div>
+          </section>
+
+          <section
+            class="outputs-grid"
+            data-workspace-panel="converter"
+            aria-label="Converted state formats"
+          >
+            {
+              cards.map(({ key, title, provenance, sizes }) => (
+                <article
+                  class="output-card"
+                  data-output-card={key}
+                  data-sizes={sizes}
+                >
+                  <header class="card-header">
+                    <h2 class="card-title" data-title={key}>
+                      {title}
+                    </h2>
+                    <button type="button" class="copy-btn" data-copy={key}>
+                      Copy
+                    </button>
+                  </header>
+                  <div class="card-body">
+                    <pre class="code-display">
+                      <code data-output={key}>—</code>
+                    </pre>
+                    <p class="provenance-tag">{provenance}</p>
+                  </div>
+                </article>
+              ))
+            }
+          </section>
+
+          <section
+            class="academy-panel patterns-panel"
+            data-workspace-panel="patterns"
+            aria-labelledby="patterns-title"
+            hidden
+          >
+            <header class="academy-workspace-header">
+              <div class="academy-workspace-title">
+                <span class="panel-label"
+                  >230 geometric constructions · 2×2–5×5</span
+                >
+                <h2 id="patterns-title">Pattern Catalog</h2>
+              </div>
+            </header>
+            <details class="pattern-library" data-pattern-library>
+              <summary>
+                <span>✨ Pattern library</span>
+                <small>230 designs · 2×2–5×5</small>
+              </summary>
+              <div class="pattern-library-body">
+                <label class="pattern-search-label">
+                  <span class="visually-hidden">Search patterns</span>
+                  <input
+                    type="search"
+                    placeholder="Search this cube size…"
+                    data-pattern-search
+                  />
+                </label>
+                <select data-pattern-select aria-label="Known patterns"
+                ></select>
+                <label class="pattern-extremal-toggle">
+                  <input type="checkbox" data-pattern-extremal-filter />
+                  🏆 Mathematical antipodes &amp; extremal states only
+                </label>
+                <div class="pattern-detail" data-pattern-detail>
+                  <strong data-pattern-name></strong>
+                  <span data-pattern-meta></span>
+                  <code data-pattern-construction></code>
+                  <a
+                    class="pattern-extremal-badge"
+                    data-pattern-extremal-badge
+                    target="_blank"
+                    rel="noreferrer"
+                    hidden></a>
+                  <div class="pattern-actions">
+                    <button
+                      type="button"
+                      class="transform-btn"
+                      data-pattern-load>Load pattern</button
+                    >
+                    <a data-pattern-source target="_blank" rel="noreferrer"
+                      >View source</a
+                    >
+                  </div>
+                  <div class="pattern-preview" data-pattern-preview aria-label="Selected pattern preview"></div>
+                </div>
+              </div>
+            </details>
+            <aside
+              class="pattern-detected"
+              data-pattern-detected
+              aria-live="polite"
+              hidden
+            >
+              <div>
+                <span class="pattern-detected-label"
+                  >Known pattern detected</span
+                >
+                <strong data-pattern-detected-name></strong>
+                <small data-pattern-detected-meta></small>
+              </div>
+              <code data-pattern-detected-solution></code>
+              <a
+                class="pattern-extremal-badge"
+                data-pattern-detected-extremal-badge
+                target="_blank"
+                rel="noreferrer"
+                hidden></a>
+              <div class="pattern-actions">
+                <button
+                  type="button"
+                  class="transform-btn"
+                  data-pattern-preview-solution
+                >
+                  Preview solution
+                </button>
+                <button
+                  type="button"
+                  class="transform-btn"
+                  data-pattern-copy-solution
+                >
+                  Copy solution
+                </button>
+              </div>
+            </aside>
+          </section>
         </div>
         <div class="studio-viewport">
           <CubeViewport />
         </div>
       </section>
 
-      <footer class="footer">Pure ReScript codecs · Vanilla Astro interface</footer>
+      <footer class="footer">
+        Pure ReScript codecs · Vanilla Astro interface
+      </footer>
     </main>
 
     <script>
