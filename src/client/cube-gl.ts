@@ -942,8 +942,8 @@ export const createCubeViewport = (
 
     const startW = 1.8 * dpr * scale;
     const endW = 10 * dpr * scale;
-    const lefts: Array<{x: number; y: number}> = [];
-    const rights: Array<{x: number; y: number}> = [];
+    const lefts: Array<{ x: number; y: number }> = [];
+    const rights: Array<{ x: number; y: number }> = [];
 
     const shaftCount = Math.max(3, Math.floor(n * 0.82));
 
@@ -957,8 +957,8 @@ export const createCubeViewport = (
       const ny = dx / len;
       const t = i / (shaftCount - 1);
       const w = startW + (endW - startW) * Math.pow(t, 1.4);
-      lefts.push({x: projectedPoints[i].x + nx * (w / 2), y: projectedPoints[i].y + ny * (w / 2)});
-      rights.push({x: projectedPoints[i].x - nx * (w / 2), y: projectedPoints[i].y - ny * (w / 2)});
+      lefts.push({ x: projectedPoints[i].x + nx * (w / 2), y: projectedPoints[i].y + ny * (w / 2) });
+      rights.push({ x: projectedPoints[i].x - nx * (w / 2), y: projectedPoints[i].y - ny * (w / 2) });
     }
 
     const lastShaft = projectedPoints[shaftCount - 1];
@@ -1187,7 +1187,7 @@ export const createCubeViewport = (
           const arcPoints = wholeCubeArcPoints(transform, matrices.modelView, 2.25, 36);
           const projectedArc = arcPoints
             .map((pt) => projectPoint(pt, matrices.modelView, matrices.projection, width, height))
-            .filter(({inFront}) => inFront);
+            .filter(({ inFront }) => inFront);
 
           if (projectedArc.length >= 4) {
             const colour = recovery ? "#fde68a" : "#38bdf8";
@@ -1203,9 +1203,9 @@ export const createCubeViewport = (
                 item.points[Math.floor(item.points.length / 2)],
                 matrices.modelView,
               );
-              return {...item, facing};
+              return { ...item, facing };
             })
-            .filter(({facing}) => facing > 0.15)
+            .filter(({ facing }) => facing > 0.15)
             .sort((a, b) => b.facing - a.facing);
 
           if (visibleFacesWithScore.length > 0) {
@@ -1218,11 +1218,11 @@ export const createCubeViewport = (
                 face.normal[2] === bestNormal[2],
             );
 
-            bestFaces.forEach(({points}) => {
+            bestFaces.forEach(({ points }) => {
               // Do NOT rotate with the moving cube row — keep stationary in space
               const projected = points
                 .map((point) => projectPoint(point, matrices.modelView, matrices.projection, width, height))
-                .filter(({inFront}) => inFront);
+                .filter(({ inFront }) => inFront);
               if (projected.length < 4) return;
 
               const arrowColour = recovery ? "#fde68a" : "#38bdf8";
@@ -1579,6 +1579,7 @@ export const createCubeViewport = (
     setFocus(nextFocus) {
       focus = nextFocus;
       if (nextFocus) {
+        overlayCanvas.dataset.motionVisible = "true";
         canvas.dataset.focusHighlight = "edges";
         canvas.dataset.focusPiece = nextFocus.piece;
         canvas.dataset.focusSource = nextFocus.source.join(",");
@@ -1586,6 +1587,7 @@ export const createCubeViewport = (
         if (nextFocus.label) canvas.dataset.focusLabel = nextFocus.label;
         else delete canvas.dataset.focusLabel;
       } else {
+        if (!turnGuide && !milestone) delete overlayCanvas.dataset.motionVisible;
         delete canvas.dataset.focusHighlight;
         delete canvas.dataset.focusPiece;
         delete canvas.dataset.focusSource;
@@ -1596,19 +1598,26 @@ export const createCubeViewport = (
     },
     setMilestone(nextMilestone) {
       milestone = nextMilestone;
-      if (nextMilestone) overlayCanvas.dataset.milestone = nextMilestone.label;
-      else delete overlayCanvas.dataset.milestone;
+      if (nextMilestone) {
+        overlayCanvas.dataset.motionVisible = "true";
+        overlayCanvas.dataset.milestone = nextMilestone.label;
+      } else {
+        if (!focus && !turnGuide) delete overlayCanvas.dataset.motionVisible;
+        delete overlayCanvas.dataset.milestone;
+      }
       requestRender();
     },
     setTurnGuide(nextGuide) {
       turnGuide = nextGuide;
       if (nextGuide) {
+        overlayCanvas.dataset.motionVisible = "true";
         overlayCanvas.dataset.turnGuide = nextGuide.label;
         overlayCanvas.dataset.turnGuideTone = nextGuide.tone ?? "normal";
         const repeat = nextGuide.step ? turnRepeatIndicator(nextGuide.step) : undefined;
         if (repeat) overlayCanvas.dataset.turnRepeat = repeat;
         else delete overlayCanvas.dataset.turnRepeat;
       } else {
+        if (!focus && !milestone) delete overlayCanvas.dataset.motionVisible;
         delete overlayCanvas.dataset.turnGuide;
         delete overlayCanvas.dataset.turnGuideTone;
         delete overlayCanvas.dataset.turnRepeat;
