@@ -15,6 +15,7 @@ import * as PetrusSolver from "../Solver/PetrusSolver.res.mjs";
 import {
   createCubeViewport,
   focusCameraTarget,
+  orientationInViewportFrame,
   turnTransform,
   type CubieFocus,
   type CubePalette,
