@@ -36,4 +36,5 @@ The converter exposes full solutions through the dedicated worker request
 control solves the current Setup plus Moves state off the UI thread and reports
 the HTM count and canonical algorithm. It reports table-preparation and search
 stages; Cancel terminates and replaces only the dedicated worker. Apply solution
-loads the exact verified input snapshot and algorithm into playback.
+preserves Setup and appends the verified algorithm to Moves; it asks for a new
+solution if either source field changed after the search.

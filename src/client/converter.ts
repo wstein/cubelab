@@ -315,7 +315,7 @@ if (root) {
   let twoPhaseSolveBusy = false;
   let twoPhaseRequest = 0;
   let twoPhaseAlgorithm = "";
-  let twoPhaseSolutionState: CubeState | null = null;
+  let twoPhaseSourceKey = "";
   const newTwoPhaseSolverClient = () => createTwoPhaseSolverClient<CubeState, TwoPhaseSolution>(
     new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
     (stage) => {
@@ -3032,7 +3032,7 @@ if (root) {
     }
     const request = ++twoPhaseRequest;
     twoPhaseAlgorithm = "";
-    twoPhaseSolutionState = null;
+    twoPhaseSourceKey = "";
     twoPhaseApply.disabled = true;
     twoPhaseSolveBusy = true;
     twoPhaseSolve.textContent = "Cancel search";
@@ -3051,7 +3051,7 @@ if (root) {
       }
       const algorithm = MoveTransform.serialize(solution.alg) as string;
       twoPhaseAlgorithm = algorithm;
-      twoPhaseSolutionState = workspace._0.state;
+      twoPhaseSourceKey = `${input.value}\u0000${movesInput.value}`;
       twoPhaseApply.disabled = false;
       twoPhaseResult.textContent = `${solution.moveCount} HTM · ${algorithm || "Solved"}`;
       twoPhaseResult.classList.add("success");
@@ -3068,11 +3068,14 @@ if (root) {
   });
 
   twoPhaseApply.addEventListener("click", () => {
-    if (twoPhaseSolutionState === null) return;
-    store.patch({
-      input: FaceletCodec.render(twoPhaseSolutionState),
-      moves: twoPhaseAlgorithm,
-    });
+    if (twoPhaseAlgorithm === "") return;
+    if (`${input.value}\u0000${movesInput.value}` !== twoPhaseSourceKey) {
+      twoPhaseResult.textContent = "Setup or Moves changed; generate a new two-phase solution.";
+      twoPhaseResult.classList.add("failure");
+      twoPhaseApply.disabled = true;
+      return;
+    }
+    store.patch({moves: [movesInput.value.trim(), twoPhaseAlgorithm].filter(Boolean).join(" ")});
   });
 
   nissUseInverse.addEventListener("click", () => {
