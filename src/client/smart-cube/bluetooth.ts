@@ -80,15 +80,15 @@ export const normalizeTransportEvent = (
       };
     case "GYRO":
       if (!Object.values(event.quaternion).every(Number.isFinite)) return null;
-      let quaternion = event.quaternion;
+      const quaternion = event.quaternion;
       let coordinateFrame: OrientationCoordinateFrame = "viewport";
       if (protocolId === "gocube") {
-        quaternion = {
-          x: event.quaternion.x,
-          y: -event.quaternion.z,
-          z: -event.quaternion.y,
-          w: event.quaternion.w,
-        };
+        // The vendor transport already remaps its raw UART quaternion to
+        // (nx, -nz, -ny, nw) before exposing it here (see
+        // smartcube-web-bluetooth's gocube.ts). Re-applying that same
+        // involution would exactly cancel it and hand deviceOrientationDelta
+        // the pre-transform UART components instead of the vendor's own
+        // reported axes, so this frame is passed through unchanged.
         coordinateFrame = "gocube-wire";
       } else if (protocolId === "gan") {
         coordinateFrame = "gan-wire";
