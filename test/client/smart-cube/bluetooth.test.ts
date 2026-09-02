@@ -1,4 +1,4 @@
-import {describe, expect, test} from "bun:test";
+import {describe, expect, test} from "vitest";
 import type {
   SmartCubeConnection as TransportConnection,
   SmartCubeEvent as TransportEvent,
@@ -62,29 +62,15 @@ describe("smart cube event normalization", () => {
     })).toBeNull();
   });
 
-  test("restores GoCube wire axes before viewport-relative calibration", () => {
+  test("normalizes GYRO events directly into viewport coordinate frame", () => {
     const normalized = normalizeTransportEvent({
       type: "GYRO",
       timestamp: 20,
-      // smartcube-web-bluetooth currently emits wire (x,y,z) as (x,-z,-y).
-      quaternion: {x: 0.1, y: -0.3, z: -0.2, w: 0.9},
+      quaternion: {x: 0.1, y: 0.2, z: 0.3, w: 0.9},
     }, "gocube");
     expect(normalized).toMatchObject({
       type: "orientation",
-      coordinateFrame: "gocube-wire",
-      quaternion: {x: 0.1, y: 0.2, z: 0.3, w: 0.9},
-    });
-  });
-
-  test("tags GAN orientation events with gan-wire coordinate frame", () => {
-    const normalized = normalizeTransportEvent({
-      type: "GYRO",
-      timestamp: 20,
-      quaternion: {x: 0.1, y: 0.2, z: 0.3, w: 0.9},
-    }, "gan");
-    expect(normalized).toMatchObject({
-      type: "orientation",
-      coordinateFrame: "gan-wire",
+      coordinateFrame: "viewport",
       quaternion: {x: 0.1, y: 0.2, z: 0.3, w: 0.9},
     });
   });

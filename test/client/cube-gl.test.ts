@@ -1,4 +1,4 @@
-import {describe, expect, test} from "bun:test";
+import {describe, expect, test} from "vitest";
 
 import * as CubeGeometry from "../../src/Render/CubeGeometry.res.mjs";
 import * as StateTypes from "../../src/State/StateTypes.res.mjs";
@@ -180,46 +180,13 @@ describe("cube viewport math", () => {
     expect(Math.hypot(softened.x, softened.y, softened.z, softened.w)).toBeCloseTo(1);
   });
 
-  test("keeps GoCube sensor y and z on distinct viewport axes", () => {
+  test("normalizes orientation quaternions in viewport frame", () => {
     const half = Math.sqrt(0.5);
-    const aroundSensorY = orientationInViewportFrame(
-      {x: 0, y: half, z: 0, w: half},
-      "gocube-wire",
-    );
-    const aroundSensorZ = orientationInViewportFrame(
-      {x: 0, y: 0, z: half, w: half},
-      "gocube-wire",
-    );
-    expect(aroundSensorY.x).toBeCloseTo(0);
-    expect(aroundSensorY.y).toBeCloseTo(-half);
-    expect(aroundSensorY.z).toBeCloseTo(0);
-    expect(aroundSensorY.w).toBeCloseTo(half);
-    expect(aroundSensorZ.x).toBeCloseTo(0);
-    expect(aroundSensorZ.y).toBeCloseTo(0);
-    expect(aroundSensorZ.z).toBeCloseTo(half);
-    expect(aroundSensorZ.w).toBeCloseTo(half);
-  });
-
-  test("maps GAN wire sensor axes (X: Red, Y: Blue, Z: White) to canonical viewport axes", () => {
-    const half = Math.sqrt(0.5);
-    const aroundGanX = orientationInViewportFrame({x: half, y: 0, z: 0, w: half}, "gan-wire");
-    const aroundGanY = orientationInViewportFrame({x: 0, y: half, z: 0, w: half}, "gan-wire");
-    const aroundGanZ = orientationInViewportFrame({x: 0, y: 0, z: half, w: half}, "gan-wire");
-
-    // GAN +X (Red) -> Viewport +X
-    expect(aroundGanX.x).toBeCloseTo(half);
-    expect(aroundGanX.y).toBeCloseTo(0);
-    expect(aroundGanX.z).toBeCloseTo(0);
-
-    // GAN +Y (Blue) -> Viewport -Z
-    expect(aroundGanY.x).toBeCloseTo(0);
-    expect(aroundGanY.y).toBeCloseTo(0);
-    expect(aroundGanY.z).toBeCloseTo(-half);
-
-    // GAN +Z (White) -> Viewport +Y
-    expect(aroundGanZ.x).toBeCloseTo(0);
-    expect(aroundGanZ.y).toBeCloseTo(half);
-    expect(aroundGanZ.z).toBeCloseTo(0);
+    const q = orientationInViewportFrame({x: half, y: 0, z: 0, w: half});
+    expect(q.x).toBeCloseTo(half);
+    expect(q.y).toBeCloseTo(0);
+    expect(q.z).toBeCloseTo(0);
+    expect(q.w).toBeCloseTo(half);
   });
 
   test("calibrates the first hardware quaternion without discarding later roll", () => {

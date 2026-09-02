@@ -1,4 +1,4 @@
-import {describe, expect, test} from "bun:test";
+import {describe, expect, test} from "vitest";
 
 import {
   assessGyroRotation,
@@ -21,13 +21,18 @@ describe("smart-cube gyro rotation feedback", () => {
   const identity = {x: 0, y: 0, z: 0, w: 1};
 
   test("matches the requested quarter-turn axis and direction", () => {
-    expect(assessGyroRotation(identity, rotation("X", -75), "viewport", "X", 1).matched)
-      .toBe(true);
+    // Pitch forward (X = 1): positive degrees on X
     expect(assessGyroRotation(identity, rotation("X", 75), "viewport", "X", 1).matched)
+      .toBe(true);
+    expect(assessGyroRotation(identity, rotation("X", -75), "viewport", "X", 1).matched)
       .toBe(false);
-    expect(assessGyroRotation(identity, rotation("Y", -90), "viewport", "X", 1).matched)
+    expect(assessGyroRotation(identity, rotation("Y", 90), "viewport", "X", 1).matched)
       .toBe(false);
+    // Roll counter-clockwise (Z = -1): positive degrees on Z
     expect(assessGyroRotation(identity, rotation("Z", 70), "viewport", "Z", -1).matched)
+      .toBe(true);
+    // Roll clockwise (Z = 1): negative degrees on Z
+    expect(assessGyroRotation(identity, rotation("Z", -70), "viewport", "Z", 1).matched)
       .toBe(true);
   });
 
@@ -45,7 +50,7 @@ describe("smart-cube gyro rotation feedback", () => {
   });
 
   test("uses cube-local deltas after an arbitrary prior regrip", () => {
-    const base = rotation("X", -90);
+    const base = rotation("X", 90);
     const current = multiplyQuaternions(base, rotation("Z", -90));
     expect(assessGyroRotation(base, current, "viewport", "Z", 1, "local").matched)
       .toBe(true);
@@ -56,48 +61,21 @@ describe("smart-cube gyro rotation feedback", () => {
   test("detects a wrong-axis regrip so the caller can silently rebase", () => {
     expect(detectGyroQuarterRotation(
       identity,
-      rotation("Y", -80),
+      rotation("Y", 80),
       "viewport",
     )).toEqual({axis: "Y", turns: 1});
     expect(detectGyroQuarterRotation(
       identity,
-      rotation("Y", -30),
+      rotation("Y", 30),
       "viewport",
     )).toBeNull();
   });
 
-  test("accurately verifies rotations in gocube-wire frame across all axes", () => {
-    const half = Math.sqrt(0.5);
-    // GoCube wire X rotation: x is negative for clockwise x
-    expect(assessGyroRotation(identity, {x: -half, y: 0, z: 0, w: half}, "gocube-wire", "X", 1).matched)
-      .toBe(true);
-    // GoCube wire Y rotation: y is positive on wire (negated in viewport)
-    expect(assessGyroRotation(identity, {x: 0, y: half, z: 0, w: half}, "gocube-wire", "Y", 1).matched)
-      .toBe(true);
-    // GoCube wire Z rotation: z is negative for clockwise z
-    expect(assessGyroRotation(identity, {x: 0, y: 0, z: -half, w: half}, "gocube-wire", "Z", 1).matched)
-      .toBe(true);
-  });
-
-  test("accurately verifies rotations in gan-wire frame across all axes", () => {
-    const half = Math.sqrt(0.5);
-    // GAN wire: +X is Red (Right), +Y is Blue (Back), +Z is White (Up)
-    // 1. R rotation (around Red/+X_gan): x is negative for clockwise x
-    expect(assessGyroRotation(identity, {x: -half, y: 0, z: 0, w: half}, "gan-wire", "X", 1).matched)
-      .toBe(true);
-    // 2. U rotation (around White/+Z_gan): z is negative for clockwise y
-    expect(assessGyroRotation(identity, {x: 0, y: 0, z: -half, w: half}, "gan-wire", "Y", 1).matched)
-      .toBe(true);
-    // 3. F rotation (around Green/-Y_gan): y is positive for clockwise z
-    expect(assessGyroRotation(identity, {x: 0, y: half, z: 0, w: half}, "gan-wire", "Z", 1).matched)
-      .toBe(true);
-  });
-
   test("verifies sequential world rotations from an arbitrary base pose", () => {
     const half = Math.sqrt(0.5);
-    const basePose = {x: -half, y: 0, z: 0, w: half}; // after an X rotation
+    const basePose = {x: half, y: 0, z: 0, w: half}; // after an X rotation
     // User performs Y rotation in world view:
-    const rotY = {x: 0, y: -half, z: 0, w: half};
+    const rotY = {x: 0, y: half, z: 0, w: half};
     const currentPose = multiplyQuaternions(rotY, basePose);
     expect(assessGyroRotation(basePose, currentPose, "viewport", "Y", 1, "world").matched)
       .toBe(true);

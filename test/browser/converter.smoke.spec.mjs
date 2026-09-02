@@ -300,14 +300,12 @@ test("recovers once from a stale lazy smart-cube chunk", async ({page}) => {
   });
 
   await page.goto("/");
-  await Promise.all([
-    page.waitForEvent("load"),
-    page.locator("[data-smart-cube-connect]").click(),
-  ]);
+  await page.locator("[data-smart-cube-connect]").click();
   await expect(page.locator("[data-smart-cube-status]")).toContainText(
     "updated while this page was open",
   );
 
+  await expect(page.locator('[data-output="facelets"]')).toHaveText(algorithmFacelets(""));
   await page.locator("[data-smart-cube-connect]").click();
   await expect.poll(() => page.evaluate(() => window.__bluetoothRequestCount)).toBe(1);
   expect(chunkRequests).toBe(2);
@@ -462,7 +460,7 @@ test("uses GoCube orientation as an x/y/z checkpoint without live-tracking solve
   await page.evaluate(() => window.__emitSmartCubeEvent({
     type: "orientation",
     quaternion: {x: 0, y: 0, z: 0, w: 1},
-    coordinateFrame: "gocube-wire",
+    coordinateFrame: "viewport",
     timestamp: Date.now(),
   }));
   const canvas = page.locator("[data-cube-canvas]");
@@ -477,9 +475,9 @@ test("uses GoCube orientation as an x/y/z checkpoint without live-tracking solve
   await page.evaluate((q) => window.__emitSmartCubeEvent({
     type: "orientation",
     quaternion: q,
-    coordinateFrame: "gocube-wire",
+    coordinateFrame: "viewport",
     timestamp: Date.now(),
-  }), {x: -half, y: 0, z: 0, w: half});
+  }), {x: half, y: 0, z: 0, w: half});
   await expect(page.locator("[data-playback-position]")).toHaveText("Move 1 of 3");
   await expect(page.locator("[data-smart-cube-status]")).toContainText("Waiting for y regrip");
   await expect(canvas).not.toHaveAttribute("data-device-orientation", "tracking");
@@ -490,9 +488,9 @@ test("uses GoCube orientation as an x/y/z checkpoint without live-tracking solve
   await page.evaluate((q) => window.__emitSmartCubeEvent({
     type: "orientation",
     quaternion: q,
-    coordinateFrame: "gocube-wire",
+    coordinateFrame: "viewport",
     timestamp: Date.now(),
-  }), {x: -0.5, y: -0.5, z: 0.5, w: 0.5});
+  }), {x: 0.5, y: -0.5, z: -0.5, w: 0.5});
   await expect(page.locator("[data-playback-position]")).toHaveText("Move 1 of 3");
   await expect(page.locator("[data-smart-cube-mistakes]")).toBeHidden();
   await expect(page.locator("[data-smart-cube-recovery-block]")).toHaveCount(0);
@@ -501,9 +499,9 @@ test("uses GoCube orientation as an x/y/z checkpoint without live-tracking solve
   await page.evaluate((q) => window.__emitSmartCubeEvent({
     type: "orientation",
     quaternion: q,
-    coordinateFrame: "gocube-wire",
+    coordinateFrame: "viewport",
     timestamp: Date.now(),
-  }), {x: -half, y: 0, z: 0, w: half});
+  }), {x: 0, y: 0, z: -half, w: half});
   await expect(page.locator("[data-playback-position]")).toHaveText("Move 2 of 3");
   await expect(page.locator("[data-smart-cube-status]")).toContainText("Waiting for");
   await expect(canvas).not.toHaveAttribute("data-device-orientation", "tracking");
@@ -559,7 +557,7 @@ test("resets the camera without dropping smart-cube orientation tracking", async
   await page.evaluate(() => window.__emitSmartCubeEvent({
     type: "orientation",
     quaternion: {x: 0, y: 0, z: 0, w: 1},
-    coordinateFrame: "gocube-wire",
+    coordinateFrame: "viewport",
     timestamp: Date.now(),
   }));
   const canvas = page.locator("[data-cube-canvas]");
@@ -625,7 +623,7 @@ test("ends solve mode and resumes orientation tracking once the timeline complet
   await page.evaluate(() => window.__emitSmartCubeEvent({
     type: "orientation",
     quaternion: {x: 0, y: 0, z: 0, w: 1},
-    coordinateFrame: "gocube-wire",
+    coordinateFrame: "viewport",
     timestamp: Date.now(),
   }));
   const canvas = page.locator("[data-cube-canvas]");

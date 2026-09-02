@@ -80,28 +80,11 @@ export const normalizeTransportEvent = (
       };
     case "GYRO":
       if (!Object.values(event.quaternion).every(Number.isFinite)) return null;
-      // The pinned GoCube transport maps wire (x,y,z,w) to (x,-z,-y,w).
-      // Undo that presentation mapping here. The viewport applies the measured
-      // sensor basis after calculating the relative rotation, where a change of
-      // basis is mathematically valid and cannot swap pitch with roll.
-      let quaternion = event.quaternion;
-      let coordinateFrame: OrientationCoordinateFrame = "viewport";
-      if (protocolId === "gocube") {
-        quaternion = {
-          x: event.quaternion.x,
-          y: -event.quaternion.z,
-          z: -event.quaternion.y,
-          w: event.quaternion.w,
-        };
-        coordinateFrame = "gocube-wire";
-      } else if (protocolId === "gan") {
-        coordinateFrame = "gan-wire";
-      }
       return {
         type: "orientation",
         timestamp: event.timestamp,
-        quaternion,
-        coordinateFrame,
+        quaternion: event.quaternion,
+        coordinateFrame: "viewport",
         ...(event.velocity ? {angularVelocity: event.velocity} : {}),
       };
     case "BATTERY":

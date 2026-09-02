@@ -2055,7 +2055,8 @@ if (root) {
     );
     if (!assessment.matched) {
       if (assessment.partial && pending.partialTurn === 0) {
-        pending.partialTurn = assessment.signedDegrees < 0 ? 1 : -1;
+        const axisSign = step.move._0 === "Z" ? -1 : 1;
+        pending.partialTurn = assessment.signedDegrees * axisSign > 0 ? 1 : -1;
         const quarterStep: MoveStep = {...step, turns: pending.partialTurn};
         const quarterLabel = `${step.move._0.toLowerCase()}${pending.partialTurn < 0 ? "'" : ""}`;
         const token = moveRibbon.querySelector<HTMLButtonElement>(

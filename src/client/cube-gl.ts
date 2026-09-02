@@ -456,33 +456,12 @@ export const relativeQuaternionLocal = (
 };
 
 /**
- * Re-expresses a vendor-specific hardware sensor quaternion in canonical viewport axes.
- *
- * - GoCube wire: `(x,-y,z,w)`
- * - GAN wire: `+X: Red, +Y: Blue, +Z: White` -> `(x, z, -y, w)`
+ * Normalizes an orientation quaternion into the canonical 3D viewport coordinate frame.
  */
 export const orientationInViewportFrame = (
   quaternion: OrientationQuaternion,
-  frame: OrientationCoordinateFrame,
-): OrientationQuaternion => {
-  if (frame === "gocube-wire") {
-    return normalizedQuaternion({
-      x: quaternion.x,
-      y: -quaternion.y,
-      z: quaternion.z,
-      w: quaternion.w,
-    });
-  }
-  if (frame === "gan-wire") {
-    return normalizedQuaternion({
-      x: quaternion.x,
-      y: quaternion.z,
-      z: -quaternion.y,
-      w: quaternion.w,
-    });
-  }
-  return normalizedQuaternion(quaternion);
-};
+  _frame: OrientationCoordinateFrame = "viewport",
+): OrientationQuaternion => normalizedQuaternion(quaternion);
 
 export const matrixFromQuaternion = (quaternion: OrientationQuaternion): Mat4 => {
   const {x, y, z, w} = normalizedQuaternion(quaternion);
@@ -1051,10 +1030,7 @@ export const createCubeViewport = (
     gl.enableVertexAttribArray(sheen);
     gl.vertexAttribPointer(sheen, 1, gl.FLOAT, false, byteStride, 13 * 4);
     const relativeOrientation = deviceOrientationBase && deviceOrientation
-      ? relativeQuaternion(
-        orientationInViewportFrame(deviceOrientationBase, deviceOrientationFrame),
-        orientationInViewportFrame(deviceOrientation, deviceOrientationFrame),
-      )
+      ? relativeQuaternion(deviceOrientationBase, deviceOrientation)
       : undefined;
     const matrices = cameraMatrices(width / height, yaw, pitch, distance, relativeOrientation);
     gl.uniformMatrix4fv(modelView, false, matrices.modelView);

@@ -18,7 +18,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: `bun run astro:dev -- --host 127.0.0.1 --port ${port}`,
+    command: `bun run astro preview --host 127.0.0.1 --port ${port}`,
     url: baseURL,
     reuseExistingServer: true,
     timeout: 30_000,

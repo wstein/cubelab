@@ -49,8 +49,12 @@ export const assessGyroRotation = (
     : angle * component / vectorLength * 180 / Math.PI;
   const expectedTurns = normalizedTurns(turns);
   const halfTurn = Math.abs(expectedTurns) === 2;
-  // turnTransform uses -turns around the positive logical axis.
-  const direction = -Math.sign(expectedTurns || 1);
+  // In canonical 3D viewport coordinates:
+  // - Pitch forward (X turn): positive rotation around +X (+90°)
+  // - Yaw left (Y turn): positive rotation around +Y (+90°)
+  // - Roll clockwise (Z turn): negative rotation around +Z (-90°)
+  const axisSign = axis === "Z" ? -1 : 1;
+  const direction = axisSign * Math.sign(expectedTurns || 1);
   const enoughRotation = halfTurn
     ? Math.abs(signedDegrees) >= 135
     : signedDegrees * direction >= 65;
