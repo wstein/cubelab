@@ -65,7 +65,7 @@ let oll = [
   {
     id: 13,
     family: "Knight",
-    algorithm: "F U R U' R2 F' R U R U' R'"
+    algorithm: "L F' L' U' L F L' F' U F"
   },
   {
     id: 14,
@@ -140,7 +140,7 @@ let oll = [
   {
     id: 28,
     family: "Corners oriented",
-    algorithm: "r U R' U' r' R U R U' R'"
+    algorithm: "M U M' U2 M U M'"
   },
   {
     id: 29,
@@ -360,7 +360,7 @@ let pll = [
   },
   {
     id: "Ub",
-    algorithm: "R2 U R U R' U' R' U' R' U R'"
+    algorithm: "M2 U' M U2 M' U' M2"
   },
   {
     id: "V",

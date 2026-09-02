@@ -39,7 +39,7 @@ let coll: array<collCase> = [
   {id: "T-5", family: "T", algorithm: "U' r U R' U' r' F R F'"},
   {id: "T-6", family: "T", algorithm: "R' U R2 D r' U2 r D' R2 U' R"},
   {id: "Pi-1", family: "Pi", algorithm: "R' U2 R2 U R2 U R2 U2 R'"},
-  {id: "Pi-2", family: "Pi", algorithm: "U F U R U' R' U R U' R2 F' R U R U' R'"},
+  {id: "Pi-2", family: "Pi", algorithm: "R' F2 R U2 R U2 R' F2 U' R U' R'"},
   {id: "Pi-3", family: "Pi", algorithm: "R' U' F' R U R' U' R' F R2 U2 R' U2 R"},
   {id: "Pi-4", family: "Pi", algorithm: "R U R' U' R' F R2 U R' U' R U R' U' F'"},
   {id: "Pi-5", family: "Pi", algorithm: "U' R U R' U F' R U2 R' U2 R' F R"},

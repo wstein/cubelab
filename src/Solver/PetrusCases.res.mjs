@@ -160,7 +160,7 @@ let coll = [
   {
     id: "Pi-2",
     family: "Pi",
-    algorithm: "U F U R U' R' U R U' R2 F' R U R U' R'"
+    algorithm: "R' F2 R U2 R U2 R' F2 U' R U' R'"
   },
   {
     id: "Pi-3",
