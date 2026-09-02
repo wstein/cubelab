@@ -1048,7 +1048,59 @@ function layerPlanKey(state, pieces, completed) {
   }).join("");
 }
 
-function planLayerPiecesFrom(state, pieces, completed, baseCorners, baseEdges, corners, atomics, labels, failed) {
+function advancedLayerTriggers(solved) {
+  let sources = [
+    "R U R'",
+    "R U' R'",
+    "R U2 R'",
+    "R' U' R",
+    "R' U R",
+    "R' U2 R",
+    "F' U' F",
+    "F' U F",
+    "F' U2 F",
+    "F U F'",
+    "F U' F'",
+    "F U2 F'",
+    "U R U' R'",
+    "U' R U R'",
+    "U R' U' R",
+    "U' R' U R"
+  ];
+  let output = [];
+  sources.forEach(source => {
+    let base = BeginnerSolver.parseInternal(source);
+    for (let yTurns = 0; yTurns <= 3; ++yTurns) {
+      output.push(BeginnerSolver.macroAction(solved, MoveTransform.rotate(base, "Y", yTurns)));
+    }
+  });
+  return output;
+}
+
+function triggerLayerCandidate(state, corners, edges, triggers) {
+  let best = {
+    contents: undefined
+  };
+  let bestScore = {
+    contents: 1000000
+  };
+  triggers.forEach(action => {
+    let after = applyPath(state, [action]);
+    if (!BeginnerSolver.lockedGoal(after, corners, edges)) {
+      return;
+    }
+    let alg = MoveTransform.rotate(action.alg, "X", 2);
+    let score = physicalCost(alg).total;
+    if (score < bestScore.contents) {
+      bestScore.contents = score;
+      best.contents = [action];
+      return;
+    }
+  });
+  return best.contents;
+}
+
+function planLayerPiecesFrom(state, pieces, completed, baseCorners, baseEdges, corners, atomics, triggers, labels, failed) {
   if (completed.length === pieces.length) {
     return [];
   }
@@ -1063,16 +1115,28 @@ function planLayerPiecesFrom(state, pieces, completed, baseCorners, baseEdges, c
     }
     let targetCorners = corners ? baseCorners.concat(completed).concat([piece]) : baseCorners;
     let targetEdges = corners ? baseEdges : baseEdges.concat(completed).concat([piece]);
-    let path = BeginnerSolver.searchAtomicWithLimit(state, targetCorners, targetEdges, rankedActions(atomics), 12, 600000);
-    if (path === undefined) {
+    let path = triggerLayerCandidate(state, targetCorners, targetEdges, triggers);
+    if (path !== undefined) {
+      let alg = MoveTransform.rotate(BeginnerSolver.flattenActions(path), "X", 2);
+      let score = physicalCost(alg).total;
+      candidates.push({
+        pair: piece,
+        path: path,
+        score: score,
+        label: labels[labelIndex]
+      });
       return;
     }
-    let alg = MoveTransform.rotate(BeginnerSolver.flattenActions(path), "X", 2);
-    let score = physicalCost(alg).total;
+    let path$1 = BeginnerSolver.searchAtomicWithLimit(state, targetCorners, targetEdges, rankedActions(atomics), 12, 600000);
+    if (path$1 === undefined) {
+      return;
+    }
+    let alg$1 = MoveTransform.rotate(BeginnerSolver.flattenActions(path$1), "X", 2);
+    let score$1 = physicalCost(alg$1).total;
     candidates.push({
       pair: piece,
-      path: path,
-      score: score,
+      path: path$1,
+      score: score$1,
       label: labels[labelIndex]
     });
   });
@@ -1082,7 +1146,7 @@ function planLayerPiecesFrom(state, pieces, completed, baseCorners, baseEdges, c
     if (result === undefined) {
       let selected = candidates[index];
       let nextState = applyPath(state, selected.path);
-      let rest = planLayerPiecesFrom(nextState, pieces, completed.concat([selected.pair]), baseCorners, baseEdges, corners, atomics, labels, failed);
+      let rest = planLayerPiecesFrom(nextState, pieces, completed.concat([selected.pair]), baseCorners, baseEdges, corners, atomics, triggers, labels, failed);
       if (rest !== undefined) {
         result = [selected].concat(rest);
       }
@@ -1094,8 +1158,8 @@ function planLayerPiecesFrom(state, pieces, completed, baseCorners, baseEdges, c
   return result;
 }
 
-function planLayerPieces(state, pieces, baseCorners, baseEdges, corners, atomics, labels) {
-  let plan = planLayerPiecesFrom(state, pieces, [], baseCorners, baseEdges, corners, atomics, labels, {});
+function planLayerPieces(state, pieces, baseCorners, baseEdges, corners, atomics, triggers, labels) {
+  let plan = planLayerPiecesFrom(state, pieces, [], baseCorners, baseEdges, corners, atomics, triggers, labels, {});
   if (plan !== undefined) {
     return [
       plan,
@@ -1534,6 +1598,7 @@ function solveAdvancedLbl(input) {
       };
     }
     let atomics = BeginnerSolver.atomicActions(solved);
+    let triggers = advancedLayerTriggers(solved);
     let current = start;
     let selection = selectCross(current, atomics);
     let crossSelection;
@@ -1578,7 +1643,7 @@ function solveAdvancedLbl(input) {
       1,
       2,
       3
-    ], true, atomics, cornerNames);
+    ], true, atomics, triggers, cornerNames);
     let cornerPlan = match$1[0];
     current = match$1[1];
     if (!BeginnerSolver.lockedGoal(current, [
@@ -1619,7 +1684,7 @@ function solveAdvancedLbl(input) {
       1,
       2,
       3
-    ], false, atomics, middleNames);
+    ], false, atomics, triggers, middleNames);
     let middlePlan = match$2[0];
     current = match$2[1];
     if (!BeginnerSolver.firstTwoLayersGoal(current)) {
@@ -1835,6 +1900,8 @@ export {
   selectBeginnerPll,
   splitSelectionAtGoal,
   layerPlanKey,
+  advancedLayerTriggers,
+  triggerLayerCandidate,
   planLayerPiecesFrom,
   planLayerPieces,
   solveLevel,
