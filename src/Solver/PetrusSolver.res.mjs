@@ -543,6 +543,20 @@ function validateCollLibrary(solved) {
   return signatures;
 }
 
+let collLibraryCache = {
+  contents: undefined
+};
+
+function cachedCollLibrary(solved) {
+  let signatures = collLibraryCache.contents;
+  if (signatures !== undefined) {
+    return signatures;
+  }
+  let signatures$1 = validateCollLibrary(solved);
+  collLibraryCache.contents = signatures$1;
+  return signatures$1;
+}
+
 function selectColl(state, solved, signatures) {
   let skip;
   if (BeginnerSolver.orientedLastCornersGoal(state)) {
@@ -911,7 +925,7 @@ function solveMethod(input, method) {
         phase(7, "Permute Last-Layer Edges", "Finish with the recognized Ua, Ub, H, or Z edge permutation.", finalEdges, pllEdges.labels)
       ]);
     } else {
-      let collSignatures = validateCollLibrary(solved);
+      let collSignatures = cachedCollLibrary(solved);
       let selection = selectColl(current, solved, collSignatures);
       let coll;
       if (selection !== undefined) {
@@ -1024,6 +1038,8 @@ export {
   appendActionGroup,
   physicalMoveCount,
   validateCollLibrary,
+  collLibraryCache,
+  cachedCollLibrary,
   selectColl,
   annotatedSolution,
   solveMethod,

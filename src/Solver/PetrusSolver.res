@@ -60,15 +60,17 @@ let withPhasePause = (alg: alg): alg => {
   output
 }
 
-let applyPath = (
-  state: PieceReducer.pieceState,
-  path: array<BeginnerSolver.action>,
-) =>
+let applyPath = (state: PieceReducer.pieceState, path: array<BeginnerSolver.action>) =>
   path->Array.reduce(state, (current, action) =>
     BeginnerSolver.applyCubie(current, action.transition)
   )
 
-let maxInt = (left, right) => if left > right {left} else {right}
+let maxInt = (left, right) =>
+  if left > right {
+    left
+  } else {
+    right
+  }
 
 let searchGoal = (
   ~state: PieceReducer.pieceState,
@@ -86,10 +88,18 @@ let searchGoal = (
       if nodes.contents > maxNodes || heuristic(current) > remaining {
         None
       } else if remaining == 0 {
-        if isGoal(current) {Some(path->Array.map(value => value))} else {None}
+        if isGoal(current) {
+          Some(path->Array.map(value => value))
+        } else {
+          None
+        }
       } else {
-        let key = BeginnerSolver.fullKey(current) ++
-          "|" ++ previousFace->Int.toString ++ ":" ++ previousAxis->Int.toString
+        let key =
+          BeginnerSolver.fullKey(current) ++
+          "|" ++
+          previousFace->Int.toString ++
+          ":" ++
+          previousAxis->Int.toString
         let alreadySeen = switch Dict.get(seen, key) {
         | Some(depth) => depth >= remaining
         | None => false
@@ -106,15 +116,16 @@ let searchGoal = (
               action.axisIndex == previousAxis && action.faceIndex < previousFace
             if found.contents == None && !sameFace && !reorderedOpposite {
               path->Array.push(action)
-              found := dfs(
-                BeginnerSolver.applyCubie(current, action.transition),
-                remaining - 1,
-                action.faceIndex,
-                action.axisIndex,
-                path,
-                seen,
-                nodes,
-              )
+              found :=
+                dfs(
+                  BeginnerSolver.applyCubie(current, action.transition),
+                  remaining - 1,
+                  action.faceIndex,
+                  action.axisIndex,
+                  path,
+                  seen,
+                  nodes,
+                )
               path->Array.pop->ignore
             }
           }
@@ -142,11 +153,7 @@ let solveEdgeOrientation = (
     ~actions=atomics,
   )
   let heuristic = current => {
-    let blockDistance = BeginnerSolver.atomicDistanceLowerBound(
-      current,
-      cornerTables,
-      edgeTables,
-    )
+    let blockDistance = BeginnerSolver.atomicDistanceLowerBound(current, cornerTables, edgeTables)
     let badEdges = current.eo->Array.filter(value => value != 0)->Array.length
     maxInt(blockDistance, (badEdges + 3) / 4)
   }
@@ -214,10 +221,11 @@ let solveTwoGeneratorF2l = (
   ~state: PieceReducer.pieceState,
   ~atomics: array<BeginnerSolver.action>,
 ) => {
-  let twoGen = atomics->Array.filter((action: BeginnerSolver.action) =>
-    action.faceIndex == BeginnerSolver.faceIndex(R) ||
-      action.faceIndex == BeginnerSolver.faceIndex(D)
-  )
+  let twoGen =
+    atomics->Array.filter((action: BeginnerSolver.action) =>
+      action.faceIndex == BeginnerSolver.faceIndex(R) ||
+        action.faceIndex == BeginnerSolver.faceIndex(D)
+    )
   let tryOrder = firstRightWing => {
     let firstCorners = if firstRightWing {
       block223Corners->Array.concat([0])
@@ -286,7 +294,11 @@ let downAction = (solved, turns): option<BeginnerSolver.action> => {
   if normalized == 0 {
     None
   } else {
-    let canonical = if normalized == 3 {-1} else {normalized}
+    let canonical = if normalized == 3 {
+      -1
+    } else {
+      normalized
+    }
     BeginnerSolver.downTurns(solved)->Array.find(action =>
       switch action.alg {
       | [{desc: Move(FaceTurn(D, _), actionTurns)}] => actionTurns == canonical
@@ -306,7 +318,9 @@ let normalizedCollKey = (~state, ~solved) => {
   let best = ref(collKey(state))
   for turns in 1 to 3 {
     let candidate = collKey(applyDown(state, solved, turns))
-    if candidate < best.contents {best := candidate}
+    if candidate < best.contents {
+      best := candidate
+    }
   }
   best.contents
 }
@@ -314,7 +328,8 @@ let normalizedCollKey = (~state, ~solved) => {
 let collBaseAlg = algorithm => {
   let parsed = BeginnerSolver.parseInternal(algorithm)
   switch Belt.Array.get(parsed, 0) {
-  | Some({desc: Move(FaceTurn(U, _), _)}) => parsed->Array.slice(~start=1, ~end=parsed->Array.length)
+  | Some({desc: Move(FaceTurn(U, _), _)}) =>
+    parsed->Array.slice(~start=1, ~end=parsed->Array.length)
   | _ => parsed
   }
 }
@@ -328,12 +343,14 @@ let physicalMoveCount = (candidate: alg) =>
   switch MoveExecutor.expand(candidate) {
   | Error(error) => throw(BuildFailure(BeginnerSolver.ExpansionFailed(error)))
   | Ok(steps) =>
-    steps->Array.filter(step =>
+    steps
+    ->Array.filter(step =>
       switch step.move {
       | Rotation(_) => false
       | FaceTurn(_, _) | SliceTurn(_) => true
       }
-    )->Array.length
+    )
+    ->Array.length
   }
 
 let validateCollLibrary = solved => {
@@ -344,11 +361,7 @@ let validateCollLibrary = solved => {
   let signatures: Dict.t<collRecognition> = Dict.make()
   PetrusCases.coll->Array.forEach(entry => {
     for yTurns in 0 to 3 {
-      let action = BeginnerSolver.macroVariant(
-        solved,
-        collBaseAlg(entry.algorithm),
-        yTurns,
-      )
+      let action = BeginnerSolver.macroVariant(solved, collBaseAlg(entry.algorithm), yTurns)
       let setup = BeginnerSolver.transitionForAlg(solved, MoveTransform.invert(action.alg))
       if !BeginnerSolver.firstTwoLayersGoal(setup) || !edgesOriented(setup) {
         throw(BuildFailure(BeginnerSolver.VerificationFailed))
@@ -372,6 +385,17 @@ let validateCollLibrary = solved => {
   signatures
 }
 
+let collLibraryCache = ref(None)
+let cachedCollLibrary = solved =>
+  switch collLibraryCache.contents {
+  | Some(signatures) => signatures
+  | None => {
+      let signatures = validateCollLibrary(solved)
+      collLibraryCache := Some(signatures)
+      signatures
+    }
+  }
+
 let selectColl = (~state, ~solved, ~signatures): option<collSelection> => {
   let skip = ref(None)
   if BeginnerSolver.orientedLastCornersGoal(state) {
@@ -394,61 +418,64 @@ let selectColl = (~state, ~solved, ~signatures): option<collSelection> => {
   switch skip.contents {
   | Some(selection) => Some(selection)
   | None => {
-    let signature = normalizedCollKey(~state, ~solved)
-    switch Dict.get(signatures, signature) {
-    | None => None
-    | Some(recognition) =>
-      switch PetrusCases.coll->Array.find(entry => entry.id == recognition.caseId) {
+      let signature = normalizedCollKey(~state, ~solved)
+      switch Dict.get(signatures, signature) {
       | None => None
-      | Some(entry) => {
-          let action = BeginnerSolver.macroVariant(
-            solved,
-            collBaseAlg(entry.algorithm),
-            recognition.yTurns,
-          )
-          let best = ref(None)
-          let bestScore = ref(1000000)
-          for preTurns in 0 to 3 {
-            let aligned = applyDown(state, solved, preTurns)
-            let transformed = BeginnerSolver.applyCubie(aligned, action.transition)
-            for postTurns in 0 to 3 {
-              let after = applyDown(transformed, solved, postTurns)
-              if BeginnerSolver.firstTwoLayersGoal(after) && edgesOriented(after) &&
-                BeginnerSolver.orientedLastCornersGoal(after) &&
-                BeginnerSolver.positionedLastCornersGoal(after) {
-                let candidate = []
-                let labels = []
-                switch downAction(solved, preTurns) {
-                | Some(auf) => {
-                    appendActionGroup(candidate, auf)
-                    labels->Array.push("AUF: align the recognized COLL case.")
+      | Some(recognition) =>
+        switch PetrusCases.coll->Array.find(entry => entry.id == recognition.caseId) {
+        | None => None
+        | Some(entry) => {
+            let action = BeginnerSolver.macroVariant(
+              solved,
+              collBaseAlg(entry.algorithm),
+              recognition.yTurns,
+            )
+            let best = ref(None)
+            let bestScore = ref(1000000)
+            for preTurns in 0 to 3 {
+              let aligned = applyDown(state, solved, preTurns)
+              let transformed = BeginnerSolver.applyCubie(aligned, action.transition)
+              for postTurns in 0 to 3 {
+                let after = applyDown(transformed, solved, postTurns)
+                if (
+                  BeginnerSolver.firstTwoLayersGoal(after) &&
+                  edgesOriented(after) &&
+                  BeginnerSolver.orientedLastCornersGoal(after) &&
+                  BeginnerSolver.positionedLastCornersGoal(after)
+                ) {
+                  let candidate = []
+                  let labels = []
+                  switch downAction(solved, preTurns) {
+                  | Some(auf) => {
+                      appendActionGroup(candidate, auf)
+                      labels->Array.push("AUF: align the recognized COLL case.")
+                    }
+                  | None => ()
                   }
-                | None => ()
-                }
-                appendActionGroup(candidate, action)
-                labels->Array.push(
-                  `COLL ${entry.id} · ${entry.family} — orient and permute all four corners.`,
-                )
-                switch downAction(solved, postTurns) {
-                | Some(auf) => {
-                    appendActionGroup(candidate, auf)
-                    labels->Array.push("COLL AUF: align all four solved corners.")
+                  appendActionGroup(candidate, action)
+                  labels->Array.push(
+                    `COLL ${entry.id} · ${entry.family} — orient and permute all four corners.`,
+                  )
+                  switch downAction(solved, postTurns) {
+                  | Some(auf) => {
+                      appendActionGroup(candidate, auf)
+                      labels->Array.push("COLL AUF: align all four solved corners.")
+                    }
+                  | None => ()
                   }
-                | None => ()
-                }
-                let score = physicalMoveCount(candidate->MoveTransform.rotate(~axis=X, ~turns=2))
-                if score < bestScore.contents {
-                  bestScore := score
-                  best := Some({alg: candidate, labels, state: after, caseId: entry.id})
+                  let score = physicalMoveCount(candidate->MoveTransform.rotate(~axis=X, ~turns=2))
+                  if score < bestScore.contents {
+                    bestScore := score
+                    best := Some({alg: candidate, labels, state: after, caseId: entry.id})
+                  }
                 }
               }
             }
+            best.contents
           }
-          best.contents
         }
       }
     }
-  }
   }
 }
 
@@ -522,7 +549,9 @@ let solveMethod = (input: cubeState, method): result<solution, solverError> => {
     | None => throw(BuildFailure(BeginnerSolver.SearchFailed("a DBL 2×2×2 block")))
     }
     current := applyPath(current.contents, block222Path)
-    if !isBlock222(current.contents) {throw(BuildFailure(BeginnerSolver.VerificationFailed))}
+    if !isBlock222(current.contents) {
+      throw(BuildFailure(BeginnerSolver.VerificationFailed))
+    }
 
     let (block223Paths, block223State) = switch solveBlockExpansion(
       ~state=current.contents,
@@ -532,14 +561,21 @@ let solveMethod = (input: cubeState, method): result<solution, solverError> => {
     | None => throw(BuildFailure(BeginnerSolver.SearchFailed("the DBL 2×2×3 expansion")))
     }
     current := block223State
-    if !isBlock223(current.contents) {throw(BuildFailure(BeginnerSolver.VerificationFailed))}
+    if !isBlock223(current.contents) {
+      throw(BuildFailure(BeginnerSolver.VerificationFailed))
+    }
 
     let eoPath = switch solveEdgeOrientation(~state=current.contents, ~atomics) {
     | Some(path) => path
-    | None => throw(BuildFailure(BeginnerSolver.SearchFailed("bad-edge orientation around the 2×2×3 block")))
+    | None =>
+      throw(
+        BuildFailure(BeginnerSolver.SearchFailed("bad-edge orientation around the 2×2×3 block")),
+      )
     }
     current := applyPath(current.contents, eoPath)
-    if !isPetrusEo(current.contents) {throw(BuildFailure(BeginnerSolver.VerificationFailed))}
+    if !isPetrusEo(current.contents) {
+      throw(BuildFailure(BeginnerSolver.VerificationFailed))
+    }
 
     let (firstWing, secondWing, f2lState) = switch solveTwoGeneratorF2l(
       ~state=current.contents,
@@ -576,9 +612,10 @@ let solveMethod = (input: cubeState, method): result<solution, solverError> => {
       firstAlg := firstAlg.contents->Array.concat(grouped(transform(block222Alg)))
       firstLabels->Array.push("Connect the DB, DL, and BL edges to the DBL corner.")
     }
-    let block223Alg = block223Paths->Array.reduce([], (output, path) =>
-      output->Array.concat(grouped(transform(BeginnerSolver.flattenActions(path))))
-    )
+    let block223Alg =
+      block223Paths->Array.reduce([], (output, path) =>
+        output->Array.concat(grouped(transform(BeginnerSolver.flattenActions(path))))
+      )
     let eoAlg = transform(BeginnerSolver.flattenActions(eoPath))
     let firstWingAlg = transform(BeginnerSolver.flattenActions(firstWing))
     let secondWingAlg = transform(BeginnerSolver.flattenActions(secondWing))
@@ -675,7 +712,7 @@ let solveMethod = (input: cubeState, method): result<solution, solverError> => {
         ])
       }
     | Enhanced => {
-        let collSignatures = validateCollLibrary(solved)
+        let collSignatures = cachedCollLibrary(solved)
         let coll = switch selectColl(~state=current.contents, ~solved, ~signatures=collSignatures) {
         | Some(selection) => selection
         | None => throw(BuildFailure(BeginnerSolver.SearchFailed("one-look COLL recognition")))
@@ -694,9 +731,7 @@ let solveMethod = (input: cubeState, method): result<solution, solverError> => {
             transform(epll.alg)
           },
         )
-        let labels = coll.labels->Array.concat(
-          epll.labels->Array.map(label => "EPLL: " ++ label),
-        )
+        let labels = coll.labels->Array.concat(epll.labels->Array.map(label => "EPLL: " ++ label))
         common->Array.concat([
           phase(
             5,

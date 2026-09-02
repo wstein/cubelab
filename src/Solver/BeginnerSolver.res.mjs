@@ -7,8 +7,9 @@ import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
-import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
 import * as Primitive_exceptions from "@rescript/runtime/lib/es6/Primitive_exceptions.js";
+
+let atomicHeuristicCache = {};
 
 let BuildFailure = /* @__PURE__ */Primitive_exceptions.create("BeginnerSolver.BuildFailure");
 
@@ -111,12 +112,26 @@ function axisIndex(face) {
 }
 
 function applyCubie(state, transition) {
+  let cp = Stdlib_Array.make(8, 0);
+  let co = Stdlib_Array.make(8, 0);
+  let ep = Stdlib_Array.make(12, 0);
+  let eo = Stdlib_Array.make(12, 0);
+  for (let target = 0; target <= 7; ++target) {
+    let source = transition.cp[target];
+    cp[target] = state.cp[source];
+    co[target] = (state.co[source] + transition.co[target] | 0) % 3;
+  }
+  for (let target$1 = 0; target$1 <= 11; ++target$1) {
+    let source$1 = transition.ep[target$1];
+    ep[target$1] = state.ep[source$1];
+    eo[target$1] = (state.eo[source$1] + transition.eo[target$1] | 0) % 2;
+  }
   return {
     size: 3,
-    cp: transition.cp.map(source => state.cp[source]),
-    co: transition.cp.map((source, target) => (state.co[source] + transition.co[target] | 0) % 3),
-    ep: transition.ep.map(source => state.ep[source]),
-    eo: transition.ep.map((source, target) => (state.eo[source] + transition.eo[target] | 0) % 2)
+    cp: cp,
+    co: co,
+    ep: ep,
+    eo: eo
   };
 }
 
@@ -211,7 +226,7 @@ function lockedGoal(state, corners, edges) {
 }
 
 function findPiece(permutation, piece) {
-  let slot = permutation.findIndex(candidate => Primitive_object.equal(candidate, piece));
+  let slot = permutation.findIndex(candidate => candidate === piece);
   if (slot === -1) {
     throw {
       RE_EXN_ID: BuildFailure,
@@ -287,6 +302,74 @@ function atomicDistanceTables(corners, edges, actions) {
   ];
 }
 
+function atomicCoordinateTargets(corners, edges) {
+  return corners.map(piece => ({
+    piece: piece,
+    kind: "CornerCoordinate",
+    goal: piece * 3 | 0
+  })).concat(edges.map(piece => ({
+    piece: piece,
+    kind: "EdgeCoordinate",
+    goal: (piece << 1)
+  })));
+}
+
+function nextTargetCoordinate(coordinate, target, transition) {
+  let match = target.kind;
+  if (match === "CornerCoordinate") {
+    return nextCornerCoordinate(coordinate, transition);
+  } else {
+    return nextEdgeCoordinate(coordinate, transition);
+  }
+}
+
+function atomicJointDistanceTables(targets, actions) {
+  let tables = [];
+  if (targets.length >= 2) {
+    for (let leftIndex = 0, leftIndex_finish = targets.length - 2 | 0; leftIndex <= leftIndex_finish; ++leftIndex) {
+      for (let rightIndex = leftIndex + 1 | 0, rightIndex_finish = targets.length; rightIndex < rightIndex_finish; ++rightIndex) {
+        let left = targets[leftIndex];
+        let right = targets[rightIndex];
+        let distances = coordinateDistances((left.goal * 24 | 0) + right.goal | 0, 576, actions, (coordinate, transition) => {
+          let leftCoordinate = coordinate / 24 | 0;
+          let rightCoordinate = coordinate % 24;
+          return (nextTargetCoordinate(leftCoordinate, left, transition) * 24 | 0) + nextTargetCoordinate(rightCoordinate, right, transition) | 0;
+        });
+        tables.push({
+          leftIndex: leftIndex,
+          rightIndex: rightIndex,
+          distances: distances
+        });
+      }
+    }
+  }
+  return tables;
+}
+
+function atomicHeuristicKey(corners, edges, actions) {
+  return corners.map(value => value.toString()).join(",") + "|" + edges.map(value => value.toString()).join(",") + "|" + actions.map(action => MoveTransform.serialize(action.alg)).join(";");
+}
+
+function atomicHeuristicTables(corners, edges, actions) {
+  let key = atomicHeuristicKey(corners, edges, actions);
+  let tables = atomicHeuristicCache[key];
+  if (tables !== undefined) {
+    return tables;
+  }
+  let match = atomicDistanceTables(corners, edges, actions);
+  let targets = atomicCoordinateTargets(corners, edges);
+  let tables_cornerTables = match[0];
+  let tables_edgeTables = match[1];
+  let tables_jointTables = targets.length <= 4 ? atomicJointDistanceTables(targets, actions) : [];
+  let tables$1 = {
+    cornerTables: tables_cornerTables,
+    edgeTables: tables_edgeTables,
+    jointTables: tables_jointTables
+  };
+  atomicHeuristicCache[key] = tables$1;
+  return tables$1;
+}
+
 function atomicDistanceLowerBound(state, cornerTables, edgeTables) {
   let lowerBound = {
     contents: 0
@@ -312,19 +395,61 @@ function atomicDistanceLowerBound(state, cornerTables, edgeTables) {
   return lowerBound.contents;
 }
 
+function atomicProjection(state, cornerTables, edgeTables, jointTables) {
+  let lowerBound = {
+    contents: 0
+  };
+  let key = {
+    contents: ""
+  };
+  let coordinates = [];
+  cornerTables.forEach(table => {
+    let slot = findPiece(state.cp, table.piece);
+    let coordinate = (slot * 3 | 0) + state.co[slot] | 0;
+    let distance = table.distances[coordinate];
+    if (distance > lowerBound.contents) {
+      lowerBound.contents = distance;
+    }
+    coordinates.push(coordinate);
+    key.contents = key.contents + String.fromCharCode(coordinate + 65 | 0);
+  });
+  key.contents = key.contents + "|";
+  edgeTables.forEach(table => {
+    let slot = findPiece(state.ep, table.piece);
+    let coordinate = (slot << 1) + state.eo[slot] | 0;
+    let distance = table.distances[coordinate];
+    if (distance > lowerBound.contents) {
+      lowerBound.contents = distance;
+    }
+    coordinates.push(coordinate);
+    key.contents = key.contents + String.fromCharCode(coordinate + 65 | 0);
+  });
+  jointTables.forEach(table => {
+    let coordinate = (coordinates[table.leftIndex] * 24 | 0) + coordinates[table.rightIndex] | 0;
+    let distance = table.distances[coordinate];
+    if (distance > lowerBound.contents) {
+      lowerBound.contents = distance;
+      return;
+    }
+  });
+  return [
+    lowerBound.contents,
+    key.contents
+  ];
+}
+
 function searchAtomicWithLimit(state, corners, edges, actions, maxDepth, maxNodes) {
   if (lockedGoal(state, corners, edges)) {
     return [];
   }
-  let match = atomicDistanceTables(corners, edges, actions);
-  let edgeTables = match[1];
-  let cornerTables = match[0];
+  let tables = atomicHeuristicTables(corners, edges, actions);
   let dfs = (current, remaining, previousFace, previousAxis, path, seen, nodes) => {
     nodes.contents = nodes.contents + 1 | 0;
     if (nodes.contents > maxNodes) {
       return;
     }
-    if (atomicDistanceLowerBound(current, cornerTables, edgeTables) > remaining) {
+    let match = atomicProjection(current, tables.cornerTables, tables.edgeTables, tables.jointTables);
+    if (match[0] > remaining) {
       return;
     }
     if (remaining === 0) {
@@ -334,7 +459,7 @@ function searchAtomicWithLimit(state, corners, edges, actions, maxDepth, maxNode
         return;
       }
     }
-    let key = projectionKey(current, corners, edges) + "|" + previousFace.toString() + ":" + previousAxis.toString();
+    let key = match[1] + "|" + previousFace.toString() + ":" + previousAxis.toString();
     let depth = seen[key];
     let alreadySeen = depth !== undefined ? depth >= remaining : false;
     if (alreadySeen) {
@@ -1119,6 +1244,7 @@ function solve(input) {
 let maxAtomicNodes = 2500000;
 
 export {
+  atomicHeuristicCache,
   BuildFailure,
   generatedLoc,
   located,
@@ -1141,7 +1267,13 @@ export {
   nextEdgeCoordinate,
   coordinateDistances,
   atomicDistanceTables,
+  atomicCoordinateTargets,
+  nextTargetCoordinate,
+  atomicJointDistanceTables,
+  atomicHeuristicKey,
+  atomicHeuristicTables,
   atomicDistanceLowerBound,
+  atomicProjection,
   searchAtomicWithLimit,
   searchAtomic,
   flattenActions,

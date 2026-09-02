@@ -38,6 +38,21 @@ type distanceTable = {
   distances: array<int>,
 }
 
+type coordinateKind = CornerCoordinate | EdgeCoordinate
+type coordinateTarget = {piece: int, kind: coordinateKind, goal: int}
+type jointDistanceTable = {
+  leftIndex: int,
+  rightIndex: int,
+  distances: array<int>,
+}
+type atomicHeuristicTables = {
+  cornerTables: array<distanceTable>,
+  edgeTables: array<distanceTable>,
+  jointTables: array<jointDistanceTable>,
+}
+
+let atomicHeuristicCache: Dict.t<atomicHeuristicTables> = Dict.make()
+
 exception BuildFailure(solverError)
 
 let generatedLoc = {start: 0, end_: 0}
@@ -88,15 +103,23 @@ let applyCubie = (
   state: PieceReducer.pieceState,
   transition: PieceReducer.pieceState,
 ): PieceReducer.pieceState => {
-  size: 3,
-  cp: transition.cp->Array.map(source => Belt.Array.getUnsafe(state.cp, source)),
-  co: transition.cp->Array.mapWithIndex((source, target) =>
-    (Belt.Array.getUnsafe(state.co, source) + Belt.Array.getUnsafe(transition.co, target)) % 3
-  ),
-  ep: transition.ep->Array.map(source => Belt.Array.getUnsafe(state.ep, source)),
-  eo: transition.ep->Array.mapWithIndex((source, target) =>
-    (Belt.Array.getUnsafe(state.eo, source) + Belt.Array.getUnsafe(transition.eo, target)) % 2
-  ),
+  let cp = Array.make(~length=8, 0)
+  let co = Array.make(~length=8, 0)
+  let ep = Array.make(~length=12, 0)
+  let eo = Array.make(~length=12, 0)
+  for target in 0 to 7 {
+    let source = Belt.Array.getUnsafe(transition.cp, target)
+    cp[target] = Belt.Array.getUnsafe(state.cp, source)
+    co[target] =
+      (Belt.Array.getUnsafe(state.co, source) + Belt.Array.getUnsafe(transition.co, target)) % 3
+  }
+  for target in 0 to 11 {
+    let source = Belt.Array.getUnsafe(transition.ep, target)
+    ep[target] = Belt.Array.getUnsafe(state.ep, source)
+    eo[target] =
+      (Belt.Array.getUnsafe(state.eo, source) + Belt.Array.getUnsafe(transition.eo, target)) % 2
+  }
+  {size: 3, cp, co, ep, eo}
 }
 
 let transitionForAlg = (solved, alg) =>
@@ -137,7 +160,7 @@ let lockedGoal = (state, corners, edges) =>
   corners->Array.every(piece => isSolvedCorner(state, piece)) &&
     edges->Array.every(piece => isSolvedEdge(state, piece))
 
-let findPiece = (permutation, piece) => {
+let findPiece = (permutation: array<int>, piece: int) => {
   let slot = permutation->Array.findIndex(candidate => candidate == piece)
   if slot == -1 {
     throw(BuildFailure(SearchFailed("piece identification")))
@@ -219,7 +242,78 @@ let atomicDistanceTables = (~corners, ~edges, ~actions) => {
   (cornerTables, edgeTables)
 }
 
-let atomicDistanceLowerBound = (state: PieceReducer.pieceState, cornerTables, edgeTables) => {
+let atomicCoordinateTargets = (corners, edges) =>
+  corners
+  ->Array.map(piece => {piece, kind: CornerCoordinate, goal: piece * 3})
+  ->Array.concat(edges->Array.map(piece => {piece, kind: EdgeCoordinate, goal: piece * 2}))
+
+let nextTargetCoordinate = (coordinate, target, transition) =>
+  switch target.kind {
+  | CornerCoordinate => nextCornerCoordinate(coordinate, transition)
+  | EdgeCoordinate => nextEdgeCoordinate(coordinate, transition)
+  }
+
+// Pair pattern databases are tiny (24² bytes per target pair) but provide a
+// much stronger admissible bound than independent single-piece distances.
+let atomicJointDistanceTables = (~targets, ~actions) => {
+  let tables = []
+  if targets->Array.length >= 2 {
+    for leftIndex in 0 to targets->Array.length - 2 {
+      for rightIndex in leftIndex + 1 to targets->Array.length - 1 {
+        let left = Belt.Array.getUnsafe(targets, leftIndex)
+        let right = Belt.Array.getUnsafe(targets, rightIndex)
+        let distances = coordinateDistances(
+          ~goal=left.goal * 24 + right.goal,
+          ~coordinateCount=24 * 24,
+          ~actions,
+          ~nextCoordinate=(coordinate, transition) => {
+            let leftCoordinate = coordinate / 24
+            let rightCoordinate = coordinate % 24
+            nextTargetCoordinate(leftCoordinate, left, transition) * 24 +
+              nextTargetCoordinate(rightCoordinate, right, transition)
+          },
+        )
+        tables->Array.push({leftIndex, rightIndex, distances})
+      }
+    }
+  }
+  tables
+}
+
+let atomicHeuristicKey = (corners, edges, actions: array<action>) =>
+  corners->Array.map(value => value->Int.toString)->Array.join(",") ++
+  "|" ++
+  edges->Array.map(value => value->Int.toString)->Array.join(",") ++
+  "|" ++
+  actions->Array.map(action => MoveTransform.serialize(action.alg))->Array.join(";")
+
+let atomicHeuristicTables = (~corners, ~edges, ~actions) => {
+  let key = atomicHeuristicKey(corners, edges, actions)
+  switch Dict.get(atomicHeuristicCache, key) {
+  | Some(tables) => tables
+  | None => {
+      let (cornerTables, edgeTables) = atomicDistanceTables(~corners, ~edges, ~actions)
+      let targets = atomicCoordinateTargets(corners, edges)
+      let tables = {
+        cornerTables,
+        edgeTables,
+        jointTables: if targets->Array.length <= 4 {
+          atomicJointDistanceTables(~targets, ~actions)
+        } else {
+          []
+        },
+      }
+      Dict.set(atomicHeuristicCache, key, tables)
+      tables
+    }
+  }
+}
+
+let atomicDistanceLowerBound = (
+  state: PieceReducer.pieceState,
+  cornerTables: array<distanceTable>,
+  edgeTables: array<distanceTable>,
+) => {
   let lowerBound = ref(0)
   cornerTables->Array.forEach(table => {
     let slot = findPiece(state.cp, table.piece)
@@ -240,60 +334,108 @@ let atomicDistanceLowerBound = (state: PieceReducer.pieceState, cornerTables, ed
   lowerBound.contents
 }
 
+// Produce the admissible bound and transposition projection together. The old
+// hot path independently located every target piece twice at every IDA* node.
+let atomicProjection = (
+  state: PieceReducer.pieceState,
+  cornerTables: array<distanceTable>,
+  edgeTables: array<distanceTable>,
+  jointTables: array<jointDistanceTable>,
+) => {
+  let lowerBound = ref(0)
+  let key = ref("")
+  let coordinates = []
+  cornerTables->Array.forEach(table => {
+    let slot = findPiece(state.cp, table.piece)
+    let coordinate = slot * 3 + Belt.Array.getUnsafe(state.co, slot)
+    let distance = Belt.Array.getUnsafe(table.distances, coordinate)
+    if distance > lowerBound.contents {
+      lowerBound := distance
+    }
+    coordinates->Array.push(coordinate)
+    key := key.contents ++ String.fromCharCode(coordinate + 65)
+  })
+  key := key.contents ++ "|"
+  edgeTables->Array.forEach(table => {
+    let slot = findPiece(state.ep, table.piece)
+    let coordinate = slot * 2 + Belt.Array.getUnsafe(state.eo, slot)
+    let distance = Belt.Array.getUnsafe(table.distances, coordinate)
+    if distance > lowerBound.contents {
+      lowerBound := distance
+    }
+    coordinates->Array.push(coordinate)
+    key := key.contents ++ String.fromCharCode(coordinate + 65)
+  })
+  jointTables->Array.forEach(table => {
+    let coordinate =
+      Belt.Array.getUnsafe(coordinates, table.leftIndex) * 24 +
+        Belt.Array.getUnsafe(coordinates, table.rightIndex)
+    let distance = Belt.Array.getUnsafe(table.distances, coordinate)
+    if distance > lowerBound.contents {
+      lowerBound := distance
+    }
+  })
+  (lowerBound.contents, key.contents)
+}
+
 let searchAtomicWithLimit = (~state, ~corners, ~edges, ~actions, ~maxDepth, ~maxNodes) => {
   if lockedGoal(state, corners, edges) {
     Some([])
   } else {
-    let (cornerTables, edgeTables) = atomicDistanceTables(~corners, ~edges, ~actions)
+    let tables = atomicHeuristicTables(~corners, ~edges, ~actions)
     let rec dfs = (current, remaining, previousFace, previousAxis, path, seen, nodes) => {
       nodes := nodes.contents + 1
       if nodes.contents > maxNodes {
         None
-      } else if atomicDistanceLowerBound(current, cornerTables, edgeTables) > remaining {
-        None
-      } else if remaining == 0 {
-        if lockedGoal(current, corners, edges) {
-          Some(path->Array.map(value => value))
-        } else {
-          None
-        }
       } else {
-        let key =
-          projectionKey(current, corners, edges) ++
-          "|" ++
-          previousFace->Int.toString ++
-          ":" ++
-          previousAxis->Int.toString
-        let alreadySeen = switch Dict.get(seen, key) {
-        | Some(depth) => depth >= remaining
-        | None => false
-        }
-        if alreadySeen {
+        let (lowerBound, projection) = atomicProjection(
+          current,
+          tables.cornerTables,
+          tables.edgeTables,
+          tables.jointTables,
+        )
+        if lowerBound > remaining {
           None
-        } else {
-          Dict.set(seen, key, remaining)
-          let found = ref(None)
-          for index in 0 to actions->Array.length - 1 {
-            let candidate = Belt.Array.getUnsafe(actions, index)
-            let sameFace = candidate.faceIndex == previousFace
-            let reorderedOpposite =
-              candidate.axisIndex == previousAxis && candidate.faceIndex < previousFace
-            if found.contents == None && !sameFace && !reorderedOpposite {
-              path->Array.push(candidate)
-              found :=
-                dfs(
-                  applyCubie(current, candidate.transition),
-                  remaining - 1,
-                  candidate.faceIndex,
-                  candidate.axisIndex,
-                  path,
-                  seen,
-                  nodes,
-                )
-              path->Array.pop->ignore
-            }
+        } else if remaining == 0 {
+          if lockedGoal(current, corners, edges) {
+            Some(path->Array.map(value => value))
+          } else {
+            None
           }
-          found.contents
+        } else {
+          let key =
+            projection ++ "|" ++ previousFace->Int.toString ++ ":" ++ previousAxis->Int.toString
+          let alreadySeen = switch Dict.get(seen, key) {
+          | Some(depth) => depth >= remaining
+          | None => false
+          }
+          if alreadySeen {
+            None
+          } else {
+            Dict.set(seen, key, remaining)
+            let found = ref(None)
+            for index in 0 to actions->Array.length - 1 {
+              let candidate = Belt.Array.getUnsafe(actions, index)
+              let sameFace = candidate.faceIndex == previousFace
+              let reorderedOpposite =
+                candidate.axisIndex == previousAxis && candidate.faceIndex < previousFace
+              if found.contents == None && !sameFace && !reorderedOpposite {
+                path->Array.push(candidate)
+                found :=
+                  dfs(
+                    applyCubie(current, candidate.transition),
+                    remaining - 1,
+                    candidate.faceIndex,
+                    candidate.axisIndex,
+                    path,
+                    seen,
+                    nodes,
+                  )
+                path->Array.pop->ignore
+              }
+            }
+            found.contents
+          }
         }
       }
     }

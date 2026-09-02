@@ -102,6 +102,7 @@ test("emits seven truthful, replay-verified Classical Petrus phases", () => {
 
 test("emits a five-phase Enhanced Petrus curriculum with a COLL/EPLL finish", () => {
   const solution = solveWith(PetrusSolver.solveEnhanced);
+  const cachedRepeat = solveWith(PetrusSolver.solveEnhanced);
   assert.equal(solution.phases.length, 5);
   assert.equal(solution.phases[4].title, "COLL + EPLL Finish");
   assert.match(solution.phases[4].instruction, /COLL/);
@@ -115,6 +116,8 @@ test("emits a five-phase Enhanced Petrus curriculum with a COLL/EPLL finish", ()
   state = afterPhase(state, solution.phases[4]);
   assert.equal(FaceletCodec.render(state), solvedCompact);
   assert.equal(FaceletCodec.render(MoveExecutor.applyAlg(initial, solution.alg)._0), solvedCompact);
+  assert.ok(solution.moveCount <= 60, `expected at most 60 moves, received ${solution.moveCount}`);
+  assert.deepEqual(physicalMoves(cachedRepeat.alg), physicalMoves(solution.alg));
   const classical = solveWith(PetrusSolver.solveClassical);
   assert.notDeepEqual(physicalMoves(solution.alg), physicalMoves(classical.alg));
 });

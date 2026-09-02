@@ -644,6 +644,20 @@ function validateCaseLibraries(solved) {
   ];
 }
 
+let caseLibraryCache = {
+  contents: undefined
+};
+
+function cachedCaseLibraries(solved) {
+  let libraries = caseLibraryCache.contents;
+  if (libraries !== undefined) {
+    return libraries;
+  }
+  let libraries$1 = validateCaseLibraries(solved);
+  caseLibraryCache.contents = libraries$1;
+  return libraries$1;
+}
+
 function selectOll(state, solved, signatures) {
   if (BeginnerSolver.orientedLastCornersGoal(state)) {
     return {
@@ -1165,7 +1179,7 @@ function solveLevel(input, level) {
     let current = {
       contents: start
     };
-    let match$1 = validateCaseLibraries(solved);
+    let match$1 = cachedCaseLibraries(solved);
     let crossCandidate;
     let exit = 0;
     switch (level) {
@@ -1805,6 +1819,8 @@ export {
   inverseSetup,
   appendActionGroup,
   validateCaseLibraries,
+  caseLibraryCache,
+  cachedCaseLibraries,
   selectOll,
   selectPll,
   describeEdgeOrientation,

@@ -585,6 +585,17 @@ let validateCaseLibraries = solved => {
   (ollSignatures, pllSignatures)
 }
 
+let caseLibraryCache = ref(None)
+let cachedCaseLibraries = solved =>
+  switch caseLibraryCache.contents {
+  | Some(libraries) => libraries
+  | None => {
+      let libraries = validateCaseLibraries(solved)
+      caseLibraryCache := Some(libraries)
+      libraries
+    }
+  }
+
 let selectOll = (~state, ~solved, ~signatures): option<lastLayerSelection> => {
   if BeginnerSolver.orientedLastCornersGoal(state) {
     Some({alg: [], labels: ["OLL already oriented."], state})
@@ -1083,7 +1094,7 @@ let solveLevel = (input: cubeState, level: level): result<solution, solverError>
     }
     let atomics = BeginnerSolver.atomicActions(solved)
     let current = ref(start)
-    let (ollSignatures, _pllSignatures) = validateCaseLibraries(solved)
+    let (ollSignatures, _pllSignatures) = cachedCaseLibraries(solved)
 
     let crossCandidate = switch level {
     | Advanced => selectCross(~state=current.contents, ~atomics)
