@@ -625,6 +625,7 @@ if (root) {
   let smartCubeRenderedState: CubeState | null = null;
   let smartCubeStateSyncPending = false;
   let smartCubeOrientationTracking = false;
+  let lastOrientationLogTime = 0;
   let latestSmartCubeOrientation: Pick<
     SmartCubeOrientationEvent,
     "quaternion" | "coordinateFrame"
@@ -2282,11 +2283,36 @@ if (root) {
         smartCubeBattery.hidden = false;
         smartCubeBattery.textContent = `🔋 ${Math.round(event.level)}%`;
         break;
-      case "orientation":
+      case "orientation": {
         latestSmartCubeOrientation = {
           quaternion: event.quaternion,
           coordinateFrame: event.coordinateFrame,
         };
+        const now = performance.now();
+        if (now - lastOrientationLogTime >= 350) {
+          lastOrientationLogTime = now;
+          const vq = orientationInViewportFrame(event.quaternion, event.coordinateFrame);
+          const sinr_cosp = 2 * (vq.w * vq.x + vq.y * vq.z);
+          const cosr_cosp = 1 - 2 * (vq.x * vq.x + vq.y * vq.y);
+          const pitch = Math.atan2(sinr_cosp, cosr_cosp) * 180 / Math.PI;
+          const sinp = 2 * (vq.w * vq.y - vq.z * vq.x);
+          const yaw = Math.abs(sinp) >= 1 ? Math.sign(sinp) * 90 : Math.asin(sinp) * 180 / Math.PI;
+          const siny_cosp = 2 * (vq.w * vq.z + vq.x * vq.y);
+          const cosy_cosp = 1 - 2 * (vq.y * vq.y + vq.z * vq.z);
+          const roll = Math.atan2(siny_cosp, cosy_cosp) * 180 / Math.PI;
+
+          console.log("[SmartCube Orientation] Live trace:", {
+            frame: event.coordinateFrame,
+            rawQuaternion: event.quaternion,
+            viewportEuler: {
+              pitchX: pitch.toFixed(1) + "°",
+              yawY: yaw.toFixed(1) + "°",
+              rollZ: roll.toFixed(1) + "°",
+            },
+            trackingEnabled: smartCubeOrientationTracking,
+            waitingForRegrip: Boolean(smartCubeRotationWait),
+          });
+        }
         if (smartCubeOrientationTracking) {
           if (!smartCubeCoachingWaiting) {
             viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
@@ -2296,6 +2322,7 @@ if (root) {
           });
         }
         break;
+      }
       case "hardware":
         if (event.orientationSupported === false) {
           smartCubeOrientation.hidden = true;
