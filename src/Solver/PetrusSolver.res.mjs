@@ -186,7 +186,7 @@ function solveEdgeOrientation(state, atomics) {
   return searchGoal(state, atomics, isPetrusEo, heuristic, 9, 3500000);
 }
 
-function solveBlockExpansion(state, atomics) {
+function solveBlockExpansions(state, atomics) {
   let orders = [
     [
       {
@@ -273,45 +273,54 @@ function solveBlockExpansion(state, atomics) {
       }
     ]
   ];
-  let found;
+  let found = [];
   for (let orderIndex = 0, orderIndex_finish = orders.length; orderIndex < orderIndex_finish; ++orderIndex) {
-    if (found === undefined) {
-      let current = {
-        contents: state
-      };
-      let corners = block222Corners.map(piece => piece);
-      let edges = block222Edges.map(piece => piece);
-      let paths = [];
-      let failed = {
-        contents: false
-      };
-      let order = orders[orderIndex];
-      order.forEach(addition => {
-        if (failed.contents) {
-          return;
-        }
-        if (addition.TAG === "AddCorner") {
-          corners.push(addition._0);
-        } else {
-          edges.push(addition._0);
-        }
-        let path = BeginnerSolver.searchAtomicWithLimit(current.contents, corners, edges, atomics, 10, 750000);
-        if (path !== undefined) {
-          paths.push(path);
-          current.contents = applyPath(current.contents, path);
-        } else {
-          failed.contents = true;
-        }
-      });
-      if (!failed.contents && BeginnerSolver.lockedGoal(current.contents, block223Corners, block223Edges)) {
-        found = [
-          paths,
-          current.contents
-        ];
+    let current = {
+      contents: state
+    };
+    let corners = block222Corners.map(piece => piece);
+    let edges = block222Edges.map(piece => piece);
+    let paths = [];
+    let failed = {
+      contents: false
+    };
+    let order = orders[orderIndex];
+    order.forEach(addition => {
+      if (failed.contents) {
+        return;
       }
+      if (addition.TAG === "AddCorner") {
+        corners.push(addition._0);
+      } else {
+        edges.push(addition._0);
+      }
+      let path = BeginnerSolver.searchAtomicWithLimit(current.contents, corners, edges, atomics, 10, 750000);
+      if (path !== undefined) {
+        paths.push(path);
+        current.contents = applyPath(current.contents, path);
+      } else {
+        failed.contents = true;
+      }
+    });
+    if (!failed.contents && BeginnerSolver.lockedGoal(current.contents, block223Corners, block223Edges)) {
+      found.push({
+        paths: paths,
+        state: current.contents
+      });
     }
   }
   return found;
+}
+
+function solveBlockExpansion(state, atomics) {
+  let expansions = solveBlockExpansions(state, atomics);
+  let first = Belt_Array.get(expansions, 0);
+  if (first !== undefined) {
+    return [
+      first.paths,
+      first.state
+    ];
+  }
 }
 
 function solveTwoGeneratorF2l(state, atomics) {
@@ -350,6 +359,31 @@ function solveTwoGeneratorF2l(state, atomics) {
     return result;
   } else {
     return tryOrder(false);
+  }
+}
+
+function completeF2l(expansion, atomics) {
+  let eoPath = solveEdgeOrientation(expansion.state, atomics);
+  if (eoPath === undefined) {
+    return;
+  }
+  let afterEo = applyPath(expansion.state, eoPath);
+  if (!isPetrusEo(afterEo)) {
+    return;
+  }
+  let match = solveTwoGeneratorF2l(afterEo, atomics);
+  if (match === undefined) {
+    return;
+  }
+  let state = match[2];
+  if (BeginnerSolver.firstTwoLayersGoal(state) && edgesOriented(state)) {
+    return {
+      expansion: expansion,
+      eoPath: eoPath,
+      firstWing: match[0],
+      secondWing: match[1],
+      state: state
+    };
   }
 }
 
@@ -779,11 +813,8 @@ function solveMethod(input, method) {
         Error: new Error()
       };
     }
-    let result = solveBlockExpansion(current, atomics);
-    let match$1;
-    if (result !== undefined) {
-      match$1 = result;
-    } else {
+    let expansions = solveBlockExpansions(current, atomics);
+    if (expansions.length === 0) {
       throw {
         RE_EXN_ID: BuildFailure,
         _1: {
@@ -793,61 +824,90 @@ function solveMethod(input, method) {
         Error: new Error()
       };
     }
-    let block223Paths = match$1[0];
-    current = match$1[1];
-    if (!BeginnerSolver.lockedGoal(current, block223Corners, block223Edges)) {
-      throw {
-        RE_EXN_ID: BuildFailure,
-        _1: "VerificationFailed",
-        Error: new Error()
-      };
-    }
-    let path$1 = solveEdgeOrientation(current, atomics);
-    let eoPath;
-    if (path$1 !== undefined) {
-      eoPath = path$1;
+    let match$1;
+    if (method === "Classical") {
+      let value$1 = completeF2l(expansions[0], atomics);
+      if (value$1 !== undefined) {
+        match$1 = [
+          value$1,
+          undefined
+        ];
+      } else {
+        throw {
+          RE_EXN_ID: BuildFailure,
+          _1: {
+            TAG: "SearchFailed",
+            _0: "the ⟨R,U⟩ Petrus F2L finish"
+          },
+          Error: new Error()
+        };
+      }
     } else {
-      throw {
-        RE_EXN_ID: BuildFailure,
-        _1: {
-          TAG: "SearchFailed",
-          _0: "bad-edge orientation around the 2×2×3 block"
-        },
-        Error: new Error()
+      let signatures = cachedCollLibrary(solved);
+      let best = {
+        contents: undefined
       };
-    }
-    current = applyPath(current, eoPath);
-    if (!isPetrusEo(current)) {
-      throw {
-        RE_EXN_ID: BuildFailure,
-        _1: "VerificationFailed",
-        Error: new Error()
+      let bestScore = {
+        contents: 1000000
       };
+      let enhancedExpansions = [
+        expansions[expansions.length > 2 ? 2 : 0],
+        expansions[0]
+      ];
+      enhancedExpansions.forEach(expansion => {
+        let candidate = completeF2l(expansion, atomics);
+        if (candidate === undefined) {
+          return;
+        }
+        let coll = selectColl(candidate.state, solved, signatures);
+        if (coll === undefined) {
+          return;
+        }
+        let epll = CfopSolver.selectPll(coll.state, solved);
+        if (epll === undefined) {
+          return;
+        }
+        if (!BeginnerSolver.solvedCubiesGoal(epll.state)) {
+          return;
+        }
+        let score = ((((Stdlib_Array.reduce(candidate.expansion.paths, 0, (total, path) => total + path.length | 0) + candidate.eoPath.length | 0) + candidate.firstWing.length | 0) + candidate.secondWing.length | 0) + physicalMoveCount(coll.alg) | 0) + physicalMoveCount(epll.alg) | 0;
+        if (score < bestScore.contents) {
+          bestScore.contents = score;
+          best.contents = [
+            candidate,
+            coll,
+            epll
+          ];
+          return;
+        }
+      });
+      let match$2 = best.contents;
+      if (match$2 !== undefined) {
+        match$1 = [
+          match$2[0],
+          [
+            match$2[1],
+            match$2[2]
+          ]
+        ];
+      } else {
+        throw {
+          RE_EXN_ID: BuildFailure,
+          _1: {
+            TAG: "SearchFailed",
+            _0: "a replay-valid Enhanced Petrus finish"
+          },
+          Error: new Error()
+        };
+      }
     }
-    let result$1 = solveTwoGeneratorF2l(current, atomics);
-    let match$2;
-    if (result$1 !== undefined) {
-      match$2 = result$1;
-    } else {
-      throw {
-        RE_EXN_ID: BuildFailure,
-        _1: {
-          TAG: "SearchFailed",
-          _0: "the ⟨R,U⟩ Petrus F2L finish"
-        },
-        Error: new Error()
-      };
-    }
-    let secondWing = match$2[1];
-    let firstWing = match$2[0];
-    current = match$2[2];
-    if (!BeginnerSolver.firstTwoLayersGoal(current) || !edgesOriented(current)) {
-      throw {
-        RE_EXN_ID: BuildFailure,
-        _1: "VerificationFailed",
-        Error: new Error()
-      };
-    }
+    let enhancedFinish = match$1[1];
+    let progress = match$1[0];
+    let block223Paths = progress.expansion.paths;
+    let eoPath = progress.eoPath;
+    let firstWing = progress.firstWing;
+    let secondWing = progress.secondWing;
+    current = progress.state;
     let hasPhysicalWork = block222Path.length !== 0 || block223Paths.some(path => path.length !== 0) || eoPath.length !== 0 || firstWing.length !== 0 || secondWing.length !== 0 || !BeginnerSolver.solvedCubiesGoal(current);
     let whiteDown = [{
         desc: {
@@ -925,35 +985,18 @@ function solveMethod(input, method) {
         phase(7, "Permute Last-Layer Edges", "Finish with the recognized Ua, Ub, H, or Z edge permutation.", finalEdges, pllEdges.labels)
       ]);
     } else {
-      let collSignatures = cachedCollLibrary(solved);
-      let selection = selectColl(current, solved, collSignatures);
-      let coll;
-      if (selection !== undefined) {
-        coll = selection;
+      let match$5;
+      if (enhancedFinish !== undefined) {
+        match$5 = enhancedFinish;
       } else {
         throw {
           RE_EXN_ID: BuildFailure,
-          _1: {
-            TAG: "SearchFailed",
-            _0: "one-look COLL recognition"
-          },
+          _1: "VerificationFailed",
           Error: new Error()
         };
       }
-      let selection$1 = CfopSolver.selectPll(coll.state, solved);
-      let epll;
-      if (selection$1 !== undefined) {
-        epll = selection$1;
-      } else {
-        throw {
-          RE_EXN_ID: BuildFailure,
-          _1: {
-            TAG: "SearchFailed",
-            _0: "one-look EPLL recognition"
-          },
-          Error: new Error()
-        };
-      }
+      let epll = match$5[1];
+      let coll = match$5[0];
       if (!BeginnerSolver.solvedCubiesGoal(epll.state)) {
         throw {
           RE_EXN_ID: BuildFailure,
@@ -1027,8 +1070,10 @@ export {
   maxInt,
   searchGoal,
   solveEdgeOrientation,
+  solveBlockExpansions,
   solveBlockExpansion,
   solveTwoGeneratorF2l,
+  completeF2l,
   splitSelectionAtGoal,
   collKey,
   downAction,

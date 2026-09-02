@@ -169,7 +169,20 @@ let solveEdgeOrientation = (
 
 type blockAddition = AddCorner(int) | AddEdge(int)
 
-let solveBlockExpansion = (~state, ~atomics) => {
+type blockExpansion = {
+  paths: array<array<BeginnerSolver.action>>,
+  state: PieceReducer.pieceState,
+}
+
+type f2lProgress = {
+  expansion: blockExpansion,
+  eoPath: array<BeginnerSolver.action>,
+  firstWing: array<BeginnerSolver.action>,
+  secondWing: array<BeginnerSolver.action>,
+  state: PieceReducer.pieceState,
+}
+
+let solveBlockExpansions = (~state, ~atomics) => {
   let orders = [
     [AddCorner(2), AddEdge(3), AddEdge(10)],
     [AddCorner(2), AddEdge(10), AddEdge(3)],
@@ -178,43 +191,49 @@ let solveBlockExpansion = (~state, ~atomics) => {
     [AddEdge(10), AddCorner(2), AddEdge(3)],
     [AddEdge(10), AddEdge(3), AddCorner(2)],
   ]
-  let found = ref(None)
+  let found = []
   for orderIndex in 0 to orders->Array.length - 1 {
-    if found.contents == None {
-      let current = ref(state)
-      let corners = block222Corners->Array.map(piece => piece)
-      let edges = block222Edges->Array.map(piece => piece)
-      let paths = []
-      let failed = ref(false)
-      let order = Belt.Array.getUnsafe(orders, orderIndex)
-      order->Array.forEach(addition => {
-        if !failed.contents {
-          switch addition {
-          | AddCorner(piece) => corners->Array.push(piece)
-          | AddEdge(piece) => edges->Array.push(piece)
-          }
-          switch BeginnerSolver.searchAtomicWithLimit(
-            ~state=current.contents,
-            ~corners,
-            ~edges,
-            ~actions=atomics,
-            ~maxDepth=10,
-            ~maxNodes=750000,
-          ) {
-          | None => failed := true
-          | Some(path) => {
-              paths->Array.push(path)
-              current := applyPath(current.contents, path)
-            }
+    let current = ref(state)
+    let corners = block222Corners->Array.map(piece => piece)
+    let edges = block222Edges->Array.map(piece => piece)
+    let paths = []
+    let failed = ref(false)
+    let order = Belt.Array.getUnsafe(orders, orderIndex)
+    order->Array.forEach(addition => {
+      if !failed.contents {
+        switch addition {
+        | AddCorner(piece) => corners->Array.push(piece)
+        | AddEdge(piece) => edges->Array.push(piece)
+        }
+        switch BeginnerSolver.searchAtomicWithLimit(
+          ~state=current.contents,
+          ~corners,
+          ~edges,
+          ~actions=atomics,
+          ~maxDepth=10,
+          ~maxNodes=750000,
+        ) {
+        | None => failed := true
+        | Some(path) => {
+            paths->Array.push(path)
+            current := applyPath(current.contents, path)
           }
         }
-      })
-      if !failed.contents && isBlock223(current.contents) {
-        found := Some((paths, current.contents))
       }
+    })
+    if !failed.contents && isBlock223(current.contents) {
+      found->Array.push({paths, state: current.contents})
     }
   }
-  found.contents
+  found
+}
+
+let solveBlockExpansion = (~state, ~atomics) => {
+  let expansions = solveBlockExpansions(~state, ~atomics)
+  switch Belt.Array.get(expansions, 0) {
+  | None => None
+  | Some(first) => Some((first.paths, first.state))
+  }
 }
 
 let solveTwoGeneratorF2l = (
@@ -265,6 +284,28 @@ let solveTwoGeneratorF2l = (
   switch tryOrder(true) {
   | Some(result) => Some(result)
   | None => tryOrder(false)
+  }
+}
+
+let completeF2l = (~expansion: blockExpansion, ~atomics): option<f2lProgress> => {
+  switch solveEdgeOrientation(~state=expansion.state, ~atomics) {
+  | None => None
+  | Some(eoPath) => {
+      let afterEo = applyPath(expansion.state, eoPath)
+      if !isPetrusEo(afterEo) {
+        None
+      } else {
+        switch solveTwoGeneratorF2l(~state=afterEo, ~atomics) {
+        | None => None
+        | Some((firstWing, secondWing, state)) =>
+          if BeginnerSolver.firstTwoLayersGoal(state) && edgesOriented(state) {
+            Some({expansion, eoPath, firstWing, secondWing, state})
+          } else {
+            None
+          }
+        }
+      }
+    }
   }
 }
 
@@ -553,41 +594,67 @@ let solveMethod = (input: cubeState, method): result<solution, solverError> => {
       throw(BuildFailure(BeginnerSolver.VerificationFailed))
     }
 
-    let (block223Paths, block223State) = switch solveBlockExpansion(
-      ~state=current.contents,
-      ~atomics,
-    ) {
-    | Some(result) => result
-    | None => throw(BuildFailure(BeginnerSolver.SearchFailed("the DBL 2×2×3 expansion")))
+    let expansions = solveBlockExpansions(~state=current.contents, ~atomics)
+    if expansions->Array.length == 0 {
+      throw(BuildFailure(BeginnerSolver.SearchFailed("the DBL 2×2×3 expansion")))
     }
-    current := block223State
-    if !isBlock223(current.contents) {
-      throw(BuildFailure(BeginnerSolver.VerificationFailed))
+    // Classical Petrus retains the established deterministic expansion. Enhanced
+    // Petrus first tries the short edge-led order, then falls back to the
+    // established route if the short route cannot replay through COLL/EPLL.
+    let (progress, enhancedFinish) = switch method {
+    | Classical =>
+      switch completeF2l(~expansion=Belt.Array.getUnsafe(expansions, 0), ~atomics) {
+      | Some(value) => (value, None)
+      | None => throw(BuildFailure(BeginnerSolver.SearchFailed("the ⟨R,U⟩ Petrus F2L finish")))
+      }
+    | Enhanced => {
+        let signatures = cachedCollLibrary(solved)
+        let best = ref(None)
+        let bestScore = ref(1000000)
+        let enhancedExpansions = [
+          Belt.Array.getUnsafe(expansions, if expansions->Array.length > 2 {2} else {0}),
+          Belt.Array.getUnsafe(expansions, 0),
+        ]
+        enhancedExpansions->Array.forEach(expansion => {
+          switch completeF2l(~expansion, ~atomics) {
+          | None => ()
+          | Some(candidate) =>
+            switch selectColl(~state=candidate.state, ~solved, ~signatures) {
+            | None => ()
+            | Some(coll) =>
+              switch CfopSolver.selectPll(~state=coll.state, ~solved) {
+              | None => ()
+              | Some(epll) =>
+                if BeginnerSolver.solvedCubiesGoal(epll.state) {
+                  let score =
+                    candidate.expansion.paths->Array.reduce(0, (total, path) =>
+                      total + path->Array.length
+                    ) +
+                    candidate.eoPath->Array.length +
+                    candidate.firstWing->Array.length +
+                    candidate.secondWing->Array.length +
+                    physicalMoveCount(coll.alg) + physicalMoveCount(epll.alg)
+                  if score < bestScore.contents {
+                    bestScore := score
+                    best := Some((candidate, coll, epll))
+                  }
+                }
+              }
+            }
+          }
+        })
+        switch best.contents {
+        | Some((candidate, coll, epll)) => (candidate, Some((coll, epll)))
+        | None =>
+          throw(BuildFailure(BeginnerSolver.SearchFailed("a replay-valid Enhanced Petrus finish")))
+        }
+      }
     }
-
-    let eoPath = switch solveEdgeOrientation(~state=current.contents, ~atomics) {
-    | Some(path) => path
-    | None =>
-      throw(
-        BuildFailure(BeginnerSolver.SearchFailed("bad-edge orientation around the 2×2×3 block")),
-      )
-    }
-    current := applyPath(current.contents, eoPath)
-    if !isPetrusEo(current.contents) {
-      throw(BuildFailure(BeginnerSolver.VerificationFailed))
-    }
-
-    let (firstWing, secondWing, f2lState) = switch solveTwoGeneratorF2l(
-      ~state=current.contents,
-      ~atomics,
-    ) {
-    | Some(result) => result
-    | None => throw(BuildFailure(BeginnerSolver.SearchFailed("the ⟨R,U⟩ Petrus F2L finish")))
-    }
-    current := f2lState
-    if !BeginnerSolver.firstTwoLayersGoal(current.contents) || !edgesOriented(current.contents) {
-      throw(BuildFailure(BeginnerSolver.VerificationFailed))
-    }
+    let block223Paths = progress.expansion.paths
+    let eoPath = progress.eoPath
+    let firstWing = progress.firstWing
+    let secondWing = progress.secondWing
+    current := progress.state
 
     let hasPhysicalWork =
       block222Path->Array.length > 0 ||
@@ -712,14 +779,9 @@ let solveMethod = (input: cubeState, method): result<solution, solverError> => {
         ])
       }
     | Enhanced => {
-        let collSignatures = cachedCollLibrary(solved)
-        let coll = switch selectColl(~state=current.contents, ~solved, ~signatures=collSignatures) {
-        | Some(selection) => selection
-        | None => throw(BuildFailure(BeginnerSolver.SearchFailed("one-look COLL recognition")))
-        }
-        let epll = switch CfopSolver.selectPll(~state=coll.state, ~solved) {
-        | Some(selection) => selection
-        | None => throw(BuildFailure(BeginnerSolver.SearchFailed("one-look EPLL recognition")))
+        let (coll, epll) = switch enhancedFinish {
+        | Some(finish) => finish
+        | None => throw(BuildFailure(BeginnerSolver.VerificationFailed))
         }
         if !BeginnerSolver.solvedCubiesGoal(epll.state) {
           throw(BuildFailure(BeginnerSolver.VerificationFailed))
