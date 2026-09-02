@@ -2051,12 +2051,11 @@ if (root) {
       event.coordinateFrame,
       step.move._0,
       step.turns,
-      "world",
+      "local",
     );
     if (!assessment.matched) {
       if (assessment.partial && pending.partialTurn === 0) {
-        const axisSign = step.move._0 === "Z" ? -1 : 1;
-        pending.partialTurn = assessment.signedDegrees * axisSign > 0 ? 1 : -1;
+        pending.partialTurn = assessment.signedDegrees < 0 ? 1 : -1;
         const quarterStep: MoveStep = {...step, turns: pending.partialTurn};
         const quarterLabel = `${step.move._0.toLowerCase()}${pending.partialTurn < 0 ? "'" : ""}`;
         const token = moveRibbon.querySelector<HTMLButtonElement>(
@@ -2080,7 +2079,7 @@ if (root) {
         pending.baseline.quaternion,
         event.quaternion,
         event.coordinateFrame,
-        "world",
+        "local",
       )) {
         pending.baseline = {
           quaternion: event.quaternion,

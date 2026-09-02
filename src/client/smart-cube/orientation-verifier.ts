@@ -28,13 +28,13 @@ export const assessGyroRotation = (
   frame: OrientationCoordinateFrame,
   axis: "X" | "Y" | "Z",
   turns: number,
-  deltaFrame: GyroDeltaFrame = "world",
+  deltaFrame: GyroDeltaFrame = "local",
 ): GyroRotationAssessment => {
   const baseViewport = orientationInViewportFrame(base, frame);
   const currentViewport = orientationInViewportFrame(current, frame);
-  const relative = deltaFrame === "local"
-    ? relativeQuaternionLocal(baseViewport, currentViewport)
-    : relativeQuaternion(baseViewport, currentViewport);
+  const relative = deltaFrame === "world"
+    ? relativeQuaternion(baseViewport, currentViewport)
+    : relativeQuaternionLocal(baseViewport, currentViewport);
   let delta = relative;
   // q and -q encode the same pose; select the representation at most 180° from the baseline.
   if (delta.w < 0) {
@@ -49,12 +49,8 @@ export const assessGyroRotation = (
     : angle * component / vectorLength * 180 / Math.PI;
   const expectedTurns = normalizedTurns(turns);
   const halfTurn = Math.abs(expectedTurns) === 2;
-  // In canonical 3D viewport coordinates:
-  // - Pitch forward (X turn): positive rotation around +X (+90°)
-  // - Yaw left (Y turn): positive rotation around +Y (+90°)
-  // - Roll clockwise (Z turn): negative rotation around +Z (-90°)
-  const axisSign = axis === "Z" ? -1 : 1;
-  const direction = axisSign * Math.sign(expectedTurns || 1);
+  // Clockwise quarter turns (x, y, z) rotate by -90° around their respective positive local axis.
+  const direction = -Math.sign(expectedTurns || 1);
   const enoughRotation = halfTurn
     ? Math.abs(signedDegrees) >= 135
     : signedDegrees * direction >= 65;
@@ -71,7 +67,7 @@ export const detectGyroQuarterRotation = (
   base: OrientationQuaternion,
   current: OrientationQuaternion,
   frame: OrientationCoordinateFrame,
-  deltaFrame: GyroDeltaFrame = "world",
+  deltaFrame: GyroDeltaFrame = "local",
 ): DetectedGyroRotation | null => {
   const candidates = (["X", "Y", "Z"] as const).flatMap((axis) => ([1, -1] as const).map((turns) => ({
     axis,

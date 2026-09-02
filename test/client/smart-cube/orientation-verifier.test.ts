@@ -21,18 +21,21 @@ describe("smart-cube gyro rotation feedback", () => {
   const identity = {x: 0, y: 0, z: 0, w: 1};
 
   test("matches the requested quarter-turn axis and direction", () => {
-    // Pitch forward (X = 1): positive degrees on X
-    expect(assessGyroRotation(identity, rotation("X", 75), "viewport", "X", 1).matched)
-      .toBe(true);
+    // Pitch forward (X = 1): negative degrees on X (clockwise around +X)
     expect(assessGyroRotation(identity, rotation("X", -75), "viewport", "X", 1).matched)
+      .toBe(true);
+    expect(assessGyroRotation(identity, rotation("X", 75), "viewport", "X", 1).matched)
       .toBe(false);
-    expect(assessGyroRotation(identity, rotation("Y", 90), "viewport", "X", 1).matched)
+    expect(assessGyroRotation(identity, rotation("Y", -90), "viewport", "X", 1).matched)
       .toBe(false);
+    // Yaw left (Y = 1): negative degrees on Y (clockwise around +Y)
+    expect(assessGyroRotation(identity, rotation("Y", -75), "viewport", "Y", 1).matched)
+      .toBe(true);
+    // Roll clockwise (Z = 1): negative degrees on Z (clockwise around +Z)
+    expect(assessGyroRotation(identity, rotation("Z", -70), "viewport", "Z", 1).matched)
+      .toBe(true);
     // Roll counter-clockwise (Z = -1): positive degrees on Z
     expect(assessGyroRotation(identity, rotation("Z", 70), "viewport", "Z", -1).matched)
-      .toBe(true);
-    // Roll clockwise (Z = 1): negative degrees on Z
-    expect(assessGyroRotation(identity, rotation("Z", -70), "viewport", "Z", 1).matched)
       .toBe(true);
   });
 
@@ -50,7 +53,7 @@ describe("smart-cube gyro rotation feedback", () => {
   });
 
   test("uses cube-local deltas after an arbitrary prior regrip", () => {
-    const base = rotation("X", 90);
+    const base = rotation("X", -90);
     const current = multiplyQuaternions(base, rotation("Z", -90));
     expect(assessGyroRotation(base, current, "viewport", "Z", 1, "local").matched)
       .toBe(true);
@@ -61,25 +64,25 @@ describe("smart-cube gyro rotation feedback", () => {
   test("detects a wrong-axis regrip so the caller can silently rebase", () => {
     expect(detectGyroQuarterRotation(
       identity,
-      rotation("Y", 80),
+      rotation("Y", -80),
       "viewport",
     )).toEqual({axis: "Y", turns: 1});
     expect(detectGyroQuarterRotation(
       identity,
-      rotation("Y", 30),
+      rotation("Y", -30),
       "viewport",
     )).toBeNull();
   });
 
-  test("verifies sequential world rotations from an arbitrary base pose", () => {
+  test("verifies sequential local rotations from an arbitrary base pose", () => {
     const half = Math.sqrt(0.5);
-    const basePose = {x: half, y: 0, z: 0, w: half}; // after an X rotation
-    // User performs Y rotation in world view:
-    const rotY = {x: 0, y: half, z: 0, w: half};
-    const currentPose = multiplyQuaternions(rotY, basePose);
-    expect(assessGyroRotation(basePose, currentPose, "viewport", "Y", 1, "world").matched)
+    const basePose = {x: -half, y: 0, z: 0, w: half}; // after an X rotation
+    // User performs local Y rotation on the cube:
+    const rotY = {x: 0, y: -half, z: 0, w: half};
+    const currentPose = multiplyQuaternions(basePose, rotY);
+    expect(assessGyroRotation(basePose, currentPose, "viewport", "Y", 1, "local").matched)
       .toBe(true);
-    expect(assessGyroRotation(basePose, currentPose, "viewport", "X", 1, "world").matched)
+    expect(assessGyroRotation(basePose, currentPose, "viewport", "X", 1, "local").matched)
       .toBe(false);
   });
 });
