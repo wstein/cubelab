@@ -31,8 +31,10 @@ not expose such a command. Cube Rosetta therefore does not send speculative raw 
 
 Step 3 consumers subscribe to normalized events rather than importing the vendor transport. The
 viewport integration lazy-loads this module from the Connect button, records physical moves in the
-algorithm editor, renders live facelets through every converter, tracks optional gyro orientation,
-and advances Academy timelines only when the expected physical move matches.
+algorithm editor, renders live facelets through every converter, and advances Academy timelines
+only when the expected physical move matches. Gyro orientation tracking activates automatically on
+connect whenever the device reports the capability; the orientation button in the dock remains
+available to opt back out.
 
 Three-by-three slice, wide, and single-inner-layer lesson moves are matched through the outer-face
 packets that the hardware can actually report (`M = x' R L'`, `Rw = x L`, and their axis variants).
