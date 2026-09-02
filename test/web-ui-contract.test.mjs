@@ -23,6 +23,13 @@ test("the static shell declares size-scoped cubie and Orbit64 cards", () => {
   assert.match(page, />Copy Orbit64</);
 });
 
+test("Academy exposes an optional target pattern field", () => {
+  assert.match(page, /data-academy-target/);
+  assert.match(page, /Target pattern/);
+  assert.match(client, /relativeAcademyState\(initialState, target\._0\)/);
+  assert.match(client, /generated solution did not replay from setup to the target pattern/);
+});
+
 test("the Vanilla DOM client wires reachability-aware outputs", () => {
   assert.match(client, /PieceReducer\.reduce\(state\)/);
   assert.match(client, /PieceReducer\.parseState\(size, compact\)/);

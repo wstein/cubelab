@@ -12,6 +12,7 @@ import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as BeginnerSolver from "../Solver/BeginnerSolver.res.mjs";
 import * as CfopSolver from "../Solver/CfopSolver.res.mjs";
 import * as PetrusSolver from "../Solver/PetrusSolver.res.mjs";
+import {relativeAcademyState, type PieceState} from "./academy-target";
 import {
   createCubeViewport,
   focusCameraTarget,
@@ -106,7 +107,6 @@ import type {
 type Result<T, E = StateError | string> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: E};
 type StateError = {_0?: string; TAG: string; actual?: number; character?: string; expected?: number; index?: number};
 type CubeState = {size: number; facelets: string[][]};
-type PieceState = {size: number; cp: number[]; co: number[]; ep: number[]; eo: number[]};
 type Scheme = "Western" | "Japanese" | {TAG: "Custom"; _0: string};
 type CompatibilityAssessment = {compatible: boolean; reasons: string[]};
 type CompatibilityResult = Record<"wca" | "signLgn" | "cubingJs" | "speedsolving" | "ruwix", CompatibilityAssessment>;
@@ -195,6 +195,7 @@ if (root) {
   const nissLoad = root.querySelector<HTMLButtonElement>("[data-niss-load]")!;
   const nissResult = root.querySelector<HTMLOutputElement>("[data-niss-result]")!;
   const academySolve = root.querySelector<HTMLButtonElement>("[data-academy-solve]")!;
+  const academyTarget = root.querySelector<HTMLInputElement>("[data-academy-target]")!;
   const academyDom = (prefix: string) => ({
     status: root.querySelector<HTMLElement>(`[data-${prefix}-status]`)!,
     current: root.querySelector<HTMLElement>(`[data-${prefix}-current]`)!,
@@ -952,9 +953,19 @@ if (root) {
     return solved.TAG === "Ok" && FaceletCodec.render(state) === FaceletCodec.render(solved._0);
   };
 
+  const academyTargetState = (): Result<CubeState, string> => {
+    const parsed = parseState(academyTarget.value);
+    return parsed.TAG === "Ok"
+      ? {TAG: "Ok", _0: parsed._0.state}
+      : {TAG: "Error", _0: describeError(parsed._0)};
+  };
+
   const updateAcademySolveButton = () => {
     const method = selectedTutorialMethod();
-    academySolve.disabled = academySolveBusy || activeRecognized === null || size !== 3;
+    academySolve.disabled = academySolveBusy
+      || activeRecognized === null
+      || academyTargetState().TAG === "Error"
+      || size !== 3;
     academySolve.textContent = savedTutorialSolutions.has(method)
       ? "Regenerate solution"
       : activeRecognized && isSolvedState(activeRecognized.state)
@@ -989,9 +1000,9 @@ if (root) {
         ? `${academy.label} Academy is available for 3×3 states.`
         : recognized === null
           ? "Enter a valid 3×3 state to begin."
-          : isSolvedState(recognized.state)
+          : isSolvedState(recognized.state) && academyTarget.value.trim() === ""
             ? "This cube is already solved. Every Academy phase is satisfied at 0 HTM; load a scramble for a non-zero tutorial."
-            : `Ready to teach the recognized ${recognized.label.toLowerCase()} state.`;
+            : `Ready to teach the recognized ${recognized.label.toLowerCase()} setup to the selected target pattern.`;
     });
     updateAcademySolveButton();
   };
@@ -2918,6 +2929,10 @@ if (root) {
     const method = selectedTutorialMethod();
     if (size !== 3 || activeRecognized === null) return;
     const initialState = activeRecognized.state;
+    const target = academyTargetState();
+    if (target.TAG === "Error") return;
+    const relative = relativeAcademyState(initialState, target._0);
+    if (relative.TAG === "Error") return;
     const academy = academyForMethod(method);
     academySolveBusy = true;
     updateAcademySolveButton();
@@ -2928,13 +2943,13 @@ if (root) {
     window.setTimeout(() => {
       let result: Result<TutorialSolution, unknown>;
       switch (method) {
-        case "beginner": result = BeginnerSolver.solve(initialState); break;
-        case "advancedLbl": result = CfopSolver.solveAdvancedLbl(initialState); break;
-        case "beginnerCfop": result = CfopSolver.solveBeginner(initialState); break;
-        case "fullCfop": result = CfopSolver.solveFull(initialState); break;
-        case "advancedCfop": result = CfopSolver.solveAdvanced(initialState); break;
-        case "petrus": result = PetrusSolver.solveClassical(initialState); break;
-        case "enhancedPetrus": result = PetrusSolver.solveEnhanced(initialState); break;
+        case "beginner": result = BeginnerSolver.solve(relative._0); break;
+        case "advancedLbl": result = CfopSolver.solveAdvancedLbl(relative._0); break;
+        case "beginnerCfop": result = CfopSolver.solveBeginner(relative._0); break;
+        case "fullCfop": result = CfopSolver.solveFull(relative._0); break;
+        case "advancedCfop": result = CfopSolver.solveAdvanced(relative._0); break;
+        case "petrus": result = PetrusSolver.solveClassical(relative._0); break;
+        case "enhancedPetrus": result = PetrusSolver.solveEnhanced(relative._0); break;
       }
       academySolveBusy = false;
       if (result.TAG === "Error") {
@@ -2947,11 +2962,22 @@ if (root) {
         updateAcademySolveButton();
         return;
       }
+      const replay = MoveExecutor.applyAlg(initialState, result._0.alg) as Result<CubeState, unknown>;
+      if (replay.TAG === "Error" || FaceletCodec.render(replay._0) !== FaceletCodec.render(target._0)) {
+        academy.status.textContent = "The generated solution did not replay from setup to the target pattern.";
+        academy.status.classList.add("error");
+        updateAcademySolveButton();
+        return;
+      }
       savedTutorialSolutions.set(method, {initialState, solution: result._0});
       updateAcademyComparison();
       updateAcademySolveButton();
       presentTutorialSolution(initialState, result._0, academy);
     }, 0);
+  });
+
+  academyTarget.addEventListener("input", () => {
+    if (activeRecognized) updateAcademySource(activeRecognized);
   });
 
   academies.forEach((academy) => {
