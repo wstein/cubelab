@@ -272,6 +272,19 @@ let phase1TransitionRow = (coordinates: phase1Coordinates): result<
   }
 }
 
+let buildTwistMoveTable = () => {
+  let table = Array.make(~length=2187, 0)->Array.map(_ => Array.make(~length=18, 0))
+  for twist in 0 to 2186 {
+    for moveIndex in 0 to 17 {
+      switch phase1Transition({twist, flip: 0, slice: 0}, moveIndex) {
+      | Ok(next) => Belt.Array.getUnsafe(table, twist)[moveIndex] = next.twist
+      | Error(_) => ()
+      }
+    }
+  }
+  table
+}
+
 let solvedPieces = (pieces: PieceReducer.pieceState) =>
   isIdentity(pieces.cp) && allZero(pieces.co) && isIdentity(pieces.ep) && allZero(pieces.eo)
 

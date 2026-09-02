@@ -114,3 +114,11 @@ test("phase-one transition rows retain every move in canonical order", () => {
   assert.equal(row._0.length, 18);
   assert.deepEqual(row._0[13], TwoPhaseSolver.phase1Transition(source, 13)._0);
 });
+
+test("the twist move table agrees with direct coordinate transitions", () => {
+  const table = TwoPhaseSolver.buildTwistMoveTable();
+  assert.equal(table.length, 2_187);
+  assert.equal(table[0].length, 18);
+  const direct = TwoPhaseSolver.phase1Transition({twist: 1_264, flip: 0, slice: 0}, 13);
+  assert.equal(table[1_264][13], direct._0.twist);
+});

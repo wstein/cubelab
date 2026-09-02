@@ -393,6 +393,23 @@ function phase1TransitionRow(coordinates) {
   }
 }
 
+function buildTwistMoveTable() {
+  let table = Stdlib_Array.make(2187, 0).map(param => Stdlib_Array.make(18, 0));
+  for (let twist = 0; twist <= 2186; ++twist) {
+    for (let moveIndex = 0; moveIndex <= 17; ++moveIndex) {
+      let next = phase1Transition({
+        twist: twist,
+        flip: 0,
+        slice: 0
+      }, moveIndex);
+      if (next.TAG === "Ok") {
+        table[twist][moveIndex] = next._0.twist;
+      }
+    }
+  }
+  return table;
+}
+
 function solvedPieces(pieces) {
   if (isIdentity(pieces.cp) && allZero(pieces.co) && isIdentity(pieces.ep)) {
     return allZero(pieces.eo);
@@ -526,6 +543,7 @@ export {
   searchActions,
   phase1Transition,
   phase1TransitionRow,
+  buildTwistMoveTable,
   solvedPieces,
   exactSearch,
   shallowOptimalSearch,
