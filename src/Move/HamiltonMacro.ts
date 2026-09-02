@@ -1,0 +1,130 @@
+/** Lazy, structural parser for Hamilton-style macro programs. */
+export type Node =
+  | {kind: "move"; token: string; quarterTurns: bigint}
+  | {kind: "reference"; name: string; repeat: bigint}
+  | {kind: "sequence"; items: Node[]; repeat: bigint};
+
+export type Program = {definitions: Map<string, Node[]>; exportName: string};
+export type Measurement = {quarterTurns: bigint; sourceElements: bigint; depth: number};
+
+const identifier = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const move = /^[UDLRFB](?:2|')?$/;
+
+const fail = (message: string): never => { throw new Error(`Hamilton macro: ${message}`); };
+
+const clean = (source: string): string => source.replace(/^[ \t]*#.*$/gm, "");
+
+class ExpressionParser {
+  private cursor = 0;
+  constructor(private readonly source: string) {}
+
+  parse(): Node[] {
+    const items = this.sequence();
+    this.space();
+    if (this.cursor !== this.source.length) fail(`unexpected '${this.source[this.cursor]}'`);
+    return items;
+  }
+
+  private sequence(until?: string): Node[] {
+    const items: Node[] = [];
+    while (true) {
+      this.space();
+      if (this.cursor === this.source.length || this.source[this.cursor] === until) break;
+      if (this.source[this.cursor] === "(") {
+        this.cursor += 1;
+        const body = this.sequence(")");
+        if (this.source[this.cursor] !== ")") fail("unclosed group");
+        this.cursor += 1;
+        items.push({kind: "sequence", items: body, repeat: this.suffix()});
+      } else {
+        const token = this.word();
+        if (move.test(token)) {
+          const quarterTurns = token.endsWith("2") ? 2n : 1n;
+          items.push({kind: "move", token, quarterTurns});
+        } else {
+          const inverted = token.endsWith("'");
+          const name = inverted ? token.slice(0, -1) : token;
+          if (identifier.test(name)) {
+            const repeat = this.suffix();
+            items.push({kind: "reference", name, repeat: inverted ? -repeat : repeat});
+          } else {
+            fail(`invalid token '${token}'`);
+          }
+        }
+      }
+    }
+    return items;
+  }
+
+  private suffix(): bigint {
+    this.space();
+    const start = this.cursor;
+    while (/\d/.test(this.source[this.cursor] ?? "")) this.cursor += 1;
+    const amount = start === this.cursor ? 1n : BigInt(this.source.slice(start, this.cursor));
+    if (this.source[this.cursor] === "'") {
+      this.cursor += 1;
+      return -amount;
+    }
+    return amount;
+  }
+
+  private word(): string {
+    const start = this.cursor;
+    while (/[A-Za-z0-9_']/.test(this.source[this.cursor] ?? "")) this.cursor += 1;
+    if (start === this.cursor) fail(`expected a token at ${start}`);
+    return this.source.slice(start, this.cursor);
+  }
+
+  private space(): void { while (/\s/.test(this.source[this.cursor] ?? "")) this.cursor += 1; }
+}
+
+export const parse = (source: string): Program => {
+  const text = clean(source);
+  const definitions = new Map<string, Node[]>();
+  const matches = [...text.matchAll(/(?:^|\n)\s*(?:def\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/g)];
+  for (let index = 0; index < matches.length; index += 1) {
+    const match = matches[index];
+    const name = match[1];
+    const bodyStart = (match.index ?? 0) + match[0].length;
+    const bodyEnd = index + 1 < matches.length
+      ? (matches[index + 1].index ?? text.length)
+      : (text.search(/(?:^|\n)\s*export\s+/m) >= 0 ? text.search(/(?:^|\n)\s*export\s+/m) : text.length);
+    if (definitions.has(name)) fail(`duplicate definition '${name}'`);
+    definitions.set(name, new ExpressionParser(text.slice(bodyStart, bodyEnd)).parse());
+  }
+  const exported = text.match(/(?:^|\n)\s*export\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/m)?.[1];
+  if (!exported) fail("missing 'export <name>'");
+  if (!definitions.has(exported)) fail(`export '${exported}' is not defined`);
+  return {definitions, exportName: exported};
+};
+
+export const measure = (program: Program, name = program.exportName): Measurement => {
+  const memo = new Map<string, Measurement>();
+  const visiting: string[] = [];
+  const node = (value: Node): Measurement => {
+    if (value.kind === "move") return {quarterTurns: value.quarterTurns, sourceElements: 1n, depth: 1};
+    if (value.kind === "reference") {
+      const base = definition(value.name);
+      return {quarterTurns: base.quarterTurns * (value.repeat < 0n ? -value.repeat : value.repeat), sourceElements: 1n, depth: base.depth + 1};
+    }
+    const base = value.items.reduce((total, item) => {
+      const next = node(item);
+      return {quarterTurns: total.quarterTurns + next.quarterTurns, sourceElements: total.sourceElements + next.sourceElements, depth: Math.max(total.depth, next.depth)};
+    }, {quarterTurns: 0n, sourceElements: 0n, depth: 1});
+    return {quarterTurns: base.quarterTurns * (value.repeat < 0n ? -value.repeat : value.repeat), sourceElements: 1n, depth: base.depth + 1};
+  };
+  const definition = (key: string): Measurement => {
+    const cached = memo.get(key);
+    if (cached) return cached;
+    if (visiting.includes(key)) fail(`cyclic definition: ${[...visiting, key].join(" -> ")}`);
+    const body = program.definitions.get(key);
+    if (!body) fail(`undefined macro '${key}'`);
+    visiting.push(key);
+    const result = body.reduce((total, item) => {
+      const next = node(item);
+      return {quarterTurns: total.quarterTurns + next.quarterTurns, sourceElements: total.sourceElements + next.sourceElements, depth: Math.max(total.depth, next.depth)};
+    }, {quarterTurns: 0n, sourceElements: 0n, depth: 1});
+    visiting.pop(); memo.set(key, result); return result;
+  };
+  return definition(name);
+};
