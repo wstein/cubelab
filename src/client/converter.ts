@@ -1674,6 +1674,12 @@ if (root) {
       const baseline = smartCubeOrientationTracking ? latestSmartCubeOrientation : null;
       smartCubeRotationWait = {action, generation, baseline, partialTurn: 0};
       if (baseline) {
+        console.log(`[SmartCube Gyro] Waiting for rotation: ${action.token}`, {
+          axis: step?.move.TAG === "Rotation" ? step.move._0 : undefined,
+          turns: step?.turns,
+          baseline: baseline.quaternion,
+          coordinateFrame: baseline.coordinateFrame,
+        });
         smartCubeStatus.textContent = `${smartCubeDeviceName} · Waiting for ${action.token} regrip`;
         coachStatus.textContent = `Rotate the physical cube ${action.token}. Gyro feedback will continue automatically.`;
       } else {
@@ -2053,11 +2059,28 @@ if (root) {
       step.turns,
       "local",
     );
+
+    // Diagnostic logging for gyro tracking & verification:
+    if (Math.abs(assessment.signedDegrees) >= 15 || assessment.matched || assessment.partial) {
+      console.log("[SmartCube Gyro]", {
+        expectedAction: pending.action.token,
+        expectedAxis: step.move._0,
+        expectedTurns: step.turns,
+        coordinateFrame: event.coordinateFrame,
+        axisAlignment: (assessment.axisAlignment * 100).toFixed(1) + "%",
+        signedDegrees: assessment.signedDegrees.toFixed(1) + "°",
+        matched: assessment.matched,
+        partial: assessment.partial,
+        rawQuaternion: event.quaternion,
+      });
+    }
+
     if (!assessment.matched) {
       if (assessment.partial && pending.partialTurn === 0) {
         pending.partialTurn = assessment.signedDegrees < 0 ? 1 : -1;
         const quarterStep: MoveStep = {...step, turns: pending.partialTurn};
         const quarterLabel = `${step.move._0.toLowerCase()}${pending.partialTurn < 0 ? "'" : ""}`;
+        console.log(`[SmartCube Gyro] Half-turn progress detected: ${quarterLabel} for ${pending.action.token}`);
         const token = moveRibbon.querySelector<HTMLButtonElement>(
           `[data-move-index="${pending.action.timelineIndex + 1}"]`,
         );
@@ -2075,12 +2098,14 @@ if (root) {
       // A regrip around another axis is allowed in solve mode. Treat its new
       // pose as the checkpoint for the still-pending lesson rotation without
       // creating a slip, recovery sequence, sound, or warning.
-      if (detectGyroQuarterRotation(
+      const rebase = detectGyroQuarterRotation(
         pending.baseline.quaternion,
         event.quaternion,
         event.coordinateFrame,
         "local",
-      )) {
+      );
+      if (rebase) {
+        console.log(`[SmartCube Gyro] Detected off-axis regrip around ${rebase.axis} (${rebase.turns > 0 ? "clockwise" : "counter-clockwise"}). Rebasing baseline.`);
         pending.baseline = {
           quaternion: event.quaternion,
           coordinateFrame: event.coordinateFrame,
@@ -2090,6 +2115,7 @@ if (root) {
       return;
     }
 
+    console.log(`[SmartCube Gyro] Rotation completed and verified for ${pending.action.token}!`);
     smartCubeRotationWait = null;
     clearTurnGuide();
     // Solve mode deliberately does not live-track the observed pose. Animate
