@@ -8,6 +8,11 @@ permutation (40,320 states each), and slice-edge permutation (24 states).
 
 Phase-one pruning distances are packed as two four-bit values per `Uint8Array`
 byte. A value of 15 means unvisited while a breadth-first table is being built.
+The phase-one `slice × twist` and `slice × flip` tables, and the phase-two
+`corner permutation × slice permutation` and `edge permutation × slice
+permutation` tables, are cached for the worker lifetime. Breadth-first builds
+use a compact `Uint32Array` work queue rather than a boxed JavaScript array,
+which avoids heap fragmentation and keeps initial construction fast.
 
 Second-phase transition tables are flat `Uint16Array` instances. For a
 coordinate `c` and phase-two move-table column `m`, the entry is at

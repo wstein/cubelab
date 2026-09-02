@@ -12,6 +12,7 @@ type phase2MovePermutations = {
 }
 type pruningTable
 type phase2MoveTable
+type pruningQueue
 
 @new external createUint8Array: int => pruningTable = "Uint8Array"
 @get_index external getPruningByte: (pruningTable, int) => int = ""
@@ -19,6 +20,9 @@ type phase2MoveTable
 @new external createUint16Array: int => phase2MoveTable = "Uint16Array"
 @get_index external getPhase2Move: (phase2MoveTable, int) => int = ""
 @set_index external setPhase2Move: (phase2MoveTable, int, int) => unit = ""
+@new external createUint32Array: int => pruningQueue = "Uint32Array"
+@get_index external getPruningQueueIndex: (pruningQueue, int) => int = ""
+@set_index external setPruningQueueIndex: (pruningQueue, int, int) => unit = ""
 
 let createPruningTable = entries => {
   let table = createUint8Array((entries + 1) / 2)
@@ -62,6 +66,17 @@ let phase1MoveIndices = () => {
 let phase2MoveIndices = () => [0, 1, 2, 3, 4, 5, 7, 10, 13, 16]
 let phase2MoveCount = 10
 let phase2MoveTableIndex = (coordinate, move) => coordinate * phase2MoveCount + move
+
+let twistMoveTableCache: ref<option<array<array<int>>>> = ref(None)
+let flipMoveTableCache: ref<option<array<array<int>>>> = ref(None)
+let sliceMoveTableCache: ref<option<array<array<int>>>> = ref(None)
+let cornerMoveTableCache: ref<option<phase2MoveTable>> = ref(None)
+let edgeMoveTableCache: ref<option<phase2MoveTable>> = ref(None)
+let slicePermutationMoveTableCache: ref<option<phase2MoveTable>> = ref(None)
+let sliceTwistPruningTableCache: ref<option<pruningTable>> = ref(None)
+let sliceFlipPruningTableCache: ref<option<pruningTable>> = ref(None)
+let cornerSlicePruningTableCache: ref<option<pruningTable>> = ref(None)
+let edgeSlicePruningTableCache: ref<option<pruningTable>> = ref(None)
 
 type solverError =
   | UnsupportedSize(int)
@@ -361,7 +376,9 @@ let phase2Transition = (coordinates: phase2Coordinates, moveIndex: int): result<
     }
   }
 
-let phase2MovePermutations = (): phase2MovePermutations => {
+let phase2MovePermutationsCache: ref<option<phase2MovePermutations>> = ref(None)
+
+let buildPhase2MovePermutations = (): phase2MovePermutations => {
   let moves = phase2MoveIndices()
   let corners = Array.make(~length=phase2MoveCount, Array.make(~length=8, 0))
   let edges = Array.make(~length=phase2MoveCount, Array.make(~length=8, 0))
@@ -378,6 +395,16 @@ let phase2MovePermutations = (): phase2MovePermutations => {
   )
   {corners, edges, slice}
 }
+
+let phase2MovePermutations = () =>
+  switch phase2MovePermutationsCache.contents {
+  | Some(permutations) => permutations
+  | None => {
+      let permutations = buildPhase2MovePermutations()
+      phase2MovePermutationsCache := Some(permutations)
+      permutations
+    }
+  }
 
 let composePermutation = (permutation, move) => {
   let next = Array.make(~length=permutation->Array.length, 0)
@@ -403,81 +430,116 @@ let buildPhase2PermutationMoveTable = (length, moves) => {
 }
 
 let buildCornerMoveTable = () => {
-  let permutations = phase2MovePermutations()
-  buildPhase2PermutationMoveTable(8, permutations.corners)
+  switch cornerMoveTableCache.contents {
+  | Some(table) => table
+  | None => {
+      let table = buildPhase2PermutationMoveTable(8, phase2MovePermutations().corners)
+      cornerMoveTableCache := Some(table)
+      table
+    }
+  }
 }
 
 let buildEdgeMoveTable = () => {
-  let permutations = phase2MovePermutations()
-  buildPhase2PermutationMoveTable(8, permutations.edges)
+  switch edgeMoveTableCache.contents {
+  | Some(table) => table
+  | None => {
+      let table = buildPhase2PermutationMoveTable(8, phase2MovePermutations().edges)
+      edgeMoveTableCache := Some(table)
+      table
+    }
+  }
 }
 
 let buildSlicePermutationMoveTable = () => {
-  let permutations = phase2MovePermutations()
-  buildPhase2PermutationMoveTable(4, permutations.slice)
+  switch slicePermutationMoveTableCache.contents {
+  | Some(table) => table
+  | None => {
+      let table = buildPhase2PermutationMoveTable(4, phase2MovePermutations().slice)
+      slicePermutationMoveTableCache := Some(table)
+      table
+    }
+  }
 }
 
 let buildTwistMoveTable = () => {
-  let table = Array.make(~length=2187, 0)->Array.map(_ => Array.make(~length=18, 0))
-  for twist in 0 to 2186 {
-    for moveIndex in 0 to 17 {
-      switch phase1Transition({twist, flip: 0, slice: 0}, moveIndex) {
-      | Ok(next) => Belt.Array.getUnsafe(table, twist)[moveIndex] = next.twist
-      | Error(_) => ()
+  switch twistMoveTableCache.contents {
+  | Some(table) => table
+  | None => {
+      let table = Array.make(~length=2187, 0)->Array.map(_ => Array.make(~length=18, 0))
+      for twist in 0 to 2186 {
+        for moveIndex in 0 to 17 {
+          switch phase1Transition({twist, flip: 0, slice: 0}, moveIndex) {
+          | Ok(next) => Belt.Array.getUnsafe(table, twist)[moveIndex] = next.twist
+          | Error(_) => ()
+          }
+        }
       }
+      twistMoveTableCache := Some(table)
+      table
     }
   }
-  table
 }
 
 let buildFlipMoveTable = () => {
-  let table = Array.make(~length=2048, 0)->Array.map(_ => Array.make(~length=18, 0))
-  for flip in 0 to 2047 {
-    for moveIndex in 0 to 17 {
-      switch phase1Transition({twist: 0, flip, slice: 0}, moveIndex) {
-      | Ok(next) => Belt.Array.getUnsafe(table, flip)[moveIndex] = next.flip
-      | Error(_) => ()
+  switch flipMoveTableCache.contents {
+  | Some(table) => table
+  | None => {
+      let table = Array.make(~length=2048, 0)->Array.map(_ => Array.make(~length=18, 0))
+      for flip in 0 to 2047 {
+        for moveIndex in 0 to 17 {
+          switch phase1Transition({twist: 0, flip, slice: 0}, moveIndex) {
+          | Ok(next) => Belt.Array.getUnsafe(table, flip)[moveIndex] = next.flip
+          | Error(_) => ()
+          }
+        }
       }
+      flipMoveTableCache := Some(table)
+      table
     }
   }
-  table
 }
 
 let buildSliceMoveTable = () => {
-  let table = Array.make(~length=495, 0)->Array.map(_ => Array.make(~length=18, 0))
-  for slice in 0 to 494 {
-    for moveIndex in 0 to 17 {
-      switch phase1Transition({twist: 0, flip: 0, slice}, moveIndex) {
-      | Ok(next) => Belt.Array.getUnsafe(table, slice)[moveIndex] = next.slice
-      | Error(_) => ()
+  switch sliceMoveTableCache.contents {
+  | Some(table) => table
+  | None => {
+      let table = Array.make(~length=495, 0)->Array.map(_ => Array.make(~length=18, 0))
+      for slice in 0 to 494 {
+        for moveIndex in 0 to 17 {
+          switch phase1Transition({twist: 0, flip: 0, slice}, moveIndex) {
+          | Ok(next) => Belt.Array.getUnsafe(table, slice)[moveIndex] = next.slice
+          | Error(_) => ()
+          }
+        }
       }
+      sliceMoveTableCache := Some(table)
+      table
     }
   }
-  table
 }
 
-let buildSliceTwistPruningTable = () => {
-  let twistMoves = buildTwistMoveTable()
+let buildPhase1PruningTable = (primaryMoves, primaryStates) => {
   let sliceMoves = buildSliceMoveTable()
-  let size = 495 * 2187
+  let size = 495 * primaryStates
   let table = createPruningTable(size)
-  let queue = Array.make(~length=size, 0)
+  let queue = createUint32Array(size)
   let head = ref(0)
   let tail = ref(1)
   setPruningDistance(table, 0, 0)
   while head.contents < tail.contents {
-    let index = Belt.Array.getUnsafe(queue, head.contents)
+    let index = getPruningQueueIndex(queue, head.contents)
     head := head.contents + 1
     let depth = pruningDistance(table, index)
     let slice = index % 495
-    let twist = index / 495
+    let primary = index / 495
     for moveIndex in 0 to 17 {
-      let nextTwist = Belt.Array.getUnsafe(Belt.Array.getUnsafe(twistMoves, twist), moveIndex)
+      let nextPrimary = Belt.Array.getUnsafe(Belt.Array.getUnsafe(primaryMoves, primary), moveIndex)
       let nextSlice = Belt.Array.getUnsafe(Belt.Array.getUnsafe(sliceMoves, slice), moveIndex)
-      let next = nextTwist * 495 + nextSlice
+      let next = nextPrimary * 495 + nextSlice
       if pruningDistance(table, next) == 15 {
         setPruningDistance(table, next, depth + 1)
-        queue[tail.contents] = next
+        setPruningQueueIndex(queue, tail.contents, next)
         tail := tail.contents + 1
       }
     }
@@ -485,34 +547,73 @@ let buildSliceTwistPruningTable = () => {
   table
 }
 
-let buildSliceFlipPruningTable = () => {
-  let flipMoves = buildFlipMoveTable()
-  let sliceMoves = buildSliceMoveTable()
-  let size = 495 * 2048
+let buildSliceTwistPruningTable = () =>
+  switch sliceTwistPruningTableCache.contents {
+  | Some(table) => table
+  | None => {
+      let table = buildPhase1PruningTable(buildTwistMoveTable(), 2187)
+      sliceTwistPruningTableCache := Some(table)
+      table
+    }
+  }
+
+let buildSliceFlipPruningTable = () =>
+  switch sliceFlipPruningTableCache.contents {
+  | Some(table) => table
+  | None => {
+      let table = buildPhase1PruningTable(buildFlipMoveTable(), 2048)
+      sliceFlipPruningTableCache := Some(table)
+      table
+    }
+  }
+
+let buildPhase2PruningTable = primaryMoves => {
+  let sliceMoves = buildSlicePermutationMoveTable()
+  let size = 40320 * 24
   let table = createPruningTable(size)
-  let queue = Array.make(~length=size, 0)
+  let queue = createUint32Array(size)
   let head = ref(0)
   let tail = ref(1)
   setPruningDistance(table, 0, 0)
   while head.contents < tail.contents {
-    let index = Belt.Array.getUnsafe(queue, head.contents)
+    let index = getPruningQueueIndex(queue, head.contents)
     head := head.contents + 1
     let depth = pruningDistance(table, index)
-    let slice = index % 495
-    let flip = index / 495
-    for moveIndex in 0 to 17 {
-      let nextFlip = Belt.Array.getUnsafe(Belt.Array.getUnsafe(flipMoves, flip), moveIndex)
-      let nextSlice = Belt.Array.getUnsafe(Belt.Array.getUnsafe(sliceMoves, slice), moveIndex)
-      let next = nextFlip * 495 + nextSlice
+    let slice = index % 24
+    let primary = index / 24
+    for moveIndex in 0 to phase2MoveCount - 1 {
+      let nextPrimary = getPhase2Move(primaryMoves, phase2MoveTableIndex(primary, moveIndex))
+      let nextSlice = getPhase2Move(sliceMoves, phase2MoveTableIndex(slice, moveIndex))
+      let next = nextPrimary * 24 + nextSlice
       if pruningDistance(table, next) == 15 {
         setPruningDistance(table, next, depth + 1)
-        queue[tail.contents] = next
+        setPruningQueueIndex(queue, tail.contents, next)
         tail := tail.contents + 1
       }
     }
   }
   table
 }
+
+let buildCornerSlicePruningTable = () =>
+  switch cornerSlicePruningTableCache.contents {
+  | Some(table) => table
+  | None => {
+      let table = buildPhase2PruningTable(buildCornerMoveTable())
+      cornerSlicePruningTableCache := Some(table)
+      table
+    }
+  }
+
+let buildEdgeSlicePruningTable = () =>
+  switch edgeSlicePruningTableCache.contents {
+  | Some(table) => table
+  | None => {
+      let table = buildPhase2PruningTable(buildEdgeMoveTable())
+      edgeSlicePruningTableCache := Some(table)
+      table
+    }
+  }
 
 let solvedPieces = (pieces: PieceReducer.pieceState) =>
   isIdentity(pieces.cp) && allZero(pieces.co) && isIdentity(pieces.ep) && allZero(pieces.eo)

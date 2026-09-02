@@ -7,6 +7,7 @@ import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as Primitive_int from "@rescript/runtime/lib/es6/Primitive_int.js";
 import * as Stdlib_Result from "@rescript/runtime/lib/es6/Stdlib_Result.js";
 import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
+import * as Primitive_option from "@rescript/runtime/lib/es6/Primitive_option.js";
 
 function createPruningTable(entries) {
   let table = new Uint8Array((entries + 1 | 0) / 2 | 0);
@@ -59,6 +60,46 @@ function phase2MoveIndices() {
 function phase2MoveTableIndex(coordinate, move) {
   return (coordinate * 10 | 0) + move | 0;
 }
+
+let twistMoveTableCache = {
+  contents: undefined
+};
+
+let flipMoveTableCache = {
+  contents: undefined
+};
+
+let sliceMoveTableCache = {
+  contents: undefined
+};
+
+let cornerMoveTableCache = {
+  contents: undefined
+};
+
+let edgeMoveTableCache = {
+  contents: undefined
+};
+
+let slicePermutationMoveTableCache = {
+  contents: undefined
+};
+
+let sliceTwistPruningTableCache = {
+  contents: undefined
+};
+
+let sliceFlipPruningTableCache = {
+  contents: undefined
+};
+
+let cornerSlicePruningTableCache = {
+  contents: undefined
+};
+
+let edgeSlicePruningTableCache = {
+  contents: undefined
+};
 
 function isIdentity(permutation) {
   return permutation.every((piece, slot) => piece === slot);
@@ -497,7 +538,11 @@ function phase2Transition(coordinates, moveIndex) {
   }
 }
 
-function phase2MovePermutations() {
+let phase2MovePermutationsCache = {
+  contents: undefined
+};
+
+function buildPhase2MovePermutations() {
   let moves = phase2MoveIndices();
   let corners = Stdlib_Array.make(10, Stdlib_Array.make(8, 0));
   let edges = Stdlib_Array.make(10, Stdlib_Array.make(8, 0));
@@ -523,6 +568,16 @@ function phase2MovePermutations() {
   };
 }
 
+function phase2MovePermutations() {
+  let permutations = phase2MovePermutationsCache.contents;
+  if (permutations !== undefined) {
+    return permutations;
+  }
+  let permutations$1 = buildPhase2MovePermutations();
+  phase2MovePermutationsCache.contents = permutations$1;
+  return permutations$1;
+}
+
 function composePermutation(permutation, move) {
   let next = Stdlib_Array.make(permutation.length, 0);
   for (let slot = 0, slot_finish = next.length; slot < slot_finish; ++slot) {
@@ -543,22 +598,41 @@ function buildPhase2PermutationMoveTable(length, moves) {
 }
 
 function buildCornerMoveTable() {
-  let permutations = phase2MovePermutations();
-  return buildPhase2PermutationMoveTable(8, permutations.corners);
+  let table = cornerMoveTableCache.contents;
+  if (table !== undefined) {
+    return Primitive_option.valFromOption(table);
+  }
+  let table$1 = buildPhase2PermutationMoveTable(8, phase2MovePermutations().corners);
+  cornerMoveTableCache.contents = Primitive_option.some(table$1);
+  return table$1;
 }
 
 function buildEdgeMoveTable() {
-  let permutations = phase2MovePermutations();
-  return buildPhase2PermutationMoveTable(8, permutations.edges);
+  let table = edgeMoveTableCache.contents;
+  if (table !== undefined) {
+    return Primitive_option.valFromOption(table);
+  }
+  let table$1 = buildPhase2PermutationMoveTable(8, phase2MovePermutations().edges);
+  edgeMoveTableCache.contents = Primitive_option.some(table$1);
+  return table$1;
 }
 
 function buildSlicePermutationMoveTable() {
-  let permutations = phase2MovePermutations();
-  return buildPhase2PermutationMoveTable(4, permutations.slice);
+  let table = slicePermutationMoveTableCache.contents;
+  if (table !== undefined) {
+    return Primitive_option.valFromOption(table);
+  }
+  let table$1 = buildPhase2PermutationMoveTable(4, phase2MovePermutations().slice);
+  slicePermutationMoveTableCache.contents = Primitive_option.some(table$1);
+  return table$1;
 }
 
 function buildTwistMoveTable() {
-  let table = Stdlib_Array.make(2187, 0).map(param => Stdlib_Array.make(18, 0));
+  let table = twistMoveTableCache.contents;
+  if (table !== undefined) {
+    return table;
+  }
+  let table$1 = Stdlib_Array.make(2187, 0).map(param => Stdlib_Array.make(18, 0));
   for (let twist = 0; twist <= 2186; ++twist) {
     for (let moveIndex = 0; moveIndex <= 17; ++moveIndex) {
       let next = phase1Transition({
@@ -567,15 +641,20 @@ function buildTwistMoveTable() {
         slice: 0
       }, moveIndex);
       if (next.TAG === "Ok") {
-        table[twist][moveIndex] = next._0.twist;
+        table$1[twist][moveIndex] = next._0.twist;
       }
     }
   }
-  return table;
+  twistMoveTableCache.contents = table$1;
+  return table$1;
 }
 
 function buildFlipMoveTable() {
-  let table = Stdlib_Array.make(2048, 0).map(param => Stdlib_Array.make(18, 0));
+  let table = flipMoveTableCache.contents;
+  if (table !== undefined) {
+    return table;
+  }
+  let table$1 = Stdlib_Array.make(2048, 0).map(param => Stdlib_Array.make(18, 0));
   for (let flip = 0; flip <= 2047; ++flip) {
     for (let moveIndex = 0; moveIndex <= 17; ++moveIndex) {
       let next = phase1Transition({
@@ -584,15 +663,20 @@ function buildFlipMoveTable() {
         slice: 0
       }, moveIndex);
       if (next.TAG === "Ok") {
-        table[flip][moveIndex] = next._0.flip;
+        table$1[flip][moveIndex] = next._0.flip;
       }
     }
   }
-  return table;
+  flipMoveTableCache.contents = table$1;
+  return table$1;
 }
 
 function buildSliceMoveTable() {
-  let table = Stdlib_Array.make(495, 0).map(param => Stdlib_Array.make(18, 0));
+  let table = sliceMoveTableCache.contents;
+  if (table !== undefined) {
+    return table;
+  }
+  let table$1 = Stdlib_Array.make(495, 0).map(param => Stdlib_Array.make(18, 0));
   for (let slice = 0; slice <= 494; ++slice) {
     for (let moveIndex = 0; moveIndex <= 17; ++moveIndex) {
       let next = phase1Transition({
@@ -601,18 +685,66 @@ function buildSliceMoveTable() {
         slice: slice
       }, moveIndex);
       if (next.TAG === "Ok") {
-        table[slice][moveIndex] = next._0.slice;
+        table$1[slice][moveIndex] = next._0.slice;
       }
     }
   }
+  sliceMoveTableCache.contents = table$1;
+  return table$1;
+}
+
+function buildPhase1PruningTable(primaryMoves, primaryStates) {
+  let sliceMoves = buildSliceMoveTable();
+  let size = 495 * primaryStates | 0;
+  let table = createPruningTable(size);
+  let queue = new Uint32Array(size);
+  let head = 0;
+  let tail = 1;
+  setPruningDistance(table, 0, 0);
+  while (head < tail) {
+    let index = queue[head];
+    head = head + 1 | 0;
+    let depth = pruningDistance(table, index);
+    let slice = index % 495;
+    let primary = index / 495 | 0;
+    for (let moveIndex = 0; moveIndex <= 17; ++moveIndex) {
+      let nextPrimary = primaryMoves[primary][moveIndex];
+      let nextSlice = sliceMoves[slice][moveIndex];
+      let next = (nextPrimary * 495 | 0) + nextSlice | 0;
+      if (pruningDistance(table, next) === 15) {
+        setPruningDistance(table, next, depth + 1 | 0);
+        queue[tail] = next;
+        tail = tail + 1 | 0;
+      }
+    }
+  };
   return table;
 }
 
 function buildSliceTwistPruningTable() {
-  let twistMoves = buildTwistMoveTable();
-  let sliceMoves = buildSliceMoveTable();
-  let table = createPruningTable(1082565);
-  let queue = Stdlib_Array.make(1082565, 0);
+  let table = sliceTwistPruningTableCache.contents;
+  if (table !== undefined) {
+    return Primitive_option.valFromOption(table);
+  }
+  let table$1 = buildPhase1PruningTable(buildTwistMoveTable(), 2187);
+  sliceTwistPruningTableCache.contents = Primitive_option.some(table$1);
+  return table$1;
+}
+
+function buildSliceFlipPruningTable() {
+  let table = sliceFlipPruningTableCache.contents;
+  if (table !== undefined) {
+    return Primitive_option.valFromOption(table);
+  }
+  let table$1 = buildPhase1PruningTable(buildFlipMoveTable(), 2048);
+  sliceFlipPruningTableCache.contents = Primitive_option.some(table$1);
+  return table$1;
+}
+
+function buildPhase2PruningTable(primaryMoves) {
+  let sliceMoves = buildSlicePermutationMoveTable();
+  let table = createPruningTable(967680);
+  let queue = new Uint32Array(967680);
   let head = 0;
   let tail = 1;
   setPruningDistance(table, 0, 0);
@@ -620,12 +752,12 @@ function buildSliceTwistPruningTable() {
     let index = queue[head];
     head = head + 1 | 0;
     let depth = pruningDistance(table, index);
-    let slice = index % 495;
-    let twist = index / 495 | 0;
-    for (let moveIndex = 0; moveIndex <= 17; ++moveIndex) {
-      let nextTwist = twistMoves[twist][moveIndex];
-      let nextSlice = sliceMoves[slice][moveIndex];
-      let next = (nextTwist * 495 | 0) + nextSlice | 0;
+    let slice = index % 24;
+    let primary = index / 24 | 0;
+    for (let moveIndex = 0; moveIndex <= 9; ++moveIndex) {
+      let nextPrimary = primaryMoves[phase2MoveTableIndex(primary, moveIndex)];
+      let nextSlice = sliceMoves[phase2MoveTableIndex(slice, moveIndex)];
+      let next = (nextPrimary * 24 | 0) + nextSlice | 0;
       if (pruningDistance(table, next) === 15) {
         setPruningDistance(table, next, depth + 1 | 0);
         queue[tail] = next;
@@ -636,32 +768,24 @@ function buildSliceTwistPruningTable() {
   return table;
 }
 
-function buildSliceFlipPruningTable() {
-  let flipMoves = buildFlipMoveTable();
-  let sliceMoves = buildSliceMoveTable();
-  let table = createPruningTable(1013760);
-  let queue = Stdlib_Array.make(1013760, 0);
-  let head = 0;
-  let tail = 1;
-  setPruningDistance(table, 0, 0);
-  while (head < tail) {
-    let index = queue[head];
-    head = head + 1 | 0;
-    let depth = pruningDistance(table, index);
-    let slice = index % 495;
-    let flip = index / 495 | 0;
-    for (let moveIndex = 0; moveIndex <= 17; ++moveIndex) {
-      let nextFlip = flipMoves[flip][moveIndex];
-      let nextSlice = sliceMoves[slice][moveIndex];
-      let next = (nextFlip * 495 | 0) + nextSlice | 0;
-      if (pruningDistance(table, next) === 15) {
-        setPruningDistance(table, next, depth + 1 | 0);
-        queue[tail] = next;
-        tail = tail + 1 | 0;
-      }
-    }
-  };
-  return table;
+function buildCornerSlicePruningTable() {
+  let table = cornerSlicePruningTableCache.contents;
+  if (table !== undefined) {
+    return Primitive_option.valFromOption(table);
+  }
+  let table$1 = buildPhase2PruningTable(buildCornerMoveTable());
+  cornerSlicePruningTableCache.contents = Primitive_option.some(table$1);
+  return table$1;
+}
+
+function buildEdgeSlicePruningTable() {
+  let table = edgeSlicePruningTableCache.contents;
+  if (table !== undefined) {
+    return Primitive_option.valFromOption(table);
+  }
+  let table$1 = buildPhase2PruningTable(buildEdgeMoveTable());
+  edgeSlicePruningTableCache.contents = Primitive_option.some(table$1);
+  return table$1;
 }
 
 function solvedPieces(pieces) {
@@ -782,6 +906,16 @@ export {
   phase2MoveIndices,
   phase2MoveCount,
   phase2MoveTableIndex,
+  twistMoveTableCache,
+  flipMoveTableCache,
+  sliceMoveTableCache,
+  cornerMoveTableCache,
+  edgeMoveTableCache,
+  slicePermutationMoveTableCache,
+  sliceTwistPruningTableCache,
+  sliceFlipPruningTableCache,
+  cornerSlicePruningTableCache,
+  edgeSlicePruningTableCache,
   isIdentity,
   allZero,
   choose,
@@ -805,6 +939,8 @@ export {
   phase1Transition,
   phase1TransitionRow,
   phase2Transition,
+  phase2MovePermutationsCache,
+  buildPhase2MovePermutations,
   phase2MovePermutations,
   composePermutation,
   buildPhase2PermutationMoveTable,
@@ -814,8 +950,12 @@ export {
   buildTwistMoveTable,
   buildFlipMoveTable,
   buildSliceMoveTable,
+  buildPhase1PruningTable,
   buildSliceTwistPruningTable,
   buildSliceFlipPruningTable,
+  buildPhase2PruningTable,
+  buildCornerSlicePruningTable,
+  buildEdgeSlicePruningTable,
   solvedPieces,
   exactSearch,
   shallowOptimalSearch,

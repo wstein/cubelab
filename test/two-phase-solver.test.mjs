@@ -146,6 +146,19 @@ test("phase-one flip pruning has zero distance at the solved coordinate", () => 
   assert.equal(TwoPhaseSolver.pruningDistance(table, 0), 0);
 });
 
+test("phase-two pruning tables have solved distance and are cached", () => {
+  const corners = TwoPhaseSolver.buildCornerSlicePruningTable();
+  const edges = TwoPhaseSolver.buildEdgeSlicePruningTable();
+  assert.ok(corners instanceof Uint8Array);
+  assert.ok(edges instanceof Uint8Array);
+  assert.equal(corners.length, Math.ceil(40_320 * 24 / 2));
+  assert.equal(edges.length, Math.ceil(40_320 * 24 / 2));
+  assert.equal(TwoPhaseSolver.pruningDistance(corners, 0), 0);
+  assert.equal(TwoPhaseSolver.pruningDistance(edges, 0), 0);
+  assert.strictEqual(TwoPhaseSolver.buildCornerSlicePruningTable(), corners);
+  assert.strictEqual(TwoPhaseSolver.buildEdgeSlicePruningTable(), edges);
+});
+
 test("phase-two coordinates round-trip through a parity-valid G1 state", () => {
   const source = {corners: 1_234, edges: 2_469, slice: 17};
   const state = TwoPhaseSolver.phase2State(source);
