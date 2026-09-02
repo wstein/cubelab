@@ -1140,25 +1140,36 @@ let planLayerPieces = (
   ~atomics,
   ~triggers,
   ~labels,
-) =>
-  switch planLayerPiecesFrom(
-    ~state,
-    ~pieces,
-    ~completed=[],
-    ~baseCorners,
-    ~baseEdges,
-    ~corners,
-    ~atomics,
-    ~triggers,
-    ~labels,
-    ~failed=Dict.make(),
-  ) {
+) => {
+  let attempt = triggers =>
+    planLayerPiecesFrom(
+      ~state,
+      ~pieces,
+      ~completed=[],
+      ~baseCorners,
+      ~baseEdges,
+      ~corners,
+      ~atomics,
+      ~triggers,
+      ~labels,
+      ~failed=Dict.make(),
+    )
+  let plan = switch attempt(triggers) {
+  | Some(plan) => Some(plan)
+  // A recognized trigger is an optimization, never a constraint. If its
+  // continuation is incompatible with later locked pieces, retry exactly the
+  // established generic planner before reporting a failure.
+  | None if triggers->Array.length > 0 => attempt([])
+  | None => None
+  }
+  switch plan {
   | None => throw(BuildFailure(BeginnerSolver.SearchFailed("optimized layer-by-layer insertion")))
   | Some(plan) => (
       plan,
       plan->Array.reduce(state, (current, selected) => applyPath(current, selected.path)),
     )
   }
+}
 
 let solveLevel = (input: cubeState, level: level): result<solution, solverError> => {
   try {

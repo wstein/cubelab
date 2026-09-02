@@ -245,7 +245,7 @@ let solveTwoGeneratorF2l = (
       action.faceIndex == BeginnerSolver.faceIndex(R) ||
         action.faceIndex == BeginnerSolver.faceIndex(D)
     )
-  let tryOrder = firstRightWing => {
+  let tryOrder = (firstRightWing, maxDepth, maxNodes) => {
     let firstCorners = if firstRightWing {
       block223Corners->Array.concat([0])
     } else {
@@ -261,8 +261,8 @@ let solveTwoGeneratorF2l = (
       ~corners=firstCorners,
       ~edges=firstEdges,
       ~actions=twoGen,
-      ~maxDepth=14,
-      ~maxNodes=2500000,
+      ~maxDepth,
+      ~maxNodes,
     ) {
     | None => None
     | Some(first) => {
@@ -272,8 +272,8 @@ let solveTwoGeneratorF2l = (
           ~corners=f2lCorners,
           ~edges=f2lEdges,
           ~actions=twoGen,
-          ~maxDepth=14,
-          ~maxNodes=2500000,
+          ~maxDepth,
+          ~maxNodes,
         ) {
         | None => None
         | Some(second) => Some((first, second, applyPath(afterFirst, second)))
@@ -281,9 +281,9 @@ let solveTwoGeneratorF2l = (
       }
     }
   }
-  switch tryOrder(true) {
+  switch tryOrder(true, 14, 2500000) {
   | Some(result) => Some(result)
-  | None => tryOrder(false)
+  | None => tryOrder(false, 14, 2500000)
   }
 }
 
@@ -614,14 +614,22 @@ let solveMethod = (input: cubeState, method): result<solution, solverError> => {
     if expansions->Array.length == 0 {
       throw(BuildFailure(BeginnerSolver.SearchFailed("the DBL 2×2×3 expansion")))
     }
-    // Classical Petrus retains the established deterministic expansion. Enhanced
-    // Petrus first tries the short edge-led order, then falls back to the
-    // established route if the short route cannot replay through COLL/EPLL.
+    // Keep the expansion ordering deterministic, but do not reject a valid
+    // Petrus state merely because its first 2×2×3 order lies outside the
+    // strict two-generator finish subgroup.
     let (progress, enhancedFinish) = switch method {
-    | Classical =>
-      switch completeF2l(~expansion=Belt.Array.getUnsafe(expansions, 0), ~atomics) {
-      | Some(value) => (value, None)
-      | None => throw(BuildFailure(BeginnerSolver.SearchFailed("the ⟨R,U⟩ Petrus F2L finish")))
+    | Classical => {
+        let selected = ref(None)
+        expansions->Array.forEach(expansion => {
+          if selected.contents == None {
+            selected := completeF2l(~expansion, ~atomics)
+          }
+        })
+        switch selected.contents {
+        | Some(value) => (value, None)
+        | None =>
+          throw(BuildFailure(BeginnerSolver.SearchFailed("the ⟨R,U⟩ Petrus F2L finish")))
+        }
       }
     | Enhanced => {
         let signatures = cachedCollLibrary(solved)

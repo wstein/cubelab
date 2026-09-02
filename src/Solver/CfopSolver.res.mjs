@@ -1159,11 +1159,15 @@ function planLayerPiecesFrom(state, pieces, completed, baseCorners, baseEdges, c
 }
 
 function planLayerPieces(state, pieces, baseCorners, baseEdges, corners, atomics, triggers, labels) {
-  let plan = planLayerPiecesFrom(state, pieces, [], baseCorners, baseEdges, corners, atomics, triggers, labels, {});
-  if (plan !== undefined) {
+  let attempt = triggers => planLayerPiecesFrom(state, pieces, [], baseCorners, baseEdges, corners, atomics, triggers, labels, {});
+  let plan = attempt(triggers);
+  let plan$1 = plan !== undefined ? plan : (
+      triggers.length !== 0 ? attempt([]) : undefined
+    );
+  if (plan$1 !== undefined) {
     return [
-      plan,
-      Stdlib_Array.reduce(plan, state, (current, selected) => applyPath(current, selected.path))
+      plan$1,
+      Stdlib_Array.reduce(plan$1, state, (current, selected) => applyPath(current, selected.path))
     ];
   }
   throw {

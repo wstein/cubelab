@@ -331,7 +331,7 @@ function solveTwoGeneratorF2l(state, atomics) {
       return action.faceIndex === BeginnerSolver.faceIndex("D");
     }
   });
-  let tryOrder = firstRightWing => {
+  let tryOrder = (firstRightWing, maxDepth, maxNodes) => {
     let firstCorners = firstRightWing ? block223Corners.concat([0]) : block223Corners.concat([3]);
     let firstEdges = firstRightWing ? block223Edges.concat([
         0,
@@ -340,12 +340,12 @@ function solveTwoGeneratorF2l(state, atomics) {
         0,
         11
       ]);
-    let first = BeginnerSolver.searchAtomicWithLimit(state, firstCorners, firstEdges, twoGen, 14, 2500000);
+    let first = BeginnerSolver.searchAtomicWithLimit(state, firstCorners, firstEdges, twoGen, maxDepth, maxNodes);
     if (first === undefined) {
       return;
     }
     let afterFirst = applyPath(state, first);
-    let second = BeginnerSolver.searchAtomicWithLimit(afterFirst, f2lCorners, f2lEdges, twoGen, 14, 2500000);
+    let second = BeginnerSolver.searchAtomicWithLimit(afterFirst, f2lCorners, f2lEdges, twoGen, maxDepth, maxNodes);
     if (second !== undefined) {
       return [
         first,
@@ -354,11 +354,11 @@ function solveTwoGeneratorF2l(state, atomics) {
       ];
     }
   };
-  let result = tryOrder(true);
+  let result = tryOrder(true, 14, 2500000);
   if (result !== undefined) {
     return result;
   } else {
-    return tryOrder(false);
+    return tryOrder(false, 14, 2500000);
   }
 }
 
@@ -837,7 +837,16 @@ function solveMethod(input, method) {
     }
     let match$1;
     if (method === "Classical") {
-      let value$1 = completeF2l(expansions[0], atomics);
+      let selected = {
+        contents: undefined
+      };
+      expansions.forEach(expansion => {
+        if (selected.contents === undefined) {
+          selected.contents = completeF2l(expansion, atomics);
+          return;
+        }
+      });
+      let value$1 = selected.contents;
       if (value$1 !== undefined) {
         match$1 = [
           value$1,
