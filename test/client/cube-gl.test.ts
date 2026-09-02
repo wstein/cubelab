@@ -180,24 +180,31 @@ describe("cube viewport math", () => {
     expect(Math.hypot(softened.x, softened.y, softened.z, softened.w)).toBeCloseTo(1);
   });
 
-  test("keeps GoCube sensor y and z on distinct viewport axes", () => {
+  test("maps GoCube sensor axes to canonical viewport axes", () => {
     const half = Math.sqrt(0.5);
+    const aroundSensorX = orientationInViewportFrame(
+      {x: half, y: 0, z: 0, w: half},
+      "gocube-wire",
+    );
     const aroundSensorY = orientationInViewportFrame(
-      {x: 0, y: half, z: 0, w: half},
+      {x: 0, y: -half, z: 0, w: half},
       "gocube-wire",
     );
     const aroundSensorZ = orientationInViewportFrame(
       {x: 0, y: 0, z: half, w: half},
       "gocube-wire",
     );
+    expect(aroundSensorX.x).toBeCloseTo(half);
+    expect(aroundSensorX.y).toBeCloseTo(0);
+    expect(aroundSensorX.z).toBeCloseTo(0);
+
     expect(aroundSensorY.x).toBeCloseTo(0);
-    expect(aroundSensorY.y).toBeCloseTo(-half);
+    expect(aroundSensorY.y).toBeCloseTo(half);
     expect(aroundSensorY.z).toBeCloseTo(0);
-    expect(aroundSensorY.w).toBeCloseTo(half);
+
     expect(aroundSensorZ.x).toBeCloseTo(0);
     expect(aroundSensorZ.y).toBeCloseTo(0);
     expect(aroundSensorZ.z).toBeCloseTo(half);
-    expect(aroundSensorZ.w).toBeCloseTo(half);
   });
 
   test("maps GAN wire sensor axes (X: Red, Y: Blue, Z: White) to canonical viewport axes", () => {

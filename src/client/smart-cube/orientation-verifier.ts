@@ -1,4 +1,5 @@
 import {
+  deviceOrientationDelta,
   orientationInViewportFrame,
   relativeQuaternion,
   relativeQuaternionLocal,
@@ -28,13 +29,9 @@ export const assessGyroRotation = (
   frame: OrientationCoordinateFrame,
   axis: "X" | "Y" | "Z",
   turns: number,
-  deltaFrame: GyroDeltaFrame = "local",
+  deltaFrame: GyroDeltaFrame = "world",
 ): GyroRotationAssessment => {
-  const baseViewport = orientationInViewportFrame(base, frame);
-  const currentViewport = orientationInViewportFrame(current, frame);
-  const relative = deltaFrame === "world"
-    ? relativeQuaternion(baseViewport, currentViewport)
-    : relativeQuaternionLocal(baseViewport, currentViewport);
+  const relative = deviceOrientationDelta(base, current, frame, deltaFrame);
   let delta = relative;
   // q and -q encode the same pose; select the representation at most 180° from the baseline.
   if (delta.w < 0) {
@@ -67,7 +64,7 @@ export const detectGyroQuarterRotation = (
   base: OrientationQuaternion,
   current: OrientationQuaternion,
   frame: OrientationCoordinateFrame,
-  deltaFrame: GyroDeltaFrame = "local",
+  deltaFrame: GyroDeltaFrame = "world",
 ): DetectedGyroRotation | null => {
   const candidates = (["X", "Y", "Z"] as const).flatMap((axis) => ([1, -1] as const).map((turns) => ({
     axis,

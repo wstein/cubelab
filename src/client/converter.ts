@@ -2083,22 +2083,17 @@ if (root) {
       event.coordinateFrame,
       step.move._0,
       step.turns,
-      "local",
+      "world",
     );
 
     // Diagnostic logging for gyro tracking & verification:
     if (Math.abs(assessment.signedDegrees) >= 15 || assessment.matched || assessment.partial) {
-      console.log("[SmartCube Gyro]", {
-        expectedAction: pending.action.token,
-        expectedAxis: step.move._0,
-        expectedTurns: step.turns,
-        coordinateFrame: event.coordinateFrame,
-        axisAlignment: (assessment.axisAlignment * 100).toFixed(1) + "%",
-        signedDegrees: assessment.signedDegrees.toFixed(1) + "°",
-        matched: assessment.matched,
-        partial: assessment.partial,
-        rawQuaternion: event.quaternion,
-      });
+      console.log(
+        `[SmartCube Gyro] Assessment: action=${pending.action.token} axis=${step.move._0} turns=${step.turns} ` +
+        `frame=${event.coordinateFrame} align=${(assessment.axisAlignment * 100).toFixed(1)}% ` +
+        `deg=${assessment.signedDegrees.toFixed(1)}° matched=${assessment.matched} partial=${assessment.partial} ` +
+        `rawQ=(${event.quaternion.x.toFixed(3)}, ${event.quaternion.y.toFixed(3)}, ${event.quaternion.z.toFixed(3)}, ${event.quaternion.w.toFixed(3)})`
+      );
     }
 
     if (!assessment.matched) {
@@ -2130,7 +2125,7 @@ if (root) {
         pending.baseline.quaternion,
         event.quaternion,
         event.coordinateFrame,
-        "local",
+        "world",
       );
       if (rebase && rebase.axis !== step.move._0) {
         console.log(`[SmartCube Gyro] Detected off-axis regrip around ${rebase.axis} (${rebase.turns > 0 ? "clockwise" : "counter-clockwise"}). Rebasing baseline.`);
@@ -2302,17 +2297,12 @@ if (root) {
           const cosy_cosp = 1 - 2 * (vq.y * vq.y + vq.z * vq.z);
           const roll = Math.atan2(siny_cosp, cosy_cosp) * 180 / Math.PI;
 
-          console.log("[SmartCube Orientation] Live trace:", {
-            frame: event.coordinateFrame,
-            rawQuaternion: event.quaternion,
-            viewportEuler: {
-              pitchX: pitch.toFixed(1) + "°",
-              yawY: yaw.toFixed(1) + "°",
-              rollZ: roll.toFixed(1) + "°",
-            },
-            trackingEnabled: smartCubeOrientationTracking,
-            waitingForRegrip: Boolean(smartCubeRotationWait),
-          });
+          console.log(
+            `[SmartCube Orientation] Live trace: frame=${event.coordinateFrame} ` +
+            `rawQ=(${event.quaternion.x.toFixed(3)}, ${event.quaternion.y.toFixed(3)}, ${event.quaternion.z.toFixed(3)}, ${event.quaternion.w.toFixed(3)}) ` +
+            `euler(pitchX=${pitch.toFixed(1)}°, yawY=${yaw.toFixed(1)}°, rollZ=${roll.toFixed(1)}°) ` +
+            `tracking=${smartCubeOrientationTracking} waitingForRegrip=${Boolean(smartCubeRotationWait)}`
+          );
         }
         if (smartCubeOrientationTracking) {
           if (!smartCubeCoachingWaiting) {

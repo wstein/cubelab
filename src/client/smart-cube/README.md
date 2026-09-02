@@ -44,8 +44,12 @@ Composite packets may arrive in either face order; half turns may arrive directl
 turns in either direction. After the first quarter packet, the viewport holds that intermediate
 state, the tape expands `R2` to `R R` (or `R' R'`), and the guide shows only the remaining quarter.
 Their implicit physical reorientation is carried into later hints.
-Vendor gyro samples are tagged by hardware frame (e.g. GoCube wire and GAN wire where `+X=Red, +Y=Blue, +Z=White`)
-and mapped into canonical viewport axes before relative-pose assessment so pitch, yaw, and roll cannot be cross-coupled.
+Vendor gyro samples are tagged by hardware frame (e.g. GoCube wire and GAN wire where `+X=Red, +Y=Blue, +Z=White`).
+Relative orientation tracking follows a verified 3-step pipeline:
+1. **World delta convention:** Computes the relative orientation delta in raw $\mathrm{SO}(3)$ (`current * base.conjugate()`) rather than applying coordinate reflections to raw quaternions, preventing axis cross-coupling and gimbal distortion across non-identity zeroed poses.
+2. **Direction alignment:** Inverts rotation direction for sensors that rotate in reverse relative to the hand.
+3. **Change of basis:** Re-expresses the calibrated rotation in canonical viewport axes (e.g. `basis = -x, +y, -z` 180° $Y$-yaw mounting transformation for GoCube).
+This ensures pitch, yaw, and roll map 1:1 to Red ($+X$), White ($+Y$), and Green ($+Z$) without skew or drift across 0°, 90°, 180°, and 270° regrips.
 
 Whole-cube `x`, `y`, and `z` rotations remain first-class lesson steps. They animate all cubies in
 the viewport and count in ETM, but not HTM. With orientation tracking active, coaching measures the

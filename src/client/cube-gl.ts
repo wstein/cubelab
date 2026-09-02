@@ -12,23 +12,23 @@ import {
 
 export type CubeStyle = "Standard" | "Speed";
 export type CubePalette = "Western" | "Japanese";
-export type CubeState = {size: number; facelets: string[][]};
+export type CubeState = { size: number; facelets: string[][] };
 export type CubieFocus = {
   piece: string;
   source: [number, number, number];
   target: [number, number, number];
   label?: string;
 };
-export type MilestoneFocus = {positions: Array<[number, number, number]>; label: string};
+export type MilestoneFocus = { positions: Array<[number, number, number]>; label: string };
 
-type GeometryMesh = {data: number[]; vertexCount: number; stride: number};
-type GeometryResult = {TAG: "Ok"; _0: GeometryMesh} | {TAG: "Error"; _0: string};
+type GeometryMesh = { data: number[]; vertexCount: number; stride: number };
+type GeometryResult = { TAG: "Ok"; _0: GeometryMesh } | { TAG: "Error"; _0: string };
 type Mat4 = Float32Array;
 export type MoveStep = {
   move:
-    | {TAG: "FaceTurn"; _0: "U" | "L" | "F" | "R" | "B" | "D"; _1: {from_: number; to_: number}}
-    | {TAG: "SliceTurn"; _0: "M" | "E" | "S"}
-    | {TAG: "Rotation"; _0: "X" | "Y" | "Z"};
+  | { TAG: "FaceTurn"; _0: "U" | "L" | "F" | "R" | "B" | "D"; _1: { from_: number; to_: number } }
+  | { TAG: "SliceTurn"; _0: "M" | "E" | "S" }
+  | { TAG: "Rotation"; _0: "X" | "Y" | "Z" };
   turns: number;
 };
 export type TurnTransform = {
@@ -37,8 +37,8 @@ export type TurnTransform = {
   max: number;
   angle: number;
 };
-export type CameraTarget = {yaw: number; pitch: number};
-type TurnGuide = {step: MoveStep; label: string; tone?: "normal" | "recovery"};
+export type CameraTarget = { yaw: number; pitch: number };
+type TurnGuide = { step: MoveStep; label: string; tone?: "normal" | "recovery" };
 
 const DEFAULT_YAW = -0.62;
 const DEFAULT_PITCH = 0.48;
@@ -176,13 +176,13 @@ export const turnTransform = (size: number, step: MoveStep): TurnTransform | nul
   if (step.move.TAG === "Rotation") {
     const axis: [number, number, number] =
       step.move._0 === "X" ? [1, 0, 0] : step.move._0 === "Y" ? [0, 1, 0] : [0, 0, 1];
-    return {axis, min: -2, max: 2, angle: -turns * quarter};
+    return { axis, min: -2, max: 2, angle: -turns * quarter };
   }
   if (step.move.TAG === "SliceTurn") {
     const axis: [number, number, number] =
       step.move._0 === "M" ? [1, 0, 0] : step.move._0 === "E" ? [0, 1, 0] : [0, 0, 1];
     const direction = step.move._0 === "S" ? -1 : 1;
-    return {axis, min: -epsilon, max: epsilon, angle: direction * turns * quarter};
+    return { axis, min: -epsilon, max: epsilon, angle: direction * turns * quarter };
   }
   const vectors: Record<"U" | "L" | "F" | "R" | "B" | "D", [number, number, number]> = {
     U: [0, 1, 0],
@@ -233,8 +233,8 @@ const rotateTurnPoint = (
   ];
   return point.map((value, index) =>
     value * cosine
-      + cross[index] * sine
-      + turn.axis[index] * dot * (1 - cosine)
+    + cross[index] * sine
+    + turn.axis[index] * dot * (1 - cosine)
   ) as [number, number, number];
 };
 
@@ -254,7 +254,7 @@ export const focusCameraTarget = (focus: CubieFocus): CameraTarget => {
       Math.abs(coordinate) < 0.75 ? [] : [Math.sign(coordinate) * direction[axis]]
     ));
   const preferred: [number, number, number] = [0.48, 0.46, 0.66];
-  const candidates: Array<{yaw: number; pitch: number; direction: [number, number, number]}> = [];
+  const candidates: Array<{ yaw: number; pitch: number; direction: [number, number, number] }> = [];
   const pitches = [-0.72, -0.48, 0, 0.48, 0.72];
   for (let yawStep = 0; yawStep < 16; yawStep += 1) {
     const yaw = -Math.PI + yawStep * Math.PI / 8;
@@ -275,8 +275,8 @@ export const focusCameraTarget = (focus: CubieFocus): CameraTarget => {
       0,
     );
     const score = Math.min(source, target) * 8 + (source + target) * 2 + preference * 0.22;
-    return score > best.score ? {...candidate, score} : best;
-  }, {...candidates[0], score: -Infinity});
+    return score > best.score ? { ...candidate, score } : best;
+  }, { ...candidates[0], score: -Infinity });
 };
 
 export const clampedCanvasSize = (
@@ -352,7 +352,7 @@ export const cameraMatrices = (
   pitch: number,
   distance: number,
   objectOrientation?: OrientationQuaternion,
-): {modelView: Mat4; projection: Mat4} => ({
+): { modelView: Mat4; projection: Mat4 } => ({
   modelView: multiply(
     translation(-distance),
     multiply(
@@ -370,7 +370,7 @@ export const cameraTween = (start: number, target: number, progress: number): nu
   return start + wrapped * eased;
 };
 
-export type OrientationQuaternion = {x: number; y: number; z: number; w: number};
+export type OrientationQuaternion = { x: number; y: number; z: number; w: number };
 export type OrientationCoordinateFrame = "viewport" | "gocube-wire" | "gan-wire";
 
 const normalizedQuaternion = (quaternion: OrientationQuaternion): OrientationQuaternion => {
@@ -456,36 +456,53 @@ export const relativeQuaternionLocal = (
 };
 
 /**
+ * Computes the relative orientation delta between baseline and current orientation in viewport frame.
+ * Follows the 3-step pipeline documented and measured in bluez-gatt-recorder:
+ * 1. World/local delta in raw SO(3)
+ * 2. Invert rotation direction (for sensors rotating against hand)
+ * 3. Change of basis to canonical viewport frame
+ */
+export const deviceOrientationDelta = (
+  base: OrientationQuaternion,
+  current: OrientationQuaternion,
+  frame: OrientationCoordinateFrame = "viewport",
+  deltaFrame: "world" | "local" = "world",
+): OrientationQuaternion => {
+  const rawDelta = deltaFrame === "world"
+    ? relativeQuaternion(base, current)
+    : relativeQuaternionLocal(base, current);
+  if (frame === "gocube-wire") {
+    // 1. Invert rotation direction
+    const directed = { x: -rawDelta.x, y: -rawDelta.y, z: -rawDelta.z, w: rawDelta.w };
+    // 2. Basis transformation: 180° around Y (Q_basis = { x: 0, y: 1, z: 0, w: 0 })
+    const qBasis = { x: 0, y: 1, z: 0, w: 0 };
+    return normalizedQuaternion(
+      multiplyQuaternions(multiplyQuaternions(qBasis, directed), { x: 0, y: -1, z: 0, w: 0 }),
+    );
+  }
+  if (frame === "gan-wire") {
+    return normalizedQuaternion({
+      x: rawDelta.x,
+      y: rawDelta.z,
+      z: -rawDelta.y,
+      w: rawDelta.w,
+    });
+  }
+  return rawDelta;
+};
+
+/**
  * Re-expresses a vendor-specific hardware sensor quaternion in canonical viewport axes.
- *
- * - GoCube wire: `(x,-y,z,w)`
- * - GAN wire: `+X: Red, +Y: Blue, +Z: White` -> `(x, z, -y, w)`
  */
 export const orientationInViewportFrame = (
   quaternion: OrientationQuaternion,
   frame: OrientationCoordinateFrame = "viewport",
 ): OrientationQuaternion => {
-  if (frame === "gocube-wire") {
-    return normalizedQuaternion({
-      x: quaternion.x,
-      y: -quaternion.y,
-      z: quaternion.z,
-      w: quaternion.w,
-    });
-  }
-  if (frame === "gan-wire") {
-    return normalizedQuaternion({
-      x: quaternion.x,
-      y: quaternion.z,
-      z: -quaternion.y,
-      w: quaternion.w,
-    });
-  }
-  return normalizedQuaternion(quaternion);
+  return deviceOrientationDelta({ x: 0, y: 0, z: 0, w: 1 }, quaternion, frame);
 };
 
 export const matrixFromQuaternion = (quaternion: OrientationQuaternion): Mat4 => {
-  const {x, y, z, w} = normalizedQuaternion(quaternion);
+  const { x, y, z, w } = normalizedQuaternion(quaternion);
   const x2 = x + x;
   const y2 = y + y;
   const z2 = z + z;
@@ -765,7 +782,7 @@ export const createCubeViewport = (
   };
 
   const drawMotionOverlay = (
-    matrices: {modelView: Mat4; projection: Mat4},
+    matrices: { modelView: Mat4; projection: Mat4 },
     width: number,
     height: number,
   ) => {
@@ -808,109 +825,109 @@ export const createCubeViewport = (
       const sourceVisible = source.inFront && sourceAnchor.visible;
       const targetVisible = target.inFront && targetAnchor.visible;
       if (sourceVisible && targetVisible) {
-      overlay.save();
-      overlay.strokeStyle = "#67e8f9";
-      overlay.fillStyle = "#67e8f9";
-      overlay.lineWidth = 2.4 * dpr;
-      overlay.lineCap = "round";
-      overlay.lineJoin = "round";
-      overlay.shadowColor = "rgba(34, 211, 238, 0.9)";
-      overlay.shadowBlur = 9 * dpr;
-      overlay.setLineDash([8 * dpr, 7 * dpr]);
-      overlay.lineDashOffset = -(now * 0.025 * dpr);
-      const sameSlot = Math.hypot(target.x - source.x, target.y - source.y) < 8 * dpr;
-      let arrowFrom: ProjectedPoint;
-      let arrowTo: ProjectedPoint;
-      let labelX: number;
-      let labelY: number;
-      if (sameSlot) {
-        const radius = 34 * dpr;
-        overlay.beginPath();
-        overlay.arc(source.x, source.y, radius, Math.PI * 0.35, Math.PI * 2.08);
-        overlay.stroke();
-        arrowFrom = {x: source.x + radius * 0.92, y: source.y - radius * 0.38, depth: 0, inFront: true};
-        arrowTo = {x: source.x + radius, y: source.y + radius * 0.1, depth: 0, inFront: true};
-        labelX = source.x;
-        labelY = source.y - radius - 18 * dpr;
-      } else {
-        const dx = target.x - source.x;
-        const dy = target.y - source.y;
-        const length = Math.max(1, Math.hypot(dx, dy));
-        const lift = Math.min(80 * dpr, Math.max(34 * dpr, length * 0.32));
-        const control = {
-          x: (source.x + target.x) / 2 - (dy / length) * lift,
-          y: (source.y + target.y) / 2 + (dx / length) * lift - 18 * dpr,
-        };
-        overlay.beginPath();
-        overlay.moveTo(source.x, source.y);
-        overlay.quadraticCurveTo(control.x, control.y, target.x, target.y);
-        overlay.stroke();
-        arrowFrom = {x: control.x, y: control.y, depth: 0, inFront: true};
-        arrowTo = target;
-        labelX = control.x;
-        labelY = control.y - 18 * dpr;
-      }
-      overlay.setLineDash([8 * dpr, 6 * dpr]);
-      overlay.lineDashOffset = -(now * 0.03 * dpr);
-      overlay.strokeStyle = "#38bdf8";
-      overlay.lineWidth = 3.2 * dpr;
-      overlay.shadowColor = "rgba(56, 189, 248, 0.6)";
-      overlay.shadowBlur = 8 * dpr;
-      overlay.stroke();
-      overlay.setLineDash([]);
-
-      // Bold IKEA-style triangular arrowhead
-      drawArrowhead(overlay, arrowFrom, arrowTo, 14 * dpr, "#38bdf8");
-
-      // Origin anchor: solid luminous circle with dark border
-      overlay.beginPath();
-      overlay.arc(source.x, source.y, 7 * dpr, 0, Math.PI * 2);
-      overlay.fillStyle = "#38bdf8";
-      overlay.fill();
-      overlay.strokeStyle = "rgba(3, 8, 18, 0.9)";
-      overlay.lineWidth = 1.5 * dpr;
-      overlay.stroke();
-
-      // Destination landing pad: concentric target ring showing slot
-      overlay.beginPath();
-      overlay.arc(target.x, target.y, 11 * dpr, 0, Math.PI * 2);
-      overlay.strokeStyle = "#fb923c";
-      overlay.lineWidth = 2.5 * dpr;
-      overlay.stroke();
-      overlay.beginPath();
-      overlay.arc(target.x, target.y, 4 * dpr, 0, Math.PI * 2);
-      overlay.fillStyle = "#fb923c";
-      overlay.fill();
-      overlay.restore();
-      const drawOutline = (position: [number, number, number], colour: string) => {
-        const outline = cubieFaceOutline(position, matrices.modelView, state?.size ?? 3)
-          .map((point) => transformTurnPointForCubie(point, position, activeTurn))
-          .map((point) => projectPoint(point, matrices.modelView, matrices.projection, width, height));
-        if (outline.some((point) => !point.inFront)) return;
         overlay.save();
-        overlay.strokeStyle = colour;
+        overlay.strokeStyle = "#67e8f9";
+        overlay.fillStyle = "#67e8f9";
         overlay.lineWidth = 2.4 * dpr;
+        overlay.lineCap = "round";
         overlay.lineJoin = "round";
-        overlay.shadowColor = colour;
+        overlay.shadowColor = "rgba(34, 211, 238, 0.9)";
+        overlay.shadowBlur = 9 * dpr;
+        overlay.setLineDash([8 * dpr, 7 * dpr]);
+        overlay.lineDashOffset = -(now * 0.025 * dpr);
+        const sameSlot = Math.hypot(target.x - source.x, target.y - source.y) < 8 * dpr;
+        let arrowFrom: ProjectedPoint;
+        let arrowTo: ProjectedPoint;
+        let labelX: number;
+        let labelY: number;
+        if (sameSlot) {
+          const radius = 34 * dpr;
+          overlay.beginPath();
+          overlay.arc(source.x, source.y, radius, Math.PI * 0.35, Math.PI * 2.08);
+          overlay.stroke();
+          arrowFrom = { x: source.x + radius * 0.92, y: source.y - radius * 0.38, depth: 0, inFront: true };
+          arrowTo = { x: source.x + radius, y: source.y + radius * 0.1, depth: 0, inFront: true };
+          labelX = source.x;
+          labelY = source.y - radius - 18 * dpr;
+        } else {
+          const dx = target.x - source.x;
+          const dy = target.y - source.y;
+          const length = Math.max(1, Math.hypot(dx, dy));
+          const lift = Math.min(80 * dpr, Math.max(34 * dpr, length * 0.32));
+          const control = {
+            x: (source.x + target.x) / 2 - (dy / length) * lift,
+            y: (source.y + target.y) / 2 + (dx / length) * lift - 18 * dpr,
+          };
+          overlay.beginPath();
+          overlay.moveTo(source.x, source.y);
+          overlay.quadraticCurveTo(control.x, control.y, target.x, target.y);
+          overlay.stroke();
+          arrowFrom = { x: control.x, y: control.y, depth: 0, inFront: true };
+          arrowTo = target;
+          labelX = control.x;
+          labelY = control.y - 18 * dpr;
+        }
+        overlay.setLineDash([8 * dpr, 6 * dpr]);
+        overlay.lineDashOffset = -(now * 0.03 * dpr);
+        overlay.strokeStyle = "#38bdf8";
+        overlay.lineWidth = 3.2 * dpr;
+        overlay.shadowColor = "rgba(56, 189, 248, 0.6)";
         overlay.shadowBlur = 8 * dpr;
-        traceProjected(overlay, [...outline, outline[0]]);
         overlay.stroke();
+        overlay.setLineDash([]);
+
+        // Bold IKEA-style triangular arrowhead
+        drawArrowhead(overlay, arrowFrom, arrowTo, 14 * dpr, "#38bdf8");
+
+        // Origin anchor: solid luminous circle with dark border
+        overlay.beginPath();
+        overlay.arc(source.x, source.y, 7 * dpr, 0, Math.PI * 2);
+        overlay.fillStyle = "#38bdf8";
+        overlay.fill();
+        overlay.strokeStyle = "rgba(3, 8, 18, 0.9)";
+        overlay.lineWidth = 1.5 * dpr;
+        overlay.stroke();
+
+        // Destination landing pad: concentric target ring showing slot
+        overlay.beginPath();
+        overlay.arc(target.x, target.y, 11 * dpr, 0, Math.PI * 2);
+        overlay.strokeStyle = "#fb923c";
+        overlay.lineWidth = 2.5 * dpr;
+        overlay.stroke();
+        overlay.beginPath();
+        overlay.arc(target.x, target.y, 4 * dpr, 0, Math.PI * 2);
+        overlay.fillStyle = "#fb923c";
+        overlay.fill();
         overlay.restore();
-      };
-      if (sameSlot) drawOutline(focus.source, "#86efac");
-      else {
-        drawOutline(focus.source, "#67e8f9");
-        drawOutline(focus.target, "#fb923c");
-      }
-      const kind = focus.piece.length === 2 ? "edge" : "corner";
-      const action = sameSlot ? "Orient" : "Move";
-      drawBadge(
-        overlay,
-        focus.label ?? `${action} ${pieceColourLabel(focus.piece, palette)} ${kind}`,
-        labelX,
-        labelY,
-        dpr,
-      );
+        const drawOutline = (position: [number, number, number], colour: string) => {
+          const outline = cubieFaceOutline(position, matrices.modelView, state?.size ?? 3)
+            .map((point) => transformTurnPointForCubie(point, position, activeTurn))
+            .map((point) => projectPoint(point, matrices.modelView, matrices.projection, width, height));
+          if (outline.some((point) => !point.inFront)) return;
+          overlay.save();
+          overlay.strokeStyle = colour;
+          overlay.lineWidth = 2.4 * dpr;
+          overlay.lineJoin = "round";
+          overlay.shadowColor = colour;
+          overlay.shadowBlur = 8 * dpr;
+          traceProjected(overlay, [...outline, outline[0]]);
+          overlay.stroke();
+          overlay.restore();
+        };
+        if (sameSlot) drawOutline(focus.source, "#86efac");
+        else {
+          drawOutline(focus.source, "#67e8f9");
+          drawOutline(focus.target, "#fb923c");
+        }
+        const kind = focus.piece.length === 2 ? "edge" : "corner";
+        const action = sameSlot ? "Orient" : "Move";
+        drawBadge(
+          overlay,
+          focus.label ?? `${action} ${pieceColourLabel(focus.piece, palette)} ${kind}`,
+          labelX,
+          labelY,
+          dpr,
+        );
       } else {
         const visibleAnchor = sourceVisible ? source : targetVisible ? target : null;
         drawBadge(
@@ -932,7 +949,7 @@ export const createCubeViewport = (
         const glowColour = recovery ? "rgba(245, 158, 11, 0.65)" : "rgba(34, 211, 238, 0.5)";
         const chevronColour = recovery ? [253, 230, 138] : [165, 243, 252];
         const surfacePaths = turnSurfaceArrowPaths(transform, turnGuide.step, state?.size ?? 3);
-        const visibleFaces = surfacePaths.filter(({normal, points}) => {
+        const visibleFaces = surfacePaths.filter(({ normal, points }) => {
           const facing = surfaceFacingScore(
             normal,
             points[Math.floor(points.length / 2)],
@@ -948,11 +965,11 @@ export const createCubeViewport = (
 
         const allProjectedFaces: Array<ProjectedPoint[]> = [];
 
-        visibleFaces.forEach(({points}) => {
+        visibleFaces.forEach(({ points }) => {
           const projected = points
             .map((point) => transformTurnPoint(point, activeTurn))
             .map((point) => projectPoint(point, matrices.modelView, matrices.projection, width, height))
-            .filter(({inFront}) => inFront);
+            .filter(({ inFront }) => inFront);
           if (projected.length < 3) return;
           allProjectedFaces.push(projected);
 
@@ -1051,10 +1068,7 @@ export const createCubeViewport = (
     gl.enableVertexAttribArray(sheen);
     gl.vertexAttribPointer(sheen, 1, gl.FLOAT, false, byteStride, 13 * 4);
     const relativeOrientation = deviceOrientationBase && deviceOrientation
-      ? relativeQuaternion(
-        orientationInViewportFrame(deviceOrientationBase, deviceOrientationFrame),
-        orientationInViewportFrame(deviceOrientation, deviceOrientationFrame),
-      )
+      ? deviceOrientationDelta(deviceOrientationBase, deviceOrientation, deviceOrientationFrame, "world")
       : undefined;
     const matrices = cameraMatrices(width / height, yaw, pitch, distance, relativeOrientation);
     gl.uniformMatrix4fv(modelView, false, matrices.modelView);
@@ -1287,7 +1301,7 @@ export const createCubeViewport = (
         }
         const progress = Math.min(1, (now - started) / safeDuration);
         const eased = 1 - (1 - progress) ** 3;
-        activeTurn = {...turn, angle: turn.angle * eased};
+        activeTurn = { ...turn, angle: turn.angle * eased };
         requestRender();
         if (progress < 1) {
           turnFrame = window.requestAnimationFrame(tick);
@@ -1307,7 +1321,7 @@ export const createCubeViewport = (
   canvas.addEventListener("pointermove", pointerMove);
   canvas.addEventListener("pointerup", pointerUp);
   canvas.addEventListener("pointercancel", pointerUp);
-  canvas.addEventListener("wheel", wheel, {passive: false});
+  canvas.addEventListener("wheel", wheel, { passive: false });
   canvas.addEventListener("webglcontextlost", contextLost);
   document.addEventListener("visibilitychange", documentVisibilityChanged);
   const resizeObserver = new ResizeObserver(requestRender);
@@ -1320,7 +1334,7 @@ export const createCubeViewport = (
         startAutoOrbitFrame();
       } else stopAutoOrbitFrame();
     },
-    {threshold: 0.01},
+    { threshold: 0.01 },
   );
   intersectionObserver.observe(canvas);
 

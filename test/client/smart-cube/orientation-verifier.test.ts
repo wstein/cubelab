@@ -76,13 +76,13 @@ describe("smart-cube gyro rotation feedback", () => {
 
   test("accurately verifies rotations in gocube-wire frame across all axes", () => {
     const half = Math.sqrt(0.5);
-    // GoCube wire X rotation: x is negative for clockwise x
+    // GoCube wire X rotation: x is negative on wire (mapped to -X / clockwise in viewport)
     expect(assessGyroRotation(identity, {x: -half, y: 0, z: 0, w: half}, "gocube-wire", "X", 1).matched)
       .toBe(true);
-    // GoCube wire Y rotation: y is positive on wire (negated in viewport)
+    // GoCube wire Y rotation: y is positive on wire (mapped to -Y / clockwise in viewport)
     expect(assessGyroRotation(identity, {x: 0, y: half, z: 0, w: half}, "gocube-wire", "Y", 1).matched)
       .toBe(true);
-    // GoCube wire Z rotation: z is negative for clockwise z
+    // GoCube wire Z rotation: z is negative on wire (mapped to -Z / clockwise in viewport)
     expect(assessGyroRotation(identity, {x: 0, y: 0, z: -half, w: half}, "gocube-wire", "Z", 1).matched)
       .toBe(true);
   });

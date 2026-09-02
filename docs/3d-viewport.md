@@ -172,9 +172,18 @@ The timeline displays both execution effort and puzzle-state scoring. ETM includ
 turn, including `x/y/z`; HTM excludes whole-cube reorientations. Half turns still count as one in
 both metrics.
 
+## Smart-cube live orientation
+
+When a physical smart cube (e.g. GoCube, GAN) with IMU hardware is connected, telemetry stream quaternions drive the WebGL object orientation in real time:
+
+- **World Delta Pipeline:** The relative orientation delta between baseline and current pose is computed directly in raw $\mathrm{SO}(3)$ space (`current * base.conjugate()`), ensuring mathematical invariance regardless of the cube's resting pose.
+- **Direction Alignment & Basis Mapping:** For hardware sensors that rotate against the hand (such as GoCube), the rotation direction is inverted and re-expressed in canonical viewport axes (using the measured $180^\circ$ $Y$-yaw change of basis `basis = -x, +y, -z`).
+- **Facelet Alignment:** Top White ($+Y$), Right Red ($+X$), and Front Green ($+Z$) remain 1:1 aligned during physical turns and whole-cube regrips across 0°, 90°, 180°, and 270°.
+
 ## Provenance and licensing
 
 The physical design vocabulary was informed by the Standard and Speed looks in
 the separate `flix-cube` project. Because that project is AGPL-3.0 and Cube
 Rosetta is MIT, this module is an independent implementation of the underlying
 geometric ideas and does not copy or translate its source code.
+
