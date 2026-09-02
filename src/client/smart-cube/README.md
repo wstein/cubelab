@@ -44,8 +44,8 @@ Composite packets may arrive in either face order; half turns may arrive directl
 turns in either direction. After the first quarter packet, the viewport holds that intermediate
 state, the tape expands `R2` to `R R` (or `R' R'`), and the guide shows only the remaining quarter.
 Their implicit physical reorientation is carried into later hints.
-GoCube gyro samples are restored to wire axes at the transport boundary, then changed into viewport
-axes only after relative-pose calibration so pitch, yaw, and roll cannot be cross-coupled.
+Vendor gyro samples are tagged by hardware frame (e.g. GoCube wire and GAN wire where `+X=Red, +Y=Blue, +Z=White`)
+and mapped into canonical viewport axes before relative-pose assessment so pitch, yaw, and roll cannot be cross-coupled.
 
 Whole-cube `x`, `y`, and `z` rotations remain first-class lesson steps. They animate all cubies in
 the viewport and count in ETM, but not HTM. With orientation tracking active, coaching measures the

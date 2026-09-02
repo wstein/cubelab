@@ -75,6 +75,19 @@ describe("smart cube event normalization", () => {
       quaternion: {x: 0.1, y: 0.2, z: 0.3, w: 0.9},
     });
   });
+
+  test("tags GAN orientation events with gan-wire coordinate frame", () => {
+    const normalized = normalizeTransportEvent({
+      type: "GYRO",
+      timestamp: 20,
+      quaternion: {x: 0.1, y: 0.2, z: 0.3, w: 0.9},
+    }, "gan");
+    expect(normalized).toMatchObject({
+      type: "orientation",
+      coordinateFrame: "gan-wire",
+      quaternion: {x: 0.1, y: 0.2, z: 0.3, w: 0.9},
+    });
+  });
 });
 
 type Observer = {

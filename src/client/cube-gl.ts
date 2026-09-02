@@ -371,7 +371,7 @@ export const cameraTween = (start: number, target: number, progress: number): nu
 };
 
 export type OrientationQuaternion = {x: number; y: number; z: number; w: number};
-export type OrientationCoordinateFrame = "viewport" | "gocube-wire";
+export type OrientationCoordinateFrame = "viewport" | "gocube-wire" | "gan-wire";
 
 const normalizedQuaternion = (quaternion: OrientationQuaternion): OrientationQuaternion => {
   const length = Math.hypot(quaternion.x, quaternion.y, quaternion.z, quaternion.w) || 1;
@@ -456,25 +456,33 @@ export const relativeQuaternionLocal = (
 };
 
 /**
- * Re-expresses a relative GoCube sensor rotation in viewport axes.
+ * Re-expresses a vendor-specific hardware sensor quaternion in canonical viewport axes.
  *
- * CubeTrace's measured working calibration uses a WORLD delta, the proper
- * `right=-x, up=+y, front=-z` basis, and inverted rotation. Their combined
- * effect on the relative quaternion is `(x,-y,z,w)`. Apply it after the delta:
- * applying the transport's improper presentation mapping to both absolute
- * samples reverses multiplication order and visibly crosses the axes.
+ * - GoCube wire: `(x,-y,z,w)`
+ * - GAN wire: `+X: Red, +Y: Blue, +Z: White` -> `(x, z, -y, w)`
  */
 export const orientationInViewportFrame = (
   quaternion: OrientationQuaternion,
   frame: OrientationCoordinateFrame,
-): OrientationQuaternion => frame === "gocube-wire"
-  ? normalizedQuaternion({
-    x: quaternion.x,
-    y: -quaternion.y,
-    z: quaternion.z,
-    w: quaternion.w,
-  })
-  : normalizedQuaternion(quaternion);
+): OrientationQuaternion => {
+  if (frame === "gocube-wire") {
+    return normalizedQuaternion({
+      x: quaternion.x,
+      y: -quaternion.y,
+      z: quaternion.z,
+      w: quaternion.w,
+    });
+  }
+  if (frame === "gan-wire") {
+    return normalizedQuaternion({
+      x: quaternion.x,
+      y: quaternion.z,
+      z: -quaternion.y,
+      w: quaternion.w,
+    });
+  }
+  return normalizedQuaternion(quaternion);
+};
 
 export const matrixFromQuaternion = (quaternion: OrientationQuaternion): Mat4 => {
   const {x, y, z, w} = normalizedQuaternion(quaternion);
@@ -1043,9 +1051,9 @@ export const createCubeViewport = (
     gl.enableVertexAttribArray(sheen);
     gl.vertexAttribPointer(sheen, 1, gl.FLOAT, false, byteStride, 13 * 4);
     const relativeOrientation = deviceOrientationBase && deviceOrientation
-      ? orientationInViewportFrame(
-        relativeQuaternion(deviceOrientationBase, deviceOrientation),
-        deviceOrientationFrame,
+      ? relativeQuaternion(
+        orientationInViewportFrame(deviceOrientationBase, deviceOrientationFrame),
+        orientationInViewportFrame(deviceOrientation, deviceOrientationFrame),
       )
       : undefined;
     const matrices = cameraMatrices(width / height, yaw, pitch, distance, relativeOrientation);

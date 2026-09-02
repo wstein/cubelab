@@ -200,6 +200,28 @@ describe("cube viewport math", () => {
     expect(aroundSensorZ.w).toBeCloseTo(half);
   });
 
+  test("maps GAN wire sensor axes (X: Red, Y: Blue, Z: White) to canonical viewport axes", () => {
+    const half = Math.sqrt(0.5);
+    const aroundGanX = orientationInViewportFrame({x: half, y: 0, z: 0, w: half}, "gan-wire");
+    const aroundGanY = orientationInViewportFrame({x: 0, y: half, z: 0, w: half}, "gan-wire");
+    const aroundGanZ = orientationInViewportFrame({x: 0, y: 0, z: half, w: half}, "gan-wire");
+
+    // GAN +X (Red) -> Viewport +X
+    expect(aroundGanX.x).toBeCloseTo(half);
+    expect(aroundGanX.y).toBeCloseTo(0);
+    expect(aroundGanX.z).toBeCloseTo(0);
+
+    // GAN +Y (Blue) -> Viewport -Z
+    expect(aroundGanY.x).toBeCloseTo(0);
+    expect(aroundGanY.y).toBeCloseTo(0);
+    expect(aroundGanY.z).toBeCloseTo(-half);
+
+    // GAN +Z (White) -> Viewport +Y
+    expect(aroundGanZ.x).toBeCloseTo(0);
+    expect(aroundGanZ.y).toBeCloseTo(half);
+    expect(aroundGanZ.z).toBeCloseTo(0);
+  });
+
   test("calibrates the first hardware quaternion without discarding later roll", () => {
     const half = Math.sqrt(0.5);
     const base = {x: 0, y: half, z: 0, w: half};
