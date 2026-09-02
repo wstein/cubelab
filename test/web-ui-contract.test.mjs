@@ -92,10 +92,11 @@ test("the web UI exposes a state-verified 3x3 NISS helper", () => {
   assert.match(client, /MoveNiss\.describeError/);
 });
 
-test("the SPA workspace keeps one viewport beside three URL-addressable destinations", () => {
+test("the SPA workspace keeps one viewport beside four URL-addressable destinations", () => {
   assert.match(page, /data-workspace-tab="converter"/);
   assert.match(page, /data-workspace-tab="academy"/);
   assert.match(page, /data-workspace-tab="workbench"/);
+  assert.match(page, /data-workspace-tab="patterns"/);
   assert.doesNotMatch(page, /data-workspace-tab="(?:beginner|cfop)"/);
   assert.match(page, /data-academy-method="beginner"/);
   assert.match(page, /data-academy-method="advancedLbl"/);
@@ -140,7 +141,8 @@ test("practice scramble is a Quick load action rather than a transform", () => {
   assert.doesNotMatch(page, /class="transform-btn practice"/);
 });
 
-test("the converter exposes the complete attributed pattern catalog and recognition actions", () => {
+test("the patterns workspace exposes the complete attributed pattern catalog and recognition actions", () => {
+  assert.match(page, /data-workspace-panel="patterns"/);
   assert.match(page, /data-pattern-library/);
   assert.match(page, /229 designs · 2×2–5×5/);
   assert.match(page, /data-pattern-search/);

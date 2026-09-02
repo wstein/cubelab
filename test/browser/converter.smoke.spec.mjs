@@ -195,6 +195,7 @@ test("restores shareable studio state and quick-load presets", async ({page}) =>
 
 test("searches, detects, and previews a known pattern solution", async ({page}) => {
   await page.goto("/");
+  await page.locator('[data-workspace-tab="patterns"]').click();
   await page.locator("[data-pattern-library] summary").click();
   await page.locator("[data-pattern-search]").fill("Pons Asinorum");
   await expect(page.locator("[data-pattern-select] option")).toHaveCount(1);
