@@ -1161,6 +1161,20 @@ if (root) {
     });
   };
 
+  // Transforms (Invert, Simplify, Normalize, Mirror, Rotate) operate on the
+  // Moves field, not on Setup: Setup may itself be a state, not an
+  // algorithm, so its own validity is irrelevant to whether these apply.
+  const movesTransformReady = (): boolean => {
+    if (movesInput.value.trim() === "") return false;
+    const parsed = MoveParser.parseWithOptions(
+      size,
+      lowercaseMode,
+      notationDialect,
+      movesInput.value,
+    ) as Result<unknown[], unknown>;
+    return parsed.TAG === "Ok";
+  };
+
   const updatePlaybackUi = (rebuild = false) => {
     playback.hidden = activeTimeline === null;
     if (!activeTimeline) return;
@@ -2551,7 +2565,7 @@ if (root) {
     updateNissSource(recognized);
     updateCompatibility(recognized);
     updatePatternDetection(recognized);
-    updateTransformAvailability(recognized.timeline !== undefined);
+    updateTransformAvailability(movesTransformReady());
     if (!recognized.timeline || !recognized.timelineKey) {
       stopPlayback();
       activeTimeline = stateSnapshotTimeline(recognized.state);
@@ -2607,7 +2621,7 @@ if (root) {
       updateNissSource(null);
       updateCompatibility(null);
       updatePatternDetection(null);
-      updateTransformAvailability(false);
+      updateTransformAvailability(movesTransformReady());
       stopPlayback();
       activeTimeline = null;
       activeTimelineKey = null;
@@ -2764,12 +2778,12 @@ if (root) {
       window.clearTimeout(pendingDirectMove.timeout);
       pendingDirectMove = null;
     }
-    updateTransformAvailability(false);
     updateAcademySource(null);
     store.patch({input: input.value});
     scheduleUpdate();
   });
   movesInput.addEventListener("input", () => {
+    updateTransformAvailability(false);
     updateAcademySource(null);
     store.patch({moves: movesInput.value});
     scheduleUpdate();
@@ -2785,24 +2799,34 @@ if (root) {
     input.focus();
   };
 
+  const commitTransformedMoves = (value: string) => {
+    if (value.length > 20_000) {
+      error.textContent = "A transformed algorithm may not exceed 20,000 characters.";
+      error.hidden = false;
+      return;
+    }
+    store.patch({moves: value, lowercaseMode: "Wide", notationDialect: "Modern"});
+    movesInput.focus();
+  };
+
   transformButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const parsed = MoveParser.parseWithOptions(
         size,
         lowercaseMode,
         notationDialect,
-        input.value,
+        movesInput.value,
       ) as Result<unknown[], {message: string}>;
       if (parsed.TAG === "Error") return;
       const alg = parsed._0;
       switch (button.dataset.algTransform) {
         case "invert":
-          commitTransformedAlgorithm(MoveTransform.serialize(MoveTransform.invert(alg)));
+          commitTransformedMoves(MoveTransform.serialize(MoveTransform.invert(alg)));
           break;
         case "simplify": {
           const simplified = MoveTransform.simplify(alg) as Result<unknown[], string>;
           if (simplified.TAG === "Ok") {
-            commitTransformedAlgorithm(MoveTransform.serialize(simplified._0));
+            commitTransformedMoves(MoveTransform.serialize(simplified._0));
             if (simplified._0.length === 0 && alg.length > 0) {
               const original = button.textContent;
               button.textContent = "Already solved (0 moves)";
@@ -2817,25 +2841,25 @@ if (root) {
           break;
         }
         case "normalize":
-          commitTransformedAlgorithm(MoveTransform.serialize(alg));
+          commitTransformedMoves(MoveTransform.serialize(alg));
           break;
         case "mirror-lr":
-          commitTransformedAlgorithm(MoveTransform.serialize(MoveTransform.mirror(alg, "LR")));
+          commitTransformedMoves(MoveTransform.serialize(MoveTransform.mirror(alg, "LR")));
           break;
         case "mirror-fb":
-          commitTransformedAlgorithm(MoveTransform.serialize(MoveTransform.mirror(alg, "FB")));
+          commitTransformedMoves(MoveTransform.serialize(MoveTransform.mirror(alg, "FB")));
           break;
         case "mirror-ud":
-          commitTransformedAlgorithm(MoveTransform.serialize(MoveTransform.mirror(alg, "UD")));
+          commitTransformedMoves(MoveTransform.serialize(MoveTransform.mirror(alg, "UD")));
           break;
         case "rotate-x":
-          commitTransformedAlgorithm(MoveTransform.serialize(MoveTransform.rotate(alg, "X", 1)));
+          commitTransformedMoves(MoveTransform.serialize(MoveTransform.rotate(alg, "X", 1)));
           break;
         case "rotate-y":
-          commitTransformedAlgorithm(MoveTransform.serialize(MoveTransform.rotate(alg, "Y", 1)));
+          commitTransformedMoves(MoveTransform.serialize(MoveTransform.rotate(alg, "Y", 1)));
           break;
         case "rotate-z":
-          commitTransformedAlgorithm(MoveTransform.serialize(MoveTransform.rotate(alg, "Z", 1)));
+          commitTransformedMoves(MoveTransform.serialize(MoveTransform.rotate(alg, "Z", 1)));
           break;
       }
     });

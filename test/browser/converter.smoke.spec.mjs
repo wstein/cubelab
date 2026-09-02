@@ -1062,59 +1062,68 @@ test("applies algorithm workbench actions and generates size-aware practice scra
   await page.goto("/");
   await page.getByRole("button", {name: "Alg Workbench"}).click();
   const input = page.locator("[data-input]");
+  const moves = page.locator("[data-moves-input]");
   const invert = page.getByRole("button", {name: "Invert"});
 
   await expect(invert).toBeDisabled();
-  await input.fill("R U R'");
+  await moves.fill("R U R'");
   await expect(invert).toBeEnabled();
   await invert.click();
-  await expect(input).toHaveValue("R U' R'");
+  await expect(moves).toHaveValue("R U' R'");
 
-  await input.fill("R L R'");
+  await moves.fill("R L R'");
   await page.getByRole("button", {name: "Simplify"}).click();
-  await expect(input).toHaveValue("L");
+  await expect(moves).toHaveValue("L");
 
-  await input.fill("(U3')2'");
+  await moves.fill("(U3')2'");
   const simplify = page.locator('[data-alg-transform="simplify"]');
   await simplify.click();
-  await expect(input).toHaveValue("U2");
+  await expect(moves).toHaveValue("U2");
 
-  await input.fill("(F2)2");
+  await moves.fill("(F2)2");
   await simplify.click();
   await expect(simplify).toHaveText("Already solved (0 moves)");
-  await expect(input).toHaveValue("");
+  await expect(moves).toHaveValue("");
   await expect(simplify).toHaveText("⚡ Simplify", {timeout: 3000});
 
-  await input.fill("Rw2 fw'");
+  await moves.fill("Rw2 fw'");
   await page.getByRole("button", {name: "Normalize"}).click();
-  await expect(input).toHaveValue("Rw2 Fw'");
+  await expect(moves).toHaveValue("Rw2 Fw'");
 
-  await input.fill("R U R'");
+  await moves.fill("R U R'");
   await page.getByRole("button", {name: "Mirror L/R"}).click();
-  await expect(input).toHaveValue("L' U' L");
+  await expect(moves).toHaveValue("L' U' L");
 
-  await input.fill("F U F'");
+  await moves.fill("F U F'");
   await page.getByRole("button", {name: "Mirror F/B"}).click();
-  await expect(input).toHaveValue("B' U' B");
+  await expect(moves).toHaveValue("B' U' B");
 
-  await input.fill("U R U'");
+  await moves.fill("U R U'");
   await page.getByRole("button", {name: "Mirror U/D"}).click();
-  await expect(input).toHaveValue("D' R' D");
+  await expect(moves).toHaveValue("D' R' D");
 
-  await input.fill("U F U'");
+  await moves.fill("U F U'");
   await page.getByRole("button", {name: "Rotate x"}).click();
-  await expect(input).toHaveValue("B U B'");
+  await expect(moves).toHaveValue("B U B'");
 
-  await input.fill("R U R'");
+  await moves.fill("R U R'");
   await page.getByRole("button", {name: "Rotate y"}).click();
-  await expect(input).toHaveValue("F U F'");
+  await expect(moves).toHaveValue("F U F'");
 
-  await input.fill("U R U'");
+  await moves.fill("U R U'");
   await page.getByRole("button", {name: "Rotate z"}).click();
-  await expect(input).toHaveValue("R D R'");
+  await expect(moves).toHaveValue("R D R'");
 
-  await input.fill("AAAAAAAAAAAA");
+  // Setup becoming a non-algorithm state has no bearing on transforms, which
+  // operate purely on Moves; clearing Moves is what disables them.
+  await moves.fill("");
   await expect(invert).toBeDisabled();
+  await moves.fill("R U R'");
+  await expect(invert).toBeEnabled();
+  await input.fill("AAAAAAAAAAAA");
+  await expect(invert).toBeEnabled();
+  await moves.fill("");
+  await input.fill("");
 
   await page.locator('[data-size="2"]').click();
   await page.getByRole("button", {name: "Practice scramble"}).click();
