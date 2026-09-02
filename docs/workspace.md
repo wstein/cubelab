@@ -1,6 +1,6 @@
 # Single-page workspace
 
-Cube Rosetta uses four client-side workspace views over one canonical state:
+CubeLab uses four client-side workspace views over one canonical state:
 
 - **Converter** presents the six size-aware state formats and copy controls.
 - **Beginner Academy** generates and explains a seven-phase 3×3 LBL tutorial.

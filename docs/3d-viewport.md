@@ -1,6 +1,6 @@
 # Interactive 3D Viewport
 
-Cube Rosetta's viewport is a zero-framework WebGL view of the same canonical
+CubeLab's viewport is a zero-framework WebGL view of the same canonical
 `cubeState` used by every codec. Rendering never reparses notation and cannot
 alter the converted state.
 

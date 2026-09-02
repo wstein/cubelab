@@ -1,8 +1,8 @@
-# Cube Rosetta
+# CubeLab
 
-Cube Rosetta converts Rubik's Cube algorithms and state representations for 2×2×2
-through 5×5×5 cubes. The implementation uses a canonical facelet model with strict,
-bidirectional codecs.
+CubeLab is an interactive cube studio: a state converter, algorithm workbench, and
+academy of guided solvers for 2×2×2 through 5×5×5 cubes, built on the Cube Rosetta
+engine's canonical facelet model and strict, bidirectional codecs.
 
 The web interface uses static Astro markup, a small Vanilla DOM controller,
 and a render-on-demand native WebGL preview. It has no React, virtual DOM,

@@ -2,7 +2,7 @@
 
 <!-- markdownlint-disable MD013 -->
 
-Cube Rosetta's generated pattern catalog contains 229 records for 2×2×2 through
+CubeLab's generated pattern catalog contains 229 records for 2×2×2 through
 5×5×5. It was imported from `../flix-cubesolve/src/CubeSolve/Patterns/` at
 `flix-cubesolve` commit `113279e59342a4db17adcf33c3090f0940d25cea` on
 2026-09-01. The source repository is distributed under
@@ -12,9 +12,9 @@ the later Kewbz additions were retrieved on 2026-08-30.
 
 The generated TypeScript catalog retains, per record, the source collection id,
 direct source URL, published notation, source canonical identifier, replay notation,
-solution, solution category, and Cube Rosetta recognition key. Pattern names and
+solution, solution category, and recognition key. Pattern names and
 algorithms remain attributed to their listed publishers; their inclusion is not a
-claim of authorship by Cube Rosetta.
+claim of authorship by CubeLab.
 
 ## Imported collections
 

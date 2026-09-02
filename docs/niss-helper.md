@@ -1,6 +1,6 @@
 # NISS helper
 
-Cube Rosetta provides a deliberately small, state-verified Normal/Inverse Scramble
+CubeLab provides a deliberately small, state-verified Normal/Inverse Scramble
 Switch helper for 3×3 Fewest Moves practice. It does not attempt to manage an entire FMC
 attempt or infer where a competitor switched sides.
 
