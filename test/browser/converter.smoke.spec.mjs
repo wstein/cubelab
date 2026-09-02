@@ -312,7 +312,7 @@ test("recovers once from a stale lazy smart-cube chunk", async ({page}) => {
 });
 
 test("auto-demonstrates regrips without gyro and preserves their lesson frame", async ({page}) => {
-  await page.route(/\/src\/client\/smart-cube\/index\.ts/, async (route) => {
+  await page.route(/(?:\/src\/client\/smart-cube\/index|\/_astro\/smart-cube\.)/, async (route) => {
     await route.fulfill({
       contentType: "application/javascript",
       body: `

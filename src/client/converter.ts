@@ -2076,23 +2076,25 @@ if (root) {
     }
 
     if (!assessment.matched) {
-      if (assessment.partial && pending.partialTurn === 0) {
-        pending.partialTurn = assessment.signedDegrees < 0 ? 1 : -1;
-        const quarterStep: MoveStep = {...step, turns: pending.partialTurn};
-        const quarterLabel = `${step.move._0.toLowerCase()}${pending.partialTurn < 0 ? "'" : ""}`;
-        console.log(`[SmartCube Gyro] Half-turn progress detected: ${quarterLabel} for ${pending.action.token}`);
-        const token = moveRibbon.querySelector<HTMLButtonElement>(
-          `[data-move-index="${pending.action.timelineIndex + 1}"]`,
-        );
-        if (token) {
-          token.textContent = `${quarterLabel} ${quarterLabel}`;
-          token.dataset.halfTurnProgress = "true";
+      if (assessment.partial) {
+        if (pending.partialTurn === 0) {
+          pending.partialTurn = assessment.signedDegrees < 0 ? 1 : -1;
+          const quarterStep: MoveStep = {...step, turns: pending.partialTurn};
+          const quarterLabel = `${step.move._0.toLowerCase()}${pending.partialTurn < 0 ? "'" : ""}`;
+          console.log(`[SmartCube Gyro] Half-turn progress detected: ${quarterLabel} for ${pending.action.token}`);
+          const token = moveRibbon.querySelector<HTMLButtonElement>(
+            `[data-move-index="${pending.action.timelineIndex + 1}"]`,
+          );
+          if (token) {
+            token.textContent = `${quarterLabel} ${quarterLabel}`;
+            token.dataset.halfTurnProgress = "true";
+          }
+          activeTurnGuide = {step: quarterStep, label: quarterLabel};
+          viewport?.setTurnPreview(turnTransform(size, quarterStep));
+          viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
+          smartCubeStatus.textContent = `${smartCubeDeviceName} · ${pending.action.token} halfway`;
+          coachStatus.textContent = `${quarterLabel} detected. Repeat it to complete ${pending.action.token}.`;
         }
-        activeTurnGuide = {step: quarterStep, label: quarterLabel};
-        viewport?.setTurnPreview(turnTransform(size, quarterStep));
-        viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
-        smartCubeStatus.textContent = `${smartCubeDeviceName} · ${pending.action.token} halfway`;
-        coachStatus.textContent = `${quarterLabel} detected. Repeat it to complete ${pending.action.token}.`;
         return;
       }
       // A regrip around another axis is allowed in solve mode. Treat its new
@@ -2104,7 +2106,7 @@ if (root) {
         event.coordinateFrame,
         "local",
       );
-      if (rebase) {
+      if (rebase && rebase.axis !== step.move._0) {
         console.log(`[SmartCube Gyro] Detected off-axis regrip around ${rebase.axis} (${rebase.turns > 0 ? "clockwise" : "counter-clockwise"}). Rebasing baseline.`);
         pending.baseline = {
           quaternion: event.quaternion,
