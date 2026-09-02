@@ -525,14 +525,14 @@ const cards = [
       <section class="academy-panel patterns-panel" data-workspace-panel="patterns" aria-labelledby="patterns-title" hidden>
         <header class="academy-workspace-header">
           <div class="academy-workspace-title">
-            <span class="panel-label">229 geometric constructions · 2×2–5×5</span>
+            <span class="panel-label">230 geometric constructions · 2×2–5×5</span>
             <h2 id="patterns-title">Pattern Catalog</h2>
           </div>
         </header>
         <details class="pattern-library" data-pattern-library>
           <summary>
             <span>✨ Pattern library</span>
-            <small>229 designs · 2×2–5×5</small>
+            <small>230 designs · 2×2–5×5</small>
           </summary>
           <div class="pattern-library-body">
             <label class="pattern-search-label">
@@ -540,10 +540,15 @@ const cards = [
               <input type="search" placeholder="Search this cube size…" data-pattern-search />
             </label>
             <select data-pattern-select aria-label="Known patterns"></select>
+            <label class="pattern-extremal-toggle">
+              <input type="checkbox" data-pattern-extremal-filter />
+              🏆 Mathematical antipodes &amp; extremal states only
+            </label>
             <div class="pattern-detail" data-pattern-detail>
               <strong data-pattern-name></strong>
               <span data-pattern-meta></span>
               <code data-pattern-construction></code>
+              <a class="pattern-extremal-badge" data-pattern-extremal-badge target="_blank" rel="noreferrer" hidden></a>
               <div class="pattern-actions">
                 <button type="button" class="transform-btn" data-pattern-load>Load pattern</button>
                 <a data-pattern-source target="_blank" rel="noreferrer">View source</a>
@@ -558,6 +563,7 @@ const cards = [
             <small data-pattern-detected-meta></small>
           </div>
           <code data-pattern-detected-solution></code>
+          <a class="pattern-extremal-badge" data-pattern-detected-extremal-badge target="_blank" rel="noreferrer" hidden></a>
           <div class="pattern-actions">
             <button type="button" class="transform-btn" data-pattern-preview-solution>
               Preview solution

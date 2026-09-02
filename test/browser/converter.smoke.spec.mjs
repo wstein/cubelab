@@ -208,6 +208,31 @@ test("searches, detects, and previews a known pattern solution", async ({page}) 
   await expect(page.locator("[data-playback-position]")).toContainText("Move 0 of");
 });
 
+test("filters and badges mathematical antipodes and extremal states", async ({page}) => {
+  await page.goto("/");
+  await page.locator('[data-workspace-tab="patterns"]').click();
+  await page.locator("[data-pattern-library] summary").click();
+  await page.locator("[data-pattern-search]").fill("Superflip");
+  await expect(page.locator("[data-pattern-select] option")).toHaveCount(3);
+
+  await page.locator("[data-pattern-extremal-filter]").check();
+  await expect(page.locator("[data-pattern-select] option")).toHaveCount(2);
+  await expect(page.locator("[data-pattern-select] option")).toHaveText(["Superflip", "Superflip + Fourspot"]);
+
+  await page.locator("[data-pattern-select]").selectOption({label: "Superflip + Fourspot"});
+  const badge = page.locator("[data-pattern-extremal-badge]");
+  await expect(badge).toBeVisible();
+  await expect(badge).toContainText("26 QTM");
+  await expect(badge).toHaveAttribute("href", "https://cube20.org/qtm/");
+
+  await page.locator("[data-pattern-select]").selectOption({label: "Superflip"});
+  await expect(badge).toContainText("20 HTM");
+  await expect(badge).toHaveAttribute("href", "https://en.wikipedia.org/wiki/Superflip");
+
+  await page.locator("[data-pattern-extremal-filter]").uncheck();
+  await expect(page.locator("[data-pattern-select] option")).toHaveCount(3);
+});
+
 test("places the visualizer before controls on mobile", async ({page}) => {
   await page.setViewportSize({width: 390, height: 844});
   await page.goto("/");

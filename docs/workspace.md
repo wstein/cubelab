@@ -7,8 +7,9 @@ CubeLab uses four client-side workspace views over one canonical state:
 - **CFOP Academy** teaches a replay-verified Cross, four recognized and locked F2L pairs,
   two-look OLL, and two-look PLL path.
 - **Alg Workbench** contains transformations and the state-verified NISS helper.
-- **Pattern Catalog** browses and loads the 229-record attributed pattern library and
-  surfaces live pattern recognition against the current cube state.
+- **Pattern Catalog** browses and loads the 230-record attributed pattern library,
+  filters to proven mathematical antipodes, and surfaces live pattern recognition
+  against the current cube state.
 
 The tabs are visibility controls, not routes or hydrated framework components. The page
 contains one `CubeViewport` instance outside the changing left-hand panels, so switching

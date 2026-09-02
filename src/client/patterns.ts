@@ -1,11 +1,14 @@
 import {importedPatterns} from "./patterns.generated";
+import {curatedPatterns, extremalStateFor, type CuratedPattern} from "./extremal-states";
 import {
   patternStateKey,
   solutionForPatternState,
   type PatternCubeState,
 } from "./pattern-state";
 
-export type ImportedPattern = (typeof importedPatterns)[number];
+export type ImportedPattern = CuratedPattern;
+
+const allPatterns: ImportedPattern[] = [...importedPatterns, ...curatedPatterns];
 
 export type RecognizedPattern = {
   pattern: ImportedPattern;
@@ -14,17 +17,23 @@ export type RecognizedPattern = {
 };
 
 const patternsByKey = new Map<string, ImportedPattern[]>();
-for (const pattern of importedPatterns) {
+for (const pattern of allPatterns) {
   const key = `${pattern.size}:${pattern.stateKey}`;
   const group = patternsByKey.get(key) ?? [];
   group.push(pattern);
   patternsByKey.set(key, group);
 }
 
-export const patternsForSize = (size: number, query = ""): ImportedPattern[] => {
+export const patternsForSize = (
+  size: number,
+  query = "",
+  extremalOnly = false,
+): ImportedPattern[] => {
   const needle = query.trim().toLocaleLowerCase();
-  return importedPatterns.filter((pattern) =>
-    pattern.size === size && (
+  return allPatterns.filter((pattern) =>
+    pattern.size === size
+    && (!extremalOnly || extremalStateFor(pattern.name) !== null)
+    && (
       needle === ""
       || pattern.name.toLocaleLowerCase().includes(needle)
       || pattern.sourceId.toLocaleLowerCase().includes(needle)
@@ -43,5 +52,6 @@ export const recognizePattern = (state: PatternCubeState): RecognizedPattern | n
   };
 };
 
-export const patternCount = importedPatterns.length;
+export const patternCount = allPatterns.length;
 
+export {extremalStateFor, type ExtremalStateTag} from "./extremal-states";

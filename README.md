@@ -119,8 +119,9 @@ Invert, Simplify, and Practice scramble actions. State-format input disables alg
 actions, and every generated algorithm is serialized into explicit modern notation
 before being reparsed by the normal pipeline.
 
-The searchable pattern library contains 229 named 2×2×2–5×5×5 constructions imported
-from the sibling `flix-cubesolve` corpus. Cube Rosetta automatically recognizes a
+The searchable pattern library contains 230 named 2×2×2–5×5×5 constructions: 229
+imported from the sibling `flix-cubesolve` corpus, plus one hand-curated mathematical
+antipode. Cube Rosetta automatically recognizes a
 catalogued visual state independently of how it is held, displays the applicable
 recorded solution, and can open that solution as a replay-verified timeline beginning
 at the detected state. See [pattern catalog provenance](docs/pattern-provenance.md) for

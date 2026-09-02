@@ -144,14 +144,18 @@ test("practice scramble is a Quick load action rather than a transform", () => {
 test("the patterns workspace exposes the complete attributed pattern catalog and recognition actions", () => {
   assert.match(page, /data-workspace-panel="patterns"/);
   assert.match(page, /data-pattern-library/);
-  assert.match(page, /229 designs · 2×2–5×5/);
+  assert.match(page, /230 designs · 2×2–5×5/);
   assert.match(page, /data-pattern-search/);
   assert.match(page, /data-pattern-select/);
+  assert.match(page, /data-pattern-extremal-filter/);
+  assert.match(page, /data-pattern-extremal-badge/);
   assert.match(page, /data-pattern-detected/);
+  assert.match(page, /data-pattern-detected-extremal-badge/);
   assert.match(page, /data-pattern-preview-solution/);
   assert.match(page, /data-pattern-copy-solution/);
   assert.match(client, /patternsForSize/);
   assert.match(client, /recognizePattern/);
+  assert.match(client, /extremalStateFor/);
   assert.match(client, /buildTimeline\(detectedPatternState, parsed\._0\)/);
   assert.match(client, /updatePatternDetection\(\{state, label:/);
 });

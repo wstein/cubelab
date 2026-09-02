@@ -84,6 +84,7 @@ import {
   type SmartCubeRecoveryState,
 } from "./smart-cube/deviation-verifier";
 import {
+  extremalStateFor,
   patternCount,
   patternsForSize,
   recognizePattern,
@@ -168,10 +169,15 @@ if (root) {
   const patternConstruction = root.querySelector<HTMLElement>("[data-pattern-construction]")!;
   const patternLoad = root.querySelector<HTMLButtonElement>("[data-pattern-load]")!;
   const patternSource = root.querySelector<HTMLAnchorElement>("[data-pattern-source]")!;
+  const patternExtremalFilter = root.querySelector<HTMLInputElement>("[data-pattern-extremal-filter]")!;
+  const patternExtremalBadge = root.querySelector<HTMLAnchorElement>("[data-pattern-extremal-badge]")!;
   const patternDetected = root.querySelector<HTMLElement>("[data-pattern-detected]")!;
   const patternDetectedName = root.querySelector<HTMLElement>("[data-pattern-detected-name]")!;
   const patternDetectedMeta = root.querySelector<HTMLElement>("[data-pattern-detected-meta]")!;
   const patternDetectedSolution = root.querySelector<HTMLElement>("[data-pattern-detected-solution]")!;
+  const patternDetectedExtremalBadge = root.querySelector<HTMLAnchorElement>(
+    "[data-pattern-detected-extremal-badge]",
+  )!;
   const patternPreviewSolution = root.querySelector<HTMLButtonElement>("[data-pattern-preview-solution]")!;
   const patternCopySolution = root.querySelector<HTMLButtonElement>("[data-pattern-copy-solution]")!;
   const transformButtons = root.querySelectorAll<HTMLButtonElement>("[data-alg-transform]");
@@ -314,6 +320,18 @@ if (root) {
     }
   };
 
+  const applyExtremalBadge = (anchor: HTMLAnchorElement, name: string | null) => {
+    const tag = name ? extremalStateFor(name) : null;
+    if (!tag) {
+      anchor.hidden = true;
+      anchor.removeAttribute("href");
+      return;
+    }
+    anchor.hidden = false;
+    anchor.href = tag.referenceUrl;
+    anchor.textContent = `🏆 ${tag.label} · ${tag.referenceLabel}`;
+  };
+
   const renderSelectedPattern = () => {
     selectedPattern = visiblePatterns[Number(patternSelect.value)] ?? visiblePatterns[0] ?? null;
     patternLoad.disabled = selectedPattern === null;
@@ -323,6 +341,7 @@ if (root) {
       patternConstruction.textContent = "Try a broader search.";
       patternSource.removeAttribute("href");
       patternSource.hidden = true;
+      applyExtremalBadge(patternExtremalBadge, null);
       return;
     }
     patternName.textContent = selectedPattern.name;
@@ -330,10 +349,11 @@ if (root) {
     patternConstruction.textContent = selectedPattern.publishedNotation;
     patternSource.href = selectedPattern.sourceUrl;
     patternSource.hidden = false;
+    applyExtremalBadge(patternExtremalBadge, selectedPattern.name);
   };
 
   const renderPatternBrowser = () => {
-    visiblePatterns = patternsForSize(size, patternSearch.value);
+    visiblePatterns = patternsForSize(size, patternSearch.value, patternExtremalFilter.checked);
     patternSelect.replaceChildren(...visiblePatterns.map((pattern, index) => {
       const option = document.createElement("option");
       option.value = String(index);
@@ -349,7 +369,10 @@ if (root) {
     detectedPatternState = recognized?.state ?? null;
     detectedPattern = recognized ? recognizePattern(recognized.state) : null;
     patternDetected.hidden = detectedPattern === null;
-    if (!detectedPattern) return;
+    if (!detectedPattern) {
+      applyExtremalBadge(patternDetectedExtremalBadge, null);
+      return;
+    }
     const {pattern, aliases, solution} = detectedPattern;
     patternDetectedName.textContent = pattern.name;
     const aliasText = aliases.length > 0
@@ -360,6 +383,7 @@ if (root) {
     patternDetectedSolution.textContent = solution ?? "No replay-verified solution for this holding.";
     patternPreviewSolution.disabled = solution === null;
     patternCopySolution.disabled = solution === null;
+    applyExtremalBadge(patternDetectedExtremalBadge, pattern.name);
   };
 
   const previewDetectedPatternSolution = () => {
@@ -3246,6 +3270,7 @@ if (root) {
   });
 
   patternSearch.addEventListener("input", renderPatternBrowser);
+  patternExtremalFilter.addEventListener("change", renderPatternBrowser);
   patternSelect.addEventListener("change", renderSelectedPattern);
   patternLoad.addEventListener("click", () => {
     if (!selectedPattern) return;

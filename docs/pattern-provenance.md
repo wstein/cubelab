@@ -39,6 +39,29 @@ The collection ids resolve to these publishers:
 - `kewbz4`: [Kewbz 4×4 patterns](https://kewbz.co.uk/blogs/solutions-guides/4x4-patterns)
 - `kewbz5`: [Kewbz 5×5 patterns](https://kewbz.co.uk/blogs/solutions-guides/5x5-patterns)
 
+## Curated additions
+
+One record, **Superflip + Fourspot**, is not part of the flix-cubesolve import. It is
+hand-curated in `src/client/extremal-states.ts` (not generated, safe to edit) and
+tags a small "mathematical antipode" badge onto qualifying records — proven positions
+that are maximally distant from solved under a specific move-counting metric.
+
+- **Superflip** (already in the imported 3×3 records) is the proven God's-number
+  antipode in the half-turn metric: exactly 20 face turns from solved (Michael Reid,
+  1995). Reference: [Wikipedia — Superflip](https://en.wikipedia.org/wiki/Superflip).
+- **Superflip + Fourspot** is the unique known antipode in the quarter-turn metric:
+  exactly 26 quarter turns from solved (Michael Reid, 1998). Its construction was
+  transcribed from [cube20.org's QTM proof page](https://cube20.org/qtm/) and
+  replay-verified with this app's own move engine before being added: the published
+  26-QTM construction and its computed inverse solution both round-trip through
+  `MoveExecutor`, and the construction's expanded quarter-turn count is asserted to
+  equal exactly 26 in `test/client/patterns.test.ts`.
+
+Extremal-state badges are looked up by pattern name via `extremalStateFor`, exposed
+through `patternsForSize(size, query, extremalOnly)`'s third parameter, and are
+independent of the flix-cubesolve import — `bun run patterns:import` never touches
+`extremal-states.ts`.
+
 ## Recognition and solution guarantees
 
 - 2×2 recognition follows the source corpus's one-sided 24-way reholding rule; there
