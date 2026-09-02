@@ -62,11 +62,11 @@ describe("smart cube event normalization", () => {
     })).toBeNull();
   });
 
-  test("tags GoCube orientation events with gocube-wire coordinate frame without re-swapping axes", () => {
-    // smartcube-web-bluetooth's own GoCube parser already remaps the raw
-    // UART quaternion to (nx, -nz, -ny, nw); the transport event's
-    // quaternion must be passed through unchanged here, or that vendor
-    // remap gets cancelled out.
+  test("restores GoCube wire axes before viewport-relative calibration", () => {
+    // smartcube-web-bluetooth's GoCube parser remaps wire (rx, ry, rz, rw)
+    // to (nx, -nz, -ny, nw). normalizeTransportEvent reverses this swap
+    // (y: -z, z: -y) so downstream code receives canonical wire axes:
+    // y = -(-0.2) = 0.2, z = -(-0.3) = 0.3.
     const normalized = normalizeTransportEvent({
       type: "GYRO",
       timestamp: 20,
@@ -75,7 +75,7 @@ describe("smart cube event normalization", () => {
     expect(normalized).toMatchObject({
       type: "orientation",
       coordinateFrame: "gocube-wire",
-      quaternion: {x: 0.1, y: -0.3, z: -0.2, w: 0.9},
+      quaternion: {x: 0.1, y: 0.2, z: 0.3, w: 0.9},
     });
   });
 
