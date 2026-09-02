@@ -423,8 +423,13 @@ const cards = [
               <summary>Hamilton macro inspector</summary>
               <p class="niss-help">
                 Inspect recursive <code>def</code>/<code>export</code> programs without unfolding them.
-                Select a node to measure or preview only its first 100 moves.
+                Import <code>.alg</code> or legacy <code>.orbit64</code> sources, then select a node to
+                measure or preview only its first 100 moves.
               </p>
+              <label class="file-input-label">
+                Import macro source
+                <input type="file" data-hamilton-import accept=".alg,.orbit64,text/plain" />
+              </label>
               <textarea class="niss-textarea" data-hamilton-input rows="5" spellcheck="false"
                 placeholder="def pair = U R&#10;def root = (pair)3&#10;export root"></textarea>
               <div class="niss-actions">

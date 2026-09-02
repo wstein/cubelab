@@ -5,7 +5,10 @@ move constructions. They are separate from standard, Ruwix, and FMC notation.
 Definitions may use `def name = expression` or `name = expression`, comments
 begin with `#`, and `export name` selects the root program.
 
-The parser retains a macro DAG instead of unfolding it. `measure` calculates
+The Workbench can import `.alg` and legacy `.orbit64` text sources. Imported
+sources with no `export` declaration use their final definition as the root;
+typed programs remain strict and require `export name`. The parser retains a
+macro DAG instead of unfolding it. `measure` calculates
 quarter-turn count, source-element count, and dependency depth with memoized
 structural evaluation. References, grouped repeats, and inverted references
 are measured without generating the move stream; cycles and undefined macros
@@ -16,7 +19,7 @@ The end is exclusive and indices refer to the definition's direct source nodes,
 not expanded moves. `stream`, `prefix`, and `window` consume the DAG lazily, so
 inspection of a short excerpt never allocates the exported program.
 
-This foundation is intentionally execution-free. A Workbench consumer will use
-the same DAG for selected-node inspection and streaming playback, so a program
-such as Bruce Norskog's 3,674,160-turn circuit can be validated without
-allocating millions of moves or states.
+The Workbench presents each definition with its DAG measurement and can send a
+bounded selected-node prefix into the existing linear playback timeline. Thus a
+program such as Bruce Norskog's 3,674,160-turn circuit can be validated and
+examined without allocating millions of moves or states.

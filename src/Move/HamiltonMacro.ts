@@ -7,6 +7,7 @@ export type Node =
 
 export type Program = {definitions: Map<string, Node[]>; exportName: string};
 export type Measurement = {quarterTurns: bigint; sourceElements: bigint; depth: number};
+export type ImportedProgram = {program: Program; implicitExport: boolean};
 
 const identifier = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const move = /^[UDLRFB](?:2|')?$/;
@@ -121,6 +122,21 @@ export const parse = (source: string): Program => {
   if (!exported) fail("missing 'export <name>'");
   if (!definitions.has(exported)) fail(`export '${exported}' is not defined`);
   return {definitions, exportName: exported};
+};
+
+/**
+ * Imports a text-based `.alg` source. Legacy Hamilton sources commonly omit
+ * `export`; in that case the final definition is the intentionally explicit
+ * imported root. Standard parsing remains strict about a missing export.
+ */
+export const importAlg = (source: string): ImportedProgram => {
+  const normalized = source.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+  if (/(?:^|\n)\s*export\s+/m.test(normalized)) return {program: parse(normalized), implicitExport: false};
+  const names = [...normalized.matchAll(/(?:^|\n)\s*(?:def\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/g)]
+    .map((match) => match[1]);
+  const exportName = names.at(-1);
+  if (!exportName) fail("an imported .alg file must define at least one macro");
+  return {program: parse(`${normalized}\nexport ${exportName}`), implicitExport: true};
 };
 
 export const measure = (program: Program, name = program.exportName): Measurement => {

@@ -139,9 +139,11 @@ test("the web UI exposes a state-verified 3x3 NISS helper", () => {
 test("the Workbench inspects and previews bounded Hamilton macro nodes", () => {
   assert.match(page, /data-hamilton-panel/);
   assert.match(page, /data-hamilton-input/);
+  assert.match(page, /data-hamilton-import/);
   assert.match(page, /data-hamilton-node/);
   assert.match(page, /data-hamilton-preview/);
   assert.match(client, /HamiltonMacro\.measure/);
+  assert.match(client, /HamiltonMacro\.importAlg/);
   assert.match(client, /HamiltonMacro\.prefix\(hamiltonProgram, 100/);
   assert.match(client, /Hamilton macro preview/);
 });

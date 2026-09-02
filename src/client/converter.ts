@@ -198,6 +198,7 @@ if (root) {
   const nissPanel = root.querySelector<HTMLDetailsElement>("[data-niss-panel]")!;
   const hamiltonPanel = root.querySelector<HTMLDetailsElement>("[data-hamilton-panel]")!;
   const hamiltonInput = root.querySelector<HTMLTextAreaElement>("[data-hamilton-input]")!;
+  const hamiltonImport = root.querySelector<HTMLInputElement>("[data-hamilton-import]")!;
   const hamiltonInspect = root.querySelector<HTMLButtonElement>("[data-hamilton-inspect]")!;
   const hamiltonNode = root.querySelector<HTMLSelectElement>("[data-hamilton-node]")!;
   const hamiltonPreview = root.querySelector<HTMLButtonElement>("[data-hamilton-preview]")!;
@@ -3223,9 +3224,12 @@ if (root) {
     updatePlaybackUi(true);
   });
 
-  hamiltonInspect.addEventListener("click", () => {
+  const inspectHamiltonProgram = (imported = false) => {
     try {
-      const program = HamiltonMacro.parse(hamiltonInput.value);
+      const importedProgram = imported
+        ? HamiltonMacro.importAlg(hamiltonInput.value)
+        : {program: HamiltonMacro.parse(hamiltonInput.value), implicitExport: false};
+      const program = importedProgram.program;
       const rootMeasurement = HamiltonMacro.measure(program);
       hamiltonProgram = program;
       hamiltonNode.replaceChildren(...[...program.definitions.keys()].map((name) => {
@@ -3238,7 +3242,8 @@ if (root) {
       hamiltonNode.value = program.exportName;
       hamiltonNode.disabled = false;
       hamiltonPreview.disabled = false;
-      hamiltonResult.textContent = `Export ${program.exportName} · ${rootMeasurement.quarterTurns.toString()} QTM · ${rootMeasurement.sourceElements.toString()} source elements · depth ${rootMeasurement.depth}.`;
+      const rootKind = importedProgram.implicitExport ? `Imported root ${program.exportName}` : `Export ${program.exportName}`;
+      hamiltonResult.textContent = `${rootKind} · ${rootMeasurement.quarterTurns.toString()} QTM · ${rootMeasurement.sourceElements.toString()} source elements · depth ${rootMeasurement.depth}.`;
       hamiltonResult.classList.remove("failure");
     } catch (reason) {
       hamiltonProgram = null;
@@ -3247,6 +3252,24 @@ if (root) {
       hamiltonPreview.disabled = true;
       hamiltonResult.textContent = reason instanceof Error ? reason.message : "Could not parse Hamilton macros.";
       hamiltonResult.classList.add("failure");
+    }
+  };
+
+  hamiltonInspect.addEventListener("click", () => {
+    inspectHamiltonProgram();
+  });
+
+  hamiltonImport.addEventListener("change", async () => {
+    const file = hamiltonImport.files?.[0];
+    if (!file) return;
+    try {
+      hamiltonInput.value = await file.text();
+      inspectHamiltonProgram(true);
+    } catch (reason) {
+      hamiltonResult.textContent = reason instanceof Error ? reason.message : "Could not import the macro source.";
+      hamiltonResult.classList.add("failure");
+    } finally {
+      hamiltonImport.value = "";
     }
   });
 

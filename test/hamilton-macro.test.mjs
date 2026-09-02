@@ -1,6 +1,6 @@
 import {describe, expect, test} from "vitest";
 
-import {measure, parse, prefix, window} from "../src/Move/HamiltonMacro.ts";
+import {importAlg, measure, parse, prefix, window} from "../src/Move/HamiltonMacro.ts";
 
 describe("Hamilton macro programs", () => {
   test("measures recursive definitions without unfolding them", () => {
@@ -33,5 +33,12 @@ describe("Hamilton macro programs", () => {
     expect(measure(program)).toMatchObject({quarterTurns: 5n, sourceElements: 2n});
     expect(prefix(program, 12)).toEqual(["F", "D", "F", "D", "R"]);
     expect(window(program, 2n, 3)).toEqual(["F", "D", "R"]);
+  });
+
+  test("imports legacy .alg source with an implicit final-definition root", () => {
+    const imported = importAlg("\uFEFFb = U R\r\na = (b)3\r\n");
+    expect(imported.implicitExport).toBe(true);
+    expect(imported.program.exportName).toBe("a");
+    expect(measure(imported.program).quarterTurns).toBe(6n);
   });
 });
