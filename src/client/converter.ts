@@ -9,6 +9,7 @@ import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 import * as MoveNiss from "../Move/MoveNiss.res.mjs";
 import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
+import * as HamiltonMacro from "../Move/HamiltonMacro";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
 import {createSolverClient, createTwoPhaseSolverClient} from "./workers/solver-client";
 import {relativeAcademyState, type PieceState} from "./academy-target";
@@ -195,6 +196,12 @@ if (root) {
   const shortenApply = root.querySelector<HTMLButtonElement>("[data-shorten-apply]")!;
   const shortenDismiss = root.querySelector<HTMLButtonElement>("[data-shorten-dismiss]")!;
   const nissPanel = root.querySelector<HTMLDetailsElement>("[data-niss-panel]")!;
+  const hamiltonPanel = root.querySelector<HTMLDetailsElement>("[data-hamilton-panel]")!;
+  const hamiltonInput = root.querySelector<HTMLTextAreaElement>("[data-hamilton-input]")!;
+  const hamiltonInspect = root.querySelector<HTMLButtonElement>("[data-hamilton-inspect]")!;
+  const hamiltonNode = root.querySelector<HTMLSelectElement>("[data-hamilton-node]")!;
+  const hamiltonPreview = root.querySelector<HTMLButtonElement>("[data-hamilton-preview]")!;
+  const hamiltonResult = root.querySelector<HTMLOutputElement>("[data-hamilton-result]")!;
   const nissInverseOutput = root.querySelector<HTMLElement>("[data-niss-inverse]")!;
   const nissNormal = root.querySelector<HTMLTextAreaElement>("[data-niss-normal]")!;
   const nissInverseMoves = root.querySelector<HTMLTextAreaElement>("[data-niss-inverse-moves]")!;
@@ -245,6 +252,7 @@ if (root) {
   let verifiedNissSolution = "";
   let verifiedNissAlg: unknown[] | null = null;
   let verifiedNissStart: CubeState | null = null;
+  let hamiltonProgram: HamiltonMacro.Program | null = null;
   let pendingShortenedAlg: unknown[] | null = null;
   let visiblePatterns: ImportedPattern[] = [];
   let selectedPattern: ImportedPattern | null = null;
@@ -662,6 +670,7 @@ if (root) {
     const orbitQuickCopy = root.querySelector<HTMLButtonElement>("[data-copy-orbit64]");
     if (orbitQuickCopy) orbitQuickCopy.hidden = size !== 3;
     nissPanel.hidden = size !== 3 || activeTab !== "workbench";
+    hamiltonPanel.hidden = activeTab !== "workbench";
     twoPhaseSolve.disabled = size !== 3;
     if (size !== 3 && !twoPhaseSolveBusy) {
       twoPhaseResult.textContent = "Two-phase solving is available for 3×3 states.";
@@ -3212,6 +3221,50 @@ if (root) {
     activeIndex = 0;
     renderState(verifiedNissStart, "NISS recombined solution");
     updatePlaybackUi(true);
+  });
+
+  hamiltonInspect.addEventListener("click", () => {
+    try {
+      const program = HamiltonMacro.parse(hamiltonInput.value);
+      const rootMeasurement = HamiltonMacro.measure(program);
+      hamiltonProgram = program;
+      hamiltonNode.replaceChildren(...[...program.definitions.keys()].map((name) => {
+        const option = document.createElement("option");
+        option.value = name;
+        const measurement = HamiltonMacro.measure(program, name);
+        option.textContent = `${name} · ${measurement.quarterTurns.toString()} QTM · ${measurement.sourceElements.toString()} elements`;
+        return option;
+      }));
+      hamiltonNode.value = program.exportName;
+      hamiltonNode.disabled = false;
+      hamiltonPreview.disabled = false;
+      hamiltonResult.textContent = `Export ${program.exportName} · ${rootMeasurement.quarterTurns.toString()} QTM · ${rootMeasurement.sourceElements.toString()} source elements · depth ${rootMeasurement.depth}.`;
+      hamiltonResult.classList.remove("failure");
+    } catch (reason) {
+      hamiltonProgram = null;
+      hamiltonNode.replaceChildren();
+      hamiltonNode.disabled = true;
+      hamiltonPreview.disabled = true;
+      hamiltonResult.textContent = reason instanceof Error ? reason.message : "Could not parse Hamilton macros.";
+      hamiltonResult.classList.add("failure");
+    }
+  });
+
+  hamiltonPreview.addEventListener("click", () => {
+    if (hamiltonProgram === null) return;
+    const source = HamiltonMacro.prefix(hamiltonProgram, 100, hamiltonNode.value).join(" ");
+    const parsed = MoveParser.parseWithOptions(3, "Wide", "Modern", source) as Result<unknown[], unknown>;
+    const solved = StateTypes.solved(3) as Result<CubeState, unknown>;
+    if (parsed.TAG !== "Ok" || solved.TAG !== "Ok") return;
+    const timeline = buildTimeline(solved._0, parsed._0);
+    if (timeline.TAG === "Error") return;
+    stopPlayback();
+    activeTimeline = timeline._0;
+    activeTimelineKey = null;
+    activeIndex = 0;
+    renderState(solved._0, `Hamilton macro preview · ${hamiltonNode.value}`);
+    updatePlaybackUi(true);
+    hamiltonResult.textContent = `Previewing the first ${timeline._0.steps.length} moves of ${hamiltonNode.value}.`;
   });
 
   const presentTutorialSolution = (

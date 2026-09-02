@@ -136,6 +136,16 @@ test("the web UI exposes a state-verified 3x3 NISS helper", () => {
   assert.match(client, /activeTimeline = timeline\._0/);
 });
 
+test("the Workbench inspects and previews bounded Hamilton macro nodes", () => {
+  assert.match(page, /data-hamilton-panel/);
+  assert.match(page, /data-hamilton-input/);
+  assert.match(page, /data-hamilton-node/);
+  assert.match(page, /data-hamilton-preview/);
+  assert.match(client, /HamiltonMacro\.measure/);
+  assert.match(client, /HamiltonMacro\.prefix\(hamiltonProgram, 100/);
+  assert.match(client, /Hamilton macro preview/);
+});
+
 test("the SPA workspace keeps one viewport beside four URL-addressable destinations", () => {
   assert.match(page, /data-workspace-tab="converter"/);
   assert.match(page, /data-workspace-tab="academy"/);

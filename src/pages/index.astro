@@ -419,6 +419,23 @@ const cards = [
                 Enter both sides to verify a candidate solution.
               </output>
             </details>
+            <details class="niss-panel" data-hamilton-panel data-workspace-panel="workbench" hidden>
+              <summary>Hamilton macro inspector</summary>
+              <p class="niss-help">
+                Inspect recursive <code>def</code>/<code>export</code> programs without unfolding them.
+                Select a node to measure or preview only its first 100 moves.
+              </p>
+              <textarea class="niss-textarea" data-hamilton-input rows="5" spellcheck="false"
+                placeholder="def pair = U R&#10;def root = (pair)3&#10;export root"></textarea>
+              <div class="niss-actions">
+                <button type="button" class="transform-btn" data-hamilton-inspect>Inspect macros</button>
+                <select data-hamilton-node aria-label="Hamilton macro node" disabled></select>
+                <button type="button" class="transform-btn" data-hamilton-preview disabled>Preview selected node</button>
+              </div>
+              <output class="niss-result" data-hamilton-result aria-live="polite">
+                Parse a Hamilton macro program to measure its exported root.
+              </output>
+            </details>
             <p class="input-help">
               Lowercase moves use modern SiGN wide turns by default (<code
                 >r = Rw</code
