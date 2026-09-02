@@ -1726,7 +1726,9 @@ if (root) {
     if (quarterStep && token) {
       guidedToken = token;
       activeTurnGuide = {
-        step: quarterStep,
+        // Preview one physical quarter-turn, but retain the logical half-turn
+        // in the guide so the viewport can show the required `2×` indicator.
+        step: step ?? quarterStep,
         label: progress ? quarterToken : expected.token,
       };
       if (progress) {
