@@ -545,6 +545,78 @@ test("resets the camera without dropping smart-cube orientation tracking", async
   await expect.poll(() => page.evaluate(() => window.__refreshCalls)).toBe(1);
 });
 
+test("ends solve mode and resumes orientation tracking once the timeline completes", async ({page}) => {
+  await page.route(/(?:\/src\/client\/smart-cube\/index|\/_astro\/smart-cube\.)/, async (route) => {
+    await route.fulfill({
+      contentType: "application/javascript",
+      body: `
+        let stateListener = () => {};
+        let eventListener = () => {};
+        const device = {
+          name: "Mock GoCube", macAddress: null, brand: "gocube", brandName: "GoCube",
+          protocolId: "gocube", protocolName: "GoCube", capabilities: {
+            orientation: true, battery: false, facelets: false, hardware: false,
+            reset: false, led: false
+          }
+        };
+        window.__emitSmartCubeEvent = (event) => eventListener(event);
+        export const createSmartCubeManager = () => ({
+          getState: () => ({phase: "disconnected", message: "Disconnected", device: null, error: null}),
+          connect: async () => {
+            stateListener({phase: "connected", message: "Connected", device, error: null});
+            return device;
+          },
+          reconnect: async () => device,
+          disconnect: async () => stateListener({phase: "disconnected", message: "Disconnected", device: null, error: null}),
+          refresh: async () => {}, resetCubeState: async () => {}, flashLed: async () => {},
+          subscribeState: (listener) => {
+            stateListener = listener;
+            listener({phase: "disconnected", message: "Disconnected", device: null, error: null});
+            return () => {};
+          },
+          subscribeEvents: (listener) => { eventListener = listener; return () => {}; }
+        });
+      `,
+    });
+  });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "bluetooth", {
+      configurable: true,
+      value: {getAvailability: async () => true, requestDevice: async () => ({})},
+    });
+  });
+
+  await page.goto("/#size=3&alg=R");
+  const input = page.locator("[data-input]");
+  await page.locator("[data-smart-cube-connect]").click();
+  await page.waitForFunction(() => typeof window.__emitSmartCubeEvent === "function");
+  await page.evaluate(() => window.__emitSmartCubeEvent({
+    type: "orientation",
+    quaternion: {x: 0, y: 0, z: 0, w: 1},
+    coordinateFrame: "gocube-wire",
+    timestamp: Date.now(),
+  }));
+  const canvas = page.locator("[data-cube-canvas]");
+  await expect(canvas).toHaveAttribute("data-device-orientation", "tracking");
+
+  await input.fill("R");
+  await page.locator("[data-playback-scrubber]").fill("0");
+  await page.getByRole("button", {name: "Play forward"}).click();
+  await expect(page.locator("[data-smart-cube-status]")).toContainText("Waiting for R");
+  await expect(canvas).not.toHaveAttribute("data-device-orientation", "tracking");
+  const playForward = page.getByRole("button", {name: "Play forward"});
+  await expect(playForward).toHaveAttribute("aria-pressed", "true");
+
+  await page.evaluate(() => window.__emitSmartCubeEvent({
+    type: "move", move: "R", face: 0, direction: 0, localTimestamp: null,
+    cubeTimestamp: null, timestamp: Date.now(),
+  }));
+  await expect(page.locator("[data-playback-position]")).toHaveText("Move 1 of 1");
+  await expect(page.locator("[data-smart-cube-status]")).toContainText("Timeline complete");
+  await expect(playForward).toHaveAttribute("aria-pressed", "false");
+  await expect(canvas).toHaveAttribute("data-device-orientation", "tracking");
+});
+
 test("plays, steps, and seeks an expanded algorithm timeline", async ({page}) => {
   await page.goto("/");
   const input = page.locator("[data-input]");

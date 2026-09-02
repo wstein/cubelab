@@ -1586,7 +1586,7 @@ if (root) {
   const syncSmartCubeTrackedOrientation = () => {
     if (
       smartCubeOrientationTracking
-      && !smartCubeCoachingFrameActive
+      && !smartCubeCoachingWaiting
       && latestSmartCubeOrientation
     ) {
       viewport?.setDeviceOrientation(
@@ -1605,15 +1605,12 @@ if (root) {
     stopPlayback();
     if (smartCubeRecovery) {
       smartCubeCoachingFrameActive = true;
-      syncSmartCubeTrackedOrientation();
       renderSmartCubeCoachingState();
       showSmartCubeRecoveryGuide();
+      syncSmartCubeTrackedOrientation();
       return;
     }
     smartCubeCoachingFrameActive = true;
-    // In solve mode the timeline owns the virtual cube. Gyro samples are
-    // checkpoints for explicit x/y/z steps, never a second live transform.
-    syncSmartCubeTrackedOrientation();
     // Hardware facelets stay in the sensor's fixed frame. During coaching the
     // timeline owns presentation so a confirmed x/y/z regrip cannot be erased
     // by the next face packet.
@@ -1625,6 +1622,7 @@ if (root) {
     );
     if (!action) {
       smartCubeHalfTurnProgress = null;
+      syncSmartCubeTrackedOrientation();
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Timeline complete`;
       coachStatus.textContent = "Physical sequence complete.";
       return;
@@ -1662,6 +1660,9 @@ if (root) {
         });
       }
       updatePlaybackUi();
+      // In solve mode the timeline owns the virtual cube. Gyro samples are
+      // checkpoints for explicit x/y/z steps, never a second live transform.
+      syncSmartCubeTrackedOrientation();
       return;
     }
     const expected = action;
@@ -1695,6 +1696,7 @@ if (root) {
       ? `${progress.receivedMoves.join(" ")} detected. Complete ${expected.token} with ${nextPackets}.`
       : `Next physical move: ${expected.token}. Waiting for the smart cube.`;
     updatePlaybackUi();
+    syncSmartCubeTrackedOrientation();
   };
 
   const applyPartialHalfTurn = async (
@@ -2210,7 +2212,7 @@ if (root) {
           coordinateFrame: event.coordinateFrame,
         };
         if (smartCubeOrientationTracking) {
-          if (!smartCubeCoachingFrameActive) {
+          if (!smartCubeCoachingWaiting) {
             viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
           }
           void applySmartCubeGyroRotation(event).catch((reason) => {
