@@ -71,10 +71,12 @@ test("validation rejects invalid permutations, orientation sums, parity, and 2x2
   assert.equal(PieceReducer.validate(duplicateCorner)._0.TAG, "InvalidPermutation");
 
   const twistedCorner = {...solvedPieces(3), co: [1, 0, 0, 0, 0, 0, 0, 0]};
-  assert.equal(PieceReducer.validate(twistedCorner)._0.TAG, "InvalidOrientation");
+  assert.equal(PieceReducer.validate(twistedCorner)._0.TAG, "SolvabilityViolation");
+  assert.equal(PieceReducer.validate(twistedCorner)._0._0.TAG, "CornerTwist");
 
   const parityMismatch = {...solvedPieces(3), ep: [1, 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]};
-  assert.equal(PieceReducer.validate(parityMismatch)._0, "ParityMismatch");
+  assert.equal(PieceReducer.validate(parityMismatch)._0.TAG, "SolvabilityViolation");
+  assert.equal(PieceReducer.validate(parityMismatch)._0._0, "PermutationParityMismatch");
 
   const edgesOn2 = {...solvedPieces(2), ep: [0], eo: [0]};
   assert.equal(PieceReducer.validate(edgesOn2)._0.TAG, "InvalidPiece");
@@ -117,6 +119,6 @@ test("cubie syntax rejects wrong fields and unreachable coordinates", () => {
       2,
       "cp: 0 1 2 3 4 5 6 7; co: 1 0 0 0 0 0 0 0",
     )._0.TAG,
-    "InvalidOrientation",
+    "SolvabilityViolation",
   );
 });

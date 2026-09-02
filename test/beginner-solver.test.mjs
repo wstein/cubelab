@@ -184,5 +184,5 @@ test("rejects an unreachable single-edge flip", () => {
   const result = BeginnerSolver.solve(state);
   assert.equal(result.TAG, "Error");
   assert.equal(result._0.TAG, "InvalidState");
-  assert.match(BeginnerSolver.describeError(result._0), /orientation sum/);
+  assert.match(BeginnerSolver.describeError(result._0), /edge flip.*UR/);
 });

@@ -2,10 +2,9 @@
 
 import * as StateTypes from "./StateTypes.res.mjs";
 import * as Stdlib_Int from "@rescript/runtime/lib/es6/Stdlib_Int.js";
+import * as StateParity from "./StateParity.res.mjs";
 import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
-import * as Primitive_int from "@rescript/runtime/lib/es6/Primitive_int.js";
-import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
 import * as Primitive_exceptions from "@rescript/runtime/lib/es6/Primitive_exceptions.js";
 
 let ReductionFailure = /* @__PURE__ */Primitive_exceptions.create("PieceReducer.ReductionFailure");
@@ -481,11 +480,15 @@ function describeError(error) {
   if (typeof error !== "object") {
     return "Corner and edge permutations must have matching parity.";
   }
-  if (error.TAG !== "UnsupportedSize") {
-    return error._0;
+  switch (error.TAG) {
+    case "UnsupportedSize" :
+      let label = error._0.toString();
+      return `Piece coordinates are unavailable for ` + label + `×` + label + `×` + label + `.`;
+    case "SolvabilityViolation" :
+      return StateParity.describe(error._0);
+    default:
+      return error._0;
   }
-  let label = error._0.toString();
-  return `Piece coordinates are unavailable for ` + label + `×` + label + `×` + label + `.`;
 }
 
 function getFacelet(state, param) {
@@ -591,18 +594,6 @@ function normalizeCentres(state) {
   };
 }
 
-function permutationParity(permutation) {
-  let inversions = 0;
-  for (let left = 0, left_finish = permutation.length - 2 | 0; left <= left_finish; ++left) {
-    for (let right = left + 1 | 0, right_finish = permutation.length; right < right_finish; ++right) {
-      if (Primitive_object.greaterthan(permutation[left], permutation[right])) {
-        inversions = inversions + 1 | 0;
-      }
-    }
-  }
-  return inversions % 2;
-}
-
 function validatePermutation(name, permutation, expectedLength) {
   if (permutation.length !== expectedLength) {
     throw {
@@ -641,33 +632,19 @@ function validateOrientations(name, orientations, expectedLength, modulus) {
       Error: new Error()
     };
   }
-  let sum = {
-    contents: 0
-  };
   orientations.forEach(value => {
-    if (value < 0 || value >= modulus) {
-      throw {
-        RE_EXN_ID: ReductionFailure,
-        _1: {
-          TAG: "InvalidOrientation",
-          _0: name + ` values must be between 0 and ` + (modulus - 1 | 0).toString() + `.`
-        },
-        Error: new Error()
-      };
+    if (!(value < 0 || value >= modulus)) {
+      return;
     }
-    sum.contents = sum.contents + value | 0;
+    throw {
+      RE_EXN_ID: ReductionFailure,
+      _1: {
+        TAG: "InvalidOrientation",
+        _0: name + ` values must be between 0 and ` + (modulus - 1 | 0).toString() + `.`
+      },
+      Error: new Error()
+    };
   });
-  if (Primitive_int.mod_(sum.contents, modulus) === 0) {
-    return;
-  }
-  throw {
-    RE_EXN_ID: ReductionFailure,
-    _1: {
-      TAG: "InvalidOrientation",
-      _0: name + ` orientation sum must be divisible by ` + modulus.toString() + `.`
-    },
-    Error: new Error()
-  };
 }
 
 function validateOrThrow(pieces) {
@@ -684,26 +661,36 @@ function validateOrThrow(pieces) {
   validatePermutation("cp", pieces.cp, 8);
   validateOrientations("co", pieces.co, 8, 3);
   if (pieces.size === 2) {
-    if (pieces.ep.length === 0 && pieces.eo.length === 0) {
-      return;
+    if (pieces.ep.length !== 0 || pieces.eo.length !== 0) {
+      throw {
+        RE_EXN_ID: ReductionFailure,
+        _1: {
+          TAG: "InvalidPiece",
+          _0: "A 2×2×2 piece state cannot contain edge coordinates."
+        },
+        Error: new Error()
+      };
     }
-    throw {
-      RE_EXN_ID: ReductionFailure,
-      _1: {
-        TAG: "InvalidPiece",
-        _0: "A 2×2×2 piece state cannot contain edge coordinates."
-      },
-      Error: new Error()
-    };
+  } else {
+    validatePermutation("ep", pieces.ep, 12);
+    validateOrientations("eo", pieces.eo, 12, 2);
   }
-  validatePermutation("ep", pieces.ep, 12);
-  validateOrientations("eo", pieces.eo, 12, 2);
-  if (permutationParity(pieces.cp) === permutationParity(pieces.ep)) {
+  let violation = StateParity.validate({
+    size: pieces.size,
+    cp: pieces.cp,
+    co: pieces.co,
+    ep: pieces.ep,
+    eo: pieces.eo
+  });
+  if (violation.TAG === "Ok") {
     return;
   }
   throw {
     RE_EXN_ID: ReductionFailure,
-    _1: "ParityMismatch",
+    _1: {
+      TAG: "SolvabilityViolation",
+      _0: violation._0
+    },
     Error: new Error()
   };
 }
@@ -1064,7 +1051,6 @@ export {
   centresAreCanonical,
   rotateTimes,
   normalizeCentres,
-  permutationParity,
   validatePermutation,
   validateOrientations,
   validateOrThrow,

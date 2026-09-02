@@ -17,6 +17,7 @@ type pieceError =
   | InvalidPermutation(string)
   | InvalidOrientation(string)
   | ParityMismatch
+  | SolvabilityViolation(StateParity.violation)
   | InvalidCenters(string)
 
 type faceletLocation = (face, int)
@@ -104,6 +105,7 @@ let describeError = error =>
   | InvalidOrientation(message)
   | InvalidCenters(message) => message
   | ParityMismatch => "Corner and edge permutations must have matching parity."
+  | SolvabilityViolation(violation) => StateParity.describe(violation)
   }
 
 let getFacelet = (state: cubeState, (face, index): faceletLocation) => {
@@ -179,18 +181,6 @@ let normalizeCentres = (state: cubeState) => {
   }
 }
 
-let permutationParity = permutation => {
-  let inversions = ref(0)
-  for left in 0 to permutation->Array.length - 2 {
-    for right in left + 1 to permutation->Array.length - 1 {
-      if Belt.Array.getUnsafe(permutation, left) > Belt.Array.getUnsafe(permutation, right) {
-        inversions := inversions.contents + 1
-      }
-    }
-  }
-  inversions.contents % 2
-}
-
 let validatePermutation = (name, permutation, expectedLength) => {
   if permutation->Array.length != expectedLength {
     throw(
@@ -222,7 +212,6 @@ let validateOrientations = (name, orientations, expectedLength, modulus) => {
       ),
     )
   }
-  let sum = ref(0)
   orientations->Array.forEach(value => {
     if value < 0 || value >= modulus {
       throw(
@@ -233,17 +222,7 @@ let validateOrientations = (name, orientations, expectedLength, modulus) => {
         ),
       )
     }
-    sum := sum.contents + value
   })
-  if sum.contents % modulus != 0 {
-    throw(
-      ReductionFailure(
-        InvalidOrientation(
-          `${name} orientation sum must be divisible by ${modulus->Int.toString}.`,
-        ),
-      ),
-    )
-  }
 }
 
 let validateOrThrow = (pieces: pieceState) => {
@@ -261,9 +240,16 @@ let validateOrThrow = (pieces: pieceState) => {
   } else {
     validatePermutation("ep", pieces.ep, 12)
     validateOrientations("eo", pieces.eo, 12, 2)
-    if permutationParity(pieces.cp) != permutationParity(pieces.ep) {
-      throw(ReductionFailure(ParityMismatch))
-    }
+  }
+  switch StateParity.validate({
+    size: pieces.size,
+    cp: pieces.cp,
+    co: pieces.co,
+    ep: pieces.ep,
+    eo: pieces.eo,
+  }) {
+  | Ok() => ()
+  | Error(violation) => throw(ReductionFailure(SolvabilityViolation(violation)))
   }
 }
 
