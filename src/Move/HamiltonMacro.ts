@@ -35,6 +35,10 @@ class ExpressionParser {
       this.space();
       const delimiter = this.source[this.cursor];
       if (this.cursor === this.source.length || (until !== undefined && (Array.isArray(until) ? until.includes(delimiter) : delimiter === until))) break;
+      if (until === undefined && delimiter === ",") {
+        this.cursor += 1;
+        continue;
+      }
       if (this.source[this.cursor] === "(") {
         this.cursor += 1;
         const body = this.sequence(")");
@@ -149,33 +153,73 @@ class ExpressionParser {
   private space(): void { while (/\s/.test(this.source[this.cursor] ?? "")) this.cursor += 1; }
 }
 
+const delimiterBalance = (text: string): number => [...text].reduce((balance, character) => {
+  if (character === "(" || character === "[") return balance + 1;
+  if (character === ")" || character === "]") return balance - 1;
+  return balance;
+}, 0);
+
+type SourceStatement = {name: string; body: string};
+
+/** Splits macro definitions at top-level lines without flattening multiline groups. */
+const statements = (text: string): {definitions: SourceStatement[]; root: string; exported?: string} => {
+  const definitions: SourceStatement[] = [];
+  const rootLines: string[] = [];
+  const lines = text.split("\n");
+  let exported: string | undefined;
+  for (let index = 0; index < lines.length;) {
+    const line = lines[index].trim();
+    index += 1;
+    if (line === "") continue;
+    const exportName = line.match(/^export\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/)?.[1];
+    if (exportName) {
+      if (exported !== undefined) fail("duplicate export declaration");
+      exported = exportName;
+      continue;
+    }
+    const definition = line.match(/^(?:def\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+    if (!definition) {
+      rootLines.push(line);
+      continue;
+    }
+    const name = definition[1];
+    const bodyLines = [definition[2]];
+    let balance = delimiterBalance(definition[2]);
+    while (balance > 0 && index < lines.length) {
+      const continuation = lines[index];
+      index += 1;
+      bodyLines.push(continuation);
+      balance += delimiterBalance(continuation);
+    }
+    if (balance !== 0) fail(`unclosed group in definition '${name}'`);
+    definitions.push({name, body: bodyLines.join("\n")});
+  }
+  return {definitions, root: rootLines.join("\n"), exported};
+};
+
 export const parse = (source: string): Program => {
   const text = clean(source).trim();
   const definitions = new Map<string, Node[]>();
-  const matches = [...text.matchAll(/(?:^|\n)\s*(?:def\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/g)];
-  const exported = text.match(/(?:^|\n)\s*export\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/m)?.[1];
-  const definitionNames = new Set(matches.map((match) => match[1]));
-  const finalLineStart = text.lastIndexOf("\n") + 1;
-  const finalLine = text.slice(finalLineStart).trim();
-  const bareRoot = !exported && definitionNames.has(finalLine) ? finalLine : undefined;
-  for (let index = 0; index < matches.length; index += 1) {
-    const match = matches[index];
-    const name = match[1];
-    const bodyStart = (match.index ?? 0) + match[0].length;
-    const bodyEnd = index + 1 < matches.length
-      ? (matches[index + 1].index ?? text.length)
-      : exported
-        ? text.search(/(?:^|\n)\s*export\s+/m)
-        : bareRoot === undefined ? text.length : finalLineStart;
+  const sourceStatements = statements(text);
+  for (const {name, body} of sourceStatements.definitions) {
     if (definitions.has(name)) fail(`duplicate definition '${name}'`);
-    definitions.set(name, new ExpressionParser(text.slice(bodyStart, bodyEnd)).parse());
+    definitions.set(name, new ExpressionParser(body).parse());
   }
+  const {exported} = sourceStatements;
   if (definitions.size === 0) {
     if (text === "") fail("expected an expression or macro definition");
     definitions.set(implicitExpressionRoot, new ExpressionParser(text).parse());
     return {definitions, exportName: implicitExpressionRoot};
   }
-  const exportName = exported ?? bareRoot ?? [...definitions.keys()].at(-1)!;
+  const bareDefinitionRoot = sourceStatements.root.trim();
+  const hasBareDefinitionRoot = identifier.test(bareDefinitionRoot) && definitions.has(bareDefinitionRoot);
+  if (sourceStatements.root !== "" && !hasBareDefinitionRoot) {
+    definitions.set(implicitExpressionRoot, new ExpressionParser(sourceStatements.root).parse());
+  }
+  const exportName = exported
+    ?? (sourceStatements.root === ""
+      ? [...definitions.keys()].at(-1)!
+      : hasBareDefinitionRoot ? bareDefinitionRoot : implicitExpressionRoot);
   if (!definitions.has(exportName)) fail(`export '${exportName}' is not defined`);
   return {definitions, exportName};
 };

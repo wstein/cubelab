@@ -66,4 +66,19 @@ describe("Hamilton macro programs", () => {
       {kind: "pause", durationMs: 600},
     ]);
   });
+
+  test("keeps top-level root expressions separate from preceding definitions", () => {
+    const program = parse(`
+      a = U R D' L', F' B'
+      a [F, D']4 a U2 a
+
+      b = R U R' F2 R U R' F2
+      (b a')12 b
+    `);
+    expect(program.exportName).toBe("__expression__");
+    expect(measure(program, "a").quarterTurns).toBe(6n);
+    expect(measure(program, "b").quarterTurns).toBe(10n);
+    expect(prefix(program, 8)).toEqual(["U", "R", "D'", "L'", "F'", "B'", "F", "D'"]);
+    expect(measure(program).quarterTurns).toBe(238n);
+  });
 });

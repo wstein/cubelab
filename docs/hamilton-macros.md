@@ -20,6 +20,11 @@ s100
 ([R',U]6 [F:D']@0.6s)100
 ```
 
+At top level, commas are optional sequence separators, and standalone lines
+after definitions form the executable root expression. This lets compact
+macro files use `a = U R D' L', F' B'` followed later by `(b a')12 b` without
+accidentally appending that root to `b`'s definition.
+
 The Workbench can import `.alg` and legacy `.orbit64` text sources. Imported
 sources with no `export` declaration use a final bare definition reference, or
 otherwise the final definition, as the root. The parser retains a macro DAG
