@@ -1,0 +1,38 @@
+# Repomix ignore patterns for cube-rosetta / cubelab
+# See https://repomix.com for syntax and options
+
+# Note: Generated ReScript JS files (*.res.mjs) are explicitly kept and included.
+
+# 1. Large Generated Data Catalogs
+# 45k+ tokens of pre-generated static JSON patterns from scripts/import-flix-patterns.ts
+src/client/patterns.generated.ts
+
+# 2. Solver Binary Lookup Tables & Databases
+public/solver/
+**/*.bin
+
+# 3. Static Images, Favicons, & Media Assets
+public/*.png
+public/*.ico
+public/*.svg
+public/apple-touch-icon.png
+public/favicon*
+
+# 4. Build Outputs, Caches & Workspace Metadata
+dist/
+.astro/
+.remember/
+.claude/
+node_modules/
+
+# 5. Test Reports, Traces & Blobs
+test-results/
+playwright-report/
+blob-report/
+
+# 6. Repomix Output Files & Accidental Tilde Paths
+repomix-output.*
+repomix-*.xml
+repomix-*.md
+repomix-*.json
+~/**
