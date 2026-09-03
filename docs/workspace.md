@@ -22,6 +22,14 @@ Workspace and Academy-method selections create browser history entries. Continuo
 to setup, moves, and settings are debounced and replace the current URL instead, so Back
 and Forward move between destinations without producing an entry for every keystroke.
 
+## Offline installation
+
+Production builds register a small progressive-web-app shell. Once CubeLab has been opened
+online, it can be installed from a browser that supports PWAs and its static workspace routes
+remain available offline. The service worker caches only same-origin application assets and
+never proxies Bluetooth, TNoodle, or other network requests; smart-cube connections and local
+TNoodle checks still require their normal browser and network permissions.
+
 ## Shared-state behavior
 
 The puzzle size, notation settings, setup, moves, recognized cube state, viewport style, and

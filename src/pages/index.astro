@@ -58,6 +58,8 @@ const cards = [
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
     <meta name="description" content={metaDescription} />
+    <meta name="theme-color" content="#111827" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <title>{pageTitle}</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
@@ -1489,6 +1491,9 @@ s100"></textarea>
 
     <script>
       import "../client/converter";
+      import { registerPwa } from "../client/pwa";
+
+      registerPwa();
     </script>
   </body>
 </html>

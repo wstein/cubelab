@@ -20,6 +20,9 @@ const viewportComponent = await readFile(
   new URL("../src/Components/CubeViewport.astro", import.meta.url),
   "utf8",
 );
+const manifest = await readFile(new URL("../public/manifest.webmanifest", import.meta.url), "utf8");
+const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
+const pwa = await readFile(new URL("../src/client/pwa.ts", import.meta.url), "utf8");
 
 test("the static shell declares size-scoped cubie and Orbit64 cards", () => {
   assert.match(page, /key: "pieces"[\s\S]*sizes: "2,3"/);
@@ -105,6 +108,19 @@ test("the HTML head declares the SVG favicon and fallback touch icons", () => {
   assert.match(page, /<link rel="icon" type="image\/png" sizes="32x32" href="\/favicon-32x32\.png"/);
   assert.match(page, /<link rel="icon" type="image\/png" sizes="16x16" href="\/favicon-16x16\.png"/);
   assert.match(page, /<link rel="apple-touch-icon" sizes="180x180" href="\/apple-touch-icon\.png"/);
+  assert.match(page, /<link rel="manifest" href="\/manifest\.webmanifest"/);
+  assert.match(page, /registerPwa\(\)/);
+});
+
+test("the production shell is installable and caches only CubeLab's same-origin app shell", () => {
+  assert.match(manifest, /"display": "standalone"/);
+  assert.match(manifest, /"start_url": "\/"/);
+  assert.match(manifest, /"src": "\/favicon\.png"/);
+  assert.match(pwa, /import\.meta\.env\.PROD/);
+  assert.match(pwa, /navigator\.serviceWorker\.register\("\/sw\.js"/);
+  assert.match(serviceWorker, /"\/academy\/"/);
+  assert.match(serviceWorker, /url\.origin !== self\.location\.origin/);
+  assert.match(serviceWorker, /event\.request\.mode === "navigate"/);
 });
 
 test("the converter exposes full two-phase solutions through a dedicated worker contract", () => {
