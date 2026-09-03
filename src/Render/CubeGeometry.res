@@ -315,26 +315,113 @@ let emitRoundedFace = (emitter, centre, face, out, side, radius, colour) => {
   }
 }
 
+let faceForNormal = normal =>
+  if normal.y > 0.5 {
+    StateTypes.U
+  } else if normal.y < -0.5 {
+    D
+  } else if normal.z > 0.5 {
+    F
+  } else if normal.z < -0.5 {
+    B
+  } else if normal.x > 0.5 {
+    R
+  } else {
+    L
+  }
+
+let isOuterEdge = (~last, ~gx, ~gy, ~gz, faceA, faceB) =>
+  isExposed(~last, ~gx, ~gy, ~gz, faceA) && isExposed(~last, ~gx, ~gy, ~gz, faceB)
+
+let bevelForEdge = (~last, ~gx, ~gy, ~gz, ~cell, faceA, faceB) =>
+  if isOuterEdge(~last, ~gx, ~gy, ~gz, faceA, faceB) {
+    0.065 *. cell
+  } else {
+    0.03 *. cell
+  }
+
+let emitStandardFace = (emitter, centre, face, half, colour, ~bevelFor) => {
+  let normal = faceNormal(face)
+  let row = rowAxis(face)
+  let col = colAxis(face)
+  let middle = faceCentre(centre, face, half)
+  let fColPlus = faceForNormal(col)
+  let fColMinus = faceForNormal(scale(col, -1.0))
+  let fRowPlus = faceForNormal(row)
+  let fRowMinus = faceForNormal(scale(row, -1.0))
+  let flatColPlus = half -. bevelFor(face, fColPlus)
+  let flatColMinus = half -. bevelFor(face, fColMinus)
+  let flatRowPlus = half -. bevelFor(face, fRowPlus)
+  let flatRowMinus = half -. bevelFor(face, fRowMinus)
+  let a = sub(sub(middle, scale(row, flatRowMinus)), scale(col, flatColMinus))
+  let b = sub(add(middle, scale(row, flatRowPlus)), scale(col, flatColMinus))
+  let c = add(add(middle, scale(row, flatRowPlus)), scale(col, flatColPlus))
+  let d = add(sub(middle, scale(row, flatRowMinus)), scale(col, flatColPlus))
+  emitQuad(emitter, a, b, c, d, normal, normal, normal, normal, colour, normal)
+}
+
+let emitStandardBevels = (emitter, centre, half, colour, ~bevelFor) => {
+  for index in 0 to edges->Array.length - 1 {
+    let (faceA, faceB) = Belt.Array.getUnsafe(edges, index)
+    let na = faceNormal(faceA)
+    let nb = faceNormal(faceB)
+    let along = cross(nb, na)
+    let faceMinus = faceForNormal(scale(along, -1.0))
+    let facePlus = faceForNormal(along)
+    let bevelAB = bevelFor(faceA, faceB)
+    let flatAB = half -. bevelAB
+    let flatMinusA = half -. bevelFor(faceA, faceMinus)
+    let flatPlusA = half -. bevelFor(faceA, facePlus)
+    let flatMinusB = half -. bevelFor(faceB, faceMinus)
+    let flatPlusB = half -. bevelFor(faceB, facePlus)
+
+    let onA = add(scale(na, half), scale(nb, flatAB))
+    let onB = add(scale(nb, half), scale(na, flatAB))
+    let a = add(centre, add(onA, scale(along, -.flatMinusA)))
+    let b = add(centre, add(onA, scale(along, flatPlusA)))
+    let c = add(centre, add(onB, scale(along, flatPlusB)))
+    let d = add(centre, add(onB, scale(along, -.flatMinusB)))
+    let wanted = normalize(add(na, nb))
+    emitQuad(emitter, a, b, c, d, na, na, nb, nb, colour, wanted)
+  }
+}
+
+let emitStandardCorners = (emitter, centre, half, colour, ~bevelFor) => {
+  for index in 0 to corners->Array.length - 1 {
+    let (faceA, faceB, faceC) = Belt.Array.getUnsafe(corners, index)
+    let na = faceNormal(faceA)
+    let nb = faceNormal(faceB)
+    let nc = faceNormal(faceC)
+    let flatAB = half -. bevelFor(faceA, faceB)
+    let flatAC = half -. bevelFor(faceA, faceC)
+    let flatBC = half -. bevelFor(faceB, faceC)
+    let a = add(centre, add(scale(na, half), add(scale(nb, flatAB), scale(nc, flatAC))))
+    let b = add(centre, add(scale(nb, half), add(scale(nc, flatBC), scale(na, flatAB))))
+    let c = add(centre, add(scale(nc, half), add(scale(na, flatAC), scale(nb, flatBC))))
+    emitTriangle(emitter, a, b, c, na, nb, nc, colour, normalize(add(na, add(nb, nc))))
+  }
+}
+
 let emitStandardCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, ~gz) => {
   let size = state.size
+  let last = size - 1
   let cell = 2.0 *. halfExtent /. Float.fromInt(size)
   let centre = cubieCentre(~size, ~gx, ~gy, ~gz)
   let emitter = {data, cubie: centre}
   let half = 0.999 *. cell /. 2.0
-  let bevel = 0.03 *. cell
-  let flat = half -. bevel
-  StateTypes.storageOrder->Array.forEach(face =>
-    emitFace(emitter, centre, face, half, 2.0 *. flat, body)
-  )
-  emitFlatBevels(emitter, centre, half, flat, body)
-  emitFlatCorners(emitter, centre, half, flat, body)
+  let bevelFor = (fA, fB) => bevelForEdge(~last, ~gx, ~gy, ~gz, ~cell, fA, fB)
 
-  let last = size - 1
+  StateTypes.storageOrder->Array.forEach(face =>
+    emitStandardFace(emitter, centre, face, half, body, ~bevelFor)
+  )
+  emitStandardBevels(emitter, centre, half, body, ~bevelFor)
+  emitStandardCorners(emitter, centre, half, body, ~bevelFor)
+
   StateTypes.storageOrder->Array.forEach(face =>
     if isExposed(~last, ~gx, ~gy, ~gz, face) {
       let colour = colourOf(~style=Standard, ~palette, faceletAt(state, ~gx, ~gy, ~gz, face))
       let side = 0.84 *. cell
-      emitRoundedFace(emitter, centre, face, half +. 0.005 *. cell, side, 0.05 *. side, colour)
+      emitRoundedFace(emitter, centre, face, half +. 0.005 *. cell, side, 0.08 *. side, colour)
     }
   )
 }
