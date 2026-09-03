@@ -24,9 +24,10 @@ The **Timer** workspace exposes the manual engine through Space and touch
 controls. The first press starts inspection; the next press must be held for
 300 ms before release starts the solve; a subsequent press stops and records
 it. The workspace supplies separate **CubeLab scramble** and **TNoodle
-scramble** actions, plus local `+2`, `DNF`, and delete controls. Every selected
-scramble immediately loads the virtual cube state; Controller mode only changes
-how later physical turn packets are consumed. TNoodle stays disabled until the
+scramble** actions, plus local `+2`, `DNF`, and delete controls. A selected scramble is
+recorded in **Setup**. In physical mirror mode a connected cube remains the displayed
+physical state and must be turned manually to match; in Controller mode the requested
+virtual state loads immediately and later face packets solve it. TNoodle stays disabled until the
 current local URL and event have passed a successful probe in Settings. If it
 becomes unavailable later or returns an invalid response, that request falls
 back to the CubeLab practice generator.
@@ -35,11 +36,10 @@ back to the CubeLab practice generator.
 
 **Controller mode** is an explicit smart-cube dock toggle for high-repetition
 screen-based drills. It keeps the physical and virtual states separate. Timer
-scramble selection behaves exactly as it does without a smart cube: it assigns
-the requested virtual state immediately. In Controller mode that assignment is
-kept out of Setup so the physical cube remains an input device; each face packet
-is projected through accumulated gyro regrips and applied to that state.
-Facelet reports never overwrite it.
+scramble selection writes the requested source into Setup and assigns its resolved state
+to the virtual cube immediately. Each face packet is projected through accumulated gyro
+regrips and applied to that state. Facelet reports never overwrite the controller render
+or its virtual state.
 
 During timer inspection, gyro pose continues to drive the viewport while the
 first complete face packet starts the timer and is applied as the first solve

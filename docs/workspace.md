@@ -63,6 +63,12 @@ does not change the optional Moves field, allowing a user to inspect or replay a
 from a freshly synchronized physical position. Both fields are shareable in the URL hash as
 `alg` (setup) and `moves`.
 
+When a connected cube is in normal **physical mirror** mode, the viewport deliberately
+continues to show its actual facelets. Loading a practice scramble changes Setup but cannot
+turn the physical puzzle; CubeLab asks the user to perform the setup turns. In **Controller
+mode**, the same Setup source initializes a separate virtual state at once, and physical
+facelet reports are ignored until physical mirroring is restored.
+
 For 2×2×2 and 3×3×3, Setup and smart-cube facelets must also describe a physically
 reachable position. CubeLab rejects a twisted-corner, flipped-edge, or permutation-parity
 mismatch before it updates the viewport or begins solving; its diagnostic names affected

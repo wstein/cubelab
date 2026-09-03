@@ -51,10 +51,13 @@ connect whenever the device reports the capability; the orientation button in th
 available to opt back out.
 
 The optional **Controller mode** deliberately does not mirror facelets. It treats the device as
-a turn encoder and gyro: virtual state is assigned by a Timer scramble or Academy drill, packets
+a turn encoder and gyro: virtual state is assigned by a Practice or Timer scramble, or an Academy drill, packets
 are projected through detected gyro regrips, and physical facelet events are ignored until the user
-returns to physical mirroring. This keeps high-repetition screen drills from corrupting normal live
-state tracking.
+returns to physical mirroring. A controller state has rendering precedence even while a normal
+workspace update is pending, so a stale physical report cannot repaint an instant virtual
+scramble. In contrast, physical-mirror practice scrambles only set the Setup target; the user
+must turn the real cube to match it. This keeps high-repetition screen drills from corrupting
+normal live state tracking.
 
 Three-by-three slice, wide, and single-inner-layer lesson moves are matched through the outer-face
 packets that the hardware can actually report (`M = x' R L'`, `Rw = x L`, and their axis variants).

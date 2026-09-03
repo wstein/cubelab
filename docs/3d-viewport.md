@@ -210,6 +210,12 @@ When a physical smart cube (e.g. GoCube, GAN) with IMU hardware is connected, te
 - **Direction Alignment & Basis Mapping:** For hardware sensors that rotate against the hand (such as GoCube), the rotation direction is inverted and re-expressed in canonical viewport axes (using the measured $180^\circ$ $Y$-yaw change of basis `basis = -x, +y, -z`).
 - **Facelet Alignment:** Top White ($+Y$), Right Red ($+X$), and Front Green ($+Z$) remain 1:1 aligned during physical turns and whole-cube regrips across 0°, 90°, 180°, and 270°.
 
+In normal **physical mirror** mode, reported facelets also determine the displayed cube
+state. **Controller mode** deliberately separates those concerns: the gyro still controls the
+camera, but a selected practice/timer scramble or Academy drill owns the virtual state. Physical
+facelet reports are ignored until the user returns to physical mirroring, so an old device state
+cannot repaint an instant virtual scramble.
+
 ## Provenance and licensing
 
 The physical design vocabulary was informed by the Standard and Speed looks in

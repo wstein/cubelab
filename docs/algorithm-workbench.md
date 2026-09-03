@@ -74,10 +74,15 @@ listed exceptions; the WCA currently distributes TNoodle for that purpose:
 The local generator uses `Math.random()` and is labeled **Practice scramble** throughout
 the interface. It must not be used to prepare official competition scrambles.
 
-With Smart Controller Mode active on a 3×3, the same action assigns the generated state
-directly to the virtual cube instead of replacing Setup or the materialized move tape.
-The physical cube remains a turn and orientation controller, so its stickers cannot
-overwrite that virtual scramble.
+Quick load always writes the generated algorithm into **Setup**, so the target remains
+visible, editable, and shareable. Its presentation then depends on smart-cube mode:
+
+- In normal **physical mirror** mode, CubeLab continues to show the actual physical cube.
+  A smart cube cannot be scrambled remotely, so the dock instructs the user to turn it to
+  match the Setup algorithm.
+- With **Controller mode** active on a 3×3, the same target is assigned immediately to the
+  virtual cube. The physical cube remains a turn and orientation controller, and its
+  facelets cannot overwrite that virtual scramble.
 
 ## Browser integration
 
