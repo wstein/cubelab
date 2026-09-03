@@ -184,19 +184,18 @@ const fragmentShaderSource = `
     float body = 1.0 - smoothstep(0.02, 0.12, distance(vColour.rgb, vec3(0.13, 0.14, 0.17)));
     float isStandardSticker = (1.0 - body) * (1.0 - uSpeedStyle);
 
-    // --- Office Specular for Standard Glossy Stickers ---
-    // Desk lamp reflection: crisp bright glint
-    vec3 specDeskSticker = deskLampCol * (0.42 * pow(dotDesk, 72.0) + 0.12 * pow(dotDesk, 20.0));
-    // Overhead ceiling panel reflection: broad soft diffuse highlight
-    vec3 specCeilingSticker = ceilingCol * (0.24 * pow(dotCeiling, 36.0) + 0.08 * pow(dotCeiling, 14.0));
-    // Room fill reflection: gentle glint
-    vec3 specRoomSticker = roomFillCol * (0.12 * pow(dotRoom, 44.0));
-    // Soft office edge sheen
-    vec3 specRimSticker = wallBounceCol * (0.12 * fresnel * (0.4 + 0.6 * wallBounceDiff));
+    // --- Original Rubik's Cube High-Gloss Vinyl Sticker Specular ---
+    // Sharp clearcoat glints (high power exponent for glass/acrylic reflection)
+    vec3 specDeskSticker = deskLampCol * (0.75 * pow(dotDesk, 128.0) + 0.22 * pow(dotDesk, 32.0));
+    vec3 specCeilingSticker = ceilingCol * (0.48 * pow(dotCeiling, 72.0) + 0.16 * pow(dotCeiling, 22.0));
+    vec3 specRoomSticker = roomFillCol * (0.22 * pow(dotRoom, 56.0));
+    // Pronounced dielectric Fresnel clearcoat reflection at grazing angles
+    float vinylFresnel = pow(1.0 - max(dot(normal, view), 0.0), 2.5);
+    vec3 specRimSticker = mix(ceilingCol, roomFillCol, 0.4) * (0.35 * vinylFresnel);
     vec3 stickerSpecular = specDeskSticker + specCeilingSticker + specRoomSticker + specRimSticker;
 
     // --- Matte Charcoal Body Plastic Specular ---
-    vec3 bodySpecular = deskLampCol * (0.16 * pow(dotDesk, 16.0)) + ceilingCol * (0.10 * pow(dotCeiling, 12.0));
+    vec3 bodySpecular = deskLampCol * (0.14 * pow(dotDesk, 16.0)) + ceilingCol * (0.08 * pow(dotCeiling, 12.0));
 
     // --- Speed Cube (Stickerless Semi-Matte Plastic) Specular ---
     vec3 speedSpecular = deskLampCol * (0.22 * pow(dotDesk, 28.0)) + ceilingCol * (0.14 * pow(dotCeiling, 20.0));
