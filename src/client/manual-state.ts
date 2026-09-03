@@ -40,6 +40,10 @@ const edges: CubieKind = {
 };
 
 // PieceReducer.cornerFacelets(size), expressed in FaceletCodec's URFDLB order.
+// Hand-transcribed rather than imported so this module stays dependency-free;
+// test/client/manual-state.test.ts cross-checks these against
+// PieceReducer.cornerFacelets/edgeFacelets directly so the two can't drift
+// apart silently. Exported only for that test, not for general use.
 const cornerSlots2 = [
   [3, 4, 9], [2, 8, 17], [0, 16, 21], [1, 20, 5],
   [13, 11, 6], [12, 19, 10], [14, 23, 18], [15, 7, 22],
@@ -48,6 +52,9 @@ const cornerSlots3 = [
   [8, 9, 20], [6, 18, 38], [0, 36, 47], [2, 45, 11],
   [29, 26, 15], [27, 44, 24], [33, 53, 42], [35, 17, 51],
 ];
+export const manualStateCornerSlots = (size: ManualStateSize): number[][] =>
+  size === 2 ? cornerSlots2 : cornerSlots3;
+export const manualStateEdgeSlots = (): number[][] => edges.slots;
 const centreIndices3 = [4, 13, 22, 31, 40, 49];
 
 const popcountParity = (value: number): number => {
@@ -218,6 +225,17 @@ export const fillLocallyForcedManualStateColours = (
     }
   }
   return filled;
+};
+
+/** The other sticker indices on the same physical corner/edge cubie, or []
+ * for a centre or an out-of-range index. Reuses the same slot tables the
+ * feasibility checks already derive from, rather than a second piece list. */
+export const manualStatePieceMates = (size: ManualStateSize, index: number): number[] => {
+  for (const kind of kindsForSize(size)) {
+    const slot = kind.slots.find((candidate) => candidate.includes(index));
+    if (slot) return slot.filter((other) => other !== index);
+  }
+  return [];
 };
 
 // Narrow aliases keep the initial 2×2 test contract readable.

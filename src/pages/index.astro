@@ -1538,26 +1538,81 @@ s100"></textarea>
           Pick a face colour, then fill the net. Nothing changes in Setup until
           the complete, physically valid state is loaded.
         </p>
+        <div class="manual-state-previews" data-manual-state-previews aria-hidden="true"></div>
         <div class="manual-state-layout">
-          <section class="manual-state-net" aria-label="Cube sticker net" data-manual-state-grid></section>
+          <section class="manual-state-net" aria-label="Cube sticker net">
+            <div class="manual-state-net-faces" data-manual-state-grid></div>
+            <div class="manual-state-shortcuts">
+              <span class="panel-label">Shortcuts</span>
+              <div class="manual-state-shortcuts-grid">
+                <div><span class="manual-state-key">U R F D L B</span>set colour</div>
+                <div><span class="manual-state-key">C</span>clear</div>
+                <div><span class="manual-state-key">← ↑ ↓ →</span>move</div>
+                <div><span class="manual-state-key">click</span>paint</div>
+                <div><span class="manual-state-key">drag</span>paint run</div>
+                <div><span class="manual-state-key">right-click</span>erase</div>
+              </div>
+            </div>
+          </section>
           <section class="manual-state-tools" aria-label="State editor tools">
+            <div class="manual-state-summary" data-manual-state-summary aria-live="polite"></div>
             <span class="panel-label">Sticker colour</span>
             <div class="manual-state-palette" data-manual-state-palette>
-              <button type="button" class="manual-state-colour" data-manual-state-colour="U">Up</button>
-              <button type="button" class="manual-state-colour" data-manual-state-colour="D">Down</button>
-              <button type="button" class="manual-state-colour" data-manual-state-colour="R">Right</button>
-              <button type="button" class="manual-state-colour" data-manual-state-colour="L">Left</button>
-              <button type="button" class="manual-state-colour" data-manual-state-colour="F">Front</button>
-              <button type="button" class="manual-state-colour" data-manual-state-colour="B">Back</button>
+              <button type="button" class="manual-state-colour" data-manual-state-colour="U">
+                <span class="manual-state-colour-name">Up</span>
+                <span class="manual-state-colour-left" data-manual-state-colour-left></span>
+              </button>
+              <button type="button" class="manual-state-colour" data-manual-state-colour="D">
+                <span class="manual-state-colour-name">Down</span>
+                <span class="manual-state-colour-left" data-manual-state-colour-left></span>
+              </button>
+              <button type="button" class="manual-state-colour" data-manual-state-colour="R">
+                <span class="manual-state-colour-name">Right</span>
+                <span class="manual-state-colour-left" data-manual-state-colour-left></span>
+              </button>
+              <button type="button" class="manual-state-colour" data-manual-state-colour="L">
+                <span class="manual-state-colour-name">Left</span>
+                <span class="manual-state-colour-left" data-manual-state-colour-left></span>
+              </button>
+              <button type="button" class="manual-state-colour" data-manual-state-colour="F">
+                <span class="manual-state-colour-name">Front</span>
+                <span class="manual-state-colour-left" data-manual-state-colour-left></span>
+              </button>
+              <button type="button" class="manual-state-colour" data-manual-state-colour="B">
+                <span class="manual-state-colour-name">Back</span>
+                <span class="manual-state-colour-left" data-manual-state-colour-left></span>
+              </button>
             </div>
-            <button type="button" class="transform-btn" data-manual-state-eraser aria-pressed="false">Eraser</button>
-            <div class="manual-state-actions">
+            <div class="manual-state-tool-row">
+              <button type="button" class="transform-btn" data-manual-state-eraser aria-pressed="false">Eraser</button>
               <button type="button" class="transform-btn" data-manual-state-reset>Clear</button>
               <button type="button" class="transform-btn" data-manual-state-solved>Solved</button>
             </div>
+            <div class="manual-state-copy-row">
+              <button type="button" class="transform-btn" data-manual-state-copy disabled>Copy facelets</button>
+              <div class="manual-state-copy-menu-wrap">
+                <button
+                  type="button"
+                  class="transform-btn"
+                  data-manual-state-copy-toggle
+                  aria-haspopup="true"
+                  aria-expanded="false"
+                  disabled
+                >Copy as ▾</button>
+                <div class="manual-state-copy-menu" data-manual-state-copy-menu hidden>
+                  <button type="button" data-manual-state-copy-format="compact">Compact facelets</button>
+                  <button type="button" data-manual-state-copy-format="spaced">Spaced facelets</button>
+                  <button type="button" data-manual-state-copy-format="singmaster">Singmaster piece list</button>
+                  <button type="button" data-manual-state-copy-format="json">JSON facelets</button>
+                </div>
+              </div>
+            </div>
           </section>
         </div>
-        <output class="manual-state-status" data-manual-state-status aria-live="polite"></output>
+        <output class="manual-state-status" data-manual-state-status aria-live="polite">
+          <span class="manual-state-status-pill" data-manual-state-status-pill></span>
+          <span data-manual-state-status-text></span>
+        </output>
         <div class="manual-state-footer">
           <button type="button" class="viewport-control" data-manual-state-cancel>Cancel</button>
           <button type="button" class="transform-btn" data-manual-state-load disabled>Load state into Setup</button>

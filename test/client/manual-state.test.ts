@@ -1,15 +1,22 @@
 import {describe, expect, test} from "vitest";
 import {
+  allowedManualStateColours,
   allowedManualStateColours2,
   canCompleteManualState,
   canCompleteManualState2,
   emptyManualState,
+  faceletOrder,
   fillForcedManualStateColours2,
+  locallyAllowedManualStateColours,
+  manualStateCornerSlots,
+  manualStateEdgeSlots,
   manualStateEnteredCount,
+  manualStatePieceMates,
   solvedManualState2,
   solvedManualState,
   type ManualStateDraft,
 } from "../../src/client/manual-state";
+import * as PieceReducer from "../../src/State/PieceReducer.res.mjs";
 
 describe("2×2 manual state constraints", () => {
   test("accepts solved and exposes every colour in an empty draft", () => {
@@ -56,6 +63,22 @@ describe("3×3 manual state constraints", () => {
     [draft[10], draft[19]] = [draft[19], draft[10]];
     expect(canCompleteManualState(3, draft)).toBe(false);
   });
+
+  test("the cheap per-cubie hint can offer a colour the full click-time check rejects", () => {
+    // The editor's dot hints run the cheap, single-cubie check for speed; the
+    // full check — permutation parity across every corner and edge jointly —
+    // still gates an actual click. This proves the two can disagree: an odd
+    // edge swap elsewhere makes the whole draft unrealizable, which only the
+    // full check can see, while the untouched edge's own slot still locally
+    // agrees with its solved colour.
+    const draft = solvedManualState(3);
+    [draft[10], draft[19]] = [draft[19], draft[10]];
+    const index = 30;
+    const solvedColour = solvedManualState(3)[index];
+    draft[index] = null;
+    expect(locallyAllowedManualStateColours(3, draft, index)).toContain(solvedColour);
+    expect(allowedManualStateColours(3, draft, index)).not.toContain(solvedColour);
+  });
 });
 
 test("keeps FaceletCodec's URFDLB serialization independent from the editor presentation", () => {
@@ -63,4 +86,46 @@ test("keeps FaceletCodec's URFDLB serialization independent from the editor pres
   expect(solvedManualState(3).join("")).toBe(
     "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB",
   );
+});
+
+describe("manualStatePieceMates", () => {
+  test("names the other two stickers of a 3×3 corner", () => {
+    // Index 8 is UFR's U sticker; its slot is [8, 9, 20] (U, R, F).
+    expect(manualStatePieceMates(3, 8).sort((a, b) => a - b)).toEqual([9, 20]);
+  });
+
+  test("names the other sticker of a 3×3 edge", () => {
+    expect(manualStatePieceMates(3, 5)).toEqual([10]);
+  });
+
+  test("is empty for a fixed centre and for a 2×2 (no edges)", () => {
+    expect(manualStatePieceMates(3, 4)).toEqual([]);
+    // Index 8 is a 2×2 corner sticker too, just a different piece grouping.
+    expect(manualStatePieceMates(2, 8).length).toBeGreaterThan(0);
+  });
+});
+
+describe("corner/edge slot tables agree with PieceReducer's own facelet tables", () => {
+  // manual-state.ts hand-transcribes these rather than importing ReScript at
+  // runtime (it stays a dependency-free module), so nothing stops the two
+  // copies from drifting apart if either is ever edited alone. This converts
+  // PieceReducer's (Face, localIndex) pairs into the same flat global-index
+  // space manual-state.ts uses and checks they match exactly.
+  const toGlobalIndex = (size: 2 | 3, face: string, local: number): number =>
+    faceletOrder.indexOf(face as (typeof faceletOrder)[number]) * size * size + local;
+
+  test("corners", () => {
+    for (const size of [2, 3] as const) {
+      const facelets = PieceReducer.cornerFacelets(size) as {TAG: string; _0: [string, number][][]};
+      expect(facelets.TAG).toBe("Ok");
+      const converted = facelets._0.map((slot) => slot.map(([face, local]) => toGlobalIndex(size, face, local)));
+      expect(manualStateCornerSlots(size)).toEqual(converted);
+    }
+  });
+
+  test("edges (3×3 only — a 2×2 has none)", () => {
+    const facelets = PieceReducer.edgeFacelets as [string, number][][];
+    const converted = facelets.map((slot) => slot.map(([face, local]) => toGlobalIndex(3, face, local)));
+    expect(manualStateEdgeSlots()).toEqual(converted);
+  });
 });

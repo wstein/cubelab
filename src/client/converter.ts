@@ -20,11 +20,15 @@ import {looksLikeSseState, parseSseState} from "./sse-state";
 import {
   allowedManualStateColours,
   emptyManualState,
+  faceletOrder,
   fillForcedManualStateColours,
   fillLocallyForcedManualStateColours,
   locallyAllowedManualStateColours,
+  manualStateCornerSlots,
+  manualStateEdgeSlots,
   manualStateEnteredCount,
   manualStateFaces,
+  manualStatePieceMates,
   manualStateStickerCount,
   solvedManualState,
   type ManualStateDraft,
@@ -198,12 +202,19 @@ if (root) {
   const manualStateClose = root.querySelector<HTMLButtonElement>("[data-manual-state-close]")!;
   const manualStateCancel = root.querySelector<HTMLButtonElement>("[data-manual-state-cancel]")!;
   const manualStateGrid = root.querySelector<HTMLElement>("[data-manual-state-grid]")!;
+  const manualStatePreviews = root.querySelector<HTMLElement>("[data-manual-state-previews]")!;
   const manualStatePalette = root.querySelector<HTMLElement>("[data-manual-state-palette]")!;
   const manualStateEraser = root.querySelector<HTMLButtonElement>("[data-manual-state-eraser]")!;
   const manualStateReset = root.querySelector<HTMLButtonElement>("[data-manual-state-reset]")!;
   const manualStateSolved = root.querySelector<HTMLButtonElement>("[data-manual-state-solved]")!;
   const manualStateStatus = root.querySelector<HTMLOutputElement>("[data-manual-state-status]")!;
+  const manualStateStatusPill = root.querySelector<HTMLElement>("[data-manual-state-status-pill]")!;
+  const manualStateStatusText = root.querySelector<HTMLElement>("[data-manual-state-status-text]")!;
+  const manualStateSummary = root.querySelector<HTMLElement>("[data-manual-state-summary]")!;
   const manualStateLoad = root.querySelector<HTMLButtonElement>("[data-manual-state-load]")!;
+  const manualStateCopy = root.querySelector<HTMLButtonElement>("[data-manual-state-copy]")!;
+  const manualStateCopyToggle = root.querySelector<HTMLButtonElement>("[data-manual-state-copy-toggle]")!;
+  const manualStateCopyMenu = root.querySelector<HTMLElement>("[data-manual-state-copy-menu]")!;
   const schemeSelect = root.querySelector<HTMLSelectElement>("[data-scheme]")!;
   const customScheme = root.querySelector<HTMLInputElement>("[data-custom-scheme]")!;
   const noteInput = root.querySelector<HTMLInputElement>("[data-note-input]")!;
@@ -286,6 +297,10 @@ if (root) {
   const twoPhaseApply = root.querySelector<HTMLButtonElement>("[data-two-phase-apply]")!;
   const twoPhaseResult = root.querySelector<HTMLOutputElement>("[data-two-phase-result]")!;
   const twoPhaseTarget = root.querySelector<HTMLInputElement>("[data-two-phase-target]")!;
+  const optimal2x2Row = root.querySelector<HTMLElement>("[data-optimal-2x2-row]")!;
+  const optimal2x2Solve = root.querySelector<HTMLButtonElement>("[data-optimal-2x2-solve]")!;
+  const optimal2x2Apply = root.querySelector<HTMLButtonElement>("[data-optimal-2x2-apply]")!;
+  const optimal2x2Result = root.querySelector<HTMLOutputElement>("[data-optimal-2x2-result]")!;
   const academyTarget = root.querySelector<HTMLInputElement>("[data-academy-target]")!;
   const academyDom = (prefix: string) => ({
     status: root.querySelector<HTMLElement>(`[data-${prefix}-status]`)!,
@@ -297,10 +312,6 @@ if (root) {
   const academyComparison = root.querySelector<HTMLElement>("[data-academy-comparison]")!;
   const autoOrbitButton = root.querySelector<HTMLButtonElement>("[data-auto-orbit]")!;
   const turnGuidesButton = root.querySelector<HTMLButtonElement>("[data-turn-guides]")!;
-  const optimal2x2Row = root.querySelector<HTMLElement>("[data-optimal-2x2-row]")!;
-  const optimal2x2Solve = root.querySelector<HTMLButtonElement>("[data-optimal-2x2-solve]")!;
-  const optimal2x2Apply = root.querySelector<HTMLButtonElement>("[data-optimal-2x2-apply]")!;
-  const optimal2x2Result = root.querySelector<HTMLOutputElement>("[data-optimal-2x2-result]")!;
   const settingsOpen = root.querySelector<HTMLButtonElement>("[data-settings-open]")!;
   const settingsDialog = root.querySelector<HTMLDialogElement>("[data-settings-dialog]")!;
   const settingsClose = root.querySelector<HTMLButtonElement>("[data-settings-close]")!;
@@ -371,7 +382,15 @@ if (root) {
   let manualStateColour: ManualStateFace | null = "U";
   const manualStateExplicitIndices = new Set<number>();
   const manualStateAutoIndices = new Set<number>();
+  let manualStateHoverIndex: number | null = null;
   let manualStateDotGeneration = 0;
+  // Built once per manual-state size and reused across renders: recreating
+  // ~160 sticker buttons (grid + both preview cubes) on every single paint
+  // or erase click forced a full style/layout recompute and visibly
+  // flickered, even though only a handful of stickers actually changed.
+  let manualStateBuiltSize: ManualStateSize | null = null;
+  const manualStateStickerElements: HTMLButtonElement[] = [];
+  const manualStatePreviewStickerElements: HTMLButtonElement[][] = [];
   let tutorialPhases: TutorialPhaseRange[] = [];
   let activeAcademy: AcademyElements | null = null;
   let commentedTutorialSolution = "";
@@ -440,6 +459,8 @@ if (root) {
     new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
   );
   let twoPhaseSolveBusy = false;
+  let optimal2x2SolveBusy = false;
+  let optimal2x2Request = 0;
   let nissSide: "normal" | "inverse" = "normal";
   let nissNormalState: CubeState | null = null;
   let nissInverseState: CubeState | null = null;
@@ -449,6 +470,8 @@ if (root) {
   let twoPhaseSourceKey = "";
   let twoPhasePendingState: CubeState | null = null;
   let twoPhasePendingTarget: CubeState | null = null;
+  let optimal2x2Algorithm = "";
+  let optimal2x2SourceKey = "";
   let academySetupKey: string | null = null;
   const newTwoPhaseSolverClient = () => createTwoPhaseSolverClient<CubeState, TwoPhaseSolution>(
     new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
@@ -459,8 +482,6 @@ if (root) {
           : `Best so far: ${twoPhaseBestMoveCount} HTM · ${twoPhaseAlgorithm} · ${stage}`;
       }
     },
-  let optimal2x2SolveBusy = false;
-  let optimal2x2Request = 0;
     (solution) => {
       if (
         !twoPhaseSolveBusy
@@ -470,8 +491,6 @@ if (root) {
       ) return;
       const replay = MoveExecutor.applyAlg(twoPhasePendingState, solution.alg) as Result<CubeState, unknown>;
       if (replay.TAG !== "Ok"
-  let optimal2x2Algorithm = "";
-  let optimal2x2SourceKey = "";
         || FaceletCodec.render(replay._0) !== FaceletCodec.render(twoPhasePendingTarget)) return;
       twoPhaseAlgorithm = MoveTransform.serialize(solution.alg) as string;
       twoPhaseBestMoveCount = solution.moveCount;
@@ -481,6 +500,13 @@ if (root) {
     },
   );
   let twoPhaseSolverClient = newTwoPhaseSolverClient();
+  const newOptimal2x2SolverClient = () => createOptimal2x2SolverClient<CubeState, {alg: unknown; moveCount: number}>(
+    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+    (stage) => {
+      if (optimal2x2SolveBusy) optimal2x2Result.textContent = stage;
+    },
+  );
+  let optimal2x2SolverClient = newOptimal2x2SolverClient();
   const resetTwoPhaseRefinement = () => {
     // Setup defines every solver request. A Setup change makes any in-flight
     // search and its retained candidate unusable, so stop the dedicated worker
@@ -499,14 +525,21 @@ if (root) {
     twoPhaseApply.disabled = true;
     twoPhaseSolve.textContent = "Find two-phase solution";
   };
+  const resetOptimal2x2Solution = () => {
+    if (optimal2x2SolveBusy) {
+      optimal2x2Request += 1;
+      optimal2x2SolverClient.terminate();
+      optimal2x2SolverClient = newOptimal2x2SolverClient();
+      optimal2x2SolveBusy = false;
+    }
+    optimal2x2Algorithm = "";
+    optimal2x2SourceKey = "";
+    optimal2x2Apply.disabled = true;
+    optimal2x2Solve.textContent = "Find optimal solution";
+    optimal2x2Result.textContent = "Find an HTM-optimal solution for the Setup state.";
+    optimal2x2Result.classList.remove("success", "failure");
+  };
   const viewport = createCubeViewport(canvas, motionOverlay, (message) => {
-  const newOptimal2x2SolverClient = () => createOptimal2x2SolverClient<CubeState, {alg: unknown; moveCount: number}>(
-    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
-    (stage) => {
-      if (optimal2x2SolveBusy) optimal2x2Result.textContent = stage;
-    },
-  );
-  let optimal2x2SolverClient = newOptimal2x2SolverClient();
     viewportFallback.textContent = `${message} Text conversions remain fully functional.`;
     viewportFallback.hidden = false;
   });
@@ -525,20 +558,6 @@ if (root) {
     settingsAutoOrbit.textContent = enabled ? "On" : "Off";
     viewport?.setAutoOrbit(enabled);
     if (share) store.patch({autoOrbit: enabled});
-  const resetOptimal2x2Solution = () => {
-    if (optimal2x2SolveBusy) {
-      optimal2x2Request += 1;
-      optimal2x2SolverClient.terminate();
-      optimal2x2SolverClient = newOptimal2x2SolverClient();
-      optimal2x2SolveBusy = false;
-    }
-    optimal2x2Algorithm = "";
-    optimal2x2SourceKey = "";
-    optimal2x2Apply.disabled = true;
-    optimal2x2Solve.textContent = "Find optimal solution";
-    optimal2x2Result.textContent = "Find an HTM-optimal solution for the Setup state.";
-    optimal2x2Result.classList.remove("success", "failure");
-  };
   };
   setAutoOrbitEnabled(initialState.autoOrbit, false);
   const setPlayerMode = (enabled: boolean, pushHistory = true) => {
@@ -739,6 +758,37 @@ if (root) {
     U: "Up", R: "Right", F: "Front", D: "Down", L: "Left", B: "Back",
   };
 
+  const manualStateCompactFacelets = (): string => manualStateDraft.join("");
+
+  const manualStateSpacedFacelets = (manualSize: ManualStateSize): string => {
+    const perFace = manualSize * manualSize;
+    return faceletOrder
+      .map((_, faceIndex) => manualStateDraft.slice(faceIndex * perFace, (faceIndex + 1) * perFace).join(""))
+      .join(" ");
+  };
+
+  const manualStateJsonFacelets = (manualSize: ManualStateSize): string => {
+    const perFace = manualSize * manualSize;
+    const byFace: Record<string, Array<ManualStateFace | null>> = {};
+    faceletOrder.forEach((face, faceIndex) => {
+      byFace[face] = manualStateDraft.slice(faceIndex * perFace, (faceIndex + 1) * perFace);
+    });
+    return JSON.stringify(byFace, null, 2);
+  };
+
+  const manualStateSingmasterList = (manualSize: ManualStateSize): string => {
+    const lines: string[] = [];
+    manualStateCornerSlots(manualSize).forEach((slot, pieceIndex) => {
+      lines.push(`Corner ${pieceIndex + 1}: ${slot.map((i) => manualStateDraft[i] ?? "?").join("")}`);
+    });
+    if (manualSize === 3) {
+      manualStateEdgeSlots().forEach((slot, pieceIndex) => {
+        lines.push(`Edge ${pieceIndex + 1}: ${slot.map((i) => manualStateDraft[i] ?? "?").join("")}`);
+      });
+    }
+    return lines.join("\n");
+  };
+
   const manualStateCompleteDiagnostic = (): string | null => {
     const manualSize = size as ManualStateSize;
     if (manualStateDraft.some((face) => face === null)) return "Complete every sticker first.";
@@ -771,6 +821,45 @@ if (root) {
     });
   };
 
+  // A face-centre never has a chosen colour; it is fixed by emptyManualState
+  // and disabled on the flat net. Any of the other entry points below (the
+  // preview cubes, the keyboard shortcut) need the same guard since they are
+  // not disabled <button> elements.
+  const isManualStateCentre = (index: number): boolean => size === 3 && index % 9 === 4;
+
+  // Shared by the flat net, both preview cubes, and the keyboard shortcut:
+  // one place decides whether a sticker can take a colour and applies it.
+  const eraseManualStateSticker = (index: number) => {
+    if (isManualStateCentre(index)) return;
+    const manualSize = size as ManualStateSize;
+    manualStateDraft[index] = null;
+    manualStateExplicitIndices.delete(index);
+    manualStateAutoIndices.delete(index);
+    // Do not instantly refill an erased sticker: clearing is how a person
+    // corrects an already-complete draft. Forced-fill runs after a positive
+    // colour choice instead.
+    refreshManualStateAutoFill(manualSize, false);
+    renderManualStateEditor();
+  };
+
+  const paintManualStateSticker = (index: number, colour: ManualStateFace): boolean => {
+    if (isManualStateCentre(index)) return false;
+    const manualSize = size as ManualStateSize;
+    if (!allowedManualStateColours(manualSize, manualStateSourceDraft(manualSize), index).includes(colour)) {
+      manualStateStatusText.textContent = `${manualStateFaceName[colour]} cannot go there without making the cube impossible.`;
+      manualStateStatusPill.textContent = "Impossible";
+      manualStateStatus.classList.add("failure");
+      manualStateStatus.classList.remove("success");
+      return false;
+    }
+    manualStateDraft[index] = colour;
+    manualStateExplicitIndices.add(index);
+    manualStateAutoIndices.delete(index);
+    refreshManualStateAutoFill(manualSize, true);
+    renderManualStateEditor();
+    return true;
+  };
+
   const renderManualStateDots = (element: HTMLElement, choices: ManualStateFace[]) => {
     element.replaceChildren();
     manualStateFaces.forEach((choice) => {
@@ -781,53 +870,214 @@ if (root) {
     });
   };
 
-  const resolveManualStateDots = (
+  // The per-cubie check (locallyAllowedManualStateColours) paints every dot
+  // synchronously in the render loop below — it is cheap enough, and a
+  // spinner or staggered fill for something meant to look instant is worse
+  // than the two-tier check briefly disagreeing with itself. It never offers
+  // a colour that dead-ends its own corner or edge, but it can't see
+  // cross-cubie constraints — piece uniqueness, permutation parity — so it
+  // can still show a colour the click handler's full check (also unaffected,
+  // still run at actual click-acceptance time) would reject. This silently
+  // re-verifies each already-painted dot against that full check in the
+  // background, one per task so a blank 3×3's ~150 candidate calculations
+  // don't freeze the dialog, and corrects any dot the cheap check was too
+  // optimistic about before anyone clicks it.
+  const verifyManualStateDots = (
     manualSize: ManualStateSize,
     pending: Array<{index: number; element: HTMLElement}>,
   ) => {
     const generation = manualStateDotGeneration;
     const snapshot = [...manualStateDraft];
-    const resolveNext = (offset: number) => {
+    const verifyNext = (offset: number) => {
       if (generation !== manualStateDotGeneration || offset >= pending.length) return;
       const next = pending[offset];
-      // Run one exact feasibility calculation per task. A blank 3×3 has many
-      // possible choices, so resolving every sticker in one synchronous pass
-      // would freeze the dialog; this keeps painting and erasing immediate.
       window.setTimeout(() => {
         if (generation !== manualStateDotGeneration) return;
         renderManualStateDots(
           next.element,
           allowedManualStateColours(manualSize, snapshot, next.index),
         );
-        resolveNext(offset + 1);
+        verifyNext(offset + 1);
       }, 0);
     };
-    resolveNext(0);
+    verifyNext(0);
   };
 
-  const renderManualStateEditor = () => {
-    manualStateDotGeneration += 1;
-    const manualSize = size as ManualStateSize;
-    const total = manualStateStickerCount(manualSize);
-    const entered = manualStateEnteredCount(manualStateDraft);
-    const diagnostic = entered === total ? manualStateCompleteDiagnostic() : null;
-    manualStateLoad.disabled = entered !== total || diagnostic !== null;
-    manualStateStatus.textContent = diagnostic !== null
-      ? diagnostic
-      : entered === total
-      ? "Complete and physically valid — ready to load into Setup."
-      : manualSize === 2
-      ? `Entered ${entered} / ${total}. Every displayed dot can still make a real cube.`
-      : `Entered ${entered} / ${total}. Every dot is checked against the complete cube; options appear as they are verified.`;
-    manualStateStatus.classList.toggle("success", entered === total && diagnostic === null);
-    manualStateStatus.classList.toggle("failure", diagnostic !== null);
-    manualStatePalette.querySelectorAll<HTMLButtonElement>("[data-manual-state-colour]").forEach((button) => {
-      const face = button.dataset.manualStateColour as ManualStateFace;
-      button.setAttribute("aria-pressed", String(manualStateColour === face));
+  const manualStateSummaryRow = (label: string, value: string, pct: number, colour: string): HTMLElement => {
+    const row = document.createElement("div");
+    row.className = "manual-state-summary-row";
+    const labels = document.createElement("div");
+    labels.className = "manual-state-summary-labels";
+    const labelSpan = document.createElement("span");
+    labelSpan.textContent = label;
+    const valueSpan = document.createElement("span");
+    valueSpan.textContent = value;
+    labels.append(labelSpan, valueSpan);
+    const bar = document.createElement("div");
+    bar.className = "manual-state-summary-bar";
+    const fill = document.createElement("div");
+    fill.className = "manual-state-summary-bar-fill";
+    fill.style.width = `${pct}%`;
+    fill.style.background = colour;
+    bar.append(fill);
+    row.append(labels, bar);
+    return row;
+  };
+
+  // entered/total exclude the 6 fixed 3×3 centres — see the caller.
+  const renderManualStateSummary = (
+    manualSize: ManualStateSize,
+    entered: number,
+    total: number,
+    perColourPlaced: Record<ManualStateFace, number>,
+  ) => {
+    const cornerSlots = manualStateCornerSlots(manualSize);
+    const corners = cornerSlots.filter((slot) => slot.every((i) => manualStateDraft[i] !== null)).length;
+    const edgeSlots = manualSize === 3 ? manualStateEdgeSlots() : [];
+    const edges = edgeSlots.filter((slot) => slot.every((i) => manualStateDraft[i] !== null)).length;
+    manualStateSummary.replaceChildren(
+      manualStateSummaryRow("Entered", `${entered}/${total}`, (entered / total) * 100, "#63b3ff"),
+      manualStateSummaryRow("Corners", `${corners}/${cornerSlots.length}`, (corners / cornerSlots.length) * 100, "#f0c419"),
+    );
+    if (manualSize === 3) {
+      manualStateSummary.append(manualStateSummaryRow("Edges", `${edges}/12`, (edges / 12) * 100, "#f0c419"));
+    }
+    const divider = document.createElement("div");
+    divider.className = "manual-state-summary-divider";
+    const remainingRow = document.createElement("div");
+    remainingRow.className = "manual-state-summary-row";
+    const remainingLabels = document.createElement("div");
+    remainingLabels.className = "manual-state-summary-labels";
+    const remainingLabel = document.createElement("span");
+    remainingLabel.textContent = "Remaining";
+    const remainingValue = document.createElement("span");
+    remainingValue.textContent = `${total - entered} left`;
+    remainingLabels.append(remainingLabel, remainingValue);
+    const remainingBar = document.createElement("div");
+    remainingBar.className = "manual-state-summary-bar";
+    const remainingFill = document.createElement("div");
+    remainingFill.className = "manual-state-summary-remaining";
+    remainingFill.style.width = `${((total - entered) / total) * 100}%`;
+    manualStateFaces.forEach((face) => {
+      const left = manualSize * manualSize - perColourPlaced[face];
+      if (left <= 0) return;
+      const segment = document.createElement("span");
+      segment.style.flex = String(left);
+      segment.dataset.face = face;
+      remainingFill.append(segment);
     });
-    manualStateEraser.setAttribute("aria-pressed", String(manualStateColour === null));
+    remainingBar.append(remainingFill);
+    remainingRow.append(remainingLabels, remainingBar);
+    manualStateSummary.append(divider, remainingRow);
+  };
+
+  // A pure-CSS 3D cube, not WebGL: six absolutely-positioned faces rotated
+  // into place inside one preserve-3d container, each hidden by
+  // backface-visibility once it faces away. Two of these at complementary
+  // angles show every sticker between them, including the wrapped Back face
+  // the flat net can't show without folding it.
+  const MANUAL_STATE_PREVIEW_FACE_TRANSFORM: Record<ManualStateFace, string> = {
+    U: "rotateX(90deg)",
+    D: "rotateX(-90deg)",
+    F: "",
+    B: "rotateY(180deg)",
+    R: "rotateY(90deg)",
+    L: "rotateY(-90deg)",
+  };
+  const manualStatePreviewFaceOrder: ManualStateFace[] = ["U", "R", "F", "D", "L", "B"];
+
+  const buildManualStatePreviewCube = (
+    manualSize: ManualStateSize,
+    yaw: number,
+    pitch: number,
+    frontFaces: ManualStateFace[],
+    stickers: HTMLButtonElement[],
+  ): HTMLElement => {
+    const box = document.createElement("div");
+    box.className = "manual-state-preview";
+    const cube = document.createElement("div");
+    cube.className = "manual-state-preview-cube";
+    cube.style.transform = `rotateX(${pitch}deg) rotateY(${yaw}deg)`;
+    // Reads the same custom property .manual-state-preview sets its own
+    // width/height from (global.css), instead of a hardcoded pixel value
+    // that has to be kept in sync by hand — that mismatch used to misjoin
+    // the faces at the edges whenever either side changed alone.
+    const half = "calc(var(--manual-state-preview-edge) / 2)";
+    manualStatePreviewFaceOrder.forEach((face) => {
+      const faceIndex = manualStatePreviewFaceOrder.indexOf(face);
+      const faceEl = document.createElement("div");
+      faceEl.className = "manual-state-preview-face";
+      faceEl.style.gridTemplateColumns = `repeat(${manualSize}, 1fr)`;
+      faceEl.style.gridTemplateRows = `repeat(${manualSize}, 1fr)`;
+      faceEl.style.transform =
+        `${MANUAL_STATE_PREVIEW_FACE_TRANSFORM[face]} translateZ(${half})`.trim();
+      // backface-visibility hides a turned-away face visually, but does not
+      // stop it intercepting clicks and hovers meant for whatever is turned
+      // toward the viewer at the same screen position — CSS 3D hit-testing
+      // is not guaranteed to prefer the nearer face. Each preview's fixed
+      // angle only ever shows three faces at once, chosen so the two
+      // previews together cover all six; the other three are made
+      // non-interactive rather than trusted to lose every hit-test.
+      faceEl.style.pointerEvents = frontFaces.includes(face) ? "auto" : "none";
+      for (let localIndex = 0; localIndex < manualSize * manualSize; localIndex += 1) {
+        const index = faceIndex * manualSize * manualSize + localIndex;
+        const sticker = document.createElement("button");
+        sticker.type = "button";
+        sticker.className = "manual-state-preview-sticker";
+        sticker.dataset.manualStateIndex = String(index);
+        sticker.disabled = manualSize === 3 && localIndex === 4;
+        sticker.tabIndex = -1;
+        faceEl.append(sticker);
+        stickers[index] = sticker;
+      }
+      cube.append(faceEl);
+    });
+    box.append(cube);
+    return box;
+  };
+
+  // Complementary angles rather than mirrored ones, so the two previews
+  // between them show all six faces — the mockup's own reason for two
+  // rather than one. frontFaces was read off an actual screenshot at each
+  // angle, not derived analytically: (-34, -20) shows U/F/R cleanly, and
+  // (146, 20) shows B/L cleanly with only thin, unreliable slivers of D/R.
+  const manualStatePreviewAngles: Array<[number, number, ManualStateFace[]]> = [
+    [-34, -20, ["U", "F", "R"]],
+    [146, 20, ["D", "B", "L"]],
+  ];
+
+  const buildManualStatePreviews = (manualSize: ManualStateSize) => {
+    manualStatePreviewStickerElements.length = 0;
+    manualStatePreviews.replaceChildren(
+      ...manualStatePreviewAngles.map(([yaw, pitch, frontFaces]) => {
+        const stickers: HTMLButtonElement[] = [];
+        manualStatePreviewStickerElements.push(stickers);
+        return buildManualStatePreviewCube(manualSize, yaw, pitch, frontFaces, stickers);
+      }),
+    );
+  };
+
+  const updateManualStatePreviews = (manualSize: ManualStateSize, hoverMates: number[]) => {
+    manualStatePreviewStickerElements.forEach((stickers) => {
+      stickers.forEach((sticker, index) => {
+        const face = manualStatePreviewFaceOrder[Math.floor(index / (manualSize * manualSize))];
+        const localIndex = index % (manualSize * manualSize);
+        const value = manualStateDraft[index];
+        sticker.dataset.face = value ?? "unknown";
+        if (index === manualStateHoverIndex) sticker.dataset.pieceHover = "self";
+        else if (hoverMates.includes(index)) sticker.dataset.pieceHover = "mate";
+        else delete sticker.dataset.pieceHover;
+        sticker.setAttribute(
+          "aria-label",
+          `${manualStateFaceName[face]} sticker ${localIndex + 1}${value === null ? ", blank" : `, ${manualStateFaceName[value]}`}`,
+        );
+      });
+    });
+  };
+
+  const buildManualStateGrid = (manualSize: ManualStateSize) => {
     manualStateGrid.replaceChildren();
-    const pendingDots: Array<{index: number; element: HTMLElement}> = [];
+    manualStateStickerElements.length = 0;
     (["U", "L", "F", "R", "B", "D"] as ManualStateFace[]).forEach((face) => {
       const faceIndex = (["U", "R", "F", "D", "L", "B"] as ManualStateFace[]).indexOf(face);
       const group = document.createElement("section");
@@ -835,41 +1085,164 @@ if (root) {
       group.dataset.face = face;
       group.style.setProperty("--manual-state-size", String(manualSize));
       group.setAttribute("aria-label", `${manualStateFaceName[face]} face`);
-      const label = document.createElement("span");
-      label.className = "manual-state-face-label";
-      label.textContent = face;
-      group.append(label);
+      // No visual face-letter headline: the net's fixed U/L/F/R/B/D cross
+      // arrangement already says which cluster is which, and repeating it as
+      // a heading on every one of the six clusters was pure redundancy.
+      // aria-label above keeps that information for assistive tech.
       for (let localIndex = 0; localIndex < manualSize * manualSize; localIndex += 1) {
         const index = faceIndex * manualSize * manualSize + localIndex;
         const sticker = document.createElement("button");
         sticker.type = "button";
         sticker.className = "manual-state-sticker";
         sticker.dataset.manualStateIndex = String(index);
+        group.append(sticker);
+        manualStateStickerElements[index] = sticker;
+      }
+      manualStateGrid.append(group);
+    });
+  };
+
+  const renderManualStateEditor = () => {
+    manualStateDotGeneration += 1;
+    const manualSize = size as ManualStateSize;
+    const total = manualStateStickerCount(manualSize);
+    const entered = manualStateEnteredCount(manualStateDraft);
+    // The 6 centres are fixed and pre-filled from the start, never blank and
+    // never chosen by the user — counting them as "entered" makes a truly
+    // blank 3×3 draft misleadingly claim 6/54 done. Every count shown to the
+    // user excludes them; completion itself still checks the raw total,
+    // since a correct centre placement genuinely is part of a valid cube.
+    const centreCount = manualSize === 3 ? 6 : 0;
+    const displayTotal = total - centreCount;
+    const displayEntered = entered - centreCount;
+    const diagnostic = entered === total ? manualStateCompleteDiagnostic() : null;
+    manualStateLoad.disabled = entered !== total || diagnostic !== null;
+    manualStateCopy.disabled = manualStateLoad.disabled;
+    manualStateCopyToggle.disabled = manualStateLoad.disabled;
+    if (manualStateLoad.disabled) {
+      manualStateCopyMenu.hidden = true;
+      manualStateCopyToggle.setAttribute("aria-expanded", "false");
+    }
+    const complete = entered === total && diagnostic === null;
+    manualStateStatusText.textContent = diagnostic !== null
+      ? diagnostic
+      : entered === total
+      ? "Complete and physically valid — ready to load into Setup."
+      : manualSize === 2
+      ? `Entered ${displayEntered} / ${displayTotal}. Every displayed dot can still make a real cube.`
+      : `Entered ${displayEntered} / ${displayTotal}. Every dot is checked against the complete cube; options appear as they are verified.`;
+    manualStateStatusPill.textContent = diagnostic !== null ? "Impossible" : complete ? "Complete" : "Possible";
+    manualStateStatus.classList.toggle("success", complete);
+    manualStateStatus.classList.toggle("failure", diagnostic !== null);
+    const perColourPlaced: Record<ManualStateFace, number> = {U: 0, D: 0, R: 0, L: 0, F: 0, B: 0};
+    manualStateDraft.forEach((value) => {
+      if (value !== null) perColourPlaced[value] += 1;
+    });
+    manualStatePalette.querySelectorAll<HTMLButtonElement>("[data-manual-state-colour]").forEach((button) => {
+      const face = button.dataset.manualStateColour as ManualStateFace;
+      button.setAttribute("aria-pressed", String(manualStateColour === face));
+      const left = button.querySelector<HTMLElement>("[data-manual-state-colour-left]");
+      if (left) left.textContent = `${manualSize * manualSize - perColourPlaced[face]} left`;
+    });
+    manualStateEraser.setAttribute("aria-pressed", String(manualStateColour === null));
+    renderManualStateSummary(manualSize, displayEntered, displayTotal, perColourPlaced);
+    if (manualStateBuiltSize !== manualSize) {
+      buildManualStateGrid(manualSize);
+      buildManualStatePreviews(manualSize);
+      manualStateBuiltSize = manualSize;
+    }
+    const pendingDots: Array<{index: number; element: HTMLElement}> = [];
+    const hoverMates = manualStateHoverIndex === null
+      ? []
+      : manualStatePieceMates(manualSize, manualStateHoverIndex);
+    updateManualStatePreviews(manualSize, hoverMates);
+    (["U", "L", "F", "R", "B", "D"] as ManualStateFace[]).forEach((face) => {
+      const faceIndex = (["U", "R", "F", "D", "L", "B"] as ManualStateFace[]).indexOf(face);
+      for (let localIndex = 0; localIndex < manualSize * manualSize; localIndex += 1) {
+        const index = faceIndex * manualSize * manualSize + localIndex;
+        const sticker = manualStateStickerElements[index];
         const value = manualStateDraft[index];
         sticker.dataset.face = value ?? "unknown";
         sticker.dataset.auto = String(manualStateAutoIndices.has(index));
+        if (index === manualStateHoverIndex) sticker.dataset.pieceHover = "self";
+        else if (hoverMates.includes(index)) sticker.dataset.pieceHover = "mate";
+        else delete sticker.dataset.pieceHover;
         const centre = manualSize === 3 && localIndex === 4;
         sticker.disabled = centre;
         sticker.setAttribute("aria-label", `${manualStateFaceName[face]} sticker ${localIndex + 1}${centre ? ", fixed centre" : value === null ? ", blank" : `, ${manualStateFaceName[value]}${manualStateAutoIndices.has(index) ? ", filled automatically" : ""}`}`);
         if (value !== null) {
           sticker.textContent = value;
         } else {
-          const dots = document.createElement("span");
-          dots.className = "manual-state-dots";
+          let dots = sticker.querySelector<HTMLElement>(".manual-state-dots");
+          if (!dots) {
+            // Only reached right after a fill was erased: textContent above
+            // wipes a sticker's children along with its text, so the dots
+            // span needs remaking exactly once per such transition, not on
+            // every render.
+            sticker.textContent = "";
+            dots = document.createElement("span");
+            dots.className = "manual-state-dots";
+            sticker.append(dots);
+          }
           if (manualSize === 2) {
             renderManualStateDots(dots, allowedManualStateColours(manualSize, manualStateDraft, index));
           } else {
-            dots.classList.add("pending");
+            renderManualStateDots(dots, locallyAllowedManualStateColours(manualSize, manualStateDraft, index));
             pendingDots.push({index, element: dots});
           }
-          sticker.append(dots);
         }
-        group.append(sticker);
       }
-      manualStateGrid.append(group);
     });
-    if (manualSize === 3) resolveManualStateDots(manualSize, pendingDots);
+    if (manualSize === 3) verifyManualStateDots(manualSize, pendingDots);
   };
+
+  // Hover only re-rings the affected stickers rather than calling
+  // renderManualStateEditor(), which would rebuild the whole grid and restart
+  // the (already carefully bounded) async dot-resolution pass on every mouse
+  // movement.
+  const updateManualStatePieceHighlight = () => {
+    const manualSize = size as ManualStateSize;
+    [manualStateGrid, manualStatePreviews].forEach((root) => {
+      root.querySelectorAll<HTMLElement>("[data-piece-hover]").forEach((el) => {
+        delete el.dataset.pieceHover;
+      });
+    });
+    if (manualStateHoverIndex === null) return;
+    const mates = manualStatePieceMates(manualSize, manualStateHoverIndex);
+    // querySelectorAll, not querySelector: manualStatePreviews holds two
+    // preview cubes, each with its own copy of every index, so a single
+    // "first match" would silently miss the second cube's sticker.
+    [manualStateGrid, manualStatePreviews].forEach((root) => {
+      root.querySelectorAll<HTMLElement>(`[data-manual-state-index="${manualStateHoverIndex}"]`).forEach((self) => {
+        self.dataset.pieceHover = "self";
+      });
+      mates.forEach((mate) => {
+        root.querySelectorAll<HTMLElement>(`[data-manual-state-index="${mate}"]`).forEach((mateEl) => {
+          mateEl.dataset.pieceHover = "mate";
+        });
+      });
+    });
+  };
+  // The flat net and both preview cubes share one hover-highlight source of
+  // truth (manualStateHoverIndex), wired identically on each root.
+  const wireManualStateHover = (hoverRoot: HTMLElement) => {
+    hoverRoot.addEventListener("mouseover", (event) => {
+      const sticker = (event.target as Element).closest<HTMLButtonElement>("[data-manual-state-index]");
+      if (!sticker) return;
+      const index = Number(sticker.dataset.manualStateIndex);
+      if (manualStateHoverIndex === index) return;
+      manualStateHoverIndex = index;
+      updateManualStatePieceHighlight();
+    });
+    hoverRoot.addEventListener("mouseout", (event) => {
+      const related = (event as MouseEvent).relatedTarget as Element | null;
+      if (related && hoverRoot.contains(related) && related.closest("[data-manual-state-index]")) return;
+      manualStateHoverIndex = null;
+      updateManualStatePieceHighlight();
+    });
+  };
+  wireManualStateHover(manualStateGrid);
+  wireManualStateHover(manualStatePreviews);
 
   const openManualStateEditor = () => {
     if (size !== 2 && size !== 3) return;
@@ -883,6 +1256,7 @@ if (root) {
       if (colour !== null) manualStateExplicitIndices.add(index);
     });
     manualStateAutoIndices.clear();
+    manualStateHoverIndex = null;
     manualStateTitle.textContent = `Enter ${manualSize}×${manualSize}×${manualSize} state`;
     manualStateColour = "U";
     renderManualStateEditor();
@@ -1018,13 +1392,12 @@ if (root) {
     // otherwise position zero renders solved instead of the Setup the user
     // explicitly supplied.
     if (movesInput.value.trim() === "") {
-      return {
-        TAG: "Ok",
-        _0: {
-          state: setup._0.state,
-          label: setup._0.label,
-        },
-      };
+      // Pass setup through whole: when Setup itself resolves to an algorithm,
+      // parseState already built its timeline/timelineKey, and dropping them
+      // here (as opposed to only picking state/label) would silently turn
+      // every Setup-only algorithm into a static single-state view with no
+      // playback tape and no compatibility assessment.
+      return setup;
     }
     const moves = parseMovesEditor(movesInput.value);
     if (moves.TAG === "Error") return {TAG: "Error", _0: moves._0};
@@ -1091,6 +1464,8 @@ if (root) {
       : "Manual state entry currently supports 2×2×2 and 3×3×3.";
     nissPanel.hidden = size !== 3 || activeTab !== "workbench";
     hamiltonPanel.hidden = activeTab !== "workbench";
+    optimal2x2Row.hidden = size !== 2;
+    optimal2x2Solve.disabled = size !== 2;
     twoPhaseSolve.disabled = size !== 3;
     twoPhaseTarget.disabled = size !== 3;
     if (size !== 3 && !twoPhaseSolveBusy) {
@@ -1480,8 +1855,6 @@ if (root) {
     token: HTMLElement,
     step: MoveStep,
     label: string,
-    optimal2x2Row.hidden = size !== 2;
-    optimal2x2Solve.disabled = size !== 2;
     moveIndex: number,
   ) => {
     if (!timelineHoverEnabled(playbackDirection)) return;
@@ -3533,6 +3906,7 @@ if (root) {
       academyRequestGuard.invalidate();
       academySolveBusy = false;
       resetTwoPhaseRefinement();
+      resetOptimal2x2Solution();
     }
     settingsSize.value = String(state.size);
     settingsScheme.value = state.scheme;
@@ -3922,7 +4296,6 @@ if (root) {
 
   shortenDismiss.addEventListener("click", () => {
     shortenResult.hidden = true;
-      resetOptimal2x2Solution();
     pendingShortenedAlg = null;
   });
 
@@ -3947,6 +4320,70 @@ if (root) {
     commitTransformedAlgorithm(scramble._0);
     loadVirtualControllerState(evaluated._0.finalState, "Virtual controller · practice scramble");
     smartCubeStatus.textContent = `${smartCubeDeviceName} · Virtual practice scramble loaded.`;
+  });
+
+  optimal2x2Solve.addEventListener("click", async () => {
+    if (size !== 2) return;
+    if (optimal2x2SolveBusy) {
+      optimal2x2Request += 1;
+      optimal2x2SolverClient.terminate();
+      optimal2x2SolverClient = newOptimal2x2SolverClient();
+      optimal2x2SolveBusy = false;
+      optimal2x2Solve.textContent = "Find optimal solution";
+      optimal2x2Result.textContent = "Optimal 2×2 search stopped immediately.";
+      optimal2x2Result.classList.remove("success", "failure");
+      return;
+    }
+    const setup = parseState(input.value);
+    if (setup.TAG === "Error") {
+      optimal2x2Result.textContent = describeError(setup._0);
+      optimal2x2Result.classList.add("failure");
+      return;
+    }
+    const sourceKey = `${input.value}\u0000${schemeSelect.value}\u0000${customScheme.value}`;
+    const request = ++optimal2x2Request;
+    optimal2x2SourceKey = sourceKey;
+    optimal2x2Algorithm = "";
+    optimal2x2Apply.disabled = true;
+    optimal2x2SolveBusy = true;
+    optimal2x2Solve.textContent = "Cancel search";
+    optimal2x2Result.textContent = "Preparing optimal 2×2 solver…";
+    optimal2x2Result.classList.remove("success", "failure");
+    try {
+      const solution = await optimal2x2SolverClient.solve(setup._0.state);
+      if (request !== optimal2x2Request || sourceKey !== optimal2x2SourceKey) return;
+      const replay = MoveExecutor.applyAlg(setup._0.state, solution.alg) as Result<CubeState, unknown>;
+      const solved = StateTypes.solved(2) as Result<CubeState, unknown>;
+      if (replay.TAG !== "Ok" || solved.TAG !== "Ok" || FaceletCodec.render(replay._0) !== FaceletCodec.render(solved._0)) {
+        throw new Error("The optimal 2×2 solution did not replay to solved.");
+      }
+      optimal2x2Algorithm = MoveTransform.serialize(solution.alg) as string;
+      optimal2x2Apply.disabled = optimal2x2Algorithm === "";
+      optimal2x2Result.textContent = `${solution.moveCount} HTM optimal · ${optimal2x2Algorithm || "Solved"}`;
+      optimal2x2Result.classList.add("success");
+    } catch (reason) {
+      if (request !== optimal2x2Request) return;
+      const message = reason instanceof Error ? reason.message : "The optimal 2×2 solver failed.";
+      optimal2x2Result.textContent = message;
+      optimal2x2Result.classList.add("failure");
+    } finally {
+      if (request !== optimal2x2Request) return;
+      optimal2x2SolveBusy = false;
+      optimal2x2Solve.textContent = "Find optimal solution";
+      optimal2x2Solve.disabled = size !== 2;
+    }
+  });
+
+  optimal2x2Apply.addEventListener("click", () => {
+    if (optimal2x2Algorithm === "") return;
+    const sourceKey = `${input.value}\u0000${schemeSelect.value}\u0000${customScheme.value}`;
+    if (sourceKey !== optimal2x2SourceKey) {
+      optimal2x2Result.textContent = "Setup changed; generate a new optimal solution.";
+      optimal2x2Result.classList.add("failure");
+      optimal2x2Apply.disabled = true;
+      return;
+    }
+    store.patch({moves: [movesInput.value.trim(), optimal2x2Algorithm].filter(Boolean).join(" ")});
   });
 
   twoPhaseSolve.addEventListener("click", async () => {
@@ -4338,69 +4775,6 @@ if (root) {
         ? 60
         : academy.method === "advancedCfop"
           ? 55
-  optimal2x2Solve.addEventListener("click", async () => {
-    if (size !== 2) return;
-    if (optimal2x2SolveBusy) {
-      optimal2x2Request += 1;
-      optimal2x2SolverClient.terminate();
-      optimal2x2SolverClient = newOptimal2x2SolverClient();
-      optimal2x2SolveBusy = false;
-      optimal2x2Solve.textContent = "Find optimal solution";
-      optimal2x2Result.textContent = "Optimal 2×2 search stopped immediately.";
-      optimal2x2Result.classList.remove("success", "failure");
-      return;
-    }
-    const setup = parseState(input.value);
-    if (setup.TAG === "Error") {
-      optimal2x2Result.textContent = describeError(setup._0);
-      optimal2x2Result.classList.add("failure");
-      return;
-    }
-    const sourceKey = `${input.value}\u0000${schemeSelect.value}\u0000${customScheme.value}`;
-    const request = ++optimal2x2Request;
-    optimal2x2SourceKey = sourceKey;
-    optimal2x2Algorithm = "";
-    optimal2x2Apply.disabled = true;
-    optimal2x2SolveBusy = true;
-    optimal2x2Solve.textContent = "Cancel search";
-    optimal2x2Result.textContent = "Preparing optimal 2×2 solver…";
-    optimal2x2Result.classList.remove("success", "failure");
-    try {
-      const solution = await optimal2x2SolverClient.solve(setup._0.state);
-      if (request !== optimal2x2Request || sourceKey !== optimal2x2SourceKey) return;
-      const replay = MoveExecutor.applyAlg(setup._0.state, solution.alg) as Result<CubeState, unknown>;
-      const solved = StateTypes.solved(2) as Result<CubeState, unknown>;
-      if (replay.TAG !== "Ok" || solved.TAG !== "Ok" || FaceletCodec.render(replay._0) !== FaceletCodec.render(solved._0)) {
-        throw new Error("The optimal 2×2 solution did not replay to solved.");
-      }
-      optimal2x2Algorithm = MoveTransform.serialize(solution.alg) as string;
-      optimal2x2Apply.disabled = optimal2x2Algorithm === "";
-      optimal2x2Result.textContent = `${solution.moveCount} HTM optimal · ${optimal2x2Algorithm || "Solved"}`;
-      optimal2x2Result.classList.add("success");
-    } catch (reason) {
-      if (request !== optimal2x2Request) return;
-      const message = reason instanceof Error ? reason.message : "The optimal 2×2 solver failed.";
-      optimal2x2Result.textContent = message;
-      optimal2x2Result.classList.add("failure");
-    } finally {
-      if (request !== optimal2x2Request) return;
-      optimal2x2SolveBusy = false;
-      optimal2x2Solve.textContent = "Find optimal solution";
-      optimal2x2Solve.disabled = size !== 2;
-    }
-  });
-
-  optimal2x2Apply.addEventListener("click", () => {
-    if (optimal2x2Algorithm === "") return;
-    const sourceKey = `${input.value}\u0000${schemeSelect.value}\u0000${customScheme.value}`;
-    if (sourceKey !== optimal2x2SourceKey) {
-      optimal2x2Result.textContent = "Setup changed; generate a new optimal solution.";
-      optimal2x2Result.classList.add("failure");
-      optimal2x2Apply.disabled = true;
-      return;
-    }
-    store.patch({moves: [movesInput.value.trim(), optimal2x2Algorithm].filter(Boolean).join(" ")});
-  });
           : null;
     const benchmark = benchmarkTarget === null
       ? ""
@@ -4872,37 +5246,57 @@ if (root) {
     manualStateColour = null;
     renderManualStateEditor();
   });
-  manualStateGrid.addEventListener("click", (event) => {
-    const sticker = (event.target as Element).closest<HTMLButtonElement>("[data-manual-state-index]");
-    if (!sticker) return;
+  const manualStateStickerAt = (event: Event): number | null => {
+    const sticker = (event.target as Element).closest<HTMLElement>("[data-manual-state-index]");
+    if (!sticker) return null;
     const index = Number(sticker.dataset.manualStateIndex);
-    if (!Number.isInteger(index)) return;
-    const manualSize = size as ManualStateSize;
-    if (manualStateColour === null) {
-      manualStateDraft[index] = null;
-      manualStateExplicitIndices.delete(index);
-      manualStateAutoIndices.delete(index);
-      // Do not instantly refill an erased sticker: clearing is how a person
-      // corrects an already-complete draft. Forced-fill runs after a positive
-      // colour choice instead.
-      refreshManualStateAutoFill(manualSize, false);
-      renderManualStateEditor();
-      return;
-    } else if (allowedManualStateColours(
-      manualSize,
-      manualStateSourceDraft(manualSize),
-      index,
-    ).includes(manualStateColour)) {
-      manualStateDraft[index] = manualStateColour;
-      manualStateExplicitIndices.add(index);
-      manualStateAutoIndices.delete(index);
-    } else {
-      manualStateStatus.textContent = `${manualStateFaceName[manualStateColour]} cannot go there without making the cube impossible.`;
-      manualStateStatus.classList.add("failure");
-      return;
-    }
-    refreshManualStateAutoFill(manualSize, true);
-    renderManualStateEditor();
+    return Number.isInteger(index) ? index : null;
+  };
+  // Wired identically on the flat net and both preview cubes: whichever one
+  // the pointer is on paints, erases, or drags the same draft.
+  let manualStateDragErase: boolean | null = null;
+  const wireManualStatePainting = (paintRoot: HTMLElement) => {
+    paintRoot.addEventListener("click", (event) => {
+      const index = manualStateStickerAt(event);
+      if (index === null) return;
+      if (manualStateColour === null) eraseManualStateSticker(index);
+      else paintManualStateSticker(index, manualStateColour);
+    });
+    // Right-click erases regardless of which tool is selected — a quick undo
+    // that does not require switching to the Eraser first and back after.
+    paintRoot.addEventListener("contextmenu", (event) => {
+      const index = manualStateStickerAt(event);
+      if (index === null) return;
+      event.preventDefault();
+      eraseManualStateSticker(index);
+    });
+    // Drag paints (or erases) a run of stickers without a click per tile.
+    // mousedown only arms which mode the drag is in — right button, or
+    // Eraser selected, means erase — the origin cell itself is still painted
+    // by the ordinary click handler above so a plain click keeps working.
+    paintRoot.addEventListener("mousedown", (event) => {
+      if (manualStateStickerAt(event) === null) return;
+      manualStateDragErase = (event as MouseEvent).button === 2 || manualStateColour === null;
+    });
+    paintRoot.addEventListener("mousemove", (event) => {
+      if (manualStateDragErase === null || (event as MouseEvent).buttons === 0) return;
+      const index = manualStateStickerAt(event);
+      if (index === null) return;
+      if (manualStateDragErase) eraseManualStateSticker(index);
+      else if (manualStateColour !== null) paintManualStateSticker(index, manualStateColour);
+    });
+  };
+  // The flat net only: a foreshortened corner sticker on the small preview
+  // cubes can project to a bounding box a few pixels wide, and at that
+  // scale document.elementFromPoint genuinely — verifiably, not a
+  // Playwright artifact — resolves to whichever adjacent face's sticker is
+  // nearer at that exact pixel. Painting has to be exact or it silently
+  // corrupts the draft, so the previews stay hover-reactive (wireManualStateHover,
+  // cosmetic, tolerant of an occasional wrong sticker ringed) without also
+  // being a paint surface.
+  wireManualStatePainting(manualStateGrid);
+  window.addEventListener("mouseup", () => {
+    manualStateDragErase = null;
   });
   manualStateReset.addEventListener("click", () => {
     manualStateDraft = emptyManualState(size as ManualStateSize);
@@ -4920,13 +5314,57 @@ if (root) {
   manualStateLoad.addEventListener("click", () => {
     const diagnostic = manualStateCompleteDiagnostic();
     if (diagnostic !== null) {
-      manualStateStatus.textContent = diagnostic;
+      manualStateStatusText.textContent = diagnostic;
+      manualStateStatusPill.textContent = "Impossible";
       manualStateStatus.classList.add("failure");
+      manualStateStatus.classList.remove("success");
       return;
     }
     store.patch({input: manualStateDraft.join("")});
     manualStateDialog.close();
     input.focus();
+  });
+  const copyManualStateText = async (text: string, button: HTMLButtonElement) => {
+    const originalText = button.textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+      button.textContent = "Copied!";
+    } catch {
+      button.textContent = "Copy failed";
+    }
+    window.setTimeout(() => {
+      button.textContent = originalText;
+    }, 1500);
+  };
+  manualStateCopy.addEventListener("click", () => {
+    void copyManualStateText(manualStateCompactFacelets(), manualStateCopy);
+  });
+  manualStateCopyToggle.addEventListener("click", () => {
+    const open = manualStateCopyMenu.hidden;
+    manualStateCopyMenu.hidden = !open;
+    manualStateCopyToggle.setAttribute("aria-expanded", String(open));
+  });
+  manualStateCopyMenu.addEventListener("click", (event) => {
+    const button = (event.target as Element).closest<HTMLButtonElement>("[data-manual-state-copy-format]");
+    if (!button) return;
+    const manualSize = size as ManualStateSize;
+    const text = button.dataset.manualStateCopyFormat === "spaced"
+      ? manualStateSpacedFacelets(manualSize)
+      : button.dataset.manualStateCopyFormat === "singmaster"
+      ? manualStateSingmasterList(manualSize)
+      : button.dataset.manualStateCopyFormat === "json"
+      ? manualStateJsonFacelets(manualSize)
+      : manualStateCompactFacelets();
+    manualStateCopyMenu.hidden = true;
+    manualStateCopyToggle.setAttribute("aria-expanded", "false");
+    void copyManualStateText(text, manualStateCopyToggle);
+  });
+  document.addEventListener("click", (event) => {
+    if (manualStateCopyMenu.hidden) return;
+    const target = event.target as Element;
+    if (manualStateCopyMenu.contains(target) || manualStateCopyToggle.contains(target)) return;
+    manualStateCopyMenu.hidden = true;
+    manualStateCopyToggle.setAttribute("aria-expanded", "false");
   });
   autoOrbitButton.addEventListener("click", () => {
     if (smartCubeOrientationTracking) return;

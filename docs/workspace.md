@@ -63,7 +63,7 @@ remains a random-turn practice sequence and is not labeled as an official WCA sc
 ## Setup and moves
 
 The editor separates **Setup (state)** from optional **Moves**. Setup accepts compact
-facelets, compact colours, canonical nets, cubie coordinates, 3×3 Orbit64, SSE 3×3
+facelets, compact colours, canonical nets, cubie coordinates, 3×3 Orbit64, SSE corner-cycle
 cubie-state cycles, or an algorithm.
 Moves are parsed with the selected notation dialect and replayed from whatever Setup
 resolves to. This includes Setup algorithms: CubeLab first evaluates the Setup algorithm to
@@ -93,6 +93,19 @@ whenever an edit makes more than one colour possible. **Clear**
 intentionally leaves stickers blank so a completed draft can be corrected. CubeLab does
 not alter Setup or the viewport until **Load state into Setup** is enabled by a complete,
 physically valid position.
+
+Beside the flat net, two small CSS-rendered 3D cubes preview the draft from complementary
+angles (together showing all six faces) so the editor also reads as an actual cube rather
+than only an unfolded one. They are hover-reactive — pointing at either one rings that
+sticker and its other same-piece stickers everywhere they appear, including the flat net —
+but are not a paint surface: at their small rendered size a foreshortened corner sticker's
+hit-test can resolve to a neighbouring sticker, so clicks and drags only ever land on the
+flat net. A live summary card tracks Entered/Corner/Edge progress and a colour-by-colour
+remaining bar; each palette swatch also shows its own remaining count. A shortcuts panel
+lists the available keyboard and mouse interactions (colour keys, Eraser, right-click erase,
+click-drag paint). **Copy facelets** and its **Copy to…** menu place the current draft on
+the clipboard as compact facelets, spaced facelets, a Singmaster-style per-piece list, or
+JSON, once the draft is complete; both are disabled until then.
 
 **Sync state** from a connected smart cube writes its physical facelet state into Setup. It
 does not change the optional Moves field, allowing a user to inspect or replay a sequence

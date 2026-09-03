@@ -1496,3 +1496,128 @@ test("mirrors auto-orbit and playback speed between Settings and the viewport, a
   await expect(page.locator("[data-settings-tnoodle-url]")).toHaveValue("http://localhost:9999");
   await expect(page.locator("[data-settings-inspection-seconds]")).toHaveValue("12");
 });
+
+test("resolves a blank 3x3 hand-entry grid quickly, without a lingering spinner or a shifted dot grid", async ({page}) => {
+  await page.goto("/");
+  await page.locator("[data-manual-state-open]").click();
+  const dialog = page.locator("[data-manual-state-dialog]");
+  await expect(dialog).toBeVisible();
+
+  // A blank 3x3 has ~48 non-centre stickers each resolving one at a time;
+  // this used to take a very long time because dot resolution ran the full
+  // corner+edge feasibility search for every candidate colour of every
+  // sticker instead of the cheap per-cubie check. Give it a generous but
+  // bounded budget so a real regression still fails the test.
+  await expect(dialog.locator(".manual-state-dots.pending")).toHaveCount(0, {timeout: 5000});
+
+  // The stale "pending" class used to survive resolution, leaving its ::before
+  // spinner as an extra grid item ahead of the six real dots and shifting
+  // every dot one cell off its fixed U/D, R/L, F/B slot.
+  const firstDots = dialog.locator(".manual-state-dots").first();
+  await expect(firstDots).not.toHaveClass(/pending/);
+  await expect(firstDots.locator("i")).toHaveCount(6);
+  await expect(firstDots.locator('i[data-face="U"]')).toHaveCount(1);
+  await expect(firstDots.locator('i[data-face="B"]')).toHaveCount(1);
+});
+
+test("shows counted colour pads, a live summary card, and rings a hovered sticker's piece-mates", async ({page}) => {
+  await page.goto("/");
+  await page.locator("[data-manual-state-open]").click();
+  const dialog = page.locator("[data-manual-state-dialog]");
+  await expect(dialog).toBeVisible();
+  const net = dialog.locator("[data-manual-state-grid]");
+
+  const summaryRows = dialog.locator("[data-manual-state-summary] .manual-state-summary-row");
+  await expect(summaryRows).toHaveCount(4); // Entered, Corners, Edges, Remaining
+  const paletteLeft = dialog.locator(".manual-state-colour-left");
+  await expect(paletteLeft.first()).toHaveText("8 left"); // 9 stickers/face minus the fixed centre
+
+  // Index 8 is UFR's U sticker; its corner slot is [8, 9, 20].
+  await net.locator('[data-manual-state-index="8"]').click();
+  await expect(paletteLeft.first()).toHaveText("7 left");
+
+  await net.locator('[data-manual-state-index="9"]').hover();
+  // The flat net and both preview cubes each carry their own copy of every
+  // index, so a hovered piece rings across all three roots at once.
+  const selfRings = dialog.locator('[data-piece-hover="self"]');
+  await expect(selfRings).toHaveCount(3);
+  for (const el of await selfRings.all()) await expect(el).toHaveAttribute("data-manual-state-index", "9");
+  const mateRings = dialog.locator('[data-piece-hover="mate"]');
+  await expect(mateRings).toHaveCount(6);
+  const mateIndices = await mateRings.evaluateAll((els) => els.map((e) => e.getAttribute("data-manual-state-index")).sort());
+  expect(mateIndices).toEqual(["20", "20", "20", "8", "8", "8"]);
+
+  // [data-manual-state-grid] is display:contents (its face groups are
+  // promoted into .manual-state-net's own grid), so it has no box of its
+  // own to hover a position within — hover the real container instead, at
+  // one of the net's intentionally-empty corner cells.
+  await dialog.locator(".manual-state-net").hover({position: {x: 4, y: 4}});
+  await expect(dialog.locator("[data-piece-hover]")).toHaveCount(0);
+});
+
+test("shows two CSS-3D preview cubes and a shortcuts reference beside the net", async ({page}) => {
+  await page.goto("/");
+  await page.locator("[data-manual-state-open]").click();
+  const dialog = page.locator("[data-manual-state-dialog]");
+  await expect(dialog).toBeVisible();
+
+  const previews = dialog.locator(".manual-state-preview");
+  await expect(previews).toHaveCount(2);
+  // Not a paint surface: a foreshortened corner sticker on a cube this small
+  // can project to a few-pixel-wide box, and document.elementFromPoint
+  // there genuinely — verified directly, not a test artifact — resolves to
+  // whichever adjacent face's sticker is nearer at that exact pixel.
+  // Painting stays exact on the flat net; the previews stay decorative and
+  // hover-reactive only, which the piece-mates test above already covers.
+  await expect(previews.first().locator(".manual-state-preview-sticker")).toHaveCount(54);
+  await expect(dialog.locator('.manual-state-preview-sticker[data-face="unknown"]').first()).toBeAttached();
+
+  const shortcuts = dialog.locator(".manual-state-shortcuts");
+  await expect(shortcuts).toBeVisible();
+  await expect(shortcuts).toContainText("set colour");
+  await expect(shortcuts).toContainText("paint run");
+  await expect(shortcuts).toContainText("erase");
+});
+
+test("copies the hand-entered state in the chosen format, only once it is complete", async ({page, context}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+  await page.locator("[data-manual-state-open]").click();
+  const dialog = page.locator("[data-manual-state-dialog]");
+  const copy = dialog.locator("[data-manual-state-copy]");
+  const toggle = dialog.locator("[data-manual-state-copy-toggle]");
+
+  await expect(copy).toBeDisabled();
+  await expect(toggle).toBeDisabled();
+
+  await dialog.locator("[data-manual-state-solved]").click();
+  await expect(copy).toBeEnabled();
+  await expect(toggle).toBeEnabled();
+
+  await copy.click();
+  await expect(copy).toHaveText("Copied!");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB",
+  );
+  await expect(copy).toHaveText("Copy facelets", {timeout: 3000});
+
+  await toggle.click();
+  await expect(dialog.locator("[data-manual-state-copy-menu]")).toBeVisible();
+  await dialog.locator('[data-manual-state-copy-format="spaced"]').click();
+  await expect(dialog.locator("[data-manual-state-copy-menu]")).toBeHidden();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    "UUUUUUUUU RRRRRRRRR FFFFFFFFF DDDDDDDDD LLLLLLLLL BBBBBBBBB",
+  );
+
+  await toggle.click();
+  await dialog.locator('[data-manual-state-copy-format="json"]').click();
+  const json = await page.evaluate(() => navigator.clipboard.readText());
+  expect(JSON.parse(json).U).toEqual(Array(9).fill("U"));
+
+  await toggle.click();
+  await dialog.locator('[data-manual-state-copy-format="singmaster"]').click();
+  const singmaster = await page.evaluate(() => navigator.clipboard.readText());
+  expect(singmaster).toContain("Corner 1: URF"); // pieces list their own solved-state stickers
+  expect(singmaster.match(/^Corner/gm)).toHaveLength(8);
+  expect(singmaster.match(/^Edge/gm)).toHaveLength(12);
+});
