@@ -12,7 +12,9 @@ The phase-one `slice × twist` and `slice × flip` tables, and the phase-two
 `corner permutation × slice permutation` and `edge permutation × slice
 permutation` tables, are cached for the worker lifetime. Breadth-first builds
 use a compact `Uint32Array` work queue rather than a boxed JavaScript array,
-which avoids heap fragmentation and keeps initial construction fast.
+which avoids heap fragmentation and keeps initial construction fast. The search
+hot path also uses flat `Uint16Array` phase-one transition tables rather than
+boxed coordinate rows.
 
 Second-phase transition tables are flat `Uint16Array` instances. For a
 coordinate `c` and phase-two move-table column `m`, the entry is at
@@ -25,7 +27,10 @@ permutation, composing it with one of ten static move permutations, and
 re-encoding it. This deliberately avoids reconstructing facelets and reducing
 pieces for every table cell.
 
-`solve` runs iterative-deepening A* in two stages. Phase one uses the maximum
+`solve` runs iterative-deepening A* in two stages. It applies a conservative
+symmetry-breaking normal form to consecutive opposite faces: because `U/D`,
+`R/L`, and `F/B` commute, it retains one canonical order for each pair while
+discarding the equivalent reversed branch. Phase one uses the maximum
 of its slice×twist and slice×flip distances; phase two uses the maximum of its
 corner×slice and edge×slice distances. Both bounds are admissible. Every
 successful solver result is replay-verified against the solved facelets at the

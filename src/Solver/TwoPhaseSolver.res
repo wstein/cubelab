@@ -12,6 +12,7 @@ type phase2MovePermutations = {
 }
 type pruningTable
 type phase2MoveTable
+type phase1MoveTable
 type pruningQueue
 
 @new external createUint8Array: int => pruningTable = "Uint8Array"
@@ -20,6 +21,9 @@ type pruningQueue
 @new external createUint16Array: int => phase2MoveTable = "Uint16Array"
 @get_index external getPhase2Move: (phase2MoveTable, int) => int = ""
 @set_index external setPhase2Move: (phase2MoveTable, int, int) => unit = ""
+@new external createPhase1MoveTable: int => phase1MoveTable = "Uint16Array"
+@get_index external getPhase1Move: (phase1MoveTable, int) => int = ""
+@set_index external setPhase1Move: (phase1MoveTable, int, int) => unit = ""
 @new external createUint32Array: int => pruningQueue = "Uint32Array"
 @get_index external getPruningQueueIndex: (pruningQueue, int) => int = ""
 @set_index external setPruningQueueIndex: (pruningQueue, int, int) => unit = ""
@@ -66,6 +70,7 @@ let phase1MoveIndices = () => {
 let phase2MoveIndices = () => [0, 1, 2, 3, 4, 5, 7, 10, 13, 16]
 let phase2MoveCount = 10
 let phase2MoveTableIndex = (coordinate, move) => coordinate * phase2MoveCount + move
+let phase1MoveTableIndex = (coordinate, move) => coordinate * 18 + move
 
 let twistMoveTableCache: ref<option<array<array<int>>>> = ref(None)
 let flipMoveTableCache: ref<option<array<array<int>>>> = ref(None)
@@ -77,6 +82,9 @@ let sliceTwistPruningTableCache: ref<option<pruningTable>> = ref(None)
 let sliceFlipPruningTableCache: ref<option<pruningTable>> = ref(None)
 let cornerSlicePruningTableCache: ref<option<pruningTable>> = ref(None)
 let edgeSlicePruningTableCache: ref<option<pruningTable>> = ref(None)
+let compactTwistMoveTableCache: ref<option<phase1MoveTable>> = ref(None)
+let compactFlipMoveTableCache: ref<option<phase1MoveTable>> = ref(None)
+let compactSliceMoveTableCache: ref<option<phase1MoveTable>> = ref(None)
 
 type solverError =
   | UnsupportedSize(int)
@@ -554,8 +562,60 @@ let buildSliceMoveTable = () => {
   }
 }
 
+// The public coordinate-row helpers above are convenient for tests and
+// inspection. Search itself uses these flat typed arrays: they retain the same
+// transitions without allocating thousands of boxed JavaScript sub-arrays.
+let buildCompactPhase1MoveTable = (states, selectCoordinate) => {
+  let table = createPhase1MoveTable(states * 18)
+  for coordinate in 0 to states - 1 {
+    for moveIndex in 0 to 17 {
+      switch selectCoordinate(coordinate, moveIndex) {
+      | Ok(next) => setPhase1Move(table, phase1MoveTableIndex(coordinate, moveIndex), next)
+      | Error(_) => ()
+      }
+    }
+  }
+  table
+}
+
+let buildCompactTwistMoveTable = () =>
+  switch compactTwistMoveTableCache.contents {
+  | Some(table) => table
+  | None => {
+      let table = buildCompactPhase1MoveTable(2187, (twist, moveIndex) =>
+        phase1Transition({twist, flip: 0, slice: 0}, moveIndex)->Result.map(next => next.twist)
+      )
+      compactTwistMoveTableCache := Some(table)
+      table
+    }
+  }
+
+let buildCompactFlipMoveTable = () =>
+  switch compactFlipMoveTableCache.contents {
+  | Some(table) => table
+  | None => {
+      let table = buildCompactPhase1MoveTable(2048, (flip, moveIndex) =>
+        phase1Transition({twist: 0, flip, slice: 0}, moveIndex)->Result.map(next => next.flip)
+      )
+      compactFlipMoveTableCache := Some(table)
+      table
+    }
+  }
+
+let buildCompactSliceMoveTable = () =>
+  switch compactSliceMoveTableCache.contents {
+  | Some(table) => table
+  | None => {
+      let table = buildCompactPhase1MoveTable(495, (slice, moveIndex) =>
+        phase1Transition({twist: 0, flip: 0, slice}, moveIndex)->Result.map(next => next.slice)
+      )
+      compactSliceMoveTableCache := Some(table)
+      table
+    }
+  }
+
 let buildPhase1PruningTable = (primaryMoves, primaryStates) => {
-  let sliceMoves = buildSliceMoveTable()
+  let sliceMoves = buildCompactSliceMoveTable()
   let size = 495 * primaryStates
   let table = createPruningTable(size)
   let queue = createUint32Array(size)
@@ -569,8 +629,8 @@ let buildPhase1PruningTable = (primaryMoves, primaryStates) => {
     let slice = index % 495
     let primary = index / 495
     for moveIndex in 0 to 17 {
-      let nextPrimary = Belt.Array.getUnsafe(Belt.Array.getUnsafe(primaryMoves, primary), moveIndex)
-      let nextSlice = Belt.Array.getUnsafe(Belt.Array.getUnsafe(sliceMoves, slice), moveIndex)
+      let nextPrimary = getPhase1Move(primaryMoves, phase1MoveTableIndex(primary, moveIndex))
+      let nextSlice = getPhase1Move(sliceMoves, phase1MoveTableIndex(slice, moveIndex))
       let next = nextPrimary * 495 + nextSlice
       if pruningDistance(table, next) == 15 {
         setPruningDistance(table, next, depth + 1)
@@ -586,7 +646,7 @@ let buildSliceTwistPruningTable = () =>
   switch sliceTwistPruningTableCache.contents {
   | Some(table) => table
   | None => {
-      let table = buildPhase1PruningTable(buildTwistMoveTable(), 2187)
+      let table = buildPhase1PruningTable(buildCompactTwistMoveTable(), 2187)
       sliceTwistPruningTableCache := Some(table)
       table
     }
@@ -596,7 +656,7 @@ let buildSliceFlipPruningTable = () =>
   switch sliceFlipPruningTableCache.contents {
   | Some(table) => table
   | None => {
-      let table = buildPhase1PruningTable(buildFlipMoveTable(), 2048)
+      let table = buildPhase1PruningTable(buildCompactFlipMoveTable(), 2048)
       sliceFlipPruningTableCache := Some(table)
       table
     }
@@ -651,9 +711,9 @@ let buildEdgeSlicePruningTable = () =>
   }
 
 let prepareTables = () => {
-  buildTwistMoveTable()->ignore
-  buildFlipMoveTable()->ignore
-  buildSliceMoveTable()->ignore
+  buildCompactTwistMoveTable()->ignore
+  buildCompactFlipMoveTable()->ignore
+  buildCompactSliceMoveTable()->ignore
   buildCornerMoveTable()->ignore
   buildEdgeMoveTable()->ignore
   buildSlicePermutationMoveTable()->ignore
@@ -671,6 +731,18 @@ let maximum = (left, right) =>
     left
   } else {
     right
+  }
+
+// Opposite faces commute. Keeping only U→D, R→L, and F→B at a branch point
+// is a symmetry-breaking normal form: the rejected order can always be swapped
+// without changing the resulting state or consuming another move.
+let canonicalFaceTransition = (lastFace, nextFace) =>
+  if nextFace == lastFace {
+    false
+  } else if lastFace < 0 || lastFace / 2 != nextFace / 2 {
+    true
+  } else {
+    lastFace < nextFace
   }
 
 let phase1Distance = (coordinates: phase1Coordinates, sliceTwist, sliceFlip) =>
@@ -713,7 +785,7 @@ let rec searchPhase2 = (
     let found = ref(None)
     phase2MoveIndices()->Array.forEachWithIndex((moveIndex, column) => {
       let face = moveIndex / 3
-      if found.contents == None && face != lastFace {
+      if found.contents == None && canonicalFaceTransition(lastFace, face) {
         let next: phase2Coordinates = {
           corners: getPhase2Move(cornerMoves, phase2MoveTableIndex(coordinates.corners, column)),
           edges: getPhase2Move(edgeMoves, phase2MoveTableIndex(coordinates.edges, column)),
@@ -787,17 +859,11 @@ let rec searchPhase1WithinTotal = (
     let found = ref(None)
     for moveIndex in 0 to 17 {
       let face = moveIndex / 3
-      if found.contents == None && face != lastFace {
+      if found.contents == None && canonicalFaceTransition(lastFace, face) {
         let next: phase1Coordinates = {
-          twist: Belt.Array.getUnsafe(
-            Belt.Array.getUnsafe(twistMoves, coordinates.twist),
-            moveIndex,
-          ),
-          flip: Belt.Array.getUnsafe(Belt.Array.getUnsafe(flipMoves, coordinates.flip), moveIndex),
-          slice: Belt.Array.getUnsafe(
-            Belt.Array.getUnsafe(sliceMoves, coordinates.slice),
-            moveIndex,
-          ),
+          twist: getPhase1Move(twistMoves, phase1MoveTableIndex(coordinates.twist, moveIndex)),
+          flip: getPhase1Move(flipMoves, phase1MoveTableIndex(coordinates.flip, moveIndex)),
+          slice: getPhase1Move(sliceMoves, phase1MoveTableIndex(coordinates.slice, moveIndex)),
         }
         found :=
           searchPhase1WithinTotal(
@@ -824,9 +890,9 @@ let rec searchPhase1WithinTotal = (
   }
 
 let totalDepthSearch = (state, coordinates, totalDepth) => {
-  let twistMoves = buildTwistMoveTable()
-  let flipMoves = buildFlipMoveTable()
-  let sliceMoves = buildSliceMoveTable()
+  let twistMoves = buildCompactTwistMoveTable()
+  let flipMoves = buildCompactFlipMoveTable()
+  let sliceMoves = buildCompactSliceMoveTable()
   let sliceTwist = buildSliceTwistPruningTable()
   let sliceFlip = buildSliceFlipPruningTable()
   let cornerMoves = buildCornerMoveTable()

@@ -62,6 +62,10 @@ function phase2MoveTableIndex(coordinate, move) {
   return (coordinate * 10 | 0) + move | 0;
 }
 
+function phase1MoveTableIndex(coordinate, move) {
+  return (coordinate * 18 | 0) + move | 0;
+}
+
 let twistMoveTableCache = {
   contents: undefined
 };
@@ -99,6 +103,18 @@ let cornerSlicePruningTableCache = {
 };
 
 let edgeSlicePruningTableCache = {
+  contents: undefined
+};
+
+let compactTwistMoveTableCache = {
+  contents: undefined
+};
+
+let compactFlipMoveTableCache = {
+  contents: undefined
+};
+
+let compactSliceMoveTableCache = {
   contents: undefined
 };
 
@@ -762,8 +778,63 @@ function buildSliceMoveTable() {
   return table$1;
 }
 
+function buildCompactPhase1MoveTable(states, selectCoordinate) {
+  let table = new Uint16Array(states * 18 | 0);
+  for (let coordinate = 0; coordinate < states; ++coordinate) {
+    for (let moveIndex = 0; moveIndex <= 17; ++moveIndex) {
+      let next = selectCoordinate(coordinate, moveIndex);
+      if (next.TAG === "Ok") {
+        table[phase1MoveTableIndex(coordinate, moveIndex)] = next._0;
+      }
+    }
+  }
+  return table;
+}
+
+function buildCompactTwistMoveTable() {
+  let table = compactTwistMoveTableCache.contents;
+  if (table !== undefined) {
+    return Primitive_option.valFromOption(table);
+  }
+  let table$1 = buildCompactPhase1MoveTable(2187, (twist, moveIndex) => Stdlib_Result.map(phase1Transition({
+    twist: twist,
+    flip: 0,
+    slice: 0
+  }, moveIndex), next => next.twist));
+  compactTwistMoveTableCache.contents = Primitive_option.some(table$1);
+  return table$1;
+}
+
+function buildCompactFlipMoveTable() {
+  let table = compactFlipMoveTableCache.contents;
+  if (table !== undefined) {
+    return Primitive_option.valFromOption(table);
+  }
+  let table$1 = buildCompactPhase1MoveTable(2048, (flip, moveIndex) => Stdlib_Result.map(phase1Transition({
+    twist: 0,
+    flip: flip,
+    slice: 0
+  }, moveIndex), next => next.flip));
+  compactFlipMoveTableCache.contents = Primitive_option.some(table$1);
+  return table$1;
+}
+
+function buildCompactSliceMoveTable() {
+  let table = compactSliceMoveTableCache.contents;
+  if (table !== undefined) {
+    return Primitive_option.valFromOption(table);
+  }
+  let table$1 = buildCompactPhase1MoveTable(495, (slice, moveIndex) => Stdlib_Result.map(phase1Transition({
+    twist: 0,
+    flip: 0,
+    slice: slice
+  }, moveIndex), next => next.slice));
+  compactSliceMoveTableCache.contents = Primitive_option.some(table$1);
+  return table$1;
+}
+
 function buildPhase1PruningTable(primaryMoves, primaryStates) {
-  let sliceMoves = buildSliceMoveTable();
+  let sliceMoves = buildCompactSliceMoveTable();
   let size = 495 * primaryStates | 0;
   let table = createPruningTable(size);
   let queue = new Uint32Array(size);
@@ -777,8 +848,8 @@ function buildPhase1PruningTable(primaryMoves, primaryStates) {
     let slice = index % 495;
     let primary = index / 495 | 0;
     for (let moveIndex = 0; moveIndex <= 17; ++moveIndex) {
-      let nextPrimary = primaryMoves[primary][moveIndex];
-      let nextSlice = sliceMoves[slice][moveIndex];
+      let nextPrimary = primaryMoves[phase1MoveTableIndex(primary, moveIndex)];
+      let nextSlice = sliceMoves[phase1MoveTableIndex(slice, moveIndex)];
       let next = (nextPrimary * 495 | 0) + nextSlice | 0;
       if (pruningDistance(table, next) === 15) {
         setPruningDistance(table, next, depth + 1 | 0);
@@ -795,7 +866,7 @@ function buildSliceTwistPruningTable() {
   if (table !== undefined) {
     return Primitive_option.valFromOption(table);
   }
-  let table$1 = buildPhase1PruningTable(buildTwistMoveTable(), 2187);
+  let table$1 = buildPhase1PruningTable(buildCompactTwistMoveTable(), 2187);
   sliceTwistPruningTableCache.contents = Primitive_option.some(table$1);
   return table$1;
 }
@@ -805,7 +876,7 @@ function buildSliceFlipPruningTable() {
   if (table !== undefined) {
     return Primitive_option.valFromOption(table);
   }
-  let table$1 = buildPhase1PruningTable(buildFlipMoveTable(), 2048);
+  let table$1 = buildPhase1PruningTable(buildCompactFlipMoveTable(), 2048);
   sliceFlipPruningTableCache.contents = Primitive_option.some(table$1);
   return table$1;
 }
@@ -858,9 +929,9 @@ function buildEdgeSlicePruningTable() {
 }
 
 function prepareTables() {
-  buildTwistMoveTable();
-  buildFlipMoveTable();
-  buildSliceMoveTable();
+  buildCompactTwistMoveTable();
+  buildCompactFlipMoveTable();
+  buildCompactSliceMoveTable();
   buildCornerMoveTable();
   buildEdgeMoveTable();
   buildSlicePermutationMoveTable();
@@ -883,6 +954,16 @@ function maximum(left, right) {
     return left;
   } else {
     return right;
+  }
+}
+
+function canonicalFaceTransition(lastFace, nextFace) {
+  if (nextFace === lastFace) {
+    return false;
+  } else if (lastFace < 0 || (lastFace / 2 | 0) !== (nextFace / 2 | 0)) {
+    return true;
+  } else {
+    return lastFace < nextFace;
   }
 }
 
@@ -920,7 +1001,7 @@ function searchPhase2(coordinates, depth, lastFace, cornerMoves, edgeMoves, slic
   };
   phase2MoveIndices().forEach((moveIndex, column) => {
     let face = moveIndex / 3 | 0;
-    if (found.contents !== undefined || face === lastFace) {
+    if (!(found.contents === undefined && canonicalFaceTransition(lastFace, face))) {
       return;
     }
     let next_corners = cornerMoves[phase2MoveTableIndex(coordinates.corners, column)];
@@ -966,10 +1047,10 @@ function searchPhase1WithinTotal(state, coordinates, phase1Depth, totalDepth, la
   let found;
   for (let moveIndex = 0; moveIndex <= 17; ++moveIndex) {
     let face = moveIndex / 3 | 0;
-    if (found === undefined && face !== lastFace) {
-      let next_twist = twistMoves[coordinates.twist][moveIndex];
-      let next_flip = flipMoves[coordinates.flip][moveIndex];
-      let next_slice = sliceMoves[coordinates.slice][moveIndex];
+    if (found === undefined && canonicalFaceTransition(lastFace, face)) {
+      let next_twist = twistMoves[phase1MoveTableIndex(coordinates.twist, moveIndex)];
+      let next_flip = flipMoves[phase1MoveTableIndex(coordinates.flip, moveIndex)];
+      let next_slice = sliceMoves[phase1MoveTableIndex(coordinates.slice, moveIndex)];
       let next = {
         twist: next_twist,
         flip: next_flip,
@@ -982,9 +1063,9 @@ function searchPhase1WithinTotal(state, coordinates, phase1Depth, totalDepth, la
 }
 
 function totalDepthSearch(state, coordinates, totalDepth) {
-  let twistMoves = buildTwistMoveTable();
-  let flipMoves = buildFlipMoveTable();
-  let sliceMoves = buildSliceMoveTable();
+  let twistMoves = buildCompactTwistMoveTable();
+  let flipMoves = buildCompactFlipMoveTable();
+  let sliceMoves = buildCompactSliceMoveTable();
   let sliceTwist = buildSliceTwistPruningTable();
   let sliceFlip = buildSliceFlipPruningTable();
   let cornerMoves = buildCornerMoveTable();
@@ -1117,6 +1198,7 @@ export {
   phase2MoveIndices,
   phase2MoveCount,
   phase2MoveTableIndex,
+  phase1MoveTableIndex,
   twistMoveTableCache,
   flipMoveTableCache,
   sliceMoveTableCache,
@@ -1127,6 +1209,9 @@ export {
   sliceFlipPruningTableCache,
   cornerSlicePruningTableCache,
   edgeSlicePruningTableCache,
+  compactTwistMoveTableCache,
+  compactFlipMoveTableCache,
+  compactSliceMoveTableCache,
   describeError,
   statesEqual,
   verifiedSolution,
@@ -1164,6 +1249,10 @@ export {
   buildTwistMoveTable,
   buildFlipMoveTable,
   buildSliceMoveTable,
+  buildCompactPhase1MoveTable,
+  buildCompactTwistMoveTable,
+  buildCompactFlipMoveTable,
+  buildCompactSliceMoveTable,
   buildPhase1PruningTable,
   buildSliceTwistPruningTable,
   buildSliceFlipPruningTable,
@@ -1173,6 +1262,7 @@ export {
   prepareTables,
   solvedPieces,
   maximum,
+  canonicalFaceTransition,
   phase1Distance,
   phase2Distance,
   moveAlgorithm,

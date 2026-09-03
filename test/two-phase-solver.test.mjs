@@ -152,6 +152,33 @@ test("flip and slice move tables agree with direct coordinate transitions", () =
   assert.equal(sliceTable[source.slice][13], direct.slice);
 });
 
+test("the search path uses compact phase-one transition tables", () => {
+  const twist = TwoPhaseSolver.buildCompactTwistMoveTable();
+  const flip = TwoPhaseSolver.buildCompactFlipMoveTable();
+  const slice = TwoPhaseSolver.buildCompactSliceMoveTable();
+  const source = {twist: 1_264, flip: 1_337, slice: 271};
+  const direct = TwoPhaseSolver.phase1Transition(source, 13)._0;
+  assert.ok(twist instanceof Uint16Array);
+  assert.ok(flip instanceof Uint16Array);
+  assert.ok(slice instanceof Uint16Array);
+  assert.equal(twist.length, 2_187 * 18);
+  assert.equal(flip.length, 2_048 * 18);
+  assert.equal(slice.length, 495 * 18);
+  assert.equal(twist[TwoPhaseSolver.phase1MoveTableIndex(source.twist, 13)], direct.twist);
+  assert.equal(flip[TwoPhaseSolver.phase1MoveTableIndex(source.flip, 13)], direct.flip);
+  assert.equal(slice[TwoPhaseSolver.phase1MoveTableIndex(source.slice, 13)], direct.slice);
+});
+
+test("canonical opposite-face ordering removes only commuting duplicates", () => {
+  assert.equal(TwoPhaseSolver.canonicalFaceTransition(-1, 0), true);
+  assert.equal(TwoPhaseSolver.canonicalFaceTransition(0, 0), false);
+  assert.equal(TwoPhaseSolver.canonicalFaceTransition(0, 1), true);
+  assert.equal(TwoPhaseSolver.canonicalFaceTransition(1, 0), false);
+  assert.equal(TwoPhaseSolver.canonicalFaceTransition(2, 3), true);
+  assert.equal(TwoPhaseSolver.canonicalFaceTransition(3, 2), false);
+  assert.equal(TwoPhaseSolver.canonicalFaceTransition(0, 2), true);
+});
+
 test("phase-one twist pruning has zero distance at the solved coordinate", () => {
   const table = TwoPhaseSolver.buildSliceTwistPruningTable();
   assert.ok(table instanceof Uint8Array);
