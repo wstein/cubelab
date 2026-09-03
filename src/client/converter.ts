@@ -414,6 +414,7 @@ if (root) {
   let twoPhaseSourceKey = "";
   let twoPhasePendingState: CubeState | null = null;
   let twoPhasePendingTarget: CubeState | null = null;
+  let academySetupKey: string | null = null;
   const newTwoPhaseSolverClient = () => createTwoPhaseSolverClient<CubeState, TwoPhaseSolution>(
     new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
     (stage) => {
@@ -441,6 +442,24 @@ if (root) {
     },
   );
   let twoPhaseSolverClient = newTwoPhaseSolverClient();
+  const resetTwoPhaseRefinement = () => {
+    // Setup defines every solver request. A Setup change makes any in-flight
+    // search and its retained candidate unusable, so stop the dedicated worker
+    // rather than leaving an obsolete refinement to consume CPU.
+    if (twoPhaseSolveBusy) {
+      twoPhaseRequest += 1;
+      twoPhaseSolverClient.terminate();
+      twoPhaseSolverClient = newTwoPhaseSolverClient();
+      twoPhaseSolveBusy = false;
+    }
+    twoPhaseAlgorithm = "";
+    twoPhaseBestMoveCount = null;
+    twoPhaseSourceKey = "";
+    twoPhasePendingState = null;
+    twoPhasePendingTarget = null;
+    twoPhaseApply.disabled = true;
+    twoPhaseSolve.textContent = "Find two-phase solution";
+  };
   const viewport = createCubeViewport(canvas, motionOverlay, (message) => {
     viewportFallback.textContent = `${message} Text conversions remain fully functional.`;
     viewportFallback.hidden = false;
@@ -1365,7 +1384,20 @@ if (root) {
   };
 
   const twoPhaseSourceKeyForCurrent = (): string =>
-    `${input.value}\u0000${movesInput.value}\u0000${twoPhaseTarget.value}`;
+    `${input.value}\u0000${twoPhaseTarget.value}`;
+
+  const academySetupSourceKey = (): string =>
+    `${size}\u0000${lowercaseMode}\u0000${notationDialect}\u0000${schemeSelect.value}\u0000${customScheme.value}\u0000${input.value}`;
+
+  const synchronizeAcademySetup = () => {
+    const key = academySetupSourceKey();
+    if (key === academySetupKey) return;
+    academySetupKey = key;
+    const setup = parseState(input.value);
+    updateAcademySource(setup.TAG === "Ok"
+      ? {state: setup._0.state, label: setup._0.label}
+      : null);
+  };
 
   const academyTargetDiagnostic = (): string | null => {
     if (activeRecognized === null || size !== 3) return null;
@@ -3150,7 +3182,6 @@ if (root) {
   };
 
   const synchronizePlayback = (recognized: RecognizedInput) => {
-    updateAcademySource(recognized);
     updateNissSource(recognized);
     updateCompatibility(recognized);
     updatePatternDetection(recognized);
@@ -3204,9 +3235,9 @@ if (root) {
     updateCardVisibility();
     updateLowercaseUi();
     updateDialectUi();
+    synchronizeAcademySetup();
     const parsed = parseWorkspaceState();
     if (parsed.TAG === "Error") {
-      updateAcademySource(null);
       updateNissSource(null);
       updateCompatibility(null);
       updatePatternDetection(null);
@@ -3253,6 +3284,13 @@ if (root) {
       || movesInput.value !== state.moves
       || schemeSelect.value !== state.scheme
       || customScheme.value !== state.customScheme;
+    const setupChanged = !appStateApplied
+      || size !== state.size
+      || lowercaseMode !== state.lowercaseMode
+      || notationDialect !== state.notationDialect
+      || input.value !== state.input
+      || schemeSelect.value !== state.scheme
+      || customScheme.value !== state.customScheme;
     size = state.size;
     lowercaseMode = state.lowercaseMode;
     notationDialect = state.notationDialect;
@@ -3269,6 +3307,12 @@ if (root) {
     if (schemeSelect.value !== state.scheme) schemeSelect.value = state.scheme;
     if (customScheme.value !== state.customScheme) customScheme.value = state.customScheme;
     if (noteInput.value !== state.note) noteInput.value = state.note;
+    if (appStateApplied && setupChanged) {
+      academySetupKey = null;
+      academyRequestGuard.invalidate();
+      academySolveBusy = false;
+      resetTwoPhaseRefinement();
+    }
     settingsSize.value = String(state.size);
     settingsScheme.value = state.scheme;
     settingsDialect.value = state.notationDialect;
@@ -3443,13 +3487,19 @@ if (root) {
 
 
   schemeSelect.addEventListener("change", () => {
-    updateAcademySource(null);
+    academySetupKey = null;
+    academyRequestGuard.invalidate();
+    academySolveBusy = false;
+    resetTwoPhaseRefinement();
     store.patch({scheme: schemeSelect.value as SchemeName});
     scheduleUpdate();
   });
   customScheme.addEventListener("input", () => {
     customScheme.value = customScheme.value.toUpperCase();
-    updateAcademySource(null);
+    academySetupKey = null;
+    academyRequestGuard.invalidate();
+    academySolveBusy = false;
+    resetTwoPhaseRefinement();
     store.patch({customScheme: customScheme.value});
     scheduleUpdate();
   });
@@ -3463,7 +3513,10 @@ if (root) {
       window.clearTimeout(pendingDirectMove.timeout);
       pendingDirectMove = null;
     }
-    updateAcademySource(null);
+    academySetupKey = null;
+    academyRequestGuard.invalidate();
+    academySolveBusy = false;
+    resetTwoPhaseRefinement();
     store.patch({input: input.value});
     scheduleUpdate();
   });
@@ -3472,9 +3525,11 @@ if (root) {
     shortenSearch.disabled = true;
     shortenResult.hidden = true;
     pendingShortenedAlg = null;
-    updateAcademySource(null);
     store.patch({moves: movesInput.value});
     scheduleUpdate();
+  });
+  twoPhaseTarget.addEventListener("input", () => {
+    resetTwoPhaseRefinement();
   });
 
   const commitTransformedAlgorithm = (value: string) => {
@@ -3693,9 +3748,9 @@ if (root) {
       twoPhaseResult.classList.remove("success", "failure");
       return;
     }
-    const workspace = parseWorkspaceState();
-    if (workspace.TAG === "Error") {
-      twoPhaseResult.textContent = workspace._0;
+    const setup = parseState(input.value);
+    if (setup.TAG === "Error") {
+      twoPhaseResult.textContent = describeError(setup._0);
       twoPhaseResult.classList.add("failure");
       return;
     }
@@ -3705,7 +3760,7 @@ if (root) {
       twoPhaseResult.classList.add("failure");
       return;
     }
-    const relative = relativeAcademyState(workspace._0.state, target._0);
+    const relative = relativeAcademyState(setup._0.state, target._0);
     if (relative.TAG === "Error") {
       twoPhaseResult.textContent = relative._0;
       twoPhaseResult.classList.add("failure");
@@ -3722,7 +3777,7 @@ if (root) {
       twoPhaseApply.disabled = true;
     }
     twoPhaseSourceKey = sourceKey;
-    twoPhasePendingState = workspace._0.state;
+    twoPhasePendingState = setup._0.state;
     twoPhasePendingTarget = target._0;
     twoPhaseSolveBusy = true;
     twoPhaseSolve.textContent = "Cancel search";
@@ -3736,7 +3791,7 @@ if (root) {
         refining ? {refine: true, maximumDepth: twoPhaseBestMoveCount! - 1} : undefined,
       );
       if (request !== twoPhaseRequest) return;
-      const replay = MoveExecutor.applyAlg(workspace._0.state, solution.alg) as Result<CubeState, unknown>;
+      const replay = MoveExecutor.applyAlg(setup._0.state, solution.alg) as Result<CubeState, unknown>;
       if (replay.TAG !== "Ok") {
         throw new Error("The two-phase solution did not replay from Setup to the target.");
       }
@@ -3745,7 +3800,7 @@ if (root) {
       }
       const algorithm = MoveTransform.serialize(solution.alg) as string;
       if (twoPhaseSourceKeyForCurrent() !== twoPhaseSourceKey) {
-        twoPhaseResult.textContent = "Setup, Moves, or Target changed; discarded the stale two-phase solution.";
+        twoPhaseResult.textContent = "Setup or Target changed; discarded the stale two-phase solution.";
         twoPhaseResult.classList.add("failure");
         twoPhaseApply.disabled = true;
         return;
@@ -3778,7 +3833,7 @@ if (root) {
   twoPhaseApply.addEventListener("click", () => {
     if (twoPhaseAlgorithm === "") return;
     if (twoPhaseSourceKeyForCurrent() !== twoPhaseSourceKey) {
-      twoPhaseResult.textContent = "Setup, Moves, or Target changed; generate a new two-phase solution.";
+      twoPhaseResult.textContent = "Setup or Target changed; generate a new two-phase solution.";
       twoPhaseResult.classList.add("failure");
       twoPhaseApply.disabled = true;
       return;

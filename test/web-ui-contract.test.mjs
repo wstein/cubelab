@@ -130,7 +130,7 @@ test("the converter exposes full two-phase solutions through a dedicated worker 
   assert.match(page, /data-two-phase-target/);
   assert.match(page, /Target \(optional\)/);
   assert.match(client, /createTwoPhaseSolverClient/);
-  assert.match(client, /relativeAcademyState\(workspace\._0\.state, target\._0\)/);
+  assert.match(client, /relativeAcademyState\(setup\._0\.state, target\._0\)/);
   assert.match(client, /twoPhaseSolverClient\.solve\(\s*relative\._0,/);
   assert.match(client, /The two-phase solution did not replay from Setup to the target/);
   assert.match(solverWorker, /type: "solveTwoPhase"/);
@@ -150,7 +150,9 @@ test("the converter exposes full two-phase solutions through a dedicated worker 
   assert.match(client, /discarded the stale two-phase solution/);
   assert.match(client, /Best so far:/);
   assert.match(client, /twoPhaseApply\.addEventListener/);
-  assert.match(client, /Setup, Moves, or Target changed; generate a new two-phase solution/);
+  assert.match(client, /Setup or Target changed; generate a new two-phase solution/);
+  assert.match(client, /const twoPhaseSourceKeyForCurrent = \(\): string =>\s*`\$\{input\.value\}\\u0000\$\{twoPhaseTarget\.value\}`/);
+  assert.match(client, /movesInput\.addEventListener\("input", \(\) => \{[\s\S]{0,500}?store\.patch\(\{moves: movesInput\.value\}\);/);
   assert.match(client, /store\.patch\(\{moves:/);
 });
 
