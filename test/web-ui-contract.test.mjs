@@ -150,6 +150,7 @@ test("the Workbench inspects and previews bounded Hamilton macro nodes", () => {
   assert.match(client, /HamiltonMacro\.window\(hamiltonProgram, start, length/);
   assert.match(client, /HamiltonMacro\.createStreamPlayer/);
   assert.match(client, /tape scrubbing unavailable/);
+  assert.match(client, /event\.kind === "pause"/);
   assert.match(client, /moves must be between 1 and 500/);
   assert.match(client, /Hamilton macro preview/);
 });

@@ -5,10 +5,25 @@ move constructions. They are separate from standard, Ruwix, and FMC notation.
 Definitions may use `def name = expression` or `name = expression`, comments
 begin with `#`, and `export name` selects the root program.
 
+The dialect also accepts standard bracket expressions: `[A,B]` is the
+commutator `A B A' B'`, and `[A:B]` is the conjugate `A B A'`. Timed pauses
+such as `@0.6s` remain lazy stream events and are honoured by the streaming
+player. An expression may be supplied directly, or a final line containing a
+defined name may select the root, so both forms below are valid:
+
+```text
+s100 = ([R',U]6 [F:D']@0.6s)100
+s100
+```
+
+```text
+([R',U]6 [F:D']@0.6s)100
+```
+
 The Workbench can import `.alg` and legacy `.orbit64` text sources. Imported
-sources with no `export` declaration use their final definition as the root;
-typed programs remain strict and require `export name`. The parser retains a
-macro DAG instead of unfolding it. `measure` calculates
+sources with no `export` declaration use a final bare definition reference, or
+otherwise the final definition, as the root. The parser retains a macro DAG
+instead of unfolding it. `measure` calculates
 quarter-turn count, source-element count, and dependency depth with memoized
 structural evaluation. References, grouped repeats, and inverted references
 are measured without generating the move stream; cycles and undefined macros

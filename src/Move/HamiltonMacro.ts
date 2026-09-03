@@ -1,6 +1,7 @@
 /** Lazy, structural parser for Hamilton-style macro programs. */
 export type Node =
   | {kind: "move"; token: string; quarterTurns: bigint}
+  | {kind: "pause"; durationMs: number}
   | {kind: "reference"; name: string; repeat: bigint}
   | {kind: "slice"; name: string; start: number; end?: number; repeat: bigint}
   | {kind: "sequence"; items: Node[]; repeat: bigint};
@@ -11,6 +12,7 @@ export type ImportedProgram = {program: Program; implicitExport: boolean};
 
 const identifier = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const move = /^[UDLRFB](?:2|')?$/;
+const implicitExpressionRoot = "__expression__";
 
 const fail = (message: string): never => { throw new Error(`Hamilton macro: ${message}`); };
 
@@ -27,17 +29,20 @@ class ExpressionParser {
     return items;
   }
 
-  private sequence(until?: string): Node[] {
+  private sequence(until?: string | string[]): Node[] {
     const items: Node[] = [];
     while (true) {
       this.space();
-      if (this.cursor === this.source.length || this.source[this.cursor] === until) break;
+      const delimiter = this.source[this.cursor];
+      if (this.cursor === this.source.length || (until !== undefined && (Array.isArray(until) ? until.includes(delimiter) : delimiter === until))) break;
       if (this.source[this.cursor] === "(") {
         this.cursor += 1;
         const body = this.sequence(")");
         if (this.source[this.cursor] !== ")") fail("unclosed group");
         this.cursor += 1;
         items.push({kind: "sequence", items: body, repeat: this.suffix()});
+      } else if (this.source[this.cursor] === "[") {
+        items.push(this.bracket());
       } else {
         const token = this.word();
         if (move.test(token)) {
@@ -58,8 +63,48 @@ class ExpressionParser {
           }
         }
       }
+      this.space();
+      if (this.source[this.cursor] === "@") items.push(this.pause());
     }
     return items;
+  }
+
+  private bracket(): Node {
+    this.cursor += 1;
+    const left = this.sequence([",", ":", "]"]);
+    const delimiter = this.source[this.cursor];
+    if (delimiter !== "," && delimiter !== ":") fail("a bracket expression requires ',' or ':'");
+    this.cursor += 1;
+    const right = this.sequence("]");
+    if (this.source[this.cursor] !== "]") fail("unclosed bracket expression");
+    this.cursor += 1;
+    if (left.length === 0 || right.length === 0) fail("a bracket expression requires moves on both sides");
+    const inverse = (items: Node[]): Node => ({kind: "sequence", items, repeat: -1n});
+    const items = delimiter === ","
+      ? [...left, ...right, inverse(left), inverse(right)]
+      : [...left, ...right, inverse(left)];
+    return {kind: "sequence", items, repeat: this.suffix()};
+  }
+
+  private pause(): Node {
+    const start = this.cursor;
+    this.cursor += 1;
+    const secondsStart = this.cursor;
+    while (/\d/.test(this.source[this.cursor] ?? "")) this.cursor += 1;
+    if (this.source[this.cursor] === ".") {
+      this.cursor += 1;
+      const fractionStart = this.cursor;
+      while (/\d/.test(this.source[this.cursor] ?? "")) this.cursor += 1;
+      if (fractionStart === this.cursor) fail("a timed pause requires digits after the decimal point");
+    }
+    if (secondsStart === this.cursor || this.source[this.cursor] !== "s") {
+      fail(`invalid timed pause at ${start}; use @0.6s`);
+    }
+    const seconds = Number(this.source.slice(secondsStart, this.cursor));
+    this.cursor += 1;
+    const durationMs = Math.round(seconds * 1000);
+    if (!Number.isFinite(durationMs) || durationMs < 1 || durationMs > 60_000) fail("a timed pause must be between 0.001s and 60s");
+    return {kind: "pause", durationMs};
   }
 
   private slice(name: string): Node {
@@ -105,23 +150,34 @@ class ExpressionParser {
 }
 
 export const parse = (source: string): Program => {
-  const text = clean(source);
+  const text = clean(source).trim();
   const definitions = new Map<string, Node[]>();
   const matches = [...text.matchAll(/(?:^|\n)\s*(?:def\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/g)];
+  const exported = text.match(/(?:^|\n)\s*export\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/m)?.[1];
+  const definitionNames = new Set(matches.map((match) => match[1]));
+  const finalLineStart = text.lastIndexOf("\n") + 1;
+  const finalLine = text.slice(finalLineStart).trim();
+  const bareRoot = !exported && definitionNames.has(finalLine) ? finalLine : undefined;
   for (let index = 0; index < matches.length; index += 1) {
     const match = matches[index];
     const name = match[1];
     const bodyStart = (match.index ?? 0) + match[0].length;
     const bodyEnd = index + 1 < matches.length
       ? (matches[index + 1].index ?? text.length)
-      : (text.search(/(?:^|\n)\s*export\s+/m) >= 0 ? text.search(/(?:^|\n)\s*export\s+/m) : text.length);
+      : exported
+        ? text.search(/(?:^|\n)\s*export\s+/m)
+        : bareRoot === undefined ? text.length : finalLineStart;
     if (definitions.has(name)) fail(`duplicate definition '${name}'`);
     definitions.set(name, new ExpressionParser(text.slice(bodyStart, bodyEnd)).parse());
   }
-  const exported = text.match(/(?:^|\n)\s*export\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/m)?.[1];
-  if (!exported) fail("missing 'export <name>'");
-  if (!definitions.has(exported)) fail(`export '${exported}' is not defined`);
-  return {definitions, exportName: exported};
+  if (definitions.size === 0) {
+    if (text === "") fail("expected an expression or macro definition");
+    definitions.set(implicitExpressionRoot, new ExpressionParser(text).parse());
+    return {definitions, exportName: implicitExpressionRoot};
+  }
+  const exportName = exported ?? bareRoot ?? [...definitions.keys()].at(-1)!;
+  if (!definitions.has(exportName)) fail(`export '${exportName}' is not defined`);
+  return {definitions, exportName};
 };
 
 /**
@@ -131,12 +187,10 @@ export const parse = (source: string): Program => {
  */
 export const importAlg = (source: string): ImportedProgram => {
   const normalized = source.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
-  if (/(?:^|\n)\s*export\s+/m.test(normalized)) return {program: parse(normalized), implicitExport: false};
-  const names = [...normalized.matchAll(/(?:^|\n)\s*(?:def\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/g)]
-    .map((match) => match[1]);
-  const exportName = names.at(-1);
-  if (!exportName) fail("an imported .alg file must define at least one macro");
-  return {program: parse(`${normalized}\nexport ${exportName}`), implicitExport: true};
+  return {
+    program: parse(normalized),
+    implicitExport: !/(?:^|\n)\s*export\s+/m.test(normalized),
+  };
 };
 
 export const measure = (program: Program, name = program.exportName): Measurement => {
@@ -144,6 +198,7 @@ export const measure = (program: Program, name = program.exportName): Measuremen
   const visiting: string[] = [];
   const node = (value: Node): Measurement => {
     if (value.kind === "move") return {quarterTurns: value.quarterTurns, sourceElements: 1n, depth: 1};
+    if (value.kind === "pause") return {quarterTurns: 0n, sourceElements: 1n, depth: 1};
     if (value.kind === "reference") {
       const base = definition(value.name);
       return {quarterTurns: base.quarterTurns * (value.repeat < 0n ? -value.repeat : value.repeat), sourceElements: 1n, depth: base.depth + 1};
@@ -185,20 +240,26 @@ const invertToken = (token: string): string => token.endsWith("2")
   ? token
   : token.endsWith("'") ? token.slice(0, -1) : `${token}'`;
 
-/** Streams atomic moves without materializing a macro expansion. */
-export function* stream(program: Program, name = program.exportName): Generator<string> {
-  const walkDefinition = function* (key: string, inverted: boolean): Generator<string> {
+export type StreamEvent = {kind: "move"; token: string} | {kind: "pause"; durationMs: number};
+
+/** Streams atomic moves and timed pauses without materializing a macro expansion. */
+export function* streamEvents(program: Program, name = program.exportName): Generator<StreamEvent> {
+  const walkDefinition = function* (key: string, inverted: boolean): Generator<StreamEvent> {
     const body = program.definitions.get(key);
     if (!body) fail(`undefined macro '${key}'`);
     yield* walkItems(body, inverted);
   };
-  const walkItems = function* (items: Node[], inverted: boolean): Generator<string> {
+  const walkItems = function* (items: Node[], inverted: boolean): Generator<StreamEvent> {
     const ordered = inverted ? [...items].reverse() : items;
     for (const item of ordered) yield* walk(item, inverted);
   };
-  const walk = function* (node: Node, inheritedInverse: boolean): Generator<string> {
+  const walk = function* (node: Node, inheritedInverse: boolean): Generator<StreamEvent> {
     if (node.kind === "move") {
-      yield inheritedInverse ? invertToken(node.token) : node.token;
+      yield {kind: "move", token: inheritedInverse ? invertToken(node.token) : node.token};
+      return;
+    }
+    if (node.kind === "pause") {
+      yield {kind: "pause", durationMs: node.durationMs};
       return;
     }
     const repeat = node.repeat < 0n ? -node.repeat : node.repeat;
@@ -217,6 +278,13 @@ export function* stream(program: Program, name = program.exportName): Generator<
   yield* walkDefinition(name, false);
 }
 
+/** Streams only moves for consumers that intentionally ignore timed pauses. */
+export function* stream(program: Program, name = program.exportName): Generator<string> {
+  for (const event of streamEvents(program, name)) {
+    if (event.kind === "move") yield event.token;
+  }
+}
+
 export const prefix = (program: Program, limit: number, name = program.exportName): string[] => {
   const output: string[] = [];
   for (const token of stream(program, name)) {
@@ -227,20 +295,20 @@ export const prefix = (program: Program, limit: number, name = program.exportNam
 };
 
 export type StreamPlayer = {
-  next: () => IteratorResult<string>;
+  next: () => IteratorResult<StreamEvent>;
   readonly movesPlayed: bigint;
   readonly done: boolean;
 };
 
 /** Owns one resumable macro stream for long-running playback consumers. */
 export const createStreamPlayer = (program: Program, name = program.exportName): StreamPlayer => {
-  const iterator = stream(program, name);
+  const iterator = streamEvents(program, name);
   let movesPlayed = 0n;
   let done = false;
   return {
     next: () => {
       const next = iterator.next();
-      if (!next.done) movesPlayed += 1n;
+      if (!next.done && next.value.kind === "move") movesPlayed += 1n;
       else done = true;
       return next;
     },

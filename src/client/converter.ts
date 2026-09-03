@@ -1803,12 +1803,17 @@ if (root) {
       hamiltonResult.textContent = `Hamilton stream completed after ${hamiltonStream.player.movesPlayed.toString()} moves.`;
       return false;
     }
-    const evaluated = evaluateAlgorithm(3, "Wide", "Modern", next.value);
+    const event = next.value;
+    if (event.kind === "pause") {
+      await new Promise((resolve) => window.setTimeout(resolve, event.durationMs / playbackSpeed));
+      return generation === playbackGeneration;
+    }
+    const evaluated = evaluateAlgorithm(3, "Wide", "Modern", event.token);
     const step = evaluated.TAG === "Ok"
       ? evaluated._0.steps.find((entry) => entry.step !== undefined)?.step
       : undefined;
     if (!step) {
-      hamiltonResult.textContent = `Could not stream '${next.value}' into the playback engine.`;
+      hamiltonResult.textContent = `Could not stream '${event.token}' into the playback engine.`;
       hamiltonResult.classList.add("failure");
       return false;
     }
@@ -1820,8 +1825,8 @@ if (root) {
     }
     if (generation !== playbackGeneration || hamiltonStream === null) return false;
     hamiltonStream.state = MoveExecutor.applyStep(hamiltonStream.state, step) as CubeState;
-    hamiltonStream.quarterTurnsPlayed += next.value.endsWith("2") ? 2n : 1n;
-    renderState(hamiltonStream.state, `Hamilton stream · ${hamiltonStream.node} · ${next.value}`);
+    hamiltonStream.quarterTurnsPlayed += event.token.endsWith("2") ? 2n : 1n;
+    renderState(hamiltonStream.state, `Hamilton stream · ${hamiltonStream.node} · ${event.token}`);
     updatePlaybackUi();
     return true;
   };

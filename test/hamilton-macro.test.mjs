@@ -1,6 +1,6 @@
 import {describe, expect, test} from "vitest";
 
-import {createStreamPlayer, importAlg, measure, parse, prefix, window} from "../src/Move/HamiltonMacro.ts";
+import {createStreamPlayer, importAlg, measure, parse, prefix, streamEvents, window} from "../src/Move/HamiltonMacro.ts";
 
 describe("Hamilton macro programs", () => {
   test("measures recursive definitions without unfolding them", () => {
@@ -44,10 +44,26 @@ describe("Hamilton macro programs", () => {
 
   test("keeps one resumable cursor for streaming playback", () => {
     const player = createStreamPlayer(parse("def root = (U R)2\nexport root"));
-    expect(player.next().value).toBe("U");
+    expect(player.next().value).toEqual({kind: "move", token: "U"});
     expect(player.movesPlayed).toBe(1n);
-    expect(player.next().value).toBe("R");
+    expect(player.next().value).toEqual({kind: "move", token: "R"});
     expect(player.movesPlayed).toBe(2n);
     expect(player.done).toBe(false);
+  });
+
+  test("supports bracket expressions, timed pauses, and bare expression roots", () => {
+    const named = parse("s100 = ([R',U]6 [F:D']@0.6s)100\ns100");
+    expect(named.exportName).toBe("s100");
+    expect(measure(named)).toMatchObject({quarterTurns: 2700n});
+    expect(prefix(named, 4)).toEqual(["R'", "U", "R", "U'"]);
+
+    const bare = parse("([R',U]6 [F:D']@0.6s)100");
+    expect(measure(bare).quarterTurns).toBe(2700n);
+    expect([...streamEvents(parse("[F:D']@0.6s"))]).toEqual([
+      {kind: "move", token: "F"},
+      {kind: "move", token: "D'"},
+      {kind: "move", token: "F'"},
+      {kind: "pause", durationMs: 600},
+    ]);
   });
 });
