@@ -3541,7 +3541,18 @@ if (root) {
 
   root.querySelector<HTMLButtonElement>("[data-practice-scramble]")!.addEventListener("click", () => {
     const scramble = MoveTransform.practiceScramble(size) as Result<string, string>;
-    if (scramble.TAG === "Ok") commitTransformedAlgorithm(scramble._0);
+    if (scramble.TAG !== "Ok") return;
+    if (smartCubeSyncMode !== "VirtualController") {
+      commitTransformedAlgorithm(scramble._0);
+      return;
+    }
+    const evaluated = evaluateAlgorithm(3, "Wide", "Modern", scramble._0);
+    if (evaluated.TAG === "Error") {
+      smartCubeStatus.textContent = `Could not load virtual practice scramble: ${evaluated._0}`;
+      return;
+    }
+    loadVirtualControllerState(evaluated._0.finalState, "Virtual controller · practice scramble");
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · Virtual practice scramble loaded.`;
   });
 
   twoPhaseSolve.addEventListener("click", async () => {

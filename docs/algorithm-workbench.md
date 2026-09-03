@@ -74,6 +74,11 @@ listed exceptions; the WCA currently distributes TNoodle for that purpose:
 The local generator uses `Math.random()` and is labeled **Practice scramble** throughout
 the interface. It must not be used to prepare official competition scrambles.
 
+With Smart Controller Mode active on a 3×3, the same action assigns the generated state
+directly to the virtual cube instead of replacing Setup or the materialized move tape.
+The physical cube remains a turn and orientation controller, so its stickers cannot
+overwrite that virtual scramble.
+
 ## Browser integration
 
 The action ribbon below the input exposes **Invert**, **Simplify**, all three mirror

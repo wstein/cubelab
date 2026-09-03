@@ -202,6 +202,8 @@ test("the web UI exposes pure algorithm transforms and a clearly labeled practic
   assert.match(client, /MoveTransform\.mirror/);
   assert.match(client, /MoveTransform\.rotate/);
   assert.match(client, /MoveTransform\.practiceScramble/);
+  assert.match(client, /smartCubeSyncMode !== "VirtualController"/);
+  assert.match(client, /Virtual controller · practice scramble/);
 });
 
 test("the web UI exposes a state-verified 3x3 NISS helper", () => {
