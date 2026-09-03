@@ -2529,6 +2529,10 @@ if (root) {
   };
 
   const renderSmartCubeLiveState = () => {
+    // Controller mode deliberately decouples the virtual puzzle from the
+    // physical stickers. A pending AppState update must not repaint the old
+    // hardware facelets over an instant virtual scramble.
+    if (smartCubeSyncMode === "VirtualController") return;
     if (smartCubeCoachingFrameActive && activeTimeline?.states) {
       renderSmartCubeCoachingState();
       return;
@@ -3146,7 +3150,7 @@ if (root) {
       return;
     }
     synchronizePlayback(parsed._0);
-    if (smartCubeConnected && smartCubeLiveState) {
+    if (smartCubeSyncMode === "PhysicalMirror" && smartCubeConnected && smartCubeLiveState) {
       renderSmartCubeLiveState();
     }
   };
@@ -3564,6 +3568,9 @@ if (root) {
     if (scramble.TAG !== "Ok") return;
     if (smartCubeSyncMode !== "VirtualController") {
       commitTransformedAlgorithm(scramble._0);
+      if (smartCubeConnected) {
+        smartCubeStatus.textContent = `${smartCubeDeviceName} · Practice scramble loaded in Setup. Turn the physical cube to match, or enable Controller mode for instant virtual setup.`;
+      }
       return;
     }
     const evaluated = evaluateAlgorithm(3, "Wide", "Modern", scramble._0);
