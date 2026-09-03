@@ -39,6 +39,16 @@ The collection ids resolve to these publishers:
 - `kewbz4`: [Kewbz 4×4 patterns](https://kewbz.co.uk/blogs/solutions-guides/4x4-patterns)
 - `kewbz5`: [Kewbz 5×5 patterns](https://kewbz.co.uk/blogs/solutions-guides/5x5-patterns)
 
+## External reference catalogs
+
+The imported `randelshofer` records above are the Pocket Cube entries carried by
+the flix-cubesolve corpus. CubeLab also references Walter Randelshofer's broader
+[Pretty Patterns 3×3 catalog](https://www.randelshofer.ch/rubik/patterns/A200.01.html)
+as a research and attribution resource. It is **not** a direct import source for
+the generated 3×3 catalog: no additional names, algorithms, or descriptions are
+copied from it unless their reuse terms are established and per-record provenance
+can be preserved.
+
 ## Curated additions
 
 One record, **Superflip + Fourspot**, is not part of the flix-cubesolve import. It is
