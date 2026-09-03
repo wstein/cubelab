@@ -288,9 +288,12 @@ let bevelForEdge = (~last, ~gx, ~gy, ~gz, ~cell, faceA, faceB) =>
     0.03 *. cell
   }
 
-let speedBevelForEdge = (~last as _, ~gx as _, ~gy as _, ~gz as _, ~cell, _faceA, _faceB) =>
-  0.06 *. cell
-
+let speedBevelForEdge = (~last, ~gx, ~gy, ~gz, ~cell, faceA, faceB) =>
+  if isOuterEdge(~last, ~gx, ~gy, ~gz, faceA, faceB) {
+    0.06 *. cell
+  } else {
+    0.04 *. cell
+  }
 type stickerBounds = {
   maxU: float,
   minU: float,

@@ -567,8 +567,12 @@ function bevelForEdge(last, gx, gy, gz, cell, faceA, faceB) {
   }
 }
 
-function speedBevelForEdge(param, param$1, param$2, param$3, cell, _faceA, _faceB) {
-  return 0.06 * cell;
+function speedBevelForEdge(last, gx, gy, gz, cell, faceA, faceB) {
+  if (isOuterEdge(last, gx, gy, gz, faceA, faceB)) {
+    return 0.06 * cell;
+  } else {
+    return 0.04 * cell;
+  }
 }
 
 function stickerBoundsForFace(last, gx, gy, gz, cell, face) {
@@ -806,7 +810,7 @@ function emitSpeedCubie(data, state, palette, gx, gy, gz) {
     cubie: centre
   };
   let half = (0.999 - 0.02) * cell / 2.0;
-  let bevelFor = (fA, fB) => 0.06 * cell;
+  let bevelFor = (fA, fB) => speedBevelForEdge(last, gx, gy, gz, cell, fA, fB);
   StateTypes.storageOrder.forEach(face => {
     let colour = paintFor(state, "Speed", palette, last, gx, gy, gz, face);
     emitStandardFace(emitter, centre, face, half, colour, bevelFor);

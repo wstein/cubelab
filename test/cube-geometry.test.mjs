@@ -122,14 +122,13 @@ test("sticker bounds increase gap on outer edges and enlarge outer corner radius
   assert.equal(cornerBounds.r3, 0.078);
 });
 
-test("speed cube bevel uses increased 0.06 fase on all edges", () => {
+test("speed cube bevel uses 0.06 outer fase and 0.04 inner fase", () => {
   const cell = 1.0;
-  // All edges on speed cube have increased 0.06 * cell fase across both inner and outer edges
   const outerBevel = CubeGeometry.speedBevelForEdge(2, 2, 2, 2, cell, "U", "R");
   assert.equal(outerBevel, 0.06);
 
   const innerBevel = CubeGeometry.speedBevelForEdge(2, 1, 2, 1, cell, "U", "R");
-  assert.equal(innerBevel, 0.06);
+  assert.equal(innerBevel, 0.04);
 });
 
 test("speed cube inner phases are completely colorful with face color", () => {
