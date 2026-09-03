@@ -2,10 +2,12 @@ import * as BeginnerSolver from "../../Solver/BeginnerSolver.res.mjs";
 import * as CfopSolver from "../../Solver/CfopSolver.res.mjs";
 import * as PetrusSolver from "../../Solver/PetrusSolver.res.mjs";
 import * as TwoPhaseSolver from "../../Solver/TwoPhaseSolver.res.mjs";
+import * as Optimal2x2Solver from "../../Solver/Optimal2x2Solver";
 
 type TutorialMethod = "beginner" | "advancedLbl" | "beginnerCfop" | "fullCfop" | "advancedCfop" | "petrus" | "enhancedPetrus";
 type WorkerRequest =
   | {id: number; type: "solveTutorial"; method: TutorialMethod; state: unknown}
+  | {id: number; type: "solveOptimal2x2"; state: unknown}
   | {id: number; type: "solveTwoPhase"; state: unknown; refine?: boolean; maximumDepth?: number}
   | {id: number; type: "cancelTwoPhase"};
 type ReScriptResult = {TAG: "Ok"; _0: unknown} | {TAG: "Error"; _0: unknown};
@@ -86,6 +88,18 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
         setTimeout(searchNextBound, 0);
       };
       setTimeout(searchNextBound, 0);
+      return;
+    }
+    if (request.type === "solveOptimal2x2") {
+      self.postMessage({id: request.id, type: "optimal2x2Progress", stage: "Preparing optimal 2×2 solver…"});
+      void Optimal2x2Solver.solve(request.state).then(
+        (solution) => self.postMessage({id: request.id, ok: true, solution}),
+        (error: unknown) => self.postMessage({
+          id: request.id,
+          ok: false,
+          error: error instanceof Error ? error.message : "The optimal 2×2 solver stopped unexpectedly.",
+        }),
+      );
       return;
     }
     if (request.type !== "solveTutorial") return;

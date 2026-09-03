@@ -330,6 +330,18 @@ const cards = [
                 Solve the Setup 3×3 state in the background.
               </output>
             </div>
+            <div class="transform-row" data-optimal-2x2-row aria-label="Optimal 2×2 solver" hidden>
+              <span class="transform-label">2×2 solver</span>
+              <button type="button" class="transform-btn" data-optimal-2x2-solve>
+                Find optimal solution
+              </button>
+              <button type="button" class="transform-btn" data-optimal-2x2-apply disabled>
+                Apply solution
+              </button>
+              <output class="niss-result" data-optimal-2x2-result aria-live="polite">
+                Find an HTM-optimal solution for the Setup state.
+              </output>
+            </div>
             <div
               class="transform-row"
               data-workspace-panel="workbench"

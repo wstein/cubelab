@@ -1,6 +1,6 @@
 import {describe, expect, test} from "vitest";
 
-import {createSolverClient, createTwoPhaseSolverClient} from "../../src/client/workers/solver-client";
+import {createOptimal2x2SolverClient, createSolverClient, createTwoPhaseSolverClient} from "../../src/client/workers/solver-client";
 
 type Listener = (event: MessageEvent<unknown>) => void;
 
@@ -104,5 +104,20 @@ describe("solver worker client", () => {
 
     expect(worker.terminated).toBe(true);
     await expect(solution).rejects.toThrow("was stopped");
+  });
+
+  test("uses a dedicated request and preparation stages for optimal 2×2 solutions", async () => {
+    const worker = new FakeWorker();
+    const stages: string[] = [];
+    const client = createOptimal2x2SolverClient<{id: string}, {moveCount: number}>(
+      worker as unknown as Worker,
+      (stage) => stages.push(stage),
+    );
+    const solution = client.solve({id: "cube"});
+    expect(worker.requests).toEqual([{id: 0, type: "solveOptimal2x2", state: {id: "cube"}}]);
+    worker.respond({id: 0, type: "optimal2x2Progress", stage: "Preparing optimal 2×2 solver…"});
+    worker.respond({id: 0, ok: true, solution: {moveCount: 11}});
+    expect(stages).toEqual(["Preparing optimal 2×2 solver…"]);
+    await expect(solution).resolves.toEqual({moveCount: 11});
   });
 });

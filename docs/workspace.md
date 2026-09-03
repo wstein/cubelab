@@ -72,10 +72,11 @@ viewport always shows the supplied Setup at the start of playback rather than a 
 solved cube. When Moves is empty, an algorithm entered in Setup is simply evaluated to its
 resulting state for inspection.
 
-The Academy and two-phase solvers always take their source position from **Setup** only.
+The Academy, optimal 2×2, and two-phase solvers always take their source position from **Setup** only.
 Moves is a playback tape, so editing it never changes a solver request or invalidates an
-already-returned two-phase candidate. Changing Setup resets that candidate and its
-optional refinement search.
+already-returned solver candidate. Changing Setup resets that candidate and any optional
+two-phase refinement search. The 2×2 control returns a shortest solution in the half-turn
+metric; its compact worker table is downloaded only on first use.
 
 ## Manual state entry
 

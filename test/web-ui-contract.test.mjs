@@ -156,6 +156,19 @@ test("the converter exposes full two-phase solutions through a dedicated worker 
   assert.match(client, /store\.patch\(\{moves:/);
 });
 
+test("the converter exposes a lazy HTM-optimal 2×2 solver through its worker contract", () => {
+  assert.match(page, /data-optimal-2x2-row/);
+  assert.match(page, /Find optimal solution/);
+  assert.match(page, /HTM-optimal solution/);
+  assert.match(client, /createOptimal2x2SolverClient/);
+  assert.match(client, /optimal2x2Row\.hidden = size !== 2/);
+  assert.match(client, /optimal2x2SolverClient\.solve\(setup\._0\.state\)/);
+  assert.match(client, /The optimal 2×2 solution did not replay to solved/);
+  assert.match(client, /Setup changed; generate a new optimal solution/);
+  assert.match(solverWorker, /type: "solveOptimal2x2"/);
+  assert.match(solverWorker, /Optimal2x2Solver\.solve\(request\.state\)/);
+});
+
 test("half-turn arrows carry a matching 2× overlay badge", () => {
   assert.match(viewport, /drawRepeatIndicator\(overlay, "2×"/);
   assert.match(viewport, /\(\(turnGuide\.step\.turns % 4\) \+ 4\) % 4 === 2/);

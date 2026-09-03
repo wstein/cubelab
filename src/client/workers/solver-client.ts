@@ -4,6 +4,7 @@ type WorkerFailure = {id: number; ok: false; error: string};
 type WorkerResponse<T> = WorkerSuccess<T> | WorkerFailure;
 type TwoPhaseProgress = {id: number; type: "twoPhaseProgress"; stage: string};
 type TwoPhaseCandidate<T> = {id: number; type: "twoPhaseCandidate"; solution: T};
+type Optimal2x2Progress = {id: number; type: "optimal2x2Progress"; stage: string};
 export type TwoPhaseSearchOptions = {refine?: boolean; maximumDepth?: number};
 
 /** Request/response boundary for expensive searches; the UI thread never waits for them. */
@@ -79,6 +80,45 @@ export const createTwoPhaseSolverClient = <TState, TSolution>(
     },
     terminate(): void {
       pending.forEach(({reject}) => reject(new Error("The two-phase solver was stopped.")));
+      pending.clear();
+      worker.terminate();
+    },
+  };
+};
+
+/** Dedicated request contract for table-backed optimal 2×2 searches. */
+export const createOptimal2x2SolverClient = <TState, TSolution>(
+  worker: Worker,
+  onProgress?: (stage: string) => void,
+) => {
+  let nextId = 0;
+  const pending = new Map<number, {resolve: (value: TSolution) => void; reject: (reason: Error) => void}>();
+  worker.addEventListener("message", (event: MessageEvent<WorkerResponse<TSolution> | Optimal2x2Progress>) => {
+    const response = event.data;
+    if ("type" in response && response.type === "optimal2x2Progress") {
+      onProgress?.(response.stage);
+      return;
+    }
+    const request = pending.get(response.id);
+    if (!request) return;
+    pending.delete(response.id);
+    if (response.ok) request.resolve(response.solution);
+    else request.reject(new Error(response.error));
+  });
+  worker.addEventListener("error", () => {
+    pending.forEach(({reject}) => reject(new Error("The optimal 2×2 solver worker could not start.")));
+    pending.clear();
+  });
+  return {
+    solve(state: TState): Promise<TSolution> {
+      const id = nextId++;
+      return new Promise((resolve, reject) => {
+        pending.set(id, {resolve, reject});
+        worker.postMessage({id, type: "solveOptimal2x2", state});
+      });
+    },
+    terminate(): void {
+      pending.forEach(({reject}) => reject(new Error("The optimal 2×2 solver was stopped.")));
       pending.clear();
       worker.terminate();
     },

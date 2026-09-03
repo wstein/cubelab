@@ -11,7 +11,7 @@ import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as HamiltonMacro from "../Move/HamiltonMacro";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
-import {createSolverClient, createTwoPhaseSolverClient} from "./workers/solver-client";
+import {createOptimal2x2SolverClient, createSolverClient, createTwoPhaseSolverClient} from "./workers/solver-client";
 import {mountTimerWorkspace} from "./timer/workspace";
 import {defaultPreferences, hasVerifiedTnoodle, readPreferences, writePreferences} from "./preferences";
 import {TnoodleClient} from "./scramble/tnoodle-client";
@@ -297,6 +297,10 @@ if (root) {
   const academyComparison = root.querySelector<HTMLElement>("[data-academy-comparison]")!;
   const autoOrbitButton = root.querySelector<HTMLButtonElement>("[data-auto-orbit]")!;
   const turnGuidesButton = root.querySelector<HTMLButtonElement>("[data-turn-guides]")!;
+  const optimal2x2Row = root.querySelector<HTMLElement>("[data-optimal-2x2-row]")!;
+  const optimal2x2Solve = root.querySelector<HTMLButtonElement>("[data-optimal-2x2-solve]")!;
+  const optimal2x2Apply = root.querySelector<HTMLButtonElement>("[data-optimal-2x2-apply]")!;
+  const optimal2x2Result = root.querySelector<HTMLOutputElement>("[data-optimal-2x2-result]")!;
   const settingsOpen = root.querySelector<HTMLButtonElement>("[data-settings-open]")!;
   const settingsDialog = root.querySelector<HTMLDialogElement>("[data-settings-dialog]")!;
   const settingsClose = root.querySelector<HTMLButtonElement>("[data-settings-close]")!;
@@ -455,6 +459,8 @@ if (root) {
           : `Best so far: ${twoPhaseBestMoveCount} HTM · ${twoPhaseAlgorithm} · ${stage}`;
       }
     },
+  let optimal2x2SolveBusy = false;
+  let optimal2x2Request = 0;
     (solution) => {
       if (
         !twoPhaseSolveBusy
@@ -464,6 +470,8 @@ if (root) {
       ) return;
       const replay = MoveExecutor.applyAlg(twoPhasePendingState, solution.alg) as Result<CubeState, unknown>;
       if (replay.TAG !== "Ok"
+  let optimal2x2Algorithm = "";
+  let optimal2x2SourceKey = "";
         || FaceletCodec.render(replay._0) !== FaceletCodec.render(twoPhasePendingTarget)) return;
       twoPhaseAlgorithm = MoveTransform.serialize(solution.alg) as string;
       twoPhaseBestMoveCount = solution.moveCount;
@@ -492,6 +500,13 @@ if (root) {
     twoPhaseSolve.textContent = "Find two-phase solution";
   };
   const viewport = createCubeViewport(canvas, motionOverlay, (message) => {
+  const newOptimal2x2SolverClient = () => createOptimal2x2SolverClient<CubeState, {alg: unknown; moveCount: number}>(
+    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+    (stage) => {
+      if (optimal2x2SolveBusy) optimal2x2Result.textContent = stage;
+    },
+  );
+  let optimal2x2SolverClient = newOptimal2x2SolverClient();
     viewportFallback.textContent = `${message} Text conversions remain fully functional.`;
     viewportFallback.hidden = false;
   });
@@ -510,6 +525,20 @@ if (root) {
     settingsAutoOrbit.textContent = enabled ? "On" : "Off";
     viewport?.setAutoOrbit(enabled);
     if (share) store.patch({autoOrbit: enabled});
+  const resetOptimal2x2Solution = () => {
+    if (optimal2x2SolveBusy) {
+      optimal2x2Request += 1;
+      optimal2x2SolverClient.terminate();
+      optimal2x2SolverClient = newOptimal2x2SolverClient();
+      optimal2x2SolveBusy = false;
+    }
+    optimal2x2Algorithm = "";
+    optimal2x2SourceKey = "";
+    optimal2x2Apply.disabled = true;
+    optimal2x2Solve.textContent = "Find optimal solution";
+    optimal2x2Result.textContent = "Find an HTM-optimal solution for the Setup state.";
+    optimal2x2Result.classList.remove("success", "failure");
+  };
   };
   setAutoOrbitEnabled(initialState.autoOrbit, false);
   const setPlayerMode = (enabled: boolean, pushHistory = true) => {
@@ -1451,6 +1480,8 @@ if (root) {
     token: HTMLElement,
     step: MoveStep,
     label: string,
+    optimal2x2Row.hidden = size !== 2;
+    optimal2x2Solve.disabled = size !== 2;
     moveIndex: number,
   ) => {
     if (!timelineHoverEnabled(playbackDirection)) return;
@@ -3891,6 +3922,7 @@ if (root) {
 
   shortenDismiss.addEventListener("click", () => {
     shortenResult.hidden = true;
+      resetOptimal2x2Solution();
     pendingShortenedAlg = null;
   });
 
@@ -4306,6 +4338,69 @@ if (root) {
         ? 60
         : academy.method === "advancedCfop"
           ? 55
+  optimal2x2Solve.addEventListener("click", async () => {
+    if (size !== 2) return;
+    if (optimal2x2SolveBusy) {
+      optimal2x2Request += 1;
+      optimal2x2SolverClient.terminate();
+      optimal2x2SolverClient = newOptimal2x2SolverClient();
+      optimal2x2SolveBusy = false;
+      optimal2x2Solve.textContent = "Find optimal solution";
+      optimal2x2Result.textContent = "Optimal 2×2 search stopped immediately.";
+      optimal2x2Result.classList.remove("success", "failure");
+      return;
+    }
+    const setup = parseState(input.value);
+    if (setup.TAG === "Error") {
+      optimal2x2Result.textContent = describeError(setup._0);
+      optimal2x2Result.classList.add("failure");
+      return;
+    }
+    const sourceKey = `${input.value}\u0000${schemeSelect.value}\u0000${customScheme.value}`;
+    const request = ++optimal2x2Request;
+    optimal2x2SourceKey = sourceKey;
+    optimal2x2Algorithm = "";
+    optimal2x2Apply.disabled = true;
+    optimal2x2SolveBusy = true;
+    optimal2x2Solve.textContent = "Cancel search";
+    optimal2x2Result.textContent = "Preparing optimal 2×2 solver…";
+    optimal2x2Result.classList.remove("success", "failure");
+    try {
+      const solution = await optimal2x2SolverClient.solve(setup._0.state);
+      if (request !== optimal2x2Request || sourceKey !== optimal2x2SourceKey) return;
+      const replay = MoveExecutor.applyAlg(setup._0.state, solution.alg) as Result<CubeState, unknown>;
+      const solved = StateTypes.solved(2) as Result<CubeState, unknown>;
+      if (replay.TAG !== "Ok" || solved.TAG !== "Ok" || FaceletCodec.render(replay._0) !== FaceletCodec.render(solved._0)) {
+        throw new Error("The optimal 2×2 solution did not replay to solved.");
+      }
+      optimal2x2Algorithm = MoveTransform.serialize(solution.alg) as string;
+      optimal2x2Apply.disabled = optimal2x2Algorithm === "";
+      optimal2x2Result.textContent = `${solution.moveCount} HTM optimal · ${optimal2x2Algorithm || "Solved"}`;
+      optimal2x2Result.classList.add("success");
+    } catch (reason) {
+      if (request !== optimal2x2Request) return;
+      const message = reason instanceof Error ? reason.message : "The optimal 2×2 solver failed.";
+      optimal2x2Result.textContent = message;
+      optimal2x2Result.classList.add("failure");
+    } finally {
+      if (request !== optimal2x2Request) return;
+      optimal2x2SolveBusy = false;
+      optimal2x2Solve.textContent = "Find optimal solution";
+      optimal2x2Solve.disabled = size !== 2;
+    }
+  });
+
+  optimal2x2Apply.addEventListener("click", () => {
+    if (optimal2x2Algorithm === "") return;
+    const sourceKey = `${input.value}\u0000${schemeSelect.value}\u0000${customScheme.value}`;
+    if (sourceKey !== optimal2x2SourceKey) {
+      optimal2x2Result.textContent = "Setup changed; generate a new optimal solution.";
+      optimal2x2Result.classList.add("failure");
+      optimal2x2Apply.disabled = true;
+      return;
+    }
+    store.patch({moves: [movesInput.value.trim(), optimal2x2Algorithm].filter(Boolean).join(" ")});
+  });
           : null;
     const benchmark = benchmarkTarget === null
       ? ""
