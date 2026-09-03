@@ -19,7 +19,7 @@ The vertex shader uses that coordinate to select complete cubies for an animated
 layer, avoiding the edge-vertex misclassification that coordinate-only clipping
 would cause.
 
-The three styles are intentionally different physical models:
+The two styles are intentionally different physical models:
 
 - **Standard** builds subtly beveled charcoal cubie bodies and places 84%-width,
   rounded mid-gloss vinyl-coloured tiles just above exposed faces. The restrained
@@ -28,16 +28,6 @@ The three styles are intentionally different physical models:
   smoothly-normaled roll bands per exposed face. The band reaches the full piece
   boundary, so adjacent coloured faces meet without disconnected corner fans or
   punctures. A per-vertex sheen value gives the rolled plastic a satin highlight.
-- **Ice** uses colourless clear-glass individual cubies, including their bevels and
-  corners, around saturated, fully opaque local stickers. Its exposed outline reuses
-  Standard's beveled cubie topology—not Speed's continuous rolled-band topology—while
-  omitting internal glass planes that would otherwise appear as stacked flat bands. It
-  intentionally omits reverse-side stickers, so local face and edge colours remain
-  unambiguous while the cube still reads as glass. Its sticker plates are satin rather
-  than glossy, reserving sharp reflections for the glass itself. The glass has a clear
-  face and a denser cool Fresnel rim, rather than a uniformly faded plastic surface. It
-  is decorative rather than a training default; Standard remains clearest for sticker
-  reading, turn guides, and accessibility.
 
 Every cube has the same world-space half-extent. Increasing the puzzle size therefore
 adds smaller pieces instead of making the rendered object larger.
@@ -49,11 +39,8 @@ in the viewport.
 ## Renderer lifecycle
 
 The native WebGL renderer uploads the mesh to one interleaved vertex buffer.
-Capacity covers the selected size's largest Ice mesh and grows if a future geometry
-variant needs more room. Standard and Speed draw normally. Ice first draws its opaque
-local stickers with depth writes enabled, then draws the transparent individual glass
-cubies back-to-front. There are no reverse stickers, so opposite-face colours cannot
-compete with the local sticker reading.
+Capacity covers the selected size's largest supported mesh and grows if a future geometry
+variant needs more room. Both styles draw through the same opaque WebGL path.
 
 Rendering is scheduled only after a state, style, camera, visibility, size, or visual
 guide change. There is no perpetual animation loop by default. The **Auto orbit** toggle

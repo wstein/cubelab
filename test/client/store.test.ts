@@ -73,9 +73,8 @@ describe("application state store", () => {
     expect(writeHash({...defaultAppState, notationDialect: "Twizzle"})).toContain("dialect=Twizzle");
   });
 
-  test("round-trips the optional Ice viewport style and rejects unknown styles", () => {
-    expect(readHash("#style=Ice").cubeStyle).toBe("Ice");
-    expect(writeHash({...defaultAppState, cubeStyle: "Ice"})).toContain("style=Ice");
+  test("accepts only the supported viewport styles", () => {
+    expect(readHash("#style=Speed").cubeStyle).toBe("Speed");
     expect(readHash("#style=glass").cubeStyle).toBe("Standard");
   });
 

@@ -20,25 +20,14 @@ import {
   safeCameraDistance,
   smoothTrackedOrientation,
   standardStickerFinish,
-  iceStickerFinish,
-  iceGlassFinish,
   vboCapacityFloats,
 } from "../../src/client/cube-gl";
 import {cubieIsFrontFacing} from "../../src/client/motion-overlay";
 
 describe("cube viewport math", () => {
-  test("keeps Standard stickers mid-gloss and Ice stickers satin", () => {
-    expect(standardStickerFinish.deskPeak).toBeGreaterThan(iceStickerFinish.deskPeak);
-    expect(standardStickerFinish.ceilingPeak).toBeGreaterThan(iceStickerFinish.ceilingPeak);
-    expect(standardStickerFinish.rim).toBeGreaterThan(iceStickerFinish.rim);
+  test("keeps Standard stickers at a restrained mid-gloss finish", () => {
     expect(standardStickerFinish.deskPeak).toBeLessThan(0.5);
-    expect(iceStickerFinish.deskPeak).toBeLessThan(0.05);
-  });
-
-  test("makes Ice glass denser at its rim while preserving a transparent face", () => {
-    expect(iceGlassFinish.edgeAlpha).toBeGreaterThan(0);
-    expect(iceGlassFinish.edgeAlpha).toBeLessThan(0.3);
-    expect(iceGlassFinish.edgeLight).toBeGreaterThan(0);
+    expect(standardStickerFinish.rim).toBeLessThan(0.25);
   });
 
   test("converts a synchronously captured PNG data URI without a network fetch", async () => {
@@ -61,7 +50,7 @@ describe("cube viewport math", () => {
     expect(capacities).toEqual([...capacities].sort((a, b) => a - b));
     expect(capacities.every((value) => value % 14 === 0)).toBe(true);
     for (const size of [2, 3, 4, 5]) {
-      for (const style of ["Speed", "Ice"]) {
+      for (const style of ["Standard", "Speed"]) {
         const generated = CubeGeometry.generate(StateTypes.solved(size)._0, style, "Western");
         expect(generated.TAG).toBe("Ok");
         if (generated.TAG === "Ok") {

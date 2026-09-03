@@ -10,22 +10,6 @@ let body = {
   a: 1.0
 };
 
-let iceBody = {
-  r: 0.88,
-  g: 0.98,
-  b: 1.0,
-  a: 0.16
-};
-
-function nearIceSticker(colour) {
-  return {
-    r: colour.r,
-    g: colour.g,
-    b: colour.b,
-    a: 1.0
-  };
-}
-
 function vec(x, y, z) {
   return {
     x: x,
@@ -286,12 +270,10 @@ function colourOf(style, palette, face) {
         mapped = face;
     }
   }
-  switch (style) {
-    case "Speed" :
-      return speedColour(mapped);
-    case "Standard" :
-    case "Ice" :
-      return westernColour(mapped);
+  if (style === "Standard") {
+    return westernColour(mapped);
+  } else {
+    return speedColour(mapped);
   }
 }
 
@@ -814,39 +796,6 @@ function emitStandardCubie(data, state, palette, gx, gy, gz) {
   });
 }
 
-function emitIceCubie(nearStickerData, iceBodyData, state, palette, gx, gy, gz) {
-  let size = state.size;
-  let last = size - 1 | 0;
-  let cell = 2.0 * 1.5 / size;
-  let centre = cubieCentre(size, gx, gy, gz);
-  let bodyEmitter = {
-    data: iceBodyData,
-    cubie: centre
-  };
-  let nearStickerEmitter = {
-    data: nearStickerData,
-    cubie: centre
-  };
-  let half = 0.999 * cell / 2.0;
-  let bevelFor = (fA, fB) => bevelForEdge(last, gx, gy, gz, cell, fA, fB);
-  StateTypes.storageOrder.forEach(face => {
-    if (isExposed(last, gx, gy, gz, face)) {
-      return emitStandardFace(bodyEmitter, centre, face, half, iceBody, bevelFor);
-    }
-  });
-  let visible = face => isExposed(last, gx, gy, gz, face);
-  emitStandardBevelsWhere(bodyEmitter, centre, half, iceBody, bevelFor, visible);
-  emitStandardCornersWhere(bodyEmitter, centre, half, iceBody, bevelFor, visible);
-  StateTypes.storageOrder.forEach(face => {
-    if (!isExposed(last, gx, gy, gz, face)) {
-      return;
-    }
-    let colour = colourOf("Ice", palette, faceletAt(state, gx, gy, gz, face));
-    let bounds = stickerBoundsForFace(last, gx, gy, gz, cell, face);
-    emitRoundedFace(nearStickerEmitter, centre, face, half + 0.005 * cell, bounds, nearIceSticker(colour));
-  });
-}
-
 function emitSpeedCubie(data, state, palette, gx, gy, gz) {
   let size = state.size;
   let last = size - 1 | 0;
@@ -1005,55 +954,25 @@ function generate(state, style, palette) {
     };
   }
   let data = [];
-  let nearStickerData = [];
-  let iceBodyData = [];
   let last = state.size - 1 | 0;
   for (let gx = 0; gx <= last; ++gx) {
     for (let gy = 0; gy <= last; ++gy) {
       for (let gz = 0; gz <= last; ++gz) {
         if (gx === 0 || gx === last || gy === 0 || gy === last || gz === 0 || gz === last) {
-          switch (style) {
-            case "Standard" :
-              emitStandardCubie(data, state, palette, gx, gy, gz);
-              break;
-            case "Speed" :
-              emitSpeedCubie(data, state, palette, gx, gy, gz);
-              break;
-            case "Ice" :
-              emitIceCubie(nearStickerData, iceBodyData, state, palette, gx, gy, gz);
-              break;
+          if (style === "Standard") {
+            emitStandardCubie(data, state, palette, gx, gy, gz);
+          } else {
+            emitSpeedCubie(data, state, palette, gx, gy, gz);
           }
         }
       }
     }
   }
-  let output;
-  switch (style) {
-    case "Standard" :
-    case "Speed" :
-      output = data;
-      break;
-    case "Ice" :
-      output = nearStickerData.concat(iceBodyData);
-      break;
-  }
-  let nearStickerVertexCount;
-  switch (style) {
-    case "Standard" :
-    case "Speed" :
-      nearStickerVertexCount = output.length / 14 | 0;
-      break;
-    case "Ice" :
-      nearStickerVertexCount = nearStickerData.length / 14 | 0;
-      break;
-  }
   return {
     TAG: "Ok",
     _0: {
-      data: output,
-      vertexCount: output.length / 14 | 0,
-      nearStickerVertexCount: nearStickerVertexCount,
-      iceBodyVertexCount: iceBodyData.length / 14 | 0,
+      data: data,
+      vertexCount: data.length / 14 | 0,
       stride: 14
     }
   };
@@ -1067,8 +986,6 @@ export {
   stride,
   halfExtent,
   body,
-  iceBody,
-  nearIceSticker,
   vec,
   add,
   sub,
@@ -1109,7 +1026,6 @@ export {
   emitStandardCornersWhere,
   emitStandardCorners,
   emitStandardCubie,
-  emitIceCubie,
   emitSpeedCubie,
   validate,
   generate,

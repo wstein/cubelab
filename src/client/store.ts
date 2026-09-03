@@ -104,9 +104,7 @@ export const readHash = (hash: string): AppState => {
         ? "Sse"
         : "Modern";
   const requestedStyle = params.get("style");
-  const cubeStyle: CubeStyle = requestedStyle === "Speed" || requestedStyle === "Ice"
-    ? requestedStyle
-    : "Standard";
+  const cubeStyle: CubeStyle = requestedStyle === "Speed" ? "Speed" : "Standard";
   const turnGuides = params.get("guides") !== "off";
   const autoOrbit = params.get("orbit") === "on";
   const requestedTab = params.get("tab");

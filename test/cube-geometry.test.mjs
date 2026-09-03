@@ -14,52 +14,16 @@ const generated = (state, style = "Standard", palette = "Western") => {
 test("geometry is deterministic and interleaves material and cubie animation metadata", () => {
   for (const size of [2, 3, 4, 5]) {
     const state = StateTypes.solved(size)._0;
-    for (const style of ["Standard", "Speed", "Ice"]) {
+    for (const style of ["Standard", "Speed"]) {
       const one = generated(state, style);
       const two = generated(state, style);
       assert.equal(one.stride, 14);
       assert.equal(one.data.length, one.vertexCount * one.stride);
       assert.deepEqual(one, two);
       assert.ok(one.vertexCount > 0);
-      assert.equal(one.nearStickerVertexCount + one.iceBodyVertexCount, one.vertexCount);
       for (const value of one.data) assert.ok(Number.isFinite(value));
     }
   }
-});
-
-test("ice keeps opaque local stickers over a colourless outer shell", () => {
-  const ice = generated(StateTypes.solved(3)._0, "Ice");
-  assert.ok(ice.nearStickerVertexCount > 0);
-  assert.ok(ice.iceBodyVertexCount > 0);
-  const shellOffset = ice.nearStickerVertexCount * ice.stride;
-  const shellAlpha = ice.data.slice(shellOffset).filter((_, index) => index % ice.stride === 9);
-  assert.ok(shellAlpha.length > 0);
-  assert.ok(shellAlpha.every((alpha) => alpha > 0 && alpha < 1));
-  const stickerAlpha = ice.data.slice(0, shellOffset).filter((_, index) => index % ice.stride === 9);
-  assert.deepEqual([...new Set(stickerAlpha)], [1]);
-  assert.ok(ice.iceBodyVertexCount > 0);
-});
-
-test("ice reuses Standard's exposed beveled outline without internal glass planes", () => {
-  const standard = generated(StateTypes.solved(3)._0, "Standard");
-  const ice = generated(StateTypes.solved(3)._0, "Ice");
-  const bodyPositions = (mesh, isBody) => {
-    const positions = new Set();
-    for (let index = 0; index < mesh.data.length; index += mesh.stride) {
-      if (!isBody(mesh.data, index)) continue;
-      positions.add(mesh.data.slice(index, index + 3).map((value) => value.toFixed(8)).join(","));
-    }
-    return [...positions].sort();
-  };
-  const standardOutline = bodyPositions(
-    standard,
-    (data, index) => data[index + 6] === 0.13 && data[index + 7] === 0.14 && data[index + 8] === 0.17,
-  );
-  const iceOutline = bodyPositions(ice, (data, index) => data[index + 9] < 1);
-  assert.ok(standardOutline.length > 0);
-  const standardOutlineSet = new Set(standardOutline);
-  assert.ok(iceOutline.length < standardOutline.length);
-  assert.ok(iceOutline.every((position) => standardOutlineSet.has(position)));
 });
 
 test("speed geometry has rolled edges while Standard has lifted stickers", () => {

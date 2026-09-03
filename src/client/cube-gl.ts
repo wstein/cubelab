@@ -12,7 +12,7 @@ import {
   type ProjectedPoint,
 } from "./motion-overlay";
 
-export type CubeStyle = "Standard" | "Speed" | "Ice";
+export type CubeStyle = "Standard" | "Speed";
 export type CubePalette = "Western" | "Japanese";
 export type CubeState = { size: number; facelets: string[][] };
 export const standardStickerFinish = {
@@ -22,15 +22,6 @@ export const standardStickerFinish = {
   ceilingFill: 0.1,
   room: 0.1,
   rim: 0.18,
-} as const;
-export const iceStickerFinish = {
-  deskPeak: 0.025,
-  ceilingPeak: 0.015,
-  rim: 0.01,
-} as const;
-export const iceGlassFinish = {
-  edgeAlpha: 0.16,
-  edgeLight: 0.32,
 } as const;
 export type CubieFocus = {
   piece: string;
@@ -43,8 +34,6 @@ export type MilestoneFocus = { positions: Array<[number, number, number]>; label
 type GeometryMesh = {
   data: number[];
   vertexCount: number;
-  nearStickerVertexCount: number;
-  iceBodyVertexCount: number;
   stride: number;
 };
 type GeometryResult = { TAG: "Ok"; _0: GeometryMesh } | { TAG: "Error"; _0: string };
@@ -150,7 +139,6 @@ const fragmentShaderSource = `
   varying float vMilestoneFocus;
   varying float vGuideLayer;
   uniform float uSpeedStyle;
-  uniform float uIceStyle;
   uniform float uFocusTime;
   uniform float uGuideActive;
 
@@ -201,17 +189,10 @@ const fragmentShaderSource = `
     float dotCeiling = max(dot(normal, halfCeiling), 0.0);
     float dotRoom = max(dot(normal, halfRoom), 0.0);
 
-    // Physical Fresnel reflection at grazing angles
-    float fresnel = pow(1.0 - max(dot(normal, view), 0.0), 3.0);
-
     // Surface classification: charcoal cube body vs sticker
     float charcoalBody = 1.0 - smoothstep(0.02, 0.12, distance(vColour.rgb, vec3(0.13, 0.14, 0.17)));
-    // Ice geometry carries alpha while stickers stay opaque, giving the
-    // lightweight WebGL 1 shader an explicit material distinction.
-    float iceBody = uIceStyle * (1.0 - smoothstep(0.45, 0.55, vColour.a));
-    float body = max(charcoalBody, iceBody);
+    float body = charcoalBody;
     float isStandardSticker = (1.0 - body) * (1.0 - uSpeedStyle);
-    float isIceSticker = uIceStyle * (1.0 - iceBody);
 
     // --- Rubik's Cube Mid-Gloss Vinyl Sticker Specular ---
     // A restrained clearcoat keeps colours legible under the studio lights.
@@ -222,13 +203,6 @@ const fragmentShaderSource = `
     float vinylFresnel = pow(1.0 - max(dot(normal, view), 0.0), 2.5);
     vec3 specRimSticker = mix(ceilingCol, roomFillCol, 0.4) * (${standardStickerFinish.rim} * vinylFresnel);
     vec3 stickerSpecular = specDeskSticker + specCeilingSticker + specRoomSticker + specRimSticker;
-    // Ice sticker plates are deliberately satin rather than vinyl-glossy: the
-    // glass cubie supplies the sharp reflections, leaving colours readable.
-    vec3 iceStickerSpecular = mix(ceilingCol, roomFillCol, 0.5) * (
-      ${iceStickerFinish.deskPeak} * pow(dotDesk, 18.0) + ${iceStickerFinish.ceilingPeak} * pow(dotCeiling, 12.0) + ${iceStickerFinish.rim} * vinylFresnel
-    );
-    stickerSpecular = mix(stickerSpecular, iceStickerSpecular, isIceSticker);
-
     // --- Matte Charcoal Body Plastic Specular ---
     vec3 bodySpecular = deskLampCol * (0.14 * pow(dotDesk, 16.0)) + ceilingCol * (0.08 * pow(dotCeiling, 12.0));
 
@@ -237,22 +211,13 @@ const fragmentShaderSource = `
 
     // Blend specular based on surface type
     vec3 baseSpec = mix(speedSpecular, bodySpecular, body);
-    vec3 iceSpecular = mix(ceilingCol, roomFillCol, 0.5) * (
-      0.52 * pow(dotDesk, 56.0) + 0.32 * pow(dotCeiling, 34.0) + 0.38 * fresnel
-    );
     vec3 specular = mix(baseSpec, stickerSpecular, isStandardSticker);
-    specular = mix(specular, iceSpecular, iceBody);
 
     // Speed cube rolled edge sheen
     vec3 rolledSheen = vColour.rgb * vSheen * (0.45 + 0.55 * wallBounceDiff);
 
     // Combine diffuse and specular with soft highlight compression
     vec3 lit = vColour.rgb * diffuseLight + rolledSheen + specular;
-    // Glass stays clear through its face but gathers a cool, denser reflection
-    // at grazing angles. This differentiates transparent cubies from dark
-    // plastic without tinting any sticker information.
-    float iceEdge = pow(fresnel, 0.72);
-    lit += vec3(0.10, 0.22, 0.30) * iceBody * (0.10 + ${iceGlassFinish.edgeLight} * iceEdge);
     vec3 colour = lit / (vec3(1.0) + max(lit - vec3(1.0), vec3(0.0)) * 0.5);
     colour = clamp(colour, 0.0, 1.0);
 
@@ -266,8 +231,7 @@ const fragmentShaderSource = `
     float pulse = 0.82 + 0.18 * sin(uFocusTime * 4.0);
     vec3 milestoneGlow = vec3(0.20, 1.0, 0.55) * (0.18 + 0.42 * glowFresnel) * pulse;
     colour = min(colour + milestoneGlow * vMilestoneFocus, vec3(1.0));
-    float iceAlpha = min(0.42, vColour.a + ${iceGlassFinish.edgeAlpha} * iceEdge * iceBody);
-    gl_FragColor = vec4(colour, mix(vColour.a, iceAlpha, iceBody));
+    gl_FragColor = vec4(colour, vColour.a);
   }
 `;
 
@@ -277,10 +241,7 @@ export const vboCapacityFloats = (size: number): number => {
   const bodyVertices = visibleCubies * 132;
   const exposedFaces = 6 * size * size;
   const speedVertices = bodyVertices + exposedFaces * 336;
-  // Ice adds transparent individual cubie bodies. Keep a conservative
-  // allocation so future optional X-ray variants can add geometry safely.
-  const iceVertices = bodyVertices + exposedFaces * 672;
-  return Math.max(speedVertices, iceVertices) * FLOATS_PER_VERTEX;
+  return speedVertices * FLOATS_PER_VERTEX;
 };
 
 const normalizedTurns = (turns: number): number => {
@@ -756,7 +717,6 @@ export const createCubeViewport = (
   const modelView = gl.getUniformLocation(program, "uModelView");
   const projection = gl.getUniformLocation(program, "uProjection");
   const speedStyle = gl.getUniformLocation(program, "uSpeedStyle");
-  const iceStyle = gl.getUniformLocation(program, "uIceStyle");
   const turnActive = gl.getUniformLocation(program, "uTurnActive");
   const turnAxis = gl.getUniformLocation(program, "uTurnAxis");
   const turnRange = gl.getUniformLocation(program, "uTurnRange");
@@ -772,8 +732,6 @@ export const createCubeViewport = (
   let palette: CubePalette = "Western";
   let style: CubeStyle = "Standard";
   let vertexCount = 0;
-  let nearStickerVertexCount = 0;
-  let iceBodyVertexCount = 0;
   let allocatedFloats = 0;
   let yaw = DEFAULT_YAW;
   let pitch = DEFAULT_PITCH;
@@ -1455,7 +1413,6 @@ export const createCubeViewport = (
     gl.uniformMatrix4fv(modelView, false, matrices.modelView);
     gl.uniformMatrix4fv(projection, false, matrices.projection);
     gl.uniform1f(speedStyle, style === "Speed" ? 1 : 0);
-    gl.uniform1f(iceStyle, style === "Ice" ? 1 : 0);
     gl.uniform1f(turnActive, activeTurn ? 1 : 0);
     gl.uniform3fv(turnAxis, activeTurn?.axis ?? [1, 0, 0]);
     gl.uniform2f(turnRange, activeTurn?.min ?? 0, activeTurn?.max ?? 0);
@@ -1471,26 +1428,7 @@ export const createCubeViewport = (
     gl.uniform1f(guideActive, guideTransform ? 1 : 0);
     gl.uniform3fv(guideAxis, guideTransform?.axis ?? [1, 0, 0]);
     gl.uniform2f(guideRange, guideTransform?.min ?? 0, guideTransform?.max ?? 0);
-    if (style === "Ice" && iceBodyVertexCount > 0) {
-      // The visible sticker is the only opaque information layer. It writes
-      // depth before glass, so the local face or edge colour always wins.
-      gl.disable(gl.BLEND);
-      gl.depthMask(true);
-      gl.cullFace(gl.BACK);
-      gl.drawArrays(gl.TRIANGLES, 0, nearStickerVertexCount);
-
-      // Draw transparent glass bodies back-to-front. Bodies are colourless;
-      // reverse-side colours cannot appear because reverse stickers do not exist.
-      gl.enable(gl.BLEND);
-      gl.depthMask(false);
-      gl.cullFace(gl.FRONT);
-      gl.drawArrays(gl.TRIANGLES, nearStickerVertexCount, iceBodyVertexCount);
-      gl.cullFace(gl.BACK);
-      gl.drawArrays(gl.TRIANGLES, nearStickerVertexCount, iceBodyVertexCount);
-      gl.depthMask(true);
-    } else {
-      gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
-    }
+    gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
     drawMotionOverlay(matrices, width, height);
     canvas.dataset.webgl = "ready";
     canvas.dataset.cameraYaw = yaw.toFixed(6);
@@ -1551,8 +1489,6 @@ export const createCubeViewport = (
     }
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, values);
     vertexCount = mesh.vertexCount;
-    nearStickerVertexCount = mesh.nearStickerVertexCount;
-    iceBodyVertexCount = mesh.iceBodyVertexCount;
     requestRender();
   };
 

@@ -1,7 +1,6 @@
 type style =
   | Standard
   | Speed
-  | Ice
 
 type palette =
   | Western
@@ -23,8 +22,6 @@ type colour = {
 type mesh = {
   data: array<float>,
   vertexCount: int,
-  nearStickerVertexCount: int,
-  iceBodyVertexCount: int,
   stride: int,
 }
 
@@ -43,11 +40,6 @@ type rimPoint = {
 let stride = 14
 let halfExtent = 1.5
 let body = {r: 0.13, g: 0.14, b: 0.17, a: 1.0}
-// Each cubie remains visibly glass-like, but its colourless low-opacity body
-// cannot compete with the opaque local sticker layer.
-let iceBody = {r: 0.88, g: 0.98, b: 1.0, a: 0.16}
-// Local stickers are the human-readable information layer.
-let nearIceSticker = colour => {r: colour.r, g: colour.g, b: colour.b, a: 1.0}
 
 let vec = (x, y, z) => {x, y, z}
 let add = (a, b) => vec(a.x +. b.x, a.y +. b.y, a.z +. b.z)
@@ -119,7 +111,7 @@ let colourOf = (~style, ~palette, face) => {
   | _ => face
   }
   switch style {
-  | Standard | Ice => westernColour(mapped)
+  | Standard => westernColour(mapped)
   | Speed => speedColour(mapped)
   }
 }
@@ -530,53 +522,6 @@ let emitStandardCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, 
   )
 }
 
-let emitIceCubie = (
-  nearStickerData,
-  iceBodyData,
-  state: StateTypes.cubeState,
-  ~palette,
-  ~gx,
-  ~gy,
-  ~gz,
-) => {
-  let size = state.size
-  let last = size - 1
-  let cell = 2.0 *. halfExtent /. Float.fromInt(size)
-  let centre = cubieCentre(~size, ~gx, ~gy, ~gz)
-  let bodyEmitter = {data: iceBodyData, cubie: centre}
-  let nearStickerEmitter = {data: nearStickerData, cubie: centre}
-  let half = 0.999 *. cell /. 2.0
-  let bevelFor = (fA, fB) => bevelForEdge(~last, ~gx, ~gy, ~gz, ~cell, fA, fB)
-
-  // Emit only the outer glass skin: an internal transparent face cap would
-  // accumulate with its neighbours and make the shared Standard bevel read as
-  // a stack of flat phases. The remaining faces, bevels, and corners preserve
-  // the recognizable individual glass-cubie construction.
-  StateTypes.storageOrder->Array.forEach(face =>
-    if isExposed(~last, ~gx, ~gy, ~gz, face) {
-      emitStandardFace(bodyEmitter, centre, face, half, iceBody, ~bevelFor)
-    }
-  )
-  let visible = face => isExposed(~last, ~gx, ~gy, ~gz, face)
-  emitStandardBevelsWhere(bodyEmitter, centre, half, iceBody, ~bevelFor, ~visible)
-  emitStandardCornersWhere(bodyEmitter, centre, half, iceBody, ~bevelFor, ~visible)
-
-  StateTypes.storageOrder->Array.forEach(face =>
-    if isExposed(~last, ~gx, ~gy, ~gz, face) {
-      let colour = colourOf(~style=Ice, ~palette, faceletAt(state, ~gx, ~gy, ~gz, face))
-      let bounds = stickerBoundsForFace(~last, ~gx, ~gy, ~gz, ~cell, face)
-      emitRoundedFace(
-        nearStickerEmitter,
-        centre,
-        face,
-        half +. 0.005 *. cell,
-        bounds,
-        nearIceSticker(colour),
-      )
-    }
-  )
-}
-
 let emitSpeedCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, ~gz) => {
   let size = state.size
   let last = size - 1
@@ -826,8 +771,6 @@ let generate = (state: StateTypes.cubeState, style: style, palette: palette): re
   | Error(message) => Error(message)
   | Ok() => {
       let data = []
-      let nearStickerData = []
-      let iceBodyData = []
       let last = state.size - 1
       for gx in 0 to last {
         for gy in 0 to last {
@@ -836,25 +779,14 @@ let generate = (state: StateTypes.cubeState, style: style, palette: palette): re
               switch style {
               | Standard => emitStandardCubie(data, state, ~palette, ~gx, ~gy, ~gz)
               | Speed => emitSpeedCubie(data, state, ~palette, ~gx, ~gy, ~gz)
-              | Ice => emitIceCubie(nearStickerData, iceBodyData, state, ~palette, ~gx, ~gy, ~gz)
               }
             }
           }
         }
       }
-      let output = switch style {
-      | Ice => nearStickerData->Array.concat(iceBodyData)
-      | Standard | Speed => data
-      }
-      let nearStickerVertexCount = switch style {
-      | Ice => nearStickerData->Array.length / stride
-      | Standard | Speed => output->Array.length / stride
-      }
       Ok({
-        data: output,
-        vertexCount: output->Array.length / stride,
-        nearStickerVertexCount,
-        iceBodyVertexCount: iceBodyData->Array.length / stride,
+        data,
+        vertexCount: data->Array.length / stride,
         stride,
       })
     }
