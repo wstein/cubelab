@@ -792,16 +792,16 @@ export const createCubeViewport = (
     tone: "normal" | "recovery" = "normal",
   ) => {
     context.save();
-    context.font = `800 ${19 * dpr}px ui-sans-serif, system-ui, sans-serif`;
-    const paddingX = 10 * dpr;
-    const height = 34 * dpr;
+    context.font = `800 ${17 * dpr}px ui-sans-serif, system-ui, sans-serif`;
+    const paddingX = 8 * dpr;
+    const height = 30 * dpr;
     const width = Math.max(height, context.measureText(text).width + paddingX * 2);
     const left = Math.max(6 * dpr, Math.min(overlayCanvas.width - width - 6 * dpr, x - width / 2));
     const top = Math.max(6 * dpr, Math.min(overlayCanvas.height - height - 6 * dpr, y - height / 2));
-    const colour = tone === "recovery" ? "#fde68a" : "#cffafe";
-    context.fillStyle = "rgba(8, 15, 30, 0.94)";
-    context.strokeStyle = colour;
-    context.lineWidth = 2 * dpr;
+    const colour = tone === "recovery" ? "#fbbf24" : "#38bdf8";
+    context.fillStyle = colour;
+    context.strokeStyle = "rgba(8, 15, 30, 0.94)";
+    context.lineWidth = 1.8 * dpr;
     context.shadowColor = tone === "recovery" ? "rgba(245, 158, 11, 0.7)" : "rgba(34, 211, 238, 0.7)";
     context.shadowBlur = 10 * dpr;
     context.beginPath();
@@ -809,7 +809,7 @@ export const createCubeViewport = (
     context.fill();
     context.stroke();
     context.shadowBlur = 0;
-    context.fillStyle = colour;
+    context.fillStyle = "#07111f";
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.fillText(text, left + width / 2, top + height / 2);
@@ -1216,7 +1216,7 @@ export const createCubeViewport = (
             drawTaperedArrow(overlay, projectedArc, dpr, colour, glowColour, 1.15);
             if (((turnGuide.step.turns % 4) + 4) % 4 === 2) {
               const midpoint = projectedArc[Math.floor(projectedArc.length / 2)]!;
-              drawRepeatIndicator(overlay, "2×", midpoint.x, midpoint.y - 34 * dpr, dpr, recovery ? "recovery" : "normal");
+              drawRepeatIndicator(overlay, "2×", midpoint.x, midpoint.y, dpr, recovery ? "recovery" : "normal");
             }
           }
         } else {
@@ -1258,16 +1258,20 @@ export const createCubeViewport = (
               const points = bestFaces[0]!.points
                 .map((point) => projectPoint(point, matrices.modelView, matrices.projection, width, height))
                 .filter(({inFront}) => inFront);
-              if (points.length > 0) {
-                const anchor = points.reduce(
-                  (sum, point) => ({x: sum.x + point.x, y: sum.y + point.y}),
-                  {x: 0, y: 0},
-                );
+              if (points.length >= 3) {
+                const middle = Math.floor(points.length / 2);
+                const anchor = points[middle]!;
+                const before = points[Math.max(0, middle - 1)]!;
+                const after = points[Math.min(points.length - 1, middle + 1)]!;
+                const dx = after.x - before.x;
+                const dy = after.y - before.y;
+                const length = Math.max(1, Math.hypot(dx, dy));
+                const offset = 15 * dpr;
                 drawRepeatIndicator(
                   overlay,
                   "2×",
-                  anchor.x / points.length,
-                  anchor.y / points.length - 38 * dpr,
+                  anchor.x - (dy / length) * offset,
+                  anchor.y + (dx / length) * offset,
                   dpr,
                   recovery ? "recovery" : "normal",
                 );
