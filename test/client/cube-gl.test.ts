@@ -19,11 +19,21 @@ import {
   relativeQuaternion,
   safeCameraDistance,
   smoothTrackedOrientation,
+  standardStickerFinish,
+  iceStickerFinish,
   vboCapacityFloats,
 } from "../../src/client/cube-gl";
 import {cubieIsFrontFacing} from "../../src/client/motion-overlay";
 
 describe("cube viewport math", () => {
+  test("keeps Standard stickers mid-gloss and Ice stickers satin", () => {
+    expect(standardStickerFinish.deskPeak).toBeGreaterThan(iceStickerFinish.deskPeak);
+    expect(standardStickerFinish.ceilingPeak).toBeGreaterThan(iceStickerFinish.ceilingPeak);
+    expect(standardStickerFinish.rim).toBeGreaterThan(iceStickerFinish.rim);
+    expect(standardStickerFinish.deskPeak).toBeLessThan(0.5);
+    expect(iceStickerFinish.deskPeak).toBeLessThan(0.05);
+  });
+
   test("converts a synchronously captured PNG data URI without a network fetch", async () => {
     const blob = pngBlobFromDataUrl("data:image/png;base64,AAE=");
     expect(blob?.type).toBe("image/png");

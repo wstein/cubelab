@@ -15,6 +15,19 @@ import {
 export type CubeStyle = "Standard" | "Speed" | "Ice";
 export type CubePalette = "Western" | "Japanese";
 export type CubeState = { size: number; facelets: string[][] };
+export const standardStickerFinish = {
+  deskPeak: 0.42,
+  deskFill: 0.14,
+  ceilingPeak: 0.28,
+  ceilingFill: 0.1,
+  room: 0.1,
+  rim: 0.18,
+} as const;
+export const iceStickerFinish = {
+  deskPeak: 0.025,
+  ceilingPeak: 0.015,
+  rim: 0.01,
+} as const;
 export type CubieFocus = {
   piece: string;
   source: [number, number, number];
@@ -198,17 +211,17 @@ const fragmentShaderSource = `
 
     // --- Rubik's Cube Mid-Gloss Vinyl Sticker Specular ---
     // A restrained clearcoat keeps colours legible under the studio lights.
-    vec3 specDeskSticker = deskLampCol * (0.42 * pow(dotDesk, 72.0) + 0.14 * pow(dotDesk, 24.0));
-    vec3 specCeilingSticker = ceilingCol * (0.28 * pow(dotCeiling, 44.0) + 0.10 * pow(dotCeiling, 16.0));
-    vec3 specRoomSticker = roomFillCol * (0.10 * pow(dotRoom, 32.0));
+    vec3 specDeskSticker = deskLampCol * (${standardStickerFinish.deskPeak} * pow(dotDesk, 72.0) + ${standardStickerFinish.deskFill} * pow(dotDesk, 24.0));
+    vec3 specCeilingSticker = ceilingCol * (${standardStickerFinish.ceilingPeak} * pow(dotCeiling, 44.0) + ${standardStickerFinish.ceilingFill} * pow(dotCeiling, 16.0));
+    vec3 specRoomSticker = roomFillCol * (${standardStickerFinish.room} * pow(dotRoom, 32.0));
     // A soft dielectric edge rather than a mirror-like rim reflection.
     float vinylFresnel = pow(1.0 - max(dot(normal, view), 0.0), 2.5);
-    vec3 specRimSticker = mix(ceilingCol, roomFillCol, 0.4) * (0.18 * vinylFresnel);
+    vec3 specRimSticker = mix(ceilingCol, roomFillCol, 0.4) * (${standardStickerFinish.rim} * vinylFresnel);
     vec3 stickerSpecular = specDeskSticker + specCeilingSticker + specRoomSticker + specRimSticker;
     // Ice sticker plates are deliberately satin rather than vinyl-glossy: the
     // glass cubie supplies the sharp reflections, leaving colours readable.
     vec3 iceStickerSpecular = mix(ceilingCol, roomFillCol, 0.5) * (
-      0.025 * pow(dotDesk, 18.0) + 0.015 * pow(dotCeiling, 12.0) + 0.01 * vinylFresnel
+      ${iceStickerFinish.deskPeak} * pow(dotDesk, 18.0) + ${iceStickerFinish.ceilingPeak} * pow(dotCeiling, 12.0) + ${iceStickerFinish.rim} * vinylFresnel
     );
     stickerSpecular = mix(stickerSpecular, iceStickerSpecular, isIceSticker);
 

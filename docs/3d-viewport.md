@@ -22,7 +22,8 @@ would cause.
 The three styles are intentionally different physical models:
 
 - **Standard** builds subtly beveled charcoal cubie bodies and places 84%-width,
-  rounded vinyl-coloured tiles just above exposed faces.
+  rounded mid-gloss vinyl-coloured tiles just above exposed faces. The restrained
+  clearcoat retains a polished finish without mirror-bright highlights obscuring colour.
 - **Speed** builds stickerless pieces from one continuous rounded cap and three
   smoothly-normaled roll bands per exposed face. The band reaches the full piece
   boundary, so adjacent coloured faces meet without disconnected corner fans or
@@ -31,9 +32,8 @@ The three styles are intentionally different physical models:
   corners, around saturated, fully opaque local stickers. It intentionally omits
   reverse-side stickers, so local face and edge colours remain unambiguous while the
   cube still reads as glass. Its sticker plates are satin rather than glossy, reserving
-  sharp reflections for the glass itself. It is decorative rather than a training default; Standard
-  remains clearest for sticker reading, turn guides, and
-  accessibility.
+  sharp reflections for the glass itself. It is decorative rather than a training default;
+  Standard remains clearest for sticker reading, turn guides, and accessibility.
 
 Every cube has the same world-space half-extent. Increasing the puzzle size therefore
 adds smaller pieces instead of making the rendered object larger.
