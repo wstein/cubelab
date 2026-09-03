@@ -57,8 +57,12 @@ remains.
 csTimer stores a smart-cube reconstruction as the optional fifth solve item
 `["R@0 U2@123 …", "333"]`. CubeLab reads and writes that form. When a solve has a
 reconstruction, **Replay** loads its scramble and turn sequence into Setup and Moves so
-the normal move tape can play it. CubeLab's own virtual-controller timer records every
-projected face turn with its elapsed solve timestamp before exporting it in this field.
+the normal move tape can play it. Each elapsed timestamp becomes a timed pause before the
+next recorded turn, so playback at **1×** preserves the recorded inter-turn delays; the
+ordinary tape speed controls intentionally scale those delays. CubeLab's own
+virtual-controller timer records every projected face turn with its elapsed solve timestamp
+before exporting it in this field. Invalid or non-monotonic reconstruction timestamps are
+rejected rather than silently replayed out of order.
 
 ## Smart Controller mode
 

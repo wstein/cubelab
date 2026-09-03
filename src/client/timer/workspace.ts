@@ -19,7 +19,7 @@ import {readTimerSessions, writeTimerSessions, type TimerSession} from "./storag
 import {hasVerifiedTnoodle, readPreferences} from "../preferences";
 import {TnoodleClient} from "../scramble/tnoodle-client";
 import {practiceScramble} from "../scramble/practice";
-import {downloadCsTimerSession, importCsTimerSession} from "./cstimer";
+import {downloadCsTimerSession, importCsTimerSession, reconstructionReplayNotation} from "./cstimer";
 
 const newId = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const inputActive = (target: EventTarget | null): boolean =>
@@ -305,7 +305,10 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
       const solve = session.solves.find((candidate) => candidate.id === button.dataset.timerReplay);
       if (solve?.reconstruction) {
         window.dispatchEvent(new CustomEvent("cubelab:timer-replay", {
-          detail: {scramble: solve.scramble, moves: solve.reconstruction.moves.map(({move}) => move).join(" ")},
+          detail: {
+            scramble: solve.scramble,
+            moves: reconstructionReplayNotation(solve.reconstruction.moves),
+          },
         }));
       }
       return;

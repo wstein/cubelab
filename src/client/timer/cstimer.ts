@@ -86,12 +86,45 @@ const recordedMoves = (value: unknown): RecordedMove[] | null => {
   const source = value[0].trim();
   if (source === "") return [];
   const moves: RecordedMove[] = [];
+  let previousElapsedMs = 0;
   for (const token of source.split(/\s+/)) {
     const match = /^([^\s@]+)@(\d+)$/.exec(token);
     if (!match) return null;
-    moves.push({move: match[1], elapsedMs: Number(match[2])});
+    const elapsedMs = Number(match[2]);
+    if (!Number.isSafeInteger(elapsedMs) || elapsedMs < previousElapsedMs) return null;
+    moves.push({move: match[1], elapsedMs});
+    previousElapsedMs = elapsedMs;
   }
   return moves;
+};
+
+const pauseNotation = (durationMs: number): string[] => {
+  const pauses: string[] = [];
+  let remaining = Math.max(0, Math.round(durationMs));
+  while (remaining > 60_000) {
+    pauses.push("@60s");
+    remaining -= 60_000;
+  }
+  if (remaining > 0) {
+    const seconds = (remaining / 1_000).toFixed(3).replace(/\.?0+$/, "");
+    pauses.push(`@${seconds}s`);
+  }
+  return pauses;
+};
+
+/**
+ * Converts csTimer's elapsed move timestamps into CubeLab's timed-pause syntax.
+ * At 1× tape speed, the pauses preserve each recorded delay; longer gaps are
+ * split because a single CubeLab timed pause is deliberately capped at 60 s.
+ */
+export const reconstructionReplayNotation = (moves: RecordedMove[]): string => {
+  let previousElapsedMs = 0;
+  const notation: string[] = [];
+  for (const {move, elapsedMs} of moves) {
+    notation.push(...pauseNotation(elapsedMs - previousElapsedMs), move);
+    previousElapsedMs = elapsedMs;
+  }
+  return notation.join(" ");
 };
 
 /** Reads csTimer's `session1` entries, including its optional smart-cube replay field. */

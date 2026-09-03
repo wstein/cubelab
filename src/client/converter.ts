@@ -3404,8 +3404,8 @@ if (root) {
     smartCubeStatus.textContent = `${smartCubeDeviceName} · Instant scramble loaded. Start inspection when ready.`;
   }) as EventListener);
   window.addEventListener("cubelab:timer-replay", ((event: CustomEvent<{scramble: string; moves: string}>) => {
-    // Imported csTimer reconstructions are ordinary 3×3 timelines once their
-    // timestamp suffixes have been decoded by the timer importer.
+    // Imported csTimer reconstructions are ordinary 3×3 timelines; their
+    // elapsed timestamps have been converted to bounded timed pauses.
     store.patch({size: 3, input: event.detail.scramble, moves: event.detail.moves});
   }) as EventListener);
 

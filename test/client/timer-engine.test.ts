@@ -16,7 +16,7 @@ import {
   type SolveRecord,
 } from "../../src/client/timer/engine";
 import {readTimerSessions, writeTimerSessions, type StorageLike} from "../../src/client/timer/storage";
-import {exportCsTimerSession, importCsTimerSession} from "../../src/client/timer/cstimer";
+import {exportCsTimerSession, importCsTimerSession, reconstructionReplayNotation} from "../../src/client/timer/cstimer";
 
 const solve = (durationMs: number, penalty: SolveRecord["penalty"] = "none"): SolveRecord => ({
   id: `${durationMs}-${penalty}`,
@@ -127,4 +127,15 @@ test("round-trips csTimer smart-cube reconstruction timestamps", () => {
   });
   const exported = exportCsTimerSession({version: 1, id: "imported", name: "Imported", solves: imported.solves});
   expect(exported.session1[0]?.[4]).toEqual(["R@0 U2@123 R'@456", "333"]);
+  expect(reconstructionReplayNotation(imported.solves[0]?.reconstruction?.moves ?? [])).toBe(
+    "R @0.123s U2 @0.333s R'",
+  );
+});
+
+test("rejects malformed or non-monotonic csTimer reconstruction timestamps", () => {
+  const imported = importCsTimerSession(JSON.stringify({
+    session1: [[[0, 8_765], "R U", "", 1_725_000_000, ["R@300 U@123", "333"]]],
+  }));
+  expect(imported).toEqual({ok: false, message: "The csTimer session contains no valid 3×3 solves."});
+  expect(reconstructionReplayNotation([{move: "R", elapsedMs: 60_001}])).toBe("@60s @0.001s R");
 });
