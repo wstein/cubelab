@@ -19,7 +19,7 @@ The vertex shader uses that coordinate to select complete cubies for an animated
 layer, avoiding the edge-vertex misclassification that coordinate-only clipping
 would cause.
 
-The two styles are intentionally different physical models:
+The three styles are intentionally different physical models:
 
 - **Standard** builds subtly beveled charcoal cubie bodies and places 84%-width,
   rounded vinyl-coloured tiles just above exposed faces.
@@ -27,6 +27,10 @@ The two styles are intentionally different physical models:
   smoothly-normaled roll bands per exposed face. The band reaches the full piece
   boundary, so adjacent coloured faces meet without disconnected corner fans or
   punctures. A per-vertex sheen value gives the rolled plastic a satin highlight.
+- **Ice** uses a near-clear cyan glass shell and translucent double-sided stickers,
+  deliberately allowing far-face colours to show through. It is decorative rather than a
+  training default: Standard remains clearer for sticker reading, turn guides, and
+  accessibility.
 
 Every cube has the same world-space half-extent. Increasing the puzzle size therefore
 adds smaller pieces instead of making the rendered object larger.
@@ -38,8 +42,10 @@ in the viewport.
 ## Renderer lifecycle
 
 The native WebGL renderer uploads the mesh to one interleaved vertex buffer.
-Capacity is allocated for the selected size's largest Speed mesh, then state
-and style changes reuse it through `bufferSubData`.
+Capacity covers the selected size's largest Ice mesh and grows if a future geometry
+variant needs more room. Standard and Speed draw normally. Ice draws back and front
+faces of its translucent stickers and shell with depth writes disabled; this deliberately
+keeps far-face colours visible through the near-clear glass.
 
 Rendering is scheduled only after a state, style, camera, visibility, size, or visual
 guide change. There is no perpetual animation loop by default. The **Auto orbit** toggle

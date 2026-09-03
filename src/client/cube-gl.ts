@@ -12,7 +12,7 @@ import {
   type ProjectedPoint,
 } from "./motion-overlay";
 
-export type CubeStyle = "Standard" | "Speed";
+export type CubeStyle = "Standard" | "Speed" | "Ice";
 export type CubePalette = "Western" | "Japanese";
 export type CubeState = { size: number; facelets: string[][] };
 export type CubieFocus = {
@@ -23,7 +23,13 @@ export type CubieFocus = {
 };
 export type MilestoneFocus = { positions: Array<[number, number, number]>; label: string };
 
-type GeometryMesh = { data: number[]; vertexCount: number; stride: number };
+type GeometryMesh = {
+  data: number[];
+  vertexCount: number;
+  stickerVertexCount: number;
+  iceBodyVertexCount: number;
+  stride: number;
+};
 type GeometryResult = { TAG: "Ok"; _0: GeometryMesh } | { TAG: "Error"; _0: string };
 type Mat4 = Float32Array;
 export type MoveStep = {
@@ -127,6 +133,7 @@ const fragmentShaderSource = `
   varying float vMilestoneFocus;
   varying float vGuideLayer;
   uniform float uSpeedStyle;
+  uniform float uIceStyle;
   uniform float uFocusTime;
   uniform float uGuideActive;
 
@@ -181,7 +188,11 @@ const fragmentShaderSource = `
     float fresnel = pow(1.0 - max(dot(normal, view), 0.0), 3.0);
 
     // Surface classification: charcoal cube body vs sticker
-    float body = 1.0 - smoothstep(0.02, 0.12, distance(vColour.rgb, vec3(0.13, 0.14, 0.17)));
+    float charcoalBody = 1.0 - smoothstep(0.02, 0.12, distance(vColour.rgb, vec3(0.13, 0.14, 0.17)));
+    // Ice geometry carries alpha while stickers stay opaque, giving the
+    // lightweight WebGL 1 shader an explicit material distinction.
+    float iceBody = uIceStyle * (1.0 - smoothstep(0.45, 0.55, vColour.a));
+    float body = max(charcoalBody, iceBody);
     float isStandardSticker = (1.0 - body) * (1.0 - uSpeedStyle);
 
     // --- Original Rubik's Cube High-Gloss Vinyl Sticker Specular ---
@@ -202,13 +213,18 @@ const fragmentShaderSource = `
 
     // Blend specular based on surface type
     vec3 baseSpec = mix(speedSpecular, bodySpecular, body);
+    vec3 iceSpecular = mix(ceilingCol, roomFillCol, 0.5) * (
+      0.52 * pow(dotDesk, 56.0) + 0.32 * pow(dotCeiling, 34.0) + 0.38 * fresnel
+    );
     vec3 specular = mix(baseSpec, stickerSpecular, isStandardSticker);
+    specular = mix(specular, iceSpecular, iceBody);
 
     // Speed cube rolled edge sheen
     vec3 rolledSheen = vColour.rgb * vSheen * (0.45 + 0.55 * wallBounceDiff);
 
     // Combine diffuse and specular with soft highlight compression
     vec3 lit = vColour.rgb * diffuseLight + rolledSheen + specular;
+    lit += vec3(0.10, 0.18, 0.22) * iceBody * fresnel;
     vec3 colour = lit / (vec3(1.0) + max(lit - vec3(1.0), vec3(0.0)) * 0.5);
     colour = clamp(colour, 0.0, 1.0);
 
@@ -230,8 +246,12 @@ export const vboCapacityFloats = (size: number): number => {
   const inner = Math.max(0, size - 2);
   const visibleCubies = size ** 3 - inner ** 3;
   const bodyVertices = visibleCubies * 132;
-  const exposedFaceVertices = 6 * size * size * 336;
-  return (bodyVertices + exposedFaceVertices) * FLOATS_PER_VERTEX;
+  const exposedFaces = 6 * size * size;
+  const speedVertices = bodyVertices + exposedFaces * 336;
+  // Ice keeps the same shell but doubles sticker winding so the far side is
+  // readable from inside the translucent body.
+  const iceVertices = bodyVertices + exposedFaces * 672;
+  return Math.max(speedVertices, iceVertices) * FLOATS_PER_VERTEX;
 };
 
 const normalizedTurns = (turns: number): number => {
@@ -707,6 +727,7 @@ export const createCubeViewport = (
   const modelView = gl.getUniformLocation(program, "uModelView");
   const projection = gl.getUniformLocation(program, "uProjection");
   const speedStyle = gl.getUniformLocation(program, "uSpeedStyle");
+  const iceStyle = gl.getUniformLocation(program, "uIceStyle");
   const turnActive = gl.getUniformLocation(program, "uTurnActive");
   const turnAxis = gl.getUniformLocation(program, "uTurnAxis");
   const turnRange = gl.getUniformLocation(program, "uTurnRange");
@@ -722,7 +743,9 @@ export const createCubeViewport = (
   let palette: CubePalette = "Western";
   let style: CubeStyle = "Standard";
   let vertexCount = 0;
-  let allocatedSize = 0;
+  let stickerVertexCount = 0;
+  let iceBodyVertexCount = 0;
+  let allocatedFloats = 0;
   let yaw = DEFAULT_YAW;
   let pitch = DEFAULT_PITCH;
   let distance = DEFAULT_DISTANCE;
@@ -1403,6 +1426,7 @@ export const createCubeViewport = (
     gl.uniformMatrix4fv(modelView, false, matrices.modelView);
     gl.uniformMatrix4fv(projection, false, matrices.projection);
     gl.uniform1f(speedStyle, style === "Speed" ? 1 : 0);
+    gl.uniform1f(iceStyle, style === "Ice" ? 1 : 0);
     gl.uniform1f(turnActive, activeTurn ? 1 : 0);
     gl.uniform3fv(turnAxis, activeTurn?.axis ?? [1, 0, 0]);
     gl.uniform2f(turnRange, activeTurn?.min ?? 0, activeTurn?.max ?? 0);
@@ -1418,7 +1442,21 @@ export const createCubeViewport = (
     gl.uniform1f(guideActive, guideTransform ? 1 : 0);
     gl.uniform3fv(guideAxis, guideTransform?.axis ?? [1, 0, 0]);
     gl.uniform2f(guideRange, guideTransform?.min ?? 0, guideTransform?.max ?? 0);
-    gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
+    if (style === "Ice" && iceBodyVertexCount > 0) {
+      // Both stickers and shell are translucent glass. Back faces render before
+      // front faces so opposite face colours remain visible through aligned tiles.
+      gl.enable(gl.BLEND);
+      gl.depthMask(false);
+      gl.cullFace(gl.FRONT);
+      gl.drawArrays(gl.TRIANGLES, 0, stickerVertexCount);
+      gl.drawArrays(gl.TRIANGLES, stickerVertexCount, iceBodyVertexCount);
+      gl.cullFace(gl.BACK);
+      gl.drawArrays(gl.TRIANGLES, 0, stickerVertexCount);
+      gl.drawArrays(gl.TRIANGLES, stickerVertexCount, iceBodyVertexCount);
+      gl.depthMask(true);
+    } else {
+      gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
+    }
     drawMotionOverlay(matrices, width, height);
     canvas.dataset.webgl = "ready";
     canvas.dataset.cameraYaw = yaw.toFixed(6);
@@ -1469,16 +1507,18 @@ export const createCubeViewport = (
     const mesh = generated._0;
     const values = new Float32Array(mesh.data);
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    if (allocatedSize !== state.size) {
+    if (values.length > allocatedFloats) {
       gl.bufferData(
         gl.ARRAY_BUFFER,
-        vboCapacityFloats(state.size) * Float32Array.BYTES_PER_ELEMENT,
+        Math.max(vboCapacityFloats(state.size), values.length) * Float32Array.BYTES_PER_ELEMENT,
         gl.DYNAMIC_DRAW,
       );
-      allocatedSize = state.size;
+      allocatedFloats = Math.max(vboCapacityFloats(state.size), values.length);
     }
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, values);
     vertexCount = mesh.vertexCount;
+    stickerVertexCount = mesh.stickerVertexCount;
+    iceBodyVertexCount = mesh.iceBodyVertexCount;
     requestRender();
   };
 

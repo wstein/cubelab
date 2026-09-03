@@ -148,6 +148,9 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await page.locator('[data-cube-style="Speed"]').click();
   await expect(page.locator('[data-cube-style="Speed"]')).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-webgl", "ready");
+  await page.locator('[data-cube-style="Ice"]').click();
+  await expect(page.locator('[data-cube-style="Ice"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-webgl", "ready");
   await page.locator("[data-reset-camera]").click();
 
   await page.locator('[data-size="3"]').click();
@@ -209,6 +212,9 @@ test("restores shareable studio state and quick-load presets", async ({page}) =>
     "true",
   );
   await expect(page.locator("[data-status]")).toHaveText("Algorithm · Legacy");
+
+  await page.goto("/#style=Ice");
+  await expect(page.locator('[data-cube-style="Ice"]')).toHaveAttribute("aria-pressed", "true");
 
   await input.fill("r U2");
   await expect.poll(() => page.evaluate(() => window.location.hash)).toContain("alg=r+U2");

@@ -1,6 +1,7 @@
 type style =
   | Standard
   | Speed
+  | Ice
 
 type palette =
   | Western
@@ -22,6 +23,8 @@ type colour = {
 type mesh = {
   data: array<float>,
   vertexCount: int,
+  stickerVertexCount: int,
+  iceBodyVertexCount: int,
   stride: int,
 }
 
@@ -40,6 +43,8 @@ type rimPoint = {
 let stride = 14
 let halfExtent = 1.5
 let body = {r: 0.13, g: 0.14, b: 0.17, a: 1.0}
+let iceBody = {r: 0.86, g: 0.97, b: 1.0, a: 0.16}
+let translucentSticker = colour => {r: colour.r, g: colour.g, b: colour.b, a: 0.74}
 
 let vec = (x, y, z) => {x, y, z}
 let add = (a, b) => vec(a.x +. b.x, a.y +. b.y, a.z +. b.z)
@@ -111,7 +116,7 @@ let colourOf = (~style, ~palette, face) => {
   | _ => face
   }
   switch style {
-  | Standard => westernColour(mapped)
+  | Standard | Ice => westernColour(mapped)
   | Speed => speedColour(mapped)
   }
 }
@@ -426,6 +431,25 @@ let emitRoundedFace = (emitter, centre, face, out, bounds, colour) => {
   }
 }
 
+let emitDoubleSidedRoundedFace = (emitter, centre, face, out, bounds, colour) => {
+  let normal = faceNormal(face)
+  let invNormal = scale(normal, -1.0)
+  let middleU = (bounds.maxU +. bounds.minU) /. 2.0
+  let middleV = (bounds.maxV +. bounds.minV) /. 2.0
+  let middle = add(
+    faceCentre(centre, face, out),
+    add(scale(colAxis(face), middleU), scale(rowAxis(face), middleV)),
+  )
+  let rim = stickerRim(bounds, ~steps=4)
+  for index in 0 to rim->Array.length - 1 {
+    let next = (index + 1) % rim->Array.length
+    let p1 = pointOnFace(centre, face, out, Belt.Array.getUnsafe(rim, index))
+    let p2 = pointOnFace(centre, face, out, Belt.Array.getUnsafe(rim, next))
+    emitTriangle(emitter, middle, p1, p2, normal, normal, normal, colour, normal)
+    emitTriangle(emitter, middle, p2, p1, invNormal, invNormal, invNormal, colour, invNormal)
+  }
+}
+
 let emitStandardFace = (emitter, centre, face, half, colour, ~bevelFor) => {
   let normal = faceNormal(face)
   let row = rowAxis(face)
@@ -508,6 +532,46 @@ let emitStandardCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, 
       let colour = colourOf(~style=Standard, ~palette, faceletAt(state, ~gx, ~gy, ~gz, face))
       let bounds = stickerBoundsForFace(~last, ~gx, ~gy, ~gz, ~cell, face)
       emitRoundedFace(emitter, centre, face, half +. 0.005 *. cell, bounds, colour)
+    }
+  )
+}
+
+let emitIceCubie = (
+  stickerData,
+  iceBodyData,
+  state: StateTypes.cubeState,
+  ~palette,
+  ~gx,
+  ~gy,
+  ~gz,
+) => {
+  let size = state.size
+  let last = size - 1
+  let cell = 2.0 *. halfExtent /. Float.fromInt(size)
+  let centre = cubieCentre(~size, ~gx, ~gy, ~gz)
+  let bodyEmitter = {data: iceBodyData, cubie: centre}
+  let stickerEmitter = {data: stickerData, cubie: centre}
+  let half = 0.999 *. cell /. 2.0
+  let bevelFor = (fA, fB) => bevelForEdge(~last, ~gx, ~gy, ~gz, ~cell, fA, fB)
+
+  StateTypes.storageOrder->Array.forEach(face =>
+    emitStandardFace(bodyEmitter, centre, face, half, iceBody, ~bevelFor)
+  )
+  emitStandardBevels(bodyEmitter, centre, half, iceBody, ~bevelFor)
+  emitStandardCorners(bodyEmitter, centre, half, iceBody, ~bevelFor)
+
+  StateTypes.storageOrder->Array.forEach(face =>
+    if isExposed(~last, ~gx, ~gy, ~gz, face) {
+      let colour = colourOf(~style=Ice, ~palette, faceletAt(state, ~gx, ~gy, ~gz, face))
+      let bounds = stickerBoundsForFace(~last, ~gx, ~gy, ~gz, ~cell, face)
+      emitDoubleSidedRoundedFace(
+        stickerEmitter,
+        centre,
+        face,
+        half +. 0.005 *. cell,
+        bounds,
+        translucentSticker(colour),
+      )
     }
   )
 }
@@ -761,6 +825,8 @@ let generate = (state: StateTypes.cubeState, style: style, palette: palette): re
   | Error(message) => Error(message)
   | Ok() => {
       let data = []
+      let stickerData = []
+      let iceBodyData = []
       let last = state.size - 1
       for gx in 0 to last {
         for gy in 0 to last {
@@ -769,11 +835,26 @@ let generate = (state: StateTypes.cubeState, style: style, palette: palette): re
               switch style {
               | Standard => emitStandardCubie(data, state, ~palette, ~gx, ~gy, ~gz)
               | Speed => emitSpeedCubie(data, state, ~palette, ~gx, ~gy, ~gz)
+              | Ice => emitIceCubie(stickerData, iceBodyData, state, ~palette, ~gx, ~gy, ~gz)
               }
             }
           }
         }
       }
-      Ok({data, vertexCount: data->Array.length / stride, stride})
+      let output = switch style {
+      | Ice => stickerData->Array.concat(iceBodyData)
+      | Standard | Speed => data
+      }
+      let stickerVertexCount = switch style {
+      | Ice => stickerData->Array.length / stride
+      | Standard | Speed => output->Array.length / stride
+      }
+      Ok({
+        data: output,
+        vertexCount: output->Array.length / stride,
+        stickerVertexCount,
+        iceBodyVertexCount: iceBodyData->Array.length / stride,
+        stride,
+      })
     }
   }

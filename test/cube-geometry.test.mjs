@@ -14,16 +14,29 @@ const generated = (state, style = "Standard", palette = "Western") => {
 test("geometry is deterministic and interleaves material and cubie animation metadata", () => {
   for (const size of [2, 3, 4, 5]) {
     const state = StateTypes.solved(size)._0;
-    for (const style of ["Standard", "Speed"]) {
+    for (const style of ["Standard", "Speed", "Ice"]) {
       const one = generated(state, style);
       const two = generated(state, style);
       assert.equal(one.stride, 14);
       assert.equal(one.data.length, one.vertexCount * one.stride);
       assert.deepEqual(one, two);
       assert.ok(one.vertexCount > 0);
+      assert.equal(one.stickerVertexCount + one.iceBodyVertexCount, one.vertexCount);
       for (const value of one.data) assert.ok(Number.isFinite(value));
     }
   }
+});
+
+test("ice separates translucent stickers from its near-clear shell", () => {
+  const ice = generated(StateTypes.solved(3)._0, "Ice");
+  assert.ok(ice.stickerVertexCount > 0);
+  assert.ok(ice.iceBodyVertexCount > 0);
+  const transparentOffset = ice.stickerVertexCount * ice.stride;
+  const shellAlpha = ice.data.slice(transparentOffset).filter((_, index) => index % ice.stride === 9);
+  assert.ok(shellAlpha.length > 0);
+  assert.ok(shellAlpha.every((alpha) => alpha > 0 && alpha < 1));
+  const stickerAlpha = ice.data.slice(0, transparentOffset).filter((_, index) => index % ice.stride === 9);
+  assert.ok(stickerAlpha.every((alpha) => alpha > 0 && alpha < 1));
 });
 
 test("speed geometry has rolled edges while Standard has lifted stickers", () => {
@@ -156,5 +169,3 @@ test("speed cube inner phases are completely colorful with face color", () => {
   assert.ok(frontVertices > 0);
   assert.equal(bodyVerticesOnFront, 0);
 });
-
-

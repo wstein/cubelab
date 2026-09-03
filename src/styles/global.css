@@ -778,9 +778,11 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   display: grid;
   grid-template-columns: repeat(2, 0.38rem);
   grid-template-rows: repeat(3, 0.38rem);
-  justify-content: center;
   gap: 0.18rem;
-  width: 70%;
+  /* Keep the U/D, R/L, F/B matrix centred as one intrinsic unit. A
+     percentage width can be narrower than the dots on a 3×3 net and lets
+     the grid overflow into an adjacent sticker. */
+  width: 0.94rem;
 }
 
 .manual-state-dots i {

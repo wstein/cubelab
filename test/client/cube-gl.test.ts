@@ -44,10 +44,12 @@ describe("cube viewport math", () => {
     expect(capacities).toEqual([...capacities].sort((a, b) => a - b));
     expect(capacities.every((value) => value % 14 === 0)).toBe(true);
     for (const size of [2, 3, 4, 5]) {
-      const generated = CubeGeometry.generate(StateTypes.solved(size)._0, "Speed", "Western");
-      expect(generated.TAG).toBe("Ok");
-      if (generated.TAG === "Ok") {
-        expect(generated._0.data.length).toBeLessThanOrEqual(vboCapacityFloats(size));
+      for (const style of ["Speed", "Ice"]) {
+        const generated = CubeGeometry.generate(StateTypes.solved(size)._0, style, "Western");
+        expect(generated.TAG).toBe("Ok");
+        if (generated.TAG === "Ok") {
+          expect(generated._0.data.length).toBeLessThanOrEqual(vboCapacityFloats(size));
+        }
       }
     }
   });

@@ -73,6 +73,12 @@ describe("application state store", () => {
     expect(writeHash({...defaultAppState, notationDialect: "Twizzle"})).toContain("dialect=Twizzle");
   });
 
+  test("round-trips the optional Ice viewport style and rejects unknown styles", () => {
+    expect(readHash("#style=Ice").cubeStyle).toBe("Ice");
+    expect(writeHash({...defaultAppState, cubeStyle: "Ice"})).toContain("style=Ice");
+    expect(readHash("#style=glass").cubeStyle).toBe("Standard");
+  });
+
   test("accepts only known workspace tabs", () => {
     expect(readHash("#tab=academy&method=beginner")).toMatchObject({
       activeTab: "academy",
