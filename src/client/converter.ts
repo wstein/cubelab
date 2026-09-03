@@ -204,6 +204,7 @@ if (root) {
   const hamiltonWindowStart = root.querySelector<HTMLInputElement>("[data-hamilton-window-start]")!;
   const hamiltonWindowLength = root.querySelector<HTMLInputElement>("[data-hamilton-window-length]")!;
   const hamiltonPreview = root.querySelector<HTMLButtonElement>("[data-hamilton-preview]")!;
+  const hamiltonStreamButton = root.querySelector<HTMLButtonElement>("[data-hamilton-stream]")!;
   const hamiltonResult = root.querySelector<HTMLOutputElement>("[data-hamilton-result]")!;
   const nissInverseOutput = root.querySelector<HTMLElement>("[data-niss-inverse]")!;
   const nissNormal = root.querySelector<HTMLTextAreaElement>("[data-niss-normal]")!;
@@ -776,6 +777,13 @@ if (root) {
   };
 
   let activeTimeline: AlgorithmTimeline | null = null;
+  let hamiltonStream: {
+    player: HamiltonMacro.StreamPlayer;
+    node: string;
+    state: CubeState;
+    measurement: HamiltonMacro.Measurement;
+    quarterTurnsPlayed: bigint;
+  } | null = null;
   let activeTimelineKey: string | null = null;
   let activeIndex = 0;
   let playbackSpeed = 1;
@@ -1294,7 +1302,37 @@ if (root) {
   };
 
   const updatePlaybackUi = (rebuild = false) => {
-    playback.hidden = activeTimeline === null;
+    playback.hidden = activeTimeline === null && hamiltonStream === null;
+    if (hamiltonStream !== null && activeTimeline === null) {
+      if (rebuild) {
+        clearTutorialFocus();
+        clearTurnGuide();
+        moveRibbon.replaceChildren();
+        const notice = document.createElement("span");
+        notice.className = "timeline-empty";
+        notice.textContent = "Hamilton streaming mode · generator-owned cursor · tape scrubbing unavailable";
+        moveRibbon.append(notice);
+      }
+      playbackLimit.hidden = false;
+      playbackLimit.textContent = "Streaming macro playback retains one generator cursor; rewind, end, and arbitrary tape scrubbing are unavailable.";
+      playbackPosition.textContent = `Stream move ${hamiltonStream.player.movesPlayed.toString()}`;
+      playbackHtm.textContent = `QTM ${hamiltonStream.quarterTurnsPlayed.toString()} of ${hamiltonStream.measurement.quarterTurns.toString()}`;
+      scrubber.disabled = true;
+      playbackBegin.disabled = true;
+      root.querySelector<HTMLButtonElement>("[data-playback-back]")!.disabled = true;
+      playbackReverse.disabled = true;
+      playbackPause.disabled = playbackDirection !== 1;
+      playbackPlay.disabled = playbackDirection === 1 || hamiltonStream.player.done;
+      root.querySelector<HTMLButtonElement>("[data-playback-forward]")!.disabled =
+        playbackDirection === 1 || hamiltonStream.player.done;
+      playbackEnd.disabled = true;
+      playbackReverse.classList.remove("is-playing");
+      playbackReverse.setAttribute("aria-pressed", "false");
+      playbackPlay.classList.toggle("is-playing", playbackDirection === 1);
+      playbackPlay.setAttribute("aria-pressed", String(playbackDirection === 1));
+      moveRibbon.dataset.hoverPreview = "disabled";
+      return;
+    }
     if (!activeTimeline) return;
     const playable = activeTimeline.states !== null && activeTimeline.steps.length > 0;
     if (rebuild) {
@@ -1676,6 +1714,10 @@ if (root) {
   };
 
   const executeSingleMove = async (direction: -1 | 1) => {
+    if (hamiltonStream !== null && activeTimeline === null) {
+      if (direction > 0) await advanceHamiltonStream(playbackGeneration);
+      return;
+    }
     if (!activeTimeline?.states) return;
     const sequence = planSequenceStep(activeTimeline.steps, activeIndex, direction);
     const moveIndex = sequence?.moveIndices[0];
@@ -1719,6 +1761,10 @@ if (root) {
   };
 
   const play = async (direction: -1 | 1) => {
+    if (hamiltonStream !== null && activeTimeline === null) {
+      if (direction > 0) await playHamiltonStream();
+      return;
+    }
     if (!activeTimeline?.states || activeTimeline.steps.length === 0) return;
     if (
       (direction < 0 && activeIndex === 0)
@@ -1743,6 +1789,53 @@ if (root) {
         renderTimelineIndex(direction > 0 ? 0 : activeTimeline.steps.length);
       }
       if (!(await transitionTo(activeIndex + direction, generation))) return;
+    }
+    if (generation === playbackGeneration) {
+      playbackDirection = 0;
+      updatePlaybackUi();
+    }
+  };
+
+  const advanceHamiltonStream = async (generation: number): Promise<boolean> => {
+    if (hamiltonStream === null || activeTimeline !== null || generation !== playbackGeneration) return false;
+    const next = hamiltonStream.player.next();
+    if (next.done) {
+      hamiltonResult.textContent = `Hamilton stream completed after ${hamiltonStream.player.movesPlayed.toString()} moves.`;
+      return false;
+    }
+    const evaluated = evaluateAlgorithm(3, "Wide", "Modern", next.value);
+    const step = evaluated.TAG === "Ok"
+      ? evaluated._0.steps.find((entry) => entry.step !== undefined)?.step
+      : undefined;
+    if (!step) {
+      hamiltonResult.textContent = `Could not stream '${next.value}' into the playback engine.`;
+      hamiltonResult.classList.add("failure");
+      return false;
+    }
+    const transform = turnTransform(3, step);
+    if (transform && viewport) {
+      await viewport.animateTurn(transform, 720
+        * (Math.abs(transform.angle) > Math.PI / 2 + 0.01 ? 1.35 : 1)
+        / playbackSpeed);
+    }
+    if (generation !== playbackGeneration || hamiltonStream === null) return false;
+    hamiltonStream.state = MoveExecutor.applyStep(hamiltonStream.state, step) as CubeState;
+    hamiltonStream.quarterTurnsPlayed += next.value.endsWith("2") ? 2n : 1n;
+    renderState(hamiltonStream.state, `Hamilton stream · ${hamiltonStream.node} · ${next.value}`);
+    updatePlaybackUi();
+    return true;
+  };
+
+  const playHamiltonStream = async () => {
+    if (hamiltonStream === null || activeTimeline !== null || playbackDirection === 1) return;
+    clearTutorialFocus();
+    clearTurnGuide();
+    stopPlayback();
+    playbackDirection = 1;
+    const generation = playbackGeneration;
+    updatePlaybackUi();
+    while (playbackDirection === 1 && generation === playbackGeneration) {
+      if (!(await advanceHamiltonStream(generation))) break;
     }
     if (generation === playbackGeneration) {
       playbackDirection = 0;
@@ -3246,6 +3339,7 @@ if (root) {
       hamiltonWindowStart.disabled = false;
       hamiltonWindowLength.disabled = false;
       hamiltonPreview.disabled = false;
+      hamiltonStreamButton.disabled = false;
       const rootKind = importedProgram.implicitExport ? `Imported root ${program.exportName}` : `Export ${program.exportName}`;
       hamiltonResult.textContent = `${rootKind} · ${rootMeasurement.quarterTurns.toString()} QTM · ${rootMeasurement.sourceElements.toString()} source elements · depth ${rootMeasurement.depth}.`;
       hamiltonResult.classList.remove("failure");
@@ -3256,6 +3350,7 @@ if (root) {
       hamiltonWindowStart.disabled = true;
       hamiltonWindowLength.disabled = true;
       hamiltonPreview.disabled = true;
+      hamiltonStreamButton.disabled = true;
       hamiltonResult.textContent = reason instanceof Error ? reason.message : "Could not parse Hamilton macros.";
       hamiltonResult.classList.add("failure");
     }
@@ -3309,6 +3404,26 @@ if (root) {
     updatePlaybackUi(true);
     hamiltonResult.textContent = `Previewing ${timeline._0.steps.length} moves of ${hamiltonNode.value} from offset ${start.toString()}.`;
     hamiltonResult.classList.remove("failure");
+  });
+
+  hamiltonStreamButton.addEventListener("click", () => {
+    if (hamiltonProgram === null) return;
+    const solved = StateTypes.solved(3) as Result<CubeState, unknown>;
+    if (solved.TAG !== "Ok") return;
+    stopPlayback();
+    activeTimeline = null;
+    activeTimelineKey = null;
+    hamiltonStream = {
+      player: HamiltonMacro.createStreamPlayer(hamiltonProgram, hamiltonNode.value),
+      node: hamiltonNode.value,
+      state: solved._0,
+      measurement: HamiltonMacro.measure(hamiltonProgram, hamiltonNode.value),
+      quarterTurnsPlayed: 0n,
+    };
+    renderState(solved._0, `Hamilton streaming player · ${hamiltonNode.value}`);
+    hamiltonResult.textContent = `Streaming ${hamiltonNode.value} from its generator. Use Play or Step forward; tape seeking is disabled.`;
+    hamiltonResult.classList.remove("failure");
+    updatePlaybackUi(true);
   });
 
   const presentTutorialSolution = (
@@ -3750,7 +3865,8 @@ if (root) {
   });
   playbackPlay.addEventListener("click", () => {
     if (playbackDirection === 1 || smartCubeCoachingWaiting) return;
-    if (smartCubeConnected) waitForSmartCubeMove();
+    if (hamiltonStream !== null && activeTimeline === null) void playHamiltonStream();
+    else if (smartCubeConnected) waitForSmartCubeMove();
     else void play(1);
   });
   root.querySelector<HTMLButtonElement>("[data-playback-forward]")!.addEventListener("click", () => {

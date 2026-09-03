@@ -226,6 +226,29 @@ export const prefix = (program: Program, limit: number, name = program.exportNam
   return output;
 };
 
+export type StreamPlayer = {
+  next: () => IteratorResult<string>;
+  readonly movesPlayed: bigint;
+  readonly done: boolean;
+};
+
+/** Owns one resumable macro stream for long-running playback consumers. */
+export const createStreamPlayer = (program: Program, name = program.exportName): StreamPlayer => {
+  const iterator = stream(program, name);
+  let movesPlayed = 0n;
+  let done = false;
+  return {
+    next: () => {
+      const next = iterator.next();
+      if (!next.done) movesPlayed += 1n;
+      else done = true;
+      return next;
+    },
+    get movesPlayed() { return movesPlayed; },
+    get done() { return done; },
+  };
+};
+
 /** Streams a bounded move window; the stream is never materialized. */
 export const window = (program: Program, start: bigint, length: number, name = program.exportName): string[] => {
   const output: string[] = [];

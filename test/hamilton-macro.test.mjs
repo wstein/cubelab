@@ -1,6 +1,6 @@
 import {describe, expect, test} from "vitest";
 
-import {importAlg, measure, parse, prefix, window} from "../src/Move/HamiltonMacro.ts";
+import {createStreamPlayer, importAlg, measure, parse, prefix, window} from "../src/Move/HamiltonMacro.ts";
 
 describe("Hamilton macro programs", () => {
   test("measures recursive definitions without unfolding them", () => {
@@ -40,5 +40,14 @@ describe("Hamilton macro programs", () => {
     expect(imported.implicitExport).toBe(true);
     expect(imported.program.exportName).toBe("a");
     expect(measure(imported.program).quarterTurns).toBe(6n);
+  });
+
+  test("keeps one resumable cursor for streaming playback", () => {
+    const player = createStreamPlayer(parse("def root = (U R)2\nexport root"));
+    expect(player.next().value).toBe("U");
+    expect(player.movesPlayed).toBe(1n);
+    expect(player.next().value).toBe("R");
+    expect(player.movesPlayed).toBe(2n);
+    expect(player.done).toBe(false);
   });
 });

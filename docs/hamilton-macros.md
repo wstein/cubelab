@@ -25,3 +25,8 @@ zero-based start accepts arbitrary non-negative integer offsets; playback is
 deliberately capped at 500 streamed moves per preview. Thus a program such as
 Bruce Norskog's 3,674,160-turn circuit can be validated and examined without
 allocating millions of moves or states.
+
+For long-running playback, **Start streaming player** owns one resumable macro
+generator and feeds the viewport one move at a time. It retains only the
+current cube state, generator cursor, and counters; the tape scrubber, rewind,
+and jump-to-end controls are disabled because no materialized timeline exists.
