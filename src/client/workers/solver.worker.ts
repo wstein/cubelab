@@ -41,7 +41,9 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
       cancelledTwoPhaseRequests.delete(request.id);
       self.postMessage({id: request.id, type: "twoPhaseProgress", stage: "Preparing transition and pruning tables…"});
       TwoPhaseSolver.prepareTables();
-      let bound = 24;
+      const preferredBound = 20;
+      const maximumBound = 24;
+      let bound = preferredBound;
       let incumbent: unknown | null = null;
       const searchNextBound = () => {
         if (cancelledTwoPhaseRequests.has(request.id)) {
@@ -50,10 +52,12 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
             : {id: request.id, ok: true, solution: incumbent});
           return;
         }
-        if (bound < 0) {
-          self.postMessage(incumbent === null
-            ? {id: request.id, ok: false, error: "No two-phase solution was found within 24 HTM."}
-            : {id: request.id, ok: true, solution: incumbent});
+        if (incumbent === null && bound > maximumBound) {
+          self.postMessage({id: request.id, ok: false, error: "No two-phase solution was found within 24 HTM."});
+          return;
+        }
+        if (incumbent !== null && bound < 0) {
+          self.postMessage({id: request.id, ok: true, solution: incumbent});
           return;
         }
         self.postMessage({id: request.id, type: "twoPhaseProgress", stage: `Searching for a solution in ${bound} HTM or fewer…`});
@@ -63,7 +67,7 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
           self.postMessage({id: request.id, type: "twoPhaseCandidate", solution: incumbent});
           bound = result._0.moveCount - 1;
         } else if (result._0 === "SearchFailed" || (result._0 as {TAG?: string}).TAG === "SearchFailed") {
-          bound -= 1;
+          bound += incumbent === null ? 1 : -1;
         } else {
           self.postMessage({id: request.id, ok: false, error: TwoPhaseSolver.describeError(result._0)});
           return;

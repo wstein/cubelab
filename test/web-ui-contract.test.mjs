@@ -136,6 +136,9 @@ test("the converter exposes full two-phase solutions through a dedicated worker 
   assert.match(solverWorker, /type: "solveTwoPhase"/);
   assert.match(solverWorker, /twoPhaseProgress/);
   assert.match(solverWorker, /TwoPhaseSolver\.solveAtDepth\(request\.state, bound\)/);
+  assert.match(solverWorker, /const preferredBound = 20/);
+  assert.match(solverWorker, /const maximumBound = 24/);
+  assert.match(solverWorker, /bound = result\._0\.moveCount - 1/);
   assert.match(solverWorker, /TwoPhaseSolver\.describeError\(result\._0\)/);
   assert.match(solverWorker, /result\._0 === "SearchFailed"/);
   assert.match(solverWorker, /cancelledTwoPhaseRequests = new Set<number>/);

@@ -191,6 +191,14 @@ test("phase-one flip pruning has zero distance at the solved coordinate", () => 
   assert.equal(TwoPhaseSolver.pruningDistance(table, 0), 0);
 });
 
+test("phase-one twist-flip pruning is compact, cached, and solved at zero", () => {
+  const table = TwoPhaseSolver.buildTwistFlipPruningTable();
+  assert.ok(table instanceof Uint8Array);
+  assert.equal(table.length, Math.ceil(2_187 * 2_048 / 2));
+  assert.equal(TwoPhaseSolver.pruningDistance(table, 0), 0);
+  assert.strictEqual(TwoPhaseSolver.buildTwistFlipPruningTable(), table);
+});
+
 test("phase-two pruning tables have solved distance and are cached", () => {
   const corners = TwoPhaseSolver.buildCornerSlicePruningTable();
   const edges = TwoPhaseSolver.buildEdgeSlicePruningTable();

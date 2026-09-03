@@ -82,6 +82,7 @@ let sliceTwistPruningTableCache: ref<option<pruningTable>> = ref(None)
 let sliceFlipPruningTableCache: ref<option<pruningTable>> = ref(None)
 let cornerSlicePruningTableCache: ref<option<pruningTable>> = ref(None)
 let edgeSlicePruningTableCache: ref<option<pruningTable>> = ref(None)
+let twistFlipPruningTableCache: ref<option<pruningTable>> = ref(None)
 let compactTwistMoveTableCache: ref<option<phase1MoveTable>> = ref(None)
 let compactFlipMoveTableCache: ref<option<phase1MoveTable>> = ref(None)
 let compactSliceMoveTableCache: ref<option<phase1MoveTable>> = ref(None)
@@ -662,6 +663,43 @@ let buildSliceFlipPruningTable = () =>
     }
   }
 
+// This is the third standard phase-one lower bound used by min2phase-style
+// search. It is intentionally packed four bits per entry like the slice
+// tables; the full table is still modest enough for the dedicated worker.
+let buildTwistFlipPruningTable = () =>
+  switch twistFlipPruningTableCache.contents {
+  | Some(table) => table
+  | None => {
+      let twistMoves = buildCompactTwistMoveTable()
+      let flipMoves = buildCompactFlipMoveTable()
+      let size = 2187 * 2048
+      let table = createPruningTable(size)
+      let queue = createUint32Array(size)
+      let head = ref(0)
+      let tail = ref(1)
+      setPruningDistance(table, 0, 0)
+      while head.contents < tail.contents {
+        let index = getPruningQueueIndex(queue, head.contents)
+        head := head.contents + 1
+        let depth = pruningDistance(table, index)
+        let flip = index % 2048
+        let twist = index / 2048
+        for moveIndex in 0 to 17 {
+          let nextTwist = getPhase1Move(twistMoves, phase1MoveTableIndex(twist, moveIndex))
+          let nextFlip = getPhase1Move(flipMoves, phase1MoveTableIndex(flip, moveIndex))
+          let next = nextTwist * 2048 + nextFlip
+          if pruningDistance(table, next) == 15 {
+            setPruningDistance(table, next, depth + 1)
+            setPruningQueueIndex(queue, tail.contents, next)
+            tail := tail.contents + 1
+          }
+        }
+      }
+      twistFlipPruningTableCache := Some(table)
+      table
+    }
+  }
+
 let buildPhase2PruningTable = primaryMoves => {
   let sliceMoves = buildSlicePermutationMoveTable()
   let size = 40320 * 24
@@ -719,6 +757,7 @@ let prepareTables = () => {
   buildSlicePermutationMoveTable()->ignore
   buildSliceTwistPruningTable()->ignore
   buildSliceFlipPruningTable()->ignore
+  buildTwistFlipPruningTable()->ignore
   buildCornerSlicePruningTable()->ignore
   buildEdgeSlicePruningTable()->ignore
 }
@@ -745,10 +784,13 @@ let canonicalFaceTransition = (lastFace, nextFace) =>
     lastFace < nextFace
   }
 
-let phase1Distance = (coordinates: phase1Coordinates, sliceTwist, sliceFlip) =>
+let phase1Distance = (coordinates: phase1Coordinates, sliceTwist, sliceFlip, twistFlip) =>
   maximum(
-    pruningDistance(sliceTwist, coordinates.twist * 495 + coordinates.slice),
-    pruningDistance(sliceFlip, coordinates.flip * 495 + coordinates.slice),
+    maximum(
+      pruningDistance(sliceTwist, coordinates.twist * 495 + coordinates.slice),
+      pruningDistance(sliceFlip, coordinates.flip * 495 + coordinates.slice),
+    ),
+    pruningDistance(twistFlip, coordinates.twist * 2048 + coordinates.flip),
   )
 
 let phase2Distance = (coordinates: phase2Coordinates, cornerSlice, edgeSlice) =>
@@ -821,6 +863,7 @@ let rec searchPhase1WithinTotal = (
   sliceMoves,
   sliceTwist,
   sliceFlip,
+  twistFlip,
   cornerMoves,
   edgeMoves,
   slicePermutationMoves,
@@ -853,7 +896,7 @@ let rec searchPhase1WithinTotal = (
         }
       }
     }
-  } else if phase1Distance(coordinates, sliceTwist, sliceFlip) > phase1Depth {
+  } else if phase1Distance(coordinates, sliceTwist, sliceFlip, twistFlip) > phase1Depth {
     None
   } else {
     let found = ref(None)
@@ -878,6 +921,7 @@ let rec searchPhase1WithinTotal = (
             sliceMoves,
             sliceTwist,
             sliceFlip,
+            twistFlip,
             cornerMoves,
             edgeMoves,
             slicePermutationMoves,
@@ -895,13 +939,14 @@ let totalDepthSearch = (state, coordinates, totalDepth) => {
   let sliceMoves = buildCompactSliceMoveTable()
   let sliceTwist = buildSliceTwistPruningTable()
   let sliceFlip = buildSliceFlipPruningTable()
+  let twistFlip = buildTwistFlipPruningTable()
   let cornerMoves = buildCornerMoveTable()
   let edgeMoves = buildEdgeMoveTable()
   let slicePermutationMoves = buildSlicePermutationMoveTable()
   let cornerSlice = buildCornerSlicePruningTable()
   let edgeSlice = buildEdgeSlicePruningTable()
   let found = ref(None)
-  let minimumPhase1Depth = phase1Distance(coordinates, sliceTwist, sliceFlip)
+  let minimumPhase1Depth = phase1Distance(coordinates, sliceTwist, sliceFlip, twistFlip)
   let maximumPhase1Depth = if totalDepth < 12 {
     totalDepth
   } else {
@@ -922,6 +967,7 @@ let totalDepthSearch = (state, coordinates, totalDepth) => {
           sliceMoves,
           sliceTwist,
           sliceFlip,
+          twistFlip,
           cornerMoves,
           edgeMoves,
           slicePermutationMoves,

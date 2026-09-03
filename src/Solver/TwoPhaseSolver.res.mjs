@@ -106,6 +106,10 @@ let edgeSlicePruningTableCache = {
   contents: undefined
 };
 
+let twistFlipPruningTableCache = {
+  contents: undefined
+};
+
 let compactTwistMoveTableCache = {
   contents: undefined
 };
@@ -881,6 +885,39 @@ function buildSliceFlipPruningTable() {
   return table$1;
 }
 
+function buildTwistFlipPruningTable() {
+  let table = twistFlipPruningTableCache.contents;
+  if (table !== undefined) {
+    return Primitive_option.valFromOption(table);
+  }
+  let twistMoves = buildCompactTwistMoveTable();
+  let flipMoves = buildCompactFlipMoveTable();
+  let table$1 = createPruningTable(4478976);
+  let queue = new Uint32Array(4478976);
+  let head = 0;
+  let tail = 1;
+  setPruningDistance(table$1, 0, 0);
+  while (head < tail) {
+    let index = queue[head];
+    head = head + 1 | 0;
+    let depth = pruningDistance(table$1, index);
+    let flip = index % 2048;
+    let twist = index / 2048 | 0;
+    for (let moveIndex = 0; moveIndex <= 17; ++moveIndex) {
+      let nextTwist = twistMoves[phase1MoveTableIndex(twist, moveIndex)];
+      let nextFlip = flipMoves[phase1MoveTableIndex(flip, moveIndex)];
+      let next = (nextTwist << 11) + nextFlip | 0;
+      if (pruningDistance(table$1, next) === 15) {
+        setPruningDistance(table$1, next, depth + 1 | 0);
+        queue[tail] = next;
+        tail = tail + 1 | 0;
+      }
+    }
+  };
+  twistFlipPruningTableCache.contents = Primitive_option.some(table$1);
+  return table$1;
+}
+
 function buildPhase2PruningTable(primaryMoves) {
   let sliceMoves = buildSlicePermutationMoveTable();
   let table = createPruningTable(967680);
@@ -937,6 +974,7 @@ function prepareTables() {
   buildSlicePermutationMoveTable();
   buildSliceTwistPruningTable();
   buildSliceFlipPruningTable();
+  buildTwistFlipPruningTable();
   buildCornerSlicePruningTable();
   buildEdgeSlicePruningTable();
 }
@@ -967,8 +1005,8 @@ function canonicalFaceTransition(lastFace, nextFace) {
   }
 }
 
-function phase1Distance(coordinates, sliceTwist, sliceFlip) {
-  return maximum(pruningDistance(sliceTwist, (coordinates.twist * 495 | 0) + coordinates.slice | 0), pruningDistance(sliceFlip, (coordinates.flip * 495 | 0) + coordinates.slice | 0));
+function phase1Distance(coordinates, sliceTwist, sliceFlip, twistFlip) {
+  return maximum(maximum(pruningDistance(sliceTwist, (coordinates.twist * 495 | 0) + coordinates.slice | 0), pruningDistance(sliceFlip, (coordinates.flip * 495 | 0) + coordinates.slice | 0)), pruningDistance(twistFlip, (coordinates.twist << 11) + coordinates.flip | 0));
 }
 
 function phase2Distance(coordinates, cornerSlice, edgeSlice) {
@@ -1021,7 +1059,7 @@ function searchPhase2(coordinates, depth, lastFace, cornerMoves, edgeMoves, slic
   return found.contents;
 }
 
-function searchPhase1WithinTotal(state, coordinates, phase1Depth, totalDepth, lastFace, moves, twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice) {
+function searchPhase1WithinTotal(state, coordinates, phase1Depth, totalDepth, lastFace, moves, twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip, twistFlip, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice) {
   if (phase1Depth === 0) {
     if (coordinates.twist !== 0 || coordinates.flip !== 0 || coordinates.slice !== 0) {
       return;
@@ -1041,7 +1079,7 @@ function searchPhase1WithinTotal(state, coordinates, phase1Depth, totalDepth, la
       return;
     }
   }
-  if (phase1Distance(coordinates, sliceTwist, sliceFlip) > phase1Depth) {
+  if (phase1Distance(coordinates, sliceTwist, sliceFlip, twistFlip) > phase1Depth) {
     return;
   }
   let found;
@@ -1056,7 +1094,7 @@ function searchPhase1WithinTotal(state, coordinates, phase1Depth, totalDepth, la
         flip: next_flip,
         slice: next_slice
       };
-      found = searchPhase1WithinTotal(state, next, phase1Depth - 1 | 0, totalDepth, face, moves.concat([moveIndex]), twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice);
+      found = searchPhase1WithinTotal(state, next, phase1Depth - 1 | 0, totalDepth, face, moves.concat([moveIndex]), twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip, twistFlip, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice);
     }
   }
   return found;
@@ -1068,17 +1106,18 @@ function totalDepthSearch(state, coordinates, totalDepth) {
   let sliceMoves = buildCompactSliceMoveTable();
   let sliceTwist = buildSliceTwistPruningTable();
   let sliceFlip = buildSliceFlipPruningTable();
+  let twistFlip = buildTwistFlipPruningTable();
   let cornerMoves = buildCornerMoveTable();
   let edgeMoves = buildEdgeMoveTable();
   let slicePermutationMoves = buildSlicePermutationMoveTable();
   let cornerSlice = buildCornerSlicePruningTable();
   let edgeSlice = buildEdgeSlicePruningTable();
   let found;
-  let minimumPhase1Depth = phase1Distance(coordinates, sliceTwist, sliceFlip);
+  let minimumPhase1Depth = phase1Distance(coordinates, sliceTwist, sliceFlip, twistFlip);
   let maximumPhase1Depth = totalDepth < 12 ? totalDepth : 12;
   for (let phase1Depth = minimumPhase1Depth; phase1Depth <= maximumPhase1Depth; ++phase1Depth) {
     if (found === undefined) {
-      found = searchPhase1WithinTotal(state, coordinates, phase1Depth, totalDepth, -1, [], twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice);
+      found = searchPhase1WithinTotal(state, coordinates, phase1Depth, totalDepth, -1, [], twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip, twistFlip, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice);
     }
   }
   return found;
@@ -1209,6 +1248,7 @@ export {
   sliceFlipPruningTableCache,
   cornerSlicePruningTableCache,
   edgeSlicePruningTableCache,
+  twistFlipPruningTableCache,
   compactTwistMoveTableCache,
   compactFlipMoveTableCache,
   compactSliceMoveTableCache,
@@ -1256,6 +1296,7 @@ export {
   buildPhase1PruningTable,
   buildSliceTwistPruningTable,
   buildSliceFlipPruningTable,
+  buildTwistFlipPruningTable,
   buildPhase2PruningTable,
   buildCornerSlicePruningTable,
   buildEdgeSlicePruningTable,
