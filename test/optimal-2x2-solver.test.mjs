@@ -11,7 +11,7 @@ import {
   optimal2x2TableBytes,
 } from "../src/Solver/Optimal2x2Table.ts";
 
-const tablePath = fileURLToPath(new URL("../public/solver/optimal-2x2.v1.bin", import.meta.url));
+const tablePath = fileURLToPath(new URL("../public/solver/optimal-2x2.v2.bin", import.meta.url));
 
 const apply = (input) => {
   const solved = StateTypes.solved(2);
@@ -27,8 +27,7 @@ describe("optimal 2×2 table", () => {
     const bytes = await readFile(tablePath);
     expect(bytes.byteLength).toBe(optimal2x2TableBytes());
     const tables = decodeOptimal2x2Tables(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
-    expect(tables.permutationMoves).toHaveLength(40_320 * 18);
-    expect(tables.orientationMoves).toHaveLength(2_187 * 18);
+    expect(tables.distance).toHaveLength(Math.ceil(3_674_160 / 2));
   });
 
   test("rejects a corrupt downloaded table", async () => {
