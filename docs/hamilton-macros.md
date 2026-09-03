@@ -46,9 +46,9 @@ deliberately capped at 500 streamed moves per preview. Thus a program such as
 Bruce Norskog's 3,674,160-turn circuit can be validated and examined without
 allocating millions of moves or states.
 
-**Unfold selected node to Moves** exports a selected definition as plain
-notation for the ordinary editor, preserving timed pauses. It uses the same
-500-HTM materialization limit as normal tape playback.
+The Workbench **Unfold macros** transform exports the current Moves macro
+program as plain notation, preserving timed pauses. It uses the same 500-HTM
+materialization limit as normal tape playback.
 
 The ordinary **Moves** editor also accepts definition-bearing macro programs.
 It materializes only programs of at most 500 move events and sends that bounded
