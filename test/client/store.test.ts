@@ -1,6 +1,16 @@
 import {describe, expect, test} from "vitest";
 
-import {createStore, defaultAppState, readHash, writeHash} from "../../src/client/store";
+import {
+  createStore,
+  defaultAppState,
+  pathForTab,
+  hashForPath,
+  readHash,
+  readLocation,
+  synchronizeHash,
+  tabForPath,
+  writeHash,
+} from "../../src/client/store";
 
 describe("application state store", () => {
   test("notifies subscribers only when state changes", () => {
@@ -92,8 +102,70 @@ describe("application state store", () => {
     expect(readHash("#guides=on").turnGuides).toBe(true);
   });
 
-  test("round-trips auto-orbit as shareable workspace state", () => {
-    expect(writeHash({...defaultAppState, autoOrbit: true})).toContain("orbit=on");
-    expect(readHash("#orbit=on").autoOrbit).toBe(true);
+  test("maps clean entry pathnames to workspace tabs and vice versa", () => {
+    expect(tabForPath("/academy")).toBe("academy");
+    expect(tabForPath("/workbench")).toBe("workbench");
+    expect(tabForPath("/patterns")).toBe("patterns");
+    expect(tabForPath("/timer")).toBe("timer");
+    expect(tabForPath("/")).toBe("converter");
+    expect(tabForPath("")).toBe("converter");
+    expect(tabForPath("/unknown")).toBeNull();
+
+    expect(pathForTab("academy")).toBe("/academy");
+    expect(pathForTab("workbench")).toBe("/workbench");
+    expect(pathForTab("patterns")).toBe("/patterns");
+    expect(pathForTab("timer")).toBe("/timer");
+    expect(pathForTab("converter")).toBe("/");
+  });
+
+  test("derives active workspace from location pathname when hash does not specify one", () => {
+    expect(readLocation({pathname: "/timer"}).activeTab).toBe("timer");
+    expect(readLocation({pathname: "/academy"}).activeTab).toBe("academy");
+    expect(readLocation({pathname: "/workbench"}).activeTab).toBe("workbench");
+    expect(readLocation({pathname: "/patterns"}).activeTab).toBe("patterns");
+    expect(readLocation({pathname: "/", hash: "#size=4"}).size).toBe(4);
+    expect(readLocation({pathname: "/", hash: "#size=4"}).activeTab).toBe("converter");
+
+    // A clean route takes precedence over a conflicting legacy hash tab.
+    expect(readLocation({pathname: "/timer", hash: "#tab=academy"}).activeTab).toBe("timer");
+  });
+
+  test("keeps route-selected tabs out of otherwise shareable hashes", () => {
+    expect(writeHash(defaultAppState)).toBe("");
+    expect(hashForPath({...defaultAppState, activeTab: "academy"}, "/academy")).toBe("");
+    expect(hashForPath({...defaultAppState, activeTab: "academy", academyMethod: "fullCfop"}, "/academy"))
+      .toBe("#method=fullCfop");
+    expect(hashForPath({...defaultAppState, activeTab: "workbench", moves: "R U R'"}, "/workbench"))
+      .toBe("#moves=R+U+R%27");
+    expect(writeHash({...defaultAppState, activeTab: "academy"})).toBe("#tab=academy");
+  });
+
+  test("pushes discrete workspace navigation and replaces debounced edits", () => {
+    const listeners = new Map<string, () => void>();
+    const calls: Array<{kind: "push" | "replace"; url: string}> = [];
+    const target = {
+      location: {pathname: "/", search: "", hash: ""},
+      history: {
+        pushState: (_state: unknown, _title: string, url: string) => calls.push({kind: "push", url}),
+        replaceState: (_state: unknown, _title: string, url: string) => calls.push({kind: "replace", url}),
+      },
+      setTimeout: (callback: () => void) => {
+        callback();
+        return 1;
+      },
+      clearTimeout: () => undefined,
+      addEventListener: (type: string, listener: () => void) => listeners.set(type, listener),
+      removeEventListener: (type: string) => listeners.delete(type),
+    } as unknown as Window;
+    const store = createStore(defaultAppState);
+    const stop = synchronizeHash(store, target, 0);
+    store.patch({activeTab: "academy"});
+    store.patch({input: "R U"});
+
+    expect(calls).toEqual([
+      {kind: "push", url: "/academy"},
+      {kind: "replace", url: "/academy#alg=R+U"},
+    ]);
+    stop();
   });
 });

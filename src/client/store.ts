@@ -145,7 +145,7 @@ export const readHash = (hash: string): AppState => {
 
 export const writeHash = (state: AppState): string => {
   const params = new URLSearchParams();
-  params.set("size", String(state.size));
+  if (state.size !== defaultAppState.size) params.set("size", String(state.size));
   if (state.input !== "") params.set("alg", state.input);
   if (state.moves !== "") params.set("moves", state.moves);
   if (state.scheme !== "Western") params.set("scheme", state.scheme);
@@ -156,35 +156,114 @@ export const writeHash = (state: AppState): string => {
   if (!state.turnGuides) params.set("guides", "off");
   if (state.autoOrbit) params.set("orbit", "on");
   if (state.activeTab !== "converter") params.set("tab", state.activeTab);
-  if (state.activeTab === "academy" || state.academyMethod !== "beginner") {
+  if (state.activeTab === "academy" && state.academyMethod !== "beginner") {
     params.set("method", state.academyMethod);
   }
-  return `#${params.toString()}`;
+  const encoded = params.toString();
+  return encoded === "" ? "" : `#${encoded}`;
+};
+
+export const tabForPath = (pathname: string): ActiveTab | null => {
+  const clean = pathname.replace(/\/+$/, "");
+  if (clean === "/academy") return "academy";
+  if (clean === "/workbench") return "workbench";
+  if (clean === "/patterns") return "patterns";
+  if (clean === "/timer") return "timer";
+  if (clean === "" || clean === "/") return "converter";
+  return null;
+};
+
+export const pathForTab = (tab: ActiveTab): string => {
+  switch (tab) {
+    case "academy":
+      return "/academy";
+    case "workbench":
+      return "/workbench";
+    case "patterns":
+      return "/patterns";
+    case "timer":
+      return "/timer";
+    case "converter":
+    default:
+      return "/";
+  }
+};
+
+export const readLocation = (location: {pathname?: string; hash?: string; search?: string}): AppState => {
+  const hash = location.hash ?? "";
+  const state = readHash(hash);
+  const pathTab = location.pathname ? tabForPath(location.pathname) : null;
+  // A clean route is the explicit workspace selection. Legacy root links still
+  // use #tab, but a conflicting hash cannot make /timer render Academy.
+  if (pathTab !== null) {
+    return {...state, activeTab: pathTab};
+  }
+  return state;
+};
+
+export const hashForPath = (state: AppState, pathname: string): string => {
+  const params = new URLSearchParams(writeHash(state).replace(/^#/, ""));
+  if (tabForPath(pathname) === state.activeTab) params.delete("tab");
+  const encoded = params.toString();
+  return encoded === "" ? "" : `#${encoded}`;
 };
 
 export const synchronizeHash = (store: AppStore, target: Window, delay = 300): (() => void) => {
   let timeout: number | null = null;
   let readingNavigation = false;
+  let previousState = store.get();
+
+  const sync = (state: AppState, push: boolean) => {
+    const isPlayer = target.location.pathname.replace(/\/+$/, "") === "/player";
+    const targetPath = isPlayer ? "/player" : pathForTab(state.activeTab);
+    const hash = isPlayer ? writeHash(state) : hashForPath(state, targetPath);
+    const targetUrl = `${targetPath}${target.location.search}${hash}`;
+    const currentUrl = `${target.location.pathname}${target.location.search}${target.location.hash}`;
+    if (currentUrl !== targetUrl) {
+      if (push) {
+        target.history.pushState(null, "", targetUrl);
+      } else {
+        target.history.replaceState(null, "", targetUrl);
+      }
+    }
+  };
+
   const unsubscribe = store.subscribe((state) => {
     if (readingNavigation) return;
-    if (timeout !== null) target.clearTimeout(timeout);
-    timeout = target.setTimeout(() => {
-      timeout = null;
-      const hash = writeHash(state);
-      if (target.location.hash !== hash) {
-        target.history.replaceState(null, "", `${target.location.pathname}${target.location.search}${hash}`);
+    const isDiscreteNav = state.activeTab !== previousState.activeTab
+      || state.academyMethod !== previousState.academyMethod;
+    previousState = state;
+
+    if (isDiscreteNav) {
+      if (timeout !== null) {
+        target.clearTimeout(timeout);
+        timeout = null;
       }
-    }, delay);
+      sync(state, true);
+    } else {
+      if (timeout !== null) target.clearTimeout(timeout);
+      timeout = target.setTimeout(() => {
+        timeout = null;
+        sync(state, false);
+      }, delay);
+    }
   });
+
   const navigate = () => {
     readingNavigation = true;
-    store.replace(readHash(target.location.hash));
+    const next = readLocation(target.location);
+    previousState = next;
+    store.replace(next);
     readingNavigation = false;
   };
+
   target.addEventListener("hashchange", navigate);
+  target.addEventListener("popstate", navigate);
+
   return () => {
     unsubscribe();
     target.removeEventListener("hashchange", navigate);
+    target.removeEventListener("popstate", navigate);
     if (timeout !== null) target.clearTimeout(timeout);
   };
 };

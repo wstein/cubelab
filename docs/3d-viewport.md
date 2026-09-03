@@ -61,7 +61,8 @@ cube, and narrow viewports apply an additional aspect-ratio safety distance, so
 the complete puzzle remains inside the frustum. Opening or leaving player mode
 is an in-place layout transition: the active WebGL scene, move tape, workers,
 and Bluetooth connection remain live. Browser history and Escape return to the
-studio; refreshing `/player` still reconstructs source state from the URL hash.
+originating workspace; refreshing `/player` reconstructs the selected workspace
+and source state from the URL hash.
 
 Logical face, range, slice, and whole-cube moves map to a shader axis, a cubie-centre
 selection interval, and a signed target angle. During a transition, Rodrigues'
@@ -178,9 +179,18 @@ but do not retain hundreds of intermediate cube states. When editing at the curr
 end of a timeline, appending exactly one expanded move animates that move; pastes and
 multi-step changes render the final state immediately.
 
-Shareable settings are written to the URL hash after 300 milliseconds without
-adding browser-history entries. Hash input is validated, and imported text is
-limited to 20,000 characters before it reaches the parser.
+Shareable continuous settings are written to the URL hash after 300 milliseconds
+without adding browser-history entries. Workspace and Academy-method navigation
+instead creates a browser-history entry. Hash input is validated, and imported
+text is limited to 20,000 characters before it reaches the parser.
+
+## Snapshot export
+
+The viewport can copy a PNG snapshot to the clipboard (or download it when the
+clipboard API is unavailable) from its **Snapshot** control or `Ctrl/Cmd+Shift+S`.
+Capture forces a draw and reads the canvas synchronously in the same JavaScript
+execution period, so the normal WebGL context keeps `preserveDrawingBuffer` off
+and retains its ordinary rendering performance.
 
 ## Cube motion and camera motion
 

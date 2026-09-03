@@ -1,3 +1,9 @@
 ---
-return Astro.redirect("/?player=1");
+import Index from "./index.astro";
 ---
+
+<Index
+  initialPlayer={true}
+  pageTitle="CubeLab Player — Focused 3D Cube Player"
+  metaDescription="Focused full-size 3D cube playback and smart-cube practice stage."
+/>

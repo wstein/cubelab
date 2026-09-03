@@ -55,8 +55,12 @@ import {
 } from "./playback";
 import {
   createStore,
+  hashForPath,
+  pathForTab,
   readHash,
+  readLocation,
   synchronizeHash,
+  writeHash,
   type AcademyMethod,
   type AppState,
   type ActiveTab,
@@ -299,7 +303,7 @@ if (root) {
   const timerHudTime = root.querySelector<HTMLElement>("[data-timer-hud-time]")!;
   const timerHudStatus = root.querySelector<HTMLElement>("[data-timer-hud-status]")!;
   const timerHudStats = root.querySelector<HTMLElement>("[data-timer-hud-stats]")!;
-  const initialState = readHash(window.location.hash);
+  const initialState = readLocation(window.location);
   const store = createStore(initialState);
   // Local-device preferences (playback speed and reserved TNoodle/inspection
   // fields) never enter AppState/the URL hash. Auto-orbit is intentionally
@@ -453,7 +457,14 @@ if (root) {
     if (playerMode === enabled) return;
     playerMode = enabled;
     renderPlayerPresentation();
-    if (pushHistory) window.history.pushState(null, "", `${enabled ? "/player" : "/"}${window.location.hash}`);
+    if (pushHistory) {
+      const state = store.get();
+      const path = enabled ? "/player" : pathForTab(state.activeTab);
+      // /player has no workspace pathname, so retain #tab there; returning to
+      // a workspace removes that redundant tab while preserving all state.
+      const hash = enabled ? writeHash(state) : hashForPath(state, path);
+      window.history.pushState(null, "", `${path}${hash}`);
+    }
     viewport?.refresh();
   };
   window.addEventListener("popstate", () => {

@@ -2,6 +2,20 @@
 import "../styles/global.css";
 import CubeViewport from "../Components/CubeViewport.astro";
 
+interface Props {
+  initialTab?: "converter" | "academy" | "workbench" | "patterns" | "timer";
+  initialPlayer?: boolean;
+  pageTitle?: string;
+  metaDescription?: string;
+}
+
+const {
+  initialTab = "converter",
+  initialPlayer = false,
+  pageTitle = "CubeLab — Interactive Cube Studio & Algorithmic Suite",
+  metaDescription = "Convert Rubik's Cube states between facelets, ASCII nets, colour notation, cubie coordinates, and Orbit64.",
+} = Astro.props;
+
 const cards = [
   {
     key: "facelets",
@@ -43,18 +57,15 @@ const cards = [
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
-    <meta
-      name="description"
-      content="Convert Rubik's Cube states between facelets, ASCII nets, colour notation, cubie coordinates, and Orbit64."
-    />
-    <title>CubeLab — Interactive Cube Studio &amp; Algorithmic Suite</title>
+    <meta name="description" content={metaDescription} />
+    <title>{pageTitle}</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   </head>
-  <body>
-    <main class="container" data-converter>
+  <body class={initialPlayer ? "player-page" : undefined}>
+    <main class="container" data-converter data-initial-tab={initialTab}>
       <header class="site-header">
         <div class="brand-lockup">
           <span class="badge-tag">2×2×2 — 5×5×5</span>
@@ -70,42 +81,42 @@ const cards = [
           <nav class="workspace-tabs" aria-label="CubeLab workspace">
             <button
               type="button"
-              class="workspace-tab active"
+              class:list={["workspace-tab", { active: initialTab === "converter" }]}
               data-workspace-tab="converter"
-              aria-selected="true"
+              aria-selected={initialTab === "converter" ? "true" : "false"}
             >
               🔄 Converter
             </button>
             <button
               type="button"
-              class="workspace-tab"
+              class:list={["workspace-tab", { active: initialTab === "academy" }]}
               data-workspace-tab="academy"
               aria-label="Academy"
-              aria-selected="false"
+              aria-selected={initialTab === "academy" ? "true" : "false"}
             >
               🎓 Academy
             </button>
             <button
               type="button"
-              class="workspace-tab"
+              class:list={["workspace-tab", { active: initialTab === "workbench" }]}
               data-workspace-tab="workbench"
-              aria-selected="false"
+              aria-selected={initialTab === "workbench" ? "true" : "false"}
             >
               ⚡ Alg Workbench
             </button>
             <button
               type="button"
-              class="workspace-tab"
+              class:list={["workspace-tab", { active: initialTab === "patterns" }]}
               data-workspace-tab="patterns"
-              aria-selected="false"
+              aria-selected={initialTab === "patterns" ? "true" : "false"}
             >
               🧩 Pattern Catalog
             </button>
             <button
               type="button"
-              class="workspace-tab"
+              class:list={["workspace-tab", { active: initialTab === "timer" }]}
               data-workspace-tab="timer"
-              aria-selected="false"
+              aria-selected={initialTab === "timer" ? "true" : "false"}
             >
               ⏱ Timer
             </button>

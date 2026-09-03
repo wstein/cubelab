@@ -4,6 +4,10 @@ import {test} from "vitest";
 
 const page = await readFile(new URL("../src/pages/index.astro", import.meta.url), "utf8");
 const playerPage = await readFile(new URL("../src/pages/player.astro", import.meta.url), "utf8");
+const academyPage = await readFile(new URL("../src/pages/academy.astro", import.meta.url), "utf8");
+const workbenchPage = await readFile(new URL("../src/pages/workbench.astro", import.meta.url), "utf8");
+const patternsPage = await readFile(new URL("../src/pages/patterns.astro", import.meta.url), "utf8");
+const timerPage = await readFile(new URL("../src/pages/timer.astro", import.meta.url), "utf8");
 const client = await readFile(new URL("../src/client/converter.ts", import.meta.url), "utf8");
 const solverWorker = await readFile(new URL("../src/client/workers/solver.worker.ts", import.meta.url), "utf8");
 const viewport = await readFile(new URL("../src/client/cube-gl.ts", import.meta.url), "utf8");
@@ -26,7 +30,7 @@ test("the static shell declares size-scoped cubie and Orbit64 cards", () => {
 });
 
 test("the dedicated player route reuses the full interactive viewport", () => {
-  assert.match(playerPage, /Astro\.redirect\("\/\?player=1"\)/);
+  assert.match(playerPage, /initialPlayer=\{true\}/);
   assert.match(viewportComponent, /data-player-page-link/);
   assert.match(client, /document\.body\.classList\.toggle\("player-page", playerMode\)/);
   assert.match(client, /const setPlayerMode = \(enabled: boolean, pushHistory = true\)/);
@@ -36,7 +40,21 @@ test("the dedicated player route reuses the full interactive viewport", () => {
   assert.match(client, /playerPageLink\.textContent = playerMode \? "Back to studio" : "Full-size player"/);
   assert.doesNotMatch(client, /cubelab-player-handoff/);
   assert.match(viewport, /refresh: requestRender/);
+  assert.match(viewport, /capturePng: \(\) => Promise<Blob \| null>/);
+  assert.match(viewport, /preserveDrawingBuffer remains false/);
+  assert.match(viewportComponent, /data-snapshot-cube/);
+  assert.match(client, /event\.shiftKey && \(event\.metaKey \|\| event\.ctrlKey\) && event\.key\.toLowerCase\(\) === "s"/);
   assert.match(viewport, /safeCameraDistance/);
+});
+
+test("clean static routes select their workspace before the client mounts", () => {
+  assert.match(academyPage, /initialTab="academy"/);
+  assert.match(workbenchPage, /initialTab="workbench"/);
+  assert.match(patternsPage, /initialTab="patterns"/);
+  assert.match(timerPage, /initialTab="timer"/);
+  assert.match(store, /export const pathForTab/);
+  assert.match(store, /target\.history\.pushState/);
+  assert.match(store, /target\.history\.replaceState/);
 });
 
 test("the workspace exposes a manual speedcubing timer", () => {

@@ -1,4 +1,4 @@
-# Single-page workspace
+# Shared workspace and routes
 
 CubeLab uses four client-side workspace views over one canonical state:
 
@@ -11,11 +11,16 @@ CubeLab uses four client-side workspace views over one canonical state:
   filters to proven mathematical antipodes, and surfaces live pattern recognition
   against the current cube state.
 
-The tabs are visibility controls, not routes or hydrated framework components. The page
-contains one `CubeViewport` instance outside the changing left-hand panels, so switching
-views does not recreate the WebGL context, mesh buffers, camera, or tape player. The
-active tab is stored in the URL hash alongside the current input and settings. The
-supported values are `tab=converter|academy|workbench|patterns`.
+The tabs are visibility controls over one persistent `CubeViewport`, so switching views
+does not recreate the WebGL context, mesh buffers, camera, or tape player. They also have
+static entry routes: `/` (Converter), `/academy`, `/workbench`, `/patterns`, and `/timer`.
+The pathname selects the workspace; the URL hash carries the shareable cube state and
+settings. Legacy root links using `#tab=…` continue to select a workspace, but a clean
+pathname wins if the two conflict.
+
+Workspace and Academy-method selections create browser history entries. Continuous edits
+to setup, moves, and settings are debounced and replace the current URL instead, so Back
+and Forward move between destinations without producing an entry for every keystroke.
 
 ## Shared-state behavior
 
