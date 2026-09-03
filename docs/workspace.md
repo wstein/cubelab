@@ -82,9 +82,9 @@ optional refinement search.
 For 2×2×2 and 3×3×3, **Enter state by hand** opens a draft-only sticker editor. It
 starts blank for an empty Setup, or from a valid existing Setup. On 2×2×2, each blank
 sticker shows only colours that have a complete reachable continuation, so every displayed
-dot is selectable. On 3×3×3, dots propagate each entered cubie immediately and every
-selection is checked against full corner/edge permutation parity before it is accepted.
-Both automatically fill subsequently forced stickers. **Clear** intentionally
+dot is selectable. On 3×3×3, options are checked against full corner/edge permutation
+parity asynchronously and appear as they are verified; a displayed dot is likewise
+selectable. Both automatically fill subsequently forced stickers. **Clear** intentionally
 leaves stickers blank so a completed draft can be corrected. CubeLab does not alter Setup
 or the viewport until **Load state into Setup** is enabled by a complete, physically valid
 position.

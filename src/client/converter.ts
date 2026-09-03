@@ -364,6 +364,7 @@ if (root) {
   let activeRecognized: RecognizedInput | null = null;
   let manualStateDraft: ManualStateDraft = emptyManualState(2);
   let manualStateColour: ManualStateFace | null = "U";
+  let manualStateDotGeneration = 0;
   let tutorialPhases: TutorialPhaseRange[] = [];
   let activeAcademy: AcademyElements | null = null;
   let commentedTutorialSolution = "";
@@ -714,7 +715,41 @@ if (root) {
     return validatePhysicalState(parsed._0);
   };
 
+  const renderManualStateDots = (element: HTMLElement, choices: ManualStateFace[]) => {
+    element.replaceChildren();
+    choices.forEach((choice) => {
+      const dot = document.createElement("i");
+      dot.dataset.face = choice;
+      element.append(dot);
+    });
+  };
+
+  const resolveManualStateDots = (
+    manualSize: ManualStateSize,
+    pending: Array<{index: number; element: HTMLElement}>,
+  ) => {
+    const generation = manualStateDotGeneration;
+    const snapshot = [...manualStateDraft];
+    const resolveNext = (offset: number) => {
+      if (generation !== manualStateDotGeneration || offset >= pending.length) return;
+      const next = pending[offset];
+      // Run one exact feasibility calculation per task. A blank 3×3 has many
+      // possible choices, so resolving every sticker in one synchronous pass
+      // would freeze the dialog; this keeps painting and erasing immediate.
+      window.setTimeout(() => {
+        if (generation !== manualStateDotGeneration) return;
+        renderManualStateDots(
+          next.element,
+          allowedManualStateColours(manualSize, snapshot, next.index),
+        );
+        resolveNext(offset + 1);
+      }, 0);
+    };
+    resolveNext(0);
+  };
+
   const renderManualStateEditor = () => {
+    manualStateDotGeneration += 1;
     const manualSize = size as ManualStateSize;
     const total = manualStateStickerCount(manualSize);
     const entered = manualStateEnteredCount(manualStateDraft);
@@ -726,7 +761,7 @@ if (root) {
       ? "Complete and physically valid — ready to load into Setup."
       : manualSize === 2
       ? `Entered ${entered} / ${total}. Every displayed dot can still make a real cube.`
-      : `Entered ${entered} / ${total}. Dots show colours compatible with each cubie; every choice is then checked against the whole cube.`;
+      : `Entered ${entered} / ${total}. Every dot is checked against the complete cube; options appear as they are verified.`;
     manualStateStatus.classList.toggle("success", entered === total && diagnostic === null);
     manualStateStatus.classList.toggle("failure", diagnostic !== null);
     manualStatePalette.querySelectorAll<HTMLButtonElement>("[data-manual-state-colour]").forEach((button) => {
@@ -735,6 +770,7 @@ if (root) {
     });
     manualStateEraser.setAttribute("aria-pressed", String(manualStateColour === null));
     manualStateGrid.replaceChildren();
+    const pendingDots: Array<{index: number; element: HTMLElement}> = [];
     (["U", "L", "F", "R", "B", "D"] as ManualStateFace[]).forEach((face) => {
       const faceIndex = (["U", "R", "F", "D", "L", "B"] as ManualStateFace[]).indexOf(face);
       const group = document.createElement("section");
@@ -760,25 +796,21 @@ if (root) {
         if (value !== null) {
           sticker.textContent = value;
         } else {
-          // A 2×2 search is tiny, so its dots use the identical full-state
-          // predicate as painting. A displayed dot is therefore always
-          // selectable, rather than merely locally plausible.
-          const choices = manualSize === 2
-            ? allowedManualStateColours(manualSize, manualStateDraft, index)
-            : locallyAllowedManualStateColours(manualSize, manualStateDraft, index);
           const dots = document.createElement("span");
           dots.className = "manual-state-dots";
-          choices.forEach((choice) => {
-            const dot = document.createElement("i");
-            dot.dataset.face = choice;
-            dots.append(dot);
-          });
+          if (manualSize === 2) {
+            renderManualStateDots(dots, allowedManualStateColours(manualSize, manualStateDraft, index));
+          } else {
+            dots.classList.add("pending");
+            pendingDots.push({index, element: dots});
+          }
           sticker.append(dots);
         }
         group.append(sticker);
       }
       manualStateGrid.append(group);
     });
+    if (manualSize === 3) resolveManualStateDots(manualSize, pendingDots);
   };
 
   const openManualStateEditor = () => {

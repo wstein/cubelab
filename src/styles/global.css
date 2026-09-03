@@ -783,6 +783,18 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .manual-state-dots i[data-face="L"] { background: #f97316; }
 .manual-state-dots i[data-face="B"] { background: #3b82f6; }
 
+.manual-state-dots.pending::before {
+  width: 0.42rem;
+  height: 0.42rem;
+  border: 2px solid rgba(148, 163, 184, 0.35);
+  border-top-color: #67e8f9;
+  border-radius: 50%;
+  content: "";
+  animation: manual-state-spinner 0.8s linear infinite;
+}
+
+@keyframes manual-state-spinner { to { transform: rotate(360deg); } }
+
 .manual-state-tools { min-width: 9rem; }
 
 .manual-state-palette {
