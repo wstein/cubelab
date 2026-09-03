@@ -29,7 +29,9 @@ test("the dedicated player route reuses the full interactive viewport", () => {
   assert.match(playerPage, /Astro\.redirect\("\/\?player=1"\)/);
   assert.match(viewportComponent, /data-player-page-link/);
   assert.match(client, /document\.body\.classList\.add\("player-page"\)/);
-  assert.match(client, /window\.history\.replaceState\(null, "", "\/player"\)/);
+  assert.match(client, /const playerHash = window\.location\.hash/);
+  assert.match(client, /window\.history\.replaceState\(null, "", `\/player\$\{playerHash\}`\)/);
+  assert.match(client, /const initialState = readHash\(playerHash\)/);
   assert.match(client, /playerPageLink\.textContent = "Back to studio"/);
   assert.match(client, /cubelab-player-handoff/);
   assert.match(client, /timelineIndex: activeIndex/);

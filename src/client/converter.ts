@@ -147,9 +147,10 @@ const root = document.querySelector<HTMLElement>("[data-converter]");
 
 if (root) {
   const playerMode = new URL(window.location.href).searchParams.get("player") === "1";
+  const playerHash = window.location.hash;
   if (playerMode) {
     document.body.classList.add("player-page");
-    window.history.replaceState(null, "", "/player");
+    window.history.replaceState(null, "", `/player${playerHash}`);
   }
   const playerPageLink = root.querySelector<HTMLAnchorElement>("[data-player-page-link]")!;
   if (playerMode) {
@@ -258,7 +259,7 @@ if (root) {
   const smartCubeResetState = root.querySelector<HTMLButtonElement>("[data-smart-cube-reset-state]")!;
   const smartCubeOrientation = root.querySelector<HTMLButtonElement>("[data-smart-cube-orientation]")!;
   const smartCubeDisconnect = root.querySelector<HTMLButtonElement>("[data-smart-cube-disconnect]")!;
-  const initialState = readHash(window.location.hash);
+  const initialState = readHash(playerHash);
   const store = createStore(initialState);
   let size = initialState.size;
   let lowercaseMode: LowercaseMode = initialState.lowercaseMode;
