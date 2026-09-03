@@ -923,6 +923,20 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   height: 19cqi;
   border-radius: 25%;
   background: var(--text-muted);
+  transition: transform 0.08s ease;
+}
+
+/* Available dots are individually clickable — see paintRoot's click handler
+   — so they get their own hover feedback distinct from the sticker's. */
+.manual-state-dots i[data-available="true"] {
+  cursor: pointer;
+}
+.manual-state-dots i[data-available="true"]:hover {
+  transform: scale(1.35);
+  filter: brightness(1.25);
+}
+.manual-state-dots i[data-available="false"] {
+  cursor: not-allowed;
 }
 
 .manual-state-dots i[data-face="U"] { background: #f8fafc; }

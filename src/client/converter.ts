@@ -5343,8 +5343,26 @@ if (root) {
     paintRoot.addEventListener("click", (event) => {
       const index = manualStateStickerAt(event);
       if (index === null) return;
-      if (manualStateColour === null) eraseManualStateSticker(index);
-      else paintManualStateSticker(index, manualStateColour);
+      // A blank sticker's dots are individually clickable: whichever one was
+      // actually clicked wins over the currently selected palette colour, so
+      // a dot works as a direct shortcut rather than requiring the palette
+      // to already match it first.
+      const dot = (event.target as Element).closest<HTMLElement>(".manual-state-dots i");
+      if (dot?.dataset.face) {
+        paintManualStateSticker(index, dot.dataset.face as ManualStateFace);
+        return;
+      }
+      if (manualStateColour === null) {
+        eraseManualStateSticker(index);
+        return;
+      }
+      // An already-filled sticker ignores a plain click instead of silently
+      // repainting over it — double-click loads that sticker's own colour
+      // into the palette below, and a same-click repaint here would race it,
+      // clobbering the original colour before the double-click could read
+      // it. Right-click still erases a filled sticker in one step either way.
+      if (manualStateDraft[index] !== null) return;
+      paintManualStateSticker(index, manualStateColour);
     });
     // Right-click erases regardless of which tool is selected — a quick undo
     // that does not require switching to the Eraser first and back after.
@@ -5353,6 +5371,16 @@ if (root) {
       if (index === null) return;
       event.preventDefault();
       eraseManualStateSticker(index);
+    });
+    // Double-click a filled sticker to pick up its colour into the palette,
+    // without altering the sticker itself.
+    paintRoot.addEventListener("dblclick", (event) => {
+      const index = manualStateStickerAt(event);
+      if (index === null) return;
+      const value = manualStateDraft[index];
+      if (value === null) return;
+      manualStateColour = value;
+      renderManualStateEditor();
     });
     // Drag paints (or erases) a run of stickers without a click per tile.
     // mousedown only arms which mode the drag is in — right button, or

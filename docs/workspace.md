@@ -86,7 +86,12 @@ sticker shows only colours that have a complete reachable continuation, so every
 dot is selectable. On 3×3×3, options are checked against full corner/edge permutation
 parity asynchronously and appear as they are verified; a displayed dot is likewise
 selectable. The dots never change position: they are fixed as **Up / Down**, **Right /
-Left**, and **Front / Back**; unavailable colours are dimmed. Both automatically fill
+Left**, and **Front / Back**; unavailable colours are dimmed. Clicking a specific dot
+paints that colour directly, regardless of which palette swatch is currently selected.
+Double-clicking an already-filled sticker loads its colour into the palette without
+changing the sticker; a plain click on a filled sticker otherwise does nothing, so it
+cannot race and clobber that double-click — right-click (erase) then click remains how to
+correct one. Both automatically fill
 subsequently forced stickers, marked with a cyan inset outline and star. Auto-fill is
 recomputed from only the stickers entered by the user, so a sticker returns to its dots
 whenever an edit makes more than one colour possible. **Clear**

@@ -1567,6 +1567,34 @@ test("shows counted colour pads, a live summary card, and rings a hovered sticke
   await expect(dialog.locator("[data-piece-hover]")).toHaveCount(0);
 });
 
+test("paints a specific dot's colour on click and loads a filled sticker's colour on double-click", async ({page}) => {
+  await page.goto("/");
+  await page.locator("[data-manual-state-open]").click();
+  const dialog = page.locator("[data-manual-state-dialog]");
+  await expect(dialog).toBeVisible();
+  const net = dialog.locator("[data-manual-state-grid]");
+
+  // Up is selected by default, but clicking sticker 8's own Right dot should
+  // still paint it Right — the dot clicked wins over the palette selection.
+  const sticker8 = net.locator('[data-manual-state-index="8"]');
+  await sticker8.locator('.manual-state-dots i[data-face="R"]').click();
+  await expect(sticker8).toHaveText("R");
+
+  // Double-click loads that filled sticker's own colour into the palette,
+  // without repainting the sticker itself.
+  await sticker8.dblclick();
+  await expect(dialog.locator('[data-manual-state-colour="R"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(dialog.locator('[data-manual-state-colour="U"]')).toHaveAttribute("aria-pressed", "false");
+  await expect(sticker8).toHaveText("R");
+
+  // A plain click on an already-filled sticker no longer silently repaints
+  // it — that would race the double-click's colour pickup above. Right-click
+  // (erase) then click remains the way to correct a filled sticker.
+  await dialog.locator('[data-manual-state-colour="U"]').click();
+  await sticker8.click();
+  await expect(sticker8).toHaveText("R");
+});
+
 test("shows two CSS-3D preview cubes and a shortcuts reference beside the net", async ({page}) => {
   await page.goto("/");
   await page.locator("[data-manual-state-open]").click();
