@@ -1,8 +1,9 @@
 # Timer architecture
 
-The CubeLab timer is built around a pure client-side state machine. Keyboard,
-touch, and smart-cube inputs feed the same engine, so timing rules remain
-independent of the viewport and Bluetooth transport.
+The CubeLab timer is built around a pure client-side state machine. Keyboard
+and touch inputs feed that engine, so timing rules remain independent of the
+viewport. A future smart-cube adapter will use this same boundary rather than
+adding separate timing semantics.
 
 The manual state flow is `idle → inspection → holding → ready → running →
 stopped`. A hold must last 300 ms before release starts the solve. Inspection

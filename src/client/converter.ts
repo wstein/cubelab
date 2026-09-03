@@ -2874,6 +2874,8 @@ if (root) {
     activeTimeline = recognized.timeline;
     activeTimelineKey = recognized.timelineKey;
     updatePlaybackUi(true);
+    const restoredPlayerTimelineIndex = pendingPlayerTimelineIndex;
+    pendingPlayerTimelineIndex = null;
 
     if (recognized.timeline.states === null) {
       activeIndex = recognized.timeline.steps.length;
@@ -2887,9 +2889,8 @@ if (root) {
       void transitionTo(activeIndex + 1, generation);
     } else if (sameTimeline) {
       renderTimelineIndex(Math.min(activeIndex, recognized.timeline.steps.length));
-    } else if (pendingPlayerTimelineIndex !== null) {
-      const restoredIndex = Math.min(pendingPlayerTimelineIndex, recognized.timeline.steps.length);
-      pendingPlayerTimelineIndex = null;
+    } else if (restoredPlayerTimelineIndex !== null) {
+      const restoredIndex = Math.min(restoredPlayerTimelineIndex, recognized.timeline.steps.length);
       renderTimelineIndex(restoredIndex);
     } else {
       activeIndex = recognized.timeline.steps.length;

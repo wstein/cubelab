@@ -16,7 +16,6 @@ type pieceError =
   | InvalidPiece(string)
   | InvalidPermutation(string)
   | InvalidOrientation(string)
-  | ParityMismatch
   | SolvabilityViolation(StateParity.violation)
   | InvalidCenters(string)
 
@@ -104,7 +103,6 @@ let describeError = error =>
   | InvalidPermutation(message)
   | InvalidOrientation(message)
   | InvalidCenters(message) => message
-  | ParityMismatch => "Corner and edge permutations must have matching parity."
   | SolvabilityViolation(violation) => StateParity.describe(violation)
   }
 

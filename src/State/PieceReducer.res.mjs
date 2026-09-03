@@ -477,9 +477,6 @@ let edgeFacelets = [
 ];
 
 function describeError(error) {
-  if (typeof error !== "object") {
-    return "Corner and edge permutations must have matching parity.";
-  }
   switch (error.TAG) {
     case "UnsupportedSize" :
       let label = error._0.toString();

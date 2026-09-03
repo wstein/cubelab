@@ -36,6 +36,8 @@ test("the dedicated player route reuses the full interactive viewport", () => {
   assert.match(client, /cubelab-player-handoff/);
   assert.match(client, /timelineIndex: activeIndex/);
   assert.match(client, /renderTimelineIndex\(restoredIndex\)/);
+  assert.match(client, /const restoredPlayerTimelineIndex = pendingPlayerTimelineIndex/);
+  assert.match(client, /pendingPlayerTimelineIndex = null/);
   assert.match(viewport, /safeCameraDistance/);
 });
 
