@@ -196,14 +196,14 @@ const fragmentShaderSource = `
     float isStandardSticker = (1.0 - body) * (1.0 - uSpeedStyle);
     float isIceSticker = uIceStyle * (1.0 - iceBody);
 
-    // --- Original Rubik's Cube High-Gloss Vinyl Sticker Specular ---
-    // Sharp clearcoat glints (high power exponent for glass/acrylic reflection)
-    vec3 specDeskSticker = deskLampCol * (0.75 * pow(dotDesk, 128.0) + 0.22 * pow(dotDesk, 32.0));
-    vec3 specCeilingSticker = ceilingCol * (0.48 * pow(dotCeiling, 72.0) + 0.16 * pow(dotCeiling, 22.0));
-    vec3 specRoomSticker = roomFillCol * (0.22 * pow(dotRoom, 56.0));
-    // Pronounced dielectric Fresnel clearcoat reflection at grazing angles
+    // --- Rubik's Cube Mid-Gloss Vinyl Sticker Specular ---
+    // A restrained clearcoat keeps colours legible under the studio lights.
+    vec3 specDeskSticker = deskLampCol * (0.42 * pow(dotDesk, 72.0) + 0.14 * pow(dotDesk, 24.0));
+    vec3 specCeilingSticker = ceilingCol * (0.28 * pow(dotCeiling, 44.0) + 0.10 * pow(dotCeiling, 16.0));
+    vec3 specRoomSticker = roomFillCol * (0.10 * pow(dotRoom, 32.0));
+    // A soft dielectric edge rather than a mirror-like rim reflection.
     float vinylFresnel = pow(1.0 - max(dot(normal, view), 0.0), 2.5);
-    vec3 specRimSticker = mix(ceilingCol, roomFillCol, 0.4) * (0.35 * vinylFresnel);
+    vec3 specRimSticker = mix(ceilingCol, roomFillCol, 0.4) * (0.18 * vinylFresnel);
     vec3 stickerSpecular = specDeskSticker + specCeilingSticker + specRoomSticker + specRimSticker;
     // Ice sticker plates are deliberately satin rather than vinyl-glossy: the
     // glass cubie supplies the sharp reflections, leaving colours readable.
