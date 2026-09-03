@@ -62,7 +62,7 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
           incumbent = result._0;
           self.postMessage({id: request.id, type: "twoPhaseCandidate", solution: incumbent});
           bound = result._0.moveCount - 1;
-        } else if ((result._0 as {TAG?: string}).TAG === "SearchFailed") {
+        } else if (result._0 === "SearchFailed" || (result._0 as {TAG?: string}).TAG === "SearchFailed") {
           bound -= 1;
         } else {
           self.postMessage({id: request.id, ok: false, error: TwoPhaseSolver.describeError(result._0)});
