@@ -100,6 +100,14 @@ const cards = [
           >
             🧩 Pattern Catalog
           </button>
+          <button
+            type="button"
+            class="workspace-tab"
+            data-workspace-tab="timer"
+            aria-selected="false"
+          >
+            ⏱ Timer
+          </button>
         </nav>
       </header>
 
@@ -1094,6 +1102,29 @@ const cards = [
                 </button>
               </div>
             </aside>
+          </section>
+
+          <section class="timer-panel" data-workspace-panel="timer" aria-labelledby="timer-title" hidden>
+            <header class="academy-workspace-header">
+              <div class="academy-workspace-title">
+                <span class="panel-label">Manual practice · local session</span>
+                <h2 id="timer-title">Speedcubing Timer</h2>
+              </div>
+              <button type="button" class="transform-btn" data-timer-new-scramble>New scramble</button>
+            </header>
+            <p class="timer-scramble" data-timer-scramble></p>
+            <button type="button" class="timer-display" data-timer-display aria-label="Timer control">
+              0.00
+            </button>
+            <p class="timer-status" data-timer-status aria-live="polite">
+              Press Space to begin inspection.
+            </p>
+            <div class="timer-actions">
+              <button type="button" class="transform-btn" data-timer-inspection>Start inspection</button>
+              <button type="button" class="transform-btn" data-timer-reset>Reset</button>
+            </div>
+            <dl class="timer-stats" data-timer-stats></dl>
+            <ol class="timer-solves" data-timer-solves aria-label="Session solves"></ol>
           </section>
         </div>
         <div class="studio-viewport">

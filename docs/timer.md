@@ -14,3 +14,12 @@ Session summaries calculate best, mean, population standard deviation, and
 WCA-style trimmed Ao5/Ao12 values. Timer sessions are versioned JSON records in
 browser storage; invalid or unavailable storage is treated as an empty session,
 never as a timer failure.
+
+## Manual workspace
+
+The **Timer** workspace exposes the manual engine through Space and touch
+controls. The first press starts inspection; the next press must be held for
+300 ms before release starts the solve; a subsequent press stops and records
+it. The workspace currently supplies 20-move practice scrambles and provides
+local `+2`, `DNF`, and delete controls. Certified WCA random-state scramble
+generation and smart-cube auto-timing are separate follow-on phases.

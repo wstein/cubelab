@@ -3,7 +3,7 @@ import type {CubeStyle} from "./cube-gl";
 export type SchemeName = "Western" | "Japanese" | "Custom";
 export type LowercaseMode = "Wide" | "InnerSlice";
 export type NotationDialect = "Modern" | "Ruwix";
-export type ActiveTab = "converter" | "academy" | "workbench" | "patterns";
+export type ActiveTab = "converter" | "academy" | "workbench" | "patterns" | "timer";
 export type AcademyMethod =
   | "beginner"
   | "advancedLbl"
@@ -102,7 +102,9 @@ export const readHash = (hash: string): AppState => {
       ? "workbench"
     : requestedTab === "patterns"
       ? "patterns"
-    : "converter";
+      : requestedTab === "timer"
+        ? "timer"
+      : "converter";
   const requestedMethod = params.get("method");
   const academyMethod: AcademyMethod = requestedMethod === "petrus"
       || requestedMethod === "classicalPetrus"

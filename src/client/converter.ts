@@ -12,6 +12,7 @@ import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as HamiltonMacro from "../Move/HamiltonMacro";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
 import {createSolverClient, createTwoPhaseSolverClient} from "./workers/solver-client";
+import {mountTimerWorkspace} from "./timer/workspace";
 import {relativeAcademyState, type PieceState} from "./academy-target";
 import {
   createCubeViewport,
@@ -3018,6 +3019,7 @@ if (root) {
       store.patch({activeTab: button.dataset.workspaceTab as ActiveTab});
     });
   });
+  mountTimerWorkspace(root);
 
   playerPageLink.addEventListener("click", (event) => {
     if (playerMode) return;

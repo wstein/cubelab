@@ -37,6 +37,14 @@ test("the dedicated player route reuses the full interactive viewport", () => {
   assert.match(viewport, /safeCameraDistance/);
 });
 
+test("the workspace exposes a manual speedcubing timer", () => {
+  assert.match(page, /data-workspace-tab="timer"/);
+  assert.match(page, /data-workspace-panel="timer"/);
+  assert.match(page, /data-timer-display/);
+  assert.match(page, /data-timer-scramble/);
+  assert.match(client, /mountTimerWorkspace\(root\)/);
+});
+
 test("the HTML head declares the SVG favicon and fallback touch icons", () => {
   assert.match(page, /<link rel="icon" type="image\/svg\+xml" href="\/favicon\.svg"/);
   assert.match(page, /<link rel="icon" type="image\/png" sizes="32x32" href="\/favicon-32x32\.png"/);
