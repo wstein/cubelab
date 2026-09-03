@@ -30,7 +30,8 @@ The three styles are intentionally different physical models:
 - **Ice** uses colourless clear-glass individual cubies, including their bevels and
   corners, around saturated, fully opaque local stickers. It intentionally omits
   reverse-side stickers, so local face and edge colours remain unambiguous while the
-  cube still reads as glass. It is decorative rather than a training default; Standard
+  cube still reads as glass. Its sticker plates are satin rather than glossy, reserving
+  sharp reflections for the glass itself. It is decorative rather than a training default; Standard
   remains clearest for sticker reading, turn guides, and
   accessibility.
 

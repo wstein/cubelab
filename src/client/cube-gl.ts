@@ -194,6 +194,7 @@ const fragmentShaderSource = `
     float iceBody = uIceStyle * (1.0 - smoothstep(0.45, 0.55, vColour.a));
     float body = max(charcoalBody, iceBody);
     float isStandardSticker = (1.0 - body) * (1.0 - uSpeedStyle);
+    float isIceSticker = uIceStyle * (1.0 - iceBody);
 
     // --- Original Rubik's Cube High-Gloss Vinyl Sticker Specular ---
     // Sharp clearcoat glints (high power exponent for glass/acrylic reflection)
@@ -204,6 +205,12 @@ const fragmentShaderSource = `
     float vinylFresnel = pow(1.0 - max(dot(normal, view), 0.0), 2.5);
     vec3 specRimSticker = mix(ceilingCol, roomFillCol, 0.4) * (0.35 * vinylFresnel);
     vec3 stickerSpecular = specDeskSticker + specCeilingSticker + specRoomSticker + specRimSticker;
+    // Ice sticker plates are deliberately satin rather than vinyl-glossy: the
+    // glass cubie supplies the sharp reflections, leaving colours readable.
+    vec3 iceStickerSpecular = mix(ceilingCol, roomFillCol, 0.5) * (
+      0.025 * pow(dotDesk, 18.0) + 0.015 * pow(dotCeiling, 12.0) + 0.01 * vinylFresnel
+    );
+    stickerSpecular = mix(stickerSpecular, iceStickerSpecular, isIceSticker);
 
     // --- Matte Charcoal Body Plastic Specular ---
     vec3 bodySpecular = deskLampCol * (0.14 * pow(dotDesk, 16.0)) + ceilingCol * (0.08 * pow(dotCeiling, 12.0));
