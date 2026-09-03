@@ -81,3 +81,44 @@ test("geometry rejects malformed cube states", () => {
   assert.equal(invalid.TAG, "Error");
   assert.match(invalid._0, /six faces/);
 });
+
+test("sticker bounds increase gap on outer edges and enlarge outer corner radius", () => {
+  const cell = 1.0;
+  // 3x3 U face (gy = 2, face = U)
+  // Center cubie (gx = 1, gz = 1)
+  const centerBounds = CubeGeometry.stickerBoundsForFace(2, 1, 2, 1, cell, "U");
+  assert.equal(centerBounds.maxU, 0.42);
+  assert.equal(centerBounds.minU, -0.42);
+  assert.equal(centerBounds.maxV, 0.42);
+  assert.equal(centerBounds.minV, -0.42);
+  assert.equal(centerBounds.r0, 0.065);
+  assert.equal(centerBounds.r1, 0.065);
+  assert.equal(centerBounds.r2, 0.065);
+  assert.equal(centerBounds.r3, 0.065);
+
+  // Edge cubie (gx = 1, gz = 2, U/F edge)
+  const edgeBounds = CubeGeometry.stickerBoundsForFace(2, 1, 2, 2, cell, "U");
+  // F face is +v direction on U face, so maxV is outer edge (0.380)
+  assert.equal(edgeBounds.maxV, 0.38);
+  assert.equal(edgeBounds.minV, -0.42);
+  assert.equal(edgeBounds.maxU, 0.42);
+  assert.equal(edgeBounds.minU, -0.42);
+  // Outer-facing corners have hybrid radius 0.078
+  assert.equal(edgeBounds.r0, 0.078);
+  assert.equal(edgeBounds.r1, 0.078);
+  assert.equal(edgeBounds.r2, 0.065);
+  assert.equal(edgeBounds.r3, 0.065);
+
+  // Corner cubie (gx = 2, gz = 2, U/R/F corner)
+  const cornerBounds = CubeGeometry.stickerBoundsForFace(2, 2, 2, 2, cell, "U");
+  assert.equal(cornerBounds.maxU, 0.38);
+  assert.equal(cornerBounds.maxV, 0.38);
+  assert.equal(cornerBounds.minU, -0.42);
+  assert.equal(cornerBounds.minV, -0.42);
+  // Corner 0 is outer-outer corner (+u, +v) and has enlarged outer corner radius (0.100)
+  assert.equal(cornerBounds.r0, 0.100);
+  assert.equal(cornerBounds.r1, 0.078);
+  assert.equal(cornerBounds.r2, 0.065);
+  assert.equal(cornerBounds.r3, 0.078);
+});
+

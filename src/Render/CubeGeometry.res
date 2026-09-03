@@ -263,58 +263,6 @@ let paintFor = (state: StateTypes.cubeState, ~style, ~palette, ~last, ~gx, ~gy, 
     body
   }
 
-let roundedRim = (~half, ~radius, ~steps): array<rimPoint> => {
-  let points = []
-  let flat = half -. radius
-  for quarter in 0 to 3 {
-    let hubU = if quarter == 0 || quarter == 3 {
-      flat
-    } else {
-      -.flat
-    }
-    let hubV = if quarter <= 1 {
-      flat
-    } else {
-      -.flat
-    }
-    for step in 0 to steps - 1 {
-      let angle =
-        (Float.fromInt(quarter) +. Float.fromInt(step) /. Float.fromInt(steps)) *.
-        Math.Constants.pi /. 2.0
-      let nu = Math.cos(angle)
-      let nv = Math.sin(angle)
-      points->Array.push({u: hubU +. radius *. nu, v: hubV +. radius *. nv, nu, nv})
-    }
-  }
-  points
-}
-
-let pointOnFace = (centre, face, out, point) =>
-  add(
-    faceCentre(centre, face, out),
-    add(scale(colAxis(face), point.u), scale(rowAxis(face), point.v)),
-  )
-
-let emitRoundedFace = (emitter, centre, face, out, side, radius, colour) => {
-  let normal = faceNormal(face)
-  let middle = faceCentre(centre, face, out)
-  let rim = roundedRim(~half=side /. 2.0, ~radius, ~steps=4)
-  for index in 0 to rim->Array.length - 1 {
-    let next = (index + 1) % rim->Array.length
-    emitTriangle(
-      emitter,
-      middle,
-      pointOnFace(centre, face, out, Belt.Array.getUnsafe(rim, index)),
-      pointOnFace(centre, face, out, Belt.Array.getUnsafe(rim, next)),
-      normal,
-      normal,
-      normal,
-      colour,
-      normal,
-    )
-  }
-}
-
 let faceForNormal = normal =>
   if normal.y > 0.5 {
     StateTypes.U
@@ -339,6 +287,141 @@ let bevelForEdge = (~last, ~gx, ~gy, ~gz, ~cell, faceA, faceB) =>
   } else {
     0.03 *. cell
   }
+
+type stickerBounds = {
+  maxU: float,
+  minU: float,
+  maxV: float,
+  minV: float,
+  r0: float,
+  r1: float,
+  r2: float,
+  r3: float,
+}
+
+let stickerBoundsForFace = (~last, ~gx, ~gy, ~gz, ~cell, face) => {
+  let col = colAxis(face)
+  let row = rowAxis(face)
+  let fColPlus = faceForNormal(col)
+  let fColMinus = faceForNormal(scale(col, -1.0))
+  let fRowPlus = faceForNormal(row)
+  let fRowMinus = faceForNormal(scale(row, -1.0))
+
+  let isOuterColPlus = isOuterEdge(~last, ~gx, ~gy, ~gz, face, fColPlus)
+  let isOuterColMinus = isOuterEdge(~last, ~gx, ~gy, ~gz, face, fColMinus)
+  let isOuterRowPlus = isOuterEdge(~last, ~gx, ~gy, ~gz, face, fRowPlus)
+  let isOuterRowMinus = isOuterEdge(~last, ~gx, ~gy, ~gz, face, fRowMinus)
+
+  let innerHalf = 0.420 *. cell
+  let outerHalf = 0.380 *. cell
+
+  let maxU = if isOuterColPlus {
+    outerHalf
+  } else {
+    innerHalf
+  }
+  let minU = if isOuterColMinus {
+    -.outerHalf
+  } else {
+    -.innerHalf
+  }
+  let maxV = if isOuterRowPlus {
+    outerHalf
+  } else {
+    innerHalf
+  }
+  let minV = if isOuterRowMinus {
+    -.outerHalf
+  } else {
+    -.innerHalf
+  }
+
+  let innerR = 0.065 *. cell
+  let hybridR = 0.078 *. cell
+  let outerR = 0.100 *. cell
+
+  let cornerRadius = (outerA, outerB) =>
+    switch (outerA, outerB) {
+    | (true, true) => outerR
+    | (true, false) | (false, true) => hybridR
+    | (false, false) => innerR
+    }
+
+  let r0 = cornerRadius(isOuterColPlus, isOuterRowPlus)
+  let r1 = cornerRadius(isOuterColMinus, isOuterRowPlus)
+  let r2 = cornerRadius(isOuterColMinus, isOuterRowMinus)
+  let r3 = cornerRadius(isOuterColPlus, isOuterRowMinus)
+
+  {maxU, minU, maxV, minV, r0, r1, r2, r3}
+}
+
+let stickerRim = (b: stickerBounds, ~steps=4): array<rimPoint> => {
+  let points = []
+  let hubU0 = b.maxU -. b.r0
+  let hubV0 = b.maxV -. b.r0
+  for step in 0 to steps - 1 {
+    let angle = Float.fromInt(step) /. Float.fromInt(steps) *. Math.Constants.pi /. 2.0
+    let nu = Math.cos(angle)
+    let nv = Math.sin(angle)
+    points->Array.push({u: hubU0 +. b.r0 *. nu, v: hubV0 +. b.r0 *. nv, nu, nv})
+  }
+  let hubU1 = b.minU +. b.r1
+  let hubV1 = b.maxV -. b.r1
+  for step in 0 to steps - 1 {
+    let angle = (1.0 +. Float.fromInt(step) /. Float.fromInt(steps)) *. Math.Constants.pi /. 2.0
+    let nu = Math.cos(angle)
+    let nv = Math.sin(angle)
+    points->Array.push({u: hubU1 +. b.r1 *. nu, v: hubV1 +. b.r1 *. nv, nu, nv})
+  }
+  let hubU2 = b.minU +. b.r2
+  let hubV2 = b.minV +. b.r2
+  for step in 0 to steps - 1 {
+    let angle = (2.0 +. Float.fromInt(step) /. Float.fromInt(steps)) *. Math.Constants.pi /. 2.0
+    let nu = Math.cos(angle)
+    let nv = Math.sin(angle)
+    points->Array.push({u: hubU2 +. b.r2 *. nu, v: hubV2 +. b.r2 *. nv, nu, nv})
+  }
+  let hubU3 = b.maxU -. b.r3
+  let hubV3 = b.minV +. b.r3
+  for step in 0 to steps - 1 {
+    let angle = (3.0 +. Float.fromInt(step) /. Float.fromInt(steps)) *. Math.Constants.pi /. 2.0
+    let nu = Math.cos(angle)
+    let nv = Math.sin(angle)
+    points->Array.push({u: hubU3 +. b.r3 *. nu, v: hubV3 +. b.r3 *. nv, nu, nv})
+  }
+  points
+}
+
+let pointOnFace = (centre, face, out, point) =>
+  add(
+    faceCentre(centre, face, out),
+    add(scale(colAxis(face), point.u), scale(rowAxis(face), point.v)),
+  )
+
+let emitRoundedFace = (emitter, centre, face, out, bounds, colour) => {
+  let normal = faceNormal(face)
+  let middleU = (bounds.maxU +. bounds.minU) /. 2.0
+  let middleV = (bounds.maxV +. bounds.minV) /. 2.0
+  let middle = add(
+    faceCentre(centre, face, out),
+    add(scale(colAxis(face), middleU), scale(rowAxis(face), middleV)),
+  )
+  let rim = stickerRim(bounds, ~steps=4)
+  for index in 0 to rim->Array.length - 1 {
+    let next = (index + 1) % rim->Array.length
+    emitTriangle(
+      emitter,
+      middle,
+      pointOnFace(centre, face, out, Belt.Array.getUnsafe(rim, index)),
+      pointOnFace(centre, face, out, Belt.Array.getUnsafe(rim, next)),
+      normal,
+      normal,
+      normal,
+      colour,
+      normal,
+    )
+  }
+}
 
 let emitStandardFace = (emitter, centre, face, half, colour, ~bevelFor) => {
   let normal = faceNormal(face)
@@ -420,8 +503,8 @@ let emitStandardCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, 
   StateTypes.storageOrder->Array.forEach(face =>
     if isExposed(~last, ~gx, ~gy, ~gz, face) {
       let colour = colourOf(~style=Standard, ~palette, faceletAt(state, ~gx, ~gy, ~gz, face))
-      let side = 0.84 *. cell
-      emitRoundedFace(emitter, centre, face, half +. 0.005 *. cell, side, 0.08 *. side, colour)
+      let bounds = stickerBoundsForFace(~last, ~gx, ~gy, ~gz, ~cell, face)
+      emitRoundedFace(emitter, centre, face, half +. 0.005 *. cell, bounds, colour)
     }
   )
 }

@@ -535,41 +535,6 @@ function paintFor(state, style, palette, last, gx, gy, gz, face) {
   }
 }
 
-function roundedRim(half, radius, steps) {
-  let points = [];
-  let flat = half - radius;
-  for (let quarter = 0; quarter <= 3; ++quarter) {
-    let hubU = quarter === 0 || quarter === 3 ? flat : - flat;
-    let hubV = quarter <= 1 ? flat : - flat;
-    for (let step = 0; step < steps; ++step) {
-      let angle = (quarter + step / steps) * Math.PI / 2.0;
-      let nu = Math.cos(angle);
-      let nv = Math.sin(angle);
-      points.push({
-        u: hubU + radius * nu,
-        v: hubV + radius * nv,
-        nu: nu,
-        nv: nv
-      });
-    }
-  }
-  return points;
-}
-
-function pointOnFace(centre, face, out, point) {
-  return add(faceCentre(centre, face, out), add(scale(colAxis(face), point.u), scale(rowAxis(face), point.v)));
-}
-
-function emitRoundedFace(emitter, centre, face, out, side, radius, colour) {
-  let normal = faceNormal(face);
-  let middle = faceCentre(centre, face, out);
-  let rim = roundedRim(side / 2.0, radius, 4);
-  for (let index = 0, index_finish = rim.length; index < index_finish; ++index) {
-    let next = Primitive_int.mod_(index + 1 | 0, rim.length);
-    emitTriangle(emitter, middle, pointOnFace(centre, face, out, rim[index]), pointOnFace(centre, face, out, rim[next]), normal, normal, normal, colour, normal, undefined);
-  }
-}
-
 function faceForNormal(normal) {
   if (normal.y > 0.5) {
     return "U";
@@ -599,6 +564,129 @@ function bevelForEdge(last, gx, gy, gz, cell, faceA, faceB) {
     return 0.065 * cell;
   } else {
     return 0.03 * cell;
+  }
+}
+
+function stickerBoundsForFace(last, gx, gy, gz, cell, face) {
+  let col = colAxis(face);
+  let row = rowAxis(face);
+  let fColPlus = faceForNormal(col);
+  let fColMinus = faceForNormal(scale(col, -1.0));
+  let fRowPlus = faceForNormal(row);
+  let fRowMinus = faceForNormal(scale(row, -1.0));
+  let isOuterColPlus = isOuterEdge(last, gx, gy, gz, face, fColPlus);
+  let isOuterColMinus = isOuterEdge(last, gx, gy, gz, face, fColMinus);
+  let isOuterRowPlus = isOuterEdge(last, gx, gy, gz, face, fRowPlus);
+  let isOuterRowMinus = isOuterEdge(last, gx, gy, gz, face, fRowMinus);
+  let innerHalf = 0.420 * cell;
+  let outerHalf = 0.380 * cell;
+  let maxU = isOuterColPlus ? outerHalf : innerHalf;
+  let minU = isOuterColMinus ? - outerHalf : - innerHalf;
+  let maxV = isOuterRowPlus ? outerHalf : innerHalf;
+  let minV = isOuterRowMinus ? - outerHalf : - innerHalf;
+  let innerR = 0.065 * cell;
+  let hybridR = 0.078 * cell;
+  let outerR = 0.100 * cell;
+  let cornerRadius = (outerA, outerB) => {
+    if (outerA) {
+      if (outerB) {
+        return outerR;
+      } else {
+        return hybridR;
+      }
+    } else if (outerB) {
+      return hybridR;
+    } else {
+      return innerR;
+    }
+  };
+  let r0 = cornerRadius(isOuterColPlus, isOuterRowPlus);
+  let r1 = cornerRadius(isOuterColMinus, isOuterRowPlus);
+  let r2 = cornerRadius(isOuterColMinus, isOuterRowMinus);
+  let r3 = cornerRadius(isOuterColPlus, isOuterRowMinus);
+  return {
+    maxU: maxU,
+    minU: minU,
+    maxV: maxV,
+    minV: minV,
+    r0: r0,
+    r1: r1,
+    r2: r2,
+    r3: r3
+  };
+}
+
+function stickerRim(b, stepsOpt) {
+  let steps = stepsOpt !== undefined ? stepsOpt : 4;
+  let points = [];
+  let hubU0 = b.maxU - b.r0;
+  let hubV0 = b.maxV - b.r0;
+  for (let step = 0; step < steps; ++step) {
+    let angle = step / steps * Math.PI / 2.0;
+    let nu = Math.cos(angle);
+    let nv = Math.sin(angle);
+    points.push({
+      u: hubU0 + b.r0 * nu,
+      v: hubV0 + b.r0 * nv,
+      nu: nu,
+      nv: nv
+    });
+  }
+  let hubU1 = b.minU + b.r1;
+  let hubV1 = b.maxV - b.r1;
+  for (let step$1 = 0; step$1 < steps; ++step$1) {
+    let angle$1 = (1.0 + step$1 / steps) * Math.PI / 2.0;
+    let nu$1 = Math.cos(angle$1);
+    let nv$1 = Math.sin(angle$1);
+    points.push({
+      u: hubU1 + b.r1 * nu$1,
+      v: hubV1 + b.r1 * nv$1,
+      nu: nu$1,
+      nv: nv$1
+    });
+  }
+  let hubU2 = b.minU + b.r2;
+  let hubV2 = b.minV + b.r2;
+  for (let step$2 = 0; step$2 < steps; ++step$2) {
+    let angle$2 = (2.0 + step$2 / steps) * Math.PI / 2.0;
+    let nu$2 = Math.cos(angle$2);
+    let nv$2 = Math.sin(angle$2);
+    points.push({
+      u: hubU2 + b.r2 * nu$2,
+      v: hubV2 + b.r2 * nv$2,
+      nu: nu$2,
+      nv: nv$2
+    });
+  }
+  let hubU3 = b.maxU - b.r3;
+  let hubV3 = b.minV + b.r3;
+  for (let step$3 = 0; step$3 < steps; ++step$3) {
+    let angle$3 = (3.0 + step$3 / steps) * Math.PI / 2.0;
+    let nu$3 = Math.cos(angle$3);
+    let nv$3 = Math.sin(angle$3);
+    points.push({
+      u: hubU3 + b.r3 * nu$3,
+      v: hubV3 + b.r3 * nv$3,
+      nu: nu$3,
+      nv: nv$3
+    });
+  }
+  return points;
+}
+
+function pointOnFace(centre, face, out, point) {
+  return add(faceCentre(centre, face, out), add(scale(colAxis(face), point.u), scale(rowAxis(face), point.v)));
+}
+
+function emitRoundedFace(emitter, centre, face, out, bounds, colour) {
+  let normal = faceNormal(face);
+  let middleU = (bounds.maxU + bounds.minU) / 2.0;
+  let middleV = (bounds.maxV + bounds.minV) / 2.0;
+  let middle = add(faceCentre(centre, face, out), add(scale(colAxis(face), middleU), scale(rowAxis(face), middleV)));
+  let rim = stickerRim(bounds, 4);
+  for (let index = 0, index_finish = rim.length; index < index_finish; ++index) {
+    let next = Primitive_int.mod_(index + 1 | 0, rim.length);
+    emitTriangle(emitter, middle, pointOnFace(centre, face, out, rim[index]), pointOnFace(centre, face, out, rim[next]), normal, normal, normal, colour, normal, undefined);
   }
 }
 
@@ -687,8 +775,8 @@ function emitStandardCubie(data, state, palette, gx, gy, gz) {
       return;
     }
     let colour = colourOf("Standard", palette, faceletAt(state, gx, gy, gz, face));
-    let side = 0.84 * cell;
-    emitRoundedFace(emitter, centre, face, half + 0.005 * cell, side, 0.08 * side, colour);
+    let bounds = stickerBoundsForFace(last, gx, gy, gz, cell, face);
+    emitRoundedFace(emitter, centre, face, half + 0.005 * cell, bounds, colour);
   });
 }
 
@@ -858,12 +946,13 @@ export {
   emitFlatBevels,
   emitFlatCorners,
   paintFor,
-  roundedRim,
-  pointOnFace,
-  emitRoundedFace,
   faceForNormal,
   isOuterEdge,
   bevelForEdge,
+  stickerBoundsForFace,
+  stickerRim,
+  pointOnFace,
+  emitRoundedFace,
   emitStandardFace,
   emitStandardBevels,
   emitStandardCorners,
