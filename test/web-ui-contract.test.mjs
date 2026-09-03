@@ -185,6 +185,16 @@ test("the editor separates a synchronized setup from optional replay moves", () 
   assert.match(page, /Macro definitions in Moves/);
 });
 
+test("the 2x2 and 3x3 manual state editor keeps a constrained draft separate from Setup", () => {
+  assert.match(page, /data-manual-state-open/);
+  assert.match(page, /data-manual-state-grid/);
+  assert.match(page, /data-manual-state-load/);
+  assert.match(client, /allowedManualStateColours\(manualSize, manualStateDraft, index\)/);
+  assert.match(client, /fillLocallyForcedManualStateColours\(manualSize, manualStateDraft\)/);
+  assert.match(client, /manualStateOpen\.disabled = size !== 2 && size !== 3/);
+  assert.match(client, /store\.patch\(\{input: manualStateDraft\.join\(""\)\}\)/);
+});
+
 test("the Vanilla DOM client wires reachability-aware outputs", () => {
   assert.match(client, /PieceReducer\.reduce\(state\)/);
   assert.match(client, /PieceReducer\.parseState\(size, compact\)/);

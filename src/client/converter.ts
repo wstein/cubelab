@@ -18,6 +18,18 @@ import {TnoodleClient} from "./scramble/tnoodle-client";
 import {createAcademyRequestGuard} from "./academy-request";
 import {looksLikeSseState, parseSseState} from "./sse-state";
 import {
+  allowedManualStateColours,
+  emptyManualState,
+  fillLocallyForcedManualStateColours,
+  locallyAllowedManualStateColours,
+  manualStateEnteredCount,
+  manualStateStickerCount,
+  solvedManualState,
+  type ManualStateDraft,
+  type ManualStateFace,
+  type ManualStateSize,
+} from "./manual-state";
+import {
   drillCaseById,
   drillCasesForFamily,
   nextDrillRotation as advanceDrillRotation,
@@ -178,6 +190,18 @@ if (root) {
   renderPlayerPresentation();
   const input = root.querySelector<HTMLTextAreaElement>("[data-input]")!;
   const movesInput = root.querySelector<HTMLTextAreaElement>("[data-moves-input]")!;
+  const manualStateOpen = root.querySelector<HTMLButtonElement>("[data-manual-state-open]")!;
+  const manualStateDialog = root.querySelector<HTMLDialogElement>("[data-manual-state-dialog]")!;
+  const manualStateTitle = root.querySelector<HTMLElement>("[data-manual-state-title]")!;
+  const manualStateClose = root.querySelector<HTMLButtonElement>("[data-manual-state-close]")!;
+  const manualStateCancel = root.querySelector<HTMLButtonElement>("[data-manual-state-cancel]")!;
+  const manualStateGrid = root.querySelector<HTMLElement>("[data-manual-state-grid]")!;
+  const manualStatePalette = root.querySelector<HTMLElement>("[data-manual-state-palette]")!;
+  const manualStateEraser = root.querySelector<HTMLButtonElement>("[data-manual-state-eraser]")!;
+  const manualStateReset = root.querySelector<HTMLButtonElement>("[data-manual-state-reset]")!;
+  const manualStateSolved = root.querySelector<HTMLButtonElement>("[data-manual-state-solved]")!;
+  const manualStateStatus = root.querySelector<HTMLOutputElement>("[data-manual-state-status]")!;
+  const manualStateLoad = root.querySelector<HTMLButtonElement>("[data-manual-state-load]")!;
   const schemeSelect = root.querySelector<HTMLSelectElement>("[data-scheme]")!;
   const customScheme = root.querySelector<HTMLInputElement>("[data-custom-scheme]")!;
   const noteInput = root.querySelector<HTMLInputElement>("[data-note-input]")!;
@@ -337,6 +361,8 @@ if (root) {
   let detectedPattern: RecognizedPattern | null = null;
   let detectedPatternState: CubeState | null = null;
   let activeRecognized: RecognizedInput | null = null;
+  let manualStateDraft: ManualStateDraft = emptyManualState(2);
+  let manualStateColour: ManualStateFace | null = "U";
   let tutorialPhases: TutorialPhaseRange[] = [];
   let activeAcademy: AcademyElements | null = null;
   let commentedTutorialSolution = "";
@@ -675,6 +701,91 @@ if (root) {
     return pieces.TAG === "Ok" ? null : PieceReducer.describeError(pieces._0);
   };
 
+  const manualStateFaceName: Record<ManualStateFace, string> = {
+    U: "Up", R: "Right", F: "Front", D: "Down", L: "Left", B: "Back",
+  };
+
+  const manualStateCompleteDiagnostic = (): string | null => {
+    const manualSize = size as ManualStateSize;
+    if (manualStateDraft.some((face) => face === null)) return "Complete every sticker first.";
+    const parsed = FaceletCodec.parse(manualSize, manualStateDraft.join("")) as Result<CubeState>;
+    if (parsed.TAG === "Error") return describeError(parsed._0);
+    return validatePhysicalState(parsed._0);
+  };
+
+  const renderManualStateEditor = () => {
+    const manualSize = size as ManualStateSize;
+    const total = manualStateStickerCount(manualSize);
+    const entered = manualStateEnteredCount(manualStateDraft);
+    const diagnostic = entered === total ? manualStateCompleteDiagnostic() : null;
+    manualStateLoad.disabled = entered !== total || diagnostic !== null;
+    manualStateStatus.textContent = diagnostic !== null
+      ? diagnostic
+      : entered === total
+      ? "Complete and physically valid — ready to load into Setup."
+      : `Entered ${entered} / ${total}. Dots show colours compatible with each cubie; every choice is then checked against the whole cube.`;
+    manualStateStatus.classList.toggle("success", entered === total && diagnostic === null);
+    manualStateStatus.classList.toggle("failure", diagnostic !== null);
+    manualStatePalette.querySelectorAll<HTMLButtonElement>("[data-manual-state-colour]").forEach((button) => {
+      const face = button.dataset.manualStateColour as ManualStateFace;
+      button.setAttribute("aria-pressed", String(manualStateColour === face));
+    });
+    manualStateEraser.setAttribute("aria-pressed", String(manualStateColour === null));
+    manualStateGrid.replaceChildren();
+    (["U", "L", "F", "R", "B", "D"] as ManualStateFace[]).forEach((face) => {
+      const faceIndex = (["U", "R", "F", "D", "L", "B"] as ManualStateFace[]).indexOf(face);
+      const group = document.createElement("section");
+      group.className = "manual-state-face";
+      group.dataset.face = face;
+      group.style.setProperty("--manual-state-size", String(manualSize));
+      group.setAttribute("aria-label", `${manualStateFaceName[face]} face`);
+      const label = document.createElement("span");
+      label.className = "manual-state-face-label";
+      label.textContent = face;
+      group.append(label);
+      for (let localIndex = 0; localIndex < manualSize * manualSize; localIndex += 1) {
+        const index = faceIndex * manualSize * manualSize + localIndex;
+        const sticker = document.createElement("button");
+        sticker.type = "button";
+        sticker.className = "manual-state-sticker";
+        sticker.dataset.manualStateIndex = String(index);
+        const value = manualStateDraft[index];
+        sticker.dataset.face = value ?? "unknown";
+        const centre = manualSize === 3 && localIndex === 4;
+        sticker.disabled = centre;
+        sticker.setAttribute("aria-label", `${manualStateFaceName[face]} sticker ${localIndex + 1}${centre ? ", fixed centre" : value === null ? ", blank" : `, ${manualStateFaceName[value]}`}`);
+        if (value !== null) {
+          sticker.textContent = value;
+        } else {
+          const choices = locallyAllowedManualStateColours(manualSize, manualStateDraft, index);
+          const dots = document.createElement("span");
+          dots.className = "manual-state-dots";
+          choices.forEach((choice) => {
+            const dot = document.createElement("i");
+            dot.dataset.face = choice;
+            dots.append(dot);
+          });
+          sticker.append(dots);
+        }
+        group.append(sticker);
+      }
+      manualStateGrid.append(group);
+    });
+  };
+
+  const openManualStateEditor = () => {
+    if (size !== 2 && size !== 3) return;
+    const manualSize = size as ManualStateSize;
+    const setup = input.value.trim() === "" ? null : parseState(input.value);
+    manualStateDraft = setup?.TAG === "Ok" && setup._0.state.size === manualSize
+      ? (FaceletCodec.render(setup._0.state) as string).split("") as ManualStateDraft
+      : emptyManualState(manualSize);
+    manualStateTitle.textContent = `Enter ${manualSize}×${manualSize}×${manualSize} state`;
+    manualStateColour = "U";
+    renderManualStateEditor();
+    manualStateDialog.showModal();
+  };
+
   const recognize = (result: Result<CubeState>, label: string): Result<RecognizedInput> => {
     if (result.TAG === "Error") return result;
     const diagnostic = validatePhysicalState(result._0);
@@ -870,6 +981,11 @@ if (root) {
     }
     const orbitQuickCopy = root.querySelector<HTMLButtonElement>("[data-copy-orbit64]");
     if (orbitQuickCopy) orbitQuickCopy.hidden = size !== 3;
+    manualStateOpen.disabled = size !== 2 && size !== 3;
+    manualStateOpen.textContent = `Enter ${size}×${size} state`;
+    manualStateOpen.title = size === 2 || size === 3
+      ? `Build a ${size}×${size}×${size} cube state sticker by sticker`
+      : "Manual state entry currently supports 2×2×2 and 3×3×3.";
     nissPanel.hidden = size !== 3 || activeTab !== "workbench";
     hamiltonPanel.hidden = activeTab !== "workbench";
     twoPhaseSolve.disabled = size !== 3;
@@ -4573,6 +4689,62 @@ if (root) {
   });
   shortcutsHelp.addEventListener("click", () => shortcutsDialog.showModal());
   shortcutsClose.addEventListener("click", () => shortcutsDialog.close());
+  manualStateOpen.addEventListener("click", openManualStateEditor);
+  [manualStateClose, manualStateCancel].forEach((button) => {
+    button.addEventListener("click", () => manualStateDialog.close());
+  });
+  manualStatePalette.addEventListener("click", (event) => {
+    const button = (event.target as Element).closest<HTMLButtonElement>("[data-manual-state-colour]");
+    if (!button) return;
+    manualStateColour = button.dataset.manualStateColour as ManualStateFace;
+    renderManualStateEditor();
+  });
+  manualStateEraser.addEventListener("click", () => {
+    manualStateColour = null;
+    renderManualStateEditor();
+  });
+  manualStateGrid.addEventListener("click", (event) => {
+    const sticker = (event.target as Element).closest<HTMLButtonElement>("[data-manual-state-index]");
+    if (!sticker) return;
+    const index = Number(sticker.dataset.manualStateIndex);
+    if (!Number.isInteger(index)) return;
+    const manualSize = size as ManualStateSize;
+    if (manualStateColour === null) {
+      manualStateDraft[index] = null;
+      // Do not instantly refill an erased sticker: clearing is how a person
+      // corrects an already-complete draft. Forced-fill runs after a positive
+      // colour choice instead.
+      renderManualStateEditor();
+      return;
+    } else if (allowedManualStateColours(manualSize, manualStateDraft, index).includes(manualStateColour)) {
+      manualStateDraft[index] = manualStateColour;
+    } else {
+      manualStateStatus.textContent = `${manualStateFaceName[manualStateColour]} cannot go there without making the cube impossible.`;
+      manualStateStatus.classList.add("failure");
+      return;
+    }
+    manualStateDraft = fillLocallyForcedManualStateColours(manualSize, manualStateDraft);
+    renderManualStateEditor();
+  });
+  manualStateReset.addEventListener("click", () => {
+    manualStateDraft = emptyManualState(size as ManualStateSize);
+    renderManualStateEditor();
+  });
+  manualStateSolved.addEventListener("click", () => {
+    manualStateDraft = solvedManualState(size as ManualStateSize);
+    renderManualStateEditor();
+  });
+  manualStateLoad.addEventListener("click", () => {
+    const diagnostic = manualStateCompleteDiagnostic();
+    if (diagnostic !== null) {
+      manualStateStatus.textContent = diagnostic;
+      manualStateStatus.classList.add("failure");
+      return;
+    }
+    store.patch({input: manualStateDraft.join("")});
+    manualStateDialog.close();
+    input.focus();
+  });
   autoOrbitButton.addEventListener("click", () => {
     if (smartCubeOrientationTracking) return;
     setAutoOrbitEnabled(autoOrbitButton.getAttribute("aria-pressed") !== "true");

@@ -255,6 +255,12 @@ const cards = [
                   data-copy="orbit64"
                   data-copy-orbit64>Copy as Orbit64</button
                 >
+                <button
+                  type="button"
+                  class="copy-btn"
+                  data-manual-state-open
+                  title="Build a cube state sticker by sticker"
+                >Enter state by hand</button>
               </div>
             </div>
             <textarea
@@ -1498,6 +1504,52 @@ s100"></textarea>
             />
           </label>
         </section>
+      </dialog>
+      <dialog
+        class="manual-state-dialog"
+        data-manual-state-dialog
+        aria-labelledby="manual-state-title"
+      >
+        <div class="settings-dialog-header">
+          <div>
+            <span class="panel-label">Draft-only cube state</span>
+            <h3 id="manual-state-title" data-manual-state-title>Enter cube state</h3>
+          </div>
+          <button
+            type="button"
+            class="viewport-control"
+            data-manual-state-close
+            aria-label="Close manual state editor">Close</button
+          >
+        </div>
+        <p class="manual-state-intro">
+          Pick a face colour, then fill the net. Nothing changes in Setup until
+          the complete, physically valid state is loaded.
+        </p>
+        <div class="manual-state-layout">
+          <section class="manual-state-net" aria-label="Cube sticker net" data-manual-state-grid></section>
+          <section class="manual-state-tools" aria-label="State editor tools">
+            <span class="panel-label">Sticker colour</span>
+            <div class="manual-state-palette" data-manual-state-palette>
+              <button type="button" class="manual-state-colour" data-manual-state-colour="U">Up</button>
+              <button type="button" class="manual-state-colour" data-manual-state-colour="R">Right</button>
+              <button type="button" class="manual-state-colour" data-manual-state-colour="F">Front</button>
+              <button type="button" class="manual-state-colour" data-manual-state-colour="D">Down</button>
+              <button type="button" class="manual-state-colour" data-manual-state-colour="L">Left</button>
+              <button type="button" class="manual-state-colour" data-manual-state-colour="B">Back</button>
+            </div>
+            <button type="button" class="transform-btn" data-manual-state-eraser aria-pressed="false">Eraser</button>
+            <div class="manual-state-actions">
+              <button type="button" class="transform-btn" data-manual-state-reset>Clear</button>
+              <button type="button" class="transform-btn" data-manual-state-solved>Solved</button>
+            </div>
+          </section>
+        </div>
+        <output class="manual-state-status" data-manual-state-status aria-live="polite"></output>
+        <div class="manual-state-footer">
+          <button type="button" class="viewport-control" data-manual-state-cancel>Cancel</button>
+          <button type="button" class="transform-btn" data-manual-state-load disabled>Load state into Setup</button>
+        </div>
       </dialog>
     </main>
 

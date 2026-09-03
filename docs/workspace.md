@@ -77,6 +77,18 @@ Moves is a playback tape, so editing it never changes a solver request or invali
 already-returned two-phase candidate. Changing Setup resets that candidate and its
 optional refinement search.
 
+## Manual state entry
+
+For 2×2×2 and 3×3×3, **Enter state by hand** opens a draft-only sticker editor. It
+starts blank for an empty Setup, or from a valid existing Setup. Each blank sticker shows
+the colours compatible with its partially entered cubie; selecting one is then checked
+against the complete reachable cube and automatically fills any subsequently forced
+stickers. On 3×3×3, centres are fixed and the whole-cube check includes corner/edge
+permutation parity. **Clear** intentionally
+leaves stickers blank so a completed draft can be corrected. CubeLab does not alter Setup
+or the viewport until **Load state into Setup** is enabled by a complete, physically valid
+position.
+
 **Sync state** from a connected smart cube writes its physical facelet state into Setup. It
 does not change the optional Moves field, allowing a user to inspect or replay a sequence
 from a freshly synchronized physical position. Both fields are shareable in the URL hash as
