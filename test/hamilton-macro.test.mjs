@@ -94,4 +94,13 @@ describe("Hamilton macro programs", () => {
     ]);
     expect(() => unfold(program, 3)).toThrow(/3-move limit/);
   });
+
+  test("accepts hash and slash comments around macro statements", () => {
+    const program = parse(`
+      # a whole-line comment
+      a = U R // an inline definition comment
+      a a # a trailing root comment
+    `);
+    expect(prefix(program, 4)).toEqual(["U", "R", "U", "R"]);
+  });
 });

@@ -3,7 +3,8 @@
 Hamilton macro programs are an explicit import format for enormous recursive
 move constructions. They are separate from standard, Ruwix, and FMC notation.
 Definitions may use `def name = expression` or `name = expression`, comments
-begin with `#`, and `export name` selects the root program.
+begin with `#` or `//` (including trailing comments), and `export name`
+selects the root program.
 
 The dialect also accepts standard bracket expressions: `[A,B]` is the
 commutator `A B A' B'`, and `[A:B]` is the conjugate `A B A'`. Timed pauses

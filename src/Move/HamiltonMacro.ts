@@ -16,7 +16,16 @@ const implicitExpressionRoot = "__expression__";
 
 const fail = (message: string): never => { throw new Error(`Hamilton macro: ${message}`); };
 
-const clean = (source: string): string => source.replace(/^[ \t]*#.*$/gm, "");
+/** Removes whole-line and trailing comments while preserving statement newlines. */
+const clean = (source: string): string => source.split("\n").map((line) => {
+  const hash = line.indexOf("#");
+  const slash = line.indexOf("//");
+  const start = [hash, slash].filter((index) => index >= 0).reduce(
+    (earliest, index) => Math.min(earliest, index),
+    line.length,
+  );
+  return line.slice(0, start);
+}).join("\n");
 
 class ExpressionParser {
   private cursor = 0;
