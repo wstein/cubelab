@@ -10,12 +10,13 @@ const evaluate = (input, {size = 3, lowercaseMode = "Wide", notationDialect = "M
   return MoveCompatibility.evaluate(input, lowercaseMode, notationDialect, parsed._0);
 };
 
-test("plain Article 12 source is portable across every selected profile", () => {
+test("plain Article 12 source is portable across the standard profiles", () => {
   const result = evaluate("R U' F2 Rw x");
-  for (const profile of Object.values(result)) {
+  for (const profile of [result.wca, result.signLgn, result.cubingJs, result.speedsolving, result.ruwix]) {
     assert.equal(profile.compatible, true, profile.reasons.join(" "));
     assert.deepEqual(profile.reasons, []);
   }
+  assert.equal(result.sse.compatible, false);
 });
 
 test("structured LGN remains portable except to Article 12 and Ruwix", () => {
@@ -48,13 +49,15 @@ test("Twizzle caret NISS is not mistaken for Cube Rosetta's caret repeat alias",
   const result = evaluate("R ^(U L)", {notationDialect: "Twizzle"});
   assert.equal(result.cubingJs.compatible, true, result.cubingJs.reasons.join(" "));
   assert.equal(result.wca.compatible, false);
+  assert.equal(result.sse.compatible, false);
 });
 
-test("SSE remains an explicit import dialect rather than portable cubing.js source", () => {
-  const result = evaluate("TR MR SR CR", {notationDialect: "Sse"});
-  for (const profile of Object.values(result)) {
+test("SSE catalogue source receives its own profile rather than portable standard badges", () => {
+  const result = evaluate("U2 D2 · R L · B2 D2 · F2 B2 · U2 F2 · R' L' (12 ltm, 12 ftm, 20 qtm)", {notationDialect: "Sse"});
+  for (const profile of [result.wca, result.signLgn, result.cubingJs, result.speedsolving, result.ruwix]) {
     assert.equal(profile.compatible, false);
   }
+  assert.equal(result.sse.compatible, true, result.sse.reasons.join(" "));
   assert.match(result.cubingJs.reasons.join(" "), /SSE/);
 });
 

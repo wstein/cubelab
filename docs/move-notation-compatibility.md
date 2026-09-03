@@ -33,11 +33,14 @@ normal grouping. **SSE 3×3 (Superset ENG)** maps Randelshofer's 3×3-only `T`, 
 `S`, and `C` prefixed turns to Cube Rosetta's standard wide, slice, paired-face, and
 rotation moves. SSE also permits compact adjacent move sequences such as `CD2MR2MD`;
 its `·` visual separator is accepted as whitespace. The other dialects retain their
-whitespace requirement. Neither dialect is inferred from pasted input.
+whitespace requirement. A pasted SSE middle dot is unambiguous and is detected for that
+input only; Twizzle caret-NISS remains an explicit user-selected dialect.
 
 SSE catalogue metric suffixes—such as `(8 ltm, 8* ftm, 12* qtm)`—are also accepted as
 state-neutral comments. This permits direct pasting of an algorithm line without
-mistaking the metrics for a parenthesized move group.
+mistaking the metrics for a parenthesized move group. A pasted SSE middle dot
+auto-selects the import dialect for that input only; it does not change the user's saved
+notation preference.
 
 ## In-app compatibility profiles
 
@@ -46,12 +49,15 @@ located AST and source spelling rather than the expanded move sequence. This pre
 the distinctions that matter for portability: a commutator and its expanded turns have
 the same cube effect, but only the former requires bracket grammar at the destination.
 
-The five badges cover WCA Article 12 move-token spelling, normative SiGN/LGN grammar,
-documented cubing.js/Twizzle input, conventions described by the SpeedSolving Wiki, and
-Ruwix Advanced notation. A green badge means that the original source fits the cited
-profile; a red badge exposes the specific incompatible features in its tooltip. The WCA
-badge deliberately says **WCA tokens** because token compatibility alone cannot decide
-whether an algorithm is legal for a particular event, attempt, or score sheet.
+The six badges cover WCA Article 12 move-token spelling, normative SiGN/LGN grammar,
+documented cubing.js/Twizzle input, conventions described by the SpeedSolving Wiki,
+Ruwix Advanced notation, and Randelshofer's SSE / CubeTwister 3×3 source. A green
+badge means that the original source fits the cited profile; a red badge exposes the
+specific incompatible features in its tooltip. SSE's middle-dot catalogue separator and
+metric suffixes are deliberately SSE-only, so they make the five other badges red rather
+than being silently treated as portable whitespace. The WCA badge deliberately says
+**WCA tokens** because token compatibility alone cannot decide whether an algorithm is
+legal for a particular event, attempt, or score sheet.
 
 ## Implemented standards and syntax
 

@@ -11,6 +11,7 @@ type compatibility = {
   cubingJs: assessment,
   speedsolving: assessment,
   ruwix: assessment,
+  sse: assessment,
 }
 
 type sourceFeatures = {
@@ -64,7 +65,9 @@ let hasPostFaceDigit = source => {
 }
 
 let hasExplicitMultiplier = (input, notationDialect) => {
-  let found = ref(input->String.includes("*"))
+  // SSE catalogue metrics use stars as prose emphasis, e.g. `8* ftm`.
+  // They are parsed into a state-neutral metric comment, not multiplication.
+  let found = ref(notationDialect != Sse && input->String.includes("*"))
   for index in 0 to input->String.length - 1 {
     if input->String.get(index)->Option.map(String.make) == Some("^") {
       let isTwizzleNiss = notationDialect == Twizzle && input->String.startsWithFrom("^(", index)
@@ -152,7 +155,10 @@ and inspectUnit = (input, unit: locatedUnit, features, wcaReasons, ruwixReasons)
     }
   | Pause => features.pause = true
   | TimedPause(_) => features.pause = true
-  | BlockComment(_) => features.blockComment = true
+  | BlockComment(text) =>
+    if !(text->String.startsWith("SSE metrics:")) {
+      features.blockComment = true
+    }
   | Group(units, _) => {
       addReason(wcaReasons, "Groups are outside the Article 12 token subset.")
       inspectSequence(input, units, features, wcaReasons, ruwixReasons)
@@ -185,6 +191,7 @@ let evaluate = (
   let cubingReasons = []
   let speedsolvingReasons = []
   let ruwixReasons = []
+  let sseReasons = []
   let features = {
     adjacentUnits: false,
     blockComment: false,
@@ -301,6 +308,8 @@ let evaluate = (
     addReason(cubingReasons, "SSE T/M/S/C prefixes are not cubing.js source notation.")
     addReason(speedsolvingReasons, "SSE layer prefixes are outside the documented Wiki subset.")
     addReason(ruwixReasons, "SSE T/M/S/C prefixes are not Ruwix Advanced source notation.")
+  } else {
+    addReason(sseReasons, "This source was not parsed as SSE 3×3 / CubeTwister notation.")
   }
 
   {
@@ -309,5 +318,6 @@ let evaluate = (
     cubingJs: assessment(cubingReasons),
     speedsolving: assessment(speedsolvingReasons),
     ruwix: assessment(ruwixReasons),
+    sse: assessment(sseReasons),
   }
 }

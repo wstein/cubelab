@@ -68,7 +68,7 @@ function hasPostFaceDigit(source) {
 }
 
 function hasExplicitMultiplier(input, notationDialect) {
-  let found = input.includes("*");
+  let found = notationDialect !== "Sse" && input.includes("*");
   for (let index = 0, index_finish = input.length; index < index_finish; ++index) {
     if (Primitive_object.equal(Stdlib_Option.map(input[index], prim => String(prim)), "^")) {
       let isTwizzleNiss = notationDialect === "Twizzle" && input.startsWith("^(", index);
@@ -109,15 +109,15 @@ function inspectSequence(input, units, features, wcaReasons, ruwixReasons) {
 
 function inspectUnit(input, unit, features, wcaReasons, ruwixReasons) {
   let source = sourceFor(input, unit);
-  let match = unit.desc;
-  if (typeof match !== "object") {
+  let text = unit.desc;
+  if (typeof text !== "object") {
     features.pause = true;
     return;
   }
-  switch (match.TAG) {
+  switch (text.TAG) {
     case "Move" :
-      let turns = match._1;
-      let move = match._0;
+      let turns = text._1;
+      let move = text._0;
       if (containsAny(source, "rludfb")) {
         features.lowercaseFace = true;
       }
@@ -155,21 +155,25 @@ function inspectUnit(input, unit, features, wcaReasons, ruwixReasons) {
       features.pause = true;
       return;
     case "BlockComment" :
-      features.blockComment = true;
-      return;
+      if (!text._0.startsWith("SSE metrics:")) {
+        features.blockComment = true;
+        return;
+      } else {
+        return;
+      }
     case "Group" :
       addReason(wcaReasons, "Groups are outside the Article 12 token subset.");
-      return inspectSequence(input, match._0, features, wcaReasons, ruwixReasons);
+      return inspectSequence(input, text._0, features, wcaReasons, ruwixReasons);
     case "Commutator" :
       addReason(wcaReasons, "Commutators are outside the Article 12 token subset.");
       addReason(ruwixReasons, "Ruwix Advanced does not define bracket commutator syntax.");
-      inspectSequence(input, match._0, features, wcaReasons, ruwixReasons);
-      return inspectSequence(input, match._1, features, wcaReasons, ruwixReasons);
+      inspectSequence(input, text._0, features, wcaReasons, ruwixReasons);
+      return inspectSequence(input, text._1, features, wcaReasons, ruwixReasons);
     case "Conjugate" :
       addReason(wcaReasons, "Conjugates are outside the Article 12 token subset.");
       addReason(ruwixReasons, "Ruwix Advanced does not define bracket conjugate syntax.");
-      inspectSequence(input, match._0, features, wcaReasons, ruwixReasons);
-      return inspectSequence(input, match._1, features, wcaReasons, ruwixReasons);
+      inspectSequence(input, text._0, features, wcaReasons, ruwixReasons);
+      return inspectSequence(input, text._1, features, wcaReasons, ruwixReasons);
   }
 }
 
@@ -186,6 +190,7 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
   let cubingReasons = [];
   let speedsolvingReasons = [];
   let ruwixReasons = [];
+  let sseReasons = [];
   let features = {
     adjacentUnits: false,
     blockComment: false,
@@ -280,13 +285,16 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
     addReason(cubingReasons, "SSE T/M/S/C prefixes are not cubing.js source notation.");
     addReason(speedsolvingReasons, "SSE layer prefixes are outside the documented Wiki subset.");
     addReason(ruwixReasons, "SSE T/M/S/C prefixes are not Ruwix Advanced source notation.");
+  } else {
+    addReason(sseReasons, "This source was not parsed as SSE 3×3 / CubeTwister notation.");
   }
   return {
     wca: assessment(wcaReasons),
     signLgn: assessment(signReasons),
     cubingJs: assessment(cubingReasons),
     speedsolving: assessment(speedsolvingReasons),
-    ruwix: assessment(ruwixReasons)
+    ruwix: assessment(ruwixReasons),
+    sse: assessment(sseReasons)
   };
 }
 

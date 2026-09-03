@@ -128,7 +128,7 @@ type StateError = {_0?: string; TAG: string; actual?: number; character?: string
 type CubeState = {size: number; facelets: string[][]};
 type Scheme = "Western" | "Japanese" | {TAG: "Custom"; _0: string};
 type CompatibilityAssessment = {compatible: boolean; reasons: string[]};
-type CompatibilityResult = Record<"wca" | "signLgn" | "cubingJs" | "speedsolving" | "ruwix", CompatibilityAssessment>;
+type CompatibilityResult = Record<"wca" | "signLgn" | "cubingJs" | "speedsolving" | "ruwix" | "sse", CompatibilityAssessment>;
 type RecognizedInput = {
   state: CubeState;
   label: string;
@@ -1463,6 +1463,7 @@ if (root) {
     cubingJs: "cubing.js / Twizzle",
     speedsolving: "SpeedSolving Wiki",
     ruwix: "Ruwix Advanced",
+    sse: "SSE / CubeTwister",
   };
   const compatibilitySuccess: Record<keyof CompatibilityResult, string> = {
     wca: "Uses only the WCA Article 12 move-token subset. This does not determine event-specific competition legality.",
@@ -1470,6 +1471,7 @@ if (root) {
     cubingJs: "The original source is portable to the documented cubing.js/Twizzle algorithm grammar.",
     speedsolving: "The original source uses conventions documented by the SpeedSolving Wiki profile.",
     ruwix: "The original source uses move forms documented by Ruwix Advanced notation.",
+    sse: "The original source fits Randelshofer's SSE 3×3 / CubeTwister notation.",
   };
 
   const updateCompatibility = (recognized: RecognizedInput | null) => {
@@ -1478,7 +1480,7 @@ if (root) {
     const result = MoveCompatibility.evaluate(
       input.value,
       lowercaseMode,
-      notationDialect,
+      dialectForPastedInput(input.value),
       recognized.timeline.alg,
     ) as CompatibilityResult;
     (Object.keys(compatibilityLabels) as Array<keyof CompatibilityResult>).forEach((profile) => {
