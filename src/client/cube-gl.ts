@@ -1214,6 +1214,10 @@ export const createCubeViewport = (
             const colour = recovery ? "#fde68a" : "#38bdf8";
             const glowColour = recovery ? "rgba(245, 158, 11, 0.85)" : "rgba(34, 211, 238, 0.85)";
             drawTaperedArrow(overlay, projectedArc, dpr, colour, glowColour, 1.15);
+            if (((turnGuide.step.turns % 4) + 4) % 4 === 2) {
+              const midpoint = projectedArc[Math.floor(projectedArc.length / 2)]!;
+              drawRepeatIndicator(overlay, "2×", midpoint.x, midpoint.y - 34 * dpr, dpr, recovery ? "recovery" : "normal");
+            }
           }
         } else {
           const surfacePaths = turnSurfaceArrowPaths(transform, turnGuide.step, state?.size ?? 3);
@@ -1250,6 +1254,25 @@ export const createCubeViewport = (
               const glow = recovery ? "rgba(245, 158, 11, 0.85)" : "rgba(34, 211, 238, 0.85)";
               drawTaperedArrow(overlay, projected, dpr, arrowColour, glow, 0.95);
             });
+            if (((turnGuide.step.turns % 4) + 4) % 4 === 2) {
+              const points = bestFaces[0]!.points
+                .map((point) => projectPoint(point, matrices.modelView, matrices.projection, width, height))
+                .filter(({inFront}) => inFront);
+              if (points.length > 0) {
+                const anchor = points.reduce(
+                  (sum, point) => ({x: sum.x + point.x, y: sum.y + point.y}),
+                  {x: 0, y: 0},
+                );
+                drawRepeatIndicator(
+                  overlay,
+                  "2×",
+                  anchor.x / points.length,
+                  anchor.y / points.length - 38 * dpr,
+                  dpr,
+                  recovery ? "recovery" : "normal",
+                );
+              }
+            }
           }
         }
       }

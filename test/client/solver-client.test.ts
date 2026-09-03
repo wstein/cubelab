@@ -6,6 +6,7 @@ type Listener = (event: MessageEvent<unknown>) => void;
 
 class FakeWorker {
   readonly requests: unknown[] = [];
+  terminated = false;
   private readonly listeners = new Map<string, Listener[]>();
 
   addEventListener(type: string, listener: Listener): void {
@@ -16,7 +17,9 @@ class FakeWorker {
     this.requests.push(request);
   }
 
-  terminate(): void {}
+  terminate(): void {
+    this.terminated = true;
+  }
 
   respond(response: unknown): void {
     this.listeners.get("message")?.forEach((listener) => listener({data: response} as MessageEvent));
@@ -77,5 +80,18 @@ describe("solver worker client", () => {
     expect(candidates).toEqual([21]);
     worker.respond({id: 0, ok: true, solution: {moveCount: 21}});
     await expect(solution).resolves.toEqual({moveCount: 21});
+  });
+
+  test("can immediately terminate a dedicated two-phase worker", async () => {
+    const worker = new FakeWorker();
+    const client = createTwoPhaseSolverClient<{id: string}, {moveCount: number}>(
+      worker as unknown as Worker,
+    );
+    const solution = client.solve({id: "cube"});
+
+    client.terminate();
+
+    expect(worker.terminated).toBe(true);
+    await expect(solution).rejects.toThrow("was stopped");
   });
 });

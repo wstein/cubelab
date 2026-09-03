@@ -282,6 +282,15 @@ const cards = [
             </p>
             <div class="transform-row" aria-label="Two-phase solver">
               <span class="transform-label">3×3 solver</span>
+              <label class="two-phase-target-input">
+                Target (optional)
+                <input
+                  type="text"
+                  data-two-phase-target
+                  placeholder="Solved"
+                  spellcheck="false"
+                />
+              </label>
               <button type="button" class="transform-btn" data-two-phase-solve>
                 Find two-phase solution
               </button>

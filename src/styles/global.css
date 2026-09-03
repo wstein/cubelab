@@ -1332,6 +1332,28 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   text-transform: uppercase;
 }
 
+.two-phase-target-input {
+  display: inline-grid;
+  gap: 0.18rem;
+  color: var(--text-muted);
+  font: 600 0.62rem var(--font-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.two-phase-target-input input {
+  width: min(17rem, 42vw);
+  min-height: 2.05rem;
+  padding: 0.28rem 0.45rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font: 0.76rem var(--font-mono);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
 .transform-btn {
   padding: 0.34rem 0.62rem;
   background: rgba(99, 102, 241, 0.08);

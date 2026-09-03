@@ -109,9 +109,12 @@ test("the converter exposes full two-phase solutions through a dedicated worker 
   assert.match(page, /data-two-phase-solve/);
   assert.match(page, /data-two-phase-apply/);
   assert.match(page, /data-two-phase-result/);
+  assert.match(page, /data-two-phase-target/);
+  assert.match(page, /Target \(optional\)/);
   assert.match(client, /createTwoPhaseSolverClient/);
-  assert.match(client, /twoPhaseSolverClient\.solve\(workspace\._0\.state\)/);
-  assert.match(client, /The two-phase solution did not replay to solved/);
+  assert.match(client, /relativeAcademyState\(workspace\._0\.state, target\._0\)/);
+  assert.match(client, /twoPhaseSolverClient\.solve\(relative\._0\)/);
+  assert.match(client, /The two-phase solution did not replay from Setup to the target/);
   assert.match(solverWorker, /type: "solveTwoPhase"/);
   assert.match(solverWorker, /twoPhaseProgress/);
   assert.match(solverWorker, /TwoPhaseSolver\.solveAtDepth\(request\.state, bound\)/);
@@ -119,11 +122,18 @@ test("the converter exposes full two-phase solutions through a dedicated worker 
   assert.match(solverWorker, /result\._0 === "SearchFailed"/);
   assert.match(solverWorker, /cancelledTwoPhaseRequests = new Set<number>/);
   assert.match(solverWorker, /twoPhaseCandidate/);
-  assert.match(client, /twoPhaseSolverClient\.cancel\(\)/);
+  assert.match(client, /twoPhaseSolverClient\.terminate\(\)/);
+  assert.match(client, /twoPhaseSolverClient = newTwoPhaseSolverClient\(\)/);
+  assert.match(client, /discarded the stale two-phase solution/);
   assert.match(client, /Best so far:/);
   assert.match(client, /twoPhaseApply\.addEventListener/);
-  assert.match(client, /Setup or Moves changed; generate a new two-phase solution/);
+  assert.match(client, /Setup, Moves, or Target changed; generate a new two-phase solution/);
   assert.match(client, /store\.patch\(\{moves:/);
+});
+
+test("half-turn arrows carry a matching 2× overlay badge", () => {
+  assert.match(viewport, /drawRepeatIndicator\(overlay, "2×"/);
+  assert.match(viewport, /\(\(turnGuide\.step\.turns % 4\) \+ 4\) % 4 === 2/);
 });
 
 test("Academy exposes an optional target pattern field", () => {

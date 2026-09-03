@@ -38,8 +38,14 @@ algorithm.
 The converter exposes full solutions through the dedicated worker request
 `solveTwoPhase`, separate from Academy's tutorial request contract. Its 3×3
 control solves the current Setup plus Moves state off the UI thread and reports
-the HTM count and canonical algorithm. It reports table-preparation and search
-stages and publishes verified best-so-far candidates. Cancel retains the latest
-candidate while stopping further depth refinement. Apply solution
-preserves Setup and appends the verified algorithm to Moves; it asks for a new
-solution if either source field changed after the search.
+the HTM count and canonical algorithm. An optional **Target** uses the same
+standard-centre-frame rule as Academy: CubeLab solves the relative state and
+replay-verifies that the result maps the original Setup to the requested target.
+An empty Target means solved. It reports table-preparation and search stages and
+publishes verified best-so-far candidates. **Stop search** terminates the
+dedicated worker immediately and replaces it before another request can start.
+Apply solution preserves Setup and appends the verified algorithm to Moves; it
+asks for a new solution if Setup, Moves, or Target changed after the search.
+
+For background on the 20-HTM upper bound for every 3×3 position, see the
+[God's Number proof project](https://www.cube20.org/).

@@ -257,6 +257,7 @@ if (root) {
   const twoPhaseSolve = root.querySelector<HTMLButtonElement>("[data-two-phase-solve]")!;
   const twoPhaseApply = root.querySelector<HTMLButtonElement>("[data-two-phase-apply]")!;
   const twoPhaseResult = root.querySelector<HTMLOutputElement>("[data-two-phase-result]")!;
+  const twoPhaseTarget = root.querySelector<HTMLInputElement>("[data-two-phase-target]")!;
   const academyTarget = root.querySelector<HTMLInputElement>("[data-academy-target]")!;
   const academyDom = (prefix: string) => ({
     status: root.querySelector<HTMLElement>(`[data-${prefix}-status]`)!,
@@ -405,12 +406,12 @@ if (root) {
   let nissSide: "normal" | "inverse" = "normal";
   let nissNormalState: CubeState | null = null;
   let nissInverseState: CubeState | null = null;
-  let twoPhaseCancelling = false;
   let twoPhaseRequest = 0;
   let twoPhaseAlgorithm = "";
   let twoPhaseBestMoveCount: number | null = null;
   let twoPhaseSourceKey = "";
   let twoPhasePendingState: CubeState | null = null;
+  let twoPhasePendingTarget: CubeState | null = null;
   const newTwoPhaseSolverClient = () => createTwoPhaseSolverClient<CubeState, TwoPhaseSolution>(
     new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
     (stage) => {
@@ -421,11 +422,15 @@ if (root) {
       }
     },
     (solution) => {
-      if (!twoPhaseSolveBusy || twoPhasePendingState === null) return;
+      if (
+        !twoPhaseSolveBusy
+        || twoPhasePendingState === null
+        || twoPhasePendingTarget === null
+        || twoPhaseSourceKeyForCurrent() !== twoPhaseSourceKey
+      ) return;
       const replay = MoveExecutor.applyAlg(twoPhasePendingState, solution.alg) as Result<CubeState, unknown>;
-      const solved = StateTypes.solved(3) as Result<CubeState, unknown>;
-      if (replay.TAG !== "Ok" || solved.TAG !== "Ok"
-        || FaceletCodec.render(replay._0) !== FaceletCodec.render(solved._0)) return;
+      if (replay.TAG !== "Ok"
+        || FaceletCodec.render(replay._0) !== FaceletCodec.render(twoPhasePendingTarget)) return;
       twoPhaseAlgorithm = MoveTransform.serialize(solution.alg) as string;
       twoPhaseBestMoveCount = solution.moveCount;
       twoPhaseApply.disabled = twoPhaseAlgorithm === "";
@@ -830,6 +835,7 @@ if (root) {
     nissPanel.hidden = size !== 3 || activeTab !== "workbench";
     hamiltonPanel.hidden = activeTab !== "workbench";
     twoPhaseSolve.disabled = size !== 3;
+    twoPhaseTarget.disabled = size !== 3;
     if (size !== 3 && !twoPhaseSolveBusy) {
       twoPhaseResult.textContent = "Two-phase solving is available for 3×3 states.";
       twoPhaseResult.classList.remove("success", "failure");
@@ -1325,6 +1331,22 @@ if (root) {
       ? {TAG: "Ok", _0: parsed._0.state}
       : {TAG: "Error", _0: describeError(parsed._0)};
   };
+
+  const twoPhaseTargetState = (): Result<CubeState, string> => {
+    if (twoPhaseTarget.value.trim() === "") {
+      const solved = StateTypes.solved(3) as Result<CubeState, unknown>;
+      return solved.TAG === "Ok"
+        ? {TAG: "Ok", _0: solved._0}
+        : {TAG: "Error", _0: "Could not create the solved 3×3 target."};
+    }
+    const parsed = parseState(twoPhaseTarget.value);
+    return parsed.TAG === "Ok"
+      ? {TAG: "Ok", _0: parsed._0.state}
+      : {TAG: "Error", _0: describeError(parsed._0)};
+  };
+
+  const twoPhaseSourceKeyForCurrent = (): string =>
+    `${input.value}\u0000${movesInput.value}\u0000${twoPhaseTarget.value}`;
 
   const academyTargetDiagnostic = (): string | null => {
     if (activeRecognized === null || size !== 3) return null;
@@ -3615,13 +3637,19 @@ if (root) {
   twoPhaseSolve.addEventListener("click", async () => {
     if (size !== 3) return;
     if (twoPhaseSolveBusy) {
-      twoPhaseCancelling = true;
-      twoPhaseSolverClient.cancel();
-      twoPhaseSolve.disabled = true;
-      twoPhaseSolve.textContent = "Stopping search…";
+      // `solveAtDepth` is synchronous inside the worker, so a posted cancel
+      // message cannot interrupt its current bound. Terminate this dedicated
+      // worker and create a fresh one: stopping is immediate and the next
+      // request remains independently cancellable.
+      twoPhaseRequest += 1;
+      twoPhaseSolverClient.terminate();
+      twoPhaseSolverClient = newTwoPhaseSolverClient();
+      twoPhaseSolveBusy = false;
+      twoPhaseSolve.textContent = "Find two-phase solution";
+      twoPhaseSolve.disabled = false;
       twoPhaseResult.textContent = twoPhaseAlgorithm === ""
-        ? "Stopping search; no solution has been found yet."
-        : `Stopping search; keeping ${twoPhaseAlgorithm}.`;
+        ? "Search stopped immediately; no solution had been found yet."
+        : `Search stopped immediately; keeping ${twoPhaseAlgorithm}.`;
       twoPhaseResult.classList.remove("success", "failure");
       return;
     }
@@ -3631,36 +3659,50 @@ if (root) {
       twoPhaseResult.classList.add("failure");
       return;
     }
+    const target = twoPhaseTargetState();
+    if (target.TAG === "Error") {
+      twoPhaseResult.textContent = target._0;
+      twoPhaseResult.classList.add("failure");
+      return;
+    }
+    const relative = relativeAcademyState(workspace._0.state, target._0);
+    if (relative.TAG === "Error") {
+      twoPhaseResult.textContent = relative._0;
+      twoPhaseResult.classList.add("failure");
+      return;
+    }
     const request = ++twoPhaseRequest;
     twoPhaseAlgorithm = "";
     twoPhaseBestMoveCount = null;
-    twoPhaseSourceKey = `${input.value}\u0000${movesInput.value}`;
+    twoPhaseSourceKey = twoPhaseSourceKeyForCurrent();
     twoPhasePendingState = workspace._0.state;
-    twoPhaseCancelling = false;
+    twoPhasePendingTarget = target._0;
     twoPhaseApply.disabled = true;
     twoPhaseSolveBusy = true;
     twoPhaseSolve.textContent = "Cancel search";
     twoPhaseResult.textContent = "Starting two-phase search…";
     twoPhaseResult.classList.remove("failure", "success");
     try {
-      const solution = await twoPhaseSolverClient.solve(workspace._0.state);
+      const solution = await twoPhaseSolverClient.solve(relative._0);
       if (request !== twoPhaseRequest) return;
       const replay = MoveExecutor.applyAlg(workspace._0.state, solution.alg) as Result<CubeState, unknown>;
-      const solved = StateTypes.solved(3) as Result<CubeState, unknown>;
-      if (replay.TAG !== "Ok" || solved.TAG !== "Ok") {
-        throw new Error("The two-phase solution did not replay to solved.");
+      if (replay.TAG !== "Ok") {
+        throw new Error("The two-phase solution did not replay from Setup to the target.");
       }
-      if (FaceletCodec.render(replay._0) !== FaceletCodec.render(solved._0)) {
-        throw new Error("The two-phase solution did not replay to solved.");
+      if (FaceletCodec.render(replay._0) !== FaceletCodec.render(target._0)) {
+        throw new Error("The two-phase solution did not replay from Setup to the target.");
       }
       const algorithm = MoveTransform.serialize(solution.alg) as string;
+      if (twoPhaseSourceKeyForCurrent() !== twoPhaseSourceKey) {
+        twoPhaseResult.textContent = "Setup, Moves, or Target changed; discarded the stale two-phase solution.";
+        twoPhaseResult.classList.add("failure");
+        twoPhaseApply.disabled = true;
+        return;
+      }
       twoPhaseAlgorithm = algorithm;
-      twoPhaseSourceKey = `${input.value}\u0000${movesInput.value}`;
       twoPhaseApply.disabled = algorithm === "";
-      twoPhaseResult.textContent = twoPhaseCancelling
-        ? `Search stopped · ${solution.moveCount} HTM · ${algorithm || "Solved"}`
-        : `${solution.moveCount} HTM · ${algorithm || "Solved"}`;
-      twoPhaseResult.classList.toggle("success", !twoPhaseCancelling);
+      twoPhaseResult.textContent = `${solution.moveCount} HTM · ${algorithm || "Solved"}`;
+      twoPhaseResult.classList.add("success");
     } catch (reason) {
       if (request !== twoPhaseRequest) return;
       twoPhaseResult.textContent = reason instanceof Error ? reason.message : "The two-phase solver failed.";
@@ -3668,7 +3710,6 @@ if (root) {
     } finally {
       if (request !== twoPhaseRequest) return;
       twoPhaseSolveBusy = false;
-      twoPhaseCancelling = false;
       twoPhaseSolve.textContent = "Find two-phase solution";
       twoPhaseSolve.disabled = size !== 3;
     }
@@ -3676,8 +3717,8 @@ if (root) {
 
   twoPhaseApply.addEventListener("click", () => {
     if (twoPhaseAlgorithm === "") return;
-    if (`${input.value}\u0000${movesInput.value}` !== twoPhaseSourceKey) {
-      twoPhaseResult.textContent = "Setup or Moves changed; generate a new two-phase solution.";
+    if (twoPhaseSourceKeyForCurrent() !== twoPhaseSourceKey) {
+      twoPhaseResult.textContent = "Setup, Moves, or Target changed; generate a new two-phase solution.";
       twoPhaseResult.classList.add("failure");
       twoPhaseApply.disabled = true;
       return;
