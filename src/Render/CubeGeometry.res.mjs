@@ -567,12 +567,8 @@ function bevelForEdge(last, gx, gy, gz, cell, faceA, faceB) {
   }
 }
 
-function speedBevelForEdge(last, gx, gy, gz, cell, faceA, faceB) {
-  if (isOuterEdge(last, gx, gy, gz, faceA, faceB)) {
-    return 0.06 * cell;
-  } else {
-    return 0.06 * cell;
-  }
+function speedBevelForEdge(param, param$1, param$2, param$3, cell, _faceA, _faceB) {
+  return 0.06 * cell;
 }
 
 function stickerBoundsForFace(last, gx, gy, gz, cell, face) {
@@ -797,8 +793,8 @@ function emitSpeedCubie(data, state, palette, gx, gy, gz) {
     data: data,
     cubie: centre
   };
-  let half = 0.999 * cell / 2.0;
-  let bevelFor = (fA, fB) => speedBevelForEdge(last, gx, gy, gz, cell, fA, fB);
+  let half = (0.999 - 0.02) * cell / 2.0;
+  let bevelFor = (fA, fB) => 0.06 * cell;
   StateTypes.storageOrder.forEach(face => {
     let colour = paintFor(state, "Speed", palette, last, gx, gy, gz, face);
     emitStandardFace(emitter, centre, face, half, colour, bevelFor);
@@ -828,22 +824,41 @@ function emitSpeedCubie(data, state, palette, gx, gy, gz) {
     let aB = add(centre, add(onB, scale(along, - flatMinusB)));
     let midMinus = add(centre, add(middle, scale(along, - (flatMinusA + flatMinusB) / 2.0)));
     let midPlus = add(centre, add(middle, scale(along, (flatPlusA + flatPlusB) / 2.0)));
+    let expA = isExposed(last, gx, gy, gz, faceA);
+    let expB = isExposed(last, gx, gy, gz, faceB);
     let colorA = paintFor(state, "Speed", palette, last, gx, gy, gz, faceA);
     let colorB = paintFor(state, "Speed", palette, last, gx, gy, gz, faceB);
-    emitQuad(emitter, aA, bA, midPlus, midMinus, na, na, facing, facing, colorA, facing, 0.22);
-    emitQuad(emitter, midMinus, midPlus, bB, aB, facing, facing, nb, nb, colorB, facing, 0.22);
+    let match$1 = expA ? (
+        expB ? [
+            colorA,
+            colorB
+          ] : [
+            colorA,
+            colorA
+          ]
+      ) : (
+        expB ? [
+            colorB,
+            colorB
+          ] : [
+            body,
+            body
+          ]
+      );
+    emitQuad(emitter, aA, bA, midPlus, midMinus, na, na, facing, facing, match$1[0], facing, 0.22);
+    emitQuad(emitter, midMinus, midPlus, bB, aB, facing, facing, nb, nb, match$1[1], facing, 0.22);
   }
   let between = (p1, p2) => scale(add(p1, p2), 0.5);
   for (let index$1 = 0, index_finish$1 = corners.length; index$1 < index_finish$1; ++index$1) {
-    let match$1 = corners[index$1];
-    let three = match$1[2];
-    let two = match$1[1];
-    let one = match$1[0];
+    let match$2 = corners[index$1];
+    let three = match$2[2];
+    let two = match$2[1];
+    let one = match$2[0];
     let n1 = faceNormal(one);
     let n2 = faceNormal(two);
     let n3 = faceNormal(three);
     let turned = dot(cross(n1, n2), n3);
-    let match$2 = turned > 0.0 ? [
+    let match$3 = turned > 0.0 ? [
         one,
         two,
         three
@@ -852,9 +867,9 @@ function emitSpeedCubie(data, state, palette, gx, gy, gz) {
         three,
         two
       ];
-    let faceC = match$2[2];
-    let faceB$1 = match$2[1];
-    let faceA$1 = match$2[0];
+    let faceC = match$3[2];
+    let faceB$1 = match$3[1];
+    let faceA$1 = match$3[0];
     let na$1 = faceNormal(faceA$1);
     let nb$1 = faceNormal(faceB$1);
     let nc = faceNormal(faceC);
@@ -866,12 +881,29 @@ function emitSpeedCubie(data, state, palette, gx, gy, gz) {
     let pb = add(centre, add(scale(nb$1, half), add(scale(nc, flatBC), scale(na$1, flatAB$1))));
     let pc = add(centre, add(scale(nc, half), add(scale(na$1, flatAC), scale(nb$1, flatBC))));
     let mid = scale(add(pa, add(pb, pc)), 1.0 / 3.0);
+    let expA$1 = isExposed(last, gx, gy, gz, faceA$1);
+    let expB$1 = isExposed(last, gx, gy, gz, faceB$1);
+    let expC = isExposed(last, gx, gy, gz, faceC);
     let colorA$1 = paintFor(state, "Speed", palette, last, gx, gy, gz, faceA$1);
     let colorB$1 = paintFor(state, "Speed", palette, last, gx, gy, gz, faceB$1);
     let colorC = paintFor(state, "Speed", palette, last, gx, gy, gz, faceC);
-    emitQuad(emitter, pa, between(pa, pb), mid, between(pc, pa), na$1, normalize(add(na$1, nb$1)), facing$1, normalize(add(nc, na$1)), colorA$1, facing$1, 0.22);
-    emitQuad(emitter, pb, between(pb, pc), mid, between(pa, pb), nb$1, normalize(add(nb$1, nc)), facing$1, normalize(add(na$1, nb$1)), colorB$1, facing$1, 0.22);
-    emitQuad(emitter, pc, between(pc, pa), mid, between(pb, pc), nc, normalize(add(nc, na$1)), facing$1, normalize(add(nb$1, nc)), colorC, facing$1, 0.22);
+    let emitCornerThird = (p, pNext, pPrev, n, nNext, nPrev, expThis, expNext, expPrev, colorThis, colorNext, colorPrev) => {
+      if (expThis) {
+        return emitQuad(emitter, p, pNext, mid, pPrev, n, nNext, facing$1, nPrev, colorThis, facing$1, 0.22);
+      } else if (expNext && expPrev) {
+        emitTriangle(emitter, p, pNext, mid, n, nNext, facing$1, colorNext, facing$1, 0.22);
+        return emitTriangle(emitter, p, mid, pPrev, n, facing$1, nPrev, colorPrev, facing$1, 0.22);
+      } else if (expNext) {
+        return emitQuad(emitter, p, pNext, mid, pPrev, n, nNext, facing$1, nPrev, colorNext, facing$1, 0.22);
+      } else if (expPrev) {
+        return emitQuad(emitter, p, pNext, mid, pPrev, n, nNext, facing$1, nPrev, colorPrev, facing$1, 0.22);
+      } else {
+        return emitQuad(emitter, p, pNext, mid, pPrev, n, nNext, facing$1, nPrev, body, facing$1, 0.22);
+      }
+    };
+    emitCornerThird(pa, between(pa, pb), between(pc, pa), na$1, normalize(add(na$1, nb$1)), normalize(add(nc, na$1)), expA$1, expB$1, expC, colorA$1, colorB$1, colorC);
+    emitCornerThird(pb, between(pb, pc), between(pa, pb), nb$1, normalize(add(nb$1, nc)), normalize(add(na$1, nb$1)), expB$1, expC, expA$1, colorB$1, colorC, colorA$1);
+    emitCornerThird(pc, between(pc, pa), between(pb, pc), nc, normalize(add(nc, na$1)), normalize(add(nb$1, nc)), expC, expA$1, expB$1, colorC, colorA$1, colorB$1);
   }
 }
 

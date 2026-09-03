@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {test} from "vitest";
+import { test } from "vitest";
 
 import * as CubeGeometry from "../src/Render/CubeGeometry.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
@@ -77,7 +77,7 @@ test("Japanese palette swaps the front and back colour assignments", () => {
 });
 
 test("geometry rejects malformed cube states", () => {
-  const invalid = CubeGeometry.generate({size: 3, facelets: []}, "Standard", "Western");
+  const invalid = CubeGeometry.generate({ size: 3, facelets: [] }, "Standard", "Western");
   assert.equal(invalid.TAG, "Error");
   assert.match(invalid._0, /six faces/);
 });
@@ -122,15 +122,39 @@ test("sticker bounds increase gap on outer edges and enlarge outer corner radius
   assert.equal(cornerBounds.r3, 0.078);
 });
 
-test("speed cube bevel reduces gap between cubies by 50%", () => {
+test("speed cube bevel uses increased 0.06 fase on all edges", () => {
   const cell = 1.0;
-  // Outer edge has 0.06 * cell bevel
+  // All edges on speed cube have increased 0.06 * cell fase across both inner and outer edges
   const outerBevel = CubeGeometry.speedBevelForEdge(2, 2, 2, 2, cell, "U", "R");
   assert.equal(outerBevel, 0.06);
 
-  // Inner edge between cubies has 0.03 * cell bevel (50% reduction from 0.06)
   const innerBevel = CubeGeometry.speedBevelForEdge(2, 1, 2, 1, cell, "U", "R");
-  assert.equal(innerBevel, 0.03);
+  assert.equal(innerBevel, 0.06);
+});
+
+test("speed cube inner phases are completely colorful with face color", () => {
+  const state = StateTypes.solved(2)._0;
+  const speed = CubeGeometry.generate(state, "Speed", "Western");
+  assert.equal(speed.TAG, "Ok");
+  const mesh = speed._0;
+  // Check that on front-facing surfaces (z > 1.0, nz > 0.1), all vertices have non-body color (not black body)
+  let frontVertices = 0;
+  let bodyVerticesOnFront = 0;
+  for (let i = 0; i < mesh.data.length; i += mesh.stride) {
+    const z = mesh.data[i + 2];
+    const nz = mesh.data[i + 5];
+    const r = mesh.data[i + 6];
+    const g = mesh.data[i + 7];
+    const b = mesh.data[i + 8];
+    if (z > 1.0 && nz > 0.1) {
+      frontVertices++;
+      if (Math.abs(r - 0.13) < 0.05 && Math.abs(g - 0.14) < 0.05 && Math.abs(b - 0.17) < 0.05) {
+        bodyVerticesOnFront++;
+      }
+    }
+  }
+  assert.ok(frontVertices > 0);
+  assert.equal(bodyVerticesOnFront, 0);
 });
 
 

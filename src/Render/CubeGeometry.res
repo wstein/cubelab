@@ -288,12 +288,8 @@ let bevelForEdge = (~last, ~gx, ~gy, ~gz, ~cell, faceA, faceB) =>
     0.03 *. cell
   }
 
-let speedBevelForEdge = (~last, ~gx, ~gy, ~gz, ~cell, faceA, faceB) =>
-  if isOuterEdge(~last, ~gx, ~gy, ~gz, faceA, faceB) {
-    0.06 *. cell
-  } else {
-    0.03 *. cell
-  }
+let speedBevelForEdge = (~last as _, ~gx as _, ~gy as _, ~gz as _, ~cell, _faceA, _faceB) =>
+  0.06 *. cell
 
 type stickerBounds = {
   maxU: float,
@@ -522,7 +518,7 @@ let emitSpeedCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, ~gz
   let cell = 2.0 *. halfExtent /. Float.fromInt(size)
   let centre = cubieCentre(~size, ~gx, ~gy, ~gz)
   let emitter = {data, cubie: centre}
-  let half = 0.999 *. cell /. 2.0
+  let half = (0.999 -. 0.02) *. cell /. 2.0
   let bevelFor = (fA, fB) => speedBevelForEdge(~last, ~gx, ~gy, ~gz, ~cell, fA, fB)
 
   // 1. Caps (6 flat square faces conforming to per-edge bevels)
@@ -559,8 +555,16 @@ let emitSpeedCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, ~gz
     let midMinus = add(centre, add(middle, scale(along, -.(flatMinusA +. flatMinusB) /. 2.0)))
     let midPlus = add(centre, add(middle, scale(along, (flatPlusA +. flatPlusB) /. 2.0)))
 
+    let expA = isExposed(~last, ~gx, ~gy, ~gz, faceA)
+    let expB = isExposed(~last, ~gx, ~gy, ~gz, faceB)
     let colorA = paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, faceA)
     let colorB = paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, faceB)
+    let (bandColorA, bandColorB) = switch (expA, expB) {
+    | (true, true) => (colorA, colorB)
+    | (true, false) => (colorA, colorA)
+    | (false, true) => (colorB, colorB)
+    | (false, false) => (body, body)
+    }
 
     emitQuad(
       emitter,
@@ -572,7 +576,7 @@ let emitSpeedCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, ~gz
       na,
       facing,
       facing,
-      colorA,
+      bandColorA,
       facing,
       ~sheen=0.22,
     )
@@ -586,7 +590,7 @@ let emitSpeedCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, ~gz
       facing,
       nb,
       nb,
-      colorB,
+      bandColorB,
       facing,
       ~sheen=0.22,
     )
@@ -619,51 +623,120 @@ let emitSpeedCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, ~gz
     let pb = add(centre, add(scale(nb, half), add(scale(nc, flatBC), scale(na, flatAB))))
     let pc = add(centre, add(scale(nc, half), add(scale(na, flatAC), scale(nb, flatBC))))
     let mid = scale(add(pa, add(pb, pc)), 1.0 /. 3.0)
+    let expA = isExposed(~last, ~gx, ~gy, ~gz, faceA)
+    let expB = isExposed(~last, ~gx, ~gy, ~gz, faceB)
+    let expC = isExposed(~last, ~gx, ~gy, ~gz, faceC)
     let colorA = paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, faceA)
     let colorB = paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, faceB)
     let colorC = paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, faceC)
 
-    emitQuad(
-      emitter,
+    let emitCornerThird = (
+      p,
+      pNext,
+      pPrev,
+      n,
+      nNext,
+      nPrev,
+      ~expThis,
+      ~expNext,
+      ~expPrev,
+      ~colorThis,
+      ~colorNext,
+      ~colorPrev,
+    ) =>
+      if expThis {
+        emitQuad(
+          emitter,
+          p,
+          pNext,
+          mid,
+          pPrev,
+          n,
+          nNext,
+          facing,
+          nPrev,
+          colorThis,
+          facing,
+          ~sheen=0.22,
+        )
+      } else if expNext && expPrev {
+        emitTriangle(emitter, p, pNext, mid, n, nNext, facing, colorNext, facing, ~sheen=0.22)
+        emitTriangle(emitter, p, mid, pPrev, n, facing, nPrev, colorPrev, facing, ~sheen=0.22)
+      } else if expNext {
+        emitQuad(
+          emitter,
+          p,
+          pNext,
+          mid,
+          pPrev,
+          n,
+          nNext,
+          facing,
+          nPrev,
+          colorNext,
+          facing,
+          ~sheen=0.22,
+        )
+      } else if expPrev {
+        emitQuad(
+          emitter,
+          p,
+          pNext,
+          mid,
+          pPrev,
+          n,
+          nNext,
+          facing,
+          nPrev,
+          colorPrev,
+          facing,
+          ~sheen=0.22,
+        )
+      } else {
+        emitQuad(emitter, p, pNext, mid, pPrev, n, nNext, facing, nPrev, body, facing, ~sheen=0.22)
+      }
+
+    emitCornerThird(
       pa,
       between(pa, pb),
-      mid,
       between(pc, pa),
       na,
       mitre(na, nb),
-      facing,
       mitre(nc, na),
-      colorA,
-      facing,
-      ~sheen=0.22,
+      ~expThis=expA,
+      ~expNext=expB,
+      ~expPrev=expC,
+      ~colorThis=colorA,
+      ~colorNext=colorB,
+      ~colorPrev=colorC,
     )
-    emitQuad(
-      emitter,
+    emitCornerThird(
       pb,
       between(pb, pc),
-      mid,
       between(pa, pb),
       nb,
       mitre(nb, nc),
-      facing,
       mitre(na, nb),
-      colorB,
-      facing,
-      ~sheen=0.22,
+      ~expThis=expB,
+      ~expNext=expC,
+      ~expPrev=expA,
+      ~colorThis=colorB,
+      ~colorNext=colorC,
+      ~colorPrev=colorA,
     )
-    emitQuad(
-      emitter,
+    emitCornerThird(
       pc,
       between(pc, pa),
-      mid,
       between(pb, pc),
       nc,
       mitre(nc, na),
-      facing,
       mitre(nb, nc),
-      colorC,
-      facing,
-      ~sheen=0.22,
+      ~expThis=expC,
+      ~expNext=expA,
+      ~expPrev=expB,
+      ~colorThis=colorC,
+      ~colorNext=colorA,
+      ~colorPrev=colorB,
     )
   }
 }
