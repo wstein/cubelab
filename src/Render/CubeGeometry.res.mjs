@@ -567,6 +567,14 @@ function bevelForEdge(last, gx, gy, gz, cell, faceA, faceB) {
   }
 }
 
+function speedBevelForEdge(last, gx, gy, gz, cell, faceA, faceB) {
+  if (isOuterEdge(last, gx, gy, gz, faceA, faceB)) {
+    return 0.06 * cell;
+  } else {
+    return 0.06 * cell;
+  }
+}
+
 function stickerBoundsForFace(last, gx, gy, gz, cell, face) {
   let col = colAxis(face);
   let row = rowAxis(face);
@@ -790,11 +798,10 @@ function emitSpeedCubie(data, state, palette, gx, gy, gz) {
     cubie: centre
   };
   let half = 0.999 * cell / 2.0;
-  let bevel = 0.06 * cell;
-  let flat = half - bevel;
+  let bevelFor = (fA, fB) => speedBevelForEdge(last, gx, gy, gz, cell, fA, fB);
   StateTypes.storageOrder.forEach(face => {
     let colour = paintFor(state, "Speed", palette, last, gx, gy, gz, face);
-    emitFace(emitter, centre, face, half, 2.0 * flat, colour);
+    emitStandardFace(emitter, centre, face, half, colour, bevelFor);
   });
   for (let index = 0, index_finish = edges.length; index < index_finish; ++index) {
     let match = edges[index];
@@ -804,14 +811,27 @@ function emitSpeedCubie(data, state, palette, gx, gy, gz) {
     let nb = faceNormal(faceB);
     let along = cross(nb, na);
     let facing = normalize(add(na, nb));
-    let onA = add(scale(na, half), scale(nb, flat));
-    let onB = add(scale(nb, half), scale(na, flat));
+    let faceMinus = faceForNormal(scale(along, -1.0));
+    let facePlus = faceForNormal(along);
+    let bevelAB = bevelFor(faceA, faceB);
+    let flatAB = half - bevelAB;
+    let flatMinusA = half - bevelFor(faceA, faceMinus);
+    let flatPlusA = half - bevelFor(faceA, facePlus);
+    let flatMinusB = half - bevelFor(faceB, faceMinus);
+    let flatPlusB = half - bevelFor(faceB, facePlus);
+    let onA = add(scale(na, half), scale(nb, flatAB));
+    let onB = add(scale(nb, half), scale(na, flatAB));
     let middle = scale(add(onA, onB), 0.5);
-    let corner = (way, out) => add(centre, add(scale(along, way * flat), out));
+    let aA = add(centre, add(onA, scale(along, - flatMinusA)));
+    let bA = add(centre, add(onA, scale(along, flatPlusA)));
+    let bB = add(centre, add(onB, scale(along, flatPlusB)));
+    let aB = add(centre, add(onB, scale(along, - flatMinusB)));
+    let midMinus = add(centre, add(middle, scale(along, - (flatMinusA + flatMinusB) / 2.0)));
+    let midPlus = add(centre, add(middle, scale(along, (flatPlusA + flatPlusB) / 2.0)));
     let colorA = paintFor(state, "Speed", palette, last, gx, gy, gz, faceA);
     let colorB = paintFor(state, "Speed", palette, last, gx, gy, gz, faceB);
-    emitQuad(emitter, corner(-1.0, onA), corner(1.0, onA), corner(1.0, middle), corner(-1.0, middle), na, na, facing, facing, colorA, facing, 0.22);
-    emitQuad(emitter, corner(-1.0, middle), corner(1.0, middle), corner(1.0, onB), corner(-1.0, onB), facing, facing, nb, nb, colorB, facing, 0.22);
+    emitQuad(emitter, aA, bA, midPlus, midMinus, na, na, facing, facing, colorA, facing, 0.22);
+    emitQuad(emitter, midMinus, midPlus, bB, aB, facing, facing, nb, nb, colorB, facing, 0.22);
   }
   let between = (p1, p2) => scale(add(p1, p2), 0.5);
   for (let index$1 = 0, index_finish$1 = corners.length; index$1 < index_finish$1; ++index$1) {
@@ -839,10 +859,12 @@ function emitSpeedCubie(data, state, palette, gx, gy, gz) {
     let nb$1 = faceNormal(faceB$1);
     let nc = faceNormal(faceC);
     let facing$1 = normalize(add(na$1, add(nb$1, nc)));
-    let onCap = (out, first, second) => add(centre, add(scale(out, half), add(scale(first, flat), scale(second, flat))));
-    let pa = onCap(na$1, nb$1, nc);
-    let pb = onCap(nb$1, nc, na$1);
-    let pc = onCap(nc, na$1, nb$1);
+    let flatAB$1 = half - bevelFor(faceA$1, faceB$1);
+    let flatAC = half - bevelFor(faceA$1, faceC);
+    let flatBC = half - bevelFor(faceB$1, faceC);
+    let pa = add(centre, add(scale(na$1, half), add(scale(nb$1, flatAB$1), scale(nc, flatAC))));
+    let pb = add(centre, add(scale(nb$1, half), add(scale(nc, flatBC), scale(na$1, flatAB$1))));
+    let pc = add(centre, add(scale(nc, half), add(scale(na$1, flatAC), scale(nb$1, flatBC))));
     let mid = scale(add(pa, add(pb, pc)), 1.0 / 3.0);
     let colorA$1 = paintFor(state, "Speed", palette, last, gx, gy, gz, faceA$1);
     let colorB$1 = paintFor(state, "Speed", palette, last, gx, gy, gz, faceB$1);
@@ -949,6 +971,7 @@ export {
   faceForNormal,
   isOuterEdge,
   bevelForEdge,
+  speedBevelForEdge,
   stickerBoundsForFace,
   stickerRim,
   pointOnFace,

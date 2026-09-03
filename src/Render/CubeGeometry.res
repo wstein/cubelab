@@ -288,6 +288,13 @@ let bevelForEdge = (~last, ~gx, ~gy, ~gz, ~cell, faceA, faceB) =>
     0.03 *. cell
   }
 
+let speedBevelForEdge = (~last, ~gx, ~gy, ~gz, ~cell, faceA, faceB) =>
+  if isOuterEdge(~last, ~gx, ~gy, ~gz, faceA, faceB) {
+    0.06 *. cell
+  } else {
+    0.03 *. cell
+  }
+
 type stickerBounds = {
   maxU: float,
   minU: float,
@@ -516,13 +523,12 @@ let emitSpeedCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, ~gz
   let centre = cubieCentre(~size, ~gx, ~gy, ~gz)
   let emitter = {data, cubie: centre}
   let half = 0.999 *. cell /. 2.0
-  let bevel = 0.06 *. cell
-  let flat = half -. bevel
+  let bevelFor = (fA, fB) => speedBevelForEdge(~last, ~gx, ~gy, ~gz, ~cell, fA, fB)
 
-  // 1. Caps (6 flat square faces)
+  // 1. Caps (6 flat square faces conforming to per-edge bevels)
   StateTypes.storageOrder->Array.forEach(face => {
     let colour = paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, face)
-    emitFace(emitter, centre, face, half, 2.0 *. flat, colour)
+    emitStandardFace(emitter, centre, face, half, colour, ~bevelFor)
   })
 
   // 2. Bands (12 edge chamfers, split into two colored halves meeting at the 45° miter)
@@ -532,18 +538,36 @@ let emitSpeedCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, ~gz
     let nb = faceNormal(faceB)
     let along = cross(nb, na)
     let facing = normalize(add(na, nb))
-    let onA = add(scale(na, half), scale(nb, flat))
-    let onB = add(scale(nb, half), scale(na, flat))
+    let faceMinus = faceForNormal(scale(along, -1.0))
+    let facePlus = faceForNormal(along)
+    let bevelAB = bevelFor(faceA, faceB)
+    let flatAB = half -. bevelAB
+    let flatMinusA = half -. bevelFor(faceA, faceMinus)
+    let flatPlusA = half -. bevelFor(faceA, facePlus)
+    let flatMinusB = half -. bevelFor(faceB, faceMinus)
+    let flatPlusB = half -. bevelFor(faceB, facePlus)
+
+    let onA = add(scale(na, half), scale(nb, flatAB))
+    let onB = add(scale(nb, half), scale(na, flatAB))
     let middle = scale(add(onA, onB), 0.5)
-    let corner = (way, out) => add(centre, add(scale(along, way *. flat), out))
+
+    let aA = add(centre, add(onA, scale(along, -.flatMinusA)))
+    let bA = add(centre, add(onA, scale(along, flatPlusA)))
+    let bB = add(centre, add(onB, scale(along, flatPlusB)))
+    let aB = add(centre, add(onB, scale(along, -.flatMinusB)))
+
+    let midMinus = add(centre, add(middle, scale(along, -.(flatMinusA +. flatMinusB) /. 2.0)))
+    let midPlus = add(centre, add(middle, scale(along, (flatPlusA +. flatPlusB) /. 2.0)))
+
     let colorA = paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, faceA)
     let colorB = paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, faceB)
+
     emitQuad(
       emitter,
-      corner(-1.0, onA),
-      corner(1.0, onA),
-      corner(1.0, middle),
-      corner(-1.0, middle),
+      aA,
+      bA,
+      midPlus,
+      midMinus,
       na,
       na,
       facing,
@@ -554,10 +578,10 @@ let emitSpeedCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, ~gz
     )
     emitQuad(
       emitter,
-      corner(-1.0, middle),
-      corner(1.0, middle),
-      corner(1.0, onB),
-      corner(-1.0, onB),
+      midMinus,
+      midPlus,
+      bB,
+      aB,
       facing,
       facing,
       nb,
@@ -586,11 +610,14 @@ let emitSpeedCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, ~gz
     let nb = faceNormal(faceB)
     let nc = faceNormal(faceC)
     let facing = normalize(add(na, add(nb, nc)))
-    let onCap = (out, first, second) =>
-      add(centre, add(scale(out, half), add(scale(first, flat), scale(second, flat))))
-    let pa = onCap(na, nb, nc)
-    let pb = onCap(nb, nc, na)
-    let pc = onCap(nc, na, nb)
+
+    let flatAB = half -. bevelFor(faceA, faceB)
+    let flatAC = half -. bevelFor(faceA, faceC)
+    let flatBC = half -. bevelFor(faceB, faceC)
+
+    let pa = add(centre, add(scale(na, half), add(scale(nb, flatAB), scale(nc, flatAC))))
+    let pb = add(centre, add(scale(nb, half), add(scale(nc, flatBC), scale(na, flatAB))))
+    let pc = add(centre, add(scale(nc, half), add(scale(na, flatAC), scale(nb, flatBC))))
     let mid = scale(add(pa, add(pb, pc)), 1.0 /. 3.0)
     let colorA = paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, faceA)
     let colorB = paintFor(state, ~style=Speed, ~palette, ~last, ~gx, ~gy, ~gz, faceB)

@@ -122,3 +122,15 @@ test("sticker bounds increase gap on outer edges and enlarge outer corner radius
   assert.equal(cornerBounds.r3, 0.078);
 });
 
+test("speed cube bevel reduces gap between cubies by 50%", () => {
+  const cell = 1.0;
+  // Outer edge has 0.06 * cell bevel
+  const outerBevel = CubeGeometry.speedBevelForEdge(2, 2, 2, 2, cell, "U", "R");
+  assert.equal(outerBevel, 0.06);
+
+  // Inner edge between cubies has 0.03 * cell bevel (50% reduction from 0.06)
+  const innerBevel = CubeGeometry.speedBevelForEdge(2, 1, 2, 1, cell, "U", "R");
+  assert.equal(innerBevel, 0.03);
+});
+
+
