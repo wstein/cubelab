@@ -180,6 +180,7 @@ if (root) {
   const movesInput = root.querySelector<HTMLTextAreaElement>("[data-moves-input]")!;
   const schemeSelect = root.querySelector<HTMLSelectElement>("[data-scheme]")!;
   const customScheme = root.querySelector<HTMLInputElement>("[data-custom-scheme]")!;
+  const noteInput = root.querySelector<HTMLInputElement>("[data-note-input]")!;
   const status = root.querySelector<HTMLElement>("[data-status]")!;
   const error = root.querySelector<HTMLElement>("[data-error]")!;
   const lowercaseControls = root.querySelector<HTMLElement>("[data-lowercase-controls]")!;
@@ -3267,6 +3268,7 @@ if (root) {
     if (movesInput.value !== state.moves) movesInput.value = state.moves;
     if (schemeSelect.value !== state.scheme) schemeSelect.value = state.scheme;
     if (customScheme.value !== state.customScheme) customScheme.value = state.customScheme;
+    if (noteInput.value !== state.note) noteInput.value = state.note;
     settingsSize.value = String(state.size);
     settingsScheme.value = state.scheme;
     settingsDialect.value = state.notationDialect;
@@ -3450,6 +3452,9 @@ if (root) {
     updateAcademySource(null);
     store.patch({customScheme: customScheme.value});
     scheduleUpdate();
+  });
+  noteInput.addEventListener("input", () => {
+    store.patch({note: noteInput.value});
   });
   input.addEventListener("input", () => {
     smartCubeCoachingFrameActive = false;

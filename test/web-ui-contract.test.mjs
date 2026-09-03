@@ -164,6 +164,8 @@ test("Academy exposes an optional target pattern field", () => {
 test("the editor separates a synchronized setup from optional replay moves", () => {
   assert.match(page, /Setup \(state\)/);
   assert.match(page, /data-moves-input/);
+  assert.match(page, /data-note-input/);
+  assert.match(page, /optional, shared in the link/);
   assert.match(page, /class="cube-textarea setup-textarea"[\s\S]*rows="1"[\s\S]*wrap="off"/);
   assert.match(page, /Smart-cube Sync loads this field/);
   assert.match(client, /const parseWorkspaceState/);

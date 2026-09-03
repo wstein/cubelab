@@ -37,8 +37,18 @@ describe("application state store", () => {
       turnGuides: false,
       autoOrbit: true,
       activeTab: "workbench" as const,
+      note: "PB attempt, ignore the pause after F2L",
     };
     expect(readHash(writeHash(state))).toEqual(state);
+  });
+
+  test("omits an empty note from the hash and bounds an oversized one", () => {
+    expect(writeHash(defaultAppState)).not.toMatch(/note=/);
+    const parsed = readHash(`#note=${"x".repeat(500)}`);
+    expect(parsed.note).toHaveLength(200);
+    expect(writeHash({...defaultAppState, note: "x".repeat(500)})).toMatch(
+      new RegExp(`note=${"x".repeat(200)}$`),
+    );
   });
 
   test("rejects invalid hash settings and bounds imported input", () => {

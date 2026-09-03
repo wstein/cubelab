@@ -282,6 +282,18 @@ const cards = [
               modern SiGN wide turns by default; ambiguous plaintext such as R2'
               requires Ruwix suffix mode.
             </p>
+            <label class="note-input-label" for="cube-note"
+              >Note <span class="note-input-hint">(optional, shared in the link)</span></label
+            >
+            <input
+              id="cube-note"
+              type="text"
+              class="select-control note-input"
+              data-note-input
+              maxlength="200"
+              placeholder="Add a short note for anyone opening this link"
+              spellcheck="false"
+            />
             <div class="transform-row" aria-label="Two-phase solver">
               <span class="transform-label">3×3 solver</span>
               <label class="two-phase-target-input">

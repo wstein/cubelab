@@ -1280,6 +1280,27 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   text-transform: uppercase;
 }
 
+.note-input-label {
+  display: block;
+  margin: 0.85rem 0 0.45rem;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.note-input-hint {
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.note-input {
+  width: 100%;
+}
+
 .moves-textarea {
   min-height: 4.9rem;
 }

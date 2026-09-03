@@ -26,6 +26,7 @@ export type AppState = {
   autoOrbit: boolean;
   activeTab: ActiveTab;
   academyMethod: AcademyMethod;
+  note: string;
 };
 
 export const defaultAppState: AppState = {
@@ -41,6 +42,7 @@ export const defaultAppState: AppState = {
   autoOrbit: false,
   activeTab: "converter",
   academyMethod: "beginner",
+  note: "",
 };
 
 type Listener = (state: AppState) => void;
@@ -133,6 +135,7 @@ export const readHash = (hash: string): AppState => {
           : "beginner";
   const input = (params.get("alg") ?? "").slice(0, 20_000);
   const moves = (params.get("moves") ?? "").slice(0, 20_000);
+  const note = (params.get("note") ?? "").slice(0, 200);
   return {
     size,
     input,
@@ -146,14 +149,17 @@ export const readHash = (hash: string): AppState => {
     autoOrbit,
     activeTab,
     academyMethod,
+    note,
   };
 };
 
 export const writeHash = (state: AppState): string => {
   const params = new URLSearchParams();
+  const note = state.note.slice(0, 200);
   if (state.size !== defaultAppState.size) params.set("size", String(state.size));
   if (state.input !== "") params.set("alg", state.input);
   if (state.moves !== "") params.set("moves", state.moves);
+  if (note !== "") params.set("note", note);
   if (state.scheme !== "Western") params.set("scheme", state.scheme);
   if (state.scheme === "Custom") params.set("custom", state.customScheme);
   if (state.lowercaseMode !== "Wide") params.set("lowercase", state.lowercaseMode);

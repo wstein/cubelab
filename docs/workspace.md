@@ -38,6 +38,11 @@ in memory. Tab-only state changes do not reparse the input or reset
 playback. Editing the source or changing a conversion setting intentionally rebuilds the
 recognized state and clears any generated tutorial.
 
+An optional **Note** next to the Setup and Moves editor is also included in a shared link.
+It is deliberately limited to 200 characters: enough to label a case, solve, or coaching
+exercise without turning URL sharing into document storage. Device-only preferences and
+timer-session data do not enter the URL.
+
 Beginner solutions use `buildTimeline(initialState, solutionAlg)`, so playback begins at
 the user's recognized scramble rather than incorrectly applying the solution to a solved
 cube. Phase buttons seek within that same timeline. The displayed/copyable tutorial uses
