@@ -26,7 +26,7 @@ export type MilestoneFocus = { positions: Array<[number, number, number]>; label
 type GeometryMesh = {
   data: number[];
   vertexCount: number;
-  stickerVertexCount: number;
+  nearStickerVertexCount: number;
   iceBodyVertexCount: number;
   stride: number;
 };
@@ -248,8 +248,8 @@ export const vboCapacityFloats = (size: number): number => {
   const bodyVertices = visibleCubies * 132;
   const exposedFaces = 6 * size * size;
   const speedVertices = bodyVertices + exposedFaces * 336;
-  // Ice keeps the same shell but doubles sticker winding so the far side is
-  // readable from inside the translucent body.
+  // Ice uses a separate clear outer shell. Keep a conservative allocation so
+  // future optional X-ray variants can add geometry without reallocating.
   const iceVertices = bodyVertices + exposedFaces * 672;
   return Math.max(speedVertices, iceVertices) * FLOATS_PER_VERTEX;
 };
@@ -743,7 +743,7 @@ export const createCubeViewport = (
   let palette: CubePalette = "Western";
   let style: CubeStyle = "Standard";
   let vertexCount = 0;
-  let stickerVertexCount = 0;
+  let nearStickerVertexCount = 0;
   let iceBodyVertexCount = 0;
   let allocatedFloats = 0;
   let yaw = DEFAULT_YAW;
@@ -1443,16 +1443,19 @@ export const createCubeViewport = (
     gl.uniform3fv(guideAxis, guideTransform?.axis ?? [1, 0, 0]);
     gl.uniform2f(guideRange, guideTransform?.min ?? 0, guideTransform?.max ?? 0);
     if (style === "Ice" && iceBodyVertexCount > 0) {
-      // Both stickers and shell are translucent glass. Back faces render before
-      // front faces so opposite face colours remain visible through aligned tiles.
+      // The visible sticker is the only opaque information layer. It writes
+      // depth before glass, so the local face or edge colour always wins.
+      gl.disable(gl.BLEND);
+      gl.depthMask(true);
+      gl.cullFace(gl.BACK);
+      gl.drawArrays(gl.TRIANGLES, 0, nearStickerVertexCount);
+
+      // The only translucent geometry is an outward-facing, colourless shell.
+      // There are no reverse stickers or internal cubie planes to show through.
       gl.enable(gl.BLEND);
       gl.depthMask(false);
-      gl.cullFace(gl.FRONT);
-      gl.drawArrays(gl.TRIANGLES, 0, stickerVertexCount);
-      gl.drawArrays(gl.TRIANGLES, stickerVertexCount, iceBodyVertexCount);
       gl.cullFace(gl.BACK);
-      gl.drawArrays(gl.TRIANGLES, 0, stickerVertexCount);
-      gl.drawArrays(gl.TRIANGLES, stickerVertexCount, iceBodyVertexCount);
+      gl.drawArrays(gl.TRIANGLES, nearStickerVertexCount, iceBodyVertexCount);
       gl.depthMask(true);
     } else {
       gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
@@ -1517,7 +1520,7 @@ export const createCubeViewport = (
     }
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, values);
     vertexCount = mesh.vertexCount;
-    stickerVertexCount = mesh.stickerVertexCount;
+    nearStickerVertexCount = mesh.nearStickerVertexCount;
     iceBodyVertexCount = mesh.iceBodyVertexCount;
     requestRender();
   };

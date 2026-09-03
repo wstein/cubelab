@@ -11,18 +11,18 @@ let body = {
 };
 
 let iceBody = {
-  r: 0.86,
-  g: 0.97,
+  r: 0.88,
+  g: 0.98,
   b: 1.0,
-  a: 0.16
+  a: 0.20
 };
 
-function translucentSticker(colour) {
+function nearIceSticker(colour) {
   return {
     r: colour.r,
     g: colour.g,
     b: colour.b,
-    a: 0.86
+    a: 1.0
   };
 }
 
@@ -712,22 +712,6 @@ function emitRoundedFace(emitter, centre, face, out, bounds, colour) {
   }
 }
 
-function emitDoubleSidedRoundedFace(emitter, centre, face, out, bounds, colour) {
-  let normal = faceNormal(face);
-  let invNormal = scale(normal, -1.0);
-  let middleU = (bounds.maxU + bounds.minU) / 2.0;
-  let middleV = (bounds.maxV + bounds.minV) / 2.0;
-  let middle = add(faceCentre(centre, face, out), add(scale(colAxis(face), middleU), scale(rowAxis(face), middleV)));
-  let rim = stickerRim(bounds, 4);
-  for (let index = 0, index_finish = rim.length; index < index_finish; ++index) {
-    let next = Primitive_int.mod_(index + 1 | 0, rim.length);
-    let p1 = pointOnFace(centre, face, out, rim[index]);
-    let p2 = pointOnFace(centre, face, out, rim[next]);
-    emitTriangle(emitter, middle, p1, p2, normal, normal, normal, colour, normal, undefined);
-    emitTriangle(emitter, middle, p2, p1, invNormal, invNormal, invNormal, colour, invNormal, undefined);
-  }
-}
-
 function emitStandardFace(emitter, centre, face, half, colour, bevelFor) {
   let normal = faceNormal(face);
   let row = rowAxis(face);
@@ -818,7 +802,7 @@ function emitStandardCubie(data, state, palette, gx, gy, gz) {
   });
 }
 
-function emitIceCubie(stickerData, iceBodyData, state, palette, gx, gy, gz) {
+function emitIceCubie(nearStickerData, iceBodyData, state, palette, gx, gy, gz) {
   let size = state.size;
   let last = size - 1 | 0;
   let cell = 2.0 * 1.5 / size;
@@ -827,22 +811,24 @@ function emitIceCubie(stickerData, iceBodyData, state, palette, gx, gy, gz) {
     data: iceBodyData,
     cubie: centre
   };
-  let stickerEmitter = {
-    data: stickerData,
+  let nearStickerEmitter = {
+    data: nearStickerData,
     cubie: centre
   };
   let half = 0.999 * cell / 2.0;
   let bevelFor = (fA, fB) => bevelForEdge(last, gx, gy, gz, cell, fA, fB);
-  StateTypes.storageOrder.forEach(face => emitStandardFace(bodyEmitter, centre, face, half, iceBody, bevelFor));
-  emitStandardBevels(bodyEmitter, centre, half, iceBody, bevelFor);
-  emitStandardCorners(bodyEmitter, centre, half, iceBody, bevelFor);
+  StateTypes.storageOrder.forEach(face => {
+    if (isExposed(last, gx, gy, gz, face)) {
+      return emitStandardFace(bodyEmitter, centre, face, half, iceBody, bevelFor);
+    }
+  });
   StateTypes.storageOrder.forEach(face => {
     if (!isExposed(last, gx, gy, gz, face)) {
       return;
     }
     let colour = colourOf("Ice", palette, faceletAt(state, gx, gy, gz, face));
     let bounds = stickerBoundsForFace(last, gx, gy, gz, cell, face);
-    emitDoubleSidedRoundedFace(stickerEmitter, centre, face, half + 0.005 * cell, bounds, translucentSticker(colour));
+    emitRoundedFace(nearStickerEmitter, centre, face, half + 0.005 * cell, bounds, nearIceSticker(colour));
   });
 }
 
@@ -1004,7 +990,7 @@ function generate(state, style, palette) {
     };
   }
   let data = [];
-  let stickerData = [];
+  let nearStickerData = [];
   let iceBodyData = [];
   let last = state.size - 1 | 0;
   for (let gx = 0; gx <= last; ++gx) {
@@ -1019,7 +1005,7 @@ function generate(state, style, palette) {
               emitSpeedCubie(data, state, palette, gx, gy, gz);
               break;
             case "Ice" :
-              emitIceCubie(stickerData, iceBodyData, state, palette, gx, gy, gz);
+              emitIceCubie(nearStickerData, iceBodyData, state, palette, gx, gy, gz);
               break;
           }
         }
@@ -1033,17 +1019,17 @@ function generate(state, style, palette) {
       output = data;
       break;
     case "Ice" :
-      output = stickerData.concat(iceBodyData);
+      output = nearStickerData.concat(iceBodyData);
       break;
   }
-  let stickerVertexCount;
+  let nearStickerVertexCount;
   switch (style) {
     case "Standard" :
     case "Speed" :
-      stickerVertexCount = output.length / 14 | 0;
+      nearStickerVertexCount = output.length / 14 | 0;
       break;
     case "Ice" :
-      stickerVertexCount = stickerData.length / 14 | 0;
+      nearStickerVertexCount = nearStickerData.length / 14 | 0;
       break;
   }
   return {
@@ -1051,7 +1037,7 @@ function generate(state, style, palette) {
     _0: {
       data: output,
       vertexCount: output.length / 14 | 0,
-      stickerVertexCount: stickerVertexCount,
+      nearStickerVertexCount: nearStickerVertexCount,
       iceBodyVertexCount: iceBodyData.length / 14 | 0,
       stride: 14
     }
@@ -1067,7 +1053,7 @@ export {
   halfExtent,
   body,
   iceBody,
-  translucentSticker,
+  nearIceSticker,
   vec,
   add,
   sub,
@@ -1102,7 +1088,6 @@ export {
   stickerRim,
   pointOnFace,
   emitRoundedFace,
-  emitDoubleSidedRoundedFace,
   emitStandardFace,
   emitStandardBevels,
   emitStandardCorners,

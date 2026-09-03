@@ -27,9 +27,10 @@ The three styles are intentionally different physical models:
   smoothly-normaled roll bands per exposed face. The band reaches the full piece
   boundary, so adjacent coloured faces meet without disconnected corner fans or
   punctures. A per-vertex sheen value gives the rolled plastic a satin highlight.
-- **Ice** uses a near-clear cyan glass shell and lightly translucent double-sided stickers,
-  deliberately allowing far-face colours to show through. It is decorative rather than a
-  training default: Standard remains clearer for sticker reading, turn guides, and
+- **Ice** uses a colourless clear-glass outer shell around saturated, fully opaque local
+  stickers. It intentionally omits reverse-side stickers and internal glass cubie planes:
+  local face and edge colours must remain unambiguous. It is decorative rather than a
+  training default; Standard remains clearest for sticker reading, turn guides, and
   accessibility.
 
 Every cube has the same world-space half-extent. Increasing the puzzle size therefore
@@ -43,9 +44,10 @@ in the viewport.
 
 The native WebGL renderer uploads the mesh to one interleaved vertex buffer.
 Capacity covers the selected size's largest Ice mesh and grows if a future geometry
-variant needs more room. Standard and Speed draw normally. Ice draws back and front
-faces of its translucent stickers and shell with depth writes disabled; this deliberately
-keeps far-face colours visible through the near-clear glass.
+variant needs more room. Standard and Speed draw normally. Ice first draws its opaque
+local stickers with depth writes enabled, then draws only exposed faces of the transparent
+outer shell. There are no reverse stickers or internal translucent cubie planes, so
+opposite-face colours cannot compete with the local sticker reading.
 
 Rendering is scheduled only after a state, style, camera, visibility, size, or visual
 guide change. There is no perpetual animation loop by default. The **Auto orbit** toggle

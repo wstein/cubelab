@@ -23,7 +23,7 @@ type colour = {
 type mesh = {
   data: array<float>,
   vertexCount: int,
-  stickerVertexCount: int,
+  nearStickerVertexCount: int,
   iceBodyVertexCount: int,
   stride: int,
 }
@@ -43,9 +43,12 @@ type rimPoint = {
 let stride = 14
 let halfExtent = 1.5
 let body = {r: 0.13, g: 0.14, b: 0.17, a: 1.0}
-let iceBody = {r: 0.86, g: 0.97, b: 1.0, a: 0.16}
-// Keep the local face easy to read while still letting the far face tint show through.
-let translucentSticker = colour => {r: colour.r, g: colour.g, b: colour.b, a: 0.86}
+// A colourless but visible casing: opaque stickers carry the state, while this
+// modest alpha preserves a recognisable glass silhouette without leaking the
+// opposite face through it.
+let iceBody = {r: 0.88, g: 0.98, b: 1.0, a: 0.20}
+// Local stickers are the human-readable information layer.
+let nearIceSticker = colour => {r: colour.r, g: colour.g, b: colour.b, a: 1.0}
 
 let vec = (x, y, z) => {x, y, z}
 let add = (a, b) => vec(a.x +. b.x, a.y +. b.y, a.z +. b.z)
@@ -432,25 +435,6 @@ let emitRoundedFace = (emitter, centre, face, out, bounds, colour) => {
   }
 }
 
-let emitDoubleSidedRoundedFace = (emitter, centre, face, out, bounds, colour) => {
-  let normal = faceNormal(face)
-  let invNormal = scale(normal, -1.0)
-  let middleU = (bounds.maxU +. bounds.minU) /. 2.0
-  let middleV = (bounds.maxV +. bounds.minV) /. 2.0
-  let middle = add(
-    faceCentre(centre, face, out),
-    add(scale(colAxis(face), middleU), scale(rowAxis(face), middleV)),
-  )
-  let rim = stickerRim(bounds, ~steps=4)
-  for index in 0 to rim->Array.length - 1 {
-    let next = (index + 1) % rim->Array.length
-    let p1 = pointOnFace(centre, face, out, Belt.Array.getUnsafe(rim, index))
-    let p2 = pointOnFace(centre, face, out, Belt.Array.getUnsafe(rim, next))
-    emitTriangle(emitter, middle, p1, p2, normal, normal, normal, colour, normal)
-    emitTriangle(emitter, middle, p2, p1, invNormal, invNormal, invNormal, colour, invNormal)
-  }
-}
-
 let emitStandardFace = (emitter, centre, face, half, colour, ~bevelFor) => {
   let normal = faceNormal(face)
   let row = rowAxis(face)
@@ -538,7 +522,7 @@ let emitStandardCubie = (data, state: StateTypes.cubeState, ~palette, ~gx, ~gy, 
 }
 
 let emitIceCubie = (
-  stickerData,
+  nearStickerData,
   iceBodyData,
   state: StateTypes.cubeState,
   ~palette,
@@ -551,27 +535,30 @@ let emitIceCubie = (
   let cell = 2.0 *. halfExtent /. Float.fromInt(size)
   let centre = cubieCentre(~size, ~gx, ~gy, ~gz)
   let bodyEmitter = {data: iceBodyData, cubie: centre}
-  let stickerEmitter = {data: stickerData, cubie: centre}
+  let nearStickerEmitter = {data: nearStickerData, cubie: centre}
   let half = 0.999 *. cell /. 2.0
   let bevelFor = (fA, fB) => bevelForEdge(~last, ~gx, ~gy, ~gz, ~cell, fA, fB)
 
+  // Ice is an outer casing rather than a stack of transparent cubie boxes.
+  // Leaving out internal faces, bevels, and corners avoids colour-fogging the
+  // sticker information through several overlapping cyan planes.
   StateTypes.storageOrder->Array.forEach(face =>
-    emitStandardFace(bodyEmitter, centre, face, half, iceBody, ~bevelFor)
+    if isExposed(~last, ~gx, ~gy, ~gz, face) {
+      emitStandardFace(bodyEmitter, centre, face, half, iceBody, ~bevelFor)
+    }
   )
-  emitStandardBevels(bodyEmitter, centre, half, iceBody, ~bevelFor)
-  emitStandardCorners(bodyEmitter, centre, half, iceBody, ~bevelFor)
 
   StateTypes.storageOrder->Array.forEach(face =>
     if isExposed(~last, ~gx, ~gy, ~gz, face) {
       let colour = colourOf(~style=Ice, ~palette, faceletAt(state, ~gx, ~gy, ~gz, face))
       let bounds = stickerBoundsForFace(~last, ~gx, ~gy, ~gz, ~cell, face)
-      emitDoubleSidedRoundedFace(
-        stickerEmitter,
+      emitRoundedFace(
+        nearStickerEmitter,
         centre,
         face,
         half +. 0.005 *. cell,
         bounds,
-        translucentSticker(colour),
+        nearIceSticker(colour),
       )
     }
   )
@@ -826,7 +813,7 @@ let generate = (state: StateTypes.cubeState, style: style, palette: palette): re
   | Error(message) => Error(message)
   | Ok() => {
       let data = []
-      let stickerData = []
+      let nearStickerData = []
       let iceBodyData = []
       let last = state.size - 1
       for gx in 0 to last {
@@ -836,24 +823,24 @@ let generate = (state: StateTypes.cubeState, style: style, palette: palette): re
               switch style {
               | Standard => emitStandardCubie(data, state, ~palette, ~gx, ~gy, ~gz)
               | Speed => emitSpeedCubie(data, state, ~palette, ~gx, ~gy, ~gz)
-              | Ice => emitIceCubie(stickerData, iceBodyData, state, ~palette, ~gx, ~gy, ~gz)
+              | Ice => emitIceCubie(nearStickerData, iceBodyData, state, ~palette, ~gx, ~gy, ~gz)
               }
             }
           }
         }
       }
       let output = switch style {
-      | Ice => stickerData->Array.concat(iceBodyData)
+      | Ice => nearStickerData->Array.concat(iceBodyData)
       | Standard | Speed => data
       }
-      let stickerVertexCount = switch style {
-      | Ice => stickerData->Array.length / stride
+      let nearStickerVertexCount = switch style {
+      | Ice => nearStickerData->Array.length / stride
       | Standard | Speed => output->Array.length / stride
       }
       Ok({
         data: output,
         vertexCount: output->Array.length / stride,
-        stickerVertexCount,
+        nearStickerVertexCount,
         iceBodyVertexCount: iceBodyData->Array.length / stride,
         stride,
       })

@@ -21,23 +21,23 @@ test("geometry is deterministic and interleaves material and cubie animation met
       assert.equal(one.data.length, one.vertexCount * one.stride);
       assert.deepEqual(one, two);
       assert.ok(one.vertexCount > 0);
-      assert.equal(one.stickerVertexCount + one.iceBodyVertexCount, one.vertexCount);
+      assert.equal(one.nearStickerVertexCount + one.iceBodyVertexCount, one.vertexCount);
       for (const value of one.data) assert.ok(Number.isFinite(value));
     }
   }
 });
 
-test("ice separates translucent stickers from its near-clear shell", () => {
+test("ice keeps opaque local stickers over a colourless outer shell", () => {
   const ice = generated(StateTypes.solved(3)._0, "Ice");
-  assert.ok(ice.stickerVertexCount > 0);
+  assert.ok(ice.nearStickerVertexCount > 0);
   assert.ok(ice.iceBodyVertexCount > 0);
-  const transparentOffset = ice.stickerVertexCount * ice.stride;
-  const shellAlpha = ice.data.slice(transparentOffset).filter((_, index) => index % ice.stride === 9);
+  const shellOffset = ice.nearStickerVertexCount * ice.stride;
+  const shellAlpha = ice.data.slice(shellOffset).filter((_, index) => index % ice.stride === 9);
   assert.ok(shellAlpha.length > 0);
   assert.ok(shellAlpha.every((alpha) => alpha > 0 && alpha < 1));
-  const stickerAlpha = ice.data.slice(0, transparentOffset).filter((_, index) => index % ice.stride === 9);
-  assert.ok(stickerAlpha.every((alpha) => alpha > 0 && alpha < 1));
-  assert.ok(stickerAlpha.every((alpha) => alpha === 0.86));
+  const stickerAlpha = ice.data.slice(0, shellOffset).filter((_, index) => index % ice.stride === 9);
+  assert.deepEqual([...new Set(stickerAlpha)], [1]);
+  assert.ok(ice.iceBodyVertexCount < ice.nearStickerVertexCount);
 });
 
 test("speed geometry has rolled edges while Standard has lifted stickers", () => {
