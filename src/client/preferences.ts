@@ -5,7 +5,9 @@
 
 export type Preferences = {
   playbackSpeed: number;
+  tnoodleEnabled: boolean;
   tnoodleServerUrl: string;
+  tnoodleEvent: "333";
   inspectionSeconds: number;
 };
 
@@ -20,7 +22,9 @@ export const validPlaybackSpeeds = [0.2, 0.5, 1, 2, 5, 10] as const;
 
 export const defaultPreferences: Preferences = {
   playbackSpeed: 1,
+  tnoodleEnabled: false,
   tnoodleServerUrl: "http://localhost:2014",
+  tnoodleEvent: "333",
   inspectionSeconds: 15,
 };
 
@@ -31,7 +35,9 @@ const validPreferences = (value: unknown): value is Partial<Preferences> => {
   if (typeof value !== "object" || value === null) return false;
   const prefs = value as Partial<Preferences>;
   return (prefs.playbackSpeed === undefined || validPlaybackSpeed(prefs.playbackSpeed))
+    && (prefs.tnoodleEnabled === undefined || typeof prefs.tnoodleEnabled === "boolean")
     && (prefs.tnoodleServerUrl === undefined || typeof prefs.tnoodleServerUrl === "string")
+    && (prefs.tnoodleEvent === undefined || prefs.tnoodleEvent === "333")
     && (prefs.inspectionSeconds === undefined
       || (typeof prefs.inspectionSeconds === "number" && Number.isFinite(prefs.inspectionSeconds)
         && prefs.inspectionSeconds > 0));

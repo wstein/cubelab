@@ -16,21 +16,9 @@ import {
   type TimerState,
 } from "./engine";
 import {readTimerSessions, writeTimerSessions, type TimerSession} from "./storage";
-
-const PRACTICE_FACES = ["U", "R", "F", "D", "L", "B"];
-const TURN_SUFFIXES = ["", "2", "'"];
-
-const practiceScramble = (): string => {
-  let previous = "";
-  const moves: string[] = [];
-  while (moves.length < 20) {
-    const face = PRACTICE_FACES[Math.floor(Math.random() * PRACTICE_FACES.length)]!;
-    if (face === previous) continue;
-    previous = face;
-    moves.push(`${face}${TURN_SUFFIXES[Math.floor(Math.random() * TURN_SUFFIXES.length)]}`);
-  }
-  return moves.join(" ");
-};
+import {readPreferences} from "../preferences";
+import {TnoodleClient} from "../scramble/tnoodle-client";
+import {practiceScramble} from "../scramble/practice";
 
 const newId = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const inputActive = (target: EventTarget | null): boolean =>
@@ -42,6 +30,7 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
   const display = panel.querySelector<HTMLButtonElement>("[data-timer-display]")!;
   const status = panel.querySelector<HTMLElement>("[data-timer-status]")!;
   const scramble = panel.querySelector<HTMLElement>("[data-timer-scramble]")!;
+  const scrambleSource = panel.querySelector<HTMLElement>("[data-timer-scramble-source]")!;
   const stats = panel.querySelector<HTMLElement>("[data-timer-stats]")!;
   const solves = panel.querySelector<HTMLOListElement>("[data-timer-solves]")!;
   const inspection = panel.querySelector<HTMLButtonElement>("[data-timer-inspection]")!;
@@ -50,12 +39,15 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
   const arena = panel.querySelector<HTMLButtonElement>("[data-timer-arena]")!;
   let state: TimerState = initialTimerState();
   let currentScramble = practiceScramble();
+  let currentScrambleSource = "Built-in practice scramble";
   let session: TimerSession = readTimerSessions(window.localStorage)[0]
     ?? {version: 1, id: "default", name: "Default", solves: []};
   let frame: number | null = null;
   let controllerMode = false;
   let inspectionCue = 0;
   let cueAudio: AudioContext | null = null;
+  const tnoodle = new TnoodleClient();
+  let scrambleRequest = 0;
 
   const persist = () => {
     writeTimerSessions(window.localStorage, [session]);
@@ -102,6 +94,7 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
     display.dataset.phase = state.phase;
     status.textContent = phaseMessage();
     scramble.textContent = currentScramble;
+    scrambleSource.textContent = currentScrambleSource;
     const summary = summarizeSession(session.solves);
     stats.replaceChildren(...([
       ["Best", formatTime(summary.best)], ["Ao5", formatTime(summary.ao5)], ["Ao12", formatTime(summary.ao12)],
@@ -137,6 +130,34 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
   const schedule = () => {
     if (frame === null) frame = window.requestAnimationFrame(animate);
   };
+  const assignNextScramble = async () => {
+    const request = ++scrambleRequest;
+    const preferences = readPreferences(window.localStorage);
+    let next = practiceScramble();
+    let source = "Built-in practice scramble";
+    if (preferences.tnoodleEnabled) {
+      try {
+        const result = await tnoodle.next({
+          serverUrl: preferences.tnoodleServerUrl,
+          event: preferences.tnoodleEvent,
+        });
+        next = result.scramble;
+        source = `TNoodle ${result.event} scramble`;
+      } catch (error) {
+        source = `Built-in fallback: ${error instanceof Error ? error.message : "TNoodle unavailable."}`;
+      }
+    }
+    if (request !== scrambleRequest) return;
+    currentScramble = next;
+    currentScrambleSource = source;
+    if (controllerMode) {
+      state = coverTimer();
+      publishPhase();
+      schedule();
+    }
+    window.dispatchEvent(new CustomEvent("cubelab:controller-scramble", {detail: {scramble: currentScramble}}));
+    render();
+  };
   const begin = () => {
     const now = performance.now();
     if (state.phase === "idle" || state.phase === "stopped" || state.phase === "covered") {
@@ -150,7 +171,7 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
       if (completed.solve) {
         session = {...session, solves: [...session.solves, completed.solve]};
         persist();
-        currentScramble = practiceScramble();
+        void assignNextScramble();
       }
     }
     render();
@@ -175,14 +196,7 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
   });
   reset.addEventListener("click", () => { state = resetTimer(); render(); publishPhase(); });
   nextScramble.addEventListener("click", () => {
-    currentScramble = practiceScramble();
-    if (controllerMode) {
-      state = coverTimer();
-      publishPhase();
-      schedule();
-    }
-    window.dispatchEvent(new CustomEvent("cubelab:controller-scramble", {detail: {scramble: currentScramble}}));
-    render();
+    void assignNextScramble();
   });
   window.addEventListener("cubelab:controller-mode", ((event: CustomEvent<{enabled: boolean}>) => {
     controllerMode = event.detail.enabled;
@@ -237,4 +251,5 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
     event.preventDefault(); release();
   });
   render();
+  void assignNextScramble();
 };

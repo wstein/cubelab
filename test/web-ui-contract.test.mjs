@@ -68,8 +68,12 @@ test("settings separate shareable workspace state from local preferences", () =>
   assert.match(page, /data-settings-scheme/);
   assert.match(page, /data-settings-dialect/);
   assert.match(page, /data-settings-tnoodle-url/);
+  assert.match(page, /data-settings-tnoodle-enabled/);
+  assert.match(page, /data-settings-tnoodle-event/);
+  assert.match(page, /data-settings-tnoodle-test/);
   assert.match(client, /store\.patch\(\{autoOrbit: enabled\}\)/);
   assert.match(client, /persistPreferences\(\{tnoodleServerUrl:/);
+  assert.match(client, /new TnoodleClient\(\)\.checkHealth/);
 });
 
 test("the HTML head declares the SVG favicon and fallback touch icons", () => {

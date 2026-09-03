@@ -23,9 +23,11 @@ never as a timer failure.
 The **Timer** workspace exposes the manual engine through Space and touch
 controls. The first press starts inspection; the next press must be held for
 300 ms before release starts the solve; a subsequent press stops and records
-it. The workspace currently supplies 20-move practice scrambles and provides
-local `+2`, `DNF`, and delete controls. Certified WCA random-state scramble
-generation is a separate follow-on phase.
+it. The workspace supplies 20-move practice scrambles and provides local `+2`,
+`DNF`, and delete controls. It can also use an enabled, locally running TNoodle
+server for validated, prefetched 3×3 batches. If that server is unavailable or
+returns an invalid response, the next scramble transparently uses the local
+practice generator instead.
 
 ## Smart Controller mode
 

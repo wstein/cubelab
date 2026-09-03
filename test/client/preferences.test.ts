@@ -24,7 +24,9 @@ test("round-trips a full write through read", () => {
   const storage = memoryStorage();
   const preferences = {
     playbackSpeed: 2,
+    tnoodleEnabled: true,
     tnoodleServerUrl: "http://localhost:9999",
+    tnoodleEvent: "333" as const,
     inspectionSeconds: 12,
   };
   expect(writePreferences(storage, preferences)).toBe(true);
@@ -52,5 +54,11 @@ test("rejects an invalid playbackSpeed rather than trusting it", () => {
 test("rejects a non-positive inspectionSeconds rather than trusting it", () => {
   const storage = memoryStorage();
   storage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify({inspectionSeconds: 0}));
+  expect(readPreferences(storage)).toEqual(defaultPreferences);
+});
+
+test("rejects an unsupported TNoodle event", () => {
+  const storage = memoryStorage();
+  storage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify({tnoodleEvent: "444"}));
   expect(readPreferences(storage)).toEqual(defaultPreferences);
 });

@@ -14,6 +14,7 @@ import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
 import {createSolverClient, createTwoPhaseSolverClient} from "./workers/solver-client";
 import {mountTimerWorkspace} from "./timer/workspace";
 import {defaultPreferences, readPreferences, writePreferences} from "./preferences";
+import {TnoodleClient} from "./scramble/tnoodle-client";
 import {createAcademyRequestGuard} from "./academy-request";
 import {
   drillCaseById,
@@ -271,6 +272,10 @@ if (root) {
   const settingsScheme = root.querySelector<HTMLSelectElement>("[data-settings-scheme]")!;
   const settingsDialect = root.querySelector<HTMLSelectElement>("[data-settings-dialect]")!;
   const settingsTnoodleUrl = root.querySelector<HTMLInputElement>("[data-settings-tnoodle-url]")!;
+  const settingsTnoodleEnabled = root.querySelector<HTMLButtonElement>("[data-settings-tnoodle-enabled]")!;
+  const settingsTnoodleEvent = root.querySelector<HTMLSelectElement>("[data-settings-tnoodle-event]")!;
+  const settingsTnoodleStatus = root.querySelector<HTMLElement>("[data-settings-tnoodle-status]")!;
+  const settingsTnoodleTest = root.querySelector<HTMLButtonElement>("[data-settings-tnoodle-test]")!;
   const settingsInspectionSeconds = root.querySelector<HTMLInputElement>(
     "[data-settings-inspection-seconds]",
   )!;
@@ -4275,6 +4280,12 @@ if (root) {
     settingsScheme.value = schemeSelect.value;
     settingsDialect.value = notationDialect;
     settingsTnoodleUrl.value = preferences.tnoodleServerUrl;
+    settingsTnoodleEnabled.setAttribute("aria-pressed", String(preferences.tnoodleEnabled));
+    settingsTnoodleEnabled.classList.toggle("active", preferences.tnoodleEnabled);
+    settingsTnoodleEnabled.textContent = preferences.tnoodleEnabled ? "On" : "Off";
+    settingsTnoodleEvent.value = preferences.tnoodleEvent;
+    settingsTnoodleStatus.textContent = "TNoodle not checked.";
+    delete settingsTnoodleStatus.dataset.status;
     settingsInspectionSeconds.value = String(preferences.inspectionSeconds);
     settingsDialog.showModal();
   });
@@ -4284,6 +4295,30 @@ if (root) {
   settingsDialect.addEventListener("change", () => store.patch({notationDialect: settingsDialect.value as NotationDialect}));
   settingsTnoodleUrl.addEventListener("change", () => {
     persistPreferences({tnoodleServerUrl: settingsTnoodleUrl.value});
+  });
+  settingsTnoodleEnabled.addEventListener("click", () => {
+    const enabled = settingsTnoodleEnabled.getAttribute("aria-pressed") !== "true";
+    settingsTnoodleEnabled.setAttribute("aria-pressed", String(enabled));
+    settingsTnoodleEnabled.classList.toggle("active", enabled);
+    settingsTnoodleEnabled.textContent = enabled ? "On" : "Off";
+    persistPreferences({tnoodleEnabled: enabled});
+  });
+  settingsTnoodleEvent.addEventListener("change", () => {
+    persistPreferences({tnoodleEvent: settingsTnoodleEvent.value as "333"});
+  });
+  settingsTnoodleTest.addEventListener("click", async () => {
+    settingsTnoodleTest.disabled = true;
+    settingsTnoodleStatus.textContent = "Checking TNoodle…";
+    delete settingsTnoodleStatus.dataset.status;
+    const health = await new TnoodleClient().checkHealth({
+      serverUrl: settingsTnoodleUrl.value,
+      event: settingsTnoodleEvent.value as "333",
+    });
+    settingsTnoodleStatus.textContent = health.online
+      ? `TNoodle ready (${health.latencyMs} ms).`
+      : health.message;
+    settingsTnoodleStatus.dataset.status = health.online ? "ready" : "error";
+    settingsTnoodleTest.disabled = false;
   });
   settingsInspectionSeconds.addEventListener("change", () => {
     const seconds = Number(settingsInspectionSeconds.value);

@@ -1163,6 +1163,7 @@ const cards = [
               </div>
             </header>
             <p class="timer-scramble" data-timer-scramble></p>
+            <p class="settings-hint" data-timer-scramble-source>Built-in practice scramble</p>
             <button type="button" class="timer-display" data-timer-display aria-label="Timer control">
               0.00
             </button>
@@ -1258,11 +1259,19 @@ const cards = [
         <section class="settings-section">
           <h4>Scramble &amp; Timer</h4>
           <p class="settings-hint">
-            Reserved for TNoodle integration and configurable inspection.
-            These device-local values are saved now; the timer continues to
-            use WCA's fixed 15-second inspection until that configuration is
-            connected in a later phase.
+            Use a locally running TNoodle server for WCA 3×3 scramble batches.
+            CubeLab falls back to its built-in practice generator when it is
+            disabled, unavailable, or returns an invalid response.
           </p>
+          <div class="settings-row">
+            <span class="settings-row-label">Use TNoodle scrambles</span>
+            <button
+              type="button"
+              class="viewport-control"
+              data-settings-tnoodle-enabled
+              aria-pressed="false"
+            >Off</button>
+          </div>
           <label class="settings-field">
             <span class="settings-row-label">TNoodle server URL</span>
             <input
@@ -1273,6 +1282,16 @@ const cards = [
               spellcheck="false"
             />
           </label>
+          <label class="settings-field">
+            <span class="settings-row-label">Event</span>
+            <select class="select-control" data-settings-tnoodle-event>
+              <option value="333">3×3×3 (333)</option>
+            </select>
+          </label>
+          <div class="settings-row">
+            <span class="settings-row-label" data-settings-tnoodle-status>TNoodle not checked.</span>
+            <button type="button" class="transform-btn" data-settings-tnoodle-test>Test connection</button>
+          </div>
           <label class="settings-field">
             <span class="settings-row-label">Inspection time (seconds)</span>
             <input

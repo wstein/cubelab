@@ -743,6 +743,14 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   line-height: 1.45;
 }
 
+[data-settings-tnoodle-status][data-status="ready"] {
+  color: var(--success, #5eead4);
+}
+
+[data-settings-tnoodle-status][data-status="error"] {
+  color: var(--danger, #fca5a5);
+}
+
 .playback {
   padding: 0.85rem 1rem 1rem;
   border-top: 1px solid var(--border-subtle);
