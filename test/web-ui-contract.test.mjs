@@ -3,6 +3,7 @@ import {readFile} from "node:fs/promises";
 import {test} from "vitest";
 
 const page = await readFile(new URL("../src/pages/index.astro", import.meta.url), "utf8");
+const playerPage = await readFile(new URL("../src/pages/player.astro", import.meta.url), "utf8");
 const client = await readFile(new URL("../src/client/converter.ts", import.meta.url), "utf8");
 const solverWorker = await readFile(new URL("../src/client/workers/solver.worker.ts", import.meta.url), "utf8");
 const viewport = await readFile(new URL("../src/client/cube-gl.ts", import.meta.url), "utf8");
@@ -22,6 +23,13 @@ test("the static shell declares size-scoped cubie and Orbit64 cards", () => {
   assert.match(page, /data-output-card=\{key\}/);
   assert.match(page, /data-copy-orbit64/);
   assert.match(page, />Copy Orbit64</);
+});
+
+test("the dedicated player route reuses the full interactive viewport", () => {
+  assert.match(playerPage, /Astro\.redirect\("\/\?player=1"\)/);
+  assert.match(viewportComponent, /data-player-page-link/);
+  assert.match(client, /document\.body\.classList\.add\("player-page"\)/);
+  assert.match(client, /window\.history\.replaceState\(null, "", "\/player"\)/);
 });
 
 test("the converter exposes full two-phase solutions through a dedicated worker contract", () => {

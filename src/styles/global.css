@@ -160,6 +160,36 @@ body {
   min-width: 0;
 }
 
+body.player-page .container {
+  max-width: none;
+  min-height: 100vh;
+  padding: 1rem;
+}
+
+body.player-page .site-header {
+  margin-bottom: 0.75rem;
+}
+
+body.player-page .workspace-tabs,
+body.player-page .studio-controls,
+body.player-page .footer {
+  display: none;
+}
+
+body.player-page .studio {
+  display: block;
+  margin: 0;
+}
+
+body.player-page .viewport-panel {
+  position: static;
+  min-height: calc(100vh - 7.5rem);
+}
+
+body.player-page .viewport-stage {
+  min-height: calc(100vh - 20rem);
+}
+
 .viewport-panel {
   position: sticky;
   top: 1.5rem;

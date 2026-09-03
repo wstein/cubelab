@@ -143,6 +143,11 @@ type AcademyElements = {
 const root = document.querySelector<HTMLElement>("[data-converter]");
 
 if (root) {
+  const playerMode = new URL(window.location.href).searchParams.get("player") === "1";
+  if (playerMode) {
+    document.body.classList.add("player-page");
+    window.history.replaceState(null, "", "/player");
+  }
   const input = root.querySelector<HTMLTextAreaElement>("[data-input]")!;
   const movesInput = root.querySelector<HTMLTextAreaElement>("[data-moves-input]")!;
   const schemeSelect = root.querySelector<HTMLSelectElement>("[data-scheme]")!;

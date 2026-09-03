@@ -59,3 +59,8 @@ For long-running playback, **Start streaming player** owns one resumable macro
 generator and feeds the viewport one move at a time. It retains only the
 current cube state, generator cursor, and counters; the tape scrubber, rewind,
 and jump-to-end controls are disabled because no materialized timeline exists.
+
+The viewport's **Full-size player** control opens `/player`, which reuses the
+same interactive viewport in a focused full-height presentation. It preserves
+the cube connection, turn guides, sound, camera, surface-style, and tape
+controls; it only removes the surrounding Workbench column.
