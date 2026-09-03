@@ -31,6 +31,9 @@ test("the dedicated player route reuses the full interactive viewport", () => {
   assert.match(client, /document\.body\.classList\.add\("player-page"\)/);
   assert.match(client, /window\.history\.replaceState\(null, "", "\/player"\)/);
   assert.match(client, /playerPageLink\.textContent = "Back to studio"/);
+  assert.match(client, /cubelab-player-handoff/);
+  assert.match(client, /timelineIndex: activeIndex/);
+  assert.match(client, /renderTimelineIndex\(restoredIndex\)/);
   assert.match(viewport, /safeCameraDistance/);
 });
 
