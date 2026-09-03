@@ -59,11 +59,12 @@ export const looksLikeSseState = (input: string): boolean =>
   /\(\s*(?:\+\+|\+|-)?[ulfrbd]/.test(input);
 
 /**
- * Parses CubeTwister / Randelshofer SSE 3×3 permutation cycles into CubeLab's
- * validated cubie coordinates. Centre rotations are syntactically retained as
- * warnings: colour-only facelets cannot represent a logo's orientation.
+ * Parses CubeTwister / Randelshofer SSE permutation cycles into validated
+ * 2×2 or 3×3 cubie coordinates. A 2×2 has corners only; centre rotations are
+ * syntactically retained as warnings for 3×3 because colour-only facelets
+ * cannot represent a logo's orientation.
  */
-export const parseSseState = (input: string): Result<SseStateImport, string> => {
+export const parseSseState = (input: string, size: 2 | 3 = 3): Result<SseStateImport, string> => {
   const cycles = [...input.matchAll(/\(([^()]*)\)/g)];
   if (cycles.length === 0) return {TAG: "Error", _0: "Expected at least one SSE permutation cycle."};
   const remainder = input.replace(/\(([^()]*)\)/g, "").trim();
@@ -85,6 +86,9 @@ export const parseSseState = (input: string): Result<SseStateImport, string> => 
       const kind = parts[0]!.kind;
       if (!parts.every((part) => part.kind === kind)) {
         throw new Error("Each SSE cycle must contain only corners, edges, or centres.");
+      }
+      if (size === 2 && kind !== "corner") {
+        throw new Error("A 2×2 SSE state may describe corners only.");
       }
       if (parts.slice(1).some((part) => part.prefix !== "")) {
         throw new Error("An SSE orientation prefix is allowed only on the first part of a cycle.");
@@ -119,7 +123,13 @@ export const parseSseState = (input: string): Result<SseStateImport, string> => 
       }
     }
 
-    const reconstructed = PieceReducer.reconstruct({size: 3, cp, co, ep, eo}) as Result<CubeState, unknown>;
+    const reconstructed = PieceReducer.reconstruct({
+      size,
+      cp,
+      co,
+      ep: size === 3 ? ep : [],
+      eo: size === 3 ? eo : [],
+    }) as Result<CubeState, unknown>;
     return reconstructed.TAG === "Ok"
       ? {TAG: "Ok", _0: {state: reconstructed._0, ignoredCentreOrientations}}
       : {TAG: "Error", _0: PieceReducer.describeError(reconstructed._0) as string};

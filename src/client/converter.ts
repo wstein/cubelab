@@ -939,8 +939,8 @@ if (root) {
         ? {TAG: "Ok", _0: {state: pieces._0, label: "Cubie coordinates"}}
         : {TAG: "Error", _0: PieceReducer.describeError(pieces._0)};
     }
-    if (size === 3 && looksLikeSseState(compact)) {
-      const sse = parseSseState(compact);
+    if ((size === 2 || size === 3) && looksLikeSseState(compact)) {
+      const sse = parseSseState(compact, size);
       if (sse.TAG === "Error") return sse;
       const suffix = sse._0.ignoredCentreOrientations.length === 0
         ? ""

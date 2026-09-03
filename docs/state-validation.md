@@ -1,18 +1,20 @@
 # Physical state validation
 
-CubeLab accepts facelets, colour notation, nets, cubie coordinates, Orbit64, SSE 3×3
-cubie-state cycles, and
+CubeLab accepts facelets, colour notation, nets, cubie coordinates, Orbit64, SSE cubie-state
+cycles, and
 smart-cube facelet reports. For 2×2×2 and 3×3×3 inputs, syntactic validity alone is
 not enough: the position must also be reachable by legal turns.
 
-## SSE cubie-state cycles (3×3)
+## SSE cubie-state cycles (2×2 and 3×3)
 
 An SSE cycle is a state declaration, not an algorithm. For example,
-`(ulb,urf) (ul,ur)` swaps one corner pair and one edge pair; the two swaps keep the
-permutation-parity invariant balanced. The face-letter order of each location carries
-orientation, and a leading `+` or `-` adjusts an edge flip or corner twist. CubeLab
-converts these cycles to cubie coordinates, reconstructs facelets, and runs the same
-reachability validation described below.
+`(ulb,urf) (ul,ur)` swaps one corner pair and one edge pair; on a 3×3 the two swaps
+keep the permutation-parity invariant balanced. A 2×2 has no edges, so it accepts
+corner-only cycles such as `(ufl,ubr) (dlf,drb) (dfr,dbl)` even though the three
+corner swaps are odd. The face-letter order of each location carries orientation, and
+a leading `+` or `-` adjusts an edge flip or corner twist. CubeLab converts these cycles
+to cubie coordinates, reconstructs facelets, and runs the same reachability validation
+described below. Edge and marked-centre SSE parts are deliberately 3×3-only.
 
 `(+r)`, `(-u)`, and `(++r)` marked-centre rotations are accepted, but CubeLab's current
 colour-only facelet model cannot render a centre logo orientation. The parsed Setup label

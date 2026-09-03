@@ -6,10 +6,10 @@ import * as MoveParser from "../../src/Move/MoveParser.res.mjs";
 import * as StateTypes from "../../src/State/StateTypes.res.mjs";
 import {looksLikeSseState, parseSseState} from "../../src/client/sse-state";
 
-const stateAfter = (algorithm: string) => {
-  const parsed = MoveParser.parse(3, algorithm);
+const stateAfter = (algorithm: string, size = 3) => {
+  const parsed = MoveParser.parse(size, algorithm);
   expect(parsed.TAG).toBe("Ok");
-  const applied = MoveExecutor.applyAlg(StateTypes.solved(3)._0, parsed._0);
+  const applied = MoveExecutor.applyAlg(StateTypes.solved(size)._0, parsed._0);
   expect(applied.TAG).toBe("Ok");
   return applied._0;
 };
@@ -29,6 +29,16 @@ test("imports oriented, disjoint corner and edge cycles and enforces solvability
   const impossible = parseSseState("(ulb,urf)");
   expect(impossible.TAG).toBe("Error");
   expect(impossible._0).toMatch(/permutation parity|Impossible state/i);
+});
+
+test("imports corner-only SSE cycles as valid 2×2 states", () => {
+  const input = "(ufl,ubr) (dlf,drb) (dfr,dbl)";
+  const imported = parseSseState(input, 2);
+  expect(imported.TAG).toBe("Ok");
+  expect(FaceletCodec.render(imported._0.state)).toBe(FaceletCodec.render(stateAfter("R F' R U R' D2 L' U' B' U B2", 2)));
+  const unsupported = parseSseState("(ur,uf)", 2);
+  expect(unsupported.TAG).toBe("Error");
+  expect(unsupported._0).toMatch(/2×2 SSE state may describe corners only/);
 });
 
 test("accepts marked-centre rotations as explicitly inert metadata", () => {
