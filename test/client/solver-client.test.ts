@@ -82,6 +82,17 @@ describe("solver worker client", () => {
     await expect(solution).resolves.toEqual({moveCount: 21});
   });
 
+  test("passes an explicit lower bound only for a two-phase refinement request", async () => {
+    const worker = new FakeWorker();
+    const client = createTwoPhaseSolverClient<{state: string}, {moveCount: number}>(worker as unknown as Worker);
+    const pending = client.solve({state: "relative"}, {refine: true, maximumDepth: 18});
+    expect(worker.requests).toEqual([
+      {id: 0, type: "solveTwoPhase", state: {state: "relative"}, refine: true, maximumDepth: 18},
+    ]);
+    worker.respond({id: 0, ok: true, solution: {moveCount: 18}});
+    await expect(pending).resolves.toEqual({moveCount: 18});
+  });
+
   test("can immediately terminate a dedicated two-phase worker", async () => {
     const worker = new FakeWorker();
     const client = createTwoPhaseSolverClient<{id: string}, {moveCount: number}>(

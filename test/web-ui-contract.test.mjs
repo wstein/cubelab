@@ -131,14 +131,16 @@ test("the converter exposes full two-phase solutions through a dedicated worker 
   assert.match(page, /Target \(optional\)/);
   assert.match(client, /createTwoPhaseSolverClient/);
   assert.match(client, /relativeAcademyState\(workspace\._0\.state, target\._0\)/);
-  assert.match(client, /twoPhaseSolverClient\.solve\(relative\._0\)/);
+  assert.match(client, /twoPhaseSolverClient\.solve\(\s*relative\._0,/);
   assert.match(client, /The two-phase solution did not replay from Setup to the target/);
   assert.match(solverWorker, /type: "solveTwoPhase"/);
   assert.match(solverWorker, /twoPhaseProgress/);
   assert.match(solverWorker, /TwoPhaseSolver\.solveAtDepth\(request\.state, bound\)/);
   assert.match(solverWorker, /const preferredBound = 20/);
   assert.match(solverWorker, /const maximumBound = 24/);
-  assert.match(solverWorker, /bound = result\._0\.moveCount - 1/);
+  assert.match(solverWorker, /const refining = request\.refine === true/);
+  assert.match(client, /Search for better result/);
+  assert.match(client, /refine: true, maximumDepth: twoPhaseBestMoveCount! - 1/);
   assert.match(solverWorker, /TwoPhaseSolver\.describeError\(result\._0\)/);
   assert.match(solverWorker, /result\._0 === "SearchFailed"/);
   assert.match(solverWorker, /cancelledTwoPhaseRequests = new Set<number>/);

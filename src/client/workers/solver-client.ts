@@ -4,6 +4,7 @@ type WorkerFailure = {id: number; ok: false; error: string};
 type WorkerResponse<T> = WorkerSuccess<T> | WorkerFailure;
 type TwoPhaseProgress = {id: number; type: "twoPhaseProgress"; stage: string};
 type TwoPhaseCandidate<T> = {id: number; type: "twoPhaseCandidate"; solution: T};
+export type TwoPhaseSearchOptions = {refine?: boolean; maximumDepth?: number};
 
 /** Request/response boundary for expensive searches; the UI thread never waits for them. */
 export const createSolverClient = <TState, TSolution>(worker: Worker) => {
@@ -66,11 +67,11 @@ export const createTwoPhaseSolverClient = <TState, TSolution>(
     pending.clear();
   });
   return {
-    solve(state: TState): Promise<TSolution> {
+    solve(state: TState, options: TwoPhaseSearchOptions = {}): Promise<TSolution> {
       const id = nextId++;
       return new Promise((resolve, reject) => {
         pending.set(id, {resolve, reject});
-        worker.postMessage({id, type: "solveTwoPhase", state});
+        worker.postMessage({id, type: "solveTwoPhase", state, ...options});
       });
     },
     cancel(): void {

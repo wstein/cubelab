@@ -6,7 +6,7 @@ import * as TwoPhaseSolver from "../../Solver/TwoPhaseSolver.res.mjs";
 type TutorialMethod = "beginner" | "advancedLbl" | "beginnerCfop" | "fullCfop" | "advancedCfop" | "petrus" | "enhancedPetrus";
 type WorkerRequest =
   | {id: number; type: "solveTutorial"; method: TutorialMethod; state: unknown}
-  | {id: number; type: "solveTwoPhase"; state: unknown}
+  | {id: number; type: "solveTwoPhase"; state: unknown; refine?: boolean; maximumDepth?: number}
   | {id: number; type: "cancelTwoPhase"};
 type ReScriptResult = {TAG: "Ok"; _0: unknown} | {TAG: "Error"; _0: unknown};
 
@@ -43,7 +43,10 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
       TwoPhaseSolver.prepareTables();
       const preferredBound = 20;
       const maximumBound = 24;
-      let bound = preferredBound;
+      const refining = request.refine === true;
+      let bound = refining && Number.isInteger(request.maximumDepth)
+        ? Math.min(maximumBound, Math.max(0, request.maximumDepth!))
+        : preferredBound;
       let incumbent: unknown | null = null;
       const searchNextBound = () => {
         if (cancelledTwoPhaseRequests.has(request.id)) {
@@ -52,8 +55,12 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
             : {id: request.id, ok: true, solution: incumbent});
           return;
         }
-        if (incumbent === null && bound > maximumBound) {
+        if (!refining && incumbent === null && bound > maximumBound) {
           self.postMessage({id: request.id, ok: false, error: "No two-phase solution was found within 24 HTM."});
+          return;
+        }
+        if ((refining && incumbent === null && bound < 0)) {
+          self.postMessage({id: request.id, ok: false, error: "No shorter two-phase solution was found."});
           return;
         }
         if (incumbent !== null && bound < 0) {
@@ -65,9 +72,13 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
         if (result.TAG === "Ok") {
           incumbent = result._0;
           self.postMessage({id: request.id, type: "twoPhaseCandidate", solution: incumbent});
+          if (!refining) {
+            self.postMessage({id: request.id, ok: true, solution: incumbent});
+            return;
+          }
           bound = result._0.moveCount - 1;
         } else if (result._0 === "SearchFailed" || (result._0 as {TAG?: string}).TAG === "SearchFailed") {
-          bound += incumbent === null ? 1 : -1;
+          bound += refining || incumbent !== null ? -1 : 1;
         } else {
           self.postMessage({id: request.id, ok: false, error: TwoPhaseSolver.describeError(result._0)});
           return;

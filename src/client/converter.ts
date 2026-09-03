@@ -3683,7 +3683,9 @@ if (root) {
       twoPhaseSolverClient.terminate();
       twoPhaseSolverClient = newTwoPhaseSolverClient();
       twoPhaseSolveBusy = false;
-      twoPhaseSolve.textContent = "Find two-phase solution";
+      twoPhaseSolve.textContent = twoPhaseAlgorithm === ""
+        ? "Find two-phase solution"
+        : "Search for better result";
       twoPhaseSolve.disabled = false;
       twoPhaseResult.textContent = twoPhaseAlgorithm === ""
         ? "Search stopped immediately; no solution had been found yet."
@@ -3710,18 +3712,29 @@ if (root) {
       return;
     }
     const request = ++twoPhaseRequest;
-    twoPhaseAlgorithm = "";
-    twoPhaseBestMoveCount = null;
-    twoPhaseSourceKey = twoPhaseSourceKeyForCurrent();
+    const sourceKey = twoPhaseSourceKeyForCurrent();
+    const refining = twoPhaseAlgorithm !== ""
+      && twoPhaseBestMoveCount !== null
+      && sourceKey === twoPhaseSourceKey;
+    if (!refining) {
+      twoPhaseAlgorithm = "";
+      twoPhaseBestMoveCount = null;
+      twoPhaseApply.disabled = true;
+    }
+    twoPhaseSourceKey = sourceKey;
     twoPhasePendingState = workspace._0.state;
     twoPhasePendingTarget = target._0;
-    twoPhaseApply.disabled = true;
     twoPhaseSolveBusy = true;
     twoPhaseSolve.textContent = "Cancel search";
-    twoPhaseResult.textContent = "Starting two-phase search…";
+    twoPhaseResult.textContent = refining
+      ? `Searching below ${twoPhaseBestMoveCount} HTM…`
+      : "Starting two-phase search…";
     twoPhaseResult.classList.remove("failure", "success");
     try {
-      const solution = await twoPhaseSolverClient.solve(relative._0);
+      const solution = await twoPhaseSolverClient.solve(
+        relative._0,
+        refining ? {refine: true, maximumDepth: twoPhaseBestMoveCount! - 1} : undefined,
+      );
       if (request !== twoPhaseRequest) return;
       const replay = MoveExecutor.applyAlg(workspace._0.state, solution.alg) as Result<CubeState, unknown>;
       if (replay.TAG !== "Ok") {
@@ -3743,12 +3756,21 @@ if (root) {
       twoPhaseResult.classList.add("success");
     } catch (reason) {
       if (request !== twoPhaseRequest) return;
-      twoPhaseResult.textContent = reason instanceof Error ? reason.message : "The two-phase solver failed.";
-      twoPhaseResult.classList.add("failure");
+      const message = reason instanceof Error ? reason.message : "The two-phase solver failed.";
+      if (refining && message === "No shorter two-phase solution was found.") {
+        twoPhaseResult.textContent = `No shorter result found; keeping ${twoPhaseBestMoveCount} HTM · ${twoPhaseAlgorithm}.`;
+        twoPhaseResult.classList.remove("failure");
+        twoPhaseResult.classList.add("success");
+      } else {
+        twoPhaseResult.textContent = message;
+        twoPhaseResult.classList.add("failure");
+      }
     } finally {
       if (request !== twoPhaseRequest) return;
       twoPhaseSolveBusy = false;
-      twoPhaseSolve.textContent = "Find two-phase solution";
+      twoPhaseSolve.textContent = twoPhaseAlgorithm === ""
+        ? "Find two-phase solution"
+        : "Search for better result";
       twoPhaseSolve.disabled = size !== 3;
     }
   });
