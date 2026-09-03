@@ -16,6 +16,14 @@ libraries. Its F2L stage is pair-first: each sequence records the pair colours, 
 corner and edge positions, white-sticker direction, edge orientation, and whether the
 pieces are connected, separated, or trapped.
 
+## Curated virtual drills
+
+The Academy’s Smart Controller workflow also offers a focused curated selector.
+Representative OLL and PLL entries come directly from the executable CFOP case tables,
+alongside compact F2L insertion drills. Loading a case assigns its inverse state to the
+virtual cube, so executing the listed algorithm solves it. The physical smart cube remains
+only a turn-and-gyro controller; its facelets do not alter the drill state.
+
 ## Planning and scoring
 
 Cross uses a complete bounded search over all four cross edges instead of solving them

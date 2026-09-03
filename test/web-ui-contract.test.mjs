@@ -46,9 +46,13 @@ test("the workspace exposes a manual speedcubing timer", () => {
   assert.match(page, /data-timer-scramble/);
   assert.match(client, /mountTimerWorkspace\(root\)/);
   assert.match(page, /data-academy-instant-drill/);
+  assert.match(page, /data-academy-drill-case/);
+  assert.match(page, /data-academy-load-drill/);
   assert.match(viewportComponent, /data-smart-cube-controller/);
   assert.match(client, /smartCubeSyncMode === "VirtualController"/);
   assert.match(client, /cubelab:controller-scramble/);
+  assert.match(client, /academyRequestGuard\.isCurrent\(request\)/);
+  assert.match(client, /academyTargetDiagnostic/);
 });
 
 test("the HTML head declares the SVG favicon and fallback touch icons", () => {

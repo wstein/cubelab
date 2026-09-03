@@ -51,6 +51,14 @@ describe("solver worker client", () => {
     await expect(second).rejects.toThrow("could not start");
   });
 
+  test("forwards a tutorial worker diagnostic", async () => {
+    const worker = new FakeWorker();
+    const client = createSolverClient<{id: string}, {moves: string}>(worker as unknown as Worker);
+    const solution = client.solve("beginner", {id: "invalid"});
+    worker.respond({id: 0, ok: false, error: "The target centre frame is rotated."});
+    await expect(solution).rejects.toThrow("target centre frame is rotated");
+  });
+
   test("uses a dedicated request type for full two-phase solutions", async () => {
     const worker = new FakeWorker();
     const stages: string[] = [];

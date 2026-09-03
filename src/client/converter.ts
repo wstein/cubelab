@@ -13,6 +13,8 @@ import * as HamiltonMacro from "../Move/HamiltonMacro";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
 import {createSolverClient, createTwoPhaseSolverClient} from "./workers/solver-client";
 import {mountTimerWorkspace} from "./timer/workspace";
+import {createAcademyRequestGuard} from "./academy-request";
+import {curatedDrillCases, drillCaseById} from "./drill-cases";
 import {relativeAcademyState, type PieceState} from "./academy-target";
 import {
   createCubeViewport,
@@ -232,6 +234,8 @@ if (root) {
   const nissResult = root.querySelector<HTMLOutputElement>("[data-niss-result]")!;
   const academySolve = root.querySelector<HTMLButtonElement>("[data-academy-solve]")!;
   const academyInstantDrill = root.querySelector<HTMLButtonElement>("[data-academy-instant-drill]")!;
+  const academyDrillCase = root.querySelector<HTMLSelectElement>("[data-academy-drill-case]")!;
+  const academyLoadDrill = root.querySelector<HTMLButtonElement>("[data-academy-load-drill]")!;
   const twoPhaseSolve = root.querySelector<HTMLButtonElement>("[data-two-phase-solve]")!;
   const twoPhaseApply = root.querySelector<HTMLButtonElement>("[data-two-phase-apply]")!;
   const twoPhaseResult = root.querySelector<HTMLOutputElement>("[data-two-phase-result]")!;
@@ -284,6 +288,7 @@ if (root) {
   let activeAcademy: AcademyElements | null = null;
   let commentedTutorialSolution = "";
   let academySolveBusy = false;
+  const academyRequestGuard = createAcademyRequestGuard();
   const savedTutorialSolutions = new Map<TutorialMethod, SavedTutorialSolution>();
   const beginnerAcademy: AcademyElements = {
     method: "beginner",
@@ -1228,11 +1233,19 @@ if (root) {
       : {TAG: "Error", _0: describeError(parsed._0)};
   };
 
+  const academyTargetDiagnostic = (): string | null => {
+    if (activeRecognized === null || size !== 3) return null;
+    const target = academyTargetState();
+    if (target.TAG === "Error") return target._0;
+    const relative = relativeAcademyState(activeRecognized.state, target._0);
+    return relative.TAG === "Error" ? relative._0 : null;
+  };
+
   const updateAcademySolveButton = () => {
     const method = selectedTutorialMethod();
     academySolve.disabled = academySolveBusy
       || activeRecognized === null
-      || academyTargetState().TAG === "Error"
+      || academyTargetDiagnostic() !== null
       || size !== 3;
     academySolve.textContent = savedTutorialSolutions.has(method)
       ? "Regenerate solution"
@@ -1260,6 +1273,8 @@ if (root) {
   };
 
   const updateAcademySource = (recognized: RecognizedInput | null) => {
+    academyRequestGuard.invalidate();
+    academySolveBusy = false;
     activeRecognized = recognized;
     resetAcademy();
     academies.forEach((academy) => {
@@ -1272,6 +1287,12 @@ if (root) {
             ? "This cube is already solved. Every Academy phase is satisfied at 0 HTM; load a scramble for a non-zero tutorial."
             : `Ready to teach the recognized ${recognized.label.toLowerCase()} setup to the selected target pattern.`;
     });
+    const diagnostic = academyTargetDiagnostic();
+    if (diagnostic !== null) {
+      const academy = academyForMethod(selectedTutorialMethod());
+      academy.status.textContent = diagnostic;
+      academy.status.classList.add("error");
+    }
     updateAcademySolveButton();
   };
 
@@ -3102,6 +3123,8 @@ if (root) {
       panel.hidden = panel.dataset.academyMethodPanel !== academyMethod;
     });
     if (appStateApplied && academyMethodChanged) {
+      academyRequestGuard.invalidate();
+      academySolveBusy = false;
       const method = selectedTutorialMethod();
       const saved = savedTutorialSolutions.get(method);
       const academy = academyForMethod(method);
@@ -3118,6 +3141,12 @@ if (root) {
     });
   });
   mountTimerWorkspace(root);
+  curatedDrillCases.forEach((entry) => {
+    const option = document.createElement("option");
+    option.value = entry.id;
+    option.textContent = `${entry.family} · ${entry.label}`;
+    academyDrillCase.append(option);
+  });
 
   window.addEventListener("cubelab:timer-phase", ((event: CustomEvent<{phase: string}>) => {
     smartCubeControllerInspection = smartCubeSyncMode === "VirtualController"
@@ -3765,10 +3794,19 @@ if (root) {
     if (size !== 3 || activeRecognized === null) return;
     const initialState = activeRecognized.state;
     const target = academyTargetState();
-    if (target.TAG === "Error") return;
-    const relative = relativeAcademyState(initialState, target._0);
-    if (relative.TAG === "Error") return;
     const academy = academyForMethod(method);
+    if (target.TAG === "Error") {
+      academy.status.textContent = target._0;
+      academy.status.classList.add("error");
+      return;
+    }
+    const relative = relativeAcademyState(initialState, target._0);
+    if (relative.TAG === "Error") {
+      academy.status.textContent = relative._0;
+      academy.status.classList.add("error");
+      return;
+    }
+    const request = academyRequestGuard.begin();
     academySolveBusy = true;
     updateAcademySolveButton();
     academy.status.classList.remove("error");
@@ -3776,6 +3814,7 @@ if (root) {
       ? "Building and replay-verifying the seven beginner phases…"
       : `Building and replay-verifying the ${academy.phaseCount} ${academy.label} phases…`;
     void solverClient.solve(method, relative._0).then((solution) => {
+      if (!academyRequestGuard.isCurrent(request)) return;
       academySolveBusy = false;
       const replay = MoveExecutor.applyAlg(initialState, solution.alg) as Result<CubeState, unknown>;
       if (replay.TAG === "Error" || FaceletCodec.render(replay._0) !== FaceletCodec.render(target._0)) {
@@ -3789,6 +3828,7 @@ if (root) {
       updateAcademySolveButton();
       presentTutorialSolution(initialState, solution, academy);
     }).catch((reason: unknown) => {
+      if (!academyRequestGuard.isCurrent(request)) return;
       academySolveBusy = false;
       academy.status.textContent = reason instanceof Error ? reason.message : String(reason);
       academy.status.classList.add("error");
@@ -3804,6 +3844,29 @@ if (root) {
     setSmartCubeControllerMode(true);
     loadVirtualControllerState(activeRecognized.state, "Virtual controller · Academy instant drill");
     smartCubeStatus.textContent = `${smartCubeDeviceName} · Academy drill loaded; physical stickers are ignored.`;
+  });
+
+  academyLoadDrill.addEventListener("click", () => {
+    const drill = drillCaseById(academyDrillCase.value);
+    if (!drill || !smartCubeConnected) {
+      academyForMethod(selectedTutorialMethod()).status.textContent = "Connect a smart cube to load a curated virtual drill.";
+      return;
+    }
+    const parsed = MoveParser.parseWithOptions(3, "Wide", "Modern", drill.algorithm) as Result<unknown[], {message: string}>;
+    if (parsed.TAG === "Error") {
+      academyForMethod(selectedTutorialMethod()).status.textContent = parsed._0.message;
+      return;
+    }
+    const solved = StateTypes.solved(3) as Result<CubeState, unknown>;
+    if (solved.TAG !== "Ok") return;
+    const caseState = MoveExecutor.applyAlg(solved._0, MoveTransform.invert(parsed._0)) as Result<CubeState, unknown>;
+    if (caseState.TAG === "Error") {
+      academyForMethod(selectedTutorialMethod()).status.textContent = "Could not construct the selected drill case.";
+      return;
+    }
+    setSmartCubeControllerMode(true);
+    loadVirtualControllerState(caseState._0, `Virtual controller · ${drill.label}`);
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · ${drill.label} loaded. Execute its algorithm to solve.`;
   });
 
   academyTarget.addEventListener("input", () => {
