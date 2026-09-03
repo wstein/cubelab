@@ -1477,10 +1477,14 @@ if (root) {
   const updateCompatibility = (recognized: RecognizedInput | null) => {
     compatibilityStrip.hidden = !recognized?.timeline;
     if (!recognized?.timeline) return;
+    // A tape is described by Moves whenever it is present. Setup is only the
+    // position-zero state, so assessing it here would report the wrong source
+    // profile for a pasted SSE (or Twizzle) move sequence.
+    const source = movesInput.value.trim() === "" ? input.value : movesInput.value;
     const result = MoveCompatibility.evaluate(
-      input.value,
+      source,
       lowercaseMode,
-      dialectForPastedInput(input.value),
+      dialectForPastedInput(source),
       recognized.timeline.alg,
     ) as CompatibilityResult;
     (Object.keys(compatibilityLabels) as Array<keyof CompatibilityResult>).forEach((profile) => {

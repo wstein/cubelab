@@ -198,6 +198,7 @@ test("the web UI explains source portability without claiming competition legali
   assert.match(page, /data-compatibility-profile="ruwix"/);
   assert.match(page, /data-compatibility-profile="sse"/);
   assert.match(client, /MoveCompatibility\.evaluate/);
+  assert.match(client, /const source = movesInput\.value\.trim\(\) === "" \? input\.value : movesInput\.value/);
   assert.match(client, /does not determine event-specific competition legality/);
 });
 

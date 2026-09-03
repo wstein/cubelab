@@ -48,6 +48,8 @@ For every recognized algorithm, the source-compatibility strip inspects the orig
 located AST and source spelling rather than the expanded move sequence. This preserves
 the distinctions that matter for portability: a commutator and its expanded turns have
 the same cube effect, but only the former requires bracket grammar at the destination.
+When a separate Moves tape is present, it is the assessed source; Setup only defines the
+state at tape position zero.
 
 The six badges cover WCA Article 12 move-token spelling, normative SiGN/LGN grammar,
 documented cubing.js/Twizzle input, conventions described by the SpeedSolving Wiki,
