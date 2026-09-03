@@ -51,6 +51,15 @@ off screen, and the Page Visibility API does the same while the document is hidd
 Animation resumes without accumulating a large time delta. The backing canvas clamps
 device pixel ratio to 2.
 
+## Focused player mode
+
+The **Full-size player** route (`/player`) reuses this same viewport rather than
+creating a second renderer. Its canvas fills the window while the connection,
+camera, style, and tape controls become translucent HUDs. The route link changes
+to **Back to studio** in that mode. The default camera is framed farther from the
+cube, and narrow viewports apply an additional aspect-ratio safety distance, so
+the complete puzzle remains inside the frustum.
+
 Logical face, range, slice, and whole-cube moves map to a shader axis, a cubie-centre
 selection interval, and a signed target angle. During a transition, Rodrigues'
 rotation is applied to both position and normal for selected cubies. The easing curve
@@ -194,4 +203,3 @@ The physical design vocabulary was informed by the Standard and Speed looks in
 the separate `flix-cube` project. Because that project is AGPL-3.0 and Cube
 Rosetta is MIT, this module is an independent implementation of the underlying
 geometric ideas and does not copy or translate its source code.
-

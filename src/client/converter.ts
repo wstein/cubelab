@@ -148,6 +148,12 @@ if (root) {
     document.body.classList.add("player-page");
     window.history.replaceState(null, "", "/player");
   }
+  const playerPageLink = root.querySelector<HTMLAnchorElement>("[data-player-page-link]")!;
+  if (playerMode) {
+    playerPageLink.href = "/";
+    playerPageLink.textContent = "Back to studio";
+    playerPageLink.title = "Return to the CubeLab studio";
+  }
   const input = root.querySelector<HTMLTextAreaElement>("[data-input]")!;
   const movesInput = root.querySelector<HTMLTextAreaElement>("[data-moves-input]")!;
   const schemeSelect = root.querySelector<HTMLSelectElement>("[data-scheme]")!;

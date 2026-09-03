@@ -30,6 +30,8 @@ test("the dedicated player route reuses the full interactive viewport", () => {
   assert.match(viewportComponent, /data-player-page-link/);
   assert.match(client, /document\.body\.classList\.add\("player-page"\)/);
   assert.match(client, /window\.history\.replaceState\(null, "", "\/player"\)/);
+  assert.match(client, /playerPageLink\.textContent = "Back to studio"/);
+  assert.match(viewport, /safeCameraDistance/);
 });
 
 test("the converter exposes full two-phase solutions through a dedicated worker contract", () => {

@@ -50,7 +50,7 @@ export type TurnGuide = {
 
 const DEFAULT_YAW = -0.62;
 const DEFAULT_PITCH = 0.48;
-const DEFAULT_DISTANCE = 7.2;
+const DEFAULT_DISTANCE = 8.4;
 const FLOATS_PER_VERTEX = 14;
 const AUTO_ORBIT_RADIANS_PER_SECOND = 0.24;
 const MAX_AUTO_ORBIT_FRAME_MS = 50;
@@ -370,6 +370,12 @@ export const cameraMatrices = (
   ),
   projection: perspective(aspect),
 });
+
+/** Keeps the cube inside the frustum for narrow displays without changing wide-screen composition. */
+export const safeCameraDistance = (distance: number, aspect: number): number => {
+  const narrowViewportScale = 1.2 / Math.max(0.7, aspect);
+  return distance * Math.max(1, narrowViewportScale);
+};
 
 export const cameraTween = (start: number, target: number, progress: number): number => {
   const wrapped = ((target - start + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
@@ -1279,7 +1285,14 @@ export const createCubeViewport = (
     const relativeOrientation = deviceOrientationBase && deviceOrientation
       ? deviceOrientationDelta(deviceOrientationBase, deviceOrientation, deviceOrientationFrame, "world")
       : undefined;
-    const matrices = cameraMatrices(width / height, yaw, pitch, distance, relativeOrientation);
+    const aspect = width / height;
+    const matrices = cameraMatrices(
+      aspect,
+      yaw,
+      pitch,
+      safeCameraDistance(distance, aspect),
+      relativeOrientation,
+    );
     gl.uniformMatrix4fv(modelView, false, matrices.modelView);
     gl.uniformMatrix4fv(projection, false, matrices.projection);
     gl.uniform1f(speedStyle, style === "Speed" ? 1 : 0);
@@ -1433,7 +1446,7 @@ export const createCubeViewport = (
   };
   const wheel = (event: WheelEvent) => {
     event.preventDefault();
-    distance = Math.max(4.8, Math.min(9, distance + event.deltaY * 0.006));
+    distance = Math.max(5.6, Math.min(11, distance + event.deltaY * 0.006));
     requestRender();
   };
   const contextLost = (event: Event) => {

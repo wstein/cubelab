@@ -16,6 +16,7 @@ import {
   multiplyQuaternions,
   orientationInViewportFrame,
   relativeQuaternion,
+  safeCameraDistance,
   smoothTrackedOrientation,
   vboCapacityFloats,
 } from "../../src/client/cube-gl";
@@ -139,6 +140,12 @@ describe("cube viewport math", () => {
       expect(matrices.projection).toHaveLength(16);
       expect([...matrices.modelView, ...matrices.projection].every(Number.isFinite)).toBe(true);
     }
+  });
+
+  test("backs the camera away only for narrow viewports", () => {
+    expect(safeCameraDistance(8.4, 16 / 9)).toBe(8.4);
+    expect(safeCameraDistance(8.4, 1)).toBeCloseTo(10.08);
+    expect(safeCameraDistance(8.4, 0.5)).toBeCloseTo(14.4);
   });
 
   test("camera tween follows the shortest wrapped route with smooth endpoints", () => {
