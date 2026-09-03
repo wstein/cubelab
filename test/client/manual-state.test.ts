@@ -15,7 +15,7 @@ describe("2×2 manual state constraints", () => {
   test("accepts solved and exposes every colour in an empty draft", () => {
     expect(canCompleteManualState2(solvedManualState2())).toBe(true);
     const empty: ManualStateDraft = Array(24).fill(null);
-    expect(allowedManualStateColours2(empty, 0)).toEqual(["U", "R", "F", "D", "L", "B"]);
+    expect(allowedManualStateColours2(empty, 0)).toEqual(["U", "D", "R", "L", "F", "B"]);
   });
 
   test("rejects a colour that makes a corner combination impossible", () => {
@@ -56,4 +56,11 @@ describe("3×3 manual state constraints", () => {
     [draft[10], draft[19]] = [draft[19], draft[10]];
     expect(canCompleteManualState(3, draft)).toBe(false);
   });
+});
+
+test("keeps FaceletCodec's URFDLB serialization independent from the editor presentation", () => {
+  expect(solvedManualState(2).join("")).toBe("UUUURRRRFFFFDDDDLLLLBBBB");
+  expect(solvedManualState(3).join("")).toBe(
+    "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB",
+  );
 });

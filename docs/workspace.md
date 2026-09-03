@@ -84,10 +84,12 @@ starts blank for an empty Setup, or from a valid existing Setup. On 2×2×2, eac
 sticker shows only colours that have a complete reachable continuation, so every displayed
 dot is selectable. On 3×3×3, options are checked against full corner/edge permutation
 parity asynchronously and appear as they are verified; a displayed dot is likewise
-selectable. Both automatically fill subsequently forced stickers. **Clear** intentionally
-leaves stickers blank so a completed draft can be corrected. CubeLab does not alter Setup
-or the viewport until **Load state into Setup** is enabled by a complete, physically valid
-position.
+selectable. The dots never change position: they are fixed as **Up / Down**, **Right /
+Left**, and **Front / Back**; unavailable colours are dimmed. Both automatically fill
+subsequently forced stickers, marked with a cyan inset outline and star. **Clear**
+intentionally leaves stickers blank so a completed draft can be corrected. CubeLab does
+not alter Setup or the viewport until **Load state into Setup** is enabled by a complete,
+physically valid position.
 
 **Sync state** from a connected smart cube writes its physical facelet state into Setup. It
 does not change the optional Moves field, allowing a user to inspect or replay a sequence

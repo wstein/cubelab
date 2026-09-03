@@ -5,8 +5,12 @@
  * 3×3 that includes the corner/edge permutation-parity agreement; for a 2×2
  * it is the corner permutation and twist rule.
  */
-export const manualStateFaces = ["U", "R", "F", "D", "L", "B"] as const;
-export type ManualStateFace = typeof manualStateFaces[number];
+/** FaceletCodec's serialized order. Keep this independent of the editor UI. */
+export const faceletOrder = ["U", "R", "F", "D", "L", "B"] as const;
+export type ManualStateFace = typeof faceletOrder[number];
+
+/** Fixed presentation order: opposite colours are paired in the UI. */
+export const manualStateFaces = ["U", "D", "R", "L", "F", "B"] as const;
 export type ManualStateSize = 2 | 3;
 export type ManualStateDraft = Array<ManualStateFace | null>;
 
@@ -113,11 +117,11 @@ const feasibleSignatures = (draft: ManualStateDraft, kind: CubieKind): boolean[]
 export const manualStateStickerCount = (size: ManualStateSize): number => 6 * size * size;
 
 export const solvedManualState = (size: ManualStateSize): ManualStateDraft =>
-  manualStateFaces.flatMap((face) => Array<ManualStateFace>(size * size).fill(face));
+  faceletOrder.flatMap((face) => Array<ManualStateFace>(size * size).fill(face));
 
 export const emptyManualState = (size: ManualStateSize): ManualStateDraft => {
   const draft: ManualStateDraft = Array(manualStateStickerCount(size)).fill(null);
-  if (size === 3) centreIndices3.forEach((index, face) => { draft[index] = manualStateFaces[face]; });
+  if (size === 3) centreIndices3.forEach((index, face) => { draft[index] = faceletOrder[face]; });
   return draft;
 };
 
@@ -127,7 +131,7 @@ export const manualStateEnteredCount = (draft: ManualStateDraft): number =>
 /** True when a partial draft has at least one physically legal completion. */
 export const canCompleteManualState = (size: ManualStateSize, draft: ManualStateDraft): boolean => {
   if (draft.length !== manualStateStickerCount(size)) return false;
-  if (size === 3 && centreIndices3.some((index, face) => draft[index] !== manualStateFaces[face])) return false;
+  if (size === 3 && centreIndices3.some((index, face) => draft[index] !== faceletOrder[face])) return false;
   const corner = feasibleSignatures(draft, kindsForSize(size)[0]);
   if (size === 2) return corner[0][0] || corner[0][1];
   const edge = feasibleSignatures(draft, edges);
@@ -141,7 +145,7 @@ export const allowedManualStateColours = (
   index: number,
 ): ManualStateFace[] => {
   if (index < 0 || index >= draft.length) return [];
-  if (size === 3 && centreIndices3.includes(index)) return [manualStateFaces[centreIndices3.indexOf(index)]];
+  if (size === 3 && centreIndices3.includes(index)) return [faceletOrder[centreIndices3.indexOf(index)]];
   return manualStateFaces.filter((colour) => {
     const candidate = [...draft];
     candidate[index] = colour;
@@ -160,7 +164,7 @@ export const locallyAllowedManualStateColours = (
   index: number,
 ): ManualStateFace[] => {
   if (index < 0 || index >= draft.length) return [];
-  if (size === 3 && centreIndices3.includes(index)) return [manualStateFaces[centreIndices3.indexOf(index)]];
+  if (size === 3 && centreIndices3.includes(index)) return [faceletOrder[centreIndices3.indexOf(index)]];
   for (const kind of kindsForSize(size)) {
     const slotIndex = kind.slots.findIndex((slot) => slot.includes(index));
     if (slotIndex < 0) continue;
