@@ -166,6 +166,8 @@ test("the converter exposes a lazy HTM-optimal 2×2 solver through its worker co
   assert.match(client, /The optimal 2×2 solution did not replay to solved/);
   assert.match(client, /Setup changed; generate a new optimal solution/);
   assert.match(solverWorker, /type: "solveOptimal2x2"/);
+  assert.match(solverWorker, /!Optimal2x2Solver\.hasPreparedTables\(\)/);
+  assert.match(solverWorker, /Searching for an HTM-optimal solution…/);
   assert.match(solverWorker, /Optimal2x2Solver\.solve\(request\.state\)/);
 });
 

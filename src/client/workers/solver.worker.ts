@@ -91,15 +91,23 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
       return;
     }
     if (request.type === "solveOptimal2x2") {
-      self.postMessage({id: request.id, type: "optimal2x2Progress", stage: "Preparing optimal 2×2 solver…"});
-      void Optimal2x2Solver.solve(request.state).then(
-        (solution) => self.postMessage({id: request.id, ok: true, solution}),
-        (error: unknown) => self.postMessage({
-          id: request.id,
-          ok: false,
-          error: error instanceof Error ? error.message : "The optimal 2×2 solver stopped unexpectedly.",
-        }),
-      );
+      void (async () => {
+        try {
+          if (!Optimal2x2Solver.hasPreparedTables()) {
+            self.postMessage({id: request.id, type: "optimal2x2Progress", stage: "Preparing optimal 2×2 solver…"});
+            await Optimal2x2Solver.prepareTables();
+          }
+          self.postMessage({id: request.id, type: "optimal2x2Progress", stage: "Searching for an HTM-optimal solution…"});
+          const solution = await Optimal2x2Solver.solve(request.state);
+          self.postMessage({id: request.id, ok: true, solution});
+        } catch (error) {
+          self.postMessage({
+            id: request.id,
+            ok: false,
+            error: error instanceof Error ? error.message : "The optimal 2×2 solver stopped unexpectedly.",
+          });
+        }
+      })();
       return;
     }
     if (request.type !== "solveTutorial") return;

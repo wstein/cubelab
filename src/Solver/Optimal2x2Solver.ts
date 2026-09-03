@@ -16,13 +16,19 @@ const actions = moveTokens.map((token) => {
   return parsed._0;
 });
 
+let preparedTables: Optimal2x2Tables | undefined;
 let tablesPromise: Promise<Optimal2x2Tables> | undefined;
 
+export const hasPreparedTables = (): boolean => preparedTables !== undefined;
+
 export const prepareTables = (): Promise<Optimal2x2Tables> => {
+  if (preparedTables !== undefined) return Promise.resolve(preparedTables);
   tablesPromise ??= fetch(OPTIMAL_2X2_TABLE_URL)
     .then(async (response) => {
       if (!response.ok) throw new Error("The optimal 2×2 solver table could not be downloaded.");
-      return decodeOptimal2x2Tables(await response.arrayBuffer());
+      const tables = decodeOptimal2x2Tables(await response.arrayBuffer());
+      preparedTables = tables;
+      return tables;
     })
     .catch((error: unknown) => {
       tablesPromise = undefined;
