@@ -223,6 +223,13 @@ test("the web UI exposes pure algorithm transforms and a clearly labeled practic
   assert.match(client, /if \(smartCubeSyncMode === "VirtualController"\) return/);
 });
 
+test("the Setup parser recognizes explicit SSE cubie-state cycles apart from algorithms", () => {
+  assert.match(client, /looksLikeSseState/);
+  assert.match(client, /parseSseState/);
+  assert.match(client, /marked-centre orientation omitted/);
+  assert.match(page, /SSE cubie cycles/);
+});
+
 test("controller-mode turns advance an active coached tape in the viewport frame", () => {
   assert.match(client, /const projectedMove = controllerMoveInViewportFrame/);
   assert.match(client, /await applyWaitingTimelineMove\(projectedMove, false\)/);

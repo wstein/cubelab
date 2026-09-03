@@ -16,6 +16,7 @@ import {mountTimerWorkspace} from "./timer/workspace";
 import {defaultPreferences, hasVerifiedTnoodle, readPreferences, writePreferences} from "./preferences";
 import {TnoodleClient} from "./scramble/tnoodle-client";
 import {createAcademyRequestGuard} from "./academy-request";
+import {looksLikeSseState, parseSseState} from "./sse-state";
 import {
   drillCaseById,
   drillCasesForFamily,
@@ -694,6 +695,14 @@ if (root) {
       return pieces.TAG === "Ok"
         ? {TAG: "Ok", _0: {state: pieces._0, label: "Cubie coordinates"}}
         : {TAG: "Error", _0: PieceReducer.describeError(pieces._0)};
+    }
+    if (size === 3 && looksLikeSseState(compact)) {
+      const sse = parseSseState(compact);
+      if (sse.TAG === "Error") return sse;
+      const suffix = sse._0.ignoredCentreOrientations.length === 0
+        ? ""
+        : " · marked-centre orientation omitted";
+      return {TAG: "Ok", _0: {state: sse._0.state, label: `SSE cubie state${suffix}`}};
     }
     if (size === 3 && /^[A-Za-z0-9_-]{12}$/.test(compact)) {
       const orbit = Orbit64Codec.decodeState(compact) as Result<CubeState, unknown>;

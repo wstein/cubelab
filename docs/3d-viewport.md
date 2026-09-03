@@ -87,7 +87,7 @@ one `requestAnimationFrame`, so text cards and the viewport update from the same
 parse result during the next browser paint.
 
 The input badge reports the successful branch of the deterministic parser cascade:
-algorithm, Orbit64, cubie coordinates, compact facelets, compact colours, facelet
+algorithm, Orbit64, cubie coordinates, SSE cubie-state cycles, compact facelets, compact colours, facelet
 net, or colour net. Invalid input leaves the last valid 3D state visible and marks
 the input status as invalid.
 

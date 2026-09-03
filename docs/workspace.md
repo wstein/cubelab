@@ -50,7 +50,8 @@ remains a random-turn practice sequence and is not labeled as an official WCA sc
 ## Setup and moves
 
 The editor separates **Setup (state)** from optional **Moves**. Setup accepts compact
-facelets, compact colours, canonical nets, cubie coordinates, 3×3 Orbit64, or an algorithm.
+facelets, compact colours, canonical nets, cubie coordinates, 3×3 Orbit64, SSE 3×3
+cubie-state cycles, or an algorithm.
 Moves are parsed with the selected notation dialect and replayed from whatever Setup
 resolves to. This includes Setup algorithms: CubeLab first evaluates the Setup algorithm to
 its state, then places that state at tape position zero and replays only Moves. Thus the
