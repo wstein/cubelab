@@ -28,24 +28,31 @@ const solve = (method: TutorialMethod, state: unknown): ReScriptResult => {
   }
 };
 
-let cancelledTwoPhaseRequest: number | null = null;
+const cancelledTwoPhaseRequests = new Set<number>();
 
 self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
   const request = event.data;
   try {
     if (request.type === "cancelTwoPhase") {
-      cancelledTwoPhaseRequest = request.id;
+      cancelledTwoPhaseRequests.add(request.id);
       return;
     }
     if (request.type === "solveTwoPhase") {
+      cancelledTwoPhaseRequests.delete(request.id);
       self.postMessage({id: request.id, type: "twoPhaseProgress", stage: "Preparing transition and pruning tables…"});
       TwoPhaseSolver.prepareTables();
       let bound = 24;
       let incumbent: unknown | null = null;
       const searchNextBound = () => {
-        if (cancelledTwoPhaseRequest === request.id || bound < 0) {
+        if (cancelledTwoPhaseRequests.has(request.id)) {
           self.postMessage(incumbent === null
             ? {id: request.id, ok: false, error: "The two-phase solver was cancelled before finding a solution."}
+            : {id: request.id, ok: true, solution: incumbent});
+          return;
+        }
+        if (bound < 0) {
+          self.postMessage(incumbent === null
+            ? {id: request.id, ok: false, error: "No two-phase solution was found within 24 HTM."}
             : {id: request.id, ok: true, solution: incumbent});
           return;
         }
@@ -55,8 +62,11 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
           incumbent = result._0;
           self.postMessage({id: request.id, type: "twoPhaseCandidate", solution: incumbent});
           bound = result._0.moveCount - 1;
-        } else {
+        } else if ((result._0 as {TAG?: string}).TAG === "SearchFailed") {
           bound -= 1;
+        } else {
+          self.postMessage({id: request.id, ok: false, error: TwoPhaseSolver.describeError(result._0)});
+          return;
         }
         setTimeout(searchNextBound, 0);
       };

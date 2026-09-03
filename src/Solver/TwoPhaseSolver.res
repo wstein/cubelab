@@ -83,6 +83,35 @@ type solverError =
   | InvalidState(PieceReducer.pieceError)
   | InvalidCoordinate(string)
   | SearchFailed
+  | VerificationFailed
+
+let describeError = error =>
+  switch error {
+  | UnsupportedSize(size) => {
+      let label = size->Int.toString
+      `The two-phase solver supports only 3×3 cubes, not ${label}×${label}×${label}.`
+    }
+  | InvalidState(error) => PieceReducer.describeError(error)
+  | InvalidCoordinate(message) => message
+  | SearchFailed => "No two-phase solution was found within the selected depth."
+  | VerificationFailed => "The generated two-phase solution failed exact facelet replay verification."
+  }
+
+let statesEqual = (left: cubeState, right: cubeState) =>
+  left.size == right.size &&
+    left.facelets->Array.everyWithIndex((facelets, faceIndex) => {
+      let other = Belt.Array.getUnsafe(right.facelets, faceIndex)
+      facelets->Array.everyWithIndex((facelet, index) =>
+        facelet == Belt.Array.getUnsafe(other, index)
+      )
+    })
+
+let verifiedSolution = (input: cubeState, alg: alg) =>
+  switch (MoveExecutor.applyAlg(input, alg), StateTypes.solved(3)) {
+  | (Ok(output), Ok(solved)) if statesEqual(output, solved) =>
+    Ok({alg, moveCount: alg->Array.length})
+  | _ => Error(VerificationFailed)
+  }
 
 let isIdentity = permutation => permutation->Array.everyWithIndex((piece, slot) => piece == slot)
 
@@ -849,14 +878,11 @@ let solveAtDepth = (state: cubeState, totalDepth): result<solution, solverError>
     | (_, Error(error)) => Error(error)
     | (Ok(pieces), Ok(coordinates)) =>
       if solvedPieces(pieces) {
-        Ok({alg: [], moveCount: 0})
+        verifiedSolution(state, [])
       } else {
         switch totalDepthSearch(state, coordinates, totalDepth) {
         | None => Error(SearchFailed)
-        | Some(moves) => {
-            let alg = algorithmForMoves(moves)
-            Ok({alg, moveCount: alg->Array.length})
-          }
+        | Some(moves) => verifiedSolution(state, algorithmForMoves(moves))
         }
       }
     }
@@ -877,17 +903,14 @@ let solve = (state: cubeState): result<solution, solverError> =>
     | Error(error) => Error(InvalidState(error))
     | Ok(pieces) =>
       if solvedPieces(pieces) {
-        Ok({alg: [], moveCount: 0})
+        verifiedSolution(state, [])
       } else {
         switch phase1Coordinates(state) {
         | Error(error) => Error(error)
         | Ok(coordinates) =>
           switch totalDepthSearch(state, coordinates, 24) {
           | None => Error(SearchFailed)
-          | Some(moves) => {
-              let alg = algorithmForMoves(moves)
-              Ok({alg, moveCount: alg->Array.length})
-            }
+          | Some(moves) => verifiedSolution(state, algorithmForMoves(moves))
           }
         }
       }

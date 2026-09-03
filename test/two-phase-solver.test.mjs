@@ -38,6 +38,12 @@ test("two-phase solver replay-verifies a one-turn solution", () => {
   assert.deepEqual(replay._0, StateTypes.solved(3)._0);
 });
 
+test("two-phase solver describes invalid inputs instead of masking them", () => {
+  const result = TwoPhaseSolver.solve(StateTypes.solved(2)._0);
+  assert.equal(result.TAG, "Error");
+  assert.match(TwoPhaseSolver.describeError(result._0), /only 3×3 cubes/);
+});
+
 test("two-phase IDA* solves beyond the former shallow search limit", () => {
   const scrambled = apply("R U F L D B R");
   const result = TwoPhaseSolver.solve(scrambled);

@@ -64,6 +64,8 @@ test("the converter exposes full two-phase solutions through a dedicated worker 
   assert.match(solverWorker, /type: "solveTwoPhase"/);
   assert.match(solverWorker, /twoPhaseProgress/);
   assert.match(solverWorker, /TwoPhaseSolver\.solveAtDepth\(request\.state, bound\)/);
+  assert.match(solverWorker, /TwoPhaseSolver\.describeError\(result\._0\)/);
+  assert.match(solverWorker, /cancelledTwoPhaseRequests = new Set<number>/);
   assert.match(solverWorker, /twoPhaseCandidate/);
   assert.match(client, /twoPhaseSolverClient\.cancel\(\)/);
   assert.match(client, /Best so far:/);

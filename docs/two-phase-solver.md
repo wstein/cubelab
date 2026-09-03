@@ -27,9 +27,10 @@ pieces for every table cell.
 
 `solve` runs iterative-deepening A* in two stages. Phase one uses the maximum
 of its slice×twist and slice×flip distances; phase two uses the maximum of its
-corner×slice and edge×slice distances. Both bounds are admissible. The returned
-algorithm is replay-verified by the caller-facing test suite, but it is not an
-HTM-optimal solution. It explores phase-one candidates against a shared total
+corner×slice and edge×slice distances. Both bounds are admissible. Every
+successful solver result is replay-verified against the solved facelets at the
+solver boundary before it is returned, but it is not an HTM-optimal solution.
+It explores phase-one candidates against a shared total
 depth budget and returns only solutions of at most 24 HTM. If no candidate fits
 that limit, the solver reports `SearchFailed` rather than returning a longer
 algorithm.
