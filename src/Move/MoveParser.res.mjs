@@ -72,6 +72,14 @@ function skipTrivia(parser) {
         case "\n" :
           exit = 1;
           break;
+        case "·" :
+          if (parser.notationDialect === "Sse") {
+            consumed = true;
+            parser.cursor = parser.cursor + 1 | 0;
+          } else {
+            continuing = false;
+          }
+          break;
         default:
           continuing = false;
       }

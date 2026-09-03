@@ -44,6 +44,12 @@ let skipTrivia = parser => {
         consumed := true
         parser.cursor = parser.cursor + 1
       }
+    | Some("·") if parser.notationDialect == Sse => {
+        // SSE uses a middle dot as a visual sequence delimiter. Unlike CubeLab's
+        // whitespace-delimited `.` pause leaf, it has no playback timing meaning.
+        consumed := true
+        parser.cursor = parser.cursor + 1
+      }
     | Some("/") if parser.input->String.startsWithFrom("//", parser.cursor) => {
         consumed := true
         while parser.cursor < parser.input->String.length && peek(parser) != Some("\n") {

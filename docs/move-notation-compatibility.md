@@ -32,8 +32,8 @@ recognizes the experimental caret-NISS leaf `^(...)`, leaving ordinary parenthes
 normal grouping. **SSE 3×3 (Superset ENG)** maps Randelshofer's 3×3-only `T`, `M`,
 `S`, and `C` prefixed turns to Cube Rosetta's standard wide, slice, paired-face, and
 rotation moves. SSE also permits compact adjacent move sequences such as `CD2MR2MD`;
-the other dialects retain their whitespace requirement. Neither dialect is inferred from
-pasted input.
+its `·` visual separator is accepted as whitespace. The other dialects retain their
+whitespace requirement. Neither dialect is inferred from pasted input.
 
 ## In-app compatibility profiles
 

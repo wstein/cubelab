@@ -162,6 +162,8 @@ test("accepts SSE's compact adjacent move sequences without relaxing other diale
   const spaced = parseWithOptions(3, "Wide", "Sse", "CD2 MR2 MD MR2 MD'");
   const compact = parseWithOptions(3, "Wide", "Sse", "CD2MR2MDMR2MD'");
   assert.equal(MoveTransform.serialize(compact), MoveTransform.serialize(spaced));
+  const dotted = parseWithOptions(3, "Wide", "Sse", "U2 D2 · R L · B2 D2 · F2 B2 · U2 F2 · R' L'");
+  assert.equal(MoveTransform.serialize(dotted), "U2 D2 R L B2 D2 F2 B2 U2 F2 R' L'");
   rejects(3, "RUR", /separated by whitespace/);
 });
 
