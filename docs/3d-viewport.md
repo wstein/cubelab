@@ -27,7 +27,7 @@ The three styles are intentionally different physical models:
   smoothly-normaled roll bands per exposed face. The band reaches the full piece
   boundary, so adjacent coloured faces meet without disconnected corner fans or
   punctures. A per-vertex sheen value gives the rolled plastic a satin highlight.
-- **Ice** uses a near-clear cyan glass shell and translucent double-sided stickers,
+- **Ice** uses a near-clear cyan glass shell and lightly translucent double-sided stickers,
   deliberately allowing far-face colours to show through. It is decorative rather than a
   training default: Standard remains clearer for sticker reading, turn guides, and
   accessibility.

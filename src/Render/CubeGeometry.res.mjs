@@ -22,7 +22,7 @@ function translucentSticker(colour) {
     r: colour.r,
     g: colour.g,
     b: colour.b,
-    a: 0.74
+    a: 0.86
   };
 }
 

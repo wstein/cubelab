@@ -44,7 +44,8 @@ let stride = 14
 let halfExtent = 1.5
 let body = {r: 0.13, g: 0.14, b: 0.17, a: 1.0}
 let iceBody = {r: 0.86, g: 0.97, b: 1.0, a: 0.16}
-let translucentSticker = colour => {r: colour.r, g: colour.g, b: colour.b, a: 0.74}
+// Keep the local face easy to read while still letting the far face tint show through.
+let translucentSticker = colour => {r: colour.r, g: colour.g, b: colour.b, a: 0.86}
 
 let vec = (x, y, z) => {x, y, z}
 let add = (a, b) => vec(a.x +. b.x, a.y +. b.y, a.z +. b.z)

@@ -37,6 +37,7 @@ test("ice separates translucent stickers from its near-clear shell", () => {
   assert.ok(shellAlpha.every((alpha) => alpha > 0 && alpha < 1));
   const stickerAlpha = ice.data.slice(0, transparentOffset).filter((_, index) => index % ice.stride === 9);
   assert.ok(stickerAlpha.every((alpha) => alpha > 0 && alpha < 1));
+  assert.ok(stickerAlpha.every((alpha) => alpha === 0.86));
 });
 
 test("speed geometry has rolled edges while Standard has lifted stickers", () => {
