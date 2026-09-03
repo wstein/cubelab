@@ -149,6 +149,13 @@ describe("application state store", () => {
 
     // A clean route takes precedence over a conflicting legacy hash tab.
     expect(readLocation({pathname: "/timer", hash: "#tab=academy"}).activeTab).toBe("timer");
+
+    // The root path is not itself a clean route selection — tabForPath("/")
+    // answers "converter" only so hashForPath can omit a redundant tab=
+    // param, not to say a bare "/" link has explicitly chosen Converter. A
+    // legacy root link's #tab= must still be honoured.
+    expect(readLocation({pathname: "/", hash: "#tab=academy"}).activeTab).toBe("academy");
+    expect(readLocation({pathname: "", hash: "#tab=workbench"}).activeTab).toBe("workbench");
   });
 
   test("keeps route-selected tabs out of otherwise shareable hashes", () => {

@@ -205,9 +205,14 @@ export const pathForTab = (tab: ActiveTab): string => {
 export const readLocation = (location: {pathname?: string; hash?: string; search?: string}): AppState => {
   const hash = location.hash ?? "";
   const state = readHash(hash);
-  const pathTab = location.pathname ? tabForPath(location.pathname) : null;
+  const clean = (location.pathname ?? "").replace(/\/+$/, "");
   // A clean route is the explicit workspace selection. Legacy root links still
-  // use #tab, but a conflicting hash cannot make /timer render Academy.
+  // use #tab, but a conflicting hash cannot make /timer render Academy. The
+  // root path itself is not a "clean route" for this purpose: tabForPath("/")
+  // resolves it to "converter" so hashForPath can omit a redundant tab=
+  // param, but that same answer would wrongly override every #tab= on a bare
+  // "/" link, which is exactly the legacy form this comment says to honour.
+  const pathTab = clean === "" || clean === "/" ? null : tabForPath(clean);
   if (pathTab !== null) {
     return {...state, activeTab: pathTab};
   }
