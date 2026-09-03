@@ -113,7 +113,7 @@ function parseSuffix(parser, allowZero) {
   let suffixStart = parser.cursor;
   let value = parsePositiveInt(parser);
   if (value === undefined) {
-    if (Primitive_object.equal(peek(parser), "'")) {
+    if (Primitive_object.equal(peek(parser), "'") || parser.notationDialect === "Sse" && Primitive_object.equal(peek(parser), "-")) {
       parser.cursor = parser.cursor + 1 | 0;
       return -1;
     } else {
@@ -179,30 +179,42 @@ function parseCompositeSuffix(parser, allowZero) {
   let spaces = skipSpaces(parser);
   let character = peek(parser);
   if (character !== undefined) {
-    if (spaces > 0 && isDigit(character) && isPrefixedMoveAhead(parser)) {
-      parser.cursor = whitespaceStart;
-      return 1;
+    let exit = 0;
+    if (character === "^") {
+      if ((parser.notationDialect === "Fmc" || parser.notationDialect === "Twizzle") && parser.input.startsWith("^(", parser.cursor)) {
+        parser.cursor = whitespaceStart;
+        return 1;
+      }
+      exit = 2;
+    } else {
+      exit = 2;
     }
-    if (isDigit(character) || character === "'") {
-      return parseSuffix(parser, allowZero);
-    }
-    switch (character) {
-      case "*" :
-      case "^" :
-        break;
-      case "x" :
-        parser.cursor = parser.cursor + 1 | 0;
-        let spaces$1 = skipSpaces(parser);
-        let character$1 = peek(parser);
-        if (character$1 !== undefined && spaces$1 > 0 && isDigit(character$1)) {
-          return parseSuffix(parser, allowZero);
-        } else {
+    if (exit === 2) {
+      if (spaces > 0 && isDigit(character) && isPrefixedMoveAhead(parser)) {
+        parser.cursor = whitespaceStart;
+        return 1;
+      }
+      if (isDigit(character) || character === "'") {
+        return parseSuffix(parser, allowZero);
+      }
+      switch (character) {
+        case "*" :
+        case "^" :
+          break;
+        case "x" :
+          parser.cursor = parser.cursor + 1 | 0;
+          let spaces$1 = skipSpaces(parser);
+          let character$1 = peek(parser);
+          if (character$1 !== undefined && spaces$1 > 0 && isDigit(character$1)) {
+            return parseSuffix(parser, allowZero);
+          } else {
+            parser.cursor = whitespaceStart;
+            return parseSuffix(parser, allowZero);
+          }
+        default:
           parser.cursor = whitespaceStart;
           return parseSuffix(parser, allowZero);
-        }
-      default:
-        parser.cursor = whitespaceStart;
-        return parseSuffix(parser, allowZero);
+      }
     }
     parser.cursor = parser.cursor + 1 | 0;
     skipSpaces(parser);
@@ -531,6 +543,213 @@ function startsBlockComment(parser) {
   return parser.input.startsWith("/*", parser.cursor);
 }
 
+function startsTwizzleNissGroup(parser) {
+  if (parser.notationDialect === "Fmc" || parser.notationDialect === "Twizzle") {
+    return parser.input.startsWith("^(", parser.cursor);
+  } else {
+    return false;
+  }
+}
+
+function faceForSse(parser, start) {
+  let face = Stdlib_Option.flatMap(consume(parser), faceFromCharacter);
+  if (face !== undefined) {
+    return face;
+  } else {
+    return fail(parser, "An SSE prefix must be followed by U, L, F, R, B, or D.", start, undefined);
+  }
+}
+
+function sseMidMove(face) {
+  switch (face) {
+    case "U" :
+      return [
+        "E",
+        -1
+      ];
+    case "L" :
+      return [
+        "M",
+        1
+      ];
+    case "F" :
+      return [
+        "S",
+        1
+      ];
+    case "R" :
+      return [
+        "M",
+        -1
+      ];
+    case "B" :
+      return [
+        "S",
+        -1
+      ];
+    case "D" :
+      return [
+        "E",
+        1
+      ];
+  }
+}
+
+function oppositeFace(face) {
+  switch (face) {
+    case "U" :
+      return "D";
+    case "L" :
+      return "R";
+    case "F" :
+      return "B";
+    case "R" :
+      return "L";
+    case "B" :
+      return "F";
+    case "D" :
+      return "U";
+  }
+}
+
+function sseRotation(face) {
+  switch (face) {
+    case "U" :
+      return [
+        "Y",
+        1
+      ];
+    case "L" :
+      return [
+        "X",
+        -1
+      ];
+    case "F" :
+      return [
+        "Z",
+        1
+      ];
+    case "R" :
+      return [
+        "X",
+        1
+      ];
+    case "B" :
+      return [
+        "Z",
+        -1
+      ];
+    case "D" :
+      return [
+        "Y",
+        -1
+      ];
+  }
+}
+
+function parseSseUnit(parser) {
+  let start = parser.cursor;
+  let prefix = Stdlib_Option.getOrThrow(consume(parser), undefined);
+  if (parser.size !== 3) {
+    fail(parser, "SSE 3×3 notation is available only for 3×3×3.", start, undefined);
+  }
+  let face = faceForSse(parser, start);
+  let turns = parseSuffix(parser, true);
+  let desc;
+  switch (prefix) {
+    case "C" :
+      let match = sseRotation(face);
+      desc = {
+        TAG: "Move",
+        _0: {
+          TAG: "Rotation",
+          _0: match[0]
+        },
+        _1: turns * match[1] | 0
+      };
+      break;
+    case "M" :
+      let match$1 = sseMidMove(face);
+      desc = {
+        TAG: "Move",
+        _0: {
+          TAG: "SliceTurn",
+          _0: match$1[0]
+        },
+        _1: turns * match$1[1] | 0
+      };
+      break;
+    case "S" :
+      let opposite = oppositeFace(face);
+      desc = {
+        TAG: "Group",
+        _0: [
+          {
+            desc: {
+              TAG: "Move",
+              _0: {
+                TAG: "FaceTurn",
+                _0: face,
+                _1: {
+                  from_: 1,
+                  to_: 1
+                }
+              },
+              _1: turns
+            },
+            loc: {
+              start: start,
+              end_: parser.cursor
+            }
+          },
+          {
+            desc: {
+              TAG: "Move",
+              _0: {
+                TAG: "FaceTurn",
+                _0: opposite,
+                _1: {
+                  from_: 1,
+                  to_: 1
+                }
+              },
+              _1: -turns | 0
+            },
+            loc: {
+              start: start,
+              end_: parser.cursor
+            }
+          }
+        ],
+        _1: 1
+      };
+      break;
+    case "T" :
+      desc = {
+        TAG: "Move",
+        _0: {
+          TAG: "FaceTurn",
+          _0: face,
+          _1: {
+            from_: 1,
+            to_: 2
+          }
+        },
+        _1: turns
+      };
+      break;
+    default:
+      desc = fail(parser, "Unknown SSE prefix.", start, undefined);
+  }
+  return {
+    desc: desc,
+    loc: {
+      start: start,
+      end_: parser.cursor
+    }
+  };
+}
+
 function parseBlockComment(parser) {
   let start = parser.cursor;
   parser.cursor = parser.cursor + 2 | 0;
@@ -636,7 +855,7 @@ function parseSequence(parser, stops) {
         exit = 1;
       }
       if (exit === 1) {
-        let nextDelimited = startsBlockComment(parser) || Stdlib_Option.mapOr(peek(parser), false, isOpeningDelimiter);
+        let nextDelimited = startsBlockComment(parser) || startsTwizzleNissGroup(parser) || Stdlib_Option.mapOr(peek(parser), false, isOpeningDelimiter);
         if (!first && !separated && !previousDelimited && !nextDelimited) {
           fail(parser, "Moves in a sequence must be separated by whitespace.", undefined, undefined);
         }
@@ -737,6 +956,7 @@ function parseUnit(parser) {
   if (match === undefined) {
     return fail(parser, "Expected an algorithm unit.", start, undefined);
   }
+  let exit = 0;
   switch (match) {
     case "(" :
       return parseNested(parser, start, ")", (body, repeat) => ({
@@ -762,6 +982,12 @@ function parseUnit(parser) {
       }
     case "@" :
       return parseTimedPause(parser);
+    case "C" :
+    case "M" :
+    case "S" :
+    case "T" :
+      exit = 2;
+      break;
     case "[" :
       let unit$1 = tryInformalRotation(parser, "[", "]");
       if (unit$1 !== undefined) {
@@ -769,6 +995,16 @@ function parseUnit(parser) {
       } else {
         return parseBracket(parser, start);
       }
+    case "^" :
+      if (startsTwizzleNissGroup(parser)) {
+        parser.cursor = parser.cursor + 1 | 0;
+        return parseNested(parser, start, ")", (body, repeat) => ({
+          TAG: "Group",
+          _0: body,
+          _1: repeat
+        }));
+      }
+      break;
     case "{" :
       let unit$2 = tryInformalRotation(parser, "{", "}");
       if (unit$2 !== undefined) {
@@ -776,21 +1012,23 @@ function parseUnit(parser) {
       } else {
         return fail(parser, "Only a single informal rotation is allowed in braces.", start, undefined);
       }
-    default:
-      let move = parseBaseMove(parser);
-      let turns = parseSuffix(parser, true);
-      return {
-        desc: {
-          TAG: "Move",
-          _0: move,
-          _1: turns
-        },
-        loc: {
-          start: start,
-          end_: parser.cursor
-        }
-      };
   }
+  if (exit === 2 && parser.notationDialect === "Sse") {
+    return parseSseUnit(parser);
+  }
+  let move = parseBaseMove(parser);
+  let turns = parseSuffix(parser, true);
+  return {
+    desc: {
+      TAG: "Move",
+      _0: move,
+      _1: turns
+    },
+    loc: {
+      start: start,
+      end_: parser.cursor
+    }
+  };
 }
 
 function parseWithOptions(size, lowercaseMode, notationDialect, input) {
@@ -824,7 +1062,7 @@ function parseWithOptions(size, lowercaseMode, notationDialect, input) {
     if (parser.cursor !== parser.input.length) {
       fail(parser, "Unexpected trailing input.", undefined, undefined);
     }
-    if (notationDialect !== "Fmc") {
+    if (notationDialect !== "Fmc" && notationDialect !== "Twizzle") {
       return {
         TAG: "Ok",
         _0: units
@@ -838,7 +1076,7 @@ function parseWithOptions(size, lowercaseMode, notationDialect, input) {
     };
     units.forEach(unit => {
       let match = unit.desc;
-      if (typeof match === "object" && match.TAG === "Group") {
+      if (typeof match === "object" && match.TAG === "Group" && (notationDialect === "Fmc" || input.startsWith("^(", unit.loc.start))) {
         inverse.contents = inverse.contents.concat([unit]);
         return;
       }
@@ -946,6 +1184,12 @@ export {
   tryInformalRotation,
   isOpeningDelimiter,
   startsBlockComment,
+  startsTwizzleNissGroup,
+  faceForSse,
+  sseMidMove,
+  oppositeFace,
+  sseRotation,
+  parseSseUnit,
   parseBlockComment,
   parseTimedPause,
   isTrailingSentencePeriod,

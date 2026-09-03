@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import {test} from "vitest";
 
 import * as MoveNormalizer from "../src/Move/MoveNormalizer.res.mjs";
+import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
 import * as MoveParser from "../src/Move/MoveParser.res.mjs";
+import * as MoveTransform from "../src/Move/MoveTransform.res.mjs";
+import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
+import * as StateTypes from "../src/State/StateTypes.res.mjs";
 
 const parse = (size, input) => {
   const result = MoveParser.parse(size, input);
@@ -137,6 +141,21 @@ test("keeps parenthesized r as a wide-move group and accepts bracket rotations",
     assert.equal(unit.desc.TAG, "Move");
     assert.equal(unit.desc._0.TAG, "Rotation");
   }
+});
+
+test("maps SSE 3×3 tier, mid-layer, slice, and cube turns to equivalent CubeLab moves", () => {
+  const sse = parseWithOptions(3, "Wide", "Sse", "TR MR MU MF SR SU SF CR CU CF R-");
+  const modern = parse(3, "Rw M' E' S R L' U D' F B' x y z R'");
+  const sseState = MoveExecutor.applyAlg(StateTypes.solved(3)._0, sse);
+  const modernState = MoveExecutor.applyAlg(StateTypes.solved(3)._0, modern);
+  assert.equal(sseState.TAG, "Ok");
+  assert.equal(modernState.TAG, "Ok");
+  assert.equal(FaceletCodec.render(sseState._0), FaceletCodec.render(modernState._0));
+  assert.equal(MoveTransform.serialize(sse), "Rw M' E' S (R L') (U D') (F B') x y z R'");
+
+  const wrongSize = MoveParser.parseWithOptions(4, "Wide", "Sse", "TR");
+  assert.equal(wrongSize.TAG, "Error");
+  assert.match(wrongSize._0.message, /only for 3×3×3/);
 });
 
 test("comments and timing annotations separate units without changing spans", () => {

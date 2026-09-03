@@ -63,8 +63,16 @@ let hasPostFaceDigit = source => {
   found.contents
 }
 
-let hasExplicitMultiplier = input => {
-  let found = ref(input->String.includes("*") || input->String.includes("^"))
+let hasExplicitMultiplier = (input, notationDialect) => {
+  let found = ref(input->String.includes("*"))
+  for index in 0 to input->String.length - 1 {
+    if input->String.get(index)->Option.map(String.make) == Some("^") {
+      let isTwizzleNiss = notationDialect == Twizzle && input->String.startsWithFrom("^(", index)
+      if !isTwizzleNiss {
+        found := true
+      }
+    }
+  }
   for index in 0 to input->String.length - 2 {
     if input->String.get(index)->Option.map(String.make) == Some("x") {
       let cursor = ref(index + 1)
@@ -242,7 +250,7 @@ let evaluate = (
     addReason(speedsolvingReasons, "Block comments are outside the documented Wiki subset.")
     addReason(ruwixReasons, "Ruwix Advanced does not document block comments.")
   }
-  if hasExplicitMultiplier(input) {
+  if hasExplicitMultiplier(input, notationDialect) {
     addReason(wcaReasons, "Explicit multiplier symbols are outside Article 12 move tokens.")
     addReason(signReasons, "SiGN/LGN uses a direct numeric repetition suffix.")
     addReason(cubingReasons, "cubing.js uses a direct numeric repetition suffix.")
@@ -285,6 +293,14 @@ let evaluate = (
     )
     addReason(speedsolvingReasons, "Pause punctuation is outside the documented Wiki subset.")
     addReason(ruwixReasons, "Ruwix Advanced does not document pause punctuation.")
+  }
+
+  if notationDialect == Sse {
+    addReason(wcaReasons, "SSE layer prefixes must be rewritten as WCA move tokens.")
+    addReason(signReasons, "SSE T/M/S/C prefixes are not SiGN/LGN source notation.")
+    addReason(cubingReasons, "SSE T/M/S/C prefixes are not cubing.js source notation.")
+    addReason(speedsolvingReasons, "SSE layer prefixes are outside the documented Wiki subset.")
+    addReason(ruwixReasons, "SSE T/M/S/C prefixes are not Ruwix Advanced source notation.")
   }
 
   {

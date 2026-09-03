@@ -25,7 +25,9 @@ retain their mathematical meaning.
 The Workbench also uses an opt-in `Fmc` parser dialect for compact NISS entry: top-level
 parentheses denote inverse-side work. For example, `B' U2 (F R' D) L` recombines as
 `B' U2 L · (F R' D)⁻¹`. Modern and Ruwix parsing retain their normal parenthesized-group
-semantics.
+semantics. Select **Twizzle / cubing.js** in Settings to use its experimental,
+unambiguous caret spelling instead: `B' U2 ^(F R' D) L`. In that dialect ordinary
+parentheses remain grouping, while only `^(...)` is inverse-side work.
 
 ## Scope and limits
 

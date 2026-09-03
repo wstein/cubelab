@@ -805,7 +805,7 @@ if (root) {
 
   const updateDialectUi = () => {
     const controls = root.querySelector<HTMLElement>("[data-notation-controls]")!;
-    controls.hidden = size < 4;
+    controls.hidden = size < 4 || (notationDialect !== "Modern" && notationDialect !== "Ruwix");
     root.querySelectorAll<HTMLButtonElement>("[data-notation-dialect]").forEach((button) => {
       const active = button.dataset.notationDialect === notationDialect;
       button.classList.toggle("active", active);

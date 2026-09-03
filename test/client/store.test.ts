@@ -57,6 +57,12 @@ describe("application state store", () => {
     expect(parsed.activeTab).toBe("converter");
   });
 
+  test("round-trips explicit Twizzle and SSE notation dialects", () => {
+    expect(readHash("#dialect=Twizzle").notationDialect).toBe("Twizzle");
+    expect(readHash("#dialect=Sse").notationDialect).toBe("Sse");
+    expect(writeHash({...defaultAppState, notationDialect: "Twizzle"})).toContain("dialect=Twizzle");
+  });
+
   test("accepts only known workspace tabs", () => {
     expect(readHash("#tab=academy&method=beginner")).toMatchObject({
       activeTab: "academy",

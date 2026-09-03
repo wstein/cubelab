@@ -67,15 +67,23 @@ function hasPostFaceDigit(source) {
   return found;
 }
 
-function hasExplicitMultiplier(input) {
-  let found = input.includes("*") || input.includes("^");
-  for (let index = 0, index_finish = input.length - 2 | 0; index <= index_finish; ++index) {
-    if (Primitive_object.equal(Stdlib_Option.map(input[index], prim => String(prim)), "x")) {
-      let cursor = index + 1 | 0;
+function hasExplicitMultiplier(input, notationDialect) {
+  let found = input.includes("*");
+  for (let index = 0, index_finish = input.length; index < index_finish; ++index) {
+    if (Primitive_object.equal(Stdlib_Option.map(input[index], prim => String(prim)), "^")) {
+      let isTwizzleNiss = notationDialect === "Twizzle" && input.startsWith("^(", index);
+      if (!isTwizzleNiss) {
+        found = true;
+      }
+    }
+  }
+  for (let index$1 = 0, index_finish$1 = input.length - 2 | 0; index$1 <= index_finish$1; ++index$1) {
+    if (Primitive_object.equal(Stdlib_Option.map(input[index$1], prim => String(prim)), "x")) {
+      let cursor = index$1 + 1 | 0;
       while (cursor < input.length && Primitive_object.equal(Stdlib_Option.map(input[cursor], prim => String(prim)), " ")) {
         cursor = cursor + 1 | 0;
       };
-      if (cursor > (index + 1 | 0) && cursor < input.length) {
+      if (cursor > (index$1 + 1 | 0) && cursor < input.length) {
         let character = Stdlib_Option.map(input[cursor], prim => String(prim));
         if (character !== undefined && character >= "0" && character <= "9") {
           found = true;
@@ -231,7 +239,7 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
     addReason(speedsolvingReasons, "Block comments are outside the documented Wiki subset.");
     addReason(ruwixReasons, "Ruwix Advanced does not document block comments.");
   }
-  if (hasExplicitMultiplier(input)) {
+  if (hasExplicitMultiplier(input, notationDialect)) {
     addReason(wcaReasons, "Explicit multiplier symbols are outside Article 12 move tokens.");
     addReason(signReasons, "SiGN/LGN uses a direct numeric repetition suffix.");
     addReason(cubingReasons, "cubing.js uses a direct numeric repetition suffix.");
@@ -265,6 +273,13 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
     addReason(cubingReasons, "cubing.js requires whitespace around a pause; this period is sentence punctuation.");
     addReason(speedsolvingReasons, "Pause punctuation is outside the documented Wiki subset.");
     addReason(ruwixReasons, "Ruwix Advanced does not document pause punctuation.");
+  }
+  if (notationDialect === "Sse") {
+    addReason(wcaReasons, "SSE layer prefixes must be rewritten as WCA move tokens.");
+    addReason(signReasons, "SSE T/M/S/C prefixes are not SiGN/LGN source notation.");
+    addReason(cubingReasons, "SSE T/M/S/C prefixes are not cubing.js source notation.");
+    addReason(speedsolvingReasons, "SSE layer prefixes are outside the documented Wiki subset.");
+    addReason(ruwixReasons, "SSE T/M/S/C prefixes are not Ruwix Advanced source notation.");
   }
   return {
     wca: assessment(wcaReasons),

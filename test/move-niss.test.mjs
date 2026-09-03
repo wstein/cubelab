@@ -48,6 +48,18 @@ test("default notation preserves parenthesized trigger grouping", () => {
   assert.equal(MoveTransform.serialize(parse("(R U R' U')2")), "(R U R' U')2");
 });
 
+test("Twizzle's experimental caret NISS keeps normal groups and recombines inverse-side work", () => {
+  const result = MoveParser.parseWithOptions(3, "Wide", "Twizzle", "B' (U R) ^(F R' D) L");
+  assert.equal(result.TAG, "Ok", result.TAG === "Error" ? result._0.message : "");
+  assert.equal(MoveTransform.serialize(result._0), "B' (U R) L (F R' D)'");
+  assert.equal(compact(MoveTransform.serialize(result._0)), compact("B' U R L D' R F'"));
+});
+
+test("caret NISS remains opt-in", () => {
+  const result = MoveParser.parse(3, "^(R U)");
+  assert.equal(result.TAG, "Error");
+});
+
 test("rejects a recombination that does not solve the scramble", () => {
   const result = MoveNiss.verify(3, parse("R U"), parse("R'"), parse("U'"));
   assert.equal(result.TAG, "Error");

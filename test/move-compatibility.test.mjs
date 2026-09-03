@@ -44,6 +44,20 @@ test("compact x multipliers receive the same source-portability warning", () => 
   assert.match(result.signLgn.reasons.join(" "), /numeric repetition suffix/);
 });
 
+test("Twizzle caret NISS is not mistaken for Cube Rosetta's caret repeat alias", () => {
+  const result = evaluate("R ^(U L)", {notationDialect: "Twizzle"});
+  assert.equal(result.cubingJs.compatible, true, result.cubingJs.reasons.join(" "));
+  assert.equal(result.wca.compatible, false);
+});
+
+test("SSE remains an explicit import dialect rather than portable cubing.js source", () => {
+  const result = evaluate("TR MR SR CR", {notationDialect: "Sse"});
+  for (const profile of Object.values(result)) {
+    assert.equal(profile.compatible, false);
+  }
+  assert.match(result.cubingJs.reasons.join(" "), /SSE/);
+});
+
 test("Ruwix outer-block subscripts identify their site-specific source profile", () => {
   const result = evaluate("F₂'", {size: 5});
   assert.equal(result.ruwix.compatible, true);

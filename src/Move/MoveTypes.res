@@ -21,6 +21,8 @@ type notationDialect =
   | Modern
   | Ruwix
   | Fmc
+  | Twizzle
+  | Sse
 
 type layerRange = {
   from_: int,

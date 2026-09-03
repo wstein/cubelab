@@ -102,7 +102,7 @@ let parseSuffix = (parser, ~allowZero: bool) => {
       }
     }
   | None =>
-    if peek(parser) == Some("'") {
+    if peek(parser) == Some("'") || (parser.notationDialect == Sse && peek(parser) == Some("-")) {
       parser.cursor = parser.cursor + 1
       -1
     } else {
@@ -134,6 +134,12 @@ let parseCompositeSuffix = (parser, ~allowZero: bool) => {
   let whitespaceStart = parser.cursor
   let spaces = skipSpaces(parser)
   switch peek(parser) {
+  | Some("^")
+    if (parser.notationDialect == Fmc || parser.notationDialect == Twizzle) &&
+      parser.input->String.startsWithFrom("^(", parser.cursor) => {
+      parser.cursor = whitespaceStart
+      1
+    }
   | Some(character) if spaces > 0 && isDigit(character) && isPrefixedMoveAhead(parser) => {
       parser.cursor = whitespaceStart
       1
@@ -358,6 +364,88 @@ let isOpeningDelimiter = character => "([{<"->String.includes(character)
 
 let startsBlockComment = parser => parser.input->String.startsWithFrom("/*", parser.cursor)
 
+// cubing.js's experimental NISS leaf is spelled `^(...)`. It is deliberately
+// recognized only in the explicit FMC and Twizzle dialects: a bare caret remains
+// available as Cube Rosetta's established composite-repeat marker (`(...)^n`).
+let startsTwizzleNissGroup = parser =>
+  (parser.notationDialect == Fmc || parser.notationDialect == Twizzle) &&
+    parser.input->String.startsWithFrom("^(", parser.cursor)
+
+let faceForSse = (parser, ~start) =>
+  switch consume(parser)->Option.flatMap(faceFromCharacter) {
+  | Some(face) => face
+  | None => fail(parser, "An SSE prefix must be followed by U, L, F, R, B, or D.", ~start)
+  }
+
+let sseMidMove = face =>
+  switch face {
+  | StateTypes.R => (M, -1)
+  | StateTypes.L => (M, 1)
+  | StateTypes.U => (E, -1)
+  | StateTypes.D => (E, 1)
+  | StateTypes.F => (S, 1)
+  | StateTypes.B => (S, -1)
+  }
+
+let oppositeFace = face =>
+  switch face {
+  | StateTypes.R => StateTypes.L
+  | StateTypes.L => StateTypes.R
+  | StateTypes.U => StateTypes.D
+  | StateTypes.D => StateTypes.U
+  | StateTypes.F => StateTypes.B
+  | StateTypes.B => StateTypes.F
+  }
+
+let sseRotation = face =>
+  switch face {
+  | StateTypes.R => (X, 1)
+  | StateTypes.L => (X, -1)
+  | StateTypes.U => (Y, 1)
+  | StateTypes.D => (Y, -1)
+  | StateTypes.F => (Z, 1)
+  | StateTypes.B => (Z, -1)
+  }
+
+let parseSseUnit = parser => {
+  let start = parser.cursor
+  let prefix = consume(parser)->Option.getOrThrow
+  if parser.size != 3 {
+    fail(parser, "SSE 3×3 notation is available only for 3×3×3.", ~start)
+  }
+  let face = faceForSse(parser, ~start)
+  let turns = parseSuffix(parser, ~allowZero=true)
+  let desc = switch prefix {
+  | "T" => Move(FaceTurn(face, {from_: 1, to_: 2}), turns)
+  | "M" => {
+      let (slice, factor) = sseMidMove(face)
+      Move(SliceTurn(slice), turns * factor)
+    }
+  | "S" => {
+      let opposite = oppositeFace(face)
+      Group(
+        [
+          {
+            desc: Move(FaceTurn(face, {from_: 1, to_: 1}), turns),
+            loc: {start, end_: parser.cursor},
+          },
+          {
+            desc: Move(FaceTurn(opposite, {from_: 1, to_: 1}), -turns),
+            loc: {start, end_: parser.cursor},
+          },
+        ],
+        1,
+      )
+    }
+  | "C" => {
+      let (axis, factor) = sseRotation(face)
+      Move(Rotation(axis), turns * factor)
+    }
+  | _ => fail(parser, "Unknown SSE prefix.", ~start)
+  }
+  {desc, loc: {start, end_: parser.cursor}}
+}
+
 let parseBlockComment = parser => {
   let start = parser.cursor
   parser.cursor = parser.cursor + 2
@@ -452,7 +540,9 @@ let rec parseSequence = (parser, ~stops: string): array<locatedUnit> => {
       done_ := true
     | Some(_) => {
         let nextDelimited =
-          startsBlockComment(parser) || peek(parser)->Option.mapOr(false, isOpeningDelimiter)
+          startsBlockComment(parser) ||
+          startsTwizzleNissGroup(parser) ||
+          peek(parser)->Option.mapOr(false, isOpeningDelimiter)
         if !first.contents && !separated && !previousDelimited.contents && !nextDelimited {
           fail(parser, "Moves in a sequence must be separated by whitespace.")
         }
@@ -515,12 +605,17 @@ and parseUnit = parser => {
     parseBlockComment(parser)
   } else {
     switch peek(parser) {
+    | Some("T" | "M" | "S" | "C") if parser.notationDialect == Sse => parseSseUnit(parser)
     | Some(".") => {
         parser.cursor = parser.cursor + 1
         {desc: Pause, loc: {start, end_: parser.cursor}}
       }
     | Some("@") => parseTimedPause(parser)
     | Some("(") => parseNested(parser, start, ")", (body, repeat) => Group(body, repeat))
+    | Some("^") if startsTwizzleNissGroup(parser) => {
+        parser.cursor = parser.cursor + 1
+        parseNested(parser, start, ")", (body, repeat) => Group(body, repeat))
+      }
     | Some("[") =>
       switch tryInformalRotation(parser, "[", "]") {
       | Some(unit) => unit
@@ -574,12 +669,14 @@ let parseWithOptions = (
       if parser.cursor != parser.input->String.length {
         fail(parser, "Unexpected trailing input.")
       }
-      if notationDialect == Fmc {
+      if notationDialect == Fmc || notationDialect == Twizzle {
         let normal = ref([])
         let inverse = ref([])
         units->Array.forEach(unit =>
           switch unit.desc {
-          | Group(_, _) => inverse := inverse.contents->Array.concat([unit])
+          | Group(_, _)
+            if notationDialect == Fmc || input->String.startsWithFrom("^(", unit.loc.start) =>
+            inverse := inverse.contents->Array.concat([unit])
           | _ => normal := normal.contents->Array.concat([unit])
           }
         )

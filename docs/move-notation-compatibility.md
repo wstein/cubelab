@@ -27,6 +27,12 @@ Plaintext copies collapse the subscript into an ordinary digit, making `F2'` con
 with a modern half turn; these forms are accepted only after the user explicitly
 selects Ruwix suffix-layer mode.
 
+The Settings dialog also offers two opt-in import dialects. **Twizzle / cubing.js**
+recognizes the experimental caret-NISS leaf `^(...)`, leaving ordinary parentheses as
+normal grouping. **SSE 3×3 (Superset ENG)** maps Randelshofer's 3×3-only `T`, `M`,
+`S`, and `C` prefixed turns to Cube Rosetta's standard wide, slice, paired-face, and
+rotation moves. Neither dialect is inferred from pasted input.
+
 ## In-app compatibility profiles
 
 For every recognized algorithm, the source-compatibility strip inspects the original
@@ -113,7 +119,8 @@ site.
 | [J Perm move guide](https://www.jperm.net/3x3/moves) | Common WCA/SiGN subset: face, wide/lowercase-wide, slice, rotation | Covered on 3×3 | No documented cube-move gap; `U2'` is accepted and is state-equivalent to `U2`. |
 | [SpeedCubeDB](https://speedcubedb.com/p/4x4/OLLParity) | Community SiGN-like algorithms for multiple cube sizes | Partial | Some 4×4 pages use `M`; Cube Rosetta rejects `M/E/S` outside 3×3 because even cubes have no unique middle slice. |
 | [alg.cubing.net](https://alg.cubing.net/) | Its [bundled parser identifies itself as SiGNw](https://github.com/cubing/alg.cubing.net/blob/main/src/alg.cubing.net/twisty.js/alg/README.md) plus editor nodes | Core covered | Internal pause nodes and Cube Rosetta block-comment nodes are covered as state-neutral input. Preserved newline/editor nodes remain outside the current AST. |
-| [Twizzle / cubing.js](https://js.cubing.net/cubing/alg/) | LGN-derived general algorithm AST | Core cube grammar and pause leaves covered | Whitespace-delimited `.` and `//` comments are portable. Block comments are a Cube Rosetta extension; the parser's [experimental caret-NISS syntax](https://github.com/cubing/cubing.js/blob/main/src/cubing/alg/parseAlg.ts) (`^(U L)`) is not implemented. Puzzle-specific Square-1, Clock, and Megaminx moves are outside Cube Rosetta's NxN scope. |
+| [Twizzle / cubing.js](https://js.cubing.net/cubing/alg/) | LGN-derived general algorithm AST | Core grammar, pause leaves, and opt-in experimental caret-NISS covered | Select **Twizzle / cubing.js** to use [experimental caret-NISS](https://github.com/cubing/cubing.js/blob/main/src/cubing/alg/parseAlg.ts) (`^(U L)`); ordinary groups retain their normal meaning. Block comments are a Cube Rosetta extension. Puzzle-specific Square-1, Clock, and Megaminx moves remain outside Cube Rosetta's NxN scope. |
+| [Randelshofer SSE 3×3](https://www.randelshofer.ch/rubik/patterns/doc/supersetENG_3x3.html) | Superset ENG 3×3 layer and rotation prefixes | Partial, explicit SSE 3×3 dialect | `TR`, `MR`, `SR`, and `CR` families (including inverse/half turns and `-` inverse suffixes) are supported. Cubie permutation/orientation cycles remain outside the move-algorithm parser. |
 | [CubeDB](https://cubedb.net/) | cubing.js-style algorithms with an optional “old notation (`r = 2R`)” mode | Covered with an explicit setting | Select legacy inner-slice mode for old-notation algorithms; modern SiGN remains the default. |
 | [Ruwix / Roofpig widget](https://ruwix.com/widget/3d/) | Standard cube moves plus Roofpig extensions | Partial | Camera rotations (`R>`, `R>>`), combined moves (`F'+B`), and aliases such as superscript `²` or `Z` are not implemented. |
 | [Ruwix 4×4 algorithms](https://ruwix.com/twisty-puzzles/4x4x4-rubiks-cube-rubiks-revenge/4x4-cube-patterns/) | Legacy lowercase inner-slice notation on 4×4 | Covered with an explicit setting | Select legacy inner-slice mode; in the default modern mode, `r` remains the outer two-layer block. |
