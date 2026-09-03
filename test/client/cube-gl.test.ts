@@ -15,6 +15,7 @@ import {
   matrixFromQuaternion,
   multiplyQuaternions,
   orientationInViewportFrame,
+  pngBlobFromDataUrl,
   relativeQuaternion,
   safeCameraDistance,
   smoothTrackedOrientation,
@@ -23,6 +24,13 @@ import {
 import {cubieIsFrontFacing} from "../../src/client/motion-overlay";
 
 describe("cube viewport math", () => {
+  test("converts a synchronously captured PNG data URI without a network fetch", async () => {
+    const blob = pngBlobFromDataUrl("data:image/png;base64,AAE=");
+    expect(blob?.type).toBe("image/png");
+    expect(new Uint8Array(await blob!.arrayBuffer())).toEqual(new Uint8Array([0, 1]));
+    expect(pngBlobFromDataUrl("data:text/plain;base64,AAE=")).toBeNull();
+  });
+
   test("advances auto orbit at a stable speed and clamps resumed frames", () => {
     expect(autoOrbitYawDelta(0)).toBe(0);
     expect(autoOrbitYawDelta(25)).toBeCloseTo(0.006);

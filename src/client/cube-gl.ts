@@ -296,6 +296,19 @@ export const clampedCanvasSize = (
   return [Math.max(1, Math.round(width * dpr)), Math.max(1, Math.round(height * dpr))];
 };
 
+/** Converts a synchronously captured PNG data URI without a second fetch task. */
+export const pngBlobFromDataUrl = (dataUrl: string): Blob | null => {
+  const match = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
+  if (!match) return null;
+  try {
+    const binary = atob(match[1]);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    return new Blob([bytes], {type: "image/png"});
+  } catch {
+    return null;
+  }
+};
+
 const identity = (): Mat4 =>
   new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 
@@ -583,6 +596,7 @@ export type CubeViewport = {
   setAutoOrbit: (enabled: boolean) => void;
   resetCamera: () => void;
   refresh: () => void;
+  capturePng: () => Promise<Blob | null>;
   dispose: () => void;
 };
 
@@ -1696,6 +1710,13 @@ export const createCubeViewport = (
       requestRender();
     },
     refresh: requestRender,
+    async capturePng(): Promise<Blob | null> {
+      if (disposed || !visible || vertexCount === 0) return null;
+      // WebGL permits source access in the same JavaScript execution period as
+      // its draw. Keep this synchronous; preserveDrawingBuffer remains false.
+      render();
+      return pngBlobFromDataUrl(canvas.toDataURL("image/png"));
+    },
     dispose() {
       disposed = true;
       cancelCamera();

@@ -4265,6 +4265,39 @@ if (root) {
     syncSmartCubeTrackedOrientation();
   };
   root.querySelector<HTMLButtonElement>("[data-reset-camera]")!.addEventListener("click", resetCameraView);
+  const snapshotButton = root.querySelector<HTMLButtonElement>("[data-snapshot-cube]");
+  const takeSnapshot = async () => {
+    if (!viewport) return;
+    const blob = await viewport.capturePng();
+    if (!blob) return;
+    let copied = false;
+    if (navigator.clipboard && typeof window.ClipboardItem !== "undefined") {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({"image/png": blob})]);
+        copied = true;
+      } catch {
+        copied = false;
+      }
+    }
+    if (snapshotButton) {
+      const originalText = snapshotButton.textContent;
+      snapshotButton.textContent = copied ? "Copied!" : "Downloaded!";
+      window.setTimeout(() => {
+        if (snapshotButton) snapshotButton.textContent = originalText;
+      }, 1500);
+    }
+    if (!copied) {
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `cubelab-${size}x${size}-${Date.now()}.png`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    }
+  };
+  snapshotButton?.addEventListener("click", () => {
+    void takeSnapshot();
+  });
   shortcutsHelp.addEventListener("click", () => shortcutsDialog.showModal());
   shortcutsClose.addEventListener("click", () => shortcutsDialog.close());
   autoOrbitButton.addEventListener("click", () => {
@@ -4450,6 +4483,12 @@ if (root) {
       target.isContentEditable || target.closest("input, textarea, select") !== null
     );
     const buttonFocused = target instanceof HTMLElement && target.closest("button") !== null;
+    if (!editing && event.shiftKey && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      flushPendingDirectMove();
+      void takeSnapshot();
+      return;
+    }
     if (editing || event.metaKey || event.ctrlKey) return;
     if (
       event.key === "?"
