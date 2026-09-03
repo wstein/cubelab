@@ -13,7 +13,7 @@ import * as HamiltonMacro from "../Move/HamiltonMacro";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
 import {createSolverClient, createTwoPhaseSolverClient} from "./workers/solver-client";
 import {mountTimerWorkspace} from "./timer/workspace";
-import {defaultPreferences, readPreferences, writePreferences} from "./preferences";
+import {defaultPreferences, hasVerifiedTnoodle, readPreferences, writePreferences} from "./preferences";
 import {TnoodleClient} from "./scramble/tnoodle-client";
 import {createAcademyRequestGuard} from "./academy-request";
 import {
@@ -312,6 +312,7 @@ if (root) {
   const persistPreferences = (changes: Partial<typeof preferences>) => {
     preferences = {...preferences, ...changes};
     writePreferences(window.localStorage, preferences);
+    window.dispatchEvent(new Event("cubelab:preferences-changed"));
   };
   let size = initialState.size;
   let lowercaseMode: LowercaseMode = initialState.lowercaseMode;
@@ -3287,11 +3288,14 @@ if (root) {
   }) as EventListener);
   window.addEventListener("cubelab:timer-arena", () => setTimerArenaMode(true));
   timerCover.addEventListener("click", () => window.dispatchEvent(new Event("cubelab:timer-inspect")));
-  window.addEventListener("cubelab:controller-scramble", ((event: CustomEvent<{scramble: string}>) => {
-    if (smartCubeSyncMode !== "VirtualController") return;
+  window.addEventListener("cubelab:timer-scramble", ((event: CustomEvent<{scramble: string}>) => {
     const evaluated = evaluateAlgorithm(3, "Wide", "Modern", event.detail.scramble);
     if (evaluated.TAG === "Error") {
-      smartCubeStatus.textContent = `Could not load virtual scramble: ${evaluated._0}`;
+      smartCubeStatus.textContent = `Could not load timer scramble: ${evaluated._0}`;
+      return;
+    }
+    if (smartCubeSyncMode !== "VirtualController") {
+      store.patch({size: 3, input: event.detail.scramble, moves: ""});
       return;
     }
     loadVirtualControllerState(evaluated._0.finalState, "Virtual controller · instant scramble");
@@ -4324,11 +4328,15 @@ if (root) {
     settingsScheme.value = schemeSelect.value;
     settingsDialect.value = notationDialect;
     settingsTnoodleUrl.value = preferences.tnoodleServerUrl;
-    settingsTnoodleEnabled.setAttribute("aria-pressed", String(preferences.tnoodleEnabled));
-    settingsTnoodleEnabled.classList.toggle("active", preferences.tnoodleEnabled);
-    settingsTnoodleEnabled.textContent = preferences.tnoodleEnabled ? "On" : "Off";
+    const tnoodleVerified = hasVerifiedTnoodle(preferences);
+    settingsTnoodleEnabled.disabled = !tnoodleVerified;
+    settingsTnoodleEnabled.setAttribute("aria-pressed", String(preferences.tnoodleEnabled && tnoodleVerified));
+    settingsTnoodleEnabled.classList.toggle("active", preferences.tnoodleEnabled && tnoodleVerified);
+    settingsTnoodleEnabled.textContent = preferences.tnoodleEnabled && tnoodleVerified ? "On" : "Off";
     settingsTnoodleEvent.value = preferences.tnoodleEvent;
-    settingsTnoodleStatus.textContent = "TNoodle not checked.";
+    settingsTnoodleStatus.textContent = tnoodleVerified
+      ? "TNoodle configuration verified."
+      : "Test this configuration before enabling TNoodle.";
     delete settingsTnoodleStatus.dataset.status;
     settingsInspectionSeconds.value = String(preferences.inspectionSeconds);
     settingsDialog.showModal();
@@ -4338,9 +4346,16 @@ if (root) {
   settingsScheme.addEventListener("change", () => store.patch({scheme: settingsScheme.value as SchemeName}));
   settingsDialect.addEventListener("change", () => store.patch({notationDialect: settingsDialect.value as NotationDialect}));
   settingsTnoodleUrl.addEventListener("change", () => {
-    persistPreferences({tnoodleServerUrl: settingsTnoodleUrl.value});
+    persistPreferences({
+      tnoodleServerUrl: settingsTnoodleUrl.value,
+      tnoodleEnabled: false,
+      tnoodleVerifiedUrl: null,
+      tnoodleVerifiedEvent: null,
+    });
+    settingsTnoodleEnabled.disabled = true;
   });
   settingsTnoodleEnabled.addEventListener("click", () => {
+    if (!hasVerifiedTnoodle(preferences)) return;
     const enabled = settingsTnoodleEnabled.getAttribute("aria-pressed") !== "true";
     settingsTnoodleEnabled.setAttribute("aria-pressed", String(enabled));
     settingsTnoodleEnabled.classList.toggle("active", enabled);
@@ -4348,7 +4363,13 @@ if (root) {
     persistPreferences({tnoodleEnabled: enabled});
   });
   settingsTnoodleEvent.addEventListener("change", () => {
-    persistPreferences({tnoodleEvent: settingsTnoodleEvent.value as "333"});
+    persistPreferences({
+      tnoodleEvent: settingsTnoodleEvent.value as "333",
+      tnoodleEnabled: false,
+      tnoodleVerifiedUrl: null,
+      tnoodleVerifiedEvent: null,
+    });
+    settingsTnoodleEnabled.disabled = true;
   });
   settingsTnoodleTest.addEventListener("click", async () => {
     settingsTnoodleTest.disabled = true;
@@ -4362,6 +4383,20 @@ if (root) {
       ? `TNoodle ready (${health.latencyMs} ms).`
       : health.message;
     settingsTnoodleStatus.dataset.status = health.online ? "ready" : "error";
+    if (health.online) {
+      persistPreferences({
+        tnoodleVerifiedUrl: settingsTnoodleUrl.value,
+        tnoodleVerifiedEvent: settingsTnoodleEvent.value as "333",
+      });
+      settingsTnoodleEnabled.disabled = false;
+    } else {
+      persistPreferences({
+        tnoodleEnabled: false,
+        tnoodleVerifiedUrl: null,
+        tnoodleVerifiedEvent: null,
+      });
+      settingsTnoodleEnabled.disabled = true;
+    }
     settingsTnoodleTest.disabled = false;
   });
   settingsInspectionSeconds.addEventListener("change", () => {

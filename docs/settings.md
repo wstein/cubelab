@@ -8,8 +8,8 @@ CubeLab intentionally has two persistence tiers.
   A shared link therefore reproduces the relevant cube and presentation state.
 - **Local device preferences** live in `cubelab-preferences-v1` in browser
   storage. Playback speed, inspection duration, and TNoodle's enabled flag,
-  event, and server URL belong here: they are machine-specific defaults and
-  must not leak into a shared link.
+  event, server URL, and successful-probe identity belong here: they are
+  machine-specific defaults and must not leak into a shared link.
 
 The Settings dialog is a discoverable second entry point for global workspace
 controls and device-local defaults. Cube style and turn guides intentionally
@@ -21,9 +21,10 @@ because they are user history, not settings.
 
 ## TNoodle
 
-When enabled, the Timer requests its next 3×3 scramble batch from the configured
-local TNoodle server at `/scramble/.txt?e=333*5`. Each response must contain the
-expected number of non-empty, legal 3×3 face-turn lines before it is accepted;
-the client queues the remaining validated lines for later solves. A failed
-connection, malformed response, or disabled TNoodle setting always falls back
-to CubeLab's lightweight local practice scramble generator.
+The Timer enables TNoodle only after **Test connection** validates the current
+local URL and 3×3 event. Changing either setting revokes that approval. Once
+enabled, TNoodle requests its next batch from `/scramble/.txt?e=333*5`. Each
+response must contain the expected number of non-empty, legal 3×3 face-turn
+lines before it is accepted; the client queues the remaining validated lines
+for later solves. A later failed connection or malformed response falls back to
+CubeLab's lightweight local practice scramble generator.

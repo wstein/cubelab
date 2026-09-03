@@ -62,6 +62,8 @@ test("the workspace exposes a manual speedcubing timer", () => {
   assert.match(page, /data-workspace-panel="timer"/);
   assert.match(page, /data-timer-display/);
   assert.match(page, /data-timer-scramble/);
+  assert.match(page, /data-timer-cubelab-scramble/);
+  assert.match(page, /data-timer-tnoodle-scramble/);
   assert.match(page, /data-timer-arena/);
   assert.match(viewportComponent, /data-timer-cover/);
   assert.match(viewportComponent, /data-timer-hud/);
@@ -74,7 +76,7 @@ test("the workspace exposes a manual speedcubing timer", () => {
   assert.match(page, /data-academy-wca-drill/);
   assert.match(viewportComponent, /data-smart-cube-controller/);
   assert.match(client, /smartCubeSyncMode === "VirtualController"/);
-  assert.match(client, /cubelab:controller-scramble/);
+  assert.match(client, /cubelab:timer-scramble/);
   assert.match(client, /academyRequestGuard\.isCurrent\(request\)/);
   assert.match(client, /academyTargetDiagnostic/);
   assert.match(client, /nextRandomDrillRotation/);
@@ -90,8 +92,9 @@ test("settings separate shareable workspace state from local preferences", () =>
   assert.match(page, /data-settings-tnoodle-event/);
   assert.match(page, /data-settings-tnoodle-test/);
   assert.match(client, /store\.patch\(\{autoOrbit: enabled\}\)/);
-  assert.match(client, /persistPreferences\(\{tnoodleServerUrl:/);
+  assert.match(client, /persistPreferences\(\{\s*tnoodleServerUrl:/);
   assert.match(client, /new TnoodleClient\(\)\.checkHealth/);
+  assert.match(client, /hasVerifiedTnoodle\(preferences\)/);
 });
 
 test("the HTML head declares the SVG favicon and fallback touch icons", () => {

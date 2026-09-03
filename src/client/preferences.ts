@@ -8,6 +8,8 @@ export type Preferences = {
   tnoodleEnabled: boolean;
   tnoodleServerUrl: string;
   tnoodleEvent: "333";
+  tnoodleVerifiedUrl: string | null;
+  tnoodleVerifiedEvent: "333" | null;
   inspectionSeconds: number;
 };
 
@@ -25,6 +27,8 @@ export const defaultPreferences: Preferences = {
   tnoodleEnabled: false,
   tnoodleServerUrl: "http://localhost:2014",
   tnoodleEvent: "333",
+  tnoodleVerifiedUrl: null,
+  tnoodleVerifiedEvent: null,
   inspectionSeconds: 15,
 };
 
@@ -38,6 +42,10 @@ const validPreferences = (value: unknown): value is Partial<Preferences> => {
     && (prefs.tnoodleEnabled === undefined || typeof prefs.tnoodleEnabled === "boolean")
     && (prefs.tnoodleServerUrl === undefined || typeof prefs.tnoodleServerUrl === "string")
     && (prefs.tnoodleEvent === undefined || prefs.tnoodleEvent === "333")
+    && (prefs.tnoodleVerifiedUrl === undefined || prefs.tnoodleVerifiedUrl === null
+      || typeof prefs.tnoodleVerifiedUrl === "string")
+    && (prefs.tnoodleVerifiedEvent === undefined || prefs.tnoodleVerifiedEvent === null
+      || prefs.tnoodleVerifiedEvent === "333")
     && (prefs.inspectionSeconds === undefined
       || (typeof prefs.inspectionSeconds === "number" && Number.isFinite(prefs.inspectionSeconds)
         && prefs.inspectionSeconds > 0));
@@ -51,6 +59,10 @@ export const readPreferences = (storage: StorageLike): Preferences => {
     return {...defaultPreferences};
   }
 };
+
+export const hasVerifiedTnoodle = (preferences: Preferences): boolean =>
+  preferences.tnoodleVerifiedUrl === preferences.tnoodleServerUrl
+  && preferences.tnoodleVerifiedEvent === preferences.tnoodleEvent;
 
 export const writePreferences = (storage: StorageLike, preferences: Preferences): boolean => {
   try {

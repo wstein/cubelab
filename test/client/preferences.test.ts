@@ -2,6 +2,7 @@ import {expect, test} from "vitest";
 
 import {
   defaultPreferences,
+  hasVerifiedTnoodle,
   PREFERENCES_STORAGE_KEY,
   readPreferences,
   writePreferences,
@@ -27,10 +28,26 @@ test("round-trips a full write through read", () => {
     tnoodleEnabled: true,
     tnoodleServerUrl: "http://localhost:9999",
     tnoodleEvent: "333" as const,
+    tnoodleVerifiedUrl: "http://localhost:9999",
+    tnoodleVerifiedEvent: "333" as const,
     inspectionSeconds: 12,
   };
   expect(writePreferences(storage, preferences)).toBe(true);
   expect(readPreferences(storage)).toEqual(preferences);
+});
+
+test("requires a successful probe for the current TNoodle endpoint", () => {
+  expect(hasVerifiedTnoodle({...defaultPreferences, tnoodleEnabled: true})).toBe(false);
+  expect(hasVerifiedTnoodle({
+    ...defaultPreferences,
+    tnoodleVerifiedUrl: defaultPreferences.tnoodleServerUrl,
+    tnoodleVerifiedEvent: "333",
+  })).toBe(true);
+  expect(hasVerifiedTnoodle({
+    ...defaultPreferences,
+    tnoodleVerifiedUrl: "http://localhost:9999",
+    tnoodleVerifiedEvent: "333",
+  })).toBe(false);
 });
 
 test("merges a partial stored object over defaults", () => {
