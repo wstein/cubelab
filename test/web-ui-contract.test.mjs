@@ -191,6 +191,7 @@ test("the 2x2 and 3x3 manual state editor keeps a constrained draft separate fro
   assert.match(page, /data-manual-state-load/);
   assert.match(client, /allowedManualStateColours\(manualSize, manualStateDraft, index\)/);
   assert.match(client, /fillLocallyForcedManualStateColours\(manualSize, manualStateDraft\)/);
+  assert.match(client, /manualSize === 2\s*\? allowedManualStateColours/);
   assert.match(client, /manualStateOpen\.disabled = size !== 2 && size !== 3/);
   assert.match(client, /store\.patch\(\{input: manualStateDraft\.join\(""\)\}\)/);
 });

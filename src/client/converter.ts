@@ -20,6 +20,7 @@ import {looksLikeSseState, parseSseState} from "./sse-state";
 import {
   allowedManualStateColours,
   emptyManualState,
+  fillForcedManualStateColours,
   fillLocallyForcedManualStateColours,
   locallyAllowedManualStateColours,
   manualStateEnteredCount,
@@ -723,6 +724,8 @@ if (root) {
       ? diagnostic
       : entered === total
       ? "Complete and physically valid — ready to load into Setup."
+      : manualSize === 2
+      ? `Entered ${entered} / ${total}. Every displayed dot can still make a real cube.`
       : `Entered ${entered} / ${total}. Dots show colours compatible with each cubie; every choice is then checked against the whole cube.`;
     manualStateStatus.classList.toggle("success", entered === total && diagnostic === null);
     manualStateStatus.classList.toggle("failure", diagnostic !== null);
@@ -757,7 +760,12 @@ if (root) {
         if (value !== null) {
           sticker.textContent = value;
         } else {
-          const choices = locallyAllowedManualStateColours(manualSize, manualStateDraft, index);
+          // A 2×2 search is tiny, so its dots use the identical full-state
+          // predicate as painting. A displayed dot is therefore always
+          // selectable, rather than merely locally plausible.
+          const choices = manualSize === 2
+            ? allowedManualStateColours(manualSize, manualStateDraft, index)
+            : locallyAllowedManualStateColours(manualSize, manualStateDraft, index);
           const dots = document.createElement("span");
           dots.className = "manual-state-dots";
           choices.forEach((choice) => {
@@ -4723,7 +4731,9 @@ if (root) {
       manualStateStatus.classList.add("failure");
       return;
     }
-    manualStateDraft = fillLocallyForcedManualStateColours(manualSize, manualStateDraft);
+    manualStateDraft = manualSize === 2
+      ? fillForcedManualStateColours(manualSize, manualStateDraft)
+      : fillLocallyForcedManualStateColours(manualSize, manualStateDraft);
     renderManualStateEditor();
   });
   manualStateReset.addEventListener("click", () => {
