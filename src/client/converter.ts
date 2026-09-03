@@ -663,15 +663,24 @@ if (root) {
       : {TAG: "Error", _0: diagnostic};
   };
 
+  // The SSE middle dot is unambiguous: CubeLab's other input dialects do not
+  // assign it a move meaning. Recognize it for copy/pasted SSE catalogue lines
+  // without changing the user's persistent dialect selection.
+  const dialectForPastedInput = (value: string): NotationDialect =>
+    size === 3 && value.includes("·") ? "Sse" : notationDialect;
+
   const parseAlgorithm = (value: string): Result<RecognizedInput> => {
+    const effectiveDialect = dialectForPastedInput(value);
     const evaluated = evaluateAlgorithm(
       size,
       lowercaseMode,
-      notationDialect,
+      effectiveDialect,
       value,
     );
     if (evaluated.TAG === "Error") return evaluated;
-    const label = size >= 4 && notationDialect === "Ruwix"
+    const label = effectiveDialect === "Sse"
+      ? `Algorithm · SSE${notationDialect === "Sse" ? "" : " (detected)"}`
+      : size >= 4 && effectiveDialect === "Ruwix"
       ? `Algorithm · Ruwix${lowercaseMode === "InnerSlice" ? " + legacy lowercase" : ""}`
       : `Algorithm · ${size >= 4 && lowercaseMode === "InnerSlice" ? "Legacy" : "SiGN"}`;
     return {
@@ -680,7 +689,7 @@ if (root) {
         state: evaluated._0.finalState,
         label,
         timeline: evaluated._0,
-        timelineKey: `${size}\u0000${lowercaseMode}\u0000${notationDialect}\u0000${value}`,
+        timelineKey: `${size}\u0000${lowercaseMode}\u0000${effectiveDialect}\u0000${value}`,
       },
     };
   };
@@ -735,7 +744,7 @@ if (root) {
       const parsed = MoveParser.parseWithOptions(
         size,
         lowercaseMode,
-        notationDialect,
+        dialectForPastedInput(value),
         value,
       ) as Result<unknown[], {message?: string}>;
       return parsed.TAG === "Ok"

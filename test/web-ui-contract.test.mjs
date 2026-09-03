@@ -230,6 +230,12 @@ test("the Setup parser recognizes explicit SSE cubie-state cycles apart from alg
   assert.match(page, /SSE cubie cycles/);
 });
 
+test("the Setup parser auto-detects the unambiguous SSE middle-dot delimiter", () => {
+  assert.match(client, /dialectForPastedInput/);
+  assert.match(client, /value\.includes\("·"\) \? "Sse"/);
+  assert.match(client, /Algorithm · SSE/);
+});
+
 test("controller-mode turns advance an active coached tape in the viewport frame", () => {
   assert.match(client, /const projectedMove = controllerMoveInViewportFrame/);
   assert.match(client, /await applyWaitingTimelineMove\(projectedMove, false\)/);
