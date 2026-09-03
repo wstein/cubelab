@@ -971,28 +971,7 @@ let layerPlanKey = (state: PieceReducer.pieceState, pieces, completed) =>
   )
   ->Array.join("")
 
-// A deliberately small, replay-checked trigger catalogue. These cover the
-// common one-shot corner and middle-edge insertions; unusual configurations
-// still fall through to the complete bounded planner below.
-let advancedLayerTriggers = solved => {
-  let sources = [
-    "R U R'",
-    "R U' R'",
-    "R U2 R'",
-    "R' U' R",
-    "R' U R",
-    "R' U2 R",
-    "F' U' F",
-    "F' U F",
-    "F' U2 F",
-    "F U F'",
-    "F U' F'",
-    "F U2 F'",
-    "U R U' R'",
-    "U' R U R'",
-    "U R' U' R",
-    "U' R' U R",
-  ]
+let rotatedMacroActions = (solved, sources) => {
   let output = []
   sources->Array.forEach(source => {
     let base = BeginnerSolver.parseInternal(source)
@@ -1004,6 +983,31 @@ let advancedLayerTriggers = solved => {
   })
   output
 }
+
+// These one-shot corner triggers keep the first-layer planner responsive.
+// Its small atomic fallback remains available for unusual corner positions.
+let advancedCornerTriggers = solved =>
+  rotatedMacroActions(
+    solved,
+    [
+      "R U R'",
+      "R U' R'",
+      "R U2 R'",
+      "R' U' R",
+      "R' U R",
+      "R' U2 R",
+      "F' U' F",
+      "F' U F",
+      "F' U2 F",
+      "F U F'",
+      "F U' F'",
+      "F U2 F'",
+      "U R U' R'",
+      "U' R U R'",
+      "U R' U' R",
+      "U' R' U R",
+    ],
+  )
 
 let triggerLayerCandidate = (~state, ~corners, ~edges, ~triggers) => {
   let best = ref(None)
@@ -1071,28 +1075,34 @@ let rec planLayerPiecesFrom = (
                 label: Belt.Array.getUnsafe(labels, labelIndex),
               })
             }
-          | None =>
-            switch BeginnerSolver.searchAtomicWithLimit(
-              ~state,
-              ~corners=targetCorners,
-              ~edges=targetEdges,
-              ~actions=atomics->rankedActions,
-              ~maxDepth=12,
-              ~maxNodes=600000,
-            ) {
-            | Some(path) => {
-                let score =
-                  BeginnerSolver.flattenActions(path)
-                  ->MoveTransform.rotate(~axis=X, ~turns=2)
-                  ->physicalScore
-                candidates->Array.push({
-                  pair: piece,
-                  path,
-                  score,
-                  label: Belt.Array.getUnsafe(labels, labelIndex),
-                })
+          | None => {
+              // The trigger catalogue covers the ordinary LBL cases. Keep
+              // the rare fallback deliberately bounded: this planner runs at
+              // every branch, so an unbounded-depth retry can make one state
+              // appear never to finish.
+              let found = BeginnerSolver.searchAtomicWithLimit(
+                ~state,
+                ~corners=targetCorners,
+                ~edges=targetEdges,
+                ~actions=atomics->rankedActions,
+                ~maxDepth=9,
+                ~maxNodes=40000,
+              )
+              switch found {
+              | Some(path) => {
+                  let score =
+                    BeginnerSolver.flattenActions(path)
+                    ->MoveTransform.rotate(~axis=X, ~turns=2)
+                    ->physicalScore
+                  candidates->Array.push({
+                    pair: piece,
+                    path,
+                    score,
+                    label: Belt.Array.getUnsafe(labels, labelIndex),
+                  })
+                }
+              | None => ()
               }
-            | None => ()
             }
           }
         }
@@ -1128,7 +1138,7 @@ let rec planLayerPiecesFrom = (
   }
 }
 
-let planLayerPieces = (
+let findLayerPlanPieces = (
   ~state,
   ~pieces,
   ~baseCorners,
@@ -1159,13 +1169,76 @@ let planLayerPieces = (
   | None if triggers->Array.length > 0 => attempt([])
   | None => None
   }
-  switch plan {
+  plan
+}
+
+let planLayerPieces = (
+  ~state,
+  ~pieces,
+  ~baseCorners,
+  ~baseEdges,
+  ~corners,
+  ~atomics,
+  ~triggers,
+  ~labels,
+) =>
+  switch findLayerPlanPieces(
+    ~state,
+    ~pieces,
+    ~baseCorners,
+    ~baseEdges,
+    ~corners,
+    ~atomics,
+    ~triggers,
+    ~labels,
+  ) {
   | None => throw(BuildFailure(BeginnerSolver.SearchFailed("optimized layer-by-layer insertion")))
   | Some(plan) => (
       plan,
       plan->Array.reduce(state, (current, selected) => applyPath(current, selected.path)),
     )
   }
+
+// Middle-layer insertion has a compact, complete move set: U turns and the
+// two standard left/right insertion algorithms. Search over those macros,
+// rather than repeatedly running an 18-turn atomic DFS at every candidate
+// branch. This is the same bounded construction used by the verified
+// beginner solver, but preserves Advanced LBL's per-edge phase descriptions.
+let planMiddleLayerPieces = (~state, ~solved, ~baseCorners, ~baseEdges, ~pieces, ~labels) => {
+  let actions =
+    BeginnerSolver.downTurns(solved)
+    ->Array.concat(BeginnerSolver.macroVariants(solved, "U R U' R' U' F' U F"))
+    ->Array.concat(BeginnerSolver.macroVariants(solved, "U' L' U L U F U' F'"))
+  let current = ref(state)
+  let plan = []
+  for offset in 0 to pieces->Array.length - 1 {
+    let targets =
+      baseEdges->Array.concat(
+        Belt.Array.makeBy(offset + 1, index => Belt.Array.getUnsafe(pieces, index)),
+      )
+    let projection = candidate => BeginnerSolver.projectionKey(candidate, baseCorners, targets)
+    let goal = candidate => BeginnerSolver.lockedGoal(candidate, baseCorners, targets)
+    let path = switch BeginnerSolver.searchMacros(
+      ~state=current.contents,
+      ~actions,
+      ~isGoal=goal,
+      ~projection,
+      ~maxDepth=5,
+    ) {
+    | Some(path) => path
+    | None => throw(BuildFailure(BeginnerSolver.SearchFailed("the middle-layer edges")))
+    }
+    plan->Array.push({
+      pair: Belt.Array.getUnsafe(pieces, offset),
+      path,
+      score: BeginnerSolver.flattenActions(path)
+      ->MoveTransform.rotate(~axis=X, ~turns=2)
+      ->physicalScore,
+      label: Belt.Array.getUnsafe(labels, offset),
+    })
+    current := applyPath(current.contents, path)
+  }
+  (plan, current.contents)
 }
 
 let solveLevel = (input: cubeState, level: level): result<solution, solverError> => {
@@ -1439,7 +1512,7 @@ let solveAdvancedLbl = (input: cubeState): result<solution, solverError> => {
     | Error(error) => throw(BuildFailure(BeginnerSolver.InvalidState(error)))
     }
     let atomics = BeginnerSolver.atomicActions(solved)
-    let triggers = advancedLayerTriggers(solved)
+    let cornerTriggers = advancedCornerTriggers(solved)
     let current = ref(start)
 
     let crossSelection = switch selectCross(~state=current.contents, ~atomics) {
@@ -1450,7 +1523,6 @@ let solveAdvancedLbl = (input: cubeState): result<solution, solverError> => {
     if !BeginnerSolver.lockedGoal(current.contents, [], [0, 1, 2, 3]) {
       throw(BuildFailure(BeginnerSolver.VerificationFailed))
     }
-
     let cornerNames = [
       "Insert the white–green–red first-layer corner with one optimized trigger.",
       "Insert the white–green–orange first-layer corner with one optimized trigger.",
@@ -1464,35 +1536,31 @@ let solveAdvancedLbl = (input: cubeState): result<solution, solverError> => {
       ~baseEdges=[0, 1, 2, 3],
       ~corners=true,
       ~atomics,
-      ~triggers,
+      ~triggers=cornerTriggers,
       ~labels=cornerNames,
     )
     current := afterCorners
     if !BeginnerSolver.lockedGoal(current.contents, [0, 1, 2, 3], [0, 1, 2, 3]) {
       throw(BuildFailure(BeginnerSolver.VerificationFailed))
     }
-
     let middleNames = [
       "Insert the green–red middle edge with an optimized left/right trigger.",
       "Insert the green–orange middle edge with an optimized left/right trigger.",
       "Insert the blue–orange middle edge with an optimized left/right trigger.",
       "Insert the blue–red middle edge with an optimized left/right trigger.",
     ]
-    let (middlePlan, afterMiddle) = planLayerPieces(
+    let (middlePlan, afterMiddle) = planMiddleLayerPieces(
       ~state=current.contents,
+      ~solved,
       ~pieces=[8, 9, 10, 11],
       ~baseCorners=[0, 1, 2, 3],
       ~baseEdges=[0, 1, 2, 3],
-      ~corners=false,
-      ~atomics,
-      ~triggers,
       ~labels=middleNames,
     )
     current := afterMiddle
     if !BeginnerSolver.firstTwoLayersGoal(current.contents) {
       throw(BuildFailure(BeginnerSolver.VerificationFailed))
     }
-
     let combinedOll = selectBeginnerOll(~state=current.contents, ~solved)
     let (ollEdges, ollCorners) = splitSelectionAtGoal(
       ~state=current.contents,
@@ -1504,7 +1572,6 @@ let solveAdvancedLbl = (input: cubeState): result<solution, solverError> => {
     if !BeginnerSolver.orientedLastCornersGoal(current.contents) {
       throw(BuildFailure(BeginnerSolver.VerificationFailed))
     }
-
     let combinedPll = selectBeginnerPll(~state=current.contents, ~solved)
     let (pllCorners, pllEdges) = splitSelectionAtGoal(
       ~state=current.contents,

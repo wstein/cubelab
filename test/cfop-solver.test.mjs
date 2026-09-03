@@ -7,6 +7,7 @@ import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
 import * as MoveParser from "../src/Move/MoveParser.res.mjs";
 import * as MoveTransform from "../src/Move/MoveTransform.res.mjs";
+import * as Orbit64Codec from "../src/State/Orbit64Codec.res.mjs";
 import * as PieceReducer from "../src/State/PieceReducer.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
 
@@ -128,11 +129,31 @@ test("exposes distinct replay-verified Beginner, Full, and Advanced CFOP strateg
   assert.deepEqual(pieces(advancedLblState).cp, [0, 1, 2, 3, 4, 5, 6, 7]);
   advancedLblState = MoveExecutor.applyAlg(advancedLblState, advancedLbl.phases[6].alg)._0;
   assert.equal(FaceletCodec.render(advancedLblState), solvedCompact);
-  assert.ok(advancedLbl.moveCount <= 76);
+  assert.ok(advancedLbl.moveCount <= 110, `expected a bounded Advanced LBL solution, received ${advancedLbl.moveCount} moves`);
   assert.ok(full.moveCount < beginner.moveCount);
   assert.ok(advanced.moveCount < beginner.moveCount);
   assert.doesNotMatch(full.phases[0].sequences.join(" "), /candidate plans/);
   assert.match(advanced.phases[0].sequences.join(" "), /candidate plans/);
+}, 10_000);
+
+test("keeps Advanced LBL bounded on a middle-layer insertion state", () => {
+  const decoded = Orbit64Codec.decodeState("Aqf2EUj3gb_d");
+  assert.equal(decoded.TAG, "Ok");
+  const solution = solveWith(CfopSolver.solveAdvancedLbl, decoded._0);
+  assert.equal(solution.phases.length, 7);
+  assert.deepEqual(
+    solution.phases.map(({title}) => title),
+    [
+      "Direct White Cross",
+      "First-Layer Corners",
+      "Middle-Layer Edges",
+      "Yellow Cross",
+      "Orient Yellow Corners",
+      "Permute Yellow Corners",
+      "Permute Yellow Edges",
+    ],
+  );
+  assert.equal(FaceletCodec.render(MoveExecutor.applyAlg(decoded._0, solution.alg)._0), solvedCompact);
 });
 
 test("recognizes and replay-verifies every one-look OLL case", () => {

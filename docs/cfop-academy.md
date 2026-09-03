@@ -16,6 +16,15 @@ libraries. Its F2L stage is pair-first: each sequence records the pair colours, 
 corner and edge positions, white-sticker direction, edge orientation, and whether the
 pieces are connected, separated, or trapped.
 
+## Advanced LBL
+
+Advanced LBL presents the same solve as seven teachable checkpoints: direct white cross,
+first-layer corners, middle-layer edges, yellow cross, yellow-corner orientation,
+yellow-corner permutation, and yellow-edge permutation. Its middle layer uses bounded
+search over `U` turns plus the standard left/right insertion macros. This avoids
+recursively re-running a deep all-face search for every possible edge order, which could
+otherwise make valid scrambles appear never to finish.
+
 ## Curated virtual drills
 
 The Academy’s Smart Controller workflow also offers a focused curated selector.
