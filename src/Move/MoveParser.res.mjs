@@ -856,7 +856,7 @@ function parseSequence(parser, stops) {
       }
       if (exit === 1) {
         let nextDelimited = startsBlockComment(parser) || startsTwizzleNissGroup(parser) || Stdlib_Option.mapOr(peek(parser), false, isOpeningDelimiter);
-        if (!first && !separated && !previousDelimited && !nextDelimited) {
+        if (!first && !separated && !previousDelimited && !nextDelimited && parser.notationDialect !== "Sse") {
           fail(parser, "Moves in a sequence must be separated by whitespace.", undefined, undefined);
         }
         let unit = parseUnit(parser);

@@ -158,6 +158,13 @@ test("maps SSE 3×3 tier, mid-layer, slice, and cube turns to equivalent CubeLab
   assert.match(wrongSize._0.message, /only for 3×3×3/);
 });
 
+test("accepts SSE's compact adjacent move sequences without relaxing other dialects", () => {
+  const spaced = parseWithOptions(3, "Wide", "Sse", "CD2 MR2 MD MR2 MD'");
+  const compact = parseWithOptions(3, "Wide", "Sse", "CD2MR2MDMR2MD'");
+  assert.equal(MoveTransform.serialize(compact), MoveTransform.serialize(spaced));
+  rejects(3, "RUR", /separated by whitespace/);
+});
+
 test("comments and timing annotations separate units without changing spans", () => {
   const units = parse(3, "R// reconstruction\nU # second line\nF @1.53s R’");
   assert.equal(units.length, 5);

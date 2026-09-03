@@ -543,7 +543,13 @@ let rec parseSequence = (parser, ~stops: string): array<locatedUnit> => {
           startsBlockComment(parser) ||
           startsTwizzleNissGroup(parser) ||
           peek(parser)->Option.mapOr(false, isOpeningDelimiter)
-        if !first.contents && !separated && !previousDelimited.contents && !nextDelimited {
+        if (
+          !first.contents &&
+          !separated &&
+          !previousDelimited.contents &&
+          !nextDelimited &&
+          parser.notationDialect != Sse
+        ) {
           fail(parser, "Moves in a sequence must be separated by whitespace.")
         }
         let unit = parseUnit(parser)
