@@ -907,16 +907,26 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 
 .manual-state-dots {
   display: grid;
-  /* Two columns of three, like the pips on a die's six-face. cqi is a
-     percentage of the sticker's own rendered width (see container-type on
-     .manual-state-sticker above), so this whole matrix scales with the
-     sticker instead of staying a fixed size on both a cramped 3×3 grid and
-     a large, near-full-window one. */
-  grid-template-columns: repeat(2, 19cqi);
+  /* A 3×3 raster with the middle column left empty, rather than a plain
+     2-column block — the gap between the two dot columns reads more like
+     spaced die pips. cqi is a percentage of the sticker's own rendered
+     width (see container-type on .manual-state-sticker above), so this
+     whole matrix scales with the sticker instead of staying a fixed size
+     on both a cramped 3×3 grid and a large, near-full-window one. */
+  grid-template-columns: repeat(3, 19cqi);
   grid-template-rows: repeat(3, 19cqi);
   gap: 9cqi;
-  width: 47cqi;
+  width: 75cqi;
 }
+
+/* Row pairs U/D, R/L, F/B (creation order in renderManualStateDots); the
+   first of each pair lands in the left column, the second in the right,
+   via nth-child, leaving the middle column's cells empty. */
+.manual-state-dots i[data-face="U"], .manual-state-dots i[data-face="D"] { grid-row: 1; }
+.manual-state-dots i[data-face="R"], .manual-state-dots i[data-face="L"] { grid-row: 2; }
+.manual-state-dots i[data-face="F"], .manual-state-dots i[data-face="B"] { grid-row: 3; }
+.manual-state-dots i:nth-child(odd) { grid-column: 1; }
+.manual-state-dots i:nth-child(even) { grid-column: 3; }
 
 .manual-state-dots i {
   width: 19cqi;
