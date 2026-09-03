@@ -3790,16 +3790,19 @@ if (root) {
       "Set the smart cube's internal state to solved? Continue only if the physical cube is already solved.",
     );
     if (!confirmed) return;
-    smartCubeStateSyncPending = true;
     smartCubeResetState.disabled = true;
     smartCubeResetState.textContent = "Setting solved…";
     smartCubeStatus.textContent = `${smartCubeDeviceName} · Setting internal state to solved…`;
     try {
       await smartCubeManager.resetCubeState();
-      await smartCubeManager.refresh();
-      if (smartCubeStateSyncPending) {
-        smartCubeStatus.textContent = `${smartCubeDeviceName} · Solved state requested; waiting for state…`;
-      }
+      const solved = StateTypes.solved(3) as Result<CubeState, unknown>;
+      if (solved.TAG !== "Ok") throw new Error("Could not create the solved 3×3 baseline");
+      smartCubeStateSyncPending = false;
+      smartCubeLiveState = solved._0;
+      smartCubeRenderedState = solved._0;
+      smartCubePendingMoves.length = 0;
+      renderSmartCubeLiveState();
+      smartCubeStatus.textContent = `${smartCubeDeviceName} · Internal state set to solved; local baseline updated without reading facelets.`;
     } catch (reason) {
       smartCubeStateSyncPending = false;
       smartCubeStatus.textContent = reason instanceof Error ? reason.message : String(reason);

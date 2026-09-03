@@ -278,6 +278,7 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /if \(smartCubeStateSyncPending\)/);
   assert.match(client, /await smartCubeManager\.refresh\(\)/);
   assert.match(client, /await smartCubeManager\.resetCubeState\(\)/);
+  assert.match(client, /local baseline updated without reading facelets/);
   assert.match(client, /macAddressProvider: async \(device, isFallbackCall\)/);
   assert.match(client, /if \(!isFallbackCall\) return null/);
   assert.match(client, /enable-experimental-web-platform-features/);
