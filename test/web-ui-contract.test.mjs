@@ -64,6 +64,7 @@ test("the workspace exposes a manual speedcubing timer", () => {
   assert.match(page, /data-timer-scramble/);
   assert.match(page, /data-timer-cubelab-scramble/);
   assert.match(page, /data-timer-tnoodle-scramble/);
+  assert.match(page, /data-timer-export-cstimer/);
   assert.match(page, /data-timer-arena/);
   assert.match(viewportComponent, /data-timer-cover/);
   assert.match(viewportComponent, /data-timer-hud/);

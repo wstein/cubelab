@@ -16,6 +16,7 @@ import {
   type SolveRecord,
 } from "../../src/client/timer/engine";
 import {readTimerSessions, writeTimerSessions, type StorageLike} from "../../src/client/timer/storage";
+import {exportCsTimerSession} from "../../src/client/timer/cstimer";
 
 const solve = (durationMs: number, penalty: SolveRecord["penalty"] = "none"): SolveRecord => ({
   id: `${durationMs}-${penalty}`,
@@ -83,4 +84,27 @@ test("timer session storage ignores malformed data and handles unavailable stora
   expect(readTimerSessions(storage)[0]?.solves).toHaveLength(1);
   values.set("cubelab-timer-sessions-v1", "not json");
   expect(readTimerSessions(storage)).toEqual([]);
+});
+
+test("exports a session in csTimer's native one-session JSON shape", () => {
+  const exported = exportCsTimerSession({
+    version: 1,
+    id: "practice",
+    name: "CFOP practice",
+    solves: [
+      {...solve(10_123), completedAt: 1_725_000_000_000},
+      {...solve(11_234, "+2"), completedAt: 1_725_000_001_000},
+      {...solve(12_345, "DNF"), completedAt: 1_725_000_002_000},
+    ],
+  });
+  expect(exported.properties).toEqual({
+    session: 1,
+    sessionN: 1,
+    sessionData: {"1": {name: "CFOP practice", opt: {scrType: "333"}, rank: 1}},
+  });
+  expect(exported.session1).toEqual([
+    [[0, 10_123], "R U R'", "", 1_725_000_000],
+    [[2_000, 11_234], "R U R'", "", 1_725_000_001],
+    [[-1, 12_345], "R U R'", "", 1_725_000_002],
+  ]);
 });

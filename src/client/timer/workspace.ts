@@ -19,6 +19,7 @@ import {readTimerSessions, writeTimerSessions, type TimerSession} from "./storag
 import {hasVerifiedTnoodle, readPreferences} from "../preferences";
 import {TnoodleClient} from "../scramble/tnoodle-client";
 import {practiceScramble} from "../scramble/practice";
+import {downloadCsTimerSession} from "./cstimer";
 
 const newId = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const inputActive = (target: EventTarget | null): boolean =>
@@ -38,6 +39,7 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
   const cubelabScramble = panel.querySelector<HTMLButtonElement>("[data-timer-cubelab-scramble]")!;
   const tnoodleScramble = panel.querySelector<HTMLButtonElement>("[data-timer-tnoodle-scramble]")!;
   const arena = panel.querySelector<HTMLButtonElement>("[data-timer-arena]")!;
+  const exportCsTimer = panel.querySelector<HTMLButtonElement>("[data-timer-export-cstimer]")!;
   let state: TimerState = initialTimerState();
   let currentScramble = practiceScramble();
   let currentScrambleSource = "Built-in practice scramble";
@@ -53,6 +55,12 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
 
   const persist = () => {
     writeTimerSessions(window.localStorage, [session]);
+  };
+  const saveSolve = (solve: SolveRecord) => {
+    // TimerEngine deliberately stays pure and uses its injected monotonic clock.
+    // Session storage also needs a wall-clock completion time for portable exports.
+    session = {...session, solves: [...session.solves, {...solve, completedAt: Date.now()}]};
+    persist();
   };
   const publishPhase = () => {
     window.dispatchEvent(new CustomEvent("cubelab:timer-phase", {
@@ -95,6 +103,10 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
     tnoodleScramble.title = tnoodleAvailable
       ? "Load a verified TNoodle 3×3 scramble"
       : "Test and enable the configured TNoodle server in Settings first.";
+    exportCsTimer.disabled = session.solves.length === 0;
+    exportCsTimer.title = session.solves.length === 0
+      ? "Complete a solve before exporting the session."
+      : "Download this 3×3 session as csTimer-compatible JSON.";
     const shown = state.phase === "inspection" && state.inspectionStartedAt !== null
       ? performance.now() - state.inspectionStartedAt
       : state.elapsedMs;
@@ -178,8 +190,7 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
       const completed = stopTimer(state, now, newId(), currentScramble);
       state = completed.state;
       if (completed.solve) {
-        session = {...session, solves: [...session.solves, completed.solve]};
-        persist();
+        saveSolve(completed.solve);
         void assignNextScramble(selectedScrambleSource);
       }
     }
@@ -223,6 +234,11 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
   arena.addEventListener("click", () => {
     window.dispatchEvent(new CustomEvent("cubelab:timer-arena", {detail: {enabled: true}}));
   });
+  exportCsTimer.addEventListener("click", () => {
+    if (session.solves.length === 0) return;
+    downloadCsTimerSession(session);
+    status.textContent = "Downloaded csTimer-compatible session JSON.";
+  });
   window.addEventListener("cubelab:controller-turn", () => {
     if (panel.hidden || state.phase !== "inspection") return;
     state = startInspectionTimer(state, performance.now());
@@ -235,8 +251,7 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
     const completed = stopTimer(state, performance.now(), newId(), currentScramble);
     state = completed.state;
     if (completed.solve) {
-      session = {...session, solves: [...session.solves, completed.solve]};
-      persist();
+      saveSolve(completed.solve);
     }
     render();
     publishPhase();

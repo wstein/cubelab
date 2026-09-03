@@ -18,6 +18,11 @@ WCA-style trimmed Ao5/Ao12 values. Timer sessions are versioned JSON records in
 browser storage; invalid or unavailable storage is treated as an empty session,
 never as a timer failure.
 
+The Timer workspace can download its current 3×3 session as csTimer-compatible JSON.
+The export preserves scrambles, elapsed milliseconds, `+2`, DNF, completion ordering,
+and the session name. It intentionally exports only timing data—CubeLab's controller,
+viewport, and local preferences remain local.
+
 ## Manual workspace
 
 The **Timer** workspace exposes the manual engine through Space and touch
