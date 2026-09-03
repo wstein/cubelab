@@ -29,8 +29,9 @@ The three styles are intentionally different physical models:
   boundary, so adjacent coloured faces meet without disconnected corner fans or
   punctures. A per-vertex sheen value gives the rolled plastic a satin highlight.
 - **Ice** uses colourless clear-glass individual cubies, including their bevels and
-  corners, around saturated, fully opaque local stickers. Its outline exactly reuses
-  Standard's beveled cubie topology—not Speed's continuous rolled-band topology. It
+  corners, around saturated, fully opaque local stickers. Its exposed outline reuses
+  Standard's beveled cubie topology—not Speed's continuous rolled-band topology—while
+  omitting internal glass planes that would otherwise appear as stacked flat bands. It
   intentionally omits reverse-side stickers, so local face and edge colours remain
   unambiguous while the cube still reads as glass. Its sticker plates are satin rather
   than glossy, reserving sharp reflections for the glass itself. The glass has a clear

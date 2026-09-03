@@ -40,7 +40,7 @@ test("ice keeps opaque local stickers over a colourless outer shell", () => {
   assert.ok(ice.iceBodyVertexCount > 0);
 });
 
-test("ice reuses Standard's beveled cubie outline rather than Speed's rolled outline", () => {
+test("ice reuses Standard's exposed beveled outline without internal glass planes", () => {
   const standard = generated(StateTypes.solved(3)._0, "Standard");
   const ice = generated(StateTypes.solved(3)._0, "Ice");
   const bodyPositions = (mesh, isBody) => {
@@ -57,7 +57,9 @@ test("ice reuses Standard's beveled cubie outline rather than Speed's rolled out
   );
   const iceOutline = bodyPositions(ice, (data, index) => data[index + 9] < 1);
   assert.ok(standardOutline.length > 0);
-  assert.deepEqual(iceOutline, standardOutline);
+  const standardOutlineSet = new Set(standardOutline);
+  assert.ok(iceOutline.length < standardOutline.length);
+  assert.ok(iceOutline.every((position) => standardOutlineSet.has(position)));
 });
 
 test("speed geometry has rolled edges while Standard has lifted stickers", () => {

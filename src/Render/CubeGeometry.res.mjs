@@ -732,50 +732,62 @@ function emitStandardFace(emitter, centre, face, half, colour, bevelFor) {
   emitQuad(emitter, a, b, c, d, normal, normal, normal, normal, colour, normal, undefined);
 }
 
-function emitStandardBevels(emitter, centre, half, colour, bevelFor) {
+function emitStandardBevelsWhere(emitter, centre, half, colour, bevelFor, visible) {
   for (let index = 0, index_finish = edges.length; index < index_finish; ++index) {
     let match = edges[index];
     let faceB = match[1];
     let faceA = match[0];
-    let na = faceNormal(faceA);
-    let nb = faceNormal(faceB);
-    let along = cross(nb, na);
-    let faceMinus = faceForNormal(scale(along, -1.0));
-    let facePlus = faceForNormal(along);
-    let bevelAB = bevelFor(faceA, faceB);
-    let flatAB = half - bevelAB;
-    let flatMinusA = half - bevelFor(faceA, faceMinus);
-    let flatPlusA = half - bevelFor(faceA, facePlus);
-    let flatMinusB = half - bevelFor(faceB, faceMinus);
-    let flatPlusB = half - bevelFor(faceB, facePlus);
-    let onA = add(scale(na, half), scale(nb, flatAB));
-    let onB = add(scale(nb, half), scale(na, flatAB));
-    let a = add(centre, add(onA, scale(along, - flatMinusA)));
-    let b = add(centre, add(onA, scale(along, flatPlusA)));
-    let c = add(centre, add(onB, scale(along, flatPlusB)));
-    let d = add(centre, add(onB, scale(along, - flatMinusB)));
-    let wanted = normalize(add(na, nb));
-    emitQuad(emitter, a, b, c, d, na, na, nb, nb, colour, wanted, undefined);
+    if (visible(faceA) && visible(faceB)) {
+      let na = faceNormal(faceA);
+      let nb = faceNormal(faceB);
+      let along = cross(nb, na);
+      let faceMinus = faceForNormal(scale(along, -1.0));
+      let facePlus = faceForNormal(along);
+      let bevelAB = bevelFor(faceA, faceB);
+      let flatAB = half - bevelAB;
+      let flatMinusA = half - bevelFor(faceA, faceMinus);
+      let flatPlusA = half - bevelFor(faceA, facePlus);
+      let flatMinusB = half - bevelFor(faceB, faceMinus);
+      let flatPlusB = half - bevelFor(faceB, facePlus);
+      let onA = add(scale(na, half), scale(nb, flatAB));
+      let onB = add(scale(nb, half), scale(na, flatAB));
+      let a = add(centre, add(onA, scale(along, - flatMinusA)));
+      let b = add(centre, add(onA, scale(along, flatPlusA)));
+      let c = add(centre, add(onB, scale(along, flatPlusB)));
+      let d = add(centre, add(onB, scale(along, - flatMinusB)));
+      let wanted = normalize(add(na, nb));
+      emitQuad(emitter, a, b, c, d, na, na, nb, nb, colour, wanted, undefined);
+    }
   }
 }
 
-function emitStandardCorners(emitter, centre, half, colour, bevelFor) {
+function emitStandardBevels(emitter, centre, half, colour, bevelFor) {
+  emitStandardBevelsWhere(emitter, centre, half, colour, bevelFor, param => true);
+}
+
+function emitStandardCornersWhere(emitter, centre, half, colour, bevelFor, visible) {
   for (let index = 0, index_finish = corners.length; index < index_finish; ++index) {
     let match = corners[index];
     let faceC = match[2];
     let faceB = match[1];
     let faceA = match[0];
-    let na = faceNormal(faceA);
-    let nb = faceNormal(faceB);
-    let nc = faceNormal(faceC);
-    let flatAB = half - bevelFor(faceA, faceB);
-    let flatAC = half - bevelFor(faceA, faceC);
-    let flatBC = half - bevelFor(faceB, faceC);
-    let a = add(centre, add(scale(na, half), add(scale(nb, flatAB), scale(nc, flatAC))));
-    let b = add(centre, add(scale(nb, half), add(scale(nc, flatBC), scale(na, flatAB))));
-    let c = add(centre, add(scale(nc, half), add(scale(na, flatAC), scale(nb, flatBC))));
-    emitTriangle(emitter, a, b, c, na, nb, nc, colour, normalize(add(na, add(nb, nc))), undefined);
+    if (visible(faceA) && visible(faceB) && visible(faceC)) {
+      let na = faceNormal(faceA);
+      let nb = faceNormal(faceB);
+      let nc = faceNormal(faceC);
+      let flatAB = half - bevelFor(faceA, faceB);
+      let flatAC = half - bevelFor(faceA, faceC);
+      let flatBC = half - bevelFor(faceB, faceC);
+      let a = add(centre, add(scale(na, half), add(scale(nb, flatAB), scale(nc, flatAC))));
+      let b = add(centre, add(scale(nb, half), add(scale(nc, flatBC), scale(na, flatAB))));
+      let c = add(centre, add(scale(nc, half), add(scale(na, flatAC), scale(nb, flatBC))));
+      emitTriangle(emitter, a, b, c, na, nb, nc, colour, normalize(add(na, add(nb, nc))), undefined);
+    }
   }
+}
+
+function emitStandardCorners(emitter, centre, half, colour, bevelFor) {
+  emitStandardCornersWhere(emitter, centre, half, colour, bevelFor, param => true);
 }
 
 function emitStandardCubie(data, state, palette, gx, gy, gz) {
@@ -817,9 +829,14 @@ function emitIceCubie(nearStickerData, iceBodyData, state, palette, gx, gy, gz) 
   };
   let half = 0.999 * cell / 2.0;
   let bevelFor = (fA, fB) => bevelForEdge(last, gx, gy, gz, cell, fA, fB);
-  StateTypes.storageOrder.forEach(face => emitStandardFace(bodyEmitter, centre, face, half, iceBody, bevelFor));
-  emitStandardBevels(bodyEmitter, centre, half, iceBody, bevelFor);
-  emitStandardCorners(bodyEmitter, centre, half, iceBody, bevelFor);
+  StateTypes.storageOrder.forEach(face => {
+    if (isExposed(last, gx, gy, gz, face)) {
+      return emitStandardFace(bodyEmitter, centre, face, half, iceBody, bevelFor);
+    }
+  });
+  let visible = face => isExposed(last, gx, gy, gz, face);
+  emitStandardBevelsWhere(bodyEmitter, centre, half, iceBody, bevelFor, visible);
+  emitStandardCornersWhere(bodyEmitter, centre, half, iceBody, bevelFor, visible);
   StateTypes.storageOrder.forEach(face => {
     if (!isExposed(last, gx, gy, gz, face)) {
       return;
@@ -1087,7 +1104,9 @@ export {
   pointOnFace,
   emitRoundedFace,
   emitStandardFace,
+  emitStandardBevelsWhere,
   emitStandardBevels,
+  emitStandardCornersWhere,
   emitStandardCorners,
   emitStandardCubie,
   emitIceCubie,
