@@ -718,6 +718,13 @@ const cards = [
                   data-academy-instant-drill
                   title="Load this Academy setup into Smart Controller Mode without changing the physical cube"
                 >⚡ Instant drill</button>
+                <button
+                  type="button"
+                  class="transform-btn academy-shared-action"
+                  data-academy-wca-drill
+                  aria-pressed="false"
+                  title="Use the digital cover and 15-second inspection for Academy drills"
+                >WCA drill off</button>
                 <label class="academy-target-input academy-drill-select">
                   <span>Drill family</span>
                   <select data-academy-drill-family aria-label="Curated Instant Drill family">
@@ -1141,7 +1148,10 @@ const cards = [
                 <span class="panel-label">Manual practice · local session</span>
                 <h2 id="timer-title">Speedcubing Timer</h2>
               </div>
-              <button type="button" class="transform-btn" data-timer-new-scramble>New scramble</button>
+              <div class="timer-actions">
+                <button type="button" class="transform-btn" data-timer-new-scramble>New scramble</button>
+                <button type="button" class="transform-btn" data-timer-arena>Open arena</button>
+              </div>
             </header>
             <p class="timer-scramble" data-timer-scramble></p>
             <button type="button" class="timer-display" data-timer-display aria-label="Timer control">

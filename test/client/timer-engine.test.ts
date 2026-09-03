@@ -5,6 +5,7 @@ import {
   averageOf,
   beginHold,
   beginInspection,
+  coverTimer,
   formatTime,
   initialTimerState,
   readyTimer,
@@ -25,6 +26,12 @@ const solve = (durationMs: number, penalty: SolveRecord["penalty"] = "none"): So
 });
 
 describe("timer engine", () => {
+  test("keeps a virtual scramble covered until explicit inspection", () => {
+    const covered = coverTimer();
+    expect(covered.phase).toBe("covered");
+    expect(beginInspection(covered, 100).phase).toBe("inspection");
+  });
+
   test("requires a hold before a solve can start", () => {
     const held = beginHold(initialTimerState(), 1_000);
     expect(releaseHold(held, 1_000 + HOLD_TO_READY_MS - 1).phase).toBe("idle");

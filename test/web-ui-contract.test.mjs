@@ -44,12 +44,16 @@ test("the workspace exposes a manual speedcubing timer", () => {
   assert.match(page, /data-workspace-panel="timer"/);
   assert.match(page, /data-timer-display/);
   assert.match(page, /data-timer-scramble/);
+  assert.match(page, /data-timer-arena/);
+  assert.match(viewportComponent, /data-timer-cover/);
+  assert.match(viewportComponent, /data-timer-hud/);
   assert.match(client, /mountTimerWorkspace\(root\)/);
   assert.match(page, /data-academy-instant-drill/);
   assert.match(page, /data-academy-drill-case/);
   assert.match(page, /data-academy-drill-family/);
   assert.match(page, /data-academy-load-drill/);
   assert.match(page, /data-academy-random-drill/);
+  assert.match(page, /data-academy-wca-drill/);
   assert.match(viewportComponent, /data-smart-cube-controller/);
   assert.match(client, /smartCubeSyncMode === "VirtualController"/);
   assert.match(client, /cubelab:controller-scramble/);

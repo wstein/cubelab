@@ -103,6 +103,17 @@
     <div class="viewport-fallback" data-viewport-fallback role="status" hidden>
       WebGL is unavailable. Text conversions remain fully functional.
     </div>
+    <button class="timer-cover" data-timer-cover type="button" hidden>
+      <span>Virtual scramble covered</span>
+      <strong>Inspect</strong>
+      <small>Press Space or tap to begin 15-second inspection</small>
+    </button>
+    <aside class="timer-hud" data-timer-hud hidden aria-live="polite">
+      <span class="panel-label" data-timer-hud-phase>Covered</span>
+      <strong data-timer-hud-time>0.00</strong>
+      <span data-timer-hud-status>Press Inspect to reveal the cube</span>
+      <small data-timer-hud-stats>Best — · Ao5 —</small>
+    </aside>
     <span class="viewport-hint">Drag to rotate · Scroll to zoom</span>
   </div>
   <div class="viewport-footer">

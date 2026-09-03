@@ -3,7 +3,7 @@ export const INSPECTION_PLUS_TWO_MS = 15_000;
 export const INSPECTION_DNF_MS = 17_000;
 
 export type TimerPenalty = "none" | "+2" | "DNF";
-export type TimerPhase = "idle" | "inspection" | "holding" | "ready" | "running" | "stopped";
+export type TimerPhase = "idle" | "covered" | "inspection" | "holding" | "ready" | "running" | "stopped";
 
 export type TimerState = {
   phase: TimerPhase;
@@ -52,6 +52,12 @@ export const beginInspection = (state: TimerState, now: number): TimerState => (
   ...initialTimerState(),
   phase: "inspection",
   inspectionStartedAt: validNow(now),
+});
+
+/** Conceals a freshly assigned virtual scramble until the user explicitly inspects it. */
+export const coverTimer = (): TimerState => ({
+  ...initialTimerState(),
+  phase: "covered",
 });
 
 export const beginHold = (state: TimerState, now: number): TimerState => {

@@ -1,6 +1,7 @@
 import {
   beginHold,
   beginInspection,
+  coverTimer,
   formatTime,
   initialTimerState,
   readyTimer,
@@ -46,12 +47,14 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
   const inspection = panel.querySelector<HTMLButtonElement>("[data-timer-inspection]")!;
   const reset = panel.querySelector<HTMLButtonElement>("[data-timer-reset]")!;
   const nextScramble = panel.querySelector<HTMLButtonElement>("[data-timer-new-scramble]")!;
+  const arena = panel.querySelector<HTMLButtonElement>("[data-timer-arena]")!;
   let state: TimerState = initialTimerState();
   let currentScramble = practiceScramble();
   let session: TimerSession = readTimerSessions(window.localStorage)[0]
     ?? {version: 1, id: "default", name: "Default", solves: []};
   let frame: number | null = null;
   let controllerMode = false;
+  let inspectionCue = 0;
 
   const persist = () => {
     writeTimerSessions(window.localStorage, [session]);
@@ -61,8 +64,14 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
       detail: {phase: state.phase},
     }));
   };
+  const publishHud = (shown: number) => {
+    window.dispatchEvent(new CustomEvent("cubelab:timer-hud", {
+      detail: {phase: state.phase, shown, scramble: currentScramble, summary: summarizeSession(session.solves)},
+    }));
+  };
   const phaseMessage = (): string => {
-    if (state.phase === "inspection") return "Inspection running. Hold Space until green, then release.";
+    if (state.phase === "covered") return "Scramble covered. Press Space, Inspect, or tap the cover to begin inspection.";
+    if (state.phase === "inspection") return "Inspection running. Your first complete controller turn starts the solve.";
     if (state.phase === "holding") return "Hold Space…";
     if (state.phase === "ready") return "Ready — release Space to start.";
     if (state.phase === "running") return "Solving — press Space or tap the timer to stop.";
@@ -90,10 +99,19 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
       item.innerHTML = `<code>${formatTime(solve.durationMs)}${solve.penalty === "+2" ? " +2" : solve.penalty === "DNF" ? " DNF" : ""}</code><button type="button" data-timer-penalty="${solve.id}">+2</button><button type="button" data-timer-dnf="${solve.id}">DNF</button><button type="button" data-timer-delete="${solve.id}">Delete</button>`;
       return item;
     }));
+    publishHud(shown);
   };
   const animate = () => {
     state = tickTimer(state, performance.now());
     if (state.phase === "holding") state = readyTimer(state, performance.now());
+    if (state.phase === "inspection" && state.inspectionStartedAt !== null) {
+      const elapsed = performance.now() - state.inspectionStartedAt;
+      const cue = elapsed >= 12_000 ? 12 : elapsed >= 8_000 ? 8 : 0;
+      if (cue > inspectionCue) {
+        inspectionCue = cue;
+        window.dispatchEvent(new CustomEvent("cubelab:timer-cue", {detail: {seconds: cue}}));
+      }
+    }
     render();
     if (state.phase === "inspection" || state.phase === "holding" || state.phase === "ready" || state.phase === "running") {
       frame = window.requestAnimationFrame(animate);
@@ -104,7 +122,10 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
   };
   const begin = () => {
     const now = performance.now();
-    if (state.phase === "idle" || state.phase === "stopped") state = beginInspection(state, now);
+    if (state.phase === "idle" || state.phase === "stopped" || state.phase === "covered") {
+      state = beginInspection(state, now);
+      inspectionCue = 0;
+    }
     else if (state.phase === "inspection") state = beginHold(state, now);
     else if (state.phase === "running") {
       const completed = stopTimer(state, now, newId(), currentScramble);
@@ -139,7 +160,7 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
   nextScramble.addEventListener("click", () => {
     currentScramble = practiceScramble();
     if (controllerMode) {
-      state = beginInspection(state, performance.now());
+      state = coverTimer();
       publishPhase();
       schedule();
     }
@@ -149,6 +170,18 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
   window.addEventListener("cubelab:controller-mode", ((event: CustomEvent<{enabled: boolean}>) => {
     controllerMode = event.detail.enabled;
   }) as EventListener);
+  window.addEventListener("cubelab:timer-inspect", () => {
+    if (state.phase === "covered") begin();
+  });
+  window.addEventListener("cubelab:timer-cover", () => {
+    if (!controllerMode) return;
+    state = coverTimer();
+    publishPhase();
+    render();
+  });
+  arena.addEventListener("click", () => {
+    window.dispatchEvent(new CustomEvent("cubelab:timer-arena", {detail: {enabled: true}}));
+  });
   window.addEventListener("cubelab:controller-turn", () => {
     if (panel.hidden || state.phase !== "inspection") return;
     state = startInspectionTimer(state, performance.now());

@@ -7,7 +7,8 @@ physical cube supplies turn packets and gyro pose while its stickers and
 facelets are ignored by the virtual cube.
 
 The manual state flow is `idle → inspection → holding → ready → running →
-stopped`. A hold must last 300 ms before release starts the solve. Inspection
+stopped`. Virtual Controller timing adds a deliberate `covered` gate:
+`idle → covered → inspection → running → stopped`. A hold must last 300 ms before release starts the solve. Inspection
 penalties are assigned at solve start: more than 15 seconds produces `+2` and
 more than 17 seconds produces `DNF`.
 
@@ -39,3 +40,14 @@ first complete face packet starts the timer and is applied as the first solve
 turn. Solving the virtual state records the result automatically. Leaving the
 mode restores physical mirroring and clearly asks the user to sync physical
 state before relying on it again.
+
+## Timer theater
+
+**Open arena** reuses the existing in-place full-size player layout with a
+timer HUD instead of the move tape—there is no route change, renderer reset, or
+Bluetooth reconnect. A covered scramble is obscured by an opaque glass mask.
+Pressing Space, the normal **Inspect** button, or tapping that mask reveals the
+cube and starts inspection at once. The HUD flashes visual 8- and 12-second
+warnings; the first complete controller turn starts the solve. Academy remains
+untimed by default, with its optional **WCA drill** toggle enabling the same
+cover-and-inspection flow.

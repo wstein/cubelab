@@ -157,9 +157,11 @@ const root = document.querySelector<HTMLElement>("[data-converter]");
 if (root) {
   let playerMode = window.location.pathname === "/player"
     || new URL(window.location.href).searchParams.get("player") === "1";
+  let timerArenaMode = false;
   const playerPageLink = root.querySelector<HTMLAnchorElement>("[data-player-page-link]")!;
   const renderPlayerPresentation = () => {
     document.body.classList.toggle("player-page", playerMode);
+    document.body.dataset.theaterMode = timerArenaMode ? "timer" : "playback";
     playerPageLink.href = playerMode ? "/" : "/player";
     playerPageLink.textContent = playerMode ? "Back to studio" : "Full-size player";
     playerPageLink.title = playerMode
@@ -241,6 +243,7 @@ if (root) {
   const nissResult = root.querySelector<HTMLOutputElement>("[data-niss-result]")!;
   const academySolve = root.querySelector<HTMLButtonElement>("[data-academy-solve]")!;
   const academyInstantDrill = root.querySelector<HTMLButtonElement>("[data-academy-instant-drill]")!;
+  const academyWcaDrill = root.querySelector<HTMLButtonElement>("[data-academy-wca-drill]")!;
   const academyDrillCase = root.querySelector<HTMLSelectElement>("[data-academy-drill-case]")!;
   const academyDrillFamily = root.querySelector<HTMLSelectElement>("[data-academy-drill-family]")!;
   const academyLoadDrill = root.querySelector<HTMLButtonElement>("[data-academy-load-drill]")!;
@@ -273,6 +276,12 @@ if (root) {
   const smartCubeOrientation = root.querySelector<HTMLButtonElement>("[data-smart-cube-orientation]")!;
   const smartCubeController = root.querySelector<HTMLButtonElement>("[data-smart-cube-controller]")!;
   const smartCubeDisconnect = root.querySelector<HTMLButtonElement>("[data-smart-cube-disconnect]")!;
+  const timerCover = root.querySelector<HTMLButtonElement>("[data-timer-cover]")!;
+  const timerHud = root.querySelector<HTMLElement>("[data-timer-hud]")!;
+  const timerHudPhase = root.querySelector<HTMLElement>("[data-timer-hud-phase]")!;
+  const timerHudTime = root.querySelector<HTMLElement>("[data-timer-hud-time]")!;
+  const timerHudStatus = root.querySelector<HTMLElement>("[data-timer-hud-status]")!;
+  const timerHudStats = root.querySelector<HTMLElement>("[data-timer-hud-stats]")!;
   const initialState = readHash(window.location.hash);
   const store = createStore(initialState);
   let size = initialState.size;
@@ -297,6 +306,7 @@ if (root) {
   let activeAcademy: AcademyElements | null = null;
   let commentedTutorialSolution = "";
   let academySolveBusy = false;
+  let academyWcaDrillEnabled = false;
   const academyRequestGuard = createAcademyRequestGuard();
   const savedTutorialSolutions = new Map<TutorialMethod, SavedTutorialSolution>();
   const beginnerAcademy: AcademyElements = {
@@ -407,6 +417,13 @@ if (root) {
   window.addEventListener("popstate", () => {
     setPlayerMode(window.location.pathname === "/player", false);
   });
+  const setTimerArenaMode = (enabled: boolean) => {
+    timerArenaMode = enabled;
+    if (enabled) setPlayerMode(true);
+    renderPlayerPresentation();
+    timerHud.hidden = !enabled;
+    timerCover.hidden = true;
+  };
 
   const scheme = (): Scheme =>
     schemeSelect.value === "Custom"
@@ -3167,10 +3184,42 @@ if (root) {
   window.addEventListener("cubelab:timer-phase", ((event: CustomEvent<{phase: string}>) => {
     smartCubeControllerInspection = smartCubeSyncMode === "VirtualController"
       && event.detail.phase === "inspection";
+    timerCover.hidden = !(timerArenaMode && event.detail.phase === "covered");
+    timerHudPhase.textContent = event.detail.phase === "inspection"
+      ? "Inspection"
+      : event.detail.phase === "running"
+        ? "Solving"
+        : event.detail.phase === "covered"
+          ? "Covered"
+          : event.detail.phase;
     if (smartCubeControllerInspection) {
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Inspection: gyro controls the view; the first complete turn starts the timer.`;
     }
   }) as EventListener);
+  window.addEventListener("cubelab:timer-hud", ((event: CustomEvent<{
+    phase: string;
+    shown: number;
+    scramble: string;
+    summary: {best: number | null; ao5: number | null};
+  }>) => {
+    if (!timerArenaMode) return;
+    const format = (milliseconds: number | null) => milliseconds === null
+      ? "—"
+      : `${Math.floor(milliseconds / 60_000)}:${String(Math.floor(milliseconds / 1_000) % 60).padStart(2, "0")}.${String(Math.floor(milliseconds / 10) % 100).padStart(2, "0")}`;
+    timerHudTime.textContent = format(event.detail.shown);
+    timerHudStatus.textContent = event.detail.phase === "covered"
+      ? "Press Inspect to reveal the virtual scramble"
+      : event.detail.scramble;
+    timerHudStats.textContent = `Best ${format(event.detail.summary.best)} · Ao5 ${format(event.detail.summary.ao5)}`;
+  }) as EventListener);
+  window.addEventListener("cubelab:timer-cue", ((event: CustomEvent<{seconds: number}>) => {
+    if (!timerArenaMode) return;
+    timerHud.dataset.cue = String(event.detail.seconds);
+    timerHudStatus.textContent = `${event.detail.seconds} SECONDS`;
+    window.setTimeout(() => delete timerHud.dataset.cue, 800);
+  }) as EventListener);
+  window.addEventListener("cubelab:timer-arena", () => setTimerArenaMode(true));
+  timerCover.addEventListener("click", () => window.dispatchEvent(new Event("cubelab:timer-inspect")));
   window.addEventListener("cubelab:controller-scramble", ((event: CustomEvent<{scramble: string}>) => {
     if (smartCubeSyncMode !== "VirtualController") return;
     const evaluated = evaluateAlgorithm(3, "Wide", "Modern", event.detail.scramble);
@@ -3860,6 +3909,17 @@ if (root) {
     setSmartCubeControllerMode(true);
     loadVirtualControllerState(activeRecognized.state, "Virtual controller · Academy instant drill");
     smartCubeStatus.textContent = `${smartCubeDeviceName} · Academy drill loaded; physical stickers are ignored.`;
+    if (academyWcaDrillEnabled) {
+      window.dispatchEvent(new CustomEvent("cubelab:timer-arena", {detail: {enabled: true}}));
+      window.dispatchEvent(new Event("cubelab:timer-cover"));
+    }
+  });
+
+  academyWcaDrill.addEventListener("click", () => {
+    academyWcaDrillEnabled = !academyWcaDrillEnabled;
+    academyWcaDrill.classList.toggle("active", academyWcaDrillEnabled);
+    academyWcaDrill.setAttribute("aria-pressed", String(academyWcaDrillEnabled));
+    academyWcaDrill.textContent = academyWcaDrillEnabled ? "WCA drill on" : "WCA drill off";
   });
 
   const loadCuratedDrill = (drill: DrillCase, yRotation = 0) => {
@@ -3885,6 +3945,10 @@ if (root) {
     const algorithm = MoveTransform.serialize(rotated) as string;
     loadVirtualControllerState(caseState._0, `Virtual controller · ${drill.label}${orientation}`);
     smartCubeStatus.textContent = `${smartCubeDeviceName} · ${drill.label}${orientation} loaded. Solve: ${algorithm}`;
+    if (academyWcaDrillEnabled) {
+      window.dispatchEvent(new CustomEvent("cubelab:timer-arena", {detail: {enabled: true}}));
+      window.dispatchEvent(new Event("cubelab:timer-cover"));
+    }
   };
 
   academyLoadDrill.addEventListener("click", () => {
@@ -4290,6 +4354,7 @@ if (root) {
     if (event.key === "Escape") {
       event.preventDefault();
       if (playerMode) {
+        if (timerArenaMode) setTimerArenaMode(false);
         setPlayerMode(false);
         return;
       }
