@@ -1,6 +1,7 @@
 import {oll, pll} from "../Solver/CfopCases.res.mjs";
 
 export type DrillCaseFamily = "OLL" | "PLL" | "F2L";
+export type DrillFamilyFilter = DrillCaseFamily | "All";
 export type DrillCase = {
   id: string;
   family: DrillCaseFamily;
@@ -41,3 +42,17 @@ export const curatedDrillCases: DrillCase[] = [...selectedOll, ...selectedPll, .
 
 export const drillCaseById = (id: string): DrillCase | null =>
   curatedDrillCases.find((entry) => entry.id === id) ?? null;
+
+export const drillCasesForFamily = (family: DrillFamilyFilter): DrillCase[] =>
+  family === "All" ? curatedDrillCases : curatedDrillCases.filter((entry) => entry.family === family);
+
+export const randomDrillCase = (
+  family: DrillFamilyFilter,
+  random: () => number = Math.random,
+): DrillCase | null => {
+  const choices = drillCasesForFamily(family);
+  return choices.length === 0 ? null : choices[Math.floor(random() * choices.length)] ?? null;
+};
+
+/** Advances the deterministic y-orientation cycle used by random drills. */
+export const nextDrillRotation = (rotation: number): number => (rotation + 1) % 4;

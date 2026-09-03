@@ -24,6 +24,10 @@ alongside compact F2L insertion drills. Loading a case assigns its inverse state
 virtual cube, so executing the listed algorithm solves it. The physical smart cube remains
 only a turn-and-gyro controller; its facelets do not alter the drill state.
 
+The selector filters to **OLL**, **PLL**, or **F2L**. **Random case** chooses within that
+family and cycles y-orientations (`0`, `y`, `y2`, `y'`) before returning to the first
+orientation. Both the injected state and solving algorithm use the same orientation.
+
 ## Planning and scoring
 
 Cross uses a complete bounded search over all four cross edges instead of solving them

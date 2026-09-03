@@ -719,6 +719,15 @@ const cards = [
                   title="Load this Academy setup into Smart Controller Mode without changing the physical cube"
                 >⚡ Instant drill</button>
                 <label class="academy-target-input academy-drill-select">
+                  <span>Drill family</span>
+                  <select data-academy-drill-family aria-label="Curated Instant Drill family">
+                    <option value="All">All families</option>
+                    <option value="OLL">OLL</option>
+                    <option value="PLL">PLL</option>
+                    <option value="F2L">F2L</option>
+                  </select>
+                </label>
+                <label class="academy-target-input academy-drill-select">
                   <span>Curated drill case</span>
                   <select data-academy-drill-case aria-label="Curated Instant Drill case"></select>
                 </label>
@@ -728,6 +737,12 @@ const cards = [
                   data-academy-load-drill
                   title="Inject the selected OLL, PLL, or F2L case into Smart Controller Mode"
                 >Load case</button>
+                <button
+                  type="button"
+                  class="transform-btn academy-shared-action"
+                  data-academy-random-drill
+                  title="Load a random case from the selected family and cycle its AUF orientation"
+                >Random case</button>
               </div>
             </header>
             <div

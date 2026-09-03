@@ -1614,7 +1614,8 @@ body.player-page .viewport-panel:has(.playback:not([hidden])) .viewport-footer {
   text-transform: uppercase;
 }
 
-.academy-target-input input {
+.academy-target-input input,
+.academy-target-input select {
   width: 100%;
   min-height: 2.65rem;
   padding: 0.55rem 0.65rem;

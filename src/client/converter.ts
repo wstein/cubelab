@@ -14,7 +14,14 @@ import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
 import {createSolverClient, createTwoPhaseSolverClient} from "./workers/solver-client";
 import {mountTimerWorkspace} from "./timer/workspace";
 import {createAcademyRequestGuard} from "./academy-request";
-import {curatedDrillCases, drillCaseById} from "./drill-cases";
+import {
+  drillCaseById,
+  drillCasesForFamily,
+  nextDrillRotation as advanceDrillRotation,
+  randomDrillCase,
+  type DrillCase,
+  type DrillFamilyFilter,
+} from "./drill-cases";
 import {relativeAcademyState, type PieceState} from "./academy-target";
 import {
   createCubeViewport,
@@ -235,7 +242,9 @@ if (root) {
   const academySolve = root.querySelector<HTMLButtonElement>("[data-academy-solve]")!;
   const academyInstantDrill = root.querySelector<HTMLButtonElement>("[data-academy-instant-drill]")!;
   const academyDrillCase = root.querySelector<HTMLSelectElement>("[data-academy-drill-case]")!;
+  const academyDrillFamily = root.querySelector<HTMLSelectElement>("[data-academy-drill-family]")!;
   const academyLoadDrill = root.querySelector<HTMLButtonElement>("[data-academy-load-drill]")!;
+  const academyRandomDrill = root.querySelector<HTMLButtonElement>("[data-academy-random-drill]")!;
   const twoPhaseSolve = root.querySelector<HTMLButtonElement>("[data-two-phase-solve]")!;
   const twoPhaseApply = root.querySelector<HTMLButtonElement>("[data-two-phase-apply]")!;
   const twoPhaseResult = root.querySelector<HTMLOutputElement>("[data-two-phase-result]")!;
@@ -3141,12 +3150,19 @@ if (root) {
     });
   });
   mountTimerWorkspace(root);
-  curatedDrillCases.forEach((entry) => {
-    const option = document.createElement("option");
-    option.value = entry.id;
-    option.textContent = `${entry.family} · ${entry.label}`;
-    academyDrillCase.append(option);
-  });
+  let nextRandomDrillRotation = 0;
+  const selectedDrillFamily = (): DrillFamilyFilter => academyDrillFamily.value as DrillFamilyFilter;
+  const populateDrillCases = (preferredId?: string) => {
+    const cases = drillCasesForFamily(selectedDrillFamily());
+    academyDrillCase.replaceChildren(...cases.map((entry) => {
+      const option = document.createElement("option");
+      option.value = entry.id;
+      option.textContent = `${entry.family} · ${entry.label}`;
+      return option;
+    }));
+    if (preferredId && cases.some((entry) => entry.id === preferredId)) academyDrillCase.value = preferredId;
+  };
+  populateDrillCases();
 
   window.addEventListener("cubelab:timer-phase", ((event: CustomEvent<{phase: string}>) => {
     smartCubeControllerInspection = smartCubeSyncMode === "VirtualController"
@@ -3846,8 +3862,7 @@ if (root) {
     smartCubeStatus.textContent = `${smartCubeDeviceName} · Academy drill loaded; physical stickers are ignored.`;
   });
 
-  academyLoadDrill.addEventListener("click", () => {
-    const drill = drillCaseById(academyDrillCase.value);
+  const loadCuratedDrill = (drill: DrillCase, yRotation = 0) => {
     if (!drill || !smartCubeConnected) {
       academyForMethod(selectedTutorialMethod()).status.textContent = "Connect a smart cube to load a curated virtual drill.";
       return;
@@ -3859,14 +3874,31 @@ if (root) {
     }
     const solved = StateTypes.solved(3) as Result<CubeState, unknown>;
     if (solved.TAG !== "Ok") return;
-    const caseState = MoveExecutor.applyAlg(solved._0, MoveTransform.invert(parsed._0)) as Result<CubeState, unknown>;
+    const rotated = MoveTransform.rotate(parsed._0, "Y", yRotation);
+    const caseState = MoveExecutor.applyAlg(solved._0, MoveTransform.invert(rotated)) as Result<CubeState, unknown>;
     if (caseState.TAG === "Error") {
       academyForMethod(selectedTutorialMethod()).status.textContent = "Could not construct the selected drill case.";
       return;
     }
     setSmartCubeControllerMode(true);
-    loadVirtualControllerState(caseState._0, `Virtual controller · ${drill.label}`);
-    smartCubeStatus.textContent = `${smartCubeDeviceName} · ${drill.label} loaded. Execute its algorithm to solve.`;
+    const orientation = yRotation % 4 === 0 ? "" : ` · y${yRotation % 4 === 1 ? "" : yRotation % 4}`;
+    const algorithm = MoveTransform.serialize(rotated) as string;
+    loadVirtualControllerState(caseState._0, `Virtual controller · ${drill.label}${orientation}`);
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · ${drill.label}${orientation} loaded. Solve: ${algorithm}`;
+  };
+
+  academyLoadDrill.addEventListener("click", () => {
+    const drill = drillCaseById(academyDrillCase.value);
+    if (drill) loadCuratedDrill(drill);
+  });
+  academyDrillFamily.addEventListener("change", () => populateDrillCases());
+  academyRandomDrill.addEventListener("click", () => {
+    const drill = randomDrillCase(selectedDrillFamily());
+    if (!drill) return;
+    academyDrillCase.value = drill.id;
+    const yRotation = nextRandomDrillRotation;
+    nextRandomDrillRotation = advanceDrillRotation(nextRandomDrillRotation);
+    loadCuratedDrill(drill, yRotation);
   });
 
   academyTarget.addEventListener("input", () => {
