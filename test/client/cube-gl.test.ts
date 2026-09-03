@@ -21,6 +21,7 @@ import {
   smoothTrackedOrientation,
   standardStickerFinish,
   iceStickerFinish,
+  iceGlassFinish,
   vboCapacityFloats,
 } from "../../src/client/cube-gl";
 import {cubieIsFrontFacing} from "../../src/client/motion-overlay";
@@ -32,6 +33,12 @@ describe("cube viewport math", () => {
     expect(standardStickerFinish.rim).toBeGreaterThan(iceStickerFinish.rim);
     expect(standardStickerFinish.deskPeak).toBeLessThan(0.5);
     expect(iceStickerFinish.deskPeak).toBeLessThan(0.05);
+  });
+
+  test("makes Ice glass denser at its rim while preserving a transparent face", () => {
+    expect(iceGlassFinish.edgeAlpha).toBeGreaterThan(0);
+    expect(iceGlassFinish.edgeAlpha).toBeLessThan(0.3);
+    expect(iceGlassFinish.edgeLight).toBeGreaterThan(0);
   });
 
   test("converts a synchronously captured PNG data URI without a network fetch", async () => {

@@ -33,9 +33,10 @@ The three styles are intentionally different physical models:
   Standard's beveled cubie topology—not Speed's continuous rolled-band topology. It
   intentionally omits reverse-side stickers, so local face and edge colours remain
   unambiguous while the cube still reads as glass. Its sticker plates are satin rather
-  than glossy, reserving sharp reflections for the glass itself. It is decorative rather
-  than a training default; Standard remains clearest for sticker reading, turn guides,
-  and accessibility.
+  than glossy, reserving sharp reflections for the glass itself. The glass has a clear
+  face and a denser cool Fresnel rim, rather than a uniformly faded plastic surface. It
+  is decorative rather than a training default; Standard remains clearest for sticker
+  reading, turn guides, and accessibility.
 
 Every cube has the same world-space half-extent. Increasing the puzzle size therefore
 adds smaller pieces instead of making the rendered object larger.

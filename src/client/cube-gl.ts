@@ -28,6 +28,10 @@ export const iceStickerFinish = {
   ceilingPeak: 0.015,
   rim: 0.01,
 } as const;
+export const iceGlassFinish = {
+  edgeAlpha: 0.16,
+  edgeLight: 0.32,
+} as const;
 export type CubieFocus = {
   piece: string;
   source: [number, number, number];
@@ -244,7 +248,11 @@ const fragmentShaderSource = `
 
     // Combine diffuse and specular with soft highlight compression
     vec3 lit = vColour.rgb * diffuseLight + rolledSheen + specular;
-    lit += vec3(0.10, 0.18, 0.22) * iceBody * fresnel;
+    // Glass stays clear through its face but gathers a cool, denser reflection
+    // at grazing angles. This differentiates transparent cubies from dark
+    // plastic without tinting any sticker information.
+    float iceEdge = pow(fresnel, 0.72);
+    lit += vec3(0.10, 0.22, 0.30) * iceBody * (0.10 + ${iceGlassFinish.edgeLight} * iceEdge);
     vec3 colour = lit / (vec3(1.0) + max(lit - vec3(1.0), vec3(0.0)) * 0.5);
     colour = clamp(colour, 0.0, 1.0);
 
@@ -258,7 +266,8 @@ const fragmentShaderSource = `
     float pulse = 0.82 + 0.18 * sin(uFocusTime * 4.0);
     vec3 milestoneGlow = vec3(0.20, 1.0, 0.55) * (0.18 + 0.42 * glowFresnel) * pulse;
     colour = min(colour + milestoneGlow * vMilestoneFocus, vec3(1.0));
-    gl_FragColor = vec4(colour, vColour.a);
+    float iceAlpha = min(0.42, vColour.a + ${iceGlassFinish.edgeAlpha} * iceEdge * iceBody);
+    gl_FragColor = vec4(colour, mix(vColour.a, iceAlpha, iceBody));
   }
 `;
 
