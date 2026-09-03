@@ -2201,7 +2201,7 @@ if (root) {
   const syncSmartCubeTrackedOrientation = () => {
     if (
       smartCubeOrientationTracking
-      && !smartCubeCoachingWaiting
+      && (!smartCubeCoachingWaiting || smartCubeSyncMode === "VirtualController")
       && latestSmartCubeOrientation
     ) {
       viewport?.setDeviceOrientation(
@@ -2215,21 +2215,24 @@ if (root) {
 
   const waitForSmartCubeMove = () => {
     if (!smartCubeConnected || !activeTimeline?.states) return;
+    const virtualController = smartCubeSyncMode === "VirtualController";
     clearTutorialFocus();
     clearTurnGuide();
     stopPlayback();
     if (smartCubeRecovery) {
-      smartCubeCoachingFrameActive = true;
-      renderSmartCubeCoachingState();
+      smartCubeCoachingFrameActive = !virtualController;
+      if (!virtualController) renderSmartCubeCoachingState();
       showSmartCubeRecoveryGuide();
       syncSmartCubeTrackedOrientation();
       return;
     }
-    smartCubeCoachingFrameActive = true;
+    smartCubeCoachingFrameActive = !virtualController;
     // Hardware facelets stay in the sensor's fixed frame. During coaching the
     // timeline owns presentation so a confirmed x/y/z regrip cannot be erased
     // by the next face packet.
-    renderSmartCubeCoachingState();
+    // Controller mode is intentionally different: its virtual state owns the
+    // presentation, while the timeline only supplies coaching progress.
+    if (!virtualController) renderSmartCubeCoachingState();
     const action = nextExpectedSmartCubeAction(
       activeTimeline.steps,
       activeTimeline.labels,
@@ -2345,10 +2348,11 @@ if (root) {
 
   const applyPartialHalfTurn = async (
     assessment: Extract<SmartCubeMoveAssessment, {status: "partial"}>,
+    animate = true,
   ): Promise<void> => {
     smartCubeHalfTurnProgress = assessment.progress;
     waitForSmartCubeMove();
-    await animateSmartCubeMove(assessment.received, assessment.expected.timelineIndex);
+    if (animate) await animateSmartCubeMove(assessment.received, assessment.expected.timelineIndex);
     const quarterToken = assessment.expected.token.endsWith("2")
       ? assessment.expected.token.slice(0, -1)
       : assessment.expected.token.endsWith("2'")
@@ -2362,10 +2366,11 @@ if (root) {
   const applySmartCubeMismatch = async (
     assessment: Extract<SmartCubeMoveAssessment, {status: "mismatch"}>,
     move: string,
+    animate = true,
   ): Promise<void> => {
     const progress = smartCubeHalfTurnProgress;
     recordSmartCubeMistake(assessment.expected.token, assessment.received);
-    await animateSmartCubeMove(move, assessment.expected.timelineIndex);
+    if (animate) await animateSmartCubeMove(move, assessment.expected.timelineIndex);
 
     if (
       progress?.timelineIndex === assessment.expected.timelineIndex
@@ -2441,7 +2446,7 @@ if (root) {
     return true;
   };
 
-  const applyWaitingTimelineMove = async (move: string): Promise<boolean> => {
+  const applyWaitingTimelineMove = async (move: string, animate = true): Promise<boolean> => {
     if (!activeTimeline?.states) return false;
     const action = nextExpectedSmartCubeAction(
       activeTimeline.steps,
@@ -2453,7 +2458,7 @@ if (root) {
         status: "mismatch",
         expected: {timelineIndex: action.timelineIndex, token: action.token},
         received: move,
-      }, move);
+      }, move, animate);
       return true;
     }
     const assessment = assessSmartCubeMove(
@@ -2474,24 +2479,24 @@ if (root) {
       return true;
     }
     if (assessment.status === "partial") {
-      await applyPartialHalfTurn(assessment);
+      await applyPartialHalfTurn(assessment, animate);
       waitForSmartCubeMove();
       return true;
     }
     if (assessment.status === "unsupported") {
       smartCubeHalfTurnProgress = null;
       smartCubeStatus.textContent = `Expected ${assessment.expected.token}; received unsupported ${assessment.received}`;
-      await animateSmartCubeMove(move, assessment.expected.timelineIndex);
+      if (animate) await animateSmartCubeMove(move, assessment.expected.timelineIndex);
       return true;
     }
     if (assessment.status === "mismatch") {
-      await applySmartCubeMismatch(assessment, move);
+      await applySmartCubeMismatch(assessment, move, animate);
       return true;
     }
     const moveIndex = assessment.expected.timelineIndex;
     smartCubeHalfTurnProgress = null;
     if (!assessment.completedHalfTurn && activeIndex !== moveIndex) setSmartCubeTimelineIndex(moveIndex);
-    await animateSmartCubeMove(move, moveIndex);
+    if (animate) await animateSmartCubeMove(move, moveIndex);
     setSmartCubeTimelineIndex(moveIndex + 1);
     smartCubeStatus.textContent = `${smartCubeDeviceName} · ${move} matched`;
     signalSmartCubeFeedback("correct");
@@ -2688,6 +2693,15 @@ if (root) {
     renderState(next, `Virtual controller · ${projectedMove}`);
     updatePatternDetection({state: next, label: "Virtual controller"});
     smartCubeStatus.textContent = `${smartCubeDeviceName} · Virtual ${projectedMove}`;
+    const continueCoaching = smartCubeCoachingWaiting;
+    if (continueCoaching) {
+      // The controller has already animated and applied the projected turn to
+      // its own virtual state. Reuse the timeline matcher solely for coached
+      // progress, otherwise a correct controller packet leaves the tape at
+      // its current move forever.
+      await applyWaitingTimelineMove(projectedMove, false);
+      if (smartCubeCoachingWaiting || smartCubeRecovery) waitForSmartCubeMove();
+    }
     if (controllerStateIsSolved(next)) {
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Virtual cube solved`;
       window.dispatchEvent(new Event("cubelab:controller-solved"));
@@ -3023,7 +3037,7 @@ if (root) {
           // );
         }
         if (smartCubeOrientationTracking) {
-          if (!smartCubeCoachingWaiting) {
+          if (!smartCubeCoachingWaiting || smartCubeSyncMode === "VirtualController") {
             viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
           }
           void applySmartCubeGyroRotation(event).catch((reason) => {

@@ -211,6 +211,13 @@ test("the web UI exposes pure algorithm transforms and a clearly labeled practic
   assert.match(client, /if \(smartCubeSyncMode === "VirtualController"\) return/);
 });
 
+test("controller-mode turns advance an active coached tape in the viewport frame", () => {
+  assert.match(client, /const projectedMove = controllerMoveInViewportFrame/);
+  assert.match(client, /await applyWaitingTimelineMove\(projectedMove, false\)/);
+  assert.match(client, /Controller mode is intentionally different: its virtual state owns the/);
+  assert.match(client, /smartCubeSyncMode === "VirtualController"/);
+});
+
 test("the web UI exposes a state-verified 3x3 NISS helper", () => {
   assert.match(page, /data-niss-panel/);
   assert.match(page, /data-niss-normal/);

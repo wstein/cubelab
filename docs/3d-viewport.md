@@ -214,7 +214,9 @@ In normal **physical mirror** mode, reported facelets also determine the display
 state. **Controller mode** deliberately separates those concerns: the gyro still controls the
 camera, but a selected practice/timer scramble or Academy drill owns the virtual state. Physical
 facelet reports are ignored until the user returns to physical mirroring, so an old device state
-cannot repaint an instant virtual scramble.
+cannot repaint an instant virtual scramble. When a coached move tape is active, controller
+packets are projected into that same virtual frame, matched against the next guide, and advance
+the tape on a correct turn.
 
 ## Provenance and licensing
 
