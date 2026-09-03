@@ -248,8 +248,8 @@ export const vboCapacityFloats = (size: number): number => {
   const bodyVertices = visibleCubies * 132;
   const exposedFaces = 6 * size * size;
   const speedVertices = bodyVertices + exposedFaces * 336;
-  // Ice uses a separate clear outer shell. Keep a conservative allocation so
-  // future optional X-ray variants can add geometry without reallocating.
+  // Ice adds transparent individual cubie bodies. Keep a conservative
+  // allocation so future optional X-ray variants can add geometry safely.
   const iceVertices = bodyVertices + exposedFaces * 672;
   return Math.max(speedVertices, iceVertices) * FLOATS_PER_VERTEX;
 };
@@ -1450,10 +1450,12 @@ export const createCubeViewport = (
       gl.cullFace(gl.BACK);
       gl.drawArrays(gl.TRIANGLES, 0, nearStickerVertexCount);
 
-      // The only translucent geometry is an outward-facing, colourless shell.
-      // There are no reverse stickers or internal cubie planes to show through.
+      // Draw transparent glass bodies back-to-front. Bodies are colourless;
+      // reverse-side colours cannot appear because reverse stickers do not exist.
       gl.enable(gl.BLEND);
       gl.depthMask(false);
+      gl.cullFace(gl.FRONT);
+      gl.drawArrays(gl.TRIANGLES, nearStickerVertexCount, iceBodyVertexCount);
       gl.cullFace(gl.BACK);
       gl.drawArrays(gl.TRIANGLES, nearStickerVertexCount, iceBodyVertexCount);
       gl.depthMask(true);

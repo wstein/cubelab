@@ -27,10 +27,11 @@ The three styles are intentionally different physical models:
   smoothly-normaled roll bands per exposed face. The band reaches the full piece
   boundary, so adjacent coloured faces meet without disconnected corner fans or
   punctures. A per-vertex sheen value gives the rolled plastic a satin highlight.
-- **Ice** uses a colourless clear-glass outer shell around saturated, fully opaque local
-  stickers. It intentionally omits reverse-side stickers and internal glass cubie planes:
-  local face and edge colours must remain unambiguous. It is decorative rather than a
-  training default; Standard remains clearest for sticker reading, turn guides, and
+- **Ice** uses colourless clear-glass individual cubies, including their bevels and
+  corners, around saturated, fully opaque local stickers. It intentionally omits
+  reverse-side stickers, so local face and edge colours remain unambiguous while the
+  cube still reads as glass. It is decorative rather than a training default; Standard
+  remains clearest for sticker reading, turn guides, and
   accessibility.
 
 Every cube has the same world-space half-extent. Increasing the puzzle size therefore
@@ -45,9 +46,9 @@ in the viewport.
 The native WebGL renderer uploads the mesh to one interleaved vertex buffer.
 Capacity covers the selected size's largest Ice mesh and grows if a future geometry
 variant needs more room. Standard and Speed draw normally. Ice first draws its opaque
-local stickers with depth writes enabled, then draws only exposed faces of the transparent
-outer shell. There are no reverse stickers or internal translucent cubie planes, so
-opposite-face colours cannot compete with the local sticker reading.
+local stickers with depth writes enabled, then draws the transparent individual glass
+cubies back-to-front. There are no reverse stickers, so opposite-face colours cannot
+compete with the local sticker reading.
 
 Rendering is scheduled only after a state, style, camera, visibility, size, or visual
 guide change. There is no perpetual animation loop by default. The **Auto orbit** toggle

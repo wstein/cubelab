@@ -43,10 +43,9 @@ type rimPoint = {
 let stride = 14
 let halfExtent = 1.5
 let body = {r: 0.13, g: 0.14, b: 0.17, a: 1.0}
-// A colourless but visible casing: opaque stickers carry the state, while this
-// modest alpha preserves a recognisable glass silhouette without leaking the
-// opposite face through it.
-let iceBody = {r: 0.88, g: 0.98, b: 1.0, a: 0.20}
+// Each cubie remains visibly glass-like, but its colourless low-opacity body
+// cannot compete with the opaque local sticker layer.
+let iceBody = {r: 0.88, g: 0.98, b: 1.0, a: 0.16}
 // Local stickers are the human-readable information layer.
 let nearIceSticker = colour => {r: colour.r, g: colour.g, b: colour.b, a: 1.0}
 
@@ -539,14 +538,14 @@ let emitIceCubie = (
   let half = 0.999 *. cell /. 2.0
   let bevelFor = (fA, fB) => bevelForEdge(~last, ~gx, ~gy, ~gz, ~cell, fA, fB)
 
-  // Ice is an outer casing rather than a stack of transparent cubie boxes.
-  // Leaving out internal faces, bevels, and corners avoids colour-fogging the
-  // sticker information through several overlapping cyan planes.
+  // Unlike an outer shell, individual transparent cubie faces, bevels, and
+  // corners retain the recognizable ice construction. They are all colourless;
+  // only exposed, front-facing sticker plates carry cube-state colours.
   StateTypes.storageOrder->Array.forEach(face =>
-    if isExposed(~last, ~gx, ~gy, ~gz, face) {
-      emitStandardFace(bodyEmitter, centre, face, half, iceBody, ~bevelFor)
-    }
+    emitStandardFace(bodyEmitter, centre, face, half, iceBody, ~bevelFor)
   )
+  emitStandardBevels(bodyEmitter, centre, half, iceBody, ~bevelFor)
+  emitStandardCorners(bodyEmitter, centre, half, iceBody, ~bevelFor)
 
   StateTypes.storageOrder->Array.forEach(face =>
     if isExposed(~last, ~gx, ~gy, ~gz, face) {

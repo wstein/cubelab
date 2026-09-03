@@ -14,7 +14,7 @@ let iceBody = {
   r: 0.88,
   g: 0.98,
   b: 1.0,
-  a: 0.20
+  a: 0.16
 };
 
 function nearIceSticker(colour) {
@@ -817,11 +817,9 @@ function emitIceCubie(nearStickerData, iceBodyData, state, palette, gx, gy, gz) 
   };
   let half = 0.999 * cell / 2.0;
   let bevelFor = (fA, fB) => bevelForEdge(last, gx, gy, gz, cell, fA, fB);
-  StateTypes.storageOrder.forEach(face => {
-    if (isExposed(last, gx, gy, gz, face)) {
-      return emitStandardFace(bodyEmitter, centre, face, half, iceBody, bevelFor);
-    }
-  });
+  StateTypes.storageOrder.forEach(face => emitStandardFace(bodyEmitter, centre, face, half, iceBody, bevelFor));
+  emitStandardBevels(bodyEmitter, centre, half, iceBody, bevelFor);
+  emitStandardCorners(bodyEmitter, centre, half, iceBody, bevelFor);
   StateTypes.storageOrder.forEach(face => {
     if (!isExposed(last, gx, gy, gz, face)) {
       return;
