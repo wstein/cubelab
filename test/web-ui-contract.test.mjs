@@ -218,6 +218,12 @@ test("controller-mode turns advance an active coached tape in the viewport frame
   assert.match(client, /smartCubeSyncMode === "VirtualController"/);
 });
 
+test("controller mode reads the current Setup rather than a stale recognized state", () => {
+  assert.match(client, /const workspace = parseWorkspaceState\(\);/);
+  assert.match(client, /workspace\.TAG === "Ok"\s*\? workspace\._0\.state\s*:\s*activeRecognized\?\.state/);
+  assert.match(client, /immediately after Quick load cannot resurrect the previous solved/);
+});
+
 test("the web UI exposes a state-verified 3x3 NISS helper", () => {
   assert.match(page, /data-niss-panel/);
   assert.match(page, /data-niss-normal/);

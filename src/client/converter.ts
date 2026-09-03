@@ -2588,10 +2588,22 @@ if (root) {
     smartCubeDock.dataset.syncMode = enabled ? "controller" : "mirror";
     window.dispatchEvent(new CustomEvent("cubelab:controller-mode", {detail: {enabled}}));
     if (enabled) {
-      const state = activeRecognized?.state
+      // AppState writes the new Setup synchronously but recognizes it on the
+      // next animation frame. Read the editor now so enabling Controller
+      // immediately after Quick load cannot resurrect the previous solved
+      // `activeRecognized` state.
+      const workspace = parseWorkspaceState();
+      const state = workspace.TAG === "Ok"
+        ? workspace._0.state
+        : activeRecognized?.state
         ?? (StateTypes.solved(3) as Result<CubeState, unknown>)._0;
       if (!state) return;
-      loadVirtualControllerState(state, "Virtual controller · choose New scramble or an Academy case");
+      loadVirtualControllerState(
+        state,
+        workspace.TAG === "Ok"
+          ? `Virtual controller · ${workspace._0.label}`
+          : "Virtual controller · choose New scramble or an Academy case",
+      );
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Controller mode: physical stickers are ignored.`;
       return;
     }
