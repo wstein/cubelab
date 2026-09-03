@@ -1497,6 +1497,18 @@ test("mirrors auto-orbit and playback speed between Settings and the viewport, a
   await expect(page.locator("[data-settings-inspection-seconds]")).toHaveValue("12");
 });
 
+test("exports a solve card compositing the cube image with Setup, Moves, and Note", async ({page}) => {
+  await page.goto("/#alg=R+U+R%27+U%27&note=PB+attempt");
+  const solveCard = page.locator("[data-solve-card]");
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    solveCard.click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/^cubelab-solve-card-3x3-\d+\.png$/);
+  await expect(solveCard).toHaveText(/Copied!|Downloaded!/);
+  await expect(solveCard).toHaveText("Solve card", {timeout: 3000});
+});
+
 test("resolves a blank 3x3 hand-entry grid quickly, without a lingering spinner or a shifted dot grid", async ({page}) => {
   await page.goto("/");
   await page.locator("[data-manual-state-open]").click();

@@ -5198,10 +5198,10 @@ if (root) {
   };
   root.querySelector<HTMLButtonElement>("[data-reset-camera]")!.addEventListener("click", resetCameraView);
   const snapshotButton = root.querySelector<HTMLButtonElement>("[data-snapshot-cube]");
-  const takeSnapshot = async () => {
-    if (!viewport) return;
-    const blob = await viewport.capturePng();
-    if (!blob) return;
+  // Shared by the plain Snapshot and the composited Solve card: try the
+  // clipboard first, fall back to a download, and flash the triggering
+  // button's own label so each control reports its own outcome.
+  const deliverPngBlob = async (blob: Blob, button: HTMLButtonElement | null, filenamePrefix: string) => {
     let copied = false;
     if (navigator.clipboard && typeof window.ClipboardItem !== "undefined") {
       try {
@@ -5211,24 +5211,108 @@ if (root) {
         copied = false;
       }
     }
-    if (snapshotButton) {
-      const originalText = snapshotButton.textContent;
-      snapshotButton.textContent = copied ? "Copied!" : "Downloaded!";
+    if (button) {
+      const originalText = button.textContent;
+      button.textContent = copied ? "Copied!" : "Downloaded!";
       window.setTimeout(() => {
-        if (snapshotButton) snapshotButton.textContent = originalText;
+        button.textContent = originalText;
       }, 1500);
     }
     if (!copied) {
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `cubelab-${size}x${size}-${Date.now()}.png`;
+      anchor.download = `${filenamePrefix}-${Date.now()}.png`;
       anchor.click();
       URL.revokeObjectURL(url);
     }
   };
+  const takeSnapshot = async () => {
+    if (!viewport) return;
+    const blob = await viewport.capturePng();
+    if (!blob) return;
+    await deliverPngBlob(blob, snapshotButton, `cubelab-${size}x${size}`);
+  };
   snapshotButton?.addEventListener("click", () => {
     void takeSnapshot();
+  });
+  const solveCardButton = root.querySelector<HTMLButtonElement>("[data-solve-card]");
+  const wrapCanvasText = (
+    ctx: CanvasRenderingContext2D,
+    text: string,
+    maxWidth: number,
+  ): string[] => {
+    const words = text.split(/\s+/).filter((word) => word !== "");
+    const lines: string[] = [];
+    let line = "";
+    words.forEach((word) => {
+      const candidate = line === "" ? word : `${line} ${word}`;
+      if (ctx.measureText(candidate).width > maxWidth && line !== "") {
+        lines.push(line);
+        line = word;
+      } else {
+        line = candidate;
+      }
+    });
+    if (line !== "") lines.push(line);
+    return lines;
+  };
+  const takeSolveCard = async () => {
+    if (!viewport) return;
+    const blob = await viewport.capturePng();
+    if (!blob) return;
+    const bitmap = await createImageBitmap(blob);
+    const padding = 24;
+    const imageSize = Math.min(bitmap.width, 480);
+    const scale = imageSize / bitmap.width;
+    const imageHeight = bitmap.height * scale;
+    const textWidth = 420;
+    const lineHeight = 22;
+    const rows: {label: string; value: string}[] = [];
+    if (input.value.trim() !== "") rows.push({label: "Setup", value: input.value.trim()});
+    if (movesInput.value.trim() !== "") rows.push({label: "Moves", value: movesInput.value.trim()});
+    if (noteInput.value.trim() !== "") rows.push({label: "Note", value: noteInput.value.trim()});
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.font = "16px monospace";
+    const wrapped = rows.map((row) => ({label: row.label, lines: wrapCanvasText(ctx, row.value, textWidth)}));
+    let textHeight = lineHeight;
+    wrapped.forEach((row) => {
+      textHeight += lineHeight + row.lines.length * lineHeight + 10;
+    });
+    const width = padding * 3 + imageSize + textWidth;
+    const height = Math.max(imageHeight + padding * 2, textHeight + padding * 2);
+    canvas.width = width;
+    canvas.height = height;
+    ctx.fillStyle = "#0b0f19";
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(bitmap, padding, padding, imageSize, imageHeight);
+    const textX = padding * 2 + imageSize;
+    let y = padding + 18;
+    ctx.fillStyle = "#c7d2fe";
+    ctx.font = "700 15px sans-serif";
+    ctx.fillText(`CubeLab · ${size}×${size}×${size}`, textX, y);
+    y += lineHeight + 8;
+    wrapped.forEach((row) => {
+      ctx.fillStyle = "#9ca3af";
+      ctx.font = "700 12px sans-serif";
+      ctx.fillText(row.label.toUpperCase(), textX, y);
+      y += lineHeight;
+      ctx.fillStyle = "#f9fafb";
+      ctx.font = "16px monospace";
+      row.lines.forEach((line) => {
+        ctx.fillText(line, textX, y);
+        y += lineHeight;
+      });
+      y += 10;
+    });
+    const cardBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!cardBlob) return;
+    await deliverPngBlob(cardBlob, solveCardButton, `cubelab-solve-card-${size}x${size}`);
+  };
+  solveCardButton?.addEventListener("click", () => {
+    void takeSolveCard();
   });
   shortcutsHelp.addEventListener("click", () => shortcutsDialog.showModal());
   shortcutsClose.addEventListener("click", () => shortcutsDialog.close());
