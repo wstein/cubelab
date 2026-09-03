@@ -19,7 +19,7 @@ import {readTimerSessions, writeTimerSessions, type TimerSession} from "./storag
 import {hasVerifiedTnoodle, readPreferences} from "../preferences";
 import {TnoodleClient} from "../scramble/tnoodle-client";
 import {practiceScramble} from "../scramble/practice";
-import {downloadCsTimerSession} from "./cstimer";
+import {downloadCsTimerSession, importCsTimerSession} from "./cstimer";
 
 const newId = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const inputActive = (target: EventTarget | null): boolean =>
@@ -40,6 +40,8 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
   const tnoodleScramble = panel.querySelector<HTMLButtonElement>("[data-timer-tnoodle-scramble]")!;
   const arena = panel.querySelector<HTMLButtonElement>("[data-timer-arena]")!;
   const exportCsTimer = panel.querySelector<HTMLButtonElement>("[data-timer-export-cstimer]")!;
+  const importCsTimer = panel.querySelector<HTMLButtonElement>("[data-timer-import-cstimer]")!;
+  const importFile = panel.querySelector<HTMLInputElement>("[data-timer-import-file]")!;
   let state: TimerState = initialTimerState();
   let currentScramble = practiceScramble();
   let currentScrambleSource = "Built-in practice scramble";
@@ -52,6 +54,7 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
   const tnoodle = new TnoodleClient();
   let scrambleRequest = 0;
   let selectedScrambleSource: "cubelab" | "tnoodle" = "cubelab";
+  let recordedMoves: SolveRecord["reconstruction"] = undefined;
 
   const persist = () => {
     writeTimerSessions(window.localStorage, [session]);
@@ -59,7 +62,15 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
   const saveSolve = (solve: SolveRecord) => {
     // TimerEngine deliberately stays pure and uses its injected monotonic clock.
     // Session storage also needs a wall-clock completion time for portable exports.
-    session = {...session, solves: [...session.solves, {...solve, completedAt: Date.now()}]};
+    session = {
+      ...session,
+      solves: [...session.solves, {
+        ...solve,
+        completedAt: Date.now(),
+        ...(recordedMoves ? {reconstruction: recordedMoves} : {}),
+      }],
+    };
+    recordedMoves = undefined;
     persist();
   };
   const publishPhase = () => {
@@ -125,7 +136,7 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
     }));
     solves.replaceChildren(...session.solves.slice().reverse().map((solve) => {
       const item = document.createElement("li");
-      item.innerHTML = `<code>${formatTime(solve.durationMs)}${solve.penalty === "+2" ? " +2" : solve.penalty === "DNF" ? " DNF" : ""}</code><button type="button" data-timer-penalty="${solve.id}">+2</button><button type="button" data-timer-dnf="${solve.id}">DNF</button><button type="button" data-timer-delete="${solve.id}">Delete</button>`;
+      item.innerHTML = `<code>${formatTime(solve.durationMs)}${solve.penalty === "+2" ? " +2" : solve.penalty === "DNF" ? " DNF" : ""}</code>${solve.reconstruction?.moves.length ? `<button type="button" data-timer-replay="${solve.id}">Replay</button>` : ""}<button type="button" data-timer-penalty="${solve.id}">+2</button><button type="button" data-timer-dnf="${solve.id}">DNF</button><button type="button" data-timer-delete="${solve.id}">Delete</button>`;
       return item;
     }));
     publishHud(shown);
@@ -184,6 +195,7 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
     if (state.phase === "idle" || state.phase === "stopped" || state.phase === "covered") {
       state = beginInspection(state, now);
       inspectionCue = 0;
+      recordedMoves = undefined;
     }
     else if (state.phase === "inspection") state = beginHold(state, now);
     else if (state.phase === "running") {
@@ -239,13 +251,37 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
     downloadCsTimerSession(session);
     status.textContent = "Downloaded csTimer-compatible session JSON.";
   });
-  window.addEventListener("cubelab:controller-turn", () => {
-    if (panel.hidden || state.phase !== "inspection") return;
-    state = startInspectionTimer(state, performance.now());
+  importCsTimer.addEventListener("click", () => importFile.click());
+  importFile.addEventListener("change", () => {
+    const file = importFile.files?.[0];
+    importFile.value = "";
+    if (!file) return;
+    void file.text().then((source) => {
+      const imported = importCsTimerSession(source);
+      if (!imported.ok) {
+        status.textContent = imported.message;
+        return;
+      }
+      session = {...session, solves: [...session.solves, ...imported.solves]};
+      persist();
+      render();
+      status.textContent = `Imported ${imported.solves.length} csTimer solve${imported.solves.length === 1 ? "" : "s"}.`;
+    }).catch(() => {
+      status.textContent = "Could not read the selected csTimer file.";
+    });
+  });
+  window.addEventListener("cubelab:controller-turn", ((event: CustomEvent<{move: string; atMs: number}>) => {
+    if (panel.hidden) return;
+    if (state.phase === "inspection") state = startInspectionTimer(state, event.detail.atMs);
+    if (state.phase !== "running" || state.solveStartedAt === null) return;
+    const elapsedMs = Math.max(0, event.detail.atMs - state.solveStartedAt);
+    recordedMoves = recordedMoves
+      ? {...recordedMoves, moves: [...recordedMoves.moves, {move: event.detail.move, elapsedMs}]}
+      : {puzzle: "333", moves: [{move: event.detail.move, elapsedMs}]};
     render();
     publishPhase();
     schedule();
-  });
+  }) as EventListener);
   window.addEventListener("cubelab:controller-solved", () => {
     if (panel.hidden || state.phase !== "running") return;
     const completed = stopTimer(state, performance.now(), newId(), currentScramble);
@@ -265,6 +301,15 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
     if (button.dataset.timerPenalty) update(button.dataset.timerPenalty, {penalty: "+2"});
     if (button.dataset.timerDnf) update(button.dataset.timerDnf, {penalty: "DNF"});
     if (button.dataset.timerDelete) session = {...session, solves: session.solves.filter((solve) => solve.id !== button.dataset.timerDelete)};
+    if (button.dataset.timerReplay) {
+      const solve = session.solves.find((candidate) => candidate.id === button.dataset.timerReplay);
+      if (solve?.reconstruction) {
+        window.dispatchEvent(new CustomEvent("cubelab:timer-replay", {
+          detail: {scramble: solve.scramble, moves: solve.reconstruction.moves.map(({move}) => move).join(" ")},
+        }));
+      }
+      return;
+    }
     persist(); render();
   });
   window.addEventListener("keydown", (event) => {

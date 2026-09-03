@@ -18,10 +18,13 @@ WCA-style trimmed Ao5/Ao12 values. Timer sessions are versioned JSON records in
 browser storage; invalid or unavailable storage is treated as an empty session,
 never as a timer failure.
 
-The Timer workspace can download its current 3×3 session as csTimer-compatible JSON.
-The export preserves scrambles, elapsed milliseconds, `+2`, DNF, completion ordering,
-and the session name. It intentionally exports only timing data—CubeLab's controller,
-viewport, and local preferences remain local.
+The Timer workspace can download its current 3×3 session as csTimer-compatible JSON,
+or append a `session1` from a csTimer export. Both directions preserve scrambles, elapsed
+milliseconds, `+2`, DNF, and completion ordering; export also preserves the current
+CubeLab session name. Smart-cube reconstructions use csTimer's native
+`move@milliseconds` solve field: CubeLab records controller-mode turns there, imports
+them, and exposes **Replay** on imported/recorded solves. Controller, viewport, and
+other local preferences remain local.
 
 ## Manual workspace
 
@@ -36,6 +39,26 @@ virtual state loads immediately and later face packets solve it. TNoodle stays d
 current local URL and event have passed a successful probe in Settings. If it
 becomes unavailable later or returns an invalid response, that request falls
 back to the CubeLab practice generator.
+
+### csTimer interchange
+
+Use **Export csTimer** to download the current CubeLab session as a JSON file that
+csTimer's native importer accepts. The action is disabled until the session contains a
+solve. The exported session is always 3×3 (`scrType: "333"`) and includes the standard
+csTimer solve tuple: penalty (`0`, `2000`, or `-1`), raw milliseconds, scramble, empty
+comment, and Unix completion time.
+
+Use **Import csTimer** to select a csTimer JSON export. CubeLab reads valid `session1`
+3×3 solve entries and appends them to the current local session; it does not overwrite
+that session or import csTimer settings, other sessions, comments, or non-3×3 events.
+Malformed entries are ignored, and the import reports an error when no valid solve
+remains.
+
+csTimer stores a smart-cube reconstruction as the optional fifth solve item
+`["R@0 U2@123 …", "333"]`. CubeLab reads and writes that form. When a solve has a
+reconstruction, **Replay** loads its scramble and turn sequence into Setup and Moves so
+the normal move tape can play it. CubeLab's own virtual-controller timer records every
+projected face turn with its elapsed solve timestamp before exporting it in this field.
 
 ## Smart Controller mode
 

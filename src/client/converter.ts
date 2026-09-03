@@ -2742,8 +2742,12 @@ if (root) {
     }
     if (smartCubeControllerInspection) {
       smartCubeControllerInspection = false;
-      window.dispatchEvent(new Event("cubelab:controller-turn"));
     }
+    // The Timer workspace receives every projected controller turn, not merely
+    // the first one, so a saved smart-cube solve can be replayed elsewhere.
+    window.dispatchEvent(new CustomEvent("cubelab:controller-turn", {
+      detail: {move: projectedMove, atMs: performance.now()},
+    }));
     const transform = turnTransform(3, step);
     if (transform && viewport) await viewport.animateTurn(transform, 120);
     const next = MoveExecutor.applyStep(state, step) as CubeState;
@@ -3396,6 +3400,11 @@ if (root) {
     store.patch({size: 3, input: event.detail.scramble, moves: ""});
     loadVirtualControllerState(evaluated._0.finalState, "Virtual controller · instant scramble");
     smartCubeStatus.textContent = `${smartCubeDeviceName} · Instant scramble loaded. Start inspection when ready.`;
+  }) as EventListener);
+  window.addEventListener("cubelab:timer-replay", ((event: CustomEvent<{scramble: string; moves: string}>) => {
+    // Imported csTimer reconstructions are ordinary 3×3 timelines once their
+    // timestamp suffixes have been decoded by the timer importer.
+    store.patch({size: 3, input: event.detail.scramble, moves: event.detail.moves});
   }) as EventListener);
 
   playerPageLink.addEventListener("click", (event) => {

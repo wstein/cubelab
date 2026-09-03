@@ -24,6 +24,16 @@ const validSolve = (value: unknown): value is SolveRecord => {
     && typeof solve.completedAt === "number"
     && typeof solve.durationMs === "number"
     && typeof solve.scramble === "string"
+    && (solve.reconstruction === undefined || (
+      typeof solve.reconstruction === "object"
+      && solve.reconstruction !== null
+      && solve.reconstruction.puzzle === "333"
+      && Array.isArray(solve.reconstruction.moves)
+      && solve.reconstruction.moves.every((move) =>
+        typeof move === "object" && move !== null
+        && typeof move.move === "string" && typeof move.elapsedMs === "number"
+      )
+    ))
     && validPenalty(solve.penalty);
 };
 

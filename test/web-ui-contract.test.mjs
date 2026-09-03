@@ -65,6 +65,7 @@ test("the workspace exposes a manual speedcubing timer", () => {
   assert.match(page, /data-timer-cubelab-scramble/);
   assert.match(page, /data-timer-tnoodle-scramble/);
   assert.match(page, /data-timer-export-cstimer/);
+  assert.match(page, /data-timer-import-cstimer/);
   assert.match(page, /data-timer-arena/);
   assert.match(viewportComponent, /data-timer-cover/);
   assert.match(viewportComponent, /data-timer-hud/);
@@ -244,6 +245,7 @@ test("controller-mode turns advance an active coached tape in the viewport frame
   assert.match(client, /await applyWaitingTimelineMove\(projectedMove, false\)/);
   assert.match(client, /Controller mode is intentionally different: its virtual state owns the/);
   assert.match(client, /smartCubeSyncMode === "VirtualController"/);
+  assert.match(client, /detail: \{move: projectedMove, atMs: performance\.now\(\)\}/);
 });
 
 test("controller mode reads the current Setup rather than a stale recognized state", () => {

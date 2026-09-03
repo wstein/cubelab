@@ -5,6 +5,17 @@ export const INSPECTION_DNF_MS = 17_000;
 export type TimerPenalty = "none" | "+2" | "DNF";
 export type TimerPhase = "idle" | "covered" | "inspection" | "holding" | "ready" | "running" | "stopped";
 
+export type RecordedMove = {
+  move: string;
+  /** Milliseconds since the solve began, matching csTimer's `move@timestamp` replay form. */
+  elapsedMs: number;
+};
+
+export type SolveReconstruction = {
+  puzzle: "333";
+  moves: RecordedMove[];
+};
+
 export type TimerState = {
   phase: TimerPhase;
   inspectionStartedAt: number | null;
@@ -20,6 +31,7 @@ export type SolveRecord = {
   durationMs: number;
   penalty: TimerPenalty;
   scramble: string;
+  reconstruction?: SolveReconstruction;
 };
 
 export type TimerSummary = {

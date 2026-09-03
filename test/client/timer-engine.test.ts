@@ -16,7 +16,7 @@ import {
   type SolveRecord,
 } from "../../src/client/timer/engine";
 import {readTimerSessions, writeTimerSessions, type StorageLike} from "../../src/client/timer/storage";
-import {exportCsTimerSession} from "../../src/client/timer/cstimer";
+import {exportCsTimerSession, importCsTimerSession} from "../../src/client/timer/cstimer";
 
 const solve = (durationMs: number, penalty: SolveRecord["penalty"] = "none"): SolveRecord => ({
   id: `${durationMs}-${penalty}`,
@@ -107,4 +107,24 @@ test("exports a session in csTimer's native one-session JSON shape", () => {
     [[2_000, 11_234], "R U R'", "", 1_725_000_001],
     [[-1, 12_345], "R U R'", "", 1_725_000_002],
   ]);
+});
+
+test("round-trips csTimer smart-cube reconstruction timestamps", () => {
+  const source = JSON.stringify({
+    session1: [[
+      [0, 8_765], "R U R'", "", 1_725_000_000,
+      ["R@0 U2@123 R'@456", "333"],
+    ]],
+  });
+  const imported = importCsTimerSession(source);
+  expect(imported).toMatchObject({ok: true});
+  if (!imported.ok) throw new Error(imported.message);
+  expect(imported.solves[0]?.reconstruction).toEqual({
+    puzzle: "333",
+    moves: [
+      {move: "R", elapsedMs: 0}, {move: "U2", elapsedMs: 123}, {move: "R'", elapsedMs: 456},
+    ],
+  });
+  const exported = exportCsTimerSession({version: 1, id: "imported", name: "Imported", solves: imported.solves});
+  expect(exported.session1[0]?.[4]).toEqual(["R@0 U2@123 R'@456", "333"]);
 });
