@@ -132,43 +132,96 @@ const fragmentShaderSource = `
 
   void main() {
     vec3 normal = normalize(vNormal);
-    vec3 key = normalize(vec3(0.42, 0.68, 0.92));
-    vec3 fill = normalize(vec3(-0.74, -0.24, 0.56));
-    vec3 rim = normalize(vec3(-0.35, 0.70, -0.62));
     vec3 view = normalize(-vPosition);
-    float keyDiffuse = max(dot(normal, key), 0.0);
-    float fillDiffuse = max(dot(normal, fill), 0.0);
-    float rimDiffuse = max(dot(normal, rim), 0.0);
-    float light = 0.27 + 0.62 * keyDiffuse + 0.20 * fillDiffuse + 0.12 * rimDiffuse;
+
+    // Office lighting environment directions (in camera view space)
+    // Dominant overhead office ceiling panel luminaires
+    vec3 ceilingDir = normalize(vec3(0.08, 0.94, 0.22));
+    // Office task / desk lamp from top-right
+    vec3 deskLampDir = normalize(vec3(0.46, 0.62, 0.64));
+    // Diffuse office room / window fill from front-left
+    vec3 roomFillDir = normalize(vec3(-0.62, 0.32, 0.62));
+    // Soft wall bounce from rear-left
+    vec3 wallBounceDir = normalize(vec3(-0.32, 0.44, -0.58));
+
+    // Office light color spectrums (clean neutral indoor office lighting ~4500K)
+    vec3 ceilingCol = vec3(0.97, 0.98, 1.0);    // Neutral LED ceiling troffers
+    vec3 deskLampCol = vec3(1.0, 0.98, 0.94);   // Warm-neutral desk luminaire
+    vec3 roomFillCol = vec3(0.92, 0.95, 0.99);  // Soft room & window daylight fill
+    vec3 wallBounceCol = vec3(0.88, 0.90, 0.94);// Diffuse office wall reflection
+
+    // Diffuse lambertian terms
+    float ceilingDiff = max(dot(normal, ceilingDir), 0.0);
+    float deskLampDiff = max(dot(normal, deskLampDir), 0.0);
+    float roomFillDiff = max(dot(normal, roomFillDir), 0.0);
+    float wallBounceDiff = max(dot(normal, wallBounceDir), 0.0);
+
+    // Office ambient hemisphere (light office desk surface vs ceiling)
+    vec3 ceilingAmb = vec3(0.24, 0.25, 0.27);
+    vec3 deskAmb = vec3(0.16, 0.17, 0.19);
+    vec3 ambient = mix(deskAmb, ceilingAmb, normal.y * 0.5 + 0.5);
+
+    // Total diffuse illumination (bright, even, natural office environment)
+    vec3 diffuseLight = ambient
+      + ceilingCol * (0.38 * ceilingDiff)
+      + deskLampCol * (0.42 * deskLampDiff)
+      + roomFillCol * (0.22 * roomFillDiff)
+      + wallBounceCol * (0.10 * wallBounceDiff);
+
+    // Halfway vectors for office specular reflections
+    vec3 halfDesk = normalize(deskLampDir + view);
+    vec3 halfCeiling = normalize(ceilingDir + view);
+    vec3 halfRoom = normalize(roomFillDir + view);
+
+    float dotDesk = max(dot(normal, halfDesk), 0.0);
+    float dotCeiling = max(dot(normal, halfCeiling), 0.0);
+    float dotRoom = max(dot(normal, halfRoom), 0.0);
+
+    // Physical Fresnel reflection at grazing angles
+    float fresnel = pow(1.0 - max(dot(normal, view), 0.0), 3.0);
+
+    // Surface classification: charcoal cube body vs sticker
     float body = 1.0 - smoothstep(0.02, 0.12, distance(vColour.rgb, vec3(0.13, 0.14, 0.17)));
-    vec3 halfway = normalize(key + view);
-    float halfwayDot = max(dot(normal, halfway), 0.0);
-
-    // Standard sticker glossiness (glossy vinyl clearcoat effect)
     float isStandardSticker = (1.0 - body) * (1.0 - uSpeedStyle);
-    float glossySharp = 0.52 * pow(halfwayDot, 80.0);
-    float glossySoft = 0.18 * pow(halfwayDot, 24.0);
-    float grazing = pow(1.0 - max(dot(normal, view), 0.0), 3.0);
-    float glossyRim = 0.16 * grazing * (0.35 + 0.65 * rimDiffuse);
-    float glossyHighlight = glossySharp + glossySoft + glossyRim;
 
-    // Base specular for matte body and speed style
-    float shine = mix(28.0, 24.0, body);
-    float strength = mix(0.18 + 0.05 * uSpeedStyle, 0.30, body);
-    float baseSpecular = strength * pow(halfwayDot, shine);
+    // --- Office Specular for Standard Glossy Stickers ---
+    // Desk lamp reflection: crisp bright glint
+    vec3 specDeskSticker = deskLampCol * (0.42 * pow(dotDesk, 72.0) + 0.12 * pow(dotDesk, 20.0));
+    // Overhead ceiling panel reflection: broad soft diffuse highlight
+    vec3 specCeilingSticker = ceilingCol * (0.24 * pow(dotCeiling, 36.0) + 0.08 * pow(dotCeiling, 14.0));
+    // Room fill reflection: gentle glint
+    vec3 specRoomSticker = roomFillCol * (0.12 * pow(dotRoom, 44.0));
+    // Soft office edge sheen
+    vec3 specRimSticker = wallBounceCol * (0.12 * fresnel * (0.4 + 0.6 * wallBounceDiff));
+    vec3 stickerSpecular = specDeskSticker + specCeilingSticker + specRoomSticker + specRimSticker;
 
-    float specular = mix(baseSpecular, glossyHighlight, isStandardSticker);
-    vec3 rolledSheen = vColour.rgb * vSheen * (0.45 + 0.55 * rimDiffuse);
-    vec3 colour = min(vColour.rgb * light + rolledSheen + vec3(specular), vec3(1.0));
+    // --- Matte Charcoal Body Plastic Specular ---
+    vec3 bodySpecular = deskLampCol * (0.16 * pow(dotDesk, 16.0)) + ceilingCol * (0.10 * pow(dotCeiling, 12.0));
+
+    // --- Speed Cube (Stickerless Semi-Matte Plastic) Specular ---
+    vec3 speedSpecular = deskLampCol * (0.22 * pow(dotDesk, 28.0)) + ceilingCol * (0.14 * pow(dotCeiling, 20.0));
+
+    // Blend specular based on surface type
+    vec3 baseSpec = mix(speedSpecular, bodySpecular, body);
+    vec3 specular = mix(baseSpec, stickerSpecular, isStandardSticker);
+
+    // Speed cube rolled edge sheen
+    vec3 rolledSheen = vColour.rgb * vSheen * (0.45 + 0.55 * wallBounceDiff);
+
+    // Combine diffuse and specular with soft highlight compression
+    vec3 lit = vColour.rgb * diffuseLight + rolledSheen + specular;
+    vec3 colour = lit / (vec3(1.0) + max(lit - vec3(1.0), vec3(0.0)) * 0.5);
+    colour = clamp(colour, 0.0, 1.0);
+
     float selected = max(vMilestoneFocus, vGuideLayer);
     float luminance = dot(colour, vec3(0.299, 0.587, 0.114));
     vec3 muted = mix(colour, vec3(luminance), 0.18) * 0.86;
     float focusMode = uGuideActive;
     colour = mix(colour, muted, focusMode * (1.0 - selected));
 
-    float fresnel = pow(1.0 - max(dot(normal, view), 0.0), 2.2);
+    float glowFresnel = pow(1.0 - max(dot(normal, view), 0.0), 2.2);
     float pulse = 0.82 + 0.18 * sin(uFocusTime * 4.0);
-    vec3 milestoneGlow = vec3(0.20, 1.0, 0.55) * (0.18 + 0.42 * fresnel) * pulse;
+    vec3 milestoneGlow = vec3(0.20, 1.0, 0.55) * (0.18 + 0.42 * glowFresnel) * pulse;
     colour = min(colour + milestoneGlow * vMilestoneFocus, vec3(1.0));
     gl_FragColor = vec4(colour, vColour.a);
   }
