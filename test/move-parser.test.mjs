@@ -167,6 +167,18 @@ test("accepts SSE's compact adjacent move sequences without relaxing other diale
   rejects(3, "RUR", /separated by whitespace/);
 });
 
+test("accepts Randelshofer SSE metric summaries as state-neutral comments", () => {
+  const parsed = parseWithOptions(
+    3,
+    "Wide",
+    "Sse",
+    "F2 B2 · U D' · R2 L2 · U D' (8 ltm, 8* ftm, 12* qtm)",
+  );
+  assert.equal(MoveTransform.serialize(parsed), "F2 B2 U D' R2 L2 U D' /*SSE metrics: 8 ltm, 8* ftm, 12* qtm*/");
+  assert.equal(parsed.at(-1).desc.TAG, "BlockComment");
+  assert.equal(parseWithOptions(3, "Wide", "Sse", "(R U)2")[0].desc.TAG, "Group");
+});
+
 test("comments and timing annotations separate units without changing spans", () => {
   const units = parse(3, "R// reconstruction\nU # second line\nF @1.53s R’");
   assert.equal(units.length, 5);

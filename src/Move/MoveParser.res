@@ -470,6 +470,70 @@ let parseBlockComment = parser => {
   {desc: BlockComment(text), loc: {start, end_: parser.cursor}}
 }
 
+let isSseMetric = text => {
+  let fields = text->String.split(",")
+  fields->Array.length > 0 &&
+    fields->Array.every(field => {
+      let token = field->String.trim
+      let cursor = ref(0)
+      while (
+        cursor.contents < token->String.length &&
+          token
+          ->String.get(cursor.contents)
+          ->Option.mapOr(false, character => isDigit(character->String.make))
+      ) {
+        cursor := cursor.contents + 1
+      }
+      if cursor.contents == 0 {
+        false
+      } else {
+        if token->String.get(cursor.contents)->Option.map(String.make) == Some("*") {
+          cursor := cursor.contents + 1
+        }
+        let spaces = ref(0)
+        while token->String.get(cursor.contents)->Option.map(String.make) == Some(" ") {
+          spaces := spaces.contents + 1
+          cursor := cursor.contents + 1
+        }
+        let unit =
+          token->String.slice(~start=cursor.contents, ~end=token->String.length)->String.trim
+        spaces.contents > 0 && (unit == "ltm" || unit == "ftm" || unit == "qtm")
+      }
+    })
+}
+
+// SSE catalogues append metric summaries such as `(8 ltm, 8* ftm, 12* qtm)`
+// after an algorithm. They are prose annotations, not SSE grouping, and remain
+// visible as a state-neutral editor comment.
+let trySseMetricComment = parser => {
+  let start = parser.cursor
+  if parser.notationDialect != Sse || peek(parser) != Some("(") {
+    None
+  } else {
+    parser.cursor = parser.cursor + 1
+    let contentStart = parser.cursor
+    while parser.cursor < parser.input->String.length && peek(parser) != Some(")") {
+      parser.cursor = parser.cursor + 1
+    }
+    if parser.cursor == parser.input->String.length {
+      parser.cursor = start
+      None
+    } else {
+      let text = parser.input->String.slice(~start=contentStart, ~end=parser.cursor)
+      if !isSseMetric(text) {
+        parser.cursor = start
+        None
+      } else {
+        parser.cursor = parser.cursor + 1
+        Some({
+          desc: BlockComment(`SSE metrics: ${text->String.trim}`),
+          loc: {start, end_: parser.cursor},
+        })
+      }
+    }
+  }
+}
+
 let parseTimedPause = parser => {
   let start = parser.cursor
   parser.cursor = parser.cursor + 1
@@ -623,7 +687,11 @@ and parseUnit = parser => {
         {desc: Pause, loc: {start, end_: parser.cursor}}
       }
     | Some("@") => parseTimedPause(parser)
-    | Some("(") => parseNested(parser, start, ")", (body, repeat) => Group(body, repeat))
+    | Some("(") =>
+      switch trySseMetricComment(parser) {
+      | Some(comment) => comment
+      | None => parseNested(parser, start, ")", (body, repeat) => Group(body, repeat))
+      }
     | Some("^") if startsTwizzleNissGroup(parser) => {
         parser.cursor = parser.cursor + 1
         parseNested(parser, start, ")", (body, repeat) => Group(body, repeat))

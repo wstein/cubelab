@@ -782,6 +782,75 @@ function parseBlockComment(parser) {
   };
 }
 
+function isSseMetric(text) {
+  let fields = text.split(",");
+  if (fields.length !== 0) {
+    return fields.every(field => {
+      let token = field.trim();
+      let cursor = 0;
+      while (cursor < token.length && Stdlib_Option.mapOr(token[cursor], false, character => isDigit(String(character)))) {
+        cursor = cursor + 1 | 0;
+      };
+      if (cursor === 0) {
+        return false;
+      }
+      if (Primitive_object.equal(Stdlib_Option.map(token[cursor], prim => String(prim)), "*")) {
+        cursor = cursor + 1 | 0;
+      }
+      let spaces = 0;
+      while (Primitive_object.equal(Stdlib_Option.map(token[cursor], prim => String(prim)), " ")) {
+        spaces = spaces + 1 | 0;
+        cursor = cursor + 1 | 0;
+      };
+      let unit = token.slice(cursor, token.length).trim();
+      if (spaces > 0) {
+        if (unit === "ltm" || unit === "ftm") {
+          return true;
+        } else {
+          return unit === "qtm";
+        }
+      } else {
+        return false;
+      }
+    });
+  } else {
+    return false;
+  }
+}
+
+function trySseMetricComment(parser) {
+  let start = parser.cursor;
+  if (parser.notationDialect !== "Sse" || Primitive_object.notequal(peek(parser), "(")) {
+    return;
+  }
+  parser.cursor = parser.cursor + 1 | 0;
+  let contentStart = parser.cursor;
+  while (parser.cursor < parser.input.length && Primitive_object.notequal(peek(parser), ")")) {
+    parser.cursor = parser.cursor + 1 | 0;
+  };
+  if (parser.cursor === parser.input.length) {
+    parser.cursor = start;
+    return;
+  }
+  let text = parser.input.slice(contentStart, parser.cursor);
+  if (isSseMetric(text)) {
+    parser.cursor = parser.cursor + 1 | 0;
+    return {
+      desc: {
+        TAG: "BlockComment",
+        _0: `SSE metrics: ` + text.trim()
+      },
+      loc: {
+        start: start,
+        end_: parser.cursor
+      }
+    };
+  } else {
+    parser.cursor = start;
+    return;
+  }
+}
+
 function parseTimedPause(parser) {
   let start = parser.cursor;
   parser.cursor = parser.cursor + 1 | 0;
@@ -967,11 +1036,16 @@ function parseUnit(parser) {
   let exit = 0;
   switch (match) {
     case "(" :
-      return parseNested(parser, start, ")", (body, repeat) => ({
-        TAG: "Group",
-        _0: body,
-        _1: repeat
-      }));
+      let comment = trySseMetricComment(parser);
+      if (comment !== undefined) {
+        return comment;
+      } else {
+        return parseNested(parser, start, ")", (body, repeat) => ({
+          TAG: "Group",
+          _0: body,
+          _1: repeat
+        }));
+      }
     case "." :
       parser.cursor = parser.cursor + 1 | 0;
       return {
@@ -1199,6 +1273,8 @@ export {
   sseRotation,
   parseSseUnit,
   parseBlockComment,
+  isSseMetric,
+  trySseMetricComment,
   parseTimedPause,
   isTrailingSentencePeriod,
   startsWithDelimiter,

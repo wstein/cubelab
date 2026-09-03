@@ -35,6 +35,10 @@ rotation moves. SSE also permits compact adjacent move sequences such as `CD2MR2
 its `·` visual separator is accepted as whitespace. The other dialects retain their
 whitespace requirement. Neither dialect is inferred from pasted input.
 
+SSE catalogue metric suffixes—such as `(8 ltm, 8* ftm, 12* qtm)`—are also accepted as
+state-neutral comments. This permits direct pasting of an algorithm line without
+mistaking the metrics for a parenthesized move group.
+
 ## In-app compatibility profiles
 
 For every recognized algorithm, the source-compatibility strip inspects the original
