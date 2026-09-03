@@ -28,16 +28,14 @@ test("the static shell declares size-scoped cubie and Orbit64 cards", () => {
 test("the dedicated player route reuses the full interactive viewport", () => {
   assert.match(playerPage, /Astro\.redirect\("\/\?player=1"\)/);
   assert.match(viewportComponent, /data-player-page-link/);
-  assert.match(client, /document\.body\.classList\.add\("player-page"\)/);
-  assert.match(client, /const playerHash = window\.location\.hash/);
-  assert.match(client, /window\.history\.replaceState\(null, "", `\/player\$\{playerHash\}`\)/);
-  assert.match(client, /const initialState = readHash\(playerHash\)/);
-  assert.match(client, /playerPageLink\.textContent = "Back to studio"/);
-  assert.match(client, /cubelab-player-handoff/);
-  assert.match(client, /timelineIndex: activeIndex/);
-  assert.match(client, /renderTimelineIndex\(restoredIndex\)/);
-  assert.match(client, /const restoredPlayerTimelineIndex = pendingPlayerTimelineIndex/);
-  assert.match(client, /pendingPlayerTimelineIndex = null/);
+  assert.match(client, /document\.body\.classList\.toggle\("player-page", playerMode\)/);
+  assert.match(client, /const setPlayerMode = \(enabled: boolean, pushHistory = true\)/);
+  assert.match(client, /window\.history\.pushState\(null, "",/);
+  assert.match(client, /window\.addEventListener\("popstate"/);
+  assert.match(client, /setPlayerMode\(false\)/);
+  assert.match(client, /playerPageLink\.textContent = playerMode \? "Back to studio" : "Full-size player"/);
+  assert.doesNotMatch(client, /cubelab-player-handoff/);
+  assert.match(viewport, /refresh: requestRender/);
   assert.match(viewport, /safeCameraDistance/);
 });
 

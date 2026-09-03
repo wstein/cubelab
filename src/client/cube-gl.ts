@@ -582,6 +582,7 @@ export type CubeViewport = {
   ) => void;
   setAutoOrbit: (enabled: boolean) => void;
   resetCamera: () => void;
+  refresh: () => void;
   dispose: () => void;
 };
 
@@ -1694,6 +1695,7 @@ export const createCubeViewport = (
       distance = DEFAULT_DISTANCE;
       requestRender();
     },
+    refresh: requestRender,
     dispose() {
       disposed = true;
       cancelCamera();

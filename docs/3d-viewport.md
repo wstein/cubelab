@@ -58,10 +58,10 @@ creating a second renderer. Its canvas fills the window while the connection,
 camera, style, and tape controls become translucent HUDs. The route link changes
 to **Back to studio** in that mode. The default camera is framed farther from the
 cube, and narrow viewports apply an additional aspect-ratio safety distance, so
-the complete puzzle remains inside the frustum. Opening the route preserves the
-current setup, Moves text, and tape position, then reconstructs that same state
-before presenting the player. Its `/player` URL retains the serialized hash so
-a refresh can reconstruct the same source state as well.
+the complete puzzle remains inside the frustum. Opening or leaving player mode
+is an in-place layout transition: the active WebGL scene, move tape, workers,
+and Bluetooth connection remain live. Browser history and Escape return to the
+studio; refreshing `/player` still reconstructs source state from the URL hash.
 
 Logical face, range, slice, and whole-cube moves map to a shader axis, a cubie-centre
 selection interval, and a signed target angle. During a transition, Rodrigues'

@@ -46,7 +46,6 @@ import {
   createStore,
   readHash,
   synchronizeHash,
-  writeHash,
   type AcademyMethod,
   type AppState,
   type ActiveTab,
@@ -131,7 +130,6 @@ type TwoPhaseSolution = {alg: unknown[]; moveCount: number};
 type SavedTutorialSolution = {initialState: CubeState; solution: TutorialSolution};
 type TutorialPhaseRange = TutorialPhase & {method: TutorialMethod; start: number; end: number};
 type ExpandedTutorialEntry = {comment?: string};
-type PlayerHandoff = {timelineIndex: number};
 type AcademyElements = {
   method: TutorialMethod;
   label: string;
@@ -146,19 +144,18 @@ type AcademyElements = {
 const root = document.querySelector<HTMLElement>("[data-converter]");
 
 if (root) {
-  const playerMode = new URL(window.location.href).searchParams.get("player") === "1";
-  const playerHash = window.location.hash;
-  if (playerMode) {
-    document.body.classList.add("player-page");
-    window.history.replaceState(null, "", `/player${playerHash}`);
-  }
+  let playerMode = window.location.pathname === "/player"
+    || new URL(window.location.href).searchParams.get("player") === "1";
   const playerPageLink = root.querySelector<HTMLAnchorElement>("[data-player-page-link]")!;
-  if (playerMode) {
-    playerPageLink.href = "/";
-    playerPageLink.textContent = "Back to studio";
-    playerPageLink.title = "Return to the CubeLab studio";
-  }
-  const playerHandoffKey = "cubelab-player-handoff";
+  const renderPlayerPresentation = () => {
+    document.body.classList.toggle("player-page", playerMode);
+    playerPageLink.href = playerMode ? "/" : "/player";
+    playerPageLink.textContent = playerMode ? "Back to studio" : "Full-size player";
+    playerPageLink.title = playerMode
+      ? "Return to the CubeLab studio (Escape)"
+      : "Open the focused full-size player";
+  };
+  renderPlayerPresentation();
   const input = root.querySelector<HTMLTextAreaElement>("[data-input]")!;
   const movesInput = root.querySelector<HTMLTextAreaElement>("[data-moves-input]")!;
   const schemeSelect = root.querySelector<HTMLSelectElement>("[data-scheme]")!;
@@ -259,7 +256,7 @@ if (root) {
   const smartCubeResetState = root.querySelector<HTMLButtonElement>("[data-smart-cube-reset-state]")!;
   const smartCubeOrientation = root.querySelector<HTMLButtonElement>("[data-smart-cube-orientation]")!;
   const smartCubeDisconnect = root.querySelector<HTMLButtonElement>("[data-smart-cube-disconnect]")!;
-  const initialState = readHash(playerHash);
+  const initialState = readHash(window.location.hash);
   const store = createStore(initialState);
   let size = initialState.size;
   let lowercaseMode: LowercaseMode = initialState.lowercaseMode;
@@ -382,6 +379,16 @@ if (root) {
     viewportFallback.hidden = false;
   });
   if (!viewport) autoOrbitButton.disabled = true;
+  const setPlayerMode = (enabled: boolean, pushHistory = true) => {
+    if (playerMode === enabled) return;
+    playerMode = enabled;
+    renderPlayerPresentation();
+    if (pushHistory) window.history.pushState(null, "", `${enabled ? "/player" : "/"}${window.location.hash}`);
+    viewport?.refresh();
+  };
+  window.addEventListener("popstate", () => {
+    setPlayerMode(window.location.pathname === "/player", false);
+  });
 
   const scheme = (): Scheme =>
     schemeSelect.value === "Custom"
@@ -828,19 +835,6 @@ if (root) {
   };
 
   let activeTimeline: AlgorithmTimeline | null = null;
-  let pendingPlayerTimelineIndex: number | null = (() => {
-    if (!playerMode) return null;
-    try {
-      const handoff = JSON.parse(window.sessionStorage.getItem(playerHandoffKey) ?? "null") as PlayerHandoff | null;
-      window.sessionStorage.removeItem(playerHandoffKey);
-      return handoff && Number.isInteger(handoff.timelineIndex) && handoff.timelineIndex >= 0
-        ? handoff.timelineIndex
-        : null;
-    } catch {
-      window.sessionStorage.removeItem(playerHandoffKey);
-      return null;
-    }
-  })();
   let hamiltonStream: {
     player: HamiltonMacro.StreamPlayer;
     node: string;
@@ -2874,9 +2868,6 @@ if (root) {
     activeTimeline = recognized.timeline;
     activeTimelineKey = recognized.timelineKey;
     updatePlaybackUi(true);
-    const restoredPlayerTimelineIndex = pendingPlayerTimelineIndex;
-    pendingPlayerTimelineIndex = null;
-
     if (recognized.timeline.states === null) {
       activeIndex = recognized.timeline.steps.length;
       renderState(recognized.state, recognized.label);
@@ -2889,9 +2880,6 @@ if (root) {
       void transitionTo(activeIndex + 1, generation);
     } else if (sameTimeline) {
       renderTimelineIndex(Math.min(activeIndex, recognized.timeline.steps.length));
-    } else if (restoredPlayerTimelineIndex !== null) {
-      const restoredIndex = Math.min(restoredPlayerTimelineIndex, recognized.timeline.steps.length);
-      renderTimelineIndex(restoredIndex);
     } else {
       activeIndex = recognized.timeline.steps.length;
       renderState(recognized.state, recognized.label);
@@ -3024,12 +3012,8 @@ if (root) {
   mountTimerWorkspace(root);
 
   playerPageLink.addEventListener("click", (event) => {
-    if (playerMode) return;
     event.preventDefault();
-    window.sessionStorage.setItem(playerHandoffKey, JSON.stringify({timelineIndex: activeIndex} satisfies PlayerHandoff));
-    const state = store.get();
-    const playerState: AppState = {...state, input: input.value, moves: movesInput.value};
-    window.location.assign(`/?player=1${writeHash(playerState)}`);
+    setPlayerMode(!playerMode);
   });
 
   root.querySelectorAll<HTMLButtonElement>("[data-academy-method]").forEach((button) => {
@@ -4071,6 +4055,10 @@ if (root) {
     if (shortcutsDialog.open) return;
     if (event.key === "Escape") {
       event.preventDefault();
+      if (playerMode) {
+        setPlayerMode(false);
+        return;
+      }
       if (pendingDirectMove !== null) {
         window.clearTimeout(pendingDirectMove.timeout);
         pendingDirectMove = null;
