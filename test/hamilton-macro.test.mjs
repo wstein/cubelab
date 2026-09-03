@@ -13,6 +13,7 @@ describe("Hamilton macro programs", () => {
       export c
     `);
     expect(measure(program)).toMatchObject({quarterTurns: 12n, depth: 3});
+    expect(measure(program).moveEvents).toBe(12n);
     expect(measure(program, "b").quarterTurns).toBe(6n);
   });
 
@@ -80,6 +81,7 @@ describe("Hamilton macro programs", () => {
     expect(measure(program, "b").quarterTurns).toBe(10n);
     expect(prefix(program, 8)).toEqual(["U", "R", "D'", "L'", "F'", "B'", "F", "D'"]);
     expect(measure(program).quarterTurns).toBe(238n);
+    expect(measure(program).moveEvents).toBe(211n);
     expect(() => parse("a = U, R\na")).toThrow(/expected a token/);
   });
 

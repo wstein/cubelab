@@ -28,8 +28,8 @@ definition instead of accidentally appending it to that macro.
 The Workbench can import `.alg` and legacy `.orbit64` text sources. Imported
 sources with no `export` declaration use a final bare definition reference, or
 otherwise the final definition, as the root. The parser retains a macro DAG
-instead of unfolding it. `measure` calculates
-quarter-turn count, source-element count, and dependency depth with memoized
+instead of unfolding it. `measure` calculates QTM (quarter turns), HTM
+(expanded face-turn events), source-node count, and dependency depth with memoized
 structural evaluation. References, grouped repeats, and inverted references
 are measured without generating the move stream; cycles and undefined macros
 produce diagnostics.
@@ -45,6 +45,10 @@ zero-based start accepts arbitrary non-negative integer offsets; playback is
 deliberately capped at 500 streamed moves per preview. Thus a program such as
 Bruce Norskog's 3,674,160-turn circuit can be validated and examined without
 allocating millions of moves or states.
+
+**Unfold selected node to Moves** exports a selected definition as plain
+notation for the ordinary editor, preserving timed pauses. It uses the same
+500-HTM materialization limit as normal tape playback.
 
 The ordinary **Moves** editor also accepts definition-bearing macro programs.
 It materializes only programs of at most 500 move events and sends that bounded

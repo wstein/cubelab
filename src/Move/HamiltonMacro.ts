@@ -7,7 +7,7 @@ export type Node =
   | {kind: "sequence"; items: Node[]; repeat: bigint};
 
 export type Program = {definitions: Map<string, Node[]>; exportName: string};
-export type Measurement = {quarterTurns: bigint; sourceElements: bigint; depth: number};
+export type Measurement = {quarterTurns: bigint; moveEvents: bigint; sourceElements: bigint; depth: number};
 export type ImportedProgram = {program: Program; implicitExport: boolean};
 
 const identifier = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -246,11 +246,12 @@ export const measure = (program: Program, name = program.exportName): Measuremen
   const memo = new Map<string, Measurement>();
   const visiting: string[] = [];
   const node = (value: Node): Measurement => {
-    if (value.kind === "move") return {quarterTurns: value.quarterTurns, sourceElements: 1n, depth: 1};
-    if (value.kind === "pause") return {quarterTurns: 0n, sourceElements: 1n, depth: 1};
+    if (value.kind === "move") return {quarterTurns: value.quarterTurns, moveEvents: 1n, sourceElements: 1n, depth: 1};
+    if (value.kind === "pause") return {quarterTurns: 0n, moveEvents: 0n, sourceElements: 1n, depth: 1};
     if (value.kind === "reference") {
       const base = definition(value.name);
-      return {quarterTurns: base.quarterTurns * (value.repeat < 0n ? -value.repeat : value.repeat), sourceElements: 1n, depth: base.depth + 1};
+      const repeat = value.repeat < 0n ? -value.repeat : value.repeat;
+      return {quarterTurns: base.quarterTurns * repeat, moveEvents: base.moveEvents * repeat, sourceElements: 1n, depth: base.depth + 1};
     }
     if (value.kind === "slice") {
       const body = program.definitions.get(value.name);
@@ -259,15 +260,17 @@ export const measure = (program: Program, name = program.exportName): Measuremen
       if (value.start > end || end > body.length) fail(`slice '${value.name}(${value.start},${end})' is outside its ${body.length} source elements`);
       const base = body.slice(value.start, end).reduce((total, item) => {
         const next = node(item);
-        return {quarterTurns: total.quarterTurns + next.quarterTurns, sourceElements: total.sourceElements + next.sourceElements, depth: Math.max(total.depth, next.depth)};
-      }, {quarterTurns: 0n, sourceElements: 0n, depth: 1});
-      return {quarterTurns: base.quarterTurns * (value.repeat < 0n ? -value.repeat : value.repeat), sourceElements: BigInt(end - value.start), depth: base.depth + 1};
+        return {quarterTurns: total.quarterTurns + next.quarterTurns, moveEvents: total.moveEvents + next.moveEvents, sourceElements: total.sourceElements + next.sourceElements, depth: Math.max(total.depth, next.depth)};
+      }, {quarterTurns: 0n, moveEvents: 0n, sourceElements: 0n, depth: 1});
+      const repeat = value.repeat < 0n ? -value.repeat : value.repeat;
+      return {quarterTurns: base.quarterTurns * repeat, moveEvents: base.moveEvents * repeat, sourceElements: BigInt(end - value.start), depth: base.depth + 1};
     }
     const base = value.items.reduce((total, item) => {
       const next = node(item);
-      return {quarterTurns: total.quarterTurns + next.quarterTurns, sourceElements: total.sourceElements + next.sourceElements, depth: Math.max(total.depth, next.depth)};
-    }, {quarterTurns: 0n, sourceElements: 0n, depth: 1});
-    return {quarterTurns: base.quarterTurns * (value.repeat < 0n ? -value.repeat : value.repeat), sourceElements: 1n, depth: base.depth + 1};
+      return {quarterTurns: total.quarterTurns + next.quarterTurns, moveEvents: total.moveEvents + next.moveEvents, sourceElements: total.sourceElements + next.sourceElements, depth: Math.max(total.depth, next.depth)};
+    }, {quarterTurns: 0n, moveEvents: 0n, sourceElements: 0n, depth: 1});
+    const repeat = value.repeat < 0n ? -value.repeat : value.repeat;
+    return {quarterTurns: base.quarterTurns * repeat, moveEvents: base.moveEvents * repeat, sourceElements: 1n, depth: base.depth + 1};
   };
   const definition = (key: string): Measurement => {
     const cached = memo.get(key);
@@ -278,8 +281,8 @@ export const measure = (program: Program, name = program.exportName): Measuremen
     visiting.push(key);
     const result = body.reduce((total, item) => {
       const next = node(item);
-      return {quarterTurns: total.quarterTurns + next.quarterTurns, sourceElements: total.sourceElements + next.sourceElements, depth: Math.max(total.depth, next.depth)};
-    }, {quarterTurns: 0n, sourceElements: 0n, depth: 1});
+      return {quarterTurns: total.quarterTurns + next.quarterTurns, moveEvents: total.moveEvents + next.moveEvents, sourceElements: total.sourceElements + next.sourceElements, depth: Math.max(total.depth, next.depth)};
+    }, {quarterTurns: 0n, moveEvents: 0n, sourceElements: 0n, depth: 1});
     visiting.pop(); memo.set(key, result); return result;
   };
   return definition(name);

@@ -149,10 +149,14 @@ test("the Workbench inspects and previews bounded Hamilton macro nodes", () => {
   assert.match(page, /data-hamilton-window-length/);
   assert.match(page, /data-hamilton-stream/);
   assert.match(page, /data-hamilton-preview/);
+  assert.match(page, /data-hamilton-unfold/);
   assert.match(client, /HamiltonMacro\.measure/);
+  assert.match(client, /source nodes/);
+  assert.match(client, /HTM.*QTM/);
   assert.match(client, /HamiltonMacro\.importAlg/);
   assert.match(client, /HamiltonMacro\.window\(hamiltonProgram, start, length/);
   assert.match(client, /HamiltonMacro\.createStreamPlayer/);
+  assert.match(client, /HamiltonMacro\.unfold\(hamiltonProgram, MAX_PLAYBACK_STEPS, hamiltonNode\.value\)/);
   assert.match(client, /tape scrubbing unavailable/);
   assert.match(client, /event\.kind === "pause"/);
   assert.match(client, /moves must be between 1 and 500/);

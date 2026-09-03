@@ -204,6 +204,7 @@ if (root) {
   const hamiltonWindowStart = root.querySelector<HTMLInputElement>("[data-hamilton-window-start]")!;
   const hamiltonWindowLength = root.querySelector<HTMLInputElement>("[data-hamilton-window-length]")!;
   const hamiltonPreview = root.querySelector<HTMLButtonElement>("[data-hamilton-preview]")!;
+  const hamiltonUnfold = root.querySelector<HTMLButtonElement>("[data-hamilton-unfold]")!;
   const hamiltonStreamButton = root.querySelector<HTMLButtonElement>("[data-hamilton-stream]")!;
   const hamiltonResult = root.querySelector<HTMLOutputElement>("[data-hamilton-result]")!;
   const nissInverseOutput = root.querySelector<HTMLElement>("[data-niss-inverse]")!;
@@ -1344,9 +1345,9 @@ if (root) {
         moveRibbon.append(notice);
       }
       playbackLimit.hidden = false;
-      playbackLimit.textContent = "Streaming macro playback retains one generator cursor; rewind, end, and arbitrary tape scrubbing are unavailable.";
-      playbackPosition.textContent = `Stream move ${hamiltonStream.player.movesPlayed.toString()}`;
-      playbackHtm.textContent = `QTM ${hamiltonStream.quarterTurnsPlayed.toString()} of ${hamiltonStream.measurement.quarterTurns.toString()}`;
+      playbackLimit.textContent = `QTM ${hamiltonStream.quarterTurnsPlayed.toString()} of ${hamiltonStream.measurement.quarterTurns.toString()} · streaming retains one generator cursor, so rewind, end, and arbitrary tape scrubbing are unavailable.`;
+      playbackPosition.textContent = `Move ${hamiltonStream.player.movesPlayed.toString()} of ${hamiltonStream.measurement.moveEvents.toString()}`;
+      playbackHtm.textContent = `${hamiltonStream.player.movesPlayed.toString()} of ${hamiltonStream.measurement.moveEvents.toString()}`;
       scrubber.disabled = true;
       playbackBegin.disabled = true;
       root.querySelector<HTMLButtonElement>("[data-playback-back]")!.disabled = true;
@@ -3366,7 +3367,7 @@ if (root) {
         const option = document.createElement("option");
         option.value = name;
         const measurement = HamiltonMacro.measure(program, name);
-        option.textContent = `${name} · ${measurement.quarterTurns.toString()} QTM · ${measurement.sourceElements.toString()} elements`;
+        option.textContent = `${name} · ${measurement.quarterTurns.toString()} QTM · ${measurement.moveEvents.toString()} HTM · ${measurement.sourceElements.toString()} source nodes`;
         return option;
       }));
       hamiltonNode.value = program.exportName;
@@ -3374,9 +3375,10 @@ if (root) {
       hamiltonWindowStart.disabled = false;
       hamiltonWindowLength.disabled = false;
       hamiltonPreview.disabled = false;
+      hamiltonUnfold.disabled = false;
       hamiltonStreamButton.disabled = false;
       const rootKind = importedProgram.implicitExport ? `Imported root ${program.exportName}` : `Export ${program.exportName}`;
-      hamiltonResult.textContent = `${rootKind} · ${rootMeasurement.quarterTurns.toString()} QTM · ${rootMeasurement.sourceElements.toString()} source elements · depth ${rootMeasurement.depth}.`;
+      hamiltonResult.textContent = `${rootKind} · ${rootMeasurement.quarterTurns.toString()} QTM · ${rootMeasurement.moveEvents.toString()} HTM · ${rootMeasurement.sourceElements.toString()} source nodes · depth ${rootMeasurement.depth}.`;
       hamiltonResult.classList.remove("failure");
     } catch (reason) {
       hamiltonProgram = null;
@@ -3385,6 +3387,7 @@ if (root) {
       hamiltonWindowStart.disabled = true;
       hamiltonWindowLength.disabled = true;
       hamiltonPreview.disabled = true;
+      hamiltonUnfold.disabled = true;
       hamiltonStreamButton.disabled = true;
       hamiltonResult.textContent = reason instanceof Error ? reason.message : "Could not parse Hamilton macros.";
       hamiltonResult.classList.add("failure");
@@ -3437,8 +3440,27 @@ if (root) {
     activeIndex = 0;
     renderState(solved._0, `Hamilton macro preview · ${hamiltonNode.value} at ${start.toString()}`);
     updatePlaybackUi(true);
-    hamiltonResult.textContent = `Previewing ${timeline._0.steps.length} moves of ${hamiltonNode.value} from offset ${start.toString()}.`;
+    const measurement = HamiltonMacro.measure(hamiltonProgram, hamiltonNode.value);
+    hamiltonResult.textContent = `Previewing ${moves.length} HTM of ${measurement.moveEvents.toString()} HTM from ${hamiltonNode.value} at offset ${start.toString()} (${measurement.quarterTurns.toString()} QTM total).`;
     hamiltonResult.classList.remove("failure");
+  });
+
+  hamiltonUnfold.addEventListener("click", () => {
+    if (hamiltonProgram === null) return;
+    try {
+      const unfolded = HamiltonMacro.unfold(hamiltonProgram, MAX_PLAYBACK_STEPS, hamiltonNode.value)
+        .map((event) => event.kind === "move" ? event.token : `@${(event.durationMs / 1000).toString()}s`)
+        .join(" ");
+      store.patch({moves: unfolded});
+      hamiltonResult.textContent = `Unfolded ${HamiltonMacro.measure(hamiltonProgram, hamiltonNode.value).moveEvents.toString()} HTM from ${hamiltonNode.value} into Moves.`;
+      hamiltonResult.classList.remove("failure");
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "Could not unfold the selected macro node.";
+      hamiltonResult.textContent = message.includes("-move limit")
+        ? `${message}. Use the streaming player for longer programs.`
+        : message;
+      hamiltonResult.classList.add("failure");
+    }
   });
 
   hamiltonStreamButton.addEventListener("click", () => {
