@@ -75,6 +75,7 @@ test("the workspace exposes a manual speedcubing timer", () => {
   assert.match(page, /data-academy-random-drill/);
   assert.match(page, /data-academy-wca-drill/);
   assert.match(viewportComponent, /data-smart-cube-controller/);
+  assert.match(viewportComponent, /data-smart-cube-mac-recovery/);
   assert.match(client, /smartCubeSyncMode === "VirtualController"/);
   assert.match(client, /cubelab:timer-scramble/);
   assert.match(client, /academyRequestGuard\.isCurrent\(request\)/);
@@ -373,7 +374,11 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /await smartCubeManager\.refresh\(\)/);
   assert.match(client, /await smartCubeManager\.resetCubeState\(\)/);
   assert.match(client, /local baseline updated without reading facelets/);
-  assert.match(client, /macAddressProvider: async \(device, isFallbackCall\)/);
+  assert.match(viewportComponent, /data-smart-cube-mac-recovery/);
+  assert.match(client, /enableAddressSearch: false/);
+  assert.match(client, /data-smart-cube-mac-recovery/);
+  assert.match(client, /macAddressProvider: promptForEncryptedCubeMac/);
+  assert.match(client, /promptForEncryptedCubeMac = async/);
   assert.match(client, /if \(!isFallbackCall\) return null/);
   assert.match(client, /enable-experimental-web-platform-features/);
   assert.match(client, /assessSmartCubeMove/);
@@ -403,7 +408,7 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   );
   assert.match(
     client,
-    /smartCubeOrientation\.disabled = !supportsOrientation;[\s\S]{0,100}setSmartCubeOrientationTracking\(supportsOrientation\)/,
+    /smartCubeOrientation\.disabled = !supportsOrientation;[\s\S]{0,300}setSmartCubeOrientationTracking\(supportsOrientation\)/,
   );
   assert.match(viewport, /setDeviceOrientation\(orientation/);
 });

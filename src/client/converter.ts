@@ -296,6 +296,7 @@ if (root) {
   const smartCubeResetState = root.querySelector<HTMLButtonElement>("[data-smart-cube-reset-state]")!;
   const smartCubeOrientation = root.querySelector<HTMLButtonElement>("[data-smart-cube-orientation]")!;
   const smartCubeController = root.querySelector<HTMLButtonElement>("[data-smart-cube-controller]")!;
+  const smartCubeMacRecovery = root.querySelector<HTMLButtonElement>("[data-smart-cube-mac-recovery]")!;
   const smartCubeDisconnect = root.querySelector<HTMLButtonElement>("[data-smart-cube-disconnect]")!;
   const timerCover = root.querySelector<HTMLButtonElement>("[data-timer-cover]")!;
   const timerHud = root.querySelector<HTMLElement>("[data-timer-hud]")!;
@@ -962,6 +963,7 @@ if (root) {
   let tutorialCameraGeneration = 0;
   let smartCubeManager: SmartCubeManager | null = null;
   let smartCubeManagerLoading: Promise<SmartCubeManager> | null = null;
+  let smartCubeMacRecoveryAvailable = false;
   let smartCubeConnected = false;
   let smartCubeDeviceName = "Smart cube";
   let smartCubeLedFeedback = false;
@@ -2862,7 +2864,11 @@ if (root) {
       }
       smartCubeDeviceName = connectionState.device.name;
       smartCubeLedFeedback = connectionState.device.capabilities.led;
-      smartCubeStatus.textContent = `${connectionState.device.brandName} · ${connectionState.device.name} · Live sync`;
+      const streamReadyMs = connectionState.device.timing?.streamReadyMs;
+      const timing = streamReadyMs === undefined
+        ? ""
+        : ` · stream ready ${Math.round(streamReadyMs)}ms`;
+      smartCubeStatus.textContent = `${connectionState.device.brandName} · ${connectionState.device.name} · Live sync${timing}`;
       const supportsOrientation = connectionState.device.capabilities.orientation;
       const supportsFacelets = connectionState.device.capabilities.facelets;
       const supportsReset = connectionState.device.capabilities.reset;
@@ -2875,6 +2881,8 @@ if (root) {
       smartCubeOrientation.disabled = !supportsOrientation;
       smartCubeController.hidden = false;
       smartCubeController.disabled = false;
+      smartCubeMacRecoveryAvailable = false;
+      smartCubeMacRecovery.hidden = true;
       setSmartCubeOrientationTracking(supportsOrientation);
       updateSmartCubeMistakeUi();
     } else {
@@ -2883,6 +2891,8 @@ if (root) {
       smartCubeResetState.hidden = true;
       smartCubeOrientation.hidden = true;
       smartCubeController.hidden = true;
+      smartCubeMacRecovery.hidden = !smartCubeMacRecoveryAvailable;
+      smartCubeMacRecovery.disabled = connectionState.phase === "connecting";
       setSmartCubeControllerMode(false);
       smartCubeBattery.hidden = true;
       if (connectionState.phase !== "connecting") {
@@ -4149,6 +4159,22 @@ if (root) {
     }
     return detail;
   };
+  const needsEncryptedMacRecovery = (reason: unknown) =>
+    /unable to determine cube mac address|bluetooth mac address/i
+      .test(reason instanceof Error ? reason.message : String(reason));
+  const promptForEncryptedCubeMac = async (device: BluetoothDevice, isFallbackCall?: boolean) => {
+    if (!isFallbackCall) return null;
+    const usingBrave = await isBraveBrowser();
+    const experimentalFeaturesUrl = usingBrave
+      ? "brave://flags/#enable-experimental-web-platform-features"
+      : "chrome://flags/#enable-experimental-web-platform-features";
+    const value = window.prompt(
+      `${device.name ?? "This encrypted cube"} did not expose its Bluetooth MAC address. `
+        + `Enter it as aa:bb:cc:dd:ee:ff, or Cancel. For automatic detection, enable `
+        + `${experimentalFeaturesUrl} and restart the browser.`,
+    );
+    return value?.trim() || null;
+  };
   smartCubeConnect.addEventListener("click", async () => {
     void smartCubeAudio.unlock();
     const usingBrave = await isBraveBrowser();
@@ -4175,25 +4201,41 @@ if (root) {
     store.patch({size: 3});
     try {
       const manager = await loadSmartCubeManager();
+      smartCubeMacRecoveryAvailable = false;
+      smartCubeMacRecovery.hidden = true;
+      smartCubeStateSyncPending = true;
+      // MAC-address discovery can add 8–23 seconds before GATT even starts.
+      // It is only needed by encrypted protocols, so the normal connection
+      // path deliberately stays fast and asks for recovery only on demand.
+      await manager.connect({enableAddressSearch: false});
+    } catch (reason) {
+      if (bluetoothChooserWasCancelled(reason)) {
+        await smartCubeManager?.disconnect();
+        return;
+      }
+      smartCubeDock.hidden = false;
+      smartCubeDock.dataset.phase = "error";
+      smartCubeMacRecoveryAvailable = needsEncryptedMacRecovery(reason);
+      smartCubeMacRecovery.hidden = !smartCubeMacRecoveryAvailable;
+      smartCubeStatus.textContent = smartCubeMacRecoveryAvailable
+        ? "This encrypted cube needs MAC recovery. Use Encrypted-cube recovery to retry."
+        : describeBluetoothFailure(reason, usingBrave);
+      smartCubeStatus.title = smartCubeStatus.textContent;
+    }
+  });
+  smartCubeMacRecovery.addEventListener("click", async () => {
+    if (!smartCubeMacRecoveryAvailable) return;
+    void smartCubeAudio.unlock();
+    smartCubeMacRecovery.disabled = true;
+    try {
+      const manager = await loadSmartCubeManager();
       smartCubeStateSyncPending = true;
       await manager.connect({
         enableAddressSearch: true,
-        macAddressProvider: async (device, isFallbackCall) => {
-          // Let the transport inspect GAN manufacturer advertisements first.
-          // This callback is invoked once before and once after that attempt.
-          if (!isFallbackCall) return null;
-          const experimentalFeaturesUrl = usingBrave
-            ? "brave://flags/#enable-experimental-web-platform-features"
-            : "chrome://flags/#enable-experimental-web-platform-features";
-          const value = window.prompt(
-            `${device.name ?? "This encrypted cube"} did not expose its Bluetooth MAC address. `
-              + `Enter it as aa:bb:cc:dd:ee:ff, or Cancel. For automatic detection, enable `
-              + `${experimentalFeaturesUrl} and restart the browser.`,
-          );
-          return value?.trim() || null;
-        },
+        macAddressProvider: promptForEncryptedCubeMac,
       });
     } catch (reason) {
+      const usingBrave = await isBraveBrowser();
       if (bluetoothChooserWasCancelled(reason)) {
         await smartCubeManager?.disconnect();
         return;
@@ -4202,6 +4244,8 @@ if (root) {
       smartCubeDock.dataset.phase = "error";
       smartCubeStatus.textContent = describeBluetoothFailure(reason, usingBrave);
       smartCubeStatus.title = smartCubeStatus.textContent;
+    } finally {
+      smartCubeMacRecovery.disabled = false;
     }
   });
   smartCubeDisconnect.addEventListener("click", () => {

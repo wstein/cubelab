@@ -456,6 +456,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .smart-cube-reroute,
 .smart-cube-orientation,
 .smart-cube-controller,
+.smart-cube-mac-recovery,
 .smart-cube-disconnect {
   flex: 0 0 auto;
 }

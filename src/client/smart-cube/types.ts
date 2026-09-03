@@ -10,6 +10,15 @@ export type SmartCubeCapabilities = {
   led: boolean;
 };
 
+export type SmartCubeTimingMetrics = {
+  chooserMs?: number;
+  gattConnectMs?: number;
+  serviceResolveMs?: number;
+  notificationsMs?: number;
+  streamReadyMs?: number;
+  firstPacketMs?: number;
+};
+
 export type SmartCubeDevice = {
   name: string;
   macAddress: string | null;
@@ -18,6 +27,7 @@ export type SmartCubeDevice = {
   protocolId: string;
   protocolName: string;
   capabilities: SmartCubeCapabilities;
+  timing?: SmartCubeTimingMetrics;
 };
 
 type EventBase = {

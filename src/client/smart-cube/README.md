@@ -15,6 +15,18 @@ opened programmatically. It reports explicit `unavailable`, `connecting`, `conne
 `disconnecting`, `disconnected`, and `error` phases. `reconnect()` intentionally opens the browser
 chooser again; the transport does not retain a public `BluetoothDevice` handle.
 
+## Connection latency
+
+GoCube and Rubik's Connected names use CubeLab's direct Nordic-UART path. It reports
+**connected** as soon as GATT notifications are subscribed; facelets, hardware details, and
+battery are requested asynchronously afterward. The browser console logs chooser, GATT, service,
+notification, and first-valid-packet timings, while the dock reports the notification-ready time.
+
+Normal connections deliberately disable MAC/address probing. That recovery is necessary only for
+some encrypted cubes and can add many seconds of advertisement and proof waits. If an encrypted
+device cannot establish its MAC normally, the dock offers **Encrypted-cube recovery**, an explicit
+retry that may request a MAC address. It is never part of the normal GoCube path.
+
 Academy coaching adds a strict recovery stack above the transport. A wrong face turn is never
 silently folded into the lesson: CubeLab asks for its inverse, stacks any further slips in
 last-in-first-out order, and resumes the original expected move only after the physical cube is
