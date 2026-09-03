@@ -47,7 +47,7 @@ state before relying on it again.
 timer HUD instead of the move tape—there is no route change, renderer reset, or
 Bluetooth reconnect. A covered scramble is obscured by an opaque glass mask.
 Pressing Space, the normal **Inspect** button, or tapping that mask reveals the
-cube and starts inspection at once. The HUD flashes visual 8- and 12-second
-warnings; the first complete controller turn starts the solve. Academy remains
+cube and starts inspection at once. The HUD flashes and plays brief 8- and
+12-second warnings; the first complete controller turn starts the solve. Academy remains
 untimed by default, with its optional **WCA drill** toggle enabling the same
 cover-and-inspection flow.

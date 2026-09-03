@@ -55,6 +55,7 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
   let frame: number | null = null;
   let controllerMode = false;
   let inspectionCue = 0;
+  let cueAudio: AudioContext | null = null;
 
   const persist = () => {
     writeTimerSessions(window.localStorage, [session]);
@@ -68,6 +69,21 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
     window.dispatchEvent(new CustomEvent("cubelab:timer-hud", {
       detail: {phase: state.phase, shown, scramble: currentScramble, summary: summarizeSession(session.solves)},
     }));
+  };
+  const playInspectionCue = (seconds: number) => {
+    try {
+      cueAudio ??= new AudioContext();
+      const oscillator = cueAudio.createOscillator();
+      const gain = cueAudio.createGain();
+      oscillator.frequency.value = seconds === 12 ? 880 : 660;
+      gain.gain.setValueAtTime(0.05, cueAudio.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, cueAudio.currentTime + 0.16);
+      oscillator.connect(gain).connect(cueAudio.destination);
+      oscillator.start();
+      oscillator.stop(cueAudio.currentTime + 0.17);
+    } catch {
+      // Audio is supplementary; visual warning and timing remain reliable.
+    }
   };
   const phaseMessage = (): string => {
     if (state.phase === "covered") return "Scramble covered. Press Space, Inspect, or tap the cover to begin inspection.";
@@ -109,6 +125,7 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
       const cue = elapsed >= 12_000 ? 12 : elapsed >= 8_000 ? 8 : 0;
       if (cue > inspectionCue) {
         inspectionCue = cue;
+        playInspectionCue(cue);
         window.dispatchEvent(new CustomEvent("cubelab:timer-cue", {detail: {seconds: cue}}));
       }
     }
