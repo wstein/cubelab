@@ -755,20 +755,26 @@ if (root) {
 
   const parseWorkspaceState = (): Result<RecognizedInput> => {
     const setup = parseState(input.value);
-    if (setup.TAG === "Error" || movesInput.value.trim() === "") return setup;
+    if (setup.TAG === "Error") return setup;
+    // Setup is the state at tape position zero. An algorithm is a convenient
+    // way to describe that state, but it is not silently prepended to Moves:
+    // otherwise position zero renders solved instead of the Setup the user
+    // explicitly supplied.
+    if (movesInput.value.trim() === "") {
+      return {
+        TAG: "Ok",
+        _0: {
+          state: setup._0.state,
+          label: setup._0.label,
+        },
+      };
+    }
     const moves = parseMovesEditor(movesInput.value);
     if (moves.TAG === "Error") return {TAG: "Error", _0: moves._0};
-    let baseState = setup._0.state;
-    let combinedAlg = moves._0;
-    if (setup._0.timeline) {
-      const solved = StateTypes.solved(size) as Result<CubeState, unknown>;
-      if (solved.TAG === "Error") return {TAG: "Error", _0: "Cube size must be between 2 and 5."};
-      baseState = solved._0;
-      combinedAlg = [...setup._0.timeline.alg, ...moves._0];
-    }
-    const applied = MoveExecutor.applyAlg(baseState, combinedAlg) as Result<CubeState, unknown>;
+    const baseState = setup._0.state;
+    const applied = MoveExecutor.applyAlg(baseState, moves._0) as Result<CubeState, unknown>;
     if (applied.TAG === "Error") return {TAG: "Error", _0: "Could not apply Moves to Setup."};
-    const timeline = buildTimeline(baseState, combinedAlg);
+    const timeline = buildTimeline(baseState, moves._0);
     if (timeline.TAG === "Error") return {TAG: "Error", _0: "Could not build the Setup + Moves timeline."};
     return {
       TAG: "Ok",

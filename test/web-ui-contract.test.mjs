@@ -139,8 +139,9 @@ test("the editor separates a synchronized setup from optional replay moves", () 
   assert.match(page, /class="cube-textarea setup-textarea"[\s\S]*rows="1"[\s\S]*wrap="off"/);
   assert.match(page, /Smart-cube Sync loads this field/);
   assert.match(client, /const parseWorkspaceState/);
-  assert.match(client, /MoveExecutor\.applyAlg\(baseState, combinedAlg\)/);
-  assert.match(client, /combinedAlg = \[\.\.\.setup\._0\.timeline\.alg, \.\.\.moves\._0\]/);
+  assert.match(client, /Setup is the state at tape position zero/);
+  assert.match(client, /MoveExecutor\.applyAlg\(baseState, moves\._0\)/);
+  assert.match(client, /buildTimeline\(baseState, moves\._0\)/);
   assert.match(client, /const parseMovesEditor/);
   assert.match(client, /HamiltonMacro\.unfold\(program, MAX_PLAYBACK_STEPS\)/);
   assert.match(client, /Use the streaming player for longer programs/);

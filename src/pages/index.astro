@@ -272,12 +272,13 @@ const cards = [
               spellcheck="false"></textarea>
             <p class="input-help">
               Setup accepts a cube state or an algorithm; Sync state replaces it
-              from the connected smart cube. Moves are replayed from whatever
-              Setup resolves to, so an algorithm in Setup plus Moves plays back
-              as one continuous timeline from solved. Leave Moves empty to use
-              Setup alone. Macro definitions in Moves are lazily expanded into
+              from the connected smart cube. Moves replay from the resolved
+              Setup state, including when Setup is written as an algorithm.
+              Leave Moves empty to inspect Setup alone. Macro definitions in Moves are lazily expanded into
               the regular tape only when they contain at most 500 moves; use the
-              Hamilton streaming player for longer programs.
+              Hamilton streaming player for longer programs. Lowercase moves use
+              modern SiGN wide turns by default; ambiguous plaintext such as R2'
+              requires Ruwix suffix mode.
             </p>
             <div class="transform-row" aria-label="Two-phase solver">
               <span class="transform-label">3×3 solver</span>
