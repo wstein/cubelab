@@ -57,6 +57,10 @@ test("the editor separates a synchronized setup from optional replay moves", () 
   assert.match(client, /const parseWorkspaceState/);
   assert.match(client, /MoveExecutor\.applyAlg\(baseState, combinedAlg\)/);
   assert.match(client, /combinedAlg = \[\.\.\.setup\._0\.timeline\.alg, \.\.\.moves\._0\]/);
+  assert.match(client, /const parseMovesEditor/);
+  assert.match(client, /HamiltonMacro\.unfold\(program, MAX_PLAYBACK_STEPS\)/);
+  assert.match(client, /Use the streaming player for longer programs/);
+  assert.match(page, /Macro definitions in Moves/);
 });
 
 test("the Vanilla DOM client wires reachability-aware outputs", () => {

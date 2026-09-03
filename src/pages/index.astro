@@ -224,14 +224,16 @@ const cards = [
               id="cube-moves"
               class="cube-textarea moves-textarea"
               data-moves-input
-              placeholder="Optional moves to apply from setup, e.g. R U R' U'"
+              placeholder="Optional moves or a bounded macro program, e.g. R U R' U'"
               spellcheck="false"></textarea>
             <p class="input-help">
               Setup accepts a cube state or an algorithm; Sync state replaces it
               from the connected smart cube. Moves are replayed from whatever
               Setup resolves to, so an algorithm in Setup plus Moves plays back
               as one continuous timeline from solved. Leave Moves empty to use
-              Setup alone.
+              Setup alone. Macro definitions in Moves are lazily expanded into
+              the regular tape only when they contain at most 500 moves; use the
+              Hamilton streaming player for longer programs.
             </p>
             <div class="transform-row" aria-label="Two-phase solver">
               <span class="transform-label">3×3 solver</span>

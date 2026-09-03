@@ -600,16 +600,51 @@ if (root) {
       : parseAlgorithm(inputValue);
   };
 
+  const macroDefinition = /(?:^|\n)\s*(?:def\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=/;
+
+  /** Expands macro-editor input only up to the ordinary materialized tape limit. */
+  const parseMovesEditor = (value: string): Result<unknown[], string> => {
+    if (!macroDefinition.test(value)) {
+      const parsed = MoveParser.parseWithOptions(
+        size,
+        lowercaseMode,
+        notationDialect,
+        value,
+      ) as Result<unknown[], {message?: string}>;
+      return parsed.TAG === "Ok"
+        ? parsed
+        : {TAG: "Error", _0: parsed._0.message ?? "Invalid moves."};
+    }
+    try {
+      const program = HamiltonMacro.parse(value);
+      const notation = HamiltonMacro.unfold(program, MAX_PLAYBACK_STEPS).map((event) =>
+        event.kind === "move" ? event.token : `@${(event.durationMs / 1000).toString()}s`
+      );
+      const parsed = MoveParser.parseWithOptions(
+        size,
+        lowercaseMode,
+        notationDialect,
+        notation.join(" "),
+      ) as Result<unknown[], {message?: string}>;
+      return parsed.TAG === "Ok"
+        ? parsed
+        : {TAG: "Error", _0: parsed._0.message ?? "Invalid expanded macro moves."};
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "Invalid Hamilton macro.";
+      return {
+        TAG: "Error",
+        _0: message.includes("-move limit")
+          ? `${message}. Use the streaming player for longer programs.`
+          : message,
+      };
+    }
+  };
+
   const parseWorkspaceState = (): Result<RecognizedInput> => {
     const setup = parseState(input.value);
     if (setup.TAG === "Error" || movesInput.value.trim() === "") return setup;
-    const moves = MoveParser.parseWithOptions(
-      size,
-      lowercaseMode,
-      notationDialect,
-      movesInput.value,
-    ) as Result<unknown[], {message?: string}>;
-    if (moves.TAG === "Error") return {TAG: "Error", _0: moves._0.message ?? "Invalid moves."};
+    const moves = parseMovesEditor(movesInput.value);
+    if (moves.TAG === "Error") return {TAG: "Error", _0: moves._0};
     let baseState = setup._0.state;
     let combinedAlg = moves._0;
     if (setup._0.timeline) {
@@ -1282,12 +1317,7 @@ if (root) {
   // algorithm, so its own validity is irrelevant to whether these apply.
   const movesTransformReady = (): boolean => {
     if (movesInput.value.trim() === "") return false;
-    const parsed = MoveParser.parseWithOptions(
-      size,
-      lowercaseMode,
-      notationDialect,
-      movesInput.value,
-    ) as Result<unknown[], unknown>;
+    const parsed = parseMovesEditor(movesInput.value);
     return parsed.TAG === "Ok";
   };
 

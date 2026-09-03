@@ -20,10 +20,9 @@ s100
 ([R',U]6 [F:D']@0.6s)100
 ```
 
-At top level, commas are optional sequence separators, and standalone lines
-after definitions form the executable root expression. This lets compact
-macro files use `a = U R D' L', F' B'` followed later by `(b a')12 b` without
-accidentally appending that root to `b`'s definition.
+Standalone lines after definitions form the executable root expression. This
+keeps a trailing expression such as `(b a')12 b` separate from `b`'s
+definition instead of accidentally appending it to that macro.
 
 The Workbench can import `.alg` and legacy `.orbit64` text sources. Imported
 sources with no `export` declaration use a final bare definition reference, or
@@ -45,6 +44,11 @@ zero-based start accepts arbitrary non-negative integer offsets; playback is
 deliberately capped at 500 streamed moves per preview. Thus a program such as
 Bruce Norskog's 3,674,160-turn circuit can be validated and examined without
 allocating millions of moves or states.
+
+The ordinary **Moves** editor also accepts definition-bearing macro programs.
+It materializes only programs of at most 500 move events and sends that bounded
+result to the normal tape player; larger programs report the limit and must use
+the streaming player instead.
 
 For long-running playback, **Start streaming player** owns one resumable macro
 generator and feeds the viewport one move at a time. It retains only the

@@ -1,6 +1,6 @@
 import {describe, expect, test} from "vitest";
 
-import {createStreamPlayer, importAlg, measure, parse, prefix, streamEvents, window} from "../src/Move/HamiltonMacro.ts";
+import {createStreamPlayer, importAlg, measure, parse, prefix, streamEvents, unfold, window} from "../src/Move/HamiltonMacro.ts";
 
 describe("Hamilton macro programs", () => {
   test("measures recursive definitions without unfolding them", () => {
@@ -69,7 +69,7 @@ describe("Hamilton macro programs", () => {
 
   test("keeps top-level root expressions separate from preceding definitions", () => {
     const program = parse(`
-      a = U R D' L', F' B'
+      a = U R D' L' F' B'
       a [F, D']4 a U2 a
 
       b = R U R' F2 R U R' F2
@@ -80,5 +80,18 @@ describe("Hamilton macro programs", () => {
     expect(measure(program, "b").quarterTurns).toBe(10n);
     expect(prefix(program, 8)).toEqual(["U", "R", "D'", "L'", "F'", "B'", "F", "D'"]);
     expect(measure(program).quarterTurns).toBe(238n);
+    expect(() => parse("a = U, R\na")).toThrow(/expected a token/);
+  });
+
+  test("materializes only bounded macro programs for the ordinary move tape", () => {
+    const program = parse("a = U R\na @0.6s a");
+    expect(unfold(program, 4)).toEqual([
+      {kind: "move", token: "U"},
+      {kind: "move", token: "R"},
+      {kind: "pause", durationMs: 600},
+      {kind: "move", token: "U"},
+      {kind: "move", token: "R"},
+    ]);
+    expect(() => unfold(program, 3)).toThrow(/3-move limit/);
   });
 });

@@ -35,10 +35,6 @@ class ExpressionParser {
       this.space();
       const delimiter = this.source[this.cursor];
       if (this.cursor === this.source.length || (until !== undefined && (Array.isArray(until) ? until.includes(delimiter) : delimiter === until))) break;
-      if (until === undefined && delimiter === ",") {
-        this.cursor += 1;
-        continue;
-      }
       if (this.source[this.cursor] === "(") {
         this.cursor += 1;
         const body = this.sequence(")");
@@ -328,6 +324,20 @@ export function* stream(program: Program, name = program.exportName): Generator<
     if (event.kind === "move") yield event.token;
   }
 }
+
+/** Materializes a deliberately bounded move stream for ordinary tape playback. */
+export const unfold = (program: Program, maxMoves: number, name = program.exportName): StreamEvent[] => {
+  const events: StreamEvent[] = [];
+  let moves = 0;
+  for (const event of streamEvents(program, name)) {
+    if (event.kind === "move") {
+      moves += 1;
+      if (moves > maxMoves) fail(`expansion exceeds the ${maxMoves}-move limit`);
+    }
+    events.push(event);
+  }
+  return events;
+};
 
 export const prefix = (program: Program, limit: number, name = program.exportName): string[] => {
   const output: string[] = [];
