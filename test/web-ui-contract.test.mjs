@@ -34,6 +34,13 @@ test("the dedicated player route reuses the full interactive viewport", () => {
   assert.match(viewport, /safeCameraDistance/);
 });
 
+test("the HTML head declares the SVG favicon and fallback touch icons", () => {
+  assert.match(page, /<link rel="icon" type="image\/svg\+xml" href="\/favicon\.svg"/);
+  assert.match(page, /<link rel="icon" type="image\/png" sizes="32x32" href="\/favicon-32x32\.png"/);
+  assert.match(page, /<link rel="icon" type="image\/png" sizes="16x16" href="\/favicon-16x16\.png"/);
+  assert.match(page, /<link rel="apple-touch-icon" sizes="180x180" href="\/apple-touch-icon\.png"/);
+});
+
 test("the converter exposes full two-phase solutions through a dedicated worker contract", () => {
   assert.match(page, /data-two-phase-solve/);
   assert.match(page, /data-two-phase-apply/);
