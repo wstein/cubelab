@@ -242,7 +242,46 @@ export const importAlg = (source: string): ImportedProgram => {
   };
 };
 
+/** Validates every recursive entry point before measuring or streaming it. */
+const assertAcyclic = (program: Program, name: string): void => {
+  const definitions: string[] = [];
+  const slices: string[] = [];
+  const cycle = (key: string) => fail(`cyclic definition: ${[...definitions, key].join(" -> ")}`);
+  const visitItems = (items: Node[]): void => { items.forEach(visitNode); };
+  const visitDefinition = (key: string): void => {
+    if (definitions.includes(key)) cycle(key);
+    const body = program.definitions.get(key);
+    if (!body) fail(`undefined macro '${key}'`);
+    definitions.push(key);
+    visitItems(body);
+    definitions.pop();
+  };
+  const visitNode = (node: Node): void => {
+    if (node.kind === "reference") {
+      visitDefinition(node.name);
+      return;
+    }
+    if (node.kind === "slice") {
+      const body = program.definitions.get(node.name);
+      if (!body) fail(`undefined macro '${node.name}'`);
+      const end = node.end ?? body.length;
+      if (node.start > end || end > body.length) {
+        fail(`slice '${node.name}(${node.start},${end})' is outside its ${body.length} source elements`);
+      }
+      const key = `${node.name}(${node.start},${end})`;
+      if (slices.includes(key)) cycle(node.name);
+      slices.push(key);
+      visitItems(body.slice(node.start, end));
+      slices.pop();
+      return;
+    }
+    if (node.kind === "sequence") visitItems(node.items);
+  };
+  visitDefinition(name);
+};
+
 export const measure = (program: Program, name = program.exportName): Measurement => {
+  assertAcyclic(program, name);
   const memo = new Map<string, Measurement>();
   const visiting: string[] = [];
   const node = (value: Node): Measurement => {
@@ -296,6 +335,7 @@ export type StreamEvent = {kind: "move"; token: string} | {kind: "pause"; durati
 
 /** Streams atomic moves and timed pauses without materializing a macro expansion. */
 export function* streamEvents(program: Program, name = program.exportName): Generator<StreamEvent> {
+  assertAcyclic(program, name);
   const walkDefinition = function* (key: string, inverted: boolean): Generator<StreamEvent> {
     const body = program.definitions.get(key);
     if (!body) fail(`undefined macro '${key}'`);
@@ -368,6 +408,7 @@ export type StreamPlayer = {
 
 /** Owns one resumable macro stream for long-running playback consumers. */
 export const createStreamPlayer = (program: Program, name = program.exportName): StreamPlayer => {
+  assertAcyclic(program, name);
   const iterator = streamEvents(program, name);
   let movesPlayed = 0n;
   let done = false;

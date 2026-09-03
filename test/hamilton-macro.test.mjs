@@ -23,6 +23,19 @@ describe("Hamilton macro programs", () => {
     expect(() => measure(parse(`def a = b\ndef b = a\nexport a`))).toThrow(/a -> b -> a/);
   });
 
+  test("rejects cyclic definitions through every lazy expansion entry point", () => {
+    const direct = parse("a = a\nexport a");
+    const sliced = parse("a = a(0,1)\nexport a");
+    for (const program of [direct, sliced]) {
+      expect(() => measure(program)).toThrow(/cyclic definition/);
+      expect(() => [...streamEvents(program)]).toThrow(/cyclic definition/);
+      expect(() => prefix(program, 1)).toThrow(/cyclic definition/);
+      expect(() => unfold(program, 1)).toThrow(/cyclic definition/);
+      expect(() => window(program, 0n, 1)).toThrow(/cyclic definition/);
+      expect(() => createStreamPlayer(program)).toThrow(/cyclic definition/);
+    }
+  });
+
   test("streams selected macro prefixes and inverses without unfolding the root", () => {
     const program = parse(`def b = U R\ndef a = (b)2 b'\nexport a`);
     expect(prefix(program, 10)).toEqual(["U", "R", "U", "R", "R'", "U'"]);
