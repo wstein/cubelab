@@ -190,9 +190,11 @@ test("the 2x2 and 3x3 manual state editor keeps a constrained draft separate fro
   assert.match(page, /data-manual-state-grid/);
   assert.match(page, /data-manual-state-load/);
   assert.match(client, /allowedManualStateColours\(manualSize, manualStateDraft, index\)/);
-  assert.match(client, /fillLocallyForcedManualStateColours\(manualSize, manualStateDraft\)/);
+  assert.match(client, /fillLocallyForcedManualStateColours\(manualSize, source\)/);
   assert.match(client, /dot\.dataset\.available = String\(choices\.includes\(choice\)\)/);
-  assert.match(client, /manualStateAutoIndices\.add\(filledIndex\)/);
+  assert.match(client, /manualStateAutoIndices\.add\(index\)/);
+  assert.match(client, /const manualStateExplicitIndices = new Set<number>\(\)/);
+  assert.match(client, /refreshManualStateAutoFill\(manualSize, false\)/);
   assert.match(client, /if \(manualSize === 2\) \{[\s\S]{0,200}allowedManualStateColours/);
   assert.match(client, /manualStateOpen\.disabled = size !== 2 && size !== 3/);
   assert.match(client, /store\.patch\(\{input: manualStateDraft\.join\(""\)\}\)/);

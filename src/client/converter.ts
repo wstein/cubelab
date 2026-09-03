@@ -365,6 +365,7 @@ if (root) {
   let activeRecognized: RecognizedInput | null = null;
   let manualStateDraft: ManualStateDraft = emptyManualState(2);
   let manualStateColour: ManualStateFace | null = "U";
+  const manualStateExplicitIndices = new Set<number>();
   const manualStateAutoIndices = new Set<number>();
   let manualStateDotGeneration = 0;
   let tutorialPhases: TutorialPhaseRange[] = [];
@@ -717,6 +718,30 @@ if (root) {
     return validatePhysicalState(parsed._0);
   };
 
+  /** Rebuild the visible draft from user-entered stickers, never stale auto-fill. */
+  const manualStateSourceDraft = (manualSize: ManualStateSize): ManualStateDraft => {
+    const source = emptyManualState(manualSize);
+    manualStateExplicitIndices.forEach((index) => {
+      source[index] = manualStateDraft[index];
+    });
+    return source;
+  };
+
+  const refreshManualStateAutoFill = (manualSize: ManualStateSize, fill: boolean) => {
+    const source = manualStateSourceDraft(manualSize);
+    manualStateAutoIndices.clear();
+    if (!fill) {
+      manualStateDraft = source;
+      return;
+    }
+    manualStateDraft = manualSize === 2
+      ? fillForcedManualStateColours(manualSize, source)
+      : fillLocallyForcedManualStateColours(manualSize, source);
+    manualStateDraft.forEach((colour, index) => {
+      if (source[index] === null && colour !== null) manualStateAutoIndices.add(index);
+    });
+  };
+
   const renderManualStateDots = (element: HTMLElement, choices: ManualStateFace[]) => {
     element.replaceChildren();
     manualStateFaces.forEach((choice) => {
@@ -824,6 +849,10 @@ if (root) {
     manualStateDraft = setup?.TAG === "Ok" && setup._0.state.size === manualSize
       ? (FaceletCodec.render(setup._0.state) as string).split("") as ManualStateDraft
       : emptyManualState(manualSize);
+    manualStateExplicitIndices.clear();
+    manualStateDraft.forEach((colour, index) => {
+      if (colour !== null) manualStateExplicitIndices.add(index);
+    });
     manualStateAutoIndices.clear();
     manualStateTitle.textContent = `Enter ${manualSize}×${manualSize}×${manualSize} state`;
     manualStateColour = "U";
@@ -4756,36 +4785,40 @@ if (root) {
     const manualSize = size as ManualStateSize;
     if (manualStateColour === null) {
       manualStateDraft[index] = null;
+      manualStateExplicitIndices.delete(index);
       manualStateAutoIndices.delete(index);
       // Do not instantly refill an erased sticker: clearing is how a person
       // corrects an already-complete draft. Forced-fill runs after a positive
       // colour choice instead.
+      refreshManualStateAutoFill(manualSize, false);
       renderManualStateEditor();
       return;
-    } else if (allowedManualStateColours(manualSize, manualStateDraft, index).includes(manualStateColour)) {
+    } else if (allowedManualStateColours(
+      manualSize,
+      manualStateSourceDraft(manualSize),
+      index,
+    ).includes(manualStateColour)) {
       manualStateDraft[index] = manualStateColour;
+      manualStateExplicitIndices.add(index);
       manualStateAutoIndices.delete(index);
     } else {
       manualStateStatus.textContent = `${manualStateFaceName[manualStateColour]} cannot go there without making the cube impossible.`;
       manualStateStatus.classList.add("failure");
       return;
     }
-    const beforeForcedFill = [...manualStateDraft];
-    manualStateDraft = manualSize === 2
-      ? fillForcedManualStateColours(manualSize, manualStateDraft)
-      : fillLocallyForcedManualStateColours(manualSize, manualStateDraft);
-    manualStateDraft.forEach((colour, filledIndex) => {
-      if (beforeForcedFill[filledIndex] === null && colour !== null) manualStateAutoIndices.add(filledIndex);
-    });
+    refreshManualStateAutoFill(manualSize, true);
     renderManualStateEditor();
   });
   manualStateReset.addEventListener("click", () => {
     manualStateDraft = emptyManualState(size as ManualStateSize);
+    manualStateExplicitIndices.clear();
     manualStateAutoIndices.clear();
     renderManualStateEditor();
   });
   manualStateSolved.addEventListener("click", () => {
     manualStateDraft = solvedManualState(size as ManualStateSize);
+    manualStateExplicitIndices.clear();
+    manualStateDraft.forEach((_, index) => manualStateExplicitIndices.add(index));
     manualStateAutoIndices.clear();
     renderManualStateEditor();
   });

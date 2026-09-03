@@ -86,7 +86,9 @@ dot is selectable. On 3×3×3, options are checked against full corner/edge perm
 parity asynchronously and appear as they are verified; a displayed dot is likewise
 selectable. The dots never change position: they are fixed as **Up / Down**, **Right /
 Left**, and **Front / Back**; unavailable colours are dimmed. Both automatically fill
-subsequently forced stickers, marked with a cyan inset outline and star. **Clear**
+subsequently forced stickers, marked with a cyan inset outline and star. Auto-fill is
+recomputed from only the stickers entered by the user, so a sticker returns to its dots
+whenever an edit makes more than one colour possible. **Clear**
 intentionally leaves stickers blank so a completed draft can be corrected. CubeLab does
 not alter Setup or the viewport until **Load state into Setup** is enabled by a complete,
 physically valid position.
