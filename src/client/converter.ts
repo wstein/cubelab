@@ -67,9 +67,11 @@ import {
   nextExpectedSmartCubeMove,
   nextSmartCubeProgressMoves,
   smartCubeMoveInLessonFrame,
+  controllerMoveInViewportFrame,
   type ExpectedSmartCubeAction,
   type SmartCubeHalfTurnProgress,
   type SmartCubeMoveAssessment,
+  type SyncMode,
 } from "./smart-cube/live-sync";
 import {assessGyroRotation, detectGyroQuarterRotation} from "./smart-cube/orientation-verifier";
 import {
@@ -229,6 +231,7 @@ if (root) {
   const nissLoad = root.querySelector<HTMLButtonElement>("[data-niss-load]")!;
   const nissResult = root.querySelector<HTMLOutputElement>("[data-niss-result]")!;
   const academySolve = root.querySelector<HTMLButtonElement>("[data-academy-solve]")!;
+  const academyInstantDrill = root.querySelector<HTMLButtonElement>("[data-academy-instant-drill]")!;
   const twoPhaseSolve = root.querySelector<HTMLButtonElement>("[data-two-phase-solve]")!;
   const twoPhaseApply = root.querySelector<HTMLButtonElement>("[data-two-phase-apply]")!;
   const twoPhaseResult = root.querySelector<HTMLOutputElement>("[data-two-phase-result]")!;
@@ -255,6 +258,7 @@ if (root) {
   const smartCubeSync = root.querySelector<HTMLButtonElement>("[data-smart-cube-sync]")!;
   const smartCubeResetState = root.querySelector<HTMLButtonElement>("[data-smart-cube-reset-state]")!;
   const smartCubeOrientation = root.querySelector<HTMLButtonElement>("[data-smart-cube-orientation]")!;
+  const smartCubeController = root.querySelector<HTMLButtonElement>("[data-smart-cube-controller]")!;
   const smartCubeDisconnect = root.querySelector<HTMLButtonElement>("[data-smart-cube-disconnect]")!;
   const initialState = readHash(window.location.hash);
   const store = createStore(initialState);
@@ -874,6 +878,14 @@ if (root) {
   let smartCubeLiveState: CubeState | null = null;
   let smartCubeRenderedState: CubeState | null = null;
   let smartCubeStateSyncPending = false;
+  let smartCubeSyncMode: SyncMode = "PhysicalMirror";
+  let smartCubeControllerState: CubeState | null = null;
+  let smartCubeControllerInspection = false;
+  let smartCubeControllerOrientation: Array<{axis: "X" | "Y" | "Z"; turns: number}> = [];
+  let smartCubeControllerOrientationBaseline: {
+    quaternion: OrientationQuaternion;
+    coordinateFrame: OrientationCoordinateFrame;
+  } | null = null;
   let smartCubeOrientationTracking = false;
   let lastOrientationLogTime = 0;
   let latestSmartCubeOrientation: Pick<
@@ -2427,6 +2439,44 @@ if (root) {
     updatePatternDetection({state, label: `${smartCubeDeviceName} · Live physical state`});
   };
 
+  const controllerStateIsSolved = (state: CubeState): boolean => {
+    const solved = StateTypes.solved(3) as Result<CubeState, unknown>;
+    return solved.TAG === "Ok" && FaceletCodec.render(solved._0) === FaceletCodec.render(state);
+  };
+
+  const loadVirtualControllerState = (state: CubeState, label: string) => {
+    smartCubeControllerState = state;
+    smartCubeCoachingFrameActive = false;
+    stopPlayback();
+    renderState(state, label);
+    updatePatternDetection({state, label});
+  };
+
+  const setSmartCubeControllerMode = (enabled: boolean) => {
+    if (enabled && !smartCubeConnected) return;
+    smartCubeSyncMode = enabled ? "VirtualController" : "PhysicalMirror";
+    smartCubeControllerInspection = false;
+    smartCubeControllerOrientation = [];
+    smartCubeControllerOrientationBaseline = enabled && latestSmartCubeOrientation
+      ? {...latestSmartCubeOrientation}
+      : null;
+    smartCubeController.classList.toggle("active", enabled);
+    smartCubeController.setAttribute("aria-pressed", String(enabled));
+    smartCubeDock.dataset.syncMode = enabled ? "controller" : "mirror";
+    window.dispatchEvent(new CustomEvent("cubelab:controller-mode", {detail: {enabled}}));
+    if (enabled) {
+      const state = activeRecognized?.state
+        ?? (StateTypes.solved(3) as Result<CubeState, unknown>)._0;
+      if (!state) return;
+      loadVirtualControllerState(state, "Virtual controller · choose New scramble or an Academy case");
+      smartCubeStatus.textContent = `${smartCubeDeviceName} · Controller mode: physical stickers are ignored.`;
+      return;
+    }
+    smartCubeControllerState = null;
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · Physical mirror restored. Sync state before using physical tracking.`;
+    renderSmartCubeLiveState();
+  };
+
   const mirrorSmartCubeFaceletsToInput = (facelets: string) => {
     if (input.value === facelets) return;
     store.patch({size: 3, input: facelets});
@@ -2500,9 +2550,39 @@ if (root) {
     return true;
   };
 
+  const applyVirtualControllerMove = async (move: string): Promise<void> => {
+    const state = smartCubeControllerState;
+    if (!state) return;
+    const projectedMove = controllerMoveInViewportFrame(move, smartCubeControllerOrientation);
+    const step = smartCubeStep(projectedMove);
+    if (!step) {
+      smartCubeStatus.textContent = `${smartCubeDeviceName} · Unsupported controller packet ${move}`;
+      return;
+    }
+    if (smartCubeControllerInspection) {
+      smartCubeControllerInspection = false;
+      window.dispatchEvent(new Event("cubelab:controller-turn"));
+    }
+    const transform = turnTransform(3, step);
+    if (transform && viewport) await viewport.animateTurn(transform, 120);
+    const next = MoveExecutor.applyStep(state, step) as CubeState;
+    smartCubeControllerState = next;
+    renderState(next, `Virtual controller · ${projectedMove}`);
+    updatePatternDetection({state: next, label: "Virtual controller"});
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · Virtual ${projectedMove}`;
+    if (controllerStateIsSolved(next)) {
+      smartCubeStatus.textContent = `${smartCubeDeviceName} · Virtual cube solved`;
+      window.dispatchEvent(new Event("cubelab:controller-solved"));
+    }
+  };
+
   const applySmartCubeMove = async (record: QueuedSmartCubeMove): Promise<void> => {
     const move = record.move;
     // console.log("[SmartCube Move] Received physical face move from Bluetooth:", move);
+    if (smartCubeSyncMode === "VirtualController") {
+      await applyVirtualControllerMove(move);
+      return;
+    }
     const continueCoaching = smartCubeCoachingWaiting;
     clearTutorialFocus();
     clearTurnGuide();
@@ -2686,6 +2766,8 @@ if (root) {
       if (!wasConnected && supportsFacelets) smartCubeStateSyncPending = true;
       smartCubeOrientation.hidden = !supportsOrientation;
       smartCubeOrientation.disabled = !supportsOrientation;
+      smartCubeController.hidden = false;
+      smartCubeController.disabled = false;
       setSmartCubeOrientationTracking(supportsOrientation);
       updateSmartCubeMistakeUi();
     } else {
@@ -2693,6 +2775,8 @@ if (root) {
       smartCubeSync.hidden = true;
       smartCubeResetState.hidden = true;
       smartCubeOrientation.hidden = true;
+      smartCubeController.hidden = true;
+      setSmartCubeControllerMode(false);
       smartCubeBattery.hidden = true;
       if (connectionState.phase !== "connecting") {
         smartCubeHalfTurnProgress = null;
@@ -2733,6 +2817,7 @@ if (root) {
         break;
       }
       case "facelets": {
+        if (smartCubeSyncMode === "VirtualController") break;
         const parsed = FaceletCodec.parse(3, event.facelets) as Result<CubeState>;
         if (parsed.TAG === "Ok") {
           const diagnostic = validatePhysicalState(parsed._0);
@@ -2767,6 +2852,29 @@ if (root) {
           quaternion: event.quaternion,
           coordinateFrame: event.coordinateFrame,
         };
+        if (smartCubeSyncMode === "VirtualController") {
+          const baseline = smartCubeControllerOrientationBaseline;
+          if (baseline?.coordinateFrame === event.coordinateFrame) {
+            const regrip = detectGyroQuarterRotation(
+              baseline.quaternion,
+              event.quaternion,
+              event.coordinateFrame,
+              "world",
+            );
+            if (regrip) {
+              smartCubeControllerOrientation.push(regrip);
+              smartCubeControllerOrientationBaseline = {
+                quaternion: event.quaternion,
+                coordinateFrame: event.coordinateFrame,
+              };
+            }
+          } else {
+            smartCubeControllerOrientationBaseline = {
+              quaternion: event.quaternion,
+              coordinateFrame: event.coordinateFrame,
+            };
+          }
+        }
         const now = performance.now();
         if (now - lastOrientationLogTime >= 350) {
           lastOrientationLogTime = now;
@@ -3010,6 +3118,24 @@ if (root) {
     });
   });
   mountTimerWorkspace(root);
+
+  window.addEventListener("cubelab:timer-phase", ((event: CustomEvent<{phase: string}>) => {
+    smartCubeControllerInspection = smartCubeSyncMode === "VirtualController"
+      && event.detail.phase === "inspection";
+    if (smartCubeControllerInspection) {
+      smartCubeStatus.textContent = `${smartCubeDeviceName} · Inspection: gyro controls the view; the first complete turn starts the timer.`;
+    }
+  }) as EventListener);
+  window.addEventListener("cubelab:controller-scramble", ((event: CustomEvent<{scramble: string}>) => {
+    if (smartCubeSyncMode !== "VirtualController") return;
+    const evaluated = evaluateAlgorithm(3, "Wide", "Modern", event.detail.scramble);
+    if (evaluated.TAG === "Error") {
+      smartCubeStatus.textContent = `Could not load virtual scramble: ${evaluated._0}`;
+      return;
+    }
+    loadVirtualControllerState(evaluated._0.finalState, "Virtual controller · instant scramble");
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · Instant scramble loaded. Start inspection when ready.`;
+  }) as EventListener);
 
   playerPageLink.addEventListener("click", (event) => {
     event.preventDefault();
@@ -3670,6 +3796,16 @@ if (root) {
     });
   });
 
+  academyInstantDrill.addEventListener("click", () => {
+    if (!smartCubeConnected || !activeRecognized || size !== 3) {
+      academyForMethod(selectedTutorialMethod()).status.textContent = "Connect a 3×3 smart cube to start an instant drill.";
+      return;
+    }
+    setSmartCubeControllerMode(true);
+    loadVirtualControllerState(activeRecognized.state, "Virtual controller · Academy instant drill");
+    smartCubeStatus.textContent = `${smartCubeDeviceName} · Academy drill loaded; physical stickers are ignored.`;
+  });
+
   academyTarget.addEventListener("input", () => {
     if (activeRecognized) updateAcademySource(activeRecognized);
   });
@@ -3895,6 +4031,9 @@ if (root) {
   });
   smartCubeOrientation.addEventListener("click", () => {
     setSmartCubeOrientationTracking(!smartCubeOrientationTracking);
+  });
+  smartCubeController.addEventListener("click", () => {
+    setSmartCubeControllerMode(smartCubeSyncMode !== "VirtualController");
   });
   const resetCameraView = () => {
     if (smartCubeConnected && smartCubeManager) {

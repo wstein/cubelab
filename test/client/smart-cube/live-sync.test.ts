@@ -9,6 +9,7 @@ import {
   appendRecordedMove,
   assessSmartCubeMove,
   canonicalSmartCubeMove,
+  controllerMoveInViewportFrame,
   isLastPhysicalMoveInRange,
   nextExpectedSmartCubeAction,
   nextExpectedSmartCubeMove,
@@ -118,6 +119,13 @@ describe("smart cube live synchronization", () => {
     ];
     expect(nextExpectedSmartCubeMove(composed, ["y", "x2", "B2"], 0))
       .toEqual({timelineIndex: 2, token: "R2"});
+  });
+
+  test("projects controller packets through the viewport orientation frame", () => {
+    expect(controllerMoveInViewportFrame("r")).toBe("R");
+    expect(controllerMoveInViewportFrame("U'", [{axis: "X", turns: 1}])).toBe("B'");
+    expect(controllerMoveInViewportFrame("F2", [{axis: "Y", turns: 1}])).toBe("L2");
+    expect(controllerMoveInViewportFrame("Rw")).toBe("Rw");
   });
 
   test("replaying fixed-frame hints reaches the same state as the rotated timeline", () => {

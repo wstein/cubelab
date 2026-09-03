@@ -6,6 +6,7 @@ import {
   readyTimer,
   releaseHold,
   resetTimer,
+  startInspectionTimer,
   startReadyTimer,
   stopTimer,
   summarizeSession,
@@ -50,9 +51,15 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
   let session: TimerSession = readTimerSessions(window.localStorage)[0]
     ?? {version: 1, id: "default", name: "Default", solves: []};
   let frame: number | null = null;
+  let controllerMode = false;
 
   const persist = () => {
     writeTimerSessions(window.localStorage, [session]);
+  };
+  const publishPhase = () => {
+    window.dispatchEvent(new CustomEvent("cubelab:timer-phase", {
+      detail: {phase: state.phase},
+    }));
   };
   const phaseMessage = (): string => {
     if (state.phase === "inspection") return "Inspection running. Hold Space until green, then release.";
@@ -109,6 +116,7 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
       }
     }
     render();
+    publishPhase();
     schedule();
   };
   const release = () => {
@@ -116,13 +124,49 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
     const now = performance.now();
     state = state.phase === "ready" ? startReadyTimer(state, now) : releaseHold(state, now);
     render();
+    publishPhase();
     schedule();
   };
   display.addEventListener("pointerdown", (event) => { event.preventDefault(); begin(); });
   display.addEventListener("pointerup", release);
-  inspection.addEventListener("click", () => { state = beginInspection(state, performance.now()); render(); schedule(); });
-  reset.addEventListener("click", () => { state = resetTimer(); render(); });
-  nextScramble.addEventListener("click", () => { currentScramble = practiceScramble(); render(); });
+  inspection.addEventListener("click", () => {
+    state = beginInspection(state, performance.now());
+    render();
+    publishPhase();
+    schedule();
+  });
+  reset.addEventListener("click", () => { state = resetTimer(); render(); publishPhase(); });
+  nextScramble.addEventListener("click", () => {
+    currentScramble = practiceScramble();
+    if (controllerMode) {
+      state = beginInspection(state, performance.now());
+      publishPhase();
+      schedule();
+    }
+    window.dispatchEvent(new CustomEvent("cubelab:controller-scramble", {detail: {scramble: currentScramble}}));
+    render();
+  });
+  window.addEventListener("cubelab:controller-mode", ((event: CustomEvent<{enabled: boolean}>) => {
+    controllerMode = event.detail.enabled;
+  }) as EventListener);
+  window.addEventListener("cubelab:controller-turn", () => {
+    if (panel.hidden || state.phase !== "inspection") return;
+    state = startInspectionTimer(state, performance.now());
+    render();
+    publishPhase();
+    schedule();
+  });
+  window.addEventListener("cubelab:controller-solved", () => {
+    if (panel.hidden || state.phase !== "running") return;
+    const completed = stopTimer(state, performance.now(), newId(), currentScramble);
+    state = completed.state;
+    if (completed.solve) {
+      session = {...session, solves: [...session.solves, completed.solve]};
+      persist();
+    }
+    render();
+    publishPhase();
+  });
   solves.addEventListener("click", (event) => {
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button");
     if (!button) return;

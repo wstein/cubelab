@@ -9,6 +9,7 @@ import {
   initialTimerState,
   readyTimer,
   releaseHold,
+  startInspectionTimer,
   stopTimer,
   summarizeSession,
   type SolveRecord,
@@ -38,6 +39,11 @@ describe("timer engine", () => {
     const dnf = releaseHold(beginHold(inspection, 17_100), 17_500);
     expect(plusTwo.pendingPenalty).toBe("+2");
     expect(dnf.pendingPenalty).toBe("DNF");
+    expect(startInspectionTimer(inspection, 15_100)).toMatchObject({
+      phase: "running",
+      pendingPenalty: "+2",
+      elapsedMs: 0,
+    });
   });
 
   test("records a stopped solve and formats centiseconds", () => {

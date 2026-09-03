@@ -435,6 +435,7 @@ body.player-page .viewport-panel:has(.playback:not([hidden])) .viewport-footer {
 .smart-cube-reset-state,
 .smart-cube-reroute,
 .smart-cube-orientation,
+.smart-cube-controller,
 .smart-cube-disconnect {
   flex: 0 0 auto;
 }

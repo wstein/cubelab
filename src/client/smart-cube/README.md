@@ -38,6 +38,12 @@ only when the expected physical move matches. Gyro orientation tracking activate
 connect whenever the device reports the capability; the orientation button in the dock remains
 available to opt back out.
 
+The optional **Controller mode** deliberately does not mirror facelets. It treats the device as
+a turn encoder and gyro: virtual state is assigned by a Timer scramble or Academy drill, packets
+are projected through detected gyro regrips, and physical facelet events are ignored until the user
+returns to physical mirroring. This keeps high-repetition screen drills from corrupting normal live
+state tracking.
+
 Three-by-three slice, wide, and single-inner-layer lesson moves are matched through the outer-face
 packets that the hardware can actually report (`M = x' R L'`, `Rw = x L`, and their axis variants).
 Composite packets may arrive in either face order; half turns may arrive directly or as two quarter

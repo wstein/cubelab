@@ -105,6 +105,23 @@ export const startReadyTimer = (state: TimerState, now: number): TimerState => {
   };
 };
 
+/** Starts from an active inspection when a connected controller reports its first turn. */
+export const startInspectionTimer = (state: TimerState, now: number): TimerState => {
+  if (state.phase !== "inspection") return state;
+  const startedAt = validNow(now);
+  const inspectionElapsed = state.inspectionStartedAt === null
+    ? 0
+    : startedAt - state.inspectionStartedAt;
+  return {
+    ...state,
+    phase: "running",
+    holdStartedAt: null,
+    solveStartedAt: startedAt,
+    pendingPenalty: inspectionPenalty(inspectionElapsed),
+    elapsedMs: 0,
+  };
+};
+
 export const tickTimer = (state: TimerState, now: number): TimerState => {
   if (state.phase !== "running" || state.solveStartedAt === null) return state;
   return {...state, elapsedMs: Math.max(0, validNow(now) - state.solveStartedAt)};

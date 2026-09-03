@@ -5,6 +5,9 @@ export type ExpectedSmartCubeMove = {
   token: string;
 };
 
+/** Whether incoming smart-cube packets mirror hardware state or drive a virtual cube. */
+export type SyncMode = "PhysicalMirror" | "VirtualController";
+
 export type ExpectedSmartCubeAction = ExpectedSmartCubeMove & {
   kind: "rotation" | "move";
 };
@@ -32,6 +35,26 @@ export const canonicalSmartCubeMove = (token: string): string => {
   const match = token.trim().match(/^([URFDLB])(?:(2)|('))?$/i);
   if (!match) return token.trim();
   return `${match[1].toUpperCase()}${match[2] ? "2" : match[3] ? "'" : ""}`;
+};
+
+/**
+ * Projects a hardware face packet into the viewport's discrete orientation
+ * frame. Gyro samples move the camera only; this conversion keeps a physical
+ * right-hand turn attached to the corresponding virtual face after regrips.
+ */
+export const controllerMoveInViewportFrame = (
+  token: string,
+  rotations: RotationStep[] = [],
+): string => {
+  const move = canonicalSmartCubeMove(token);
+  const match = move.match(/^([URFDLB])(2|')?$/);
+  if (!match) return move;
+  let face = match[1];
+  for (const rotation of rotations) {
+    const turns = normalizedTurns(rotation.turns);
+    for (let turn = 0; turn < turns; turn += 1) face = rotateFaceOnce(rotation.axis, face);
+  }
+  return `${face}${match[2] ?? ""}`;
 };
 
 export const appendRecordedMove = (source: string, move: string): string => {
