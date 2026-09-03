@@ -427,7 +427,7 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.doesNotMatch(viewportComponent, /data-playback-(?:toggle|sequence-back|sequence-forward)/);
   assert.match(viewportComponent, /data-playback-scrubber/);
   assert.match(viewportComponent, /data-playback-speed/);
-  assert.match(viewportComponent, /\[0\.2, 0\.5, 1, 2, 4, 10\]/);
+  assert.match(viewportComponent, /\[0\.2, 0\.5, 1, 2, 5, 10\]/);
   assert.match(client, /const duration = 720/);
   assert.match(viewportComponent, /data-playback-loop/);
   assert.match(client, /MAX_PLAYBACK_STEPS/);
