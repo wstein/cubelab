@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import {readFile} from "node:fs/promises";
-import {test} from "vitest";
+import { readFile } from "node:fs/promises";
+import { test } from "vitest";
 
 const page = await readFile(new URL("../src/pages/index.astro", import.meta.url), "utf8");
 const playerPage = await readFile(new URL("../src/pages/player.astro", import.meta.url), "utf8");
@@ -26,7 +26,7 @@ test("the static shell declares size-scoped cubie and Orbit64 cards", () => {
   assert.match(page, /key: "orbit64"[\s\S]*sizes: "3"/);
   assert.match(page, /data-output-card=\{key\}/);
   assert.match(page, /data-copy-orbit64/);
-  assert.match(page, />Copy Orbit64</);
+  assert.match(page, />Copy as Orbit64</);
 });
 
 test("the dedicated player route reuses the full interactive viewport", () => {
@@ -364,7 +364,7 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /import\("\.\/smart-cube\/index"\)/);
   assert.ok(
     client.indexOf('smartCubeConnect.addEventListener("click"')
-      < client.indexOf("const bluetooth = navigator.bluetooth"),
+    < client.indexOf("const bluetooth = navigator.bluetooth"),
     "Bluetooth must only be probed inside the explicit Connect gesture",
   );
   assert.match(client, /manager\.subscribeEvents\(handleSmartCubeEvent\)/);

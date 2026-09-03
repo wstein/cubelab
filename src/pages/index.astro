@@ -81,7 +81,10 @@ const cards = [
           <nav class="workspace-tabs" aria-label="CubeLab workspace">
             <button
               type="button"
-              class:list={["workspace-tab", { active: initialTab === "converter" }]}
+              class:list={[
+                "workspace-tab",
+                { active: initialTab === "converter" },
+              ]}
               data-workspace-tab="converter"
               aria-selected={initialTab === "converter" ? "true" : "false"}
             >
@@ -89,7 +92,10 @@ const cards = [
             </button>
             <button
               type="button"
-              class:list={["workspace-tab", { active: initialTab === "academy" }]}
+              class:list={[
+                "workspace-tab",
+                { active: initialTab === "academy" },
+              ]}
               data-workspace-tab="academy"
               aria-label="Academy"
               aria-selected={initialTab === "academy" ? "true" : "false"}
@@ -98,7 +104,10 @@ const cards = [
             </button>
             <button
               type="button"
-              class:list={["workspace-tab", { active: initialTab === "workbench" }]}
+              class:list={[
+                "workspace-tab",
+                { active: initialTab === "workbench" },
+              ]}
               data-workspace-tab="workbench"
               aria-selected={initialTab === "workbench" ? "true" : "false"}
             >
@@ -106,7 +115,10 @@ const cards = [
             </button>
             <button
               type="button"
-              class:list={["workspace-tab", { active: initialTab === "patterns" }]}
+              class:list={[
+                "workspace-tab",
+                { active: initialTab === "patterns" },
+              ]}
               data-workspace-tab="patterns"
               aria-selected={initialTab === "patterns" ? "true" : "false"}
             >
@@ -126,8 +138,8 @@ const cards = [
             class="viewport-control settings-trigger"
             data-settings-open
             aria-label="Settings"
-            title="Settings"
-          >⚙</button>
+            title="Settings">⚙</button
+          >
         </div>
       </header>
 
@@ -239,7 +251,7 @@ const cards = [
                   type="button"
                   class="copy-btn input-orbit-copy"
                   data-copy="orbit64"
-                  data-copy-orbit64>Copy Orbit64</button
+                  data-copy-orbit64>Copy as Orbit64</button
                 >
               </div>
             </div>
@@ -272,10 +284,19 @@ const cards = [
               <button type="button" class="transform-btn" data-two-phase-solve>
                 Find two-phase solution
               </button>
-              <button type="button" class="transform-btn" data-two-phase-apply disabled>
+              <button
+                type="button"
+                class="transform-btn"
+                data-two-phase-apply
+                disabled
+              >
                 Apply solution
               </button>
-              <output class="niss-result" data-two-phase-result aria-live="polite">
+              <output
+                class="niss-result"
+                data-two-phase-result
+                aria-live="polite"
+              >
                 Solve the current 3×3 state in the background.
               </output>
             </div>
@@ -349,11 +370,7 @@ const cards = [
                 disabled>↻ Rotate z</button
               >
             </div>
-            <div
-              class="shorten-panel"
-              data-workspace-panel="workbench"
-              hidden
-            >
+            <div class="shorten-panel" data-workspace-panel="workbench" hidden>
               <button
                 type="button"
                 class="transform-btn"
@@ -400,13 +417,25 @@ const cards = [
                 it only when replay proves that it solves the current scramble.
               </p>
               <div class="niss-actions" aria-label="NISS workspace side">
-                <button type="button" class="transform-btn active" data-niss-side="normal" aria-pressed="true">
+                <button
+                  type="button"
+                  class="transform-btn active"
+                  data-niss-side="normal"
+                  aria-pressed="true"
+                >
                   Normal scramble
                 </button>
-                <button type="button" class="transform-btn" data-niss-side="inverse" aria-pressed="false">
+                <button
+                  type="button"
+                  class="transform-btn"
+                  data-niss-side="inverse"
+                  aria-pressed="false"
+                >
                   ⇄ Inverse scramble
                 </button>
-                <span class="niss-field-label" data-niss-virtual-badge hidden>Virtual inverse state</span>
+                <span class="niss-field-label" data-niss-virtual-badge hidden
+                  >Virtual inverse state</span
+                >
               </div>
               <div class="niss-inverse-row">
                 <span class="niss-field-label">Inverse scramble</span>
@@ -460,34 +489,87 @@ const cards = [
                 Enter both sides to verify a candidate solution.
               </output>
             </details>
-            <details class="niss-panel" data-hamilton-panel data-workspace-panel="workbench" hidden>
+            <details
+              class="niss-panel"
+              data-hamilton-panel
+              data-workspace-panel="workbench"
+              hidden
+            >
               <summary>Hamilton macro inspector</summary>
               <p class="niss-help">
-                Inspect recursive <code>def</code>/<code>export</code> programs without unfolding them.
-                Import <code>.alg</code> or legacy <code>.orbit64</code> sources, then select a node to
-                measure or preview a bounded move window.
+                Inspect recursive <code>def</code>/<code>export</code> programs without
+                unfolding them. Import <code>.alg</code> or legacy <code
+                  >.orbit64</code
+                > sources, then select a node to measure or preview a bounded move
+                window.
               </p>
               <label class="file-input-label">
                 Import macro source
-                <input type="file" data-hamilton-import accept=".alg,.orbit64,text/plain" />
+                <input
+                  type="file"
+                  data-hamilton-import
+                  accept=".alg,.orbit64,text/plain"
+                />
               </label>
-              <textarea class="niss-textarea" data-hamilton-input rows="5" spellcheck="false"
-                placeholder="s100 = ([R',U]6 [F:D']@0.6s)100&#10;s100"></textarea>
+              <textarea
+                class="niss-textarea"
+                data-hamilton-input
+                rows="5"
+                spellcheck="false"
+                placeholder="s100 = ([R',U]6 [F:D']@0.6s)100
+s100"></textarea>
               <div class="niss-actions">
-                <button type="button" class="transform-btn" data-hamilton-inspect>Inspect macros</button>
-                <select data-hamilton-node aria-label="Hamilton macro node" disabled></select>
+                <button
+                  type="button"
+                  class="transform-btn"
+                  data-hamilton-inspect>Inspect macros</button
+                >
+                <select
+                  data-hamilton-node
+                  aria-label="Hamilton macro node"
+                  disabled></select>
                 <label class="niss-field-label hamilton-window-field">
                   Start (zero-based)
-                  <input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-hamilton-window-start aria-label="Hamilton preview start" disabled />
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    value="0"
+                    data-hamilton-window-start
+                    aria-label="Hamilton preview start"
+                    disabled
+                  />
                 </label>
                 <label class="niss-field-label hamilton-window-field">
                   Moves
-                  <input type="number" min="1" max="500" value="100" data-hamilton-window-length aria-label="Hamilton preview length" disabled />
+                  <input
+                    type="number"
+                    min="1"
+                    max="500"
+                    value="100"
+                    data-hamilton-window-length
+                    aria-label="Hamilton preview length"
+                    disabled
+                  />
                 </label>
-                <button type="button" class="transform-btn" data-hamilton-preview disabled>Preview window</button>
-                <button type="button" class="transform-btn" data-hamilton-stream disabled>Start streaming player</button>
+                <button
+                  type="button"
+                  class="transform-btn"
+                  data-hamilton-preview
+                  disabled>Preview window</button
+                >
+                <button
+                  type="button"
+                  class="transform-btn"
+                  data-hamilton-stream
+                  disabled>Start streaming player</button
+                >
               </div>
-              <output class="niss-result" data-hamilton-result aria-live="polite">
+              <output
+                class="niss-result"
+                data-hamilton-result
+                aria-live="polite"
+              >
                 Parse a Hamilton macro program to measure its exported root.
               </output>
             </details>
@@ -495,13 +577,14 @@ const cards = [
               Lowercase moves use modern SiGN wide turns by default (<code
                 >r = Rw</code
               >). Use <code>2R</code> for a portable single inner-layer turn. Unicode
-              Ruwix subscripts such as <code>R₂'</code> are recognized directly; ambiguous plaintext
-              such as <code>R2'</code> requires Ruwix suffix mode. Practice
+              Ruwix subscripts such as <code>R₂'</code> are recognized directly; ambiguous
+              plaintext such as <code>R2'</code> requires Ruwix suffix mode. Practice
               scramble is quick-load testing only, not official WCA scramble data.
               <strong>Simplify</strong> resolves nested repeat/invert notation algebraically
-              (<code>(U3')2'</code> → <code>U2</code>) as well as merging adjacent same-face
-              turns. <strong>Normalize</strong> rewrites the same move sequence in CubeLab's
-              canonical spelling without merging or expanding anything.
+              (<code>(U3')2'</code> → <code>U2</code>) as well as merging
+              adjacent same-face turns. <strong>Normalize</strong> rewrites the same
+              move sequence in CubeLab's canonical spelling without merging or expanding
+              anything.
             </p>
             <div class="compatibility-strip" data-compatibility hidden>
               <span class="compatibility-label">Source compatibility</span>
@@ -737,17 +820,22 @@ const cards = [
                   class="transform-btn academy-shared-action"
                   data-academy-instant-drill
                   title="Load this Academy setup into Smart Controller Mode without changing the physical cube"
-                >⚡ Instant drill</button>
+                  >⚡ Instant drill</button
+                >
                 <button
                   type="button"
                   class="transform-btn academy-shared-action"
                   data-academy-wca-drill
                   aria-pressed="false"
                   title="Use the digital cover and 15-second inspection for Academy drills"
-                >WCA drill off</button>
+                  >WCA drill off</button
+                >
                 <label class="academy-target-input academy-drill-select">
                   <span>Drill family</span>
-                  <select data-academy-drill-family aria-label="Curated Instant Drill family">
+                  <select
+                    data-academy-drill-family
+                    aria-label="Curated Instant Drill family"
+                  >
                     <option value="All">All families</option>
                     <option value="OLL">OLL</option>
                     <option value="PLL">PLL</option>
@@ -756,20 +844,24 @@ const cards = [
                 </label>
                 <label class="academy-target-input academy-drill-select">
                   <span>Curated drill case</span>
-                  <select data-academy-drill-case aria-label="Curated Instant Drill case"></select>
+                  <select
+                    data-academy-drill-case
+                    aria-label="Curated Instant Drill case"></select>
                 </label>
                 <button
                   type="button"
                   class="transform-btn academy-shared-action"
                   data-academy-load-drill
                   title="Inject the selected OLL, PLL, or F2L case into Smart Controller Mode"
-                >Load case</button>
+                  >Load case</button
+                >
                 <button
                   type="button"
                   class="transform-btn academy-shared-action"
                   data-academy-random-drill
                   title="Load a random case from the selected family and cycle its AUF orientation"
-                >Random case</button>
+                  >Random case</button
+                >
               </div>
             </header>
             <div
@@ -1119,7 +1211,12 @@ const cards = [
                       >View source</a
                     >
                   </div>
-                  <div class="pattern-preview" data-pattern-preview aria-label="Selected pattern preview"></div>
+                  <div
+                    class="pattern-preview"
+                    data-pattern-preview
+                    aria-label="Selected pattern preview"
+                  >
+                  </div>
                 </div>
               </div>
             </details>
@@ -1162,32 +1259,64 @@ const cards = [
             </aside>
           </section>
 
-          <section class="timer-panel" data-workspace-panel="timer" aria-labelledby="timer-title" hidden>
+          <section
+            class="timer-panel"
+            data-workspace-panel="timer"
+            aria-labelledby="timer-title"
+            hidden
+          >
             <header class="academy-workspace-header">
               <div class="academy-workspace-title">
                 <span class="panel-label">Manual practice · local session</span>
                 <h2 id="timer-title">Speedcubing Timer</h2>
               </div>
               <div class="timer-actions">
-                <button type="button" class="transform-btn" data-timer-cubelab-scramble>CubeLab scramble</button>
-                <button type="button" class="transform-btn" data-timer-tnoodle-scramble disabled>TNoodle scramble</button>
-                <button type="button" class="transform-btn" data-timer-arena>Open arena</button>
+                <button
+                  type="button"
+                  class="transform-btn"
+                  data-timer-cubelab-scramble>CubeLab scramble</button
+                >
+                <button
+                  type="button"
+                  class="transform-btn"
+                  data-timer-tnoodle-scramble
+                  disabled>TNoodle scramble</button
+                >
+                <button type="button" class="transform-btn" data-timer-arena
+                  >Open arena</button
+                >
               </div>
             </header>
             <p class="timer-scramble" data-timer-scramble></p>
-            <p class="settings-hint" data-timer-scramble-source>CubeLab practice scramble</p>
-            <button type="button" class="timer-display" data-timer-display aria-label="Timer control">
+            <p class="settings-hint" data-timer-scramble-source>
+              CubeLab practice scramble
+            </p>
+            <button
+              type="button"
+              class="timer-display"
+              data-timer-display
+              aria-label="Timer control"
+            >
               0.00
             </button>
             <p class="timer-status" data-timer-status aria-live="polite">
               Press Space to begin inspection.
             </p>
             <div class="timer-actions">
-              <button type="button" class="transform-btn" data-timer-inspection>Start inspection</button>
-              <button type="button" class="transform-btn" data-timer-reset>Reset</button>
+              <button type="button" class="transform-btn" data-timer-inspection
+                >Start inspection</button
+              >
+              <button type="button" class="transform-btn" data-timer-reset
+                >Reset</button
+              >
             </div>
             <dl class="timer-stats" data-timer-stats></dl>
-            <ol class="timer-solves" data-timer-solves aria-label="Session solves"></ol>
+            <ol
+              class="timer-solves"
+              data-timer-solves
+              aria-label="Session solves"
+            >
+            </ol>
           </section>
         </div>
         <div class="studio-viewport">
@@ -1199,7 +1328,11 @@ const cards = [
         Pure ReScript codecs · Vanilla Astro interface
       </footer>
 
-      <dialog class="settings-dialog" data-settings-dialog aria-labelledby="settings-title">
+      <dialog
+        class="settings-dialog"
+        data-settings-dialog
+        aria-labelledby="settings-title"
+      >
         <div class="settings-dialog-header">
           <div>
             <span class="panel-label">Workspace &amp; device preferences</span>
@@ -1209,8 +1342,8 @@ const cards = [
             type="button"
             class="viewport-control"
             data-settings-close
-            aria-label="Close settings"
-          >Close</button>
+            aria-label="Close settings">Close</button
+          >
         </div>
         <section class="settings-section">
           <h4>Workspace</h4>
@@ -1247,17 +1380,20 @@ const cards = [
               type="button"
               class="viewport-control"
               data-settings-auto-orbit
-              aria-pressed="false"
-            >Off</button>
+              aria-pressed="false">Off</button
+            >
           </div>
           <div class="settings-row">
             <span class="settings-row-label">Playback / turn speed</span>
-            <div class="segmented-control compact" aria-label="Playback and turn speed">
+            <div
+              class="segmented-control compact"
+              aria-label="Playback and turn speed"
+            >
               {
                 [0.2, 0.5, 1, 2, 5, 10].map((speed) => (
                   <button
                     type="button"
-                    class:list={["segmented-btn", {active: speed === 1}]}
+                    class:list={["segmented-btn", { active: speed === 1 }]}
                     data-playback-speed={speed}
                     aria-pressed={speed === 1 ? "true" : "false"}
                   >
@@ -1281,8 +1417,8 @@ const cards = [
               type="button"
               class="viewport-control"
               data-settings-tnoodle-enabled
-              aria-pressed="false"
-            >Off</button>
+              aria-pressed="false">Off</button
+            >
           </div>
           <label class="settings-field">
             <span class="settings-row-label">TNoodle server URL</span>
@@ -1301,8 +1437,14 @@ const cards = [
             </select>
           </label>
           <div class="settings-row">
-            <span class="settings-row-label" data-settings-tnoodle-status>TNoodle not checked.</span>
-            <button type="button" class="transform-btn" data-settings-tnoodle-test>Test connection</button>
+            <span class="settings-row-label" data-settings-tnoodle-status
+              >TNoodle not checked.</span
+            >
+            <button
+              type="button"
+              class="transform-btn"
+              data-settings-tnoodle-test>Test connection</button
+            >
           </div>
           <label class="settings-field">
             <span class="settings-row-label">Inspection time (seconds)</span>
