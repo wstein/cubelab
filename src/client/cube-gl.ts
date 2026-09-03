@@ -141,10 +141,23 @@ const fragmentShaderSource = `
     float rimDiffuse = max(dot(normal, rim), 0.0);
     float light = 0.27 + 0.62 * keyDiffuse + 0.20 * fillDiffuse + 0.12 * rimDiffuse;
     float body = 1.0 - smoothstep(0.02, 0.12, distance(vColour.rgb, vec3(0.13, 0.14, 0.17)));
+    vec3 halfway = normalize(key + view);
+    float halfwayDot = max(dot(normal, halfway), 0.0);
+
+    // Standard sticker glossiness (glossy vinyl clearcoat effect)
+    float isStandardSticker = (1.0 - body) * (1.0 - uSpeedStyle);
+    float glossySharp = 0.52 * pow(halfwayDot, 80.0);
+    float glossySoft = 0.18 * pow(halfwayDot, 24.0);
+    float grazing = pow(1.0 - max(dot(normal, view), 0.0), 3.0);
+    float glossyRim = 0.16 * grazing * (0.35 + 0.65 * rimDiffuse);
+    float glossyHighlight = glossySharp + glossySoft + glossyRim;
+
+    // Base specular for matte body and speed style
     float shine = mix(28.0, 24.0, body);
     float strength = mix(0.18 + 0.05 * uSpeedStyle, 0.30, body);
-    vec3 halfway = normalize(key + view);
-    float specular = strength * pow(max(dot(normal, halfway), 0.0), shine);
+    float baseSpecular = strength * pow(halfwayDot, shine);
+
+    float specular = mix(baseSpecular, glossyHighlight, isStandardSticker);
     vec3 rolledSheen = vColour.rgb * vSheen * (0.45 + 0.55 * rimDiffuse);
     vec3 colour = min(vColour.rgb * light + rolledSheen + vec3(specular), vec3(1.0));
     float selected = max(vMilestoneFocus, vGuideLayer);
