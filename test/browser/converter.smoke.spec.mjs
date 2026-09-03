@@ -396,7 +396,7 @@ test("auto-demonstrates regrips without gyro and preserves their lesson frame", 
   await input.fill("x2 U2");
   await expect(page.locator("[data-playback-scrubber]")).toBeEnabled();
   await page.locator("[data-playback-scrubber]").fill("0");
-  await page.locator("[data-playback-speed='2']").click();
+  await page.locator("[data-viewport-panel] [data-playback-speed='2']").click();
   await page.getByRole("button", {name: "Play forward"}).click();
   await expect(page.locator('[data-half-turn-progress="true"]')).toHaveText("x x");
   await expect(page.locator("[data-playback-position]")).toHaveText("Move 1 of 2", {timeout: 2500});
@@ -811,7 +811,7 @@ test("plays, steps, and seeks an expanded algorithm timeline", async ({page}) =>
   await expect(position).toHaveText("Move 0 of 2");
 
   const pause = page.getByRole("button", {name: "Pause playback"});
-  await page.locator("[data-playback-speed='0.5']").click();
+  await page.locator("[data-viewport-panel] [data-playback-speed='0.5']").click();
   await page.getByRole("button", {name: "Play forward"}).click();
   await expect(pause).toBeEnabled();
   await pause.click();
@@ -888,7 +888,7 @@ test("enters direct notation moves from the studio keyboard and exposes shortcut
   await expect(input).toHaveValue("R U'");
   await page.keyboard.press("Alt+f");
   await expect(input).toHaveValue("R U' Fw");
-  await page.locator("[data-playback-speed='1']").click();
+  await page.locator("[data-viewport-panel] [data-playback-speed='1']").click();
   await page.keyboard.down("Alt");
   await page.keyboard.down("Shift");
   await page.keyboard.press("r");
@@ -974,7 +974,7 @@ test("enables timeline hover previews only while stopped or paused", async ({pag
   const play = page.getByRole("button", {name: "Play forward"});
 
   await page.locator("[data-playback-scrubber]").fill("0");
-  await page.locator("[data-playback-speed='0.2']").click();
+  await page.locator("[data-viewport-panel] [data-playback-speed='0.2']").click();
   await play.click();
   await expect(ribbon).toHaveAttribute("data-hover-preview", "disabled");
   await target.hover();
@@ -1287,7 +1287,7 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(page.locator("[data-move-ribbon] .timeline-gap.step-gap").first()).toBeVisible();
 
   const phaseTwoStart = Number(await secondPhase.getAttribute("data-beginner-phase-start"));
-  await page.locator("[data-playback-speed='0.5']").click();
+  await page.locator("[data-viewport-panel] [data-playback-speed='0.5']").click();
   await page.locator("[data-playback-scrubber]").fill(String(phaseTwoStart - 1));
   await page.getByRole("button", {name: "Step forward"}).click();
   await expect(page.locator("[data-motion-overlay]")).not.toHaveAttribute("data-milestone", /.+/);
@@ -1297,7 +1297,7 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(page.getByRole("button", {name: "Continuous", exact: true})).toHaveAttribute("aria-pressed", "true");
 
   await page.locator("[data-playback-scrubber]").fill("0");
-  await page.locator("[data-playback-speed='2']").click();
+  await page.locator("[data-viewport-panel] [data-playback-speed='2']").click();
   await page.evaluate(() => {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   });
@@ -1447,4 +1447,52 @@ test("builds Classical and Enhanced Petrus tutorials from the same cube state", 
   await expect(enhanced.locator("[data-petrus-phase]").nth(4)).toContainText("EPLL:");
   await expect(page.locator("[data-academy-comparison]")).toContainText("Classical Petrus");
   await expect(page.locator("[data-academy-comparison]")).toContainText("Enhanced Petrus");
+});
+
+test("mirrors auto-orbit and playback speed between Settings and the viewport, and persists preferences", async ({page}) => {
+  await page.goto("/");
+  const settingsOpen = page.locator("[data-settings-open]");
+  const settingsDialog = page.locator("[data-settings-dialog]");
+  const settingsClose = page.locator("[data-settings-close]");
+  const settingsAutoOrbit = page.locator("[data-settings-auto-orbit]");
+  const viewportAutoOrbit = page.locator("[data-auto-orbit]");
+  const settingsSpeed2 = page.locator('[data-settings-dialog] [data-playback-speed="2"]');
+  const viewportSpeed2 = page.locator('[data-viewport-panel] [data-playback-speed="2"]');
+  const tnoodleUrl = page.locator("[data-settings-tnoodle-url]");
+  const inspectionSeconds = page.locator("[data-settings-inspection-seconds]");
+
+  await settingsOpen.click();
+  await expect(settingsDialog).toBeVisible();
+  await expect(viewportAutoOrbit).toHaveAttribute("aria-pressed", "false");
+  await expect(settingsAutoOrbit).toHaveAttribute("aria-pressed", "false");
+
+  // The two auto-orbit controls share URL-addressable workspace state;
+  // toggling either must update both.
+  await settingsAutoOrbit.click();
+  await expect(settingsAutoOrbit).toHaveAttribute("aria-pressed", "true");
+  await expect(settingsAutoOrbit).toHaveText("On");
+  await expect(viewportAutoOrbit).toHaveAttribute("aria-pressed", "true");
+  await expect(page).toHaveURL(/orbit=on/);
+
+  await settingsSpeed2.click();
+  await expect(settingsSpeed2).toHaveAttribute("aria-pressed", "true");
+  await expect(viewportSpeed2).toHaveAttribute("aria-pressed", "true");
+
+  await tnoodleUrl.fill("http://localhost:9999");
+  await tnoodleUrl.press("Tab");
+  await inspectionSeconds.fill("12");
+  await inspectionSeconds.press("Tab");
+
+  await settingsClose.click();
+  await expect(settingsDialog).toBeHidden();
+
+  await page.reload();
+  await expect(page.locator("[data-auto-orbit]")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-viewport-panel] [data-playback-speed="2"]')).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await page.locator("[data-settings-open]").click();
+  await expect(page.locator("[data-settings-tnoodle-url]")).toHaveValue("http://localhost:9999");
+  await expect(page.locator("[data-settings-inspection-seconds]")).toHaveValue("12");
 });

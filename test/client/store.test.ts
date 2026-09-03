@@ -25,6 +25,7 @@ describe("application state store", () => {
       notationDialect: "Ruwix" as const,
       cubeStyle: "Speed" as const,
       turnGuides: false,
+      autoOrbit: true,
       activeTab: "workbench" as const,
     };
     expect(readHash(writeHash(state))).toEqual(state);
@@ -40,6 +41,7 @@ describe("application state store", () => {
     expect(parsed.notationDialect).toBe("Modern");
     expect(parsed.cubeStyle).toBe("Standard");
     expect(parsed.turnGuides).toBe(true);
+    expect(parsed.autoOrbit).toBe(false);
     expect(parsed.input).toHaveLength(20_000);
     expect(parsed.moves).toBe("");
     expect(parsed.activeTab).toBe("converter");
@@ -88,5 +90,10 @@ describe("application state store", () => {
     expect(writeHash({...defaultAppState, turnGuides: false})).toContain("guides=off");
     expect(readHash("#guides=off").turnGuides).toBe(false);
     expect(readHash("#guides=on").turnGuides).toBe(true);
+  });
+
+  test("round-trips auto-orbit as shareable workspace state", () => {
+    expect(writeHash({...defaultAppState, autoOrbit: true})).toContain("orbit=on");
+    expect(readHash("#orbit=on").autoOrbit).toBe(true);
   });
 });

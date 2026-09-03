@@ -62,6 +62,16 @@ test("the workspace exposes a manual speedcubing timer", () => {
   assert.match(client, /nextRandomDrillRotation/);
 });
 
+test("settings separate shareable workspace state from local preferences", () => {
+  assert.match(page, /data-settings-open/);
+  assert.match(page, /data-settings-size/);
+  assert.match(page, /data-settings-scheme/);
+  assert.match(page, /data-settings-dialect/);
+  assert.match(page, /data-settings-tnoodle-url/);
+  assert.match(client, /store\.patch\(\{autoOrbit: enabled\}\)/);
+  assert.match(client, /persistPreferences\(\{tnoodleServerUrl:/);
+});
+
 test("the HTML head declares the SVG favicon and fallback touch icons", () => {
   assert.match(page, /<link rel="icon" type="image\/svg\+xml" href="\/favicon\.svg"/);
   assert.match(page, /<link rel="icon" type="image\/png" sizes="32x32" href="\/favicon-32x32\.png"/);
@@ -306,8 +316,8 @@ test("the viewport exposes a visibility-aware auto-orbit toggle", () => {
   assert.match(viewport, /setAutoOrbit\(enabled\)/);
   assert.match(viewport, /document\.hidden/);
   assert.match(viewport, /stopAutoOrbitFrame\(\)/);
-  assert.match(client, /autoOrbitButton\.setAttribute\("aria-pressed", "false"\)/);
-  assert.match(client, /viewport\?\.setAutoOrbit\(false\)/);
+  assert.match(client, /autoOrbitButton\.setAttribute\("aria-pressed", String\(enabled\)\)/);
+  assert.match(client, /setAutoOrbitEnabled\(false, false\)/);
 });
 
 test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {

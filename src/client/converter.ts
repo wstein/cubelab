@@ -13,6 +13,7 @@ import * as HamiltonMacro from "../Move/HamiltonMacro";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
 import {createSolverClient, createTwoPhaseSolverClient} from "./workers/solver-client";
 import {mountTimerWorkspace} from "./timer/workspace";
+import {defaultPreferences, readPreferences, writePreferences} from "./preferences";
 import {createAcademyRequestGuard} from "./academy-request";
 import {
   drillCaseById,
@@ -262,6 +263,17 @@ if (root) {
   const academyComparison = root.querySelector<HTMLElement>("[data-academy-comparison]")!;
   const autoOrbitButton = root.querySelector<HTMLButtonElement>("[data-auto-orbit]")!;
   const turnGuidesButton = root.querySelector<HTMLButtonElement>("[data-turn-guides]")!;
+  const settingsOpen = root.querySelector<HTMLButtonElement>("[data-settings-open]")!;
+  const settingsDialog = root.querySelector<HTMLDialogElement>("[data-settings-dialog]")!;
+  const settingsClose = root.querySelector<HTMLButtonElement>("[data-settings-close]")!;
+  const settingsAutoOrbit = root.querySelector<HTMLButtonElement>("[data-settings-auto-orbit]")!;
+  const settingsSize = root.querySelector<HTMLSelectElement>("[data-settings-size]")!;
+  const settingsScheme = root.querySelector<HTMLSelectElement>("[data-settings-scheme]")!;
+  const settingsDialect = root.querySelector<HTMLSelectElement>("[data-settings-dialect]")!;
+  const settingsTnoodleUrl = root.querySelector<HTMLInputElement>("[data-settings-tnoodle-url]")!;
+  const settingsInspectionSeconds = root.querySelector<HTMLInputElement>(
+    "[data-settings-inspection-seconds]",
+  )!;
   const coachingControls = root.querySelector<HTMLElement>("[data-coaching-controls]")!;
   const coachStatus = root.querySelector<HTMLElement>("[data-coach-status]")!;
   const smartCubeConnect = root.querySelector<HTMLButtonElement>("[data-smart-cube-connect]")!;
@@ -284,11 +296,20 @@ if (root) {
   const timerHudStats = root.querySelector<HTMLElement>("[data-timer-hud-stats]")!;
   const initialState = readHash(window.location.hash);
   const store = createStore(initialState);
+  // Local-device preferences (playback speed and reserved TNoodle/inspection
+  // fields) never enter AppState/the URL hash. Auto-orbit is intentionally
+  // shareable workspace state, so a link reproduces that presentation choice.
+  let preferences = readPreferences(window.localStorage);
+  const persistPreferences = (changes: Partial<typeof preferences>) => {
+    preferences = {...preferences, ...changes};
+    writePreferences(window.localStorage, preferences);
+  };
   let size = initialState.size;
   let lowercaseMode: LowercaseMode = initialState.lowercaseMode;
   let notationDialect: NotationDialect = initialState.notationDialect;
   let cubeStyle: CubeStyle = initialState.cubeStyle;
   let turnGuides = initialState.turnGuides;
+  let autoOrbit = initialState.autoOrbit;
   let activeTab: ActiveTab = initialState.activeTab;
   let academyMethod: AcademyMethod = initialState.academyMethod;
   let inverseScramble = "";
@@ -406,7 +427,23 @@ if (root) {
     viewportFallback.textContent = `${message} Text conversions remain fully functional.`;
     viewportFallback.hidden = false;
   });
-  if (!viewport) autoOrbitButton.disabled = true;
+  if (!viewport) {
+    autoOrbitButton.disabled = true;
+    settingsAutoOrbit.disabled = true;
+  }
+  // Auto-orbit has two live controls (the contextual viewport button and its
+  // mirror in Settings). Automatic camera/gyro overrides never mutate the
+  // shareable preference; only an explicit user toggle patches AppState.
+  const setAutoOrbitEnabled = (enabled: boolean, share = true) => {
+    autoOrbitButton.setAttribute("aria-pressed", String(enabled));
+    autoOrbitButton.classList.toggle("active", enabled);
+    settingsAutoOrbit.setAttribute("aria-pressed", String(enabled));
+    settingsAutoOrbit.classList.toggle("active", enabled);
+    settingsAutoOrbit.textContent = enabled ? "On" : "Off";
+    viewport?.setAutoOrbit(enabled);
+    if (share) store.patch({autoOrbit: enabled});
+  };
+  setAutoOrbitEnabled(initialState.autoOrbit, false);
   const setPlayerMode = (enabled: boolean, pushHistory = true) => {
     if (playerMode === enabled) return;
     playerMode = enabled;
@@ -879,7 +916,12 @@ if (root) {
   } | null = null;
   let activeTimelineKey: string | null = null;
   let activeIndex = 0;
-  let playbackSpeed = 1;
+  let playbackSpeed = preferences.playbackSpeed;
+  root.querySelectorAll<HTMLButtonElement>("[data-playback-speed]").forEach((candidate) => {
+    const active = Number(candidate.dataset.playbackSpeed) === playbackSpeed;
+    candidate.classList.toggle("active", active);
+    candidate.setAttribute("aria-pressed", String(active));
+  });
   let coachedPlayback = true;
   let looping = false;
   let playbackDirection: -1 | 0 | 1 = 0;
@@ -2764,12 +2806,13 @@ if (root) {
     smartCubeOrientation.classList.toggle("active", smartCubeOrientationTracking);
     smartCubeOrientation.setAttribute("aria-pressed", String(smartCubeOrientationTracking));
     if (smartCubeOrientationTracking) {
-      autoOrbitButton.setAttribute("aria-pressed", "false");
-      autoOrbitButton.classList.remove("active");
+      setAutoOrbitEnabled(false, false);
       autoOrbitButton.disabled = true;
-      viewport?.setAutoOrbit(false);
+      settingsAutoOrbit.disabled = true;
     } else {
       autoOrbitButton.disabled = !viewport;
+      settingsAutoOrbit.disabled = !viewport;
+      setAutoOrbitEnabled(autoOrbit, false);
     }
     syncSmartCubeTrackedOrientation();
     if (wasTracking && !smartCubeOrientationTracking && smartCubeRotationWait?.baseline) {
@@ -3101,14 +3144,19 @@ if (root) {
     notationDialect = state.notationDialect;
     cubeStyle = state.cubeStyle;
     const turnGuidesChanged = turnGuides !== state.turnGuides;
+    const autoOrbitChanged = !appStateApplied || autoOrbit !== state.autoOrbit;
     const academyMethodChanged = academyMethod !== state.academyMethod;
     turnGuides = state.turnGuides;
+    autoOrbit = state.autoOrbit;
     activeTab = state.activeTab;
     academyMethod = state.academyMethod;
     if (input.value !== state.input) input.value = state.input;
     if (movesInput.value !== state.moves) movesInput.value = state.moves;
     if (schemeSelect.value !== state.scheme) schemeSelect.value = state.scheme;
     if (customScheme.value !== state.customScheme) customScheme.value = state.customScheme;
+    settingsSize.value = String(state.size);
+    settingsScheme.value = state.scheme;
+    settingsDialect.value = state.notationDialect;
     customScheme.hidden = state.scheme !== "Custom";
     if (patternSizeChanged) {
       patternSearch.value = "";
@@ -3131,6 +3179,9 @@ if (root) {
       viewport?.setTurnGuide(
         turnGuides && activeTurnGuide ? activeTurnGuide : null,
       );
+    }
+    if (autoOrbitChanged && !smartCubeOrientationTracking) {
+      setAutoOrbitEnabled(state.autoOrbit, false);
     }
     root.querySelectorAll<HTMLButtonElement>("[data-workspace-tab]").forEach((button) => {
       const active = button.dataset.workspaceTab === activeTab;
@@ -4204,9 +4255,7 @@ if (root) {
     tutorialCameraRestore = null;
     delete canvas.dataset.sequenceCameraRestoreYaw;
     delete canvas.dataset.sequenceCameraRestorePitch;
-    autoOrbitButton.setAttribute("aria-pressed", "false");
-    autoOrbitButton.classList.remove("active");
-    viewport?.setAutoOrbit(false);
+    setAutoOrbitEnabled(false, false);
     viewport?.resetCamera();
     syncSmartCubeTrackedOrientation();
   };
@@ -4215,10 +4264,34 @@ if (root) {
   shortcutsClose.addEventListener("click", () => shortcutsDialog.close());
   autoOrbitButton.addEventListener("click", () => {
     if (smartCubeOrientationTracking) return;
-    const enabled = autoOrbitButton.getAttribute("aria-pressed") !== "true";
-    autoOrbitButton.setAttribute("aria-pressed", String(enabled));
-    autoOrbitButton.classList.toggle("active", enabled);
-    viewport?.setAutoOrbit(enabled);
+    setAutoOrbitEnabled(autoOrbitButton.getAttribute("aria-pressed") !== "true");
+  });
+  settingsAutoOrbit.addEventListener("click", () => {
+    if (smartCubeOrientationTracking) return;
+    setAutoOrbitEnabled(settingsAutoOrbit.getAttribute("aria-pressed") !== "true");
+  });
+  settingsOpen.addEventListener("click", () => {
+    settingsSize.value = String(size);
+    settingsScheme.value = schemeSelect.value;
+    settingsDialect.value = notationDialect;
+    settingsTnoodleUrl.value = preferences.tnoodleServerUrl;
+    settingsInspectionSeconds.value = String(preferences.inspectionSeconds);
+    settingsDialog.showModal();
+  });
+  settingsClose.addEventListener("click", () => settingsDialog.close());
+  settingsSize.addEventListener("change", () => store.patch({size: Number(settingsSize.value)}));
+  settingsScheme.addEventListener("change", () => store.patch({scheme: settingsScheme.value as SchemeName}));
+  settingsDialect.addEventListener("change", () => store.patch({notationDialect: settingsDialect.value as NotationDialect}));
+  settingsTnoodleUrl.addEventListener("change", () => {
+    persistPreferences({tnoodleServerUrl: settingsTnoodleUrl.value});
+  });
+  settingsInspectionSeconds.addEventListener("change", () => {
+    const seconds = Number(settingsInspectionSeconds.value);
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+      settingsInspectionSeconds.value = String(preferences.inspectionSeconds);
+      return;
+    }
+    persistPreferences({inspectionSeconds: seconds});
   });
   turnGuidesButton.addEventListener("click", () => {
     store.patch({turnGuides: !turnGuides});
@@ -4267,12 +4340,16 @@ if (root) {
   });
   root.querySelectorAll<HTMLButtonElement>("[data-playback-speed]").forEach((button) => {
     button.addEventListener("click", () => {
+      // Playback speed has two live controls (the contextual viewport row
+      // and its mirror in Settings); match by value, not by element
+      // identity, so both copies of the clicked speed end up active.
       playbackSpeed = Number(button.dataset.playbackSpeed);
       root.querySelectorAll<HTMLButtonElement>("[data-playback-speed]").forEach((candidate) => {
-        const active = candidate === button;
+        const active = candidate.dataset.playbackSpeed === button.dataset.playbackSpeed;
         candidate.classList.toggle("active", active);
         candidate.setAttribute("aria-pressed", String(active));
       });
+      persistPreferences({playbackSpeed});
     });
   });
   root.querySelectorAll<HTMLButtonElement>("[data-coaching-mode]").forEach((button) => {

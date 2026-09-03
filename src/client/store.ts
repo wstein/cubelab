@@ -23,6 +23,7 @@ export type AppState = {
   notationDialect: NotationDialect;
   cubeStyle: CubeStyle;
   turnGuides: boolean;
+  autoOrbit: boolean;
   activeTab: ActiveTab;
   academyMethod: AcademyMethod;
 };
@@ -37,6 +38,7 @@ export const defaultAppState: AppState = {
   notationDialect: "Modern",
   cubeStyle: "Standard",
   turnGuides: true,
+  autoOrbit: false,
   activeTab: "converter",
   academyMethod: "beginner",
 };
@@ -95,6 +97,7 @@ export const readHash = (hash: string): AppState => {
   const notationDialect: NotationDialect = params.get("dialect") === "Ruwix" ? "Ruwix" : "Modern";
   const cubeStyle: CubeStyle = params.get("style") === "Speed" ? "Speed" : "Standard";
   const turnGuides = params.get("guides") !== "off";
+  const autoOrbit = params.get("orbit") === "on";
   const requestedTab = params.get("tab");
   const activeTab: ActiveTab = requestedTab === "academy" || requestedTab === "beginner" || requestedTab === "cfop"
     ? "academy"
@@ -134,6 +137,7 @@ export const readHash = (hash: string): AppState => {
     notationDialect,
     cubeStyle,
     turnGuides,
+    autoOrbit,
     activeTab,
     academyMethod,
   };
@@ -150,6 +154,7 @@ export const writeHash = (state: AppState): string => {
   if (state.notationDialect !== "Modern") params.set("dialect", state.notationDialect);
   if (state.cubeStyle !== "Standard") params.set("style", state.cubeStyle);
   if (!state.turnGuides) params.set("guides", "off");
+  if (state.autoOrbit) params.set("orbit", "on");
   if (state.activeTab !== "converter") params.set("tab", state.activeTab);
   if (state.activeTab === "academy" || state.academyMethod !== "beginner") {
     params.set("method", state.academyMethod);
