@@ -3308,6 +3308,10 @@ if (root) {
       store.patch({size: 3, input: event.detail.scramble, moves: ""});
       return;
     }
+    // Controller mode changes where turns are sourced, not the workspace
+    // contract: a new scramble must remain visible, shareable, and editable
+    // in Setup just as it is without a connected cube.
+    store.patch({size: 3, input: event.detail.scramble, moves: ""});
     loadVirtualControllerState(evaluated._0.finalState, "Virtual controller · instant scramble");
     smartCubeStatus.textContent = `${smartCubeDeviceName} · Instant scramble loaded. Start inspection when ready.`;
   }) as EventListener);
@@ -3561,6 +3565,10 @@ if (root) {
       smartCubeStatus.textContent = `Could not load virtual practice scramble: ${evaluated._0}`;
       return;
     }
+    // Keep controller-mode quick loads equivalent to the normal editor path:
+    // the virtual state is immediate, while Setup records the scramble that
+    // produced it for sharing, inspection, and later playback.
+    commitTransformedAlgorithm(scramble._0);
     loadVirtualControllerState(evaluated._0.finalState, "Virtual controller · practice scramble");
     smartCubeStatus.textContent = `${smartCubeDeviceName} · Virtual practice scramble loaded.`;
   });

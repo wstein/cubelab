@@ -205,6 +205,7 @@ test("the web UI exposes pure algorithm transforms and a clearly labeled practic
   assert.match(client, /MoveTransform\.practiceScramble/);
   assert.match(client, /smartCubeSyncMode !== "VirtualController"/);
   assert.match(client, /Virtual controller · practice scramble/);
+  assert.match(client, /commitTransformedAlgorithm\(scramble\._0\);[\s\S]*Virtual controller · practice scramble/);
 });
 
 test("the web UI exposes a state-verified 3x3 NISS helper", () => {
