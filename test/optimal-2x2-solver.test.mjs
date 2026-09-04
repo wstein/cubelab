@@ -43,19 +43,23 @@ describe("optimal 2×2 table", () => {
       expect(url).toBe(OPTIMAL_2X2_TABLE_URL);
       return new Response(bytes);
     });
-    vi.stubGlobal("fetch", fetch);
-    const solver = await import("../src/Solver/Optimal2x2Solver.ts");
-    expect(solver.hasPreparedTables()).toBe(false);
-    const state = apply("R U F2 R'");
-    const solution = await solver.solve(state);
-    expect(solution.moveCount).toBeLessThanOrEqual(4);
-    const replay = MoveExecutor.applyAlg(state, solution.alg);
-    const solved = StateTypes.solved(2);
-    expect(replay).toEqual(solved);
-    expect(fetch).toHaveBeenCalledTimes(1);
-    expect(solver.hasPreparedTables()).toBe(true);
-    await solver.prepareTables();
-    expect(fetch).toHaveBeenCalledTimes(1);
-    vi.unstubAllGlobals();
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetch;
+    try {
+      const solver = await import("../src/Solver/Optimal2x2Solver.ts");
+      expect(solver.hasPreparedTables()).toBe(false);
+      const state = apply("R U F2 R'");
+      const solution = await solver.solve(state);
+      expect(solution.moveCount).toBeLessThanOrEqual(4);
+      const replay = MoveExecutor.applyAlg(state, solution.alg);
+      const solved = StateTypes.solved(2);
+      expect(replay).toEqual(solved);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(solver.hasPreparedTables()).toBe(true);
+      await solver.prepareTables();
+      expect(fetch).toHaveBeenCalledTimes(1);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

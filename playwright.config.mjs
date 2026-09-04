@@ -7,7 +7,8 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
 const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
-  testDir: "./test/browser",
+  testDir: "./e2e",
+  testMatch: "**/*.playwright.mjs",
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,

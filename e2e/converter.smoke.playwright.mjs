@@ -1,8 +1,8 @@
 import {expect, test} from "@playwright/test";
-import * as MoveExecutor from "../../src/Move/MoveExecutor.res.mjs";
-import * as MoveParser from "../../src/Move/MoveParser.res.mjs";
-import * as FaceletCodec from "../../src/State/FaceletCodec.res.mjs";
-import * as StateTypes from "../../src/State/StateTypes.res.mjs";
+import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
+import * as MoveParser from "../src/Move/MoveParser.res.mjs";
+import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
+import * as StateTypes from "../src/State/StateTypes.res.mjs";
 
 const algorithmFacelets = (algorithm) => {
   const parsed = MoveParser.parse(3, algorithm);
