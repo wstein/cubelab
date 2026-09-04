@@ -136,6 +136,12 @@ const orientationCount = (values: Array<number | null>, modulus: bigint): bigint
   if (unknown === 0) return values.reduce((sum, value) => sum + value!, 0) % Number(modulus) === 0 ? 1n : 0n;
   return modulus ** BigInt(unknown - 1);
 };
+const completeInOrder = (values: Array<number | null>): number[] => {
+  const used = values.filter((value): value is number => value !== null);
+  const missing = identity(values.length).filter((value) => !used.includes(value));
+  let cursor = 0;
+  return values.map((value) => value ?? missing[cursor++]!);
+};
 
 /** Returns the number of legal completions, before choosing a seeded representative. */
 export const countAcubeCompletions = (constraint: Constraint): bigint => {
@@ -144,7 +150,9 @@ export const countAcubeCompletions = (constraint: Constraint): bigint => {
   const permutationPairs = factorial(missingCorners) * factorial(missingEdges);
   // Once either side has two free cubies, exactly half of its completions have
   // each parity. A fully constrained parity mismatch is reported by materialize.
-  const parityCount = missingCorners >= 2 || missingEdges >= 2 ? permutationPairs / 2n : permutationPairs;
+  const parityCount = missingCorners >= 2 || missingEdges >= 2
+    ? permutationPairs / 2n
+    : parity(completeInOrder(constraint.cp)) === parity(completeInOrder(constraint.ep)) ? permutationPairs : 0n;
   return parityCount * orientationCount(constraint.co, 3n) * orientationCount(constraint.eo, 2n);
 };
 const randomFromSeed = (seed: string) => { let value = [...seed].reduce((hash, char) => Math.imul(hash ^ char.charCodeAt(0), 0x45d9f3b), 0x811c9dc5) >>> 0; return () => ((value = (value + 0x6d2b79f5) >>> 0), ((value ^ value >>> 15) * (value | 1) >>> 0) / 0x100000000); };

@@ -102,4 +102,7 @@ test("counts ACube completion families before sampling representatives", () => {
   const topPieces = parseAcubeConstraint("[U*]");
   expect(topPieces.TAG).toBe("Ok");
   expect(countAcubeCompletions(topPieces._0)).toBe(288n);
+  const parityMismatch = parseAcubeConstraint("(UL UR)");
+  expect(parityMismatch.TAG).toBe("Ok");
+  expect(countAcubeCompletions(parityMismatch._0)).toBe(0n);
 });
