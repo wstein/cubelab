@@ -17,6 +17,7 @@ import {defaultPreferences, hasVerifiedTnoodle, readPreferences, writePreference
 import {TnoodleClient} from "./scramble/tnoodle-client";
 import {createAcademyRequestGuard} from "./academy-request";
 import {looksLikeAcubeState, parseAcubeState} from "./acube-state";
+import {materializeAcubeConstraint, parseAcubeConstraint} from "./acube-engine";
 import {looksLikeSseState, parseSseState} from "./sse-state";
 import {
   allowedManualStateColours,
@@ -278,6 +279,11 @@ if (root) {
   const hamiltonPreview = root.querySelector<HTMLButtonElement>("[data-hamilton-preview]")!;
   const hamiltonStreamButton = root.querySelector<HTMLButtonElement>("[data-hamilton-stream]")!;
   const hamiltonResult = root.querySelector<HTMLOutputElement>("[data-hamilton-result]")!;
+  const acubeGeneratorInput = root.querySelector<HTMLTextAreaElement>("[data-acube-generator-input]")!;
+  const acubeGeneratorSeed = root.querySelector<HTMLInputElement>("[data-acube-generator-seed]")!;
+  const acubeGeneratorRun = root.querySelector<HTMLButtonElement>("[data-acube-generator-run]")!;
+  const acubeGeneratorNext = root.querySelector<HTMLButtonElement>("[data-acube-generator-next]")!;
+  const acubeGeneratorResult = root.querySelector<HTMLOutputElement>("[data-acube-generator-result]")!;
   const nissInverseOutput = root.querySelector<HTMLElement>("[data-niss-inverse]")!;
   const nissNormal = root.querySelector<HTMLTextAreaElement>("[data-niss-normal]")!;
   const nissInverseMoves = root.querySelector<HTMLTextAreaElement>("[data-niss-inverse-moves]")!;
@@ -4622,6 +4628,30 @@ if (root) {
 
   hamiltonInspect.addEventListener("click", () => {
     inspectHamiltonProgram();
+  });
+
+  const generateAcubeState = () => {
+    const parsed = parseAcubeConstraint(acubeGeneratorInput.value);
+    if (parsed.TAG === "Error") {
+      acubeGeneratorResult.textContent = parsed._0;
+      acubeGeneratorResult.classList.add("failure");
+      return;
+    }
+    const generated = materializeAcubeConstraint(parsed._0, acubeGeneratorSeed.value);
+    if (generated.TAG === "Error") {
+      acubeGeneratorResult.textContent = generated._0;
+      acubeGeneratorResult.classList.add("failure");
+      return;
+    }
+    store.patch({size: 3, input: FaceletCodec.render(generated._0), moves: "", notationDialect: "Acube"});
+    acubeGeneratorResult.textContent = `Loaded legal ACube completion for seed '${acubeGeneratorSeed.value}'.`;
+    acubeGeneratorResult.classList.remove("failure");
+  };
+  acubeGeneratorRun.addEventListener("click", generateAcubeState);
+  acubeGeneratorNext.addEventListener("click", () => {
+    const match = /^(.*?)(\d+)$/.exec(acubeGeneratorSeed.value);
+    acubeGeneratorSeed.value = match ? `${match[1]}${Number(match[2]) + 1}` : `${acubeGeneratorSeed.value}-2`;
+    generateAcubeState();
   });
 
   hamiltonImport.addEventListener("change", async () => {

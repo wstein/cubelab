@@ -293,6 +293,17 @@ test("the Setup parser recognizes explicit SSE cubie-state cycles apart from alg
   assert.match(page, /SSE cubie cycles/);
 });
 
+test("the Workbench materializes ACube constraint families as concrete Setup states", () => {
+  assert.match(page, /data-acube-generator-panel/);
+  assert.match(page, /data-acube-generator-input/);
+  assert.match(page, /data-acube-generator-seed/);
+  assert.match(page, /data-acube-generator-run/);
+  assert.match(page, /data-acube-generator-next/);
+  assert.match(client, /parseAcubeConstraint/);
+  assert.match(client, /materializeAcubeConstraint/);
+  assert.match(client, /Loaded legal ACube completion/);
+});
+
 test("the Setup parser auto-detects the unambiguous SSE middle-dot delimiter", () => {
   assert.match(client, /dialectForPastedInput/);
   assert.match(client, /value\.includes\("·"\) \? "Sse"/);

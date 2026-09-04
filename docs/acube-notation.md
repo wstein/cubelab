@@ -19,9 +19,17 @@ the corresponding cubie orientation.
 
 ACube also accepts partial constraints: `?`, `@`, bracketed ignored pieces, and
 their wildcard forms. Those describe many possible cubes, while CubeLab's
-viewport, replay timeline, and solvers require one complete physical state.
-CubeLab therefore detects those forms and explains why it cannot choose an
-arbitrary completion. It never silently substitutes a state.
+Setup field requires one complete physical state. Setup therefore rejects a
+non-fixed definition and directs it to the **ACube state generator** in the
+Workbench.
+
+The generator implements ACube's constraints and materializes one legal 3×3
+completion. It supports ignored individual cubies, wildcard masks such as
+`U*` and `UF*`, and `M`/`E`/`S`/face edge-layer masks. It fills only
+unconstrained cubies, orientations, and parity. The seed is part of the
+generation request: reuse it to reproduce a state, or use **Next seed** for a
+different legal member of the same state family. Generated states are written
+to Setup as ordinary compact facelets.
 
 ## Move input
 

@@ -615,6 +615,36 @@ s100"></textarea>
                 Parse a Hamilton macro program to measure its exported root.
               </output>
             </details>
+            <details
+              class="niss-panel"
+              data-acube-generator-panel
+              data-workspace-panel="workbench"
+              hidden
+            >
+              <summary>ACube state generator</summary>
+              <p class="niss-help">
+                Generate a complete, legal 3×3 state from ACube cycles, positional
+                notation, unknown orientations, and ignored-piece masks. Setup stays
+                strict; this panel materializes a chosen seeded completion.
+              </p>
+              <textarea
+                class="niss-textarea"
+                data-acube-generator-input
+                rows="3"
+                spellcheck="false"
+                placeholder="(UL UR) (UFR URB) [DF DL DR DB] UF? UB?"></textarea>
+              <div class="niss-actions">
+                <label class="niss-field-label hamilton-window-field">
+                  Seed
+                  <input type="text" value="acube-1" data-acube-generator-seed spellcheck="false" />
+                </label>
+                <button type="button" class="transform-btn" data-acube-generator-run>Generate state</button>
+                <button type="button" class="transform-btn" data-acube-generator-next>Next seed</button>
+              </div>
+              <output class="niss-result" data-acube-generator-result aria-live="polite">
+                Enter an ACube definition to generate a legal completion.
+              </output>
+            </details>
             <p class="input-help">
               Lowercase moves use modern SiGN wide turns by default (<code
                 >r = Rw</code
