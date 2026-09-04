@@ -173,6 +173,8 @@ test("the converter exposes a lazy HTM-optimal 2×2 solver through its worker co
   assert.match(client, /createOptimal2x2SolverClient/);
   assert.match(client, /optimal2x2Row\.hidden = size !== 2/);
   assert.match(client, /optimal2x2SolverClient\.solve\(setup\._0\.state\)/);
+  assert.match(client, /const optimal2x2SourceKeyForCurrent = \(\): string =>\s*`\$\{input\.value\}\\u0000\$\{schemeSelect\.value\}\\u0000\$\{customScheme\.value\}`/);
+  assert.match(client, /const sourceKey = optimal2x2SourceKeyForCurrent\(\);/);
   assert.match(client, /Setup changed; generate a new optimal solution/);
   assert.match(solverWorker, /type: "solveOptimal2x2"/);
   assert.match(solverWorker, /!Optimal2x2Solver\.hasPreparedTables\(\)/);

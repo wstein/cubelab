@@ -2066,6 +2066,12 @@ if (root) {
   const twoPhaseSourceKeyForCurrent = (): string =>
     `${input.value}\u0000${twoPhaseTarget.value}`;
 
+  // A 2×2 solution is valid only for the currently parsed Setup. Colour
+  // scheme fields participate because they can change a colour-notation
+  // Setup without changing its visible text.
+  const optimal2x2SourceKeyForCurrent = (): string =>
+    `${input.value}\u0000${schemeSelect.value}\u0000${customScheme.value}`;
+
   const academySetupSourceKey = (): string =>
     `${size}\u0000${lowercaseMode}\u0000${notationDialect}\u0000${schemeSelect.value}\u0000${customScheme.value}\u0000${input.value}`;
 
@@ -4405,7 +4411,7 @@ if (root) {
       optimal2x2Result.classList.add("failure");
       return;
     }
-    const sourceKey = `${input.value}\u0000${schemeSelect.value}\u0000${customScheme.value}`;
+    const sourceKey = optimal2x2SourceKeyForCurrent();
     const request = ++optimal2x2Request;
     optimal2x2SourceKey = sourceKey;
     optimal2x2Algorithm = "";
@@ -4436,7 +4442,7 @@ if (root) {
 
   optimal2x2Apply.addEventListener("click", () => {
     if (optimal2x2Algorithm === "") return;
-    const sourceKey = `${input.value}\u0000${schemeSelect.value}\u0000${customScheme.value}`;
+    const sourceKey = optimal2x2SourceKeyForCurrent();
     if (sourceKey !== optimal2x2SourceKey) {
       optimal2x2Result.textContent = "Setup changed; generate a new optimal solution.";
       optimal2x2Result.classList.add("failure");
