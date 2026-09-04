@@ -29,6 +29,11 @@ The two styles are intentionally different physical models:
   boundary, so adjacent coloured faces meet without disconnected corner fans or
   punctures. A per-vertex sheen value gives the rolled plastic a satin highlight.
 
+The shared material is lit as a compact product studio: a warm upper-left key defines
+form, a cooler front-right fill keeps every sticker colour readable, and a low-intensity
+rim light separates the silhouette from the dark canvas. Standard stickers retain a
+restrained mid-gloss softbox reflection rather than a mirror-like highlight.
+
 Every cube has the same world-space half-extent. Increasing the puzzle size therefore
 adds smaller pieces instead of making the rendered object larger.
 

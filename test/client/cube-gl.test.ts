@@ -26,7 +26,8 @@ import {cubieIsFrontFacing} from "../../src/client/motion-overlay";
 
 describe("cube viewport math", () => {
   test("keeps Standard stickers at a restrained mid-gloss finish", () => {
-    expect(standardStickerFinish.deskPeak).toBeLessThan(0.5);
+    expect(standardStickerFinish.keyPeak).toBeLessThan(0.5);
+    expect(standardStickerFinish.fillPeak).toBeLessThan(0.25);
     expect(standardStickerFinish.rim).toBeLessThan(0.25);
   });
 

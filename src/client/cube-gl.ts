@@ -16,12 +16,12 @@ export type CubeStyle = "Standard" | "Speed";
 export type CubePalette = "Western" | "Japanese";
 export type CubeState = { size: number; facelets: string[][] };
 export const standardStickerFinish = {
-  deskPeak: 0.42,
-  deskFill: 0.14,
-  ceilingPeak: 0.28,
-  ceilingFill: 0.1,
-  room: 0.1,
-  rim: 0.18,
+  keyPeak: 0.34,
+  keyFill: 0.12,
+  fillPeak: 0.18,
+  fillFill: 0.07,
+  bounce: 0.07,
+  rim: 0.14,
 } as const;
 export type CubieFocus = {
   piece: string;
@@ -146,75 +146,68 @@ const fragmentShaderSource = `
     vec3 normal = normalize(vNormal);
     vec3 view = normalize(-vPosition);
 
-    // Office lighting environment directions (in camera view space)
-    // Dominant overhead office ceiling panel luminaires
-    vec3 ceilingDir = normalize(vec3(0.08, 0.94, 0.22));
-    // Office task / desk lamp from top-right
-    vec3 deskLampDir = normalize(vec3(0.46, 0.62, 0.64));
-    // Diffuse office room / window fill from front-left
-    vec3 roomFillDir = normalize(vec3(-0.62, 0.32, 0.62));
-    // Soft wall bounce from rear-left
-    vec3 wallBounceDir = normalize(vec3(-0.32, 0.44, -0.58));
+    // Three-point product-studio lighting in camera view space. The key gives
+    // the cube shape, the cooler fill protects dark-facing sticker colours,
+    // and the rim separates the silhouette from the dark application canvas.
+    vec3 keyDir = normalize(vec3(-0.46, 0.76, 0.64));
+    vec3 fillDir = normalize(vec3(0.68, 0.36, 0.56));
+    vec3 rimDir = normalize(vec3(-0.28, 0.58, -0.76));
+    vec3 bounceDir = normalize(vec3(0.14, -0.32, 0.46));
 
-    // Office light color spectrums (clean neutral indoor office lighting ~4500K)
-    vec3 ceilingCol = vec3(0.97, 0.98, 1.0);    // Neutral LED ceiling troffers
-    vec3 deskLampCol = vec3(1.0, 0.98, 0.94);   // Warm-neutral desk luminaire
-    vec3 roomFillCol = vec3(0.92, 0.95, 0.99);  // Soft room & window daylight fill
-    vec3 wallBounceCol = vec3(0.88, 0.90, 0.94);// Diffuse office wall reflection
+    vec3 keyCol = vec3(1.0, 0.96, 0.90);
+    vec3 fillCol = vec3(0.72, 0.84, 1.0);
+    vec3 rimCol = vec3(0.60, 0.72, 1.0);
+    vec3 bounceCol = vec3(0.42, 0.48, 0.60);
 
-    // Diffuse lambertian terms
-    float ceilingDiff = max(dot(normal, ceilingDir), 0.0);
-    float deskLampDiff = max(dot(normal, deskLampDir), 0.0);
-    float roomFillDiff = max(dot(normal, roomFillDir), 0.0);
-    float wallBounceDiff = max(dot(normal, wallBounceDir), 0.0);
+    float keyDiff = max(dot(normal, keyDir), 0.0);
+    float fillDiff = max(dot(normal, fillDir), 0.0);
+    float rimDiff = max(dot(normal, rimDir), 0.0);
+    float bounceDiff = max(dot(normal, bounceDir), 0.0);
 
-    // Office ambient hemisphere (light office desk surface vs ceiling)
-    vec3 ceilingAmb = vec3(0.24, 0.25, 0.27);
-    vec3 deskAmb = vec3(0.16, 0.17, 0.19);
-    vec3 ambient = mix(deskAmb, ceilingAmb, normal.y * 0.5 + 0.5);
+    // A cool, subdued hemisphere retains form without washing out colours.
+    vec3 lowerAmbient = vec3(0.10, 0.12, 0.16);
+    vec3 upperAmbient = vec3(0.20, 0.22, 0.28);
+    vec3 ambient = mix(lowerAmbient, upperAmbient, normal.y * 0.5 + 0.5);
 
-    // Total diffuse illumination (bright, even, natural office environment)
     vec3 diffuseLight = ambient
-      + ceilingCol * (0.38 * ceilingDiff)
-      + deskLampCol * (0.42 * deskLampDiff)
-      + roomFillCol * (0.22 * roomFillDiff)
-      + wallBounceCol * (0.10 * wallBounceDiff);
+      + keyCol * (0.54 * keyDiff)
+      + fillCol * (0.25 * fillDiff)
+      + rimCol * (0.14 * rimDiff)
+      + bounceCol * (0.06 * bounceDiff);
 
-    // Halfway vectors for office specular reflections
-    vec3 halfDesk = normalize(deskLampDir + view);
-    vec3 halfCeiling = normalize(ceilingDir + view);
-    vec3 halfRoom = normalize(roomFillDir + view);
+    vec3 halfKey = normalize(keyDir + view);
+    vec3 halfFill = normalize(fillDir + view);
+    vec3 halfRim = normalize(rimDir + view);
 
-    float dotDesk = max(dot(normal, halfDesk), 0.0);
-    float dotCeiling = max(dot(normal, halfCeiling), 0.0);
-    float dotRoom = max(dot(normal, halfRoom), 0.0);
+    float dotKey = max(dot(normal, halfKey), 0.0);
+    float dotFill = max(dot(normal, halfFill), 0.0);
+    float dotRim = max(dot(normal, halfRim), 0.0);
 
     // Surface classification: charcoal cube body vs sticker
     float charcoalBody = 1.0 - smoothstep(0.02, 0.12, distance(vColour.rgb, vec3(0.13, 0.14, 0.17)));
     float body = charcoalBody;
     float isStandardSticker = (1.0 - body) * (1.0 - uSpeedStyle);
 
-    // --- Rubik's Cube Mid-Gloss Vinyl Sticker Specular ---
-    // A restrained clearcoat keeps colours legible under the studio lights.
-    vec3 specDeskSticker = deskLampCol * (${standardStickerFinish.deskPeak} * pow(dotDesk, 72.0) + ${standardStickerFinish.deskFill} * pow(dotDesk, 24.0));
-    vec3 specCeilingSticker = ceilingCol * (${standardStickerFinish.ceilingPeak} * pow(dotCeiling, 44.0) + ${standardStickerFinish.ceilingFill} * pow(dotCeiling, 16.0));
-    vec3 specRoomSticker = roomFillCol * (${standardStickerFinish.room} * pow(dotRoom, 32.0));
+    // Mid-gloss vinyl: a broad key softbox and smaller cool fill reflection.
+    vec3 specKeySticker = keyCol * (${standardStickerFinish.keyPeak} * pow(dotKey, 68.0) + ${standardStickerFinish.keyFill} * pow(dotKey, 22.0));
+    vec3 specFillSticker = fillCol * (${standardStickerFinish.fillPeak} * pow(dotFill, 42.0) + ${standardStickerFinish.fillFill} * pow(dotFill, 15.0));
+    vec3 specBounceSticker = bounceCol * (${standardStickerFinish.bounce} * pow(dotRim, 28.0));
     // A soft dielectric edge rather than a mirror-like rim reflection.
     float vinylFresnel = pow(1.0 - max(dot(normal, view), 0.0), 2.5);
-    vec3 specRimSticker = mix(ceilingCol, roomFillCol, 0.4) * (${standardStickerFinish.rim} * vinylFresnel);
-    vec3 stickerSpecular = specDeskSticker + specCeilingSticker + specRoomSticker + specRimSticker;
+    vec3 specRimSticker = mix(rimCol, fillCol, 0.4) * (${standardStickerFinish.rim} * vinylFresnel);
+    vec3 stickerSpecular = specKeySticker + specFillSticker + specBounceSticker + specRimSticker;
     // --- Matte Charcoal Body Plastic Specular ---
-    vec3 bodySpecular = deskLampCol * (0.14 * pow(dotDesk, 16.0)) + ceilingCol * (0.08 * pow(dotCeiling, 12.0));
+    vec3 bodySpecular = keyCol * (0.12 * pow(dotKey, 16.0)) + fillCol * (0.06 * pow(dotFill, 12.0));
 
     // --- Speed Cube (Stickerless Semi-Matte Plastic) Specular ---
-    vec3 speedSpecular = deskLampCol * (0.22 * pow(dotDesk, 28.0)) + ceilingCol * (0.14 * pow(dotCeiling, 20.0));
+    vec3 speedSpecular = keyCol * (0.20 * pow(dotKey, 28.0)) + fillCol * (0.11 * pow(dotFill, 20.0));
 
     // Blend specular based on surface type
     vec3 baseSpec = mix(speedSpecular, bodySpecular, body);
     vec3 specular = mix(baseSpec, stickerSpecular, isStandardSticker);
 
     // Speed cube rolled edge sheen
-    vec3 rolledSheen = vColour.rgb * vSheen * (0.45 + 0.55 * wallBounceDiff);
+    vec3 rolledSheen = vColour.rgb * vSheen * (0.42 + 0.58 * rimDiff);
 
     // Combine diffuse and specular with soft highlight compression
     vec3 lit = vColour.rgb * diffuseLight + rolledSheen + specular;
