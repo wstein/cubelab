@@ -117,7 +117,8 @@ progress; on 3×3×3 it also distinguishes **Known** stickers by including the s
 centres. While a draft is incomplete, it includes a colour-by-colour remaining bar, and each palette swatch also shows its own
 remaining count. The summary, palette, copy control, and actions form one right-hand
 rail. The bold, colour-coded keyboard reference sits immediately above **Copy as…** in
-that right-hand rail: face/colour keys, then **E** to erase, then arrow keys. The live
+that right-hand rail: face/colour keys on the left, with **E** to erase and arrow keys
+stacked to their right. The live
 validity banner sits directly below the net. This
 keeps the cube, its preview, and the relevant
 controls visible together without a separate full-width footer.

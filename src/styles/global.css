@@ -854,7 +854,8 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 
 .manual-state-shortcuts-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
   gap: 0.3rem 0.6rem;
 }
 
@@ -864,6 +865,11 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   gap: 0.35rem;
   color: #939db0;
   font: 400 0.66rem var(--font-sans);
+}
+
+.manual-state-shortcuts-grid .manual-state-shortcut-actions {
+  display: grid;
+  gap: 0.3rem;
 }
 
 .manual-state-key {
