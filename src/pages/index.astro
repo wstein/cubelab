@@ -13,7 +13,7 @@ const {
   initialTab = "converter",
   initialPlayer = false,
   pageTitle = "CubeLab — Interactive Cube Studio & Algorithmic Suite",
-  metaDescription = "Convert Rubik's Cube states between facelets, Kociemba JSON, ASCII nets, colour notation, cubie coordinates, Singmaster cycle notation, and Orbit64.",
+  metaDescription = "Convert Rubik's Cube states between facelets, ASCII nets, colour notation, cubie coordinates, Singmaster cycle notation, and Orbit64.",
 } = Astro.props;
 
 const cards = [
@@ -21,12 +21,6 @@ const cards = [
     key: "facelets",
     title: "Compact Facelets",
     provenance: "Kociemba URFDLB row-major convention",
-  },
-  {
-    key: "json",
-    title: "Kociemba JSON Facelets",
-    provenance: "De-facto 54-character URFDLB facelets wrapper · directly pasteable into Setup",
-    sizes: "3",
   },
   {
     key: "net",
@@ -293,7 +287,7 @@ const cards = [
               data-input
               rows="1"
               wrap="off"
-              placeholder="Paste facelets, Kociemba JSON, colours, a net, cubie coordinates, Singmaster cycles, Orbit64, SSE cubie cycles, or ACube states. Smart-cube Sync loads this field. Leave blank for solved."
+              placeholder="Paste facelets, colours, a net, cubie coordinates, Singmaster cycles, Orbit64, SSE cubie cycles, or ACube states. Smart-cube Sync loads this field. Leave blank for solved."
               spellcheck="false"></textarea>
             <label class="moves-input-label" for="cube-moves">Moves</label>
             <textarea
@@ -1680,7 +1674,6 @@ s100"></textarea>
                 <button type="button" data-manual-state-copy-format="compact">Compact facelets</button>
                 <button type="button" data-manual-state-copy-format="spaced">Spaced facelets</button>
                 <button type="button" data-manual-state-copy-format="singmaster">Singmaster cycle notation</button>
-                <button type="button" data-manual-state-copy-format="json">Kociemba JSON facelets</button>
               </div>
             </div>
             <div class="manual-state-footer">

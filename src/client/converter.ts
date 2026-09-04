@@ -19,7 +19,6 @@ import {createAcademyRequestGuard} from "./academy-request";
 import {looksLikeAcubeState, parseAcubeState} from "./acube-state";
 import {countAcubeCompletions, materializeAcubeConstraint, parseAcubeConstraint, renderAcubeState} from "./acube-engine";
 import {looksLikeSseState, parseSseState, renderSseState} from "./sse-state";
-import {parseKociembaJsonFacelets, renderKociembaJsonFacelets} from "./json-facelets";
 import {
   looksLikeSingmasterCycleState,
   parseSingmasterCycleState,
@@ -777,13 +776,6 @@ if (root) {
       .join(" ");
   };
 
-  const manualStateJsonFacelets = (manualSize: ManualStateSize): string => {
-    const parsed = FaceletCodec.parse(manualSize, manualStateDraft.join("")) as Result<CubeState>;
-    if (parsed.TAG === "Error") return "";
-    const rendered = renderKociembaJsonFacelets(parsed._0);
-    return rendered.TAG === "Ok" ? rendered._0 : "";
-  };
-
   const manualStateSingmasterCycles = (manualSize: ManualStateSize): string => {
     const parsed = FaceletCodec.parse(manualSize, manualStateDraft.join("")) as Result<CubeState>;
     if (parsed.TAG === "Error") return "";
@@ -1157,7 +1149,6 @@ if (root) {
     const diagnostic = entered === total ? manualStateCompleteDiagnostic() : null;
     manualStateLoad.disabled = entered !== total || diagnostic !== null;
     manualStateCopyToggle.disabled = manualStateLoad.disabled;
-    root.querySelector<HTMLButtonElement>('[data-manual-state-copy-format="json"]')!.hidden = manualSize !== 3;
     if (manualStateLoad.disabled) {
       manualStateCopyMenu.hidden = true;
       manualStateCopyToggle.setAttribute("aria-expanded", "false");
@@ -1370,12 +1361,6 @@ if (root) {
       return pieces.TAG === "Ok"
         ? {TAG: "Ok", _0: {state: pieces._0, label: "Cubie coordinates"}}
         : {TAG: "Error", _0: PieceReducer.describeError(pieces._0)};
-    }
-    if (compact.startsWith("{")) {
-      const json = parseKociembaJsonFacelets(compact, size);
-      return json.TAG === "Ok"
-        ? recognize(json, "Kociemba JSON facelets")
-        : json;
     }
     if ((size === 2 || size === 3) && looksLikeSingmasterCycleState(compact)) {
       const cycles = parseSingmasterCycleState(compact, size);
@@ -1604,8 +1589,6 @@ if (root) {
     const palette: CubePalette = schemeSelect.value === "Japanese" ? "Japanese" : "Western";
     viewport?.setScene(state, palette, cubeStyle);
     setOutput("facelets", FaceletCodec.render(state));
-    const json = renderKociembaJsonFacelets(state);
-    setOutput("json", json.TAG === "Ok" ? json._0 : "—", json.TAG === "Ok");
     setOutput("net", NetCodec.render(state));
     const colours = ColorCodec.renderCompact(scheme(), state) as Result<string>;
     const colourNet = ColorCodec.renderNet(scheme(), state) as Result<string>;
@@ -5683,8 +5666,6 @@ if (root) {
       ? manualStateSpacedFacelets(manualSize)
       : button.dataset.manualStateCopyFormat === "singmaster"
       ? manualStateSingmasterCycles(manualSize)
-      : button.dataset.manualStateCopyFormat === "json"
-      ? manualStateJsonFacelets(manualSize)
       : manualStateCompactFacelets();
     manualStateCopyMenu.hidden = true;
     manualStateCopyToggle.setAttribute("aria-expanded", "false");

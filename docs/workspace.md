@@ -63,11 +63,10 @@ remains a random-turn practice sequence and is not labeled as an official WCA sc
 ## Setup and moves
 
 The editor separates **Setup (state)** from optional **Moves**. Setup accepts compact
-facelets, a strict 3×3 Kociemba JSON facelet wrapper, compact colours, canonical nets, cubie coordinates,
+facelets, compact colours, canonical nets, cubie coordinates,
 3×3 Orbit64, SSE corner-cycle cubie-state cycles, Singmaster permutation cycles, ACube
-positional states, or an algorithm. The JSON card is deliberately 3×3-only because its
-54-character payload is the Kociemba convention. The 2×2/3×3 cards offer SSE and reversible
-Singmaster permutation cycles; the 3×3 cards also offer unfolded ACube positional spellings.
+positional states, or an algorithm. The 2×2/3×3 cards offer SSE and reversible Singmaster
+permutation cycles; the 3×3 cards also offer unfolded ACube positional spellings.
 Every listed format is
 directly pasteable into Setup.
 Moves are parsed with the selected notation dialect and replayed from whatever Setup
@@ -130,7 +129,7 @@ continuously through remaining counters, the live dot matrix, and the enabled
 state of **Load** without an extra redundant status banner. This keeps the cube,
 its preview, and the relevant controls visible together in a clean, focused layout.
 **Copy as…** places the current draft on the clipboard as compact facelets, spaced
-facelets, Singmaster piece cycles, or (on 3×3) Kociemba JSON, once the draft is complete; it is
+facelets or Singmaster piece cycles, once the draft is complete; it is
 disabled until then.
 
 **Sync state** from a connected smart cube writes its physical facelet state into Setup. It

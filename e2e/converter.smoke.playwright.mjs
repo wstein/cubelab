@@ -1764,11 +1764,6 @@ test("copies the hand-entered state in the chosen format, only once it is comple
   );
 
   await toggle.click();
-  await dialog.locator('[data-manual-state-copy-format="json"]').click();
-  const json = await page.evaluate(() => navigator.clipboard.readText());
-  expect(JSON.parse(json).facelets).toBe("UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB");
-
-  await toggle.click();
   await dialog.locator('[data-manual-state-copy-format="singmaster"]').click();
   // A solved cube has no permutation cycles and no twisted pieces, so real
   // Singmaster cycle notation renders empty — matching every other Setup

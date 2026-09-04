@@ -1,19 +1,13 @@
 # Physical state validation
 
-CubeLab accepts facelets, a strict Kociemba JSON facelet wrapper, colour notation, nets, cubie coordinates,
-Singmaster permutation cycles, Orbit64, SSE cubie-state cycles, and smart-cube facelet
+CubeLab accepts facelets, colour notation, nets, cubie coordinates, Singmaster permutation
+cycles, Orbit64, SSE cubie-state cycles, and smart-cube facelet
 reports. For 2×2×2 and 3×3×3 inputs, syntactic validity alone is
 not enough: the position must also be reachable by legal turns.
 
-## Kociemba JSON facelets and Singmaster piece cycles
+## Singmaster piece cycles
 
-JSON state input is limited to 3×3×3 and has exactly one property: `facelets`. Its value is
-the Kociemba-compatible 54-character `URFDLB` facelet string. For example,
-`{"facelets":"UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB"}`. This keeps the
-JSON card as a simple wrapper around the established facelet interchange spelling rather
-than inventing a CubeLab-specific grouped-by-face schema.
-
-The 2×2×2 and 3×3×3 **Singmaster Piece Cycles** are another reversible state declaration,
+The 2×2×2 and 3×3×3 **Singmaster Piece Cycles** are a reversible state declaration,
 not an algorithm. Uppercase position names distinguish them from SSE's lowercase cycles:
 `(URF,UBR,ULB)` cycles corners, while a `+` or `-` suffix records a corner twist and `+`
 records an edge flip. CubeLab checks the reconstructed state with `PieceReducer`, so invalid
