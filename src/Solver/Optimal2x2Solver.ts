@@ -45,7 +45,7 @@ export const solve = async (state: unknown): Promise<Optimal2x2Solution> => {
   if (parsed.TAG !== "Ok") throw new Error("The optimal 2×2 solution could not be encoded.");
   const replay = MoveExecutor.applyAlg(state, parsed._0);
   const final = replay.TAG === "Ok" ? cubies(replay._0) : null;
-  if (!final || final.cp.some((piece, slot) => piece !== slot) || final.co.some((orientation) => orientation !== 0)) {
+  if (!final || coordinateForCubies(final) !== 0) {
     throw new Error("The optimal 2×2 solution failed verification.");
   }
   return {alg: parsed._0, moveCount: moves.length};
