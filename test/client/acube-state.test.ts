@@ -6,7 +6,7 @@ import * as MoveParser from "../../src/Move/MoveParser.res.mjs";
 import * as PieceReducer from "../../src/State/PieceReducer.res.mjs";
 import * as StateTypes from "../../src/State/StateTypes.res.mjs";
 import {looksLikeAcubeState, parseAcubeState} from "../../src/client/acube-state";
-import {isFixedAcubeConstraint, materializeAcubeConstraint, parseAcubeConstraint} from "../../src/client/acube-engine";
+import {countAcubeCompletions, isFixedAcubeConstraint, materializeAcubeConstraint, parseAcubeConstraint, renderAcubeState} from "../../src/client/acube-engine";
 
 const cornerLabels = ["URF", "UFL", "ULB", "UBR", "DFR", "DLF", "DBL", "DRB"];
 const edgeLabels = ["UR", "UF", "UL", "UB", "DR", "DF", "DL", "DB", "FR", "FL", "BL", "BR"];
@@ -85,9 +85,21 @@ test("compiles ACube wildcards and materializes reproducible legal completions",
   expect(first.TAG).toBe("Ok");
   expect(repeated.TAG).toBe("Ok");
   expect(FaceletCodec.render(first._0)).toBe(FaceletCodec.render(repeated._0));
+  const unfolded = renderAcubeState(first._0);
+  expect(unfolded.TAG).toBe("Ok");
+  expect(parseAcubeState(unfolded._0).TAG).toBe("Ok");
   const pieces = PieceReducer.reduce(first._0)._0;
   expect(pieces.ep[2]).toBe(0);
   expect(pieces.ep[0]).toBe(2);
   expect(pieces.cp[0]).toBe(3);
   expect(pieces.cp[3]).toBe(0);
+});
+
+test("counts ACube completion families before sampling representatives", () => {
+  const fourEdges = parseAcubeConstraint("[DF DL DR DB]");
+  expect(fourEdges.TAG).toBe("Ok");
+  expect(countAcubeCompletions(fourEdges._0)).toBe(12n);
+  const topPieces = parseAcubeConstraint("[U*]");
+  expect(topPieces.TAG).toBe("Ok");
+  expect(countAcubeCompletions(topPieces._0)).toBe(288n);
 });

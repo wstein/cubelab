@@ -638,8 +638,12 @@ s100"></textarea>
                   Seed
                   <input type="text" value="acube-1" data-acube-generator-seed spellcheck="false" />
                 </label>
-                <button type="button" class="transform-btn" data-acube-generator-run>Generate state</button>
-                <button type="button" class="transform-btn" data-acube-generator-next>Next seed</button>
+                <label class="niss-field-label hamilton-window-field">
+                  Completion
+                  <select data-acube-generator-choice aria-label="ACube generated completion" disabled></select>
+                </label>
+                <button type="button" class="transform-btn" data-acube-generator-run disabled>Load selected state</button>
+                <button type="button" class="transform-btn" data-acube-generator-next>Refresh choices</button>
               </div>
               <output class="niss-result" data-acube-generator-result aria-live="polite">
                 Enter an ACube definition to generate a legal completion.

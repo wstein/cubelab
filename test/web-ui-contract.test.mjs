@@ -297,10 +297,14 @@ test("the Workbench materializes ACube constraint families as concrete Setup sta
   assert.match(page, /data-acube-generator-panel/);
   assert.match(page, /data-acube-generator-input/);
   assert.match(page, /data-acube-generator-seed/);
+  assert.match(page, /data-acube-generator-choice/);
   assert.match(page, /data-acube-generator-run/);
   assert.match(page, /data-acube-generator-next/);
   assert.match(client, /parseAcubeConstraint/);
   assert.match(client, /materializeAcubeConstraint/);
+  assert.match(client, /renderAcubeState/);
+  assert.match(client, /countAcubeCompletions/);
+  assert.match(client, /legal completion/);
   assert.match(client, /Loaded legal ACube completion/);
 });
 

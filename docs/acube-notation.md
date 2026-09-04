@@ -28,8 +28,10 @@ completion. It supports ignored individual cubies, wildcard masks such as
 `U*` and `UF*`, and `M`/`E`/`S`/face edge-layer masks. It fills only
 unconstrained cubies, orientations, and parity. The seed is part of the
 generation request: reuse it to reproduce a state, or use **Next seed** for a
-different legal member of the same state family. Generated states are written
-to Setup as ordinary compact facelets.
+different legal member of the same state family. The generator reports the
+exact number of legal completions and previews up to six seeded variants; choose
+one before loading it. Generated states remain in ACube's unfolded positional
+notation when written to Setup.
 
 ## Move input
 

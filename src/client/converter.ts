@@ -17,7 +17,7 @@ import {defaultPreferences, hasVerifiedTnoodle, readPreferences, writePreference
 import {TnoodleClient} from "./scramble/tnoodle-client";
 import {createAcademyRequestGuard} from "./academy-request";
 import {looksLikeAcubeState, parseAcubeState} from "./acube-state";
-import {materializeAcubeConstraint, parseAcubeConstraint} from "./acube-engine";
+import {countAcubeCompletions, materializeAcubeConstraint, parseAcubeConstraint, renderAcubeState} from "./acube-engine";
 import {looksLikeSseState, parseSseState} from "./sse-state";
 import {
   allowedManualStateColours,
@@ -281,6 +281,7 @@ if (root) {
   const hamiltonResult = root.querySelector<HTMLOutputElement>("[data-hamilton-result]")!;
   const acubeGeneratorInput = root.querySelector<HTMLTextAreaElement>("[data-acube-generator-input]")!;
   const acubeGeneratorSeed = root.querySelector<HTMLInputElement>("[data-acube-generator-seed]")!;
+  const acubeGeneratorChoice = root.querySelector<HTMLSelectElement>("[data-acube-generator-choice]")!;
   const acubeGeneratorRun = root.querySelector<HTMLButtonElement>("[data-acube-generator-run]")!;
   const acubeGeneratorNext = root.querySelector<HTMLButtonElement>("[data-acube-generator-next]")!;
   const acubeGeneratorResult = root.querySelector<HTMLOutputElement>("[data-acube-generator-result]")!;
@@ -4630,29 +4631,66 @@ if (root) {
     inspectHamiltonProgram();
   });
 
-  const generateAcubeState = () => {
+  const previewAcubeStates = () => {
     const parsed = parseAcubeConstraint(acubeGeneratorInput.value);
     if (parsed.TAG === "Error") {
       acubeGeneratorResult.textContent = parsed._0;
       acubeGeneratorResult.classList.add("failure");
+      acubeGeneratorChoice.replaceChildren();
+      acubeGeneratorChoice.disabled = true;
+      acubeGeneratorRun.disabled = true;
       return;
     }
-    const generated = materializeAcubeConstraint(parsed._0, acubeGeneratorSeed.value);
-    if (generated.TAG === "Error") {
-      acubeGeneratorResult.textContent = generated._0;
+    const count = countAcubeCompletions(parsed._0);
+    if (count === 0n) {
+      acubeGeneratorResult.textContent = "This ACube definition has no legal completion.";
       acubeGeneratorResult.classList.add("failure");
       return;
     }
-    store.patch({size: 3, input: FaceletCodec.render(generated._0), moves: "", notationDialect: "Acube"});
-    acubeGeneratorResult.textContent = `Loaded legal ACube completion for seed '${acubeGeneratorSeed.value}'.`;
-    acubeGeneratorResult.classList.remove("failure");
+    const limit = Number(count < 6n ? count : 6n);
+    const choices: Array<{seed: string; completion: string}> = [];
+    const seen = new Set<string>();
+    for (let index = 0; index < limit * 16 && choices.length < limit; index += 1) {
+      const seed = `${acubeGeneratorSeed.value} · ${index + 1}`;
+      const generated = materializeAcubeConstraint(parsed._0, seed);
+      const completion = generated.TAG === "Ok" ? renderAcubeState(generated._0) : generated;
+      if (completion.TAG === "Ok" && !seen.has(completion._0)) {
+        seen.add(completion._0);
+        choices.push({seed, completion: completion._0});
+      }
+    }
+    acubeGeneratorChoice.replaceChildren(...choices.map((choice, index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = `Variant ${index + 1} · ${choice.completion}`;
+      return option;
+    }));
+    acubeGeneratorChoice.disabled = choices.length === 0;
+    acubeGeneratorRun.disabled = choices.length === 0;
+    acubeGeneratorRun.dataset.acubeChoices = JSON.stringify(choices);
+    if (choices.length === 0) {
+      acubeGeneratorResult.textContent = "This ACube definition has no legal completion.";
+      acubeGeneratorResult.classList.add("failure");
+    } else {
+      acubeGeneratorResult.textContent = `${count.toLocaleString()} legal completion${count === 1n ? "" : "s"}; showing ${choices.length} seeded choice${choices.length === 1 ? "" : "s"}.`;
+      acubeGeneratorResult.classList.remove("failure");
+    }
   };
-  acubeGeneratorRun.addEventListener("click", generateAcubeState);
+  acubeGeneratorRun.addEventListener("click", () => {
+    const choices = JSON.parse(acubeGeneratorRun.dataset.acubeChoices ?? "[]") as Array<{seed: string; completion: string}>;
+    const choice = choices[Number(acubeGeneratorChoice.value)];
+    if (!choice) return;
+    store.patch({size: 3, input: choice.completion, moves: "", notationDialect: "Acube"});
+    acubeGeneratorResult.textContent = `Loaded legal ACube completion for seed '${choice.seed}'.`;
+  });
   acubeGeneratorNext.addEventListener("click", () => {
     const match = /^(.*?)(\d+)$/.exec(acubeGeneratorSeed.value);
     acubeGeneratorSeed.value = match ? `${match[1]}${Number(match[2]) + 1}` : `${acubeGeneratorSeed.value}-2`;
-    generateAcubeState();
+    previewAcubeStates();
   });
+  acubeGeneratorInput.addEventListener("input", previewAcubeStates);
+  acubeGeneratorSeed.addEventListener("input", previewAcubeStates);
+  previewAcubeStates();
 
   hamiltonImport.addEventListener("change", async () => {
     const file = hamiltonImport.files?.[0];

@@ -126,6 +126,27 @@ export const parseAcubeConstraint = (input: string): Result<Constraint, string> 
 export const isFixedAcubeConstraint = (constraint: Constraint): boolean => [...constraint.cp, ...constraint.co, ...constraint.ep, ...constraint.eo].every((value) => value !== null);
 
 const parity = (values: number[]) => values.reduce((total, value, index) => total + values.slice(index + 1).filter((other) => value > other).length, 0) % 2;
+const factorial = (value: number): bigint => {
+  let result = 1n;
+  for (let factor = 2; factor <= value; factor += 1) result *= BigInt(factor);
+  return result;
+};
+const orientationCount = (values: Array<number | null>, modulus: bigint): bigint => {
+  const unknown = values.filter((value) => value === null).length;
+  if (unknown === 0) return values.reduce((sum, value) => sum + value!, 0) % Number(modulus) === 0 ? 1n : 0n;
+  return modulus ** BigInt(unknown - 1);
+};
+
+/** Returns the number of legal completions, before choosing a seeded representative. */
+export const countAcubeCompletions = (constraint: Constraint): bigint => {
+  const missingCorners = constraint.cp.filter((value) => value === null).length;
+  const missingEdges = constraint.ep.filter((value) => value === null).length;
+  const permutationPairs = factorial(missingCorners) * factorial(missingEdges);
+  // Once either side has two free cubies, exactly half of its completions have
+  // each parity. A fully constrained parity mismatch is reported by materialize.
+  const parityCount = missingCorners >= 2 || missingEdges >= 2 ? permutationPairs / 2n : permutationPairs;
+  return parityCount * orientationCount(constraint.co, 3n) * orientationCount(constraint.eo, 2n);
+};
 const randomFromSeed = (seed: string) => { let value = [...seed].reduce((hash, char) => Math.imul(hash ^ char.charCodeAt(0), 0x45d9f3b), 0x811c9dc5) >>> 0; return () => ((value = (value + 0x6d2b79f5) >>> 0), ((value ^ value >>> 15) * (value | 1) >>> 0) / 0x100000000); };
 const fillPermutation = (values: Array<number | null>, random: () => number) => {
   const used = values.filter((value): value is number => value !== null);
@@ -159,4 +180,21 @@ export const materializeAcubeConstraint = (constraint: Constraint, seed = "acube
     const reconstructed = PieceReducer.reconstruct({size: 3, cp, co: fillOrientation(constraint.co, 3, random), ep, eo: fillOrientation(constraint.eo, 2, random)}) as Result<CubeState, unknown>;
     return reconstructed.TAG === "Ok" ? reconstructed : {TAG: "Error", _0: PieceReducer.describeError(reconstructed._0) as string};
   } catch (reason) { return {TAG: "Error", _0: reason instanceof Error ? reason.message : String(reason)}; }
+};
+
+const rotate = (value: string, amount: number) => value.slice(amount) + value.slice(0, amount);
+
+/** Renders a materialized state in ACube's documented 12-edge, 8-corner order. */
+export const renderAcubeState = (state: CubeState): Result<string, string> => {
+  const reduced = PieceReducer.reduce(state) as Result<{cp: number[]; co: number[]; ep: number[]; eo: number[]}, unknown>;
+  if (reduced.TAG === "Error") return {TAG: "Error", _0: PieceReducer.describeError(reduced._0) as string};
+  const edgesOut = positionalEdges.map((position) => {
+    const slot = slotFor("edge", position);
+    return rotate(edges[reduced._0.ep[slot]!]!.toUpperCase(), reduced._0.eo[slot]!);
+  });
+  const cornersOut = positionalCorners.map((position) => {
+    const slot = slotFor("corner", position);
+    return rotate(corners[reduced._0.cp[slot]!]!.toUpperCase(), reduced._0.co[slot]!);
+  });
+  return {TAG: "Ok", _0: [...edgesOut, ...cornersOut].join(" ")};
 };
