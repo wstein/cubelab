@@ -224,7 +224,8 @@ test("the 2x2 and 3x3 manual state editor keeps a constrained draft separate fro
   assert.match(page, /class="manual-state-main"[\s\S]*data-manual-state-net[\s\S]*data-manual-state-status/);
   assert.match(page, /class="manual-state-shortcuts"[\s\S]*U R F D L B[\s\S]*move cursor/);
   assert.doesNotMatch(page, /class="manual-state-key">(?:click|drag|right-click|double-click)</);
-  assert.match(styles, /\.manual-state-shortcuts \{[\s\S]*grid-column: 3 \/ 5;[\s\S]*grid-row: 3;/);
+  assert.match(page, /data-manual-state-summary[\s\S]*class="manual-state-shortcuts"[\s\S]*Sticker colour/);
+  assert.doesNotMatch(styles, /\.manual-state-shortcuts \{[\s\S]{0,120}grid-(?:column|row):/);
   assert.match(styles, /\.manual-state-tools \{[\s\S]*flex: 0 1 18rem;/);
   assert.match(client, /manualStateSummaryRow\("Known", `\$\{entered \+ 6\}\/54`/);
 });
