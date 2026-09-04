@@ -221,7 +221,22 @@ export const fillForcedManualStateColours = (
   return filled;
 };
 
-/** Fast forced-fill pass for the interactive draft; Load still uses full validation. */
+/**
+ * Fast forced-fill pass for the interactive draft: locallyAllowedManualStateColours
+ * finds candidate forced cells cheaply, but each one is now verified against
+ * the full canCompleteManualState check — one DP call per genuinely narrowed
+ * candidate, not per blank sticker — before it is actually written.
+ *
+ * The cheap per-cubie reasoning alone can call a colour "forced" from its
+ * own corner or edge's perspective while missing a cross-cubie conflict (the
+ * same piece independently claimed from two different slots, or the wrong
+ * overall permutation parity) that only the full check sees. Writing it
+ * unverified used to silently bake an unrecoverable draft in: unlike the dot
+ * hints, which this same divergence is expected to affect and which a
+ * background pass re-verifies and corrects, an auto-filled sticker was
+ * written once and never re-checked, so the corruption stayed invisible
+ * until the user happened to notice every remaining dot had gone dark.
+ */
 export const fillLocallyForcedManualStateColours = (
   size: ManualStateSize,
   draft: ManualStateDraft,
@@ -233,9 +248,12 @@ export const fillLocallyForcedManualStateColours = (
     for (let index = 0; index < filled.length; index += 1) {
       if (filled[index] !== null || size === 3 && centreIndices3.includes(index)) continue;
       const allowed = locallyAllowedManualStateColours(size, filled, index);
-      if (allowed.length === 1) {
-        filled[index] = allowed[0];
+      if (allowed.length !== 1) continue;
+      filled[index] = allowed[0];
+      if (canCompleteManualState(size, filled)) {
         changed = true;
+      } else {
+        filled[index] = null;
       }
     }
   }

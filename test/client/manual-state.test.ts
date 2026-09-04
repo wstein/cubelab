@@ -81,6 +81,23 @@ describe("3×3 manual state constraints", () => {
     expect(allowedManualStateColours(3, draft, index)).not.toContain(solvedColour);
   });
 
+  test("auto-fill leaves a cell blank rather than writing a locally-forced colour the full check rejects", () => {
+    // Same broken-parity draft as above, but through fillLocallyForcedManualStateColours
+    // this time: locallyAllowedManualStateColours narrows index 30 to exactly
+    // one candidate (its solved colour), so the old implementation wrote it
+    // unconditionally. That candidate leaves the draft with no valid
+    // completion at all — unlike a dot hint, an auto-filled sticker is never
+    // re-verified afterward, so writing it silently corrupted the draft
+    // until every remaining dot went dark with no explanation. It must stay
+    // blank instead.
+    const draft = solvedManualState(3);
+    [draft[10], draft[19]] = [draft[19], draft[10]];
+    const index = 30;
+    draft[index] = null;
+    const filled = fillLocallyForcedManualStateColours(3, draft);
+    expect(filled[index]).toBeNull();
+  });
+
   test("auto-fills remaining stickers when only one colour has quota remaining", () => {
     const draft = solvedManualState(3);
     // Blank out the 4 edge stickers on the Back face
