@@ -230,6 +230,7 @@ test("the 2x2 and 3x3 manual state editor keeps a constrained draft separate fro
   assert.match(styles, /\.manual-state-face-key \{[\s\S]*grid-template-columns: repeat\(6, 0\.62rem\);/);
   assert.match(styles, /\.manual-state-tools \{[\s\S]*flex: 0 1 18rem;/);
   assert.match(client, /manualStateSummaryRow\("Known", `\$\{entered \+ 6\}\/54`/);
+  assert.match(client, /const remaining = total - entered;[\s\S]*if \(remaining === 0\) return;/);
 });
 
 test("the Vanilla DOM client wires reachability-aware outputs", () => {

@@ -960,6 +960,10 @@ if (root) {
     if (manualSize === 3) {
       manualStateSummary.append(manualStateSummaryRow("Edges", `${edges}/12`, (edges / 12) * 100, "#f0c419"));
     }
+    const remaining = total - entered;
+    // A completed draft has no useful empty progress indicator. Its complete
+    // status is already conveyed by the summary rows and validity banner.
+    if (remaining === 0) return;
     const divider = document.createElement("div");
     divider.className = "manual-state-summary-divider";
     const remainingRow = document.createElement("div");
@@ -969,13 +973,13 @@ if (root) {
     const remainingLabel = document.createElement("span");
     remainingLabel.textContent = "Remaining";
     const remainingValue = document.createElement("span");
-    remainingValue.textContent = `${total - entered} left`;
+    remainingValue.textContent = `${remaining} left`;
     remainingLabels.append(remainingLabel, remainingValue);
     const remainingBar = document.createElement("div");
     remainingBar.className = "manual-state-summary-bar";
     const remainingFill = document.createElement("div");
     remainingFill.className = "manual-state-summary-remaining";
-    remainingFill.style.width = `${((total - entered) / total) * 100}%`;
+    remainingFill.style.width = `${(remaining / total) * 100}%`;
     manualStateFaces.forEach((face) => {
       const left = manualSize * manualSize - perColourPlaced[face];
       if (left <= 0) return;
