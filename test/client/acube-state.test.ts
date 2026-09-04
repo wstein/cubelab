@@ -6,6 +6,7 @@ import * as MoveParser from "../../src/Move/MoveParser.res.mjs";
 import * as PieceReducer from "../../src/State/PieceReducer.res.mjs";
 import * as StateTypes from "../../src/State/StateTypes.res.mjs";
 import {looksLikeAcubeState, parseAcubeState} from "../../src/client/acube-state";
+import {isFixedAcubeConstraint, materializeAcubeConstraint, parseAcubeConstraint} from "../../src/client/acube-engine";
 
 const cornerLabels = ["URF", "UFL", "ULB", "UBR", "DFR", "DLF", "DBL", "DRB"];
 const edgeLabels = ["UR", "UF", "UL", "UB", "DR", "DF", "DL", "DB", "FR", "FL", "BL", "BR"];
@@ -70,10 +71,23 @@ test("does not confuse ACube state forms with normal grouped algorithms and refu
   expect(looksLikeAcubeState("(ul ur) (ufr urb)", true)).toBe(true);
   expect(parseAcubeState("(UL UR) [DF DL DR DB]")).toEqual({
     TAG: "Error",
-    _0: expect.stringMatching(/multiple states/i),
+    _0: expect.stringMatching(/not fixed.*generator/i),
   });
-  expect(parseAcubeState("UF? UB?")).toEqual({
-    TAG: "Error",
-    _0: expect.stringMatching(/multiple states/i),
-  });
+  expect(parseAcubeState("UF? UB?")).toEqual({TAG: "Error", _0: expect.stringMatching(/not fixed.*generator/i)});
+});
+
+test("compiles ACube wildcards and materializes reproducible legal completions", () => {
+  const parsed = parseAcubeConstraint("(UL UR) (UFR URB) [DF DL DR DB] UF? UB?");
+  expect(parsed.TAG).toBe("Ok");
+  expect(isFixedAcubeConstraint(parsed._0)).toBe(false);
+  const first = materializeAcubeConstraint(parsed._0, "drill-42");
+  const repeated = materializeAcubeConstraint(parsed._0, "drill-42");
+  expect(first.TAG).toBe("Ok");
+  expect(repeated.TAG).toBe("Ok");
+  expect(FaceletCodec.render(first._0)).toBe(FaceletCodec.render(repeated._0));
+  const pieces = PieceReducer.reduce(first._0)._0;
+  expect(pieces.ep[2]).toBe(0);
+  expect(pieces.ep[0]).toBe(2);
+  expect(pieces.cp[0]).toBe(3);
+  expect(pieces.cp[3]).toBe(0);
 });
