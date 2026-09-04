@@ -96,23 +96,28 @@ cannot race and clobber that double-click — right-click (erase) then click rem
 correct one. Both automatically fill
 subsequently forced stickers, marked with a cyan inset outline and star. Auto-fill is
 recomputed from only the stickers entered by the user, so a sticker returns to its dots
-whenever an edit makes more than one colour possible. **Clear**
+whenever an edit makes more than one colour possible. **Reset**
 intentionally leaves stickers blank so a completed draft can be corrected. CubeLab does
-not alter Setup or the viewport until **Load state into Setup** is enabled by a complete,
-physically valid position.
+not alter Setup or the viewport until **Load** is enabled by a complete, physically valid
+position.
 
-Beside the flat net, two small CSS-rendered 3D cubes preview the draft from complementary
-angles (together showing all six faces) so the editor also reads as an actual cube rather
-than only an unfolded one. They are hover-reactive — pointing at either one rings that
-sticker and its other same-piece stickers everywhere they appear, including the flat net —
-but are not a paint surface: at their small rendered size a foreshortened corner sticker's
-hit-test can resolve to a neighbouring sticker, so clicks and drags only ever land on the
-flat net. A live summary card tracks Entered/Corner/Edge progress and a colour-by-colour
-remaining bar; each palette swatch also shows its own remaining count. A shortcuts panel
-lists the available keyboard and mouse interactions (colour keys, Eraser, right-click erase,
-click-drag paint). **Copy facelets** and its **Copy to…** menu place the current draft on
-the clipboard as compact facelets, spaced facelets, a Singmaster-style per-piece list, or
-JSON, once the draft is complete; both are disabled until then.
+The net also accepts keyboard entry: arrow keys move a focus cursor between stickers,
+wrapping across a 3×3's face boundaries so the cursor keeps moving in the same visual
+direction rather than stopping at an edge (2×2 has no such wrap and stops there); U, R, F,
+D, L, or B paints the focused sticker directly; C clears it.
+
+In the net's own empty upper-right corner, two small CSS-rendered 3D cubes preview the
+draft from complementary angles (together showing all six faces) so the editor also reads
+as an actual cube rather than only an unfolded one. They are hover-reactive — pointing at
+either one rings that sticker and its other same-piece stickers everywhere they appear,
+including the flat net — but are not a paint surface: at their small rendered size a
+foreshortened corner sticker's hit-test can resolve to a neighbouring sticker, so clicks
+and drags only ever land on the flat net. A live summary card tracks Entered/Corner/Edge
+progress and a colour-by-colour remaining bar; each palette swatch also shows its own
+remaining count. A shortcuts panel lists the available keyboard and mouse interactions.
+**Copy as…** places the current draft on the clipboard as compact facelets, spaced
+facelets, a Singmaster-style per-piece list, or JSON, once the draft is complete; it is
+disabled until then.
 
 **Sync state** from a connected smart cube writes its physical facelet state into Setup. It
 does not change the optional Moves field, allowing a user to inspect or replay a sequence

@@ -1604,6 +1604,34 @@ test("paints a specific dot's colour on click and loads a filled sticker's colou
   await expect(rCentre).toHaveText("R");
 });
 
+test("navigates and paints the net with the keyboard, wrapping across a face edge", async ({page}) => {
+  await page.goto("/");
+  await page.locator("[data-manual-state-open]").click();
+  const dialog = page.locator("[data-manual-state-dialog]");
+  await expect(dialog).toBeVisible();
+  const net = dialog.locator("[data-manual-state-grid]");
+
+  // Index 8 is U's own bottom-right corner (row 2, col 2). A letter key
+  // paints whichever sticker currently has focus.
+  const u8 = net.locator('[data-manual-state-index="8"]');
+  await u8.click();
+  await page.keyboard.press("r");
+  await expect(u8).toHaveText("R");
+
+  // Moving right off U's last column wraps onto R's own corner column,
+  // landing on global index 9 (R0) rather than stopping at the edge.
+  await page.keyboard.press("ArrowRight");
+  const focusedIndex = await page.evaluate(() => document.activeElement?.getAttribute("data-manual-state-index"));
+  expect(focusedIndex).toBe("9");
+
+  // C clears whichever sticker currently has focus.
+  await page.keyboard.press("f");
+  const r0 = net.locator('[data-manual-state-index="9"]');
+  await expect(r0).toHaveText("F");
+  await page.keyboard.press("c");
+  await expect(r0).toHaveText("");
+});
+
 test("shows two CSS-3D preview cubes and a shortcuts reference beside the net", async ({page}) => {
   await page.goto("/");
   await page.locator("[data-manual-state-open]").click();
@@ -1633,22 +1661,22 @@ test("copies the hand-entered state in the chosen format, only once it is comple
   await page.goto("/");
   await page.locator("[data-manual-state-open]").click();
   const dialog = page.locator("[data-manual-state-dialog]");
-  const copy = dialog.locator("[data-manual-state-copy]");
   const toggle = dialog.locator("[data-manual-state-copy-toggle]");
 
-  await expect(copy).toBeDisabled();
   await expect(toggle).toBeDisabled();
 
   await dialog.locator("[data-manual-state-solved]").click();
-  await expect(copy).toBeEnabled();
   await expect(toggle).toBeEnabled();
 
-  await copy.click();
-  await expect(copy).toHaveText("Copied!");
+  await toggle.click();
+  await expect(dialog.locator("[data-manual-state-copy-menu]")).toBeVisible();
+  await dialog.locator('[data-manual-state-copy-format="compact"]').click();
+  await expect(dialog.locator("[data-manual-state-copy-menu]")).toBeHidden();
+  await expect(toggle).toHaveText("Copied!");
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB",
   );
-  await expect(copy).toHaveText("Copy facelets", {timeout: 3000});
+  await expect(toggle).toContainText("Copy as", {timeout: 3000});
 
   await toggle.click();
   await expect(dialog.locator("[data-manual-state-copy-menu]")).toBeVisible();

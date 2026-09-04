@@ -203,6 +203,7 @@ if (root) {
   const manualStateTitle = root.querySelector<HTMLElement>("[data-manual-state-title]")!;
   const manualStateClose = root.querySelector<HTMLButtonElement>("[data-manual-state-close]")!;
   const manualStateCancel = root.querySelector<HTMLButtonElement>("[data-manual-state-cancel]")!;
+  const manualStateNet = root.querySelector<HTMLElement>("[data-manual-state-net]")!;
   const manualStateGrid = root.querySelector<HTMLElement>("[data-manual-state-grid]")!;
   const manualStatePreviews = root.querySelector<HTMLElement>("[data-manual-state-previews]")!;
   const manualStatePalette = root.querySelector<HTMLElement>("[data-manual-state-palette]")!;
@@ -214,7 +215,6 @@ if (root) {
   const manualStateStatusText = root.querySelector<HTMLElement>("[data-manual-state-status-text]")!;
   const manualStateSummary = root.querySelector<HTMLElement>("[data-manual-state-summary]")!;
   const manualStateLoad = root.querySelector<HTMLButtonElement>("[data-manual-state-load]")!;
-  const manualStateCopy = root.querySelector<HTMLButtonElement>("[data-manual-state-copy]")!;
   const manualStateCopyToggle = root.querySelector<HTMLButtonElement>("[data-manual-state-copy-toggle]")!;
   const manualStateCopyMenu = root.querySelector<HTMLElement>("[data-manual-state-copy-menu]")!;
   const schemeSelect = root.querySelector<HTMLSelectElement>("[data-scheme]")!;
@@ -979,6 +979,19 @@ if (root) {
     manualStateSummary.append(divider, remainingRow);
   };
 
+  // Which [face, localIndex] a 3×3 keyboard cursor lands on after moving off
+  // one edge of the given face in the given direction, indexed by the
+  // stepped-over row (left/right) or column (top/bottom). Ported from the
+  // design mock's own verified topology rather than re-derived here.
+  const MANUAL_STATE_EDGE_WRAP: Record<ManualStateFace, Record<"top" | "bottom" | "left" | "right", [ManualStateFace, number][]>> = {
+    U: {top: [["B", 2], ["B", 1], ["B", 0]], bottom: [["F", 0], ["F", 1], ["F", 2]], left: [["L", 0], ["L", 1], ["L", 2]], right: [["R", 2], ["R", 1], ["R", 0]]},
+    D: {top: [["F", 6], ["F", 7], ["F", 8]], bottom: [["B", 8], ["B", 7], ["B", 6]], left: [["L", 8], ["L", 7], ["L", 6]], right: [["R", 6], ["R", 7], ["R", 8]]},
+    F: {top: [["U", 6], ["U", 7], ["U", 8]], bottom: [["D", 0], ["D", 1], ["D", 2]], left: [["L", 2], ["L", 5], ["L", 8]], right: [["R", 0], ["R", 3], ["R", 6]]},
+    R: {top: [["U", 8], ["U", 5], ["U", 2]], bottom: [["D", 2], ["D", 5], ["D", 8]], left: [["F", 2], ["F", 5], ["F", 8]], right: [["B", 0], ["B", 3], ["B", 6]]},
+    L: {top: [["U", 0], ["U", 3], ["U", 6]], bottom: [["D", 6], ["D", 3], ["D", 0]], left: [["B", 2], ["B", 5], ["B", 8]], right: [["F", 0], ["F", 3], ["F", 6]]},
+    B: {top: [["U", 2], ["U", 1], ["U", 0]], bottom: [["D", 8], ["D", 7], ["D", 6]], left: [["R", 2], ["R", 5], ["R", 8]], right: [["L", 0], ["L", 3], ["L", 6]]},
+  };
+
   // A pure-CSS 3D cube, not WebGL: six absolutely-positioned faces rotated
   // into place inside one preserve-3d container, each hidden by
   // backface-visibility once it faces away. Two of these at complementary
@@ -1127,7 +1140,6 @@ if (root) {
     const displayEntered = entered - centreCount;
     const diagnostic = entered === total ? manualStateCompleteDiagnostic() : null;
     manualStateLoad.disabled = entered !== total || diagnostic !== null;
-    manualStateCopy.disabled = manualStateLoad.disabled;
     manualStateCopyToggle.disabled = manualStateLoad.disabled;
     if (manualStateLoad.disabled) {
       manualStateCopyMenu.hidden = true;
@@ -5500,6 +5512,64 @@ if (root) {
   window.addEventListener("mouseup", () => {
     manualStateDragErase = null;
   });
+  // Keyboard entry on the flat net: arrow keys move DOM focus between
+  // stickers — wrapping across face boundaries on a 3×3, via the same
+  // topology the design mock verified — U/R/F/D/L/B paint the focused
+  // sticker's colour, and C clears it. Scoped to 3×3: a 2×2's wrap isn't
+  // specified there, and guessing the topology wrong would be worse than a
+  // cursor that simply stops at a face edge.
+  const manualStateArrowTarget = (
+    manualSize: ManualStateSize,
+    index: number,
+    direction: "top" | "bottom" | "left" | "right",
+  ): number | null => {
+    const perFace = manualSize * manualSize;
+    const face = faceletOrder[Math.floor(index / perFace)];
+    const local = index % perFace;
+    const row = Math.floor(local / manualSize);
+    const col = local % manualSize;
+    const atEdge = (direction === "left" && col === 0)
+      || (direction === "right" && col === manualSize - 1)
+      || (direction === "top" && row === 0)
+      || (direction === "bottom" && row === manualSize - 1);
+    if (atEdge) {
+      if (manualSize !== 3) return null;
+      const [wrapFace, wrapLocal] =
+        MANUAL_STATE_EDGE_WRAP[face][direction][direction === "left" || direction === "right" ? row : col];
+      return faceletOrder.indexOf(wrapFace) * 9 + wrapLocal;
+    }
+    const step = {left: -1, right: 1, top: -manualSize, bottom: manualSize}[direction];
+    return index + step;
+  };
+  const manualStateArrowKeys: Record<string, "left" | "right" | "top" | "bottom"> = {
+    ArrowLeft: "left", ArrowRight: "right", ArrowUp: "top", ArrowDown: "bottom",
+  };
+  manualStateNet.addEventListener("keydown", (event) => {
+    const focused = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>("[data-manual-state-index]");
+    if (!focused || !manualStateNet.contains(focused)) return;
+    const index = Number(focused.dataset.manualStateIndex);
+    if (!Number.isInteger(index)) return;
+    const manualSize = size as ManualStateSize;
+    const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
+    if ((faceletOrder as readonly string[]).includes(key)) {
+      event.preventDefault();
+      event.stopPropagation();
+      paintManualStateSticker(index, key as ManualStateFace);
+      return;
+    }
+    if (key === "C") {
+      event.preventDefault();
+      event.stopPropagation();
+      eraseManualStateSticker(index);
+      return;
+    }
+    const direction = manualStateArrowKeys[event.key];
+    if (!direction) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const next = manualStateArrowTarget(manualSize, index, direction);
+    if (next !== null) manualStateStickerElements[next]?.focus();
+  });
   manualStateReset.addEventListener("click", () => {
     manualStateDraft = emptyManualState(size as ManualStateSize);
     manualStateExplicitIndices.clear();
@@ -5538,9 +5608,6 @@ if (root) {
       button.textContent = originalText;
     }, 1500);
   };
-  manualStateCopy.addEventListener("click", () => {
-    void copyManualStateText(manualStateCompactFacelets(), manualStateCopy);
-  });
   manualStateCopyToggle.addEventListener("click", () => {
     const open = manualStateCopyMenu.hidden;
     manualStateCopyMenu.hidden = !open;

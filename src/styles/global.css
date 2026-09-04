@@ -698,14 +698,32 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-dialog h3 {
-  margin: 0.25rem 0 0;
+  margin: 0.15rem 0 0;
   font-size: 1.25rem;
 }
 
+/* One row: title block, then the description, then Close — rather than a
+   header row plus a separate full-width intro paragraph beneath it. */
+.manual-state-header {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.manual-state-header-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: none;
+}
+
 .manual-state-intro {
-  margin: 0 0 1rem;
+  flex: 1 1 auto;
+  min-width: 12rem;
+  margin: 0;
   color: var(--text-secondary);
-  font-size: 0.83rem;
+  font-size: 0.8rem;
   line-height: 1.45;
 }
 
@@ -736,7 +754,13 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
      so a child-scoped declaration left the parent's calc() referencing an
      undefined variable and silently falling back to a zero gap (the two
      previews rendered flush against each other with no space between). */
-  --manual-state-preview-edge: clamp(9rem, 13vw, 15rem);
+  --manual-state-preview-edge: clamp(3.2rem, 5vw, 6rem);
+  /* Sits in the net's own empty upper-right quadrant (columns 3-4 of the
+     cross layout have no face at any size) rather than a separate full-width
+     banner above it — the previews stay close to the net they mirror and
+     the dialog does not need extra height just to show them. */
+  grid-column: 3 / 5;
+  grid-row: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -744,10 +768,9 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
      (roughly edge × 1.4 at these yaw angles) — anything less here and the
      two previews' rotated corners overlap into each other. Scales with
      --manual-state-preview-edge rather than a fixed length, so it stays
-     correct as the dialog (and so the previews) grows or shrinks. */
+     correct as the previews grow or shrink. */
   gap: calc(var(--manual-state-preview-edge) * 0.55);
-  padding: 1.5rem 1.1rem;
-  margin-bottom: 1.1rem;
+  padding: 0.6rem;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
@@ -873,6 +896,16 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-sticker:hover { border-color: #67e8f9; }
+
+/* The keyboard cursor: arrow keys move real DOM focus between stickers (see
+   the net's keydown handler), so letter keys always have an unambiguous
+   target. Declared before the hover/mate rules below so a hovered cell's
+   brighter ring still wins if the two ever coincide. */
+.manual-state-sticker:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #63b3ff;
+  z-index: 1;
+}
 
 /* The hovered/focused sticker itself gets a bright ring; the rest of its
    physical piece (its corner or edge mates elsewhere in the net, which the
@@ -1050,14 +1083,16 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   margin-top: 0.5rem;
 }
 
-.manual-state-copy-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.manual-state-tool {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 0.4rem;
-  margin-top: 0.5rem;
 }
 
-.manual-state-copy-menu-wrap { position: relative; }
+.manual-state-tool svg { flex: none; opacity: 0.85; }
+
+.manual-state-copy-menu-wrap { position: relative; margin-top: 0.5rem; }
 .manual-state-copy-menu-wrap .transform-btn { width: 100%; }
 
 .manual-state-copy-menu {
@@ -1120,11 +1155,13 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 
 .manual-state-footer {
   display: flex;
-  justify-content: flex-end;
   gap: 0.55rem;
+  align-items: stretch;
   padding-top: 0.9rem;
   border-top: 1px solid var(--border-subtle);
 }
+
+.manual-state-footer > * { flex: 1 1 0; min-width: 0; }
 
 @media (max-width: 560px) {
   .manual-state-layout { align-items: flex-start; justify-content: flex-start; flex-direction: column; }

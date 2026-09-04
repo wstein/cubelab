@@ -1574,11 +1574,15 @@ s100"></textarea>
         data-manual-state-dialog
         aria-labelledby="manual-state-title"
       >
-        <div class="settings-dialog-header">
-          <div>
+        <div class="manual-state-header">
+          <div class="manual-state-header-title">
             <span class="panel-label">Draft-only cube state</span>
             <h3 id="manual-state-title" data-manual-state-title>Enter cube state</h3>
           </div>
+          <p class="manual-state-intro">
+            Pick a face colour, then fill the net. Nothing changes in Setup
+            until the complete, physically valid state is loaded.
+          </p>
           <button
             type="button"
             class="viewport-control"
@@ -1586,20 +1590,20 @@ s100"></textarea>
             aria-label="Close manual state editor">Close</button
           >
         </div>
-        <p class="manual-state-intro">
-          Pick a face colour, then fill the net. Nothing changes in Setup until
-          the complete, physically valid state is loaded.
-        </p>
-        <div class="manual-state-previews" data-manual-state-previews aria-hidden="true"></div>
         <div class="manual-state-layout">
-          <section class="manual-state-net" aria-label="Cube sticker net">
+          <section
+            class="manual-state-net"
+            aria-label="Cube sticker net"
+            data-manual-state-net
+          >
             <div class="manual-state-net-faces" data-manual-state-grid></div>
+            <div class="manual-state-previews" data-manual-state-previews aria-hidden="true"></div>
             <div class="manual-state-shortcuts">
               <span class="panel-label">Shortcuts</span>
               <div class="manual-state-shortcuts-grid">
                 <div><span class="manual-state-key">U R F D L B</span>set colour</div>
                 <div><span class="manual-state-key">C</span>clear</div>
-                <div><span class="manual-state-key">← ↑ ↓ →</span>move</div>
+                <div><span class="manual-state-key">← ↑ ↓ →</span>move cursor</div>
                 <div><span class="manual-state-key">click</span>paint</div>
                 <div><span class="manual-state-key">click dot</span>paint that colour</div>
                 <div><span class="manual-state-key">drag</span>paint run</div>
@@ -1638,38 +1642,44 @@ s100"></textarea>
               </button>
             </div>
             <div class="manual-state-tool-row">
-              <button type="button" class="transform-btn" data-manual-state-eraser aria-pressed="false">Eraser</button>
-              <button type="button" class="transform-btn" data-manual-state-reset>Clear</button>
-              <button type="button" class="transform-btn" data-manual-state-solved>Solved</button>
+              <button type="button" class="transform-btn manual-state-tool" data-manual-state-eraser aria-pressed="false">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 16.5 12 9l5.5 5.5-4 4h-5z"></path><path d="M9 20.5h11"></path></svg>
+                Eraser
+              </button>
+              <button type="button" class="transform-btn manual-state-tool" data-manual-state-reset>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.6-5.7"></path><path d="M4.5 4v5h5"></path></svg>
+                Reset
+              </button>
+              <button type="button" class="transform-btn manual-state-tool" data-manual-state-solved>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5 10 18 19.5 6.5"></path></svg>
+                Solved
+              </button>
             </div>
-            <div class="manual-state-copy-row">
-              <button type="button" class="transform-btn" data-manual-state-copy disabled>Copy facelets</button>
-              <div class="manual-state-copy-menu-wrap">
-                <button
-                  type="button"
-                  class="transform-btn"
-                  data-manual-state-copy-toggle
-                  aria-haspopup="true"
-                  aria-expanded="false"
-                  disabled
-                >Copy as ▾</button>
-                <div class="manual-state-copy-menu" data-manual-state-copy-menu hidden>
-                  <button type="button" data-manual-state-copy-format="compact">Compact facelets</button>
-                  <button type="button" data-manual-state-copy-format="spaced">Spaced facelets</button>
-                  <button type="button" data-manual-state-copy-format="singmaster">Singmaster piece list</button>
-                  <button type="button" data-manual-state-copy-format="json">JSON facelets</button>
-                </div>
+            <output class="manual-state-status" data-manual-state-status aria-live="polite">
+              <span class="manual-state-status-pill" data-manual-state-status-pill></span>
+              <span data-manual-state-status-text></span>
+            </output>
+            <div class="manual-state-copy-menu-wrap">
+              <button
+                type="button"
+                class="transform-btn"
+                data-manual-state-copy-toggle
+                aria-haspopup="true"
+                aria-expanded="false"
+                disabled
+              >Copy as … <span aria-hidden="true">▾</span></button>
+              <div class="manual-state-copy-menu" data-manual-state-copy-menu hidden>
+                <button type="button" data-manual-state-copy-format="compact">Compact facelets</button>
+                <button type="button" data-manual-state-copy-format="spaced">Spaced facelets</button>
+                <button type="button" data-manual-state-copy-format="singmaster">Singmaster piece list</button>
+                <button type="button" data-manual-state-copy-format="json">JSON facelets</button>
               </div>
             </div>
+            <div class="manual-state-footer">
+              <button type="button" class="viewport-control" data-manual-state-cancel>Cancel</button>
+              <button type="button" class="transform-btn" data-manual-state-load disabled aria-label="Load state into Setup">Load</button>
+            </div>
           </section>
-        </div>
-        <output class="manual-state-status" data-manual-state-status aria-live="polite">
-          <span class="manual-state-status-pill" data-manual-state-status-pill></span>
-          <span data-manual-state-status-text></span>
-        </output>
-        <div class="manual-state-footer">
-          <button type="button" class="viewport-control" data-manual-state-cancel>Cancel</button>
-          <button type="button" class="transform-btn" data-manual-state-load disabled>Load state into Setup</button>
         </div>
       </dialog>
     </main>
