@@ -173,13 +173,26 @@ test("the converter exposes a lazy HTM-optimal 2×2 solver through its worker co
   assert.match(client, /createOptimal2x2SolverClient/);
   assert.match(client, /optimal2x2Row\.hidden = size !== 2/);
   assert.match(client, /optimal2x2SolverClient\.solve\(setup\._0\.state\)/);
-  assert.match(client, /const optimal2x2SourceKeyForCurrent = \(\): string =>\s*`\$\{input\.value\}\\u0000\$\{schemeSelect\.value\}\\u0000\$\{customScheme\.value\}`/);
-  assert.match(client, /const sourceKey = optimal2x2SourceKeyForCurrent\(\);/);
+  assert.match(client, /const solverSetupSourceKeyForCurrent = \(\): string =>\s*`\$\{input\.value\}\\u0000\$\{schemeSelect\.value\}\\u0000\$\{customScheme\.value\}`/);
+  assert.match(client, /const sourceKey = solverSetupSourceKeyForCurrent\(\);/);
   assert.match(client, /Setup changed; generate a new optimal solution/);
   assert.match(solverWorker, /type: "solveOptimal2x2"/);
   assert.match(solverWorker, /!Optimal2x2Solver\.hasPreparedTables\(\)/);
   assert.match(solverWorker, /Searching for an HTM-optimal solution…/);
   assert.match(solverWorker, /Optimal2x2Solver\.solve\(request\.state\)/);
+});
+
+test("the converter can finish an already-reduced 4×4 through the worker", () => {
+  assert.match(page, /data-reduction-4x4-row/);
+  assert.match(page, /Finish reduced state/);
+  assert.match(page, /Solve centres and pair wings first/);
+  assert.match(client, /createReduction4x4SolverClient/);
+  assert.match(client, /reduction4x4Row\.hidden = size !== 4/);
+  assert.match(client, /reduction4x4SolverClient\.solve\(setup\._0\.state\)/);
+  assert.match(client, /Setup changed; generate a new 4×4 finishing solution/);
+  assert.match(solverWorker, /type: "solveReduced4x4"/);
+  assert.match(solverWorker, /reduce4x4\(request\.state\)/);
+  assert.match(solverWorker, /isMonochromeSolved4x4\(replay\._0\)/);
 });
 
 test("half-turn arrows carry a matching 2× overlay badge", () => {

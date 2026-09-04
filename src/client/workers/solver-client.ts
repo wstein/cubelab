@@ -5,6 +5,7 @@ type WorkerResponse<T> = WorkerSuccess<T> | WorkerFailure;
 type TwoPhaseProgress = {id: number; type: "twoPhaseProgress"; stage: string};
 type TwoPhaseCandidate<T> = {id: number; type: "twoPhaseCandidate"; solution: T};
 type Optimal2x2Progress = {id: number; type: "optimal2x2Progress"; stage: string};
+type Reduction4x4Progress = {id: number; type: "reduction4x4Progress"; stage: string};
 export type TwoPhaseSearchOptions = {refine?: boolean; maximumDepth?: number};
 
 /** Request/response boundary for expensive searches; the UI thread never waits for them. */
@@ -86,16 +87,20 @@ export const createTwoPhaseSolverClient = <TState, TSolution>(
   };
 };
 
-/** Dedicated request contract for table-backed optimal 2×2 searches. */
-export const createOptimal2x2SolverClient = <TState, TSolution>(
+/** Common client for worker solvers that report named preparation stages. */
+const createProgressSolverClient = <TState, TSolution, TRequest extends string, TProgress extends string>(
   worker: Worker,
+  requestType: TRequest,
+  progressType: TProgress,
+  startError: string,
+  stoppedError: string,
   onProgress?: (stage: string) => void,
 ) => {
   let nextId = 0;
   const pending = new Map<number, {resolve: (value: TSolution) => void; reject: (reason: Error) => void}>();
-  worker.addEventListener("message", (event: MessageEvent<WorkerResponse<TSolution> | Optimal2x2Progress>) => {
+  worker.addEventListener("message", (event: MessageEvent<WorkerResponse<TSolution> | Optimal2x2Progress | Reduction4x4Progress>) => {
     const response = event.data;
-    if ("type" in response && response.type === "optimal2x2Progress") {
+    if ("type" in response && response.type === progressType) {
       onProgress?.(response.stage);
       return;
     }
@@ -106,7 +111,7 @@ export const createOptimal2x2SolverClient = <TState, TSolution>(
     else request.reject(new Error(response.error));
   });
   worker.addEventListener("error", () => {
-    pending.forEach(({reject}) => reject(new Error("The optimal 2×2 solver worker could not start.")));
+    pending.forEach(({reject}) => reject(new Error(startError)));
     pending.clear();
   });
   return {
@@ -114,13 +119,39 @@ export const createOptimal2x2SolverClient = <TState, TSolution>(
       const id = nextId++;
       return new Promise((resolve, reject) => {
         pending.set(id, {resolve, reject});
-        worker.postMessage({id, type: "solveOptimal2x2", state});
+        worker.postMessage({id, type: requestType, state});
       });
     },
     terminate(): void {
-      pending.forEach(({reject}) => reject(new Error("The optimal 2×2 solver was stopped.")));
+      pending.forEach(({reject}) => reject(new Error(stoppedError)));
       pending.clear();
       worker.terminate();
     },
   };
 };
+
+/** Dedicated request contract for table-backed optimal 2×2 searches. */
+export const createOptimal2x2SolverClient = <TState, TSolution>(
+  worker: Worker,
+  onProgress?: (stage: string) => void,
+) => createProgressSolverClient<TState, TSolution>(
+  worker,
+  "solveOptimal2x2",
+  "optimal2x2Progress",
+  "The optimal 2×2 solver worker could not start.",
+  "The optimal 2×2 solver was stopped.",
+  onProgress,
+);
+
+/** Dedicated request contract for a reduced 4×4's 3×3 finishing stage. */
+export const createReduction4x4SolverClient = <TState, TSolution>(
+  worker: Worker,
+  onProgress?: (stage: string) => void,
+) => createProgressSolverClient<TState, TSolution>(
+  worker,
+  "solveReduced4x4",
+  "reduction4x4Progress",
+  "The 4×4 reduction solver worker could not start.",
+  "The 4×4 reduction solver was stopped.",
+  onProgress,
+);

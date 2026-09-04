@@ -26,5 +26,11 @@ corresponding 3×3 facelet state, and validates that reduced state with
 `PieceReducer`. This prevents a 3×3 solution from being misrepresented as a
 4×4 solution before the centre and wing stages have completed.
 
+The Converter exposes this working handoff as **Finish reduced state** for a
+4×4 Setup that has already completed stages 1 and 2. It runs the 3×3 finish
+in the worker, lifts the returned outer-layer algorithm onto the original
+4×4, and replay-verifies that every resulting face is monochrome. It rejects
+an unresolved position with the specific centre or wing-pair prerequisite.
+
 The next implementation phase adds bounded centre and wing reduction search,
 followed by explicit parity detection and repair.

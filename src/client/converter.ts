@@ -11,7 +11,12 @@ import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as HamiltonMacro from "../Move/HamiltonMacro";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
-import {createOptimal2x2SolverClient, createSolverClient, createTwoPhaseSolverClient} from "./workers/solver-client";
+import {
+  createOptimal2x2SolverClient,
+  createReduction4x4SolverClient,
+  createSolverClient,
+  createTwoPhaseSolverClient,
+} from "./workers/solver-client";
 import {mountTimerWorkspace} from "./timer/workspace";
 import {defaultPreferences, hasVerifiedTnoodle, readPreferences, writePreferences} from "./preferences";
 import {TnoodleClient} from "./scramble/tnoodle-client";
@@ -312,6 +317,10 @@ if (root) {
   const optimal2x2Solve = root.querySelector<HTMLButtonElement>("[data-optimal-2x2-solve]")!;
   const optimal2x2Apply = root.querySelector<HTMLButtonElement>("[data-optimal-2x2-apply]")!;
   const optimal2x2Result = root.querySelector<HTMLOutputElement>("[data-optimal-2x2-result]")!;
+  const reduction4x4Row = root.querySelector<HTMLElement>("[data-reduction-4x4-row]")!;
+  const reduction4x4Solve = root.querySelector<HTMLButtonElement>("[data-reduction-4x4-solve]")!;
+  const reduction4x4Apply = root.querySelector<HTMLButtonElement>("[data-reduction-4x4-apply]")!;
+  const reduction4x4Result = root.querySelector<HTMLOutputElement>("[data-reduction-4x4-result]")!;
   const academyTarget = root.querySelector<HTMLInputElement>("[data-academy-target]")!;
   const academyDom = (prefix: string) => ({
     status: root.querySelector<HTMLElement>(`[data-${prefix}-status]`)!,
@@ -471,7 +480,9 @@ if (root) {
   );
   let twoPhaseSolveBusy = false;
   let optimal2x2SolveBusy = false;
+  let reduction4x4SolveBusy = false;
   let optimal2x2Request = 0;
+  let reduction4x4Request = 0;
   let nissSide: "normal" | "inverse" = "normal";
   let nissNormalState: CubeState | null = null;
   let nissInverseState: CubeState | null = null;
@@ -483,6 +494,8 @@ if (root) {
   let twoPhasePendingTarget: CubeState | null = null;
   let optimal2x2Algorithm = "";
   let optimal2x2SourceKey = "";
+  let reduction4x4Algorithm = "";
+  let reduction4x4SourceKey = "";
   let academySetupKey: string | null = null;
   const newTwoPhaseSolverClient = () => createTwoPhaseSolverClient<CubeState, TwoPhaseSolution>(
     new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
@@ -518,6 +531,13 @@ if (root) {
     },
   );
   let optimal2x2SolverClient = newOptimal2x2SolverClient();
+  const newReduction4x4SolverClient = () => createReduction4x4SolverClient<CubeState, {alg: unknown; moveCount: number}>(
+    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+    (stage) => {
+      if (reduction4x4SolveBusy) reduction4x4Result.textContent = stage;
+    },
+  );
+  let reduction4x4SolverClient = newReduction4x4SolverClient();
   const resetTwoPhaseRefinement = () => {
     // Setup defines every solver request. A Setup change makes any in-flight
     // search and its retained candidate unusable, so stop the dedicated worker
@@ -549,6 +569,20 @@ if (root) {
     optimal2x2Solve.textContent = "Find optimal solution";
     optimal2x2Result.textContent = "Find an HTM-optimal solution for the Setup state.";
     optimal2x2Result.classList.remove("success", "failure");
+  };
+  const resetReduction4x4Solution = () => {
+    if (reduction4x4SolveBusy) {
+      reduction4x4Request += 1;
+      reduction4x4SolverClient.terminate();
+      reduction4x4SolverClient = newReduction4x4SolverClient();
+      reduction4x4SolveBusy = false;
+    }
+    reduction4x4Algorithm = "";
+    reduction4x4SourceKey = "";
+    reduction4x4Apply.disabled = true;
+    reduction4x4Solve.textContent = "Finish reduced state";
+    reduction4x4Result.textContent = "Solve centres and pair wings first, then finish the reduced 4×4.";
+    reduction4x4Result.classList.remove("success", "failure");
   };
   const viewport = createCubeViewport(canvas, motionOverlay, (message) => {
     viewportFallback.textContent = `${message} Text conversions remain fully functional.`;
@@ -1541,6 +1575,8 @@ if (root) {
     hamiltonPanel.hidden = activeTab !== "workbench";
     optimal2x2Row.hidden = size !== 2;
     optimal2x2Solve.disabled = size !== 2;
+    reduction4x4Row.hidden = size !== 4;
+    reduction4x4Solve.disabled = size !== 4;
     twoPhaseSolve.disabled = size !== 3;
     twoPhaseTarget.disabled = size !== 3;
     if (size !== 3 && !twoPhaseSolveBusy) {
@@ -2066,10 +2102,10 @@ if (root) {
   const twoPhaseSourceKeyForCurrent = (): string =>
     `${input.value}\u0000${twoPhaseTarget.value}`;
 
-  // A 2×2 solution is valid only for the currently parsed Setup. Colour
-  // scheme fields participate because they can change a colour-notation
-  // Setup without changing its visible text.
-  const optimal2x2SourceKeyForCurrent = (): string =>
+  // Solver output is valid only for the currently parsed Setup. Colour scheme
+  // fields participate because they can change a colour-notation Setup
+  // without changing its visible text.
+  const solverSetupSourceKeyForCurrent = (): string =>
     `${input.value}\u0000${schemeSelect.value}\u0000${customScheme.value}`;
 
   const academySetupSourceKey = (): string =>
@@ -3978,6 +4014,7 @@ if (root) {
       academySolveBusy = false;
       resetTwoPhaseRefinement();
       resetOptimal2x2Solution();
+      resetReduction4x4Solution();
     }
     settingsSize.value = String(state.size);
     settingsScheme.value = state.scheme;
@@ -4411,7 +4448,7 @@ if (root) {
       optimal2x2Result.classList.add("failure");
       return;
     }
-    const sourceKey = optimal2x2SourceKeyForCurrent();
+    const sourceKey = solverSetupSourceKeyForCurrent();
     const request = ++optimal2x2Request;
     optimal2x2SourceKey = sourceKey;
     optimal2x2Algorithm = "";
@@ -4442,7 +4479,7 @@ if (root) {
 
   optimal2x2Apply.addEventListener("click", () => {
     if (optimal2x2Algorithm === "") return;
-    const sourceKey = optimal2x2SourceKeyForCurrent();
+    const sourceKey = solverSetupSourceKeyForCurrent();
     if (sourceKey !== optimal2x2SourceKey) {
       optimal2x2Result.textContent = "Setup changed; generate a new optimal solution.";
       optimal2x2Result.classList.add("failure");
@@ -4450,6 +4487,63 @@ if (root) {
       return;
     }
     store.patch({moves: [movesInput.value.trim(), optimal2x2Algorithm].filter(Boolean).join(" ")});
+  });
+
+  reduction4x4Solve.addEventListener("click", async () => {
+    if (size !== 4) return;
+    if (reduction4x4SolveBusy) {
+      reduction4x4Request += 1;
+      reduction4x4SolverClient.terminate();
+      reduction4x4SolverClient = newReduction4x4SolverClient();
+      reduction4x4SolveBusy = false;
+      reduction4x4Solve.textContent = "Finish reduced state";
+      reduction4x4Result.textContent = "4×4 finishing search stopped immediately.";
+      reduction4x4Result.classList.remove("success", "failure");
+      return;
+    }
+    const setup = parseState(input.value);
+    if (setup.TAG === "Error") {
+      reduction4x4Result.textContent = describeError(setup._0);
+      reduction4x4Result.classList.add("failure");
+      return;
+    }
+    const sourceKey = solverSetupSourceKeyForCurrent();
+    const request = ++reduction4x4Request;
+    reduction4x4SourceKey = sourceKey;
+    reduction4x4Algorithm = "";
+    reduction4x4Apply.disabled = true;
+    reduction4x4SolveBusy = true;
+    reduction4x4Solve.textContent = "Cancel search";
+    reduction4x4Result.textContent = "Checking centre blocks and wing pairs…";
+    reduction4x4Result.classList.remove("success", "failure");
+    try {
+      const solution = await reduction4x4SolverClient.solve(setup._0.state);
+      if (request !== reduction4x4Request || sourceKey !== reduction4x4SourceKey) return;
+      reduction4x4Algorithm = MoveTransform.serialize(solution.alg) as string;
+      reduction4x4Apply.disabled = reduction4x4Algorithm === "";
+      reduction4x4Result.textContent = `${solution.moveCount} HTM reduced finish · ${reduction4x4Algorithm || "Solved"}`;
+      reduction4x4Result.classList.add("success");
+    } catch (reason) {
+      if (request !== reduction4x4Request) return;
+      reduction4x4Result.textContent = reason instanceof Error ? reason.message : "The 4×4 reduction solver failed.";
+      reduction4x4Result.classList.add("failure");
+    } finally {
+      if (request !== reduction4x4Request) return;
+      reduction4x4SolveBusy = false;
+      reduction4x4Solve.textContent = "Finish reduced state";
+      reduction4x4Solve.disabled = size !== 4;
+    }
+  });
+
+  reduction4x4Apply.addEventListener("click", () => {
+    if (reduction4x4Algorithm === "") return;
+    if (solverSetupSourceKeyForCurrent() !== reduction4x4SourceKey) {
+      reduction4x4Result.textContent = "Setup changed; generate a new 4×4 finishing solution.";
+      reduction4x4Result.classList.add("failure");
+      reduction4x4Apply.disabled = true;
+      return;
+    }
+    store.patch({moves: [movesInput.value.trim(), reduction4x4Algorithm].filter(Boolean).join(" ")});
   });
 
   twoPhaseSolve.addEventListener("click", async () => {

@@ -82,6 +82,14 @@ already-returned solver candidate. Changing Setup resets that candidate and any 
 two-phase refinement search. The 2×2 control returns a shortest solution in the half-turn
 metric; its compact worker table is downloaded only on first use.
 
+For a 4×4×4 that has already been reduced—each 2×2 centre block is
+monochrome and every visible wing pair is matched—**Finish reduced state**
+hands the corresponding 3×3×3 position to the two-phase solver and lifts its
+outer-layer result back to the original cube. The worker replay-verifies the
+finish against the 4×4×4 and requires every face to be monochrome. This is a
+reduction-stage finish, not a general 4×4×4 or move-optimal solver; centre,
+wing-pairing, and parity stages remain separate work.
+
 ## Manual state entry
 
 For 2×2×2 through 5×5×5, **Enter state by hand** opens a draft-only sticker editor. It

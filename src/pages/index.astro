@@ -360,6 +360,18 @@ const cards = [
                 Find an HTM-optimal solution for the Setup state.
               </output>
             </div>
+            <div class="transform-row" data-reduction-4x4-row aria-label="4×4 reduction solver" hidden>
+              <span class="transform-label">4×4 solver</span>
+              <button type="button" class="transform-btn" data-reduction-4x4-solve>
+                Finish reduced state
+              </button>
+              <button type="button" class="transform-btn" data-reduction-4x4-apply disabled>
+                Apply solution
+              </button>
+              <output class="niss-result" data-reduction-4x4-result aria-live="polite">
+                Solve centres and pair wings first, then finish the reduced 4×4.
+              </output>
+            </div>
             <div
               class="transform-row"
               data-workspace-panel="workbench"

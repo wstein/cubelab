@@ -3,11 +3,14 @@ import * as CfopSolver from "../../Solver/CfopSolver.res.mjs";
 import * as PetrusSolver from "../../Solver/PetrusSolver.res.mjs";
 import * as TwoPhaseSolver from "../../Solver/TwoPhaseSolver.res.mjs";
 import * as Optimal2x2Solver from "../../Solver/Optimal2x2Solver";
+import * as MoveExecutor from "../../Move/MoveExecutor.res.mjs";
+import {isMonochromeSolved4x4, reduce4x4} from "../../Solver/Reduction4x4";
 
 type TutorialMethod = "beginner" | "advancedLbl" | "beginnerCfop" | "fullCfop" | "advancedCfop" | "petrus" | "enhancedPetrus";
 type WorkerRequest =
   | {id: number; type: "solveTutorial"; method: TutorialMethod; state: unknown}
   | {id: number; type: "solveOptimal2x2"; state: unknown}
+  | {id: number; type: "solveReduced4x4"; state: unknown}
   | {id: number; type: "solveTwoPhase"; state: unknown; refine?: boolean; maximumDepth?: number}
   | {id: number; type: "cancelTwoPhase"};
 type ReScriptResult = {TAG: "Ok"; _0: unknown} | {TAG: "Error"; _0: unknown};
@@ -108,6 +111,29 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
           });
         }
       })();
+      return;
+    }
+    if (request.type === "solveReduced4x4") {
+      self.postMessage({id: request.id, type: "reduction4x4Progress", stage: "Checking centre blocks and wing pairs…"});
+      const reduced = reduce4x4(request.state);
+      if (reduced.TAG === "Error") {
+        self.postMessage({id: request.id, ok: false, error: reduced._0.message});
+        return;
+      }
+      self.postMessage({id: request.id, type: "reduction4x4Progress", stage: "Preparing the reduced 3×3 solver…"});
+      TwoPhaseSolver.prepareTables();
+      self.postMessage({id: request.id, type: "reduction4x4Progress", stage: "Finishing the reduced 3×3 state…"});
+      const solution = TwoPhaseSolver.solve(reduced._0.state);
+      if (solution.TAG === "Error") {
+        self.postMessage({id: request.id, ok: false, error: TwoPhaseSolver.describeError(solution._0)});
+        return;
+      }
+      const replay = MoveExecutor.applyAlg(request.state, solution._0.alg);
+      if (replay.TAG !== "Ok" || !isMonochromeSolved4x4(replay._0)) {
+        self.postMessage({id: request.id, ok: false, error: "The reduced 3×3 solution did not solve the original 4×4."});
+        return;
+      }
+      self.postMessage({id: request.id, ok: true, solution: solution._0});
       return;
     }
     if (request.type !== "solveTutorial") return;

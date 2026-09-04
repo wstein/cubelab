@@ -4,6 +4,7 @@ import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
 import {isMonochromeSolved4x4, reduce4x4} from "../src/Solver/Reduction4x4.ts";
+import * as TwoPhaseSolver from "../src/Solver/TwoPhaseSolver.res.mjs";
 
 const apply = (size, algorithm) => {
   const result = MoveExecutor.parseAndApply(size, algorithm);
@@ -30,6 +31,21 @@ test("accepts a solved 4×4 in any monochrome face orientation", () => {
   if (solved.TAG !== "Ok") return;
   expect(reduce4x4(solved._0).TAG).toBe("Ok");
   expect(isMonochromeSolved4x4(solved._0)).toBe(true);
+});
+
+test("lifts a verified two-phase finish back onto the original reduced 4×4", () => {
+  const fourByFour = apply(4, "R U F2 L'");
+  const reduced = reduce4x4(fourByFour);
+  expect(reduced.TAG).toBe("Ok");
+  if (reduced.TAG !== "Ok") return;
+
+  TwoPhaseSolver.prepareTables();
+  const solution = TwoPhaseSolver.solve(reduced._0.state);
+  expect(solution.TAG).toBe("Ok");
+  if (solution.TAG !== "Ok") return;
+  const replay = MoveExecutor.applyAlg(fourByFour, solution._0.alg);
+  expect(replay.TAG).toBe("Ok");
+  if (replay.TAG === "Ok") expect(isMonochromeSolved4x4(replay._0)).toBe(true);
 });
 
 test("refuses a 4×4 with unresolved centres or wing pairs", () => {

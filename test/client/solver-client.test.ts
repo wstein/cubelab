@@ -1,6 +1,11 @@
 import {describe, expect, test} from "vitest";
 
-import {createOptimal2x2SolverClient, createSolverClient, createTwoPhaseSolverClient} from "../../src/client/workers/solver-client";
+import {
+  createOptimal2x2SolverClient,
+  createReduction4x4SolverClient,
+  createSolverClient,
+  createTwoPhaseSolverClient,
+} from "../../src/client/workers/solver-client";
 
 type Listener = (event: MessageEvent<unknown>) => void;
 
@@ -119,5 +124,20 @@ describe("solver worker client", () => {
     worker.respond({id: 0, ok: true, solution: {moveCount: 11}});
     expect(stages).toEqual(["Preparing optimal 2×2 solver…"]);
     await expect(solution).resolves.toEqual({moveCount: 11});
+  });
+
+  test("uses a dedicated request and progress stages for reduced 4×4 finishes", async () => {
+    const worker = new FakeWorker();
+    const stages: string[] = [];
+    const client = createReduction4x4SolverClient<{id: string}, {moveCount: number}>(
+      worker as unknown as Worker,
+      (stage) => stages.push(stage),
+    );
+    const solution = client.solve({id: "reduced"});
+    expect(worker.requests).toEqual([{id: 0, type: "solveReduced4x4", state: {id: "reduced"}}]);
+    worker.respond({id: 0, type: "reduction4x4Progress", stage: "Checking centre blocks and wing pairs…"});
+    worker.respond({id: 0, ok: true, solution: {moveCount: 19}});
+    expect(stages).toEqual(["Checking centre blocks and wing pairs…"]);
+    await expect(solution).resolves.toEqual({moveCount: 19});
   });
 });
