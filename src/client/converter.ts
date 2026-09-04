@@ -201,7 +201,6 @@ if (root) {
   const manualStateOpen = root.querySelector<HTMLButtonElement>("[data-manual-state-open]")!;
   const manualStateDialog = root.querySelector<HTMLDialogElement>("[data-manual-state-dialog]")!;
   const manualStateTitle = root.querySelector<HTMLElement>("[data-manual-state-title]")!;
-  const manualStateClose = root.querySelector<HTMLButtonElement>("[data-manual-state-close]")!;
   const manualStateCancel = root.querySelector<HTMLButtonElement>("[data-manual-state-cancel]")!;
   const manualStateNet = root.querySelector<HTMLElement>("[data-manual-state-net]")!;
   const manualStateGrid = root.querySelector<HTMLElement>("[data-manual-state-grid]")!;
@@ -5444,9 +5443,7 @@ if (root) {
   });
   shortcutsClose.addEventListener("click", () => shortcutsDialog.close());
   manualStateOpen.addEventListener("click", openManualStateEditor);
-  [manualStateClose, manualStateCancel].forEach((button) => {
-    button.addEventListener("click", () => manualStateDialog.close());
-  });
+  manualStateCancel.addEventListener("click", () => manualStateDialog.close());
   manualStatePalette.addEventListener("click", (event) => {
     const button = (event.target as Element).closest<HTMLButtonElement>("[data-manual-state-colour]");
     if (!button) return;

@@ -222,6 +222,7 @@ test("the 2x2 and 3x3 manual state editor keeps a constrained draft separate fro
   assert.match(client, /manualStateOpen\.disabled = size !== 2 && size !== 3/);
   assert.match(page, /class="manual-state-main"[\s\S]*data-manual-state-net/);
   assert.doesNotMatch(page, /data-manual-state-status/);
+  assert.doesNotMatch(page, /data-manual-state-close/);
   assert.match(styles, /\.manual-state-shortcuts \{[\s\S]*margin-top: 0\.8rem;/);
   assert.match(page, /class="manual-state-key manual-state-face-key"[\s\S]*data-face="U">U[\s\S]*data-face="B">B[\s\S]*class="manual-state-shortcut-actions"[\s\S]*manual-state-key-emphasis">E<\/span>erase[\s\S]*manual-state-key-emphasis">← ↑ ↓ →<\/span>/);
   assert.doesNotMatch(page, /set colour|move cursor/);

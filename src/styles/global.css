@@ -709,7 +709,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   font-size: 1.25rem;
 }
 
-/* One row: title block, then the description, then Close — rather than a
+/* One row: title block, then the description — rather than a
    header row plus a separate full-width intro paragraph beneath it. */
 .manual-state-header {
   display: flex;
