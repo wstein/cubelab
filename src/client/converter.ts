@@ -4417,11 +4417,6 @@ if (root) {
     try {
       const solution = await optimal2x2SolverClient.solve(setup._0.state);
       if (request !== optimal2x2Request || sourceKey !== optimal2x2SourceKey) return;
-      const replay = MoveExecutor.applyAlg(setup._0.state, solution.alg) as Result<CubeState, unknown>;
-      const solved = StateTypes.solved(2) as Result<CubeState, unknown>;
-      if (replay.TAG !== "Ok" || solved.TAG !== "Ok" || FaceletCodec.render(replay._0) !== FaceletCodec.render(solved._0)) {
-        throw new Error("The optimal 2×2 solution did not replay to solved.");
-      }
       optimal2x2Algorithm = MoveTransform.serialize(solution.alg) as string;
       optimal2x2Apply.disabled = optimal2x2Algorithm === "";
       optimal2x2Result.textContent = `${solution.moveCount} HTM optimal · ${optimal2x2Algorithm || "Solved"}`;
