@@ -113,10 +113,12 @@ Auto-set stickers cannot be erased directly; erasing the user-placed sticker tha
 them to dots. Auto-fill is recomputed from only the stickers entered by the user, so a sticker returns to its dots
 whenever an edit makes more than one colour possible. **Reset**
 intentionally leaves stickers blank so a completed draft can be corrected. CubeLab does not
-alter Setup or the viewport until **Load** is enabled. On 2×2×2 and 3×3×3 that requires a
-complete, physically valid position. On 4×4×4 and 5×5×5, the editor enforces complete exact
-colour quotas (and 5×5×5's fixed core centres) but does not claim full big-cube reachability
-validation. Hovering an outer corner or edge-wing sticker on either big-cube net frames its
+alter Setup or the viewport until **Load** is enabled. On 2×2×2, 3×3×3, and 4×4×4 that requires a
+complete, physically valid position. The 4×4×4 validator checks corner orientation and permutation,
+all twenty-four wing-piece placements and orientations, and the four-centre inventory for each
+colour; legitimate reduction-parity positions remain valid. The 5×5×5 editor enforces complete exact
+colour quotas and its fixed core centres but does not claim full big-cube reachability validation.
+Hovering an outer corner or edge-wing sticker on either big-cube net frames its
 matching stickers, while independent centre stickers deliberately have no false piece frame.
 
 The net also accepts keyboard entry: arrow keys move a focus cursor between stickers,

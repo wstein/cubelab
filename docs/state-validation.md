@@ -2,7 +2,7 @@
 
 CubeLab accepts facelets, colour notation, nets, cubie coordinates, Singmaster permutation
 cycles, Orbit64, SSE cubie-state cycles, and smart-cube facelet
-reports. For 2×2×2 and 3×3×3 inputs, syntactic validity alone is
+reports. For 2×2×2, 3×3×3, and 4×4×4 inputs, syntactic validity alone is
 not enough: the position must also be reachable by legal turns.
 
 ## Singmaster piece cycles
@@ -48,6 +48,21 @@ single swapped pair because the invariant cannot identify which physical pair wa
 `PieceReducer.reduce` applies this check to decoded cubie coordinates. The client applies
 the same reducer boundary to every recognized 2×2×2 or 3×3×3 state and to facelets
 reported by a connected smart cube. Unreachable positions therefore never enter playback,
-Academy solving, or smart-cube synchronization as valid states. Larger cubes continue to
-use their existing codec and shape validation because this cubie-coordinate model does not
-represent their complete reachability constraints.
+Academy solving, or smart-cube synchronization as valid states.
+
+## 4×4 wing and centre validation
+
+`StateValidation4x4.ts` validates a completed 4×4×4 facelet state before the manual editor
+enables **Load**. It reduces the eight outer corners to the 2×2×2 coordinate model, checking
+their identity permutation and twist sum. It then models all twenty-four physical wing pieces:
+for every solved wing it enumerates the facelet slots and orientations reachable by outer and
+inner 4×4 layer turns, and requires a perfect one-to-one assignment to the supplied stickers.
+This rejects quota-preserving edits such as moving a single F wing sticker to D.
+
+The validator also requires four centre facelets of each colour. A colour-only facelet state
+does not label the four same-colour centres, or the two same-colour wing twins, so their
+unobservable internal permutation is matched existentially. This is essential: legitimate
+4×4 reduction parity is not an impossible state. The validation therefore proves all
+facelet-visible corner, wing, centre, and reduction-parity constraints without inventing
+identities the input does not contain. 5×5×5 currently retains its quota and fixed-core-centre
+checks only.

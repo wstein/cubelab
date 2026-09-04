@@ -4,6 +4,7 @@ import * as NetCodec from "../State/NetCodec.res.mjs";
 import * as Orbit64Codec from "../State/Orbit64Codec.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import * as StateTypes from "../State/StateTypes.res.mjs";
+import {validate4x4} from "../State/StateValidation4x4";
 import * as MoveCompatibility from "../Move/MoveCompatibility.res.mjs";
 import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 import * as MoveNiss from "../Move/MoveNiss.res.mjs";
@@ -794,6 +795,7 @@ if (root) {
   };
 
   const validatePhysicalState = (state: CubeState): string | null => {
+    if (state.size === 4) return validate4x4(state);
     if (state.size !== 2 && state.size !== 3) return null;
     const pieces = PieceReducer.reduce(state) as Result<PieceState, unknown>;
     return pieces.TAG === "Ok" ? null : PieceReducer.describeError(pieces._0);
@@ -1352,7 +1354,7 @@ if (root) {
       ? "Pick a face colour, then fill the net. Nothing changes in Setup until the complete, physically valid state is loaded."
       : manualSize === 5
       ? "Pick a face colour, then fill the net. Colour quotas and fixed core centres are enforced; nothing changes in Setup until the complete facelet state is loaded."
-      : "Pick a face colour, then fill the net. Colour quotas are enforced; nothing changes in Setup until the complete facelet state is loaded.";
+      : "Pick a face colour, then fill the net. Colour quotas are enforced, and Load checks full 4×4 physical reachability.";
     manualStateDialog.dataset.manualStateSize = String(manualSize);
     manualStateColour = "U";
     renderManualStateEditor();

@@ -3,9 +3,9 @@
  * Drafts use FaceletCodec's compact URFDLB order. A tentative sticker is
  * accepted only if its remaining cubies still admit a legal completion. For a
  * 3×3 that includes the corner/edge permutation-parity agreement; for a 2×2
- * it is the corner permutation and twist rule. On 4×4 and 5×5 the editor
- * deliberately limits itself to exact colour quotas: complete big-cube
- * reachability is not represented by this reduced cubie model.
+ * it is the corner permutation and twist rule. On 4×4 the complete draft is
+ * additionally checked by StateValidation4x4 before it can load; 5×5 still
+ * deliberately limits itself to exact colour quotas.
  */
 /** FaceletCodec's serialized order. Keep this independent of the editor UI. */
 export const faceletOrder = ["U", "R", "F", "D", "L", "B"] as const;
