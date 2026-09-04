@@ -706,7 +706,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
    header row plus a separate full-width intro paragraph beneath it. */
 .manual-state-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 1.2rem;
   margin-bottom: 1rem;
 }
@@ -716,11 +716,18 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   flex-direction: column;
   gap: 0.15rem;
   flex: none;
+  padding-top: 0.15rem;
+}
+
+.manual-state-header-help {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  flex: 1 1 auto;
+  min-width: 12rem;
 }
 
 .manual-state-intro {
-  flex: 1 1 auto;
-  min-width: 12rem;
   margin: 0;
   color: var(--text-secondary);
   font-size: 0.8rem;
@@ -829,11 +836,10 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .manual-state-preview-sticker[data-piece-hover="mate"] { box-shadow: inset 0 0 0 2px #ffc94a; }
 
 .manual-state-shortcuts {
-  grid-column: 3 / 5;
-  grid-row: 3;
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  max-width: 26rem;
   padding: 0.55rem 0.65rem;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-subtle);

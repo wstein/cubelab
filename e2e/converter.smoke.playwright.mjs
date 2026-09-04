@@ -1632,7 +1632,7 @@ test("navigates and paints the net with the keyboard, wrapping across a face edg
   await expect(r0).toHaveText("");
 });
 
-test("shows two CSS-3D preview cubes and a shortcuts reference beside the net", async ({page}) => {
+test("shows two CSS-3D preview cubes in the net and a shortcuts reference in the header", async ({page}) => {
   await page.goto("/");
   await page.locator("[data-manual-state-open]").click();
   const dialog = page.locator("[data-manual-state-dialog]");

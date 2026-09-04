@@ -114,7 +114,8 @@ including the flat net — but are not a paint surface: at their small rendered 
 foreshortened corner sticker's hit-test can resolve to a neighbouring sticker, so clicks
 and drags only ever land on the flat net. A live summary card tracks Entered/Corner/Edge
 progress and a colour-by-colour remaining bar; each palette swatch also shows its own
-remaining count. A shortcuts panel lists the available keyboard and mouse interactions.
+remaining count. A shortcuts panel beside the header's intro line lists the available
+keyboard and mouse interactions.
 **Copy as…** places the current draft on the clipboard as compact facelets, spaced
 facelets, a Singmaster-style per-piece list, or JSON, once the draft is complete; it is
 disabled until then.
