@@ -1053,6 +1053,7 @@ if (root) {
         sticker.type = "button";
         sticker.className = "manual-state-preview-sticker";
         sticker.dataset.manualStateIndex = String(index);
+        sticker.dataset.centre = String(manualSize === 3 && localIndex === 4);
         // Not disabled (see the matching net-sticker comment in
         // buildManualStateGrid): a disabled button also suppresses hover,
         // which is all a preview sticker ever does.
@@ -1093,13 +1094,21 @@ if (root) {
         const face = manualStatePreviewFaceOrder[Math.floor(index / (manualSize * manualSize))];
         const localIndex = index % (manualSize * manualSize);
         const value = manualStateDraft[index];
+        const centre = manualSize === 3 && localIndex === 4;
         sticker.dataset.face = value ?? "unknown";
-        if (index === manualStateHoverIndex) sticker.dataset.pieceHover = "self";
-        else if (hoverMates.includes(index)) sticker.dataset.pieceHover = "mate";
-        else delete sticker.dataset.pieceHover;
+        sticker.dataset.centre = String(centre);
+        if (centre) {
+          delete sticker.dataset.pieceHover;
+        } else if (index === manualStateHoverIndex) {
+          sticker.dataset.pieceHover = "self";
+        } else if (hoverMates.includes(index)) {
+          sticker.dataset.pieceHover = "mate";
+        } else {
+          delete sticker.dataset.pieceHover;
+        }
         sticker.setAttribute(
           "aria-label",
-          `${manualStateFaceName[face]} sticker ${localIndex + 1}${value === null ? ", blank" : `, ${manualStateFaceName[value]}`}`,
+          `${manualStateFaceName[face]} sticker ${localIndex + 1}${centre ? ", fixed centre" : value === null ? ", blank" : `, ${manualStateFaceName[value]}`}`,
         );
       });
     });
@@ -1125,6 +1134,12 @@ if (root) {
         sticker.type = "button";
         sticker.className = "manual-state-sticker";
         sticker.dataset.manualStateIndex = String(index);
+        const centre = manualSize === 3 && localIndex === 4;
+        sticker.dataset.centre = String(centre);
+        if (centre) {
+          sticker.tabIndex = -1;
+          sticker.setAttribute("aria-disabled", "true");
+        }
         group.append(sticker);
         manualStateStickerElements[index] = sticker;
       }
@@ -1180,16 +1195,29 @@ if (root) {
         const index = faceIndex * manualSize * manualSize + localIndex;
         const sticker = manualStateStickerElements[index];
         const value = manualStateDraft[index];
-        sticker.dataset.face = value ?? "unknown";
-        sticker.dataset.auto = String(manualStateAutoIndices.has(index));
-        if (index === manualStateHoverIndex) sticker.dataset.pieceHover = "self";
-        else if (hoverMates.includes(index)) sticker.dataset.pieceHover = "mate";
-        else delete sticker.dataset.pieceHover;
         const centre = manualSize === 3 && localIndex === 4;
-        // Not a native disabled button: that would also suppress hover and
-        // dblclick (picking the centre's own colour into the palette), not
-        // just click/drag paint — isManualStateCentre already guards every
-        // mutating path below, so disabling here was only ever redundant.
+        sticker.dataset.face = value ?? "unknown";
+        sticker.dataset.centre = String(centre);
+        sticker.dataset.auto = String(manualStateAutoIndices.has(index));
+        if (centre) {
+          sticker.tabIndex = -1;
+          sticker.setAttribute("aria-disabled", "true");
+          delete sticker.dataset.pieceHover;
+        } else if (index === manualStateHoverIndex) {
+          sticker.tabIndex = 0;
+          sticker.removeAttribute("aria-disabled");
+          sticker.dataset.pieceHover = "self";
+        } else if (hoverMates.includes(index)) {
+          sticker.tabIndex = 0;
+          sticker.removeAttribute("aria-disabled");
+          sticker.dataset.pieceHover = "mate";
+        } else {
+          sticker.tabIndex = 0;
+          sticker.removeAttribute("aria-disabled");
+          delete sticker.dataset.pieceHover;
+        }
+        // Fixed centres are non-editable, non-selectable reference tiles;
+        // isManualStateCentre guards every mutating and interaction path.
         sticker.setAttribute("aria-label", `${manualStateFaceName[face]} sticker ${localIndex + 1}${centre ? ", fixed centre" : value === null ? ", blank" : `, ${manualStateFaceName[value]}${manualStateAutoIndices.has(index) ? ", filled automatically" : ""}`}`);
         if (value !== null) {
           sticker.textContent = value;
@@ -1228,18 +1256,22 @@ if (root) {
         delete el.dataset.pieceHover;
       });
     });
-    if (manualStateHoverIndex === null) return;
+    if (manualStateHoverIndex === null || isManualStateCentre(manualStateHoverIndex)) return;
     const mates = manualStatePieceMates(manualSize, manualStateHoverIndex);
     // querySelectorAll, not querySelector: manualStatePreviews holds two
     // preview cubes, each with its own copy of every index, so a single
     // "first match" would silently miss the second cube's sticker.
     [manualStateGrid, manualStatePreviews].forEach((root) => {
       root.querySelectorAll<HTMLElement>(`[data-manual-state-index="${manualStateHoverIndex}"]`).forEach((self) => {
-        self.dataset.pieceHover = "self";
+        if (self.dataset.centre !== "true") {
+          self.dataset.pieceHover = "self";
+        }
       });
       mates.forEach((mate) => {
         root.querySelectorAll<HTMLElement>(`[data-manual-state-index="${mate}"]`).forEach((mateEl) => {
-          mateEl.dataset.pieceHover = "mate";
+          if (mateEl.dataset.centre !== "true") {
+            mateEl.dataset.pieceHover = "mate";
+          }
         });
       });
     });
@@ -1251,6 +1283,13 @@ if (root) {
       const sticker = (event.target as Element).closest<HTMLButtonElement>("[data-manual-state-index]");
       if (!sticker) return;
       const index = Number(sticker.dataset.manualStateIndex);
+      if (isManualStateCentre(index)) {
+        if (manualStateHoverIndex !== null) {
+          manualStateHoverIndex = null;
+          updateManualStatePieceHighlight();
+        }
+        return;
+      }
       if (manualStateHoverIndex === index) return;
       manualStateHoverIndex = index;
       updateManualStatePieceHighlight();
@@ -5405,7 +5444,7 @@ if (root) {
     const sticker = (event.target as Element).closest<HTMLElement>("[data-manual-state-index]");
     if (!sticker) return null;
     const index = Number(sticker.dataset.manualStateIndex);
-    return Number.isInteger(index) ? index : null;
+    return Number.isInteger(index) && !isManualStateCentre(index) ? index : null;
   };
   // Wired identically on the flat net and both preview cubes: whichever one
   // the pointer is on paints, erases, or drags the same draft.
@@ -5517,7 +5556,7 @@ if (root) {
     const focused = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>("[data-manual-state-index]");
     if (!focused || !manualStateNet.contains(focused)) return;
     const index = Number(focused.dataset.manualStateIndex);
-    if (!Number.isInteger(index)) return;
+    if (!Number.isInteger(index) || isManualStateCentre(index)) return;
     const manualSize = size as ManualStateSize;
     const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
     if ((faceletOrder as readonly string[]).includes(key)) {
@@ -5544,7 +5583,10 @@ if (root) {
     if (!direction) return;
     event.preventDefault();
     event.stopPropagation();
-    const next = manualStateArrowTarget(manualSize, index, direction);
+    let next = manualStateArrowTarget(manualSize, index, direction);
+    if (next !== null && isManualStateCentre(next)) {
+      next = manualStateArrowTarget(manualSize, next, direction);
+    }
     if (next !== null) manualStateStickerElements[next]?.focus();
   });
   manualStateReset.addEventListener("click", () => {
