@@ -1584,19 +1584,6 @@ s100"></textarea>
               Pick a face colour, then fill the net. Nothing changes in Setup
               until the complete, physically valid state is loaded.
             </p>
-            <div class="manual-state-shortcuts">
-              <span class="panel-label">Shortcuts</span>
-              <div class="manual-state-shortcuts-grid">
-                <div><span class="manual-state-key">U R F D L B</span>set colour</div>
-                <div><span class="manual-state-key">C</span>clear</div>
-                <div><span class="manual-state-key">← ↑ ↓ →</span>move cursor</div>
-                <div><span class="manual-state-key">click</span>paint</div>
-                <div><span class="manual-state-key">click dot</span>paint that colour</div>
-                <div><span class="manual-state-key">drag</span>paint run</div>
-                <div><span class="manual-state-key">right-click</span>erase</div>
-                <div><span class="manual-state-key">double-click</span>pick colour</div>
-              </div>
-            </div>
           </div>
           <button
             type="button"
@@ -1606,14 +1593,33 @@ s100"></textarea>
           >
         </div>
         <div class="manual-state-layout">
-          <section
-            class="manual-state-net"
-            aria-label="Cube sticker net"
-            data-manual-state-net
-          >
-            <div class="manual-state-net-faces" data-manual-state-grid></div>
-            <div class="manual-state-previews" data-manual-state-previews aria-hidden="true"></div>
-          </section>
+          <div class="manual-state-main">
+            <section
+              class="manual-state-net"
+              aria-label="Cube sticker net"
+              data-manual-state-net
+            >
+              <div class="manual-state-net-faces" data-manual-state-grid></div>
+              <div class="manual-state-previews" data-manual-state-previews aria-hidden="true"></div>
+              <div class="manual-state-shortcuts">
+                <span class="panel-label">Shortcuts</span>
+                <div class="manual-state-shortcuts-grid">
+                  <div><span class="manual-state-key">U R F D L B</span>set colour</div>
+                  <div><span class="manual-state-key">C</span>clear</div>
+                  <div><span class="manual-state-key">← ↑ ↓ →</span>move cursor</div>
+                  <div><span class="manual-state-key">click</span>paint</div>
+                  <div><span class="manual-state-key">click dot</span>paint that colour</div>
+                  <div><span class="manual-state-key">drag</span>paint run</div>
+                  <div><span class="manual-state-key">right-click</span>erase</div>
+                  <div><span class="manual-state-key">double-click</span>pick colour</div>
+                </div>
+              </div>
+            </section>
+            <output class="manual-state-status" data-manual-state-status aria-live="polite">
+              <span class="manual-state-status-pill" data-manual-state-status-pill></span>
+              <span data-manual-state-status-text></span>
+            </output>
+          </div>
           <section class="manual-state-tools" aria-label="State editor tools">
             <div class="manual-state-summary" data-manual-state-summary aria-live="polite"></div>
             <span class="panel-label">Sticker colour</span>
@@ -1657,10 +1663,6 @@ s100"></textarea>
                 Solved
               </button>
             </div>
-            <output class="manual-state-status" data-manual-state-status aria-live="polite">
-              <span class="manual-state-status-pill" data-manual-state-status-pill></span>
-              <span data-manual-state-status-text></span>
-            </output>
             <div class="manual-state-copy-menu-wrap">
               <button
                 type="button"
