@@ -1202,10 +1202,12 @@ if (root) {
         if (centre) {
           sticker.tabIndex = -1;
           sticker.setAttribute("aria-disabled", "true");
+          sticker.title = "Double-click to select colour";
           delete sticker.dataset.pieceHover;
         } else if (index === manualStateHoverIndex) {
           sticker.tabIndex = 0;
           sticker.removeAttribute("aria-disabled");
+          sticker.removeAttribute("title");
           sticker.dataset.pieceHover = "self";
         } else if (hoverMates.includes(index)) {
           sticker.tabIndex = 0;
@@ -5440,11 +5442,15 @@ if (root) {
     manualStateColour = null;
     renderManualStateEditor();
   });
-  const manualStateStickerAt = (event: Event): number | null => {
+  const manualStateRawStickerAt = (event: Event): number | null => {
     const sticker = (event.target as Element).closest<HTMLElement>("[data-manual-state-index]");
     if (!sticker) return null;
     const index = Number(sticker.dataset.manualStateIndex);
-    return Number.isInteger(index) && !isManualStateCentre(index) ? index : null;
+    return Number.isInteger(index) ? index : null;
+  };
+  const manualStateStickerAt = (event: Event): number | null => {
+    const index = manualStateRawStickerAt(event);
+    return index !== null && !isManualStateCentre(index) ? index : null;
   };
   // Wired identically on the flat net and both preview cubes: whichever one
   // the pointer is on paints, erases, or drags the same draft.
@@ -5485,7 +5491,7 @@ if (root) {
     // Double-click a filled sticker to pick up its colour into the palette,
     // without altering the sticker itself.
     paintRoot.addEventListener("dblclick", (event) => {
-      const index = manualStateStickerAt(event);
+      const index = manualStateRawStickerAt(event);
       if (index === null) return;
       const value = manualStateDraft[index];
       if (value === null) return;
@@ -5497,6 +5503,11 @@ if (root) {
     // Eraser selected, means erase — the origin cell itself is still painted
     // by the ordinary click handler above so a plain click keeps working.
     paintRoot.addEventListener("mousedown", (event) => {
+      const rawIndex = manualStateRawStickerAt(event);
+      if (rawIndex !== null && isManualStateCentre(rawIndex)) {
+        event.preventDefault();
+        return;
+      }
       if (manualStateStickerAt(event) === null) return;
       manualStateDragErase = (event as MouseEvent).button === 2 || manualStateColour === null;
     });

@@ -974,7 +974,6 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   cursor: default;
   filter: brightness(0.86);
   user-select: none;
-  pointer-events: none;
 }
 
 .manual-state-sticker[data-centre="true"]:hover,

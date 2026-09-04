@@ -95,7 +95,8 @@ changing the sticker; a plain click on a filled sticker otherwise does nothing, 
 cannot race and clobber that double-click — right-click (erase) then click remains how to
 correct one. The six 3×3 centre stickers are physically fixed to the core and define face
 orientation; they are rendered a nuance darker with no hover or focus frame and are not
-selectable (arrow keys skip them during keyboard navigation). Both click and key entry
+selectable (arrow keys skip them during keyboard navigation). Double-clicking a centre
+sticker similarly selects its colour into the palette. Both click and key entry
 automatically fill subsequently forced stickers, rendered slightly smaller with a cyan inset outline.
 Auto-set stickers cannot be erased directly; erasing the user-placed sticker that forced them returns
 them to dots. Auto-fill is recomputed from only the stickers entered by the user, so a sticker returns to its dots
