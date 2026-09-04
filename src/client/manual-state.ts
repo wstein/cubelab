@@ -3,7 +3,9 @@
  * Drafts use FaceletCodec's compact URFDLB order. A tentative sticker is
  * accepted only if its remaining cubies still admit a legal completion. For a
  * 3×3 that includes the corner/edge permutation-parity agreement; for a 2×2
- * it is the corner permutation and twist rule.
+ * it is the corner permutation and twist rule. On 4×4 and 5×5 the editor
+ * deliberately limits itself to exact colour quotas: complete big-cube
+ * reachability is not represented by this reduced cubie model.
  */
 /** FaceletCodec's serialized order. Keep this independent of the editor UI. */
 export const faceletOrder = ["U", "R", "F", "D", "L", "B"] as const;
@@ -11,7 +13,7 @@ export type ManualStateFace = typeof faceletOrder[number];
 
 /** Fixed presentation order: opposite colours are paired in the UI. */
 export const manualStateFaces = ["U", "D", "R", "L", "F", "B"] as const;
-export type ManualStateSize = 2 | 3;
+export type ManualStateSize = 2 | 3 | 4 | 5;
 export type ManualStateDraft = Array<ManualStateFace | null>;
 
 type Candidate = {piece: number; orientation: number; stickers: ManualStateFace[]};
@@ -80,7 +82,7 @@ const candidatesFor = (kind: CubieKind): Candidate[][] => kind.slots.map(() =>
 const matches = (draft: ManualStateDraft, slot: number[], candidate: Candidate): boolean =>
   slot.every((index, localIndex) => draft[index] === null || draft[index] === candidate.stickers[localIndex]);
 
-const kindsForSize = (size: ManualStateSize): CubieKind[] => [
+const kindsForSize = (size: 2 | 3): CubieKind[] => [
   {...corners, slots: size === 2 ? cornerSlots2 : cornerSlots3},
   ...(size === 3 ? [edges] : []),
 ];
@@ -135,9 +137,18 @@ export const emptyManualState = (size: ManualStateSize): ManualStateDraft => {
 export const manualStateEnteredCount = (draft: ManualStateDraft): number =>
   draft.filter((face) => face !== null).length;
 
+const colourCounts = (draft: ManualStateDraft): Record<ManualStateFace, number> => {
+  const counts: Record<ManualStateFace, number> = {U: 0, D: 0, R: 0, L: 0, F: 0, B: 0};
+  draft.forEach((face) => {
+    if (face !== null) counts[face] += 1;
+  });
+  return counts;
+};
+
 /** True when a partial draft has at least one physically legal completion. */
 export const canCompleteManualState = (size: ManualStateSize, draft: ManualStateDraft): boolean => {
   if (draft.length !== manualStateStickerCount(size)) return false;
+  if (size >= 4) return Object.values(colourCounts(draft)).every((count) => count <= size * size);
   if (size === 3 && centreIndices3.some((index, face) => draft[index] !== faceletOrder[face])) return false;
   const corner = feasibleSignatures(draft, kindsForSize(size)[0]);
   if (size === 2) return corner[0][0] || corner[0][1];
@@ -153,6 +164,10 @@ export const allowedManualStateColours = (
 ): ManualStateFace[] => {
   if (index < 0 || index >= draft.length) return [];
   if (size === 3 && centreIndices3.includes(index)) return [faceletOrder[centreIndices3.indexOf(index)]];
+  if (size >= 4) {
+    const counts = colourCounts(draft);
+    return manualStateFaces.filter((colour) => counts[colour] < size * size || draft[index] === colour);
+  }
   return manualStateFaces.filter((colour) => {
     const candidate = [...draft];
     candidate[index] = colour;
@@ -172,6 +187,7 @@ export const locallyAllowedManualStateColours = (
 ): ManualStateFace[] => {
   if (index < 0 || index >= draft.length) return [];
   if (size === 3 && centreIndices3.includes(index)) return [faceletOrder[centreIndices3.indexOf(index)]];
+  if (size >= 4) return allowedManualStateColours(size, draft, index);
   const perColour = size * size;
   const counts: Record<ManualStateFace, number> = {U: 0, D: 0, R: 0, L: 0, F: 0, B: 0};
   draft.forEach((face) => {
@@ -270,6 +286,7 @@ export const fillLocallyForcedManualStateColours = (
  * for a centre or an out-of-range index. Reuses the same slot tables the
  * feasibility checks already derive from, rather than a second piece list. */
 export const manualStatePieceMates = (size: ManualStateSize, index: number): number[] => {
+  if (size >= 4) return [];
   for (const kind of kindsForSize(size)) {
     const slot = kind.slots.find((candidate) => candidate.includes(index));
     if (slot) return slot.filter((other) => other !== index);

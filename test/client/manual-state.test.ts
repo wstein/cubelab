@@ -141,6 +141,21 @@ describe("3×3 manual state constraints", () => {
   });
 });
 
+describe("4×4 and 5×5 manual state entry", () => {
+  test("accepts quota-respecting drafts without pretending to prove big-cube reachability", () => {
+    for (const size of [4, 5] as const) {
+      const empty = emptyManualState(size);
+      expect(canCompleteManualState(size, empty)).toBe(true);
+      expect(allowedManualStateColours(size, empty, 0)).toEqual(["U", "D", "R", "L", "F", "B"]);
+      const quotaFilled = [...empty];
+      quotaFilled.fill("U", 0, size * size);
+      expect(allowedManualStateColours(size, quotaFilled, size * size)).not.toContain("U");
+      expect(canCompleteManualState(size, quotaFilled)).toBe(true);
+      expect(manualStatePieceMates(size, 0)).toEqual([]);
+    }
+  });
+});
+
 test("keeps FaceletCodec's URFDLB serialization independent from the editor presentation", () => {
   expect(solvedManualState(2).join("")).toBe("UUUURRRRFFFFDDDDLLLLBBBB");
   expect(solvedManualState(3).join("")).toBe(

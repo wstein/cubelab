@@ -210,7 +210,7 @@ test("the editor separates a synchronized setup from optional replay moves", () 
   assert.match(page, /Macro definitions in Moves/);
 });
 
-test("the 2x2 and 3x3 manual state editor keeps a constrained draft separate from Setup", () => {
+test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate from Setup", () => {
   assert.match(page, /data-manual-state-open/);
   assert.match(page, /data-manual-state-grid/);
   assert.match(page, /data-manual-state-load/);
@@ -220,8 +220,9 @@ test("the 2x2 and 3x3 manual state editor keeps a constrained draft separate fro
   assert.match(client, /manualStateAutoIndices\.add\(index\)/);
   assert.match(client, /const manualStateExplicitIndices = new Set<number>\(\)/);
   assert.match(client, /refreshManualStateAutoFill\(manualSize, true\)/);
-  assert.match(client, /if \(manualSize === 2\) \{[\s\S]{0,200}allowedManualStateColours/);
-  assert.match(client, /manualStateOpen\.disabled = size !== 2 && size !== 3/);
+  assert.match(client, /if \(manualSize === 2 \|\| manualSize >= 4\) \{[\s\S]{0,200}allowedManualStateColours/);
+  assert.match(client, /manualStateOpen\.disabled = size < 2 \|\| size > 5/);
+  assert.match(client, /singmaster"\]'\)!\.hidden = manualSize >= 4/);
   assert.match(page, /class="manual-state-main"[\s\S]*data-manual-state-net/);
   assert.doesNotMatch(page, /data-manual-state-status/);
   assert.doesNotMatch(page, /data-manual-state-close/);

@@ -84,7 +84,7 @@ metric; its compact worker table is downloaded only on first use.
 
 ## Manual state entry
 
-For 2×2×2 and 3×3×3, **Enter state by hand** opens a draft-only sticker editor. It
+For 2×2×2 through 5×5×5, **Enter state by hand** opens a draft-only sticker editor. It
 starts blank for an empty Setup, or from a valid existing Setup. On 2×2×2, each blank
 sticker shows only colours that have a complete reachable continuation, so every displayed
 dot is selectable. On 3×3×3, options are checked against full corner/edge permutation
@@ -103,9 +103,10 @@ automatically fill subsequently forced stickers, rendered slightly smaller with 
 Auto-set stickers cannot be erased directly; erasing the user-placed sticker that forced them returns
 them to dots. Auto-fill is recomputed from only the stickers entered by the user, so a sticker returns to its dots
 whenever an edit makes more than one colour possible. **Reset**
-intentionally leaves stickers blank so a completed draft can be corrected. CubeLab does
-not alter Setup or the viewport until **Load** is enabled by a complete, physically valid
-position.
+intentionally leaves stickers blank so a completed draft can be corrected. CubeLab does not
+alter Setup or the viewport until **Load** is enabled. On 2×2×2 and 3×3×3 that requires a
+complete, physically valid position. On 4×4×4 and 5×5×5, the editor enforces complete exact
+colour quotas but does not claim full big-cube reachability validation.
 
 The net also accepts keyboard entry: arrow keys move a focus cursor between stickers,
 wrapping across a 3×3's face boundaries so the cursor keeps moving in the same visual
@@ -119,7 +120,8 @@ either one rings that sticker and its other same-piece stickers everywhere they 
 including the flat net — but are not a paint surface: at their small rendered size a
 foreshortened corner sticker's hit-test can resolve to a neighbouring sticker, so clicks
 and drags only ever land on the flat net. A live summary card tracks Entered/Corner/Edge
-progress; on 3×3×3 it also distinguishes **Known** stickers by including the six fixed
+progress; on 2×2×2 and 3×3×3 it also tracks completed corners and edges, and on 3×3×3 it
+distinguishes **Known** stickers by including the six fixed
 centres. It always includes a colour-by-colour remaining bar—including its final `0 left`
 state—while each palette swatch also shows its own
 remaining count. The summary, palette, copy control, and actions form one right-hand
@@ -130,7 +132,7 @@ continuously through remaining counters, the live dot matrix, and the enabled
 state of **Load** without an extra redundant status banner. This keeps the cube,
 its preview, and the relevant controls visible together in a clean, focused layout.
 **Copy as…** places the current draft on the clipboard as compact facelets, spaced
-facelets or Singmaster piece cycles, once the draft is complete; it is
+facelets or (on 2×2×2/3×3×3) Singmaster piece cycles, once the draft is complete; it is
 disabled until then.
 
 **Sync state** from a connected smart cube writes its physical facelet state into Setup. It

@@ -206,6 +206,7 @@ if (root) {
   const manualStateOpen = root.querySelector<HTMLButtonElement>("[data-manual-state-open]")!;
   const manualStateDialog = root.querySelector<HTMLDialogElement>("[data-manual-state-dialog]")!;
   const manualStateTitle = root.querySelector<HTMLElement>("[data-manual-state-title]")!;
+  const manualStateIntro = root.querySelector<HTMLElement>(".manual-state-intro")!;
   const manualStateCancel = root.querySelector<HTMLButtonElement>("[data-manual-state-cancel]")!;
   const manualStateNet = root.querySelector<HTMLElement>("[data-manual-state-net]")!;
   const manualStateGrid = root.querySelector<HTMLElement>("[data-manual-state-grid]")!;
@@ -809,7 +810,9 @@ if (root) {
     }
     manualStateDraft = manualSize === 2
       ? fillForcedManualStateColours(manualSize, source)
-      : fillLocallyForcedManualStateColours(manualSize, source);
+      : manualSize === 3
+      ? fillLocallyForcedManualStateColours(manualSize, source)
+      : source;
     manualStateDraft.forEach((colour, index) => {
       if (source[index] === null && colour !== null) manualStateAutoIndices.add(index);
     });
@@ -918,13 +921,16 @@ if (root) {
     total: number,
     perColourPlaced: Record<ManualStateFace, number>,
   ) => {
-    const cornerSlots = manualStateCornerSlots(manualSize);
-    const corners = cornerSlots.filter((slot) => slot.every((i) => manualStateDraft[i] !== null)).length;
-    const edgeSlots = manualSize === 3 ? manualStateEdgeSlots() : [];
-    const edges = edgeSlots.filter((slot) => slot.every((i) => manualStateDraft[i] !== null)).length;
     manualStateSummary.replaceChildren(
       manualStateSummaryRow("Entered", `${entered}/${total}`, (entered / total) * 100, "#63b3ff"),
     );
+    if (manualSize <= 3) {
+      const cornerSlots = manualStateCornerSlots(manualSize);
+      const corners = cornerSlots.filter((slot) => slot.every((i) => manualStateDraft[i] !== null)).length;
+      manualStateSummary.append(
+        manualStateSummaryRow("Corners", `${corners}/${cornerSlots.length}`, (corners / cornerSlots.length) * 100, "#f0c419"),
+      );
+    }
     if (manualSize === 3) {
       // The six fixed centres are known from the beginning, unlike the 48
       // paintable stickers counted by Entered. Make that distinction visible
@@ -933,10 +939,9 @@ if (root) {
         manualStateSummaryRow("Known", `${entered + 6}/54`, ((entered + 6) / 54) * 100, "#63b3ff"),
       );
     }
-    manualStateSummary.append(
-      manualStateSummaryRow("Corners", `${corners}/${cornerSlots.length}`, (corners / cornerSlots.length) * 100, "#f0c419"),
-    );
     if (manualSize === 3) {
+      const edgeSlots = manualStateEdgeSlots();
+      const edges = edgeSlots.filter((slot) => slot.every((i) => manualStateDraft[i] !== null)).length;
       manualStateSummary.append(manualStateSummaryRow("Edges", `${edges}/12`, (edges / 12) * 100, "#f0c419"));
     }
     const remaining = total - entered;
@@ -1148,6 +1153,7 @@ if (root) {
     const diagnostic = entered === total ? manualStateCompleteDiagnostic() : null;
     manualStateLoad.disabled = entered !== total || diagnostic !== null;
     manualStateCopyToggle.disabled = manualStateLoad.disabled;
+    root.querySelector<HTMLButtonElement>('[data-manual-state-copy-format="singmaster"]')!.hidden = manualSize >= 4;
     if (manualStateLoad.disabled) {
       manualStateCopyMenu.hidden = true;
       manualStateCopyToggle.setAttribute("aria-expanded", "false");
@@ -1220,7 +1226,7 @@ if (root) {
             dots.className = "manual-state-dots";
             sticker.append(dots);
           }
-          if (manualSize === 2) {
+          if (manualSize === 2 || manualSize >= 4) {
             renderManualStateDots(dots, allowedManualStateColours(manualSize, manualStateDraft, index));
           } else {
             renderManualStateDots(dots, locallyAllowedManualStateColours(manualSize, manualStateDraft, index));
@@ -1292,7 +1298,7 @@ if (root) {
   wireManualStateHover(manualStatePreviews);
 
   const openManualStateEditor = () => {
-    if (size !== 2 && size !== 3) return;
+    if (size < 2 || size > 5) return;
     const manualSize = size as ManualStateSize;
     const setup = input.value.trim() === "" ? null : parseState(input.value);
     manualStateDraft = setup?.TAG === "Ok" && setup._0.state.size === manualSize
@@ -1305,6 +1311,9 @@ if (root) {
     manualStateAutoIndices.clear();
     manualStateHoverIndex = null;
     manualStateTitle.textContent = `Enter ${manualSize}×${manualSize}×${manualSize} state`;
+    manualStateIntro.textContent = manualSize <= 3
+      ? "Pick a face colour, then fill the net. Nothing changes in Setup until the complete, physically valid state is loaded."
+      : "Pick a face colour, then fill the net. Colour quotas are enforced; nothing changes in Setup until the complete facelet state is loaded.";
     manualStateColour = "U";
     renderManualStateEditor();
     manualStateDialog.showModal();
@@ -1517,11 +1526,11 @@ if (root) {
     }
     const orbitQuickCopy = root.querySelector<HTMLButtonElement>("[data-copy-orbit64]");
     if (orbitQuickCopy) orbitQuickCopy.hidden = size !== 3;
-    manualStateOpen.disabled = size !== 2 && size !== 3;
+    manualStateOpen.disabled = size < 2 || size > 5;
     manualStateOpen.textContent = `Enter ${size}×${size} state`;
     manualStateOpen.title = size === 2 || size === 3
-      ? `Build a ${size}×${size}×${size} cube state sticker by sticker`
-      : "Manual state entry currently supports 2×2×2 and 3×3×3.";
+      ? `Build a ${size}×${size}×${size} cube state sticker by sticker with reachability guidance`
+      : `Build a ${size}×${size}×${size} cube state sticker by sticker with exact colour quotas`;
     nissPanel.hidden = size !== 3 || activeTab !== "workbench";
     hamiltonPanel.hidden = activeTab !== "workbench";
     optimal2x2Row.hidden = size !== 2;
