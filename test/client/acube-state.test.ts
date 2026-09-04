@@ -66,6 +66,8 @@ test("imports ACube cycles and standalone orientation terms", () => {
 test("does not confuse ACube state forms with normal grouped algorithms and refuses partial constraints", () => {
   expect(looksLikeAcubeState("(R U)2")).toBe(false);
   expect(looksLikeAcubeState("(UL UR) (UFR URB)")).toBe(true);
+  expect(looksLikeAcubeState("(ul ur) (ufr urb)")).toBe(false);
+  expect(looksLikeAcubeState("(ul ur) (ufr urb)", true)).toBe(true);
   expect(parseAcubeState("(UL UR) [DF DL DR DB]")).toEqual({
     TAG: "Error",
     _0: expect.stringMatching(/multiple states/i),

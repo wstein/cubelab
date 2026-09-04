@@ -1314,7 +1314,7 @@ if (root) {
         ? {TAG: "Ok", _0: {state: pieces._0, label: "Cubie coordinates"}}
         : {TAG: "Error", _0: PieceReducer.describeError(pieces._0)};
     }
-    if (size === 3 && looksLikeAcubeState(compact)) {
+    if (size === 3 && looksLikeAcubeState(compact, notationDialect === "Acube")) {
       const acube = parseAcubeState(compact);
       return acube.TAG === "Ok"
         ? {TAG: "Ok", _0: {state: acube._0.state, label: "ACube cubie state"}}

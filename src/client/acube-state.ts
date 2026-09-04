@@ -144,9 +144,12 @@ const parsePositional = (input: string): Result<AcubeStateImport, string> => {
   }
 };
 
-/** Identifies ACube's uppercase 3×3 state language without stealing normal alg groups. */
-export const looksLikeAcubeState = (input: string): boolean => {
-  if (!/[A-Z]/.test(input)) return false;
+/**
+ * Identifies ACube's 3×3 state language without stealing lower-case SSE cycles.
+ * Selecting the ACube dialect opts into the otherwise ambiguous lower-case form.
+ */
+export const looksLikeAcubeState = (input: string, explicitDialect = false): boolean => {
+  if (!explicitDialect && !/[A-Z]/.test(input)) return false;
   if (/[\[\]@?]/.test(input) || /\b[UDFBLR]{2,3}[+-](?=$|\s|,)/.test(input)) return true;
   if (/\(\s*[UDFBLR]{2,3}(?:\s*,|\s+[UDFBLR]{2,3})/i.test(input)) return true;
   const terms = input.trim().split(/[\s,]+/).filter(Boolean);
