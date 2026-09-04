@@ -608,6 +608,8 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 
 .shortcuts-dialog {
   width: min(42rem, calc(100vw - 2rem));
+  margin: auto;
+  inset: 0;
   padding: 1.2rem;
   border: 1px solid rgba(129, 140, 248, 0.46);
   border-radius: 0.9rem;
@@ -667,6 +669,8 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 
 .settings-dialog {
   width: min(30rem, calc(100vw - 2rem));
+  margin: auto;
+  inset: 0;
   padding: 1.2rem;
   border: 1px solid rgba(129, 140, 248, 0.46);
   border-radius: 0.9rem;
@@ -681,8 +685,11 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-dialog {
-  width: min(96vw, 110rem);
+  width: fit-content;
+  max-width: min(96vw, calc(100vw - 2rem));
   max-height: calc(100vh - 2rem);
+  margin: auto;
+  inset: 0;
   overflow-y: auto;
   padding: 1.2rem;
   border: 1px solid rgba(129, 140, 248, 0.46);
