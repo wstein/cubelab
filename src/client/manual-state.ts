@@ -226,7 +226,7 @@ export const fillLocallyForcedManualStateColours = (
   size: ManualStateSize,
   draft: ManualStateDraft,
 ): ManualStateDraft => {
-  const filled = [...draft];
+  let filled = [...draft];
   let changed = true;
   while (changed) {
     changed = false;
@@ -238,6 +238,12 @@ export const fillLocallyForcedManualStateColours = (
         changed = true;
       }
     }
+  }
+  const unplaced = filled.filter(
+    (colour, index) => colour === null && (size !== 3 || !centreIndices3.includes(index)),
+  ).length;
+  if (unplaced > 0 && unplaced <= 16) {
+    filled = fillForcedManualStateColours(size, filled);
   }
   return filled;
 };

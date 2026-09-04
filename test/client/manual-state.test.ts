@@ -96,6 +96,21 @@ describe("3×3 manual state constraints", () => {
     expect(filled[52]).toBe("B");
   });
 
+  test("auto-fills erased stickers when erasing all 8 blue stickers and one green sticker from solved state", () => {
+    const blueIndices = [45, 46, 47, 48, 50, 51, 52, 53];
+    const nonCentreGreenIndices = [18, 19, 20, 21, 23, 24, 25, 26];
+    for (const greenIndex of nonCentreGreenIndices) {
+      const draft = solvedManualState(3);
+      for (const b of blueIndices) draft[b] = null;
+      draft[greenIndex] = null;
+      const filled = fillLocallyForcedManualStateColours(3, draft);
+      for (const b of blueIndices) {
+        expect(filled[b]).toBe("B");
+      }
+      expect(filled[greenIndex]).toBe("F");
+    }
+  });
+
   test("filters out pieces that are already claimed by another completed slot", () => {
     const empty = emptyManualState(3);
     // Place UR edge [5, 10] = ["U", "R"], UF edge [7, 19] = ["U", "F"], UL edge [3, 37] = ["U", "L"]

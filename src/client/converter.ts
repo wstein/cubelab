@@ -840,10 +840,7 @@ if (root) {
     manualStateDraft[index] = null;
     manualStateExplicitIndices.delete(index);
     manualStateAutoIndices.delete(index);
-    // Do not instantly refill an erased sticker: clearing is how a person
-    // corrects an already-complete draft. Forced-fill runs after a positive
-    // colour choice instead.
-    refreshManualStateAutoFill(manualSize, false);
+    refreshManualStateAutoFill(manualSize, true);
     renderManualStateEditor();
   };
 
