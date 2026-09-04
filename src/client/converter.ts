@@ -835,7 +835,7 @@ if (root) {
   // Shared by the flat net, both preview cubes, and the keyboard shortcut:
   // one place decides whether a sticker can take a colour and applies it.
   const eraseManualStateSticker = (index: number) => {
-    if (isManualStateCentre(index)) return;
+    if (isManualStateCentre(index) || manualStateAutoIndices.has(index)) return;
     const manualSize = size as ManualStateSize;
     manualStateDraft[index] = null;
     manualStateExplicitIndices.delete(index);
