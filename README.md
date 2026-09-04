@@ -14,10 +14,14 @@ Implemented state codecs:
 - canonical ASCII cube nets;
 - compact colours and colour nets using Western, Japanese, or custom schemes;
 - strict 2×2 CP/CO and centre-normalized 3×3 CP/CO/EP/EO coordinates;
+- strict JSON URFDLB face arrays at every supported size;
+- numbered Singmaster corner/edge position lists for complete 2×2 and 3×3 states;
+- SSE cubie-state cycles for complete 2×2 and 3×3 states;
 - normative 12-character Orbit64 encoding for complete 3×3 cubie states.
 
 The input badge identifies the recognized source format, including algorithms,
-Orbit64, cubie coordinates, compact facelets/colours, and canonical nets. The
+Orbit64, cubie coordinates, numbered Singmaster piece lists, JSON facelets, compact
+facelets/colours, and canonical nets. The
 source-compatibility strip appears for algorithms and evaluates their original AST
 against documented WCA token, SiGN/LGN, cubing.js/Twizzle, SpeedSolving Wiki, and
 Ruwix Advanced profiles. Each badge explains any incompatibility on hover or keyboard

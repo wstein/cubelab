@@ -63,10 +63,13 @@ remains a random-turn practice sequence and is not labeled as an official WCA sc
 ## Setup and moves
 
 The editor separates **Setup (state)** from optional **Moves**. Setup accepts compact
-facelets, compact colours, canonical nets, cubie coordinates, 3×3 Orbit64, SSE corner-cycle
-cubie-state cycles, ACube positional states, or an algorithm. The 2×2/3×3 output cards
-offer SSE, and the 3×3 cards offer unfolded ACube positional spellings; each is directly
-pasteable into Setup.
+facelets, strict CubeLab JSON facelets, compact colours, canonical nets, cubie coordinates,
+3×3 Orbit64, SSE corner-cycle cubie-state cycles, numbered Singmaster piece lists, ACube
+positional states, or an algorithm. JSON output works at every supported size. The 2×2/3×3
+cards offer SSE and a reversible Singmaster list; its corners are numbered URF, UFL, ULB,
+UBR, DFR, DLF, DBL, DRB and its edges are numbered DR, UB, DL, UF, UR, DB, UL, DF, FL, FR,
+BR, BL. The 3×3 cards also offer unfolded ACube positional spellings; every listed format is
+directly pasteable into Setup.
 Moves are parsed with the selected notation dialect and replayed from whatever Setup
 resolves to. This includes Setup algorithms: CubeLab first evaluates the Setup algorithm to
 its state, then places that state at tape position zero and replays only Moves. Thus the

@@ -13,7 +13,7 @@ const {
   initialTab = "converter",
   initialPlayer = false,
   pageTitle = "CubeLab — Interactive Cube Studio & Algorithmic Suite",
-  metaDescription = "Convert Rubik's Cube states between facelets, ASCII nets, colour notation, cubie coordinates, and Orbit64.",
+  metaDescription = "Convert Rubik's Cube states between facelets, JSON, ASCII nets, colour notation, cubie coordinates, Singmaster lists, and Orbit64.",
 } = Astro.props;
 
 const cards = [
@@ -21,6 +21,11 @@ const cards = [
     key: "facelets",
     title: "Compact Facelets",
     provenance: "Kociemba URFDLB row-major convention",
+  },
+  {
+    key: "json",
+    title: "JSON Facelets",
+    provenance: "Portable URFDLB face arrays · directly pasteable into Setup",
   },
   {
     key: "net",
@@ -53,6 +58,12 @@ const cards = [
     key: "sse",
     title: "SSE Cubie State",
     provenance: "CubeTwister / Superset ENG cycles and orientation markers",
+    sizes: "2,3",
+  },
+  {
+    key: "singmaster",
+    title: "Singmaster Piece List",
+    provenance: "Fixed numbered corner and edge positions · directly pasteable into Setup",
     sizes: "2,3",
   },
   {
@@ -281,7 +292,7 @@ const cards = [
               data-input
               rows="1"
               wrap="off"
-              placeholder="Paste facelets, colours, a net, cubie coordinates, Orbit64, SSE cubie cycles, or ACube states. Smart-cube Sync loads this field. Leave blank for solved."
+              placeholder="Paste facelets, JSON, colours, a net, cubie coordinates, Singmaster lists, Orbit64, SSE cubie cycles, or ACube states. Smart-cube Sync loads this field. Leave blank for solved."
               spellcheck="false"></textarea>
             <label class="moves-input-label" for="cube-moves">Moves</label>
             <textarea

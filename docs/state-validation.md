@@ -1,9 +1,24 @@
 # Physical state validation
 
-CubeLab accepts facelets, colour notation, nets, cubie coordinates, Orbit64, SSE cubie-state
-cycles, and
-smart-cube facelet reports. For 2×2×2 and 3×3×3 inputs, syntactic validity alone is
+CubeLab accepts facelets, strict JSON facelets, colour notation, nets, cubie coordinates,
+numbered Singmaster piece lists, Orbit64, SSE cubie-state cycles, and smart-cube facelet
+reports. For 2×2×2 and 3×3×3 inputs, syntactic validity alone is
 not enough: the position must also be reachable by legal turns.
+
+## JSON facelets and numbered Singmaster piece lists
+
+JSON state input uses CubeLab's explicit object shape: exactly the six `U`, `R`, `F`, `D`,
+`L`, and `B` keys, each holding a row-major sticker array of the selected face size. The
+Converter emits this format for every supported size and Setup accepts it without guessing a
+different JSON schema.
+
+The 2×2×2 and 3×3×3 **Singmaster Piece List** is another reversible state declaration, not
+an algorithm. It contains every line exactly once: `Corner 1:` through `Corner 8:`, then on
+a 3×3 `Edge 1:` through `Edge 12:`. Its fixed positions are corners `URF UFL ULB UBR DFR
+DLF DBL DRB` and edges `DR UB DL UF UR DB UL DF FL FR BR BL`. Each value gives the stickers
+currently at that numbered position in the facelet order for that position. CubeLab checks
+the fully reconstructed facelets with `PieceReducer`, so duplicate cubies, an invalid twist,
+or an invalid parity are rejected rather than silently loaded.
 
 ## SSE cubie-state cycles (2×2 and 3×3)
 

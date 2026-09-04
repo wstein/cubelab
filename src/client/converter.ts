@@ -19,6 +19,12 @@ import {createAcademyRequestGuard} from "./academy-request";
 import {looksLikeAcubeState, parseAcubeState} from "./acube-state";
 import {countAcubeCompletions, materializeAcubeConstraint, parseAcubeConstraint, renderAcubeState} from "./acube-engine";
 import {looksLikeSseState, parseSseState, renderSseState} from "./sse-state";
+import {parseJsonFacelets, renderJsonFacelets} from "./json-facelets";
+import {
+  looksLikeSingmasterPieceList,
+  parseSingmasterPieceList,
+  renderSingmasterPieceList,
+} from "./singmaster-piece-list";
 import {
   allowedManualStateColours,
   emptyManualState,
@@ -772,25 +778,15 @@ if (root) {
   };
 
   const manualStateJsonFacelets = (manualSize: ManualStateSize): string => {
-    const perFace = manualSize * manualSize;
-    const byFace: Record<string, Array<ManualStateFace | null>> = {};
-    faceletOrder.forEach((face, faceIndex) => {
-      byFace[face] = manualStateDraft.slice(faceIndex * perFace, (faceIndex + 1) * perFace);
-    });
-    return JSON.stringify(byFace, null, 2);
+    const parsed = FaceletCodec.parse(manualSize, manualStateDraft.join("")) as Result<CubeState>;
+    return parsed.TAG === "Ok" ? renderJsonFacelets(parsed._0) : "";
   };
 
   const manualStateSingmasterList = (manualSize: ManualStateSize): string => {
-    const lines: string[] = [];
-    manualStateCornerSlots(manualSize).forEach((slot, pieceIndex) => {
-      lines.push(`Corner ${pieceIndex + 1}: ${slot.map((i) => manualStateDraft[i] ?? "?").join("")}`);
-    });
-    if (manualSize === 3) {
-      manualStateEdgeSlots().forEach((slot, pieceIndex) => {
-        lines.push(`Edge ${pieceIndex + 1}: ${slot.map((i) => manualStateDraft[i] ?? "?").join("")}`);
-      });
-    }
-    return lines.join("\n");
+    const parsed = FaceletCodec.parse(manualSize, manualStateDraft.join("")) as Result<CubeState>;
+    if (parsed.TAG === "Error") return "";
+    const rendered = renderSingmasterPieceList(parsed._0);
+    return rendered.TAG === "Ok" ? rendered._0 : "";
   };
 
   const manualStateCompleteDiagnostic = (): string | null => {
@@ -1372,6 +1368,18 @@ if (root) {
         ? {TAG: "Ok", _0: {state: pieces._0, label: "Cubie coordinates"}}
         : {TAG: "Error", _0: PieceReducer.describeError(pieces._0)};
     }
+    if (compact.startsWith("{")) {
+      const json = parseJsonFacelets(compact, size);
+      return json.TAG === "Ok"
+        ? recognize(json, "JSON facelets")
+        : json;
+    }
+    if ((size === 2 || size === 3) && looksLikeSingmasterPieceList(compact)) {
+      const pieces = parseSingmasterPieceList(compact, size);
+      return pieces.TAG === "Ok"
+        ? {TAG: "Ok", _0: {state: pieces._0, label: "Singmaster piece list"}}
+        : pieces;
+    }
     if (size === 3 && looksLikeAcubeState(compact, notationDialect === "Acube")) {
       const acube = parseAcubeState(compact);
       return acube.TAG === "Ok"
@@ -1593,6 +1601,7 @@ if (root) {
     const palette: CubePalette = schemeSelect.value === "Japanese" ? "Japanese" : "Western";
     viewport?.setScene(state, palette, cubeStyle);
     setOutput("facelets", FaceletCodec.render(state));
+    setOutput("json", renderJsonFacelets(state));
     setOutput("net", NetCodec.render(state));
     const colours = ColorCodec.renderCompact(scheme(), state) as Result<string>;
     const colourNet = ColorCodec.renderNet(scheme(), state) as Result<string>;
@@ -1613,9 +1622,10 @@ if (root) {
         );
         if (size === 3) {
           setOutput("orbit64", "Unavailable — invalid piece state", false);
-          setOutput("sse", "Unavailable — invalid piece state", false);
           setOutput("acube", "Unavailable — invalid piece state", false);
         }
+        setOutput("sse", "Unavailable — invalid piece state", false);
+        setOutput("singmaster", "Unavailable — invalid piece state", false);
       } else {
         const renderedPieces = PieceReducer.render(pieces._0) as Result<string, unknown>;
         setOutput(
@@ -1632,11 +1642,17 @@ if (root) {
             orbit.TAG === "Ok" ? orbit._0 : `Unavailable — ${Orbit64Codec.describeError(orbit._0)}`,
             orbit.TAG === "Ok",
           );
-          const sse = renderSseState(state);
-          setOutput("sse", sse.TAG === "Ok" ? sse._0 : `Unavailable — ${sse._0}`, sse.TAG === "Ok");
           const acube = renderAcubeState(state);
           setOutput("acube", acube.TAG === "Ok" ? acube._0 : `Unavailable — ${acube._0}`, acube.TAG === "Ok");
         }
+        const sse = renderSseState(state);
+        setOutput("sse", sse.TAG === "Ok" ? sse._0 : `Unavailable — ${sse._0}`, sse.TAG === "Ok");
+        const singmaster = renderSingmasterPieceList(state);
+        setOutput(
+          "singmaster",
+          singmaster.TAG === "Ok" ? singmaster._0 : `Unavailable — ${singmaster._0}`,
+          singmaster.TAG === "Ok",
+        );
       }
     }
   };

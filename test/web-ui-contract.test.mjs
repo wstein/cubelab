@@ -26,15 +26,19 @@ const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url)
 const pwa = await readFile(new URL("../src/client/pwa.ts", import.meta.url), "utf8");
 const styles = await readFile(new URL("../src/styles/global.css", import.meta.url), "utf8");
 
-test("the static shell declares size-scoped cubie and Orbit64 cards", () => {
+test("the static shell declares the reversible state-interchange cards", () => {
   assert.match(page, /key: "pieces"[\s\S]*sizes: "2,3"/);
   assert.match(page, /key: "orbit64"[\s\S]*sizes: "3"/);
   assert.match(page, /data-output-card=\{key\}/);
   assert.match(page, /data-copy-orbit64/);
   assert.match(page, />Copy as Orbit64</);
-  assert.match(page, /key: "sse"[\s\S]*sizes: "3"/);
+  assert.match(page, /key: "json"[\s\S]*title: "JSON Facelets"/);
+  assert.match(page, /key: "sse"[\s\S]*sizes: "2,3"/);
+  assert.match(page, /key: "singmaster"[\s\S]*sizes: "2,3"/);
   assert.match(page, /key: "acube"[\s\S]*sizes: "3"/);
   assert.match(client, /renderSseState/);
+  assert.match(client, /renderSingmasterPieceList/);
+  assert.match(client, /parseJsonFacelets/);
   assert.match(client, /renderAcubeState/);
 });
 
