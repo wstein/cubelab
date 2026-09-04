@@ -1170,8 +1170,8 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 
 .manual-state-status {
   display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+  align-items: center;
+  gap: 0.65rem;
   min-height: 2.5rem;
   margin-top: 1rem;
   padding: 0.6rem 0.7rem;
@@ -1183,7 +1183,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-status-pill {
-  align-self: flex-start;
+  flex: none;
   padding: 0.2rem 0.55rem;
   border-radius: 999px;
   font: 700 0.63rem var(--font-mono);
@@ -1192,6 +1192,8 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   background: rgba(148, 163, 184, 0.16);
   color: #cbd5e1;
 }
+
+.manual-state-status > span:last-child { min-width: 0; }
 
 .manual-state-status.success .manual-state-status-pill { background: rgba(110, 231, 183, 0.18); color: #6ee7b7; }
 .manual-state-status.failure .manual-state-status-pill { background: rgba(252, 165, 165, 0.18); color: #fca5a5; }
