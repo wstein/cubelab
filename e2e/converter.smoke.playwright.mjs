@@ -1740,8 +1740,8 @@ test("copies the hand-entered state in the chosen format, only once it is comple
 
   await toggle.click();
   await dialog.locator('[data-manual-state-copy-format="singmaster"]').click();
-  const singmaster = await page.evaluate(() => navigator.clipboard.readText());
-  expect(singmaster).toContain("Corner 1: URF"); // pieces list their own solved-state stickers
-  expect(singmaster.match(/^Corner/gm)).toHaveLength(8);
-  expect(singmaster.match(/^Edge/gm)).toHaveLength(12);
+  // A solved cube has no permutation cycles and no twisted pieces, so real
+  // Singmaster cycle notation renders empty — matching every other Setup
+  // format's "blank means solved" convention.
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("");
 });

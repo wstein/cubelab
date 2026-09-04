@@ -19,12 +19,12 @@ import {createAcademyRequestGuard} from "./academy-request";
 import {looksLikeAcubeState, parseAcubeState} from "./acube-state";
 import {countAcubeCompletions, materializeAcubeConstraint, parseAcubeConstraint, renderAcubeState} from "./acube-engine";
 import {looksLikeSseState, parseSseState, renderSseState} from "./sse-state";
-import {parseJsonFacelets, renderJsonFacelets} from "./json-facelets";
+import {parseKociembaJsonFacelets, renderKociembaJsonFacelets} from "./json-facelets";
 import {
-  looksLikeSingmasterPieceList,
-  parseSingmasterPieceList,
-  renderSingmasterPieceList,
-} from "./singmaster-piece-list";
+  looksLikeSingmasterCycleState,
+  parseSingmasterCycleState,
+  renderSingmasterCycleState,
+} from "./singmaster-cycle-state";
 import {
   allowedManualStateColours,
   emptyManualState,
@@ -779,13 +779,15 @@ if (root) {
 
   const manualStateJsonFacelets = (manualSize: ManualStateSize): string => {
     const parsed = FaceletCodec.parse(manualSize, manualStateDraft.join("")) as Result<CubeState>;
-    return parsed.TAG === "Ok" ? renderJsonFacelets(parsed._0) : "";
+    if (parsed.TAG === "Error") return "";
+    const rendered = renderKociembaJsonFacelets(parsed._0);
+    return rendered.TAG === "Ok" ? rendered._0 : "";
   };
 
-  const manualStateSingmasterList = (manualSize: ManualStateSize): string => {
+  const manualStateSingmasterCycles = (manualSize: ManualStateSize): string => {
     const parsed = FaceletCodec.parse(manualSize, manualStateDraft.join("")) as Result<CubeState>;
     if (parsed.TAG === "Error") return "";
-    const rendered = renderSingmasterPieceList(parsed._0);
+    const rendered = renderSingmasterCycleState(parsed._0);
     return rendered.TAG === "Ok" ? rendered._0 : "";
   };
 
@@ -1155,6 +1157,7 @@ if (root) {
     const diagnostic = entered === total ? manualStateCompleteDiagnostic() : null;
     manualStateLoad.disabled = entered !== total || diagnostic !== null;
     manualStateCopyToggle.disabled = manualStateLoad.disabled;
+    root.querySelector<HTMLButtonElement>('[data-manual-state-copy-format="json"]')!.hidden = manualSize !== 3;
     if (manualStateLoad.disabled) {
       manualStateCopyMenu.hidden = true;
       manualStateCopyToggle.setAttribute("aria-expanded", "false");
@@ -1369,16 +1372,16 @@ if (root) {
         : {TAG: "Error", _0: PieceReducer.describeError(pieces._0)};
     }
     if (compact.startsWith("{")) {
-      const json = parseJsonFacelets(compact, size);
+      const json = parseKociembaJsonFacelets(compact, size);
       return json.TAG === "Ok"
-        ? recognize(json, "JSON facelets")
+        ? recognize(json, "Kociemba JSON facelets")
         : json;
     }
-    if ((size === 2 || size === 3) && looksLikeSingmasterPieceList(compact)) {
-      const pieces = parseSingmasterPieceList(compact, size);
-      return pieces.TAG === "Ok"
-        ? {TAG: "Ok", _0: {state: pieces._0, label: "Singmaster piece list"}}
-        : pieces;
+    if ((size === 2 || size === 3) && looksLikeSingmasterCycleState(compact)) {
+      const cycles = parseSingmasterCycleState(compact, size);
+      return cycles.TAG === "Ok"
+        ? {TAG: "Ok", _0: {state: cycles._0, label: "Singmaster permutation cycles"}}
+        : cycles;
     }
     if (size === 3 && looksLikeAcubeState(compact, notationDialect === "Acube")) {
       const acube = parseAcubeState(compact);
@@ -1601,7 +1604,8 @@ if (root) {
     const palette: CubePalette = schemeSelect.value === "Japanese" ? "Japanese" : "Western";
     viewport?.setScene(state, palette, cubeStyle);
     setOutput("facelets", FaceletCodec.render(state));
-    setOutput("json", renderJsonFacelets(state));
+    const json = renderKociembaJsonFacelets(state);
+    setOutput("json", json.TAG === "Ok" ? json._0 : "—", json.TAG === "Ok");
     setOutput("net", NetCodec.render(state));
     const colours = ColorCodec.renderCompact(scheme(), state) as Result<string>;
     const colourNet = ColorCodec.renderNet(scheme(), state) as Result<string>;
@@ -1647,7 +1651,7 @@ if (root) {
         }
         const sse = renderSseState(state);
         setOutput("sse", sse.TAG === "Ok" ? sse._0 : `Unavailable — ${sse._0}`, sse.TAG === "Ok");
-        const singmaster = renderSingmasterPieceList(state);
+        const singmaster = renderSingmasterCycleState(state);
         setOutput(
           "singmaster",
           singmaster.TAG === "Ok" ? singmaster._0 : `Unavailable — ${singmaster._0}`,
@@ -5678,7 +5682,7 @@ if (root) {
     const text = button.dataset.manualStateCopyFormat === "spaced"
       ? manualStateSpacedFacelets(manualSize)
       : button.dataset.manualStateCopyFormat === "singmaster"
-      ? manualStateSingmasterList(manualSize)
+      ? manualStateSingmasterCycles(manualSize)
       : button.dataset.manualStateCopyFormat === "json"
       ? manualStateJsonFacelets(manualSize)
       : manualStateCompactFacelets();

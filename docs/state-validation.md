@@ -1,24 +1,23 @@
 # Physical state validation
 
-CubeLab accepts facelets, strict JSON facelets, colour notation, nets, cubie coordinates,
-numbered Singmaster piece lists, Orbit64, SSE cubie-state cycles, and smart-cube facelet
+CubeLab accepts facelets, a strict Kociemba JSON facelet wrapper, colour notation, nets, cubie coordinates,
+Singmaster permutation cycles, Orbit64, SSE cubie-state cycles, and smart-cube facelet
 reports. For 2×2×2 and 3×3×3 inputs, syntactic validity alone is
 not enough: the position must also be reachable by legal turns.
 
-## JSON facelets and numbered Singmaster piece lists
+## Kociemba JSON facelets and Singmaster piece cycles
 
-JSON state input uses CubeLab's explicit object shape: exactly the six `U`, `R`, `F`, `D`,
-`L`, and `B` keys, each holding a row-major sticker array of the selected face size. The
-Converter emits this format for every supported size and Setup accepts it without guessing a
-different JSON schema.
+JSON state input is limited to 3×3×3 and has exactly one property: `facelets`. Its value is
+the Kociemba-compatible 54-character `URFDLB` facelet string. For example,
+`{"facelets":"UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB"}`. This keeps the
+JSON card as a simple wrapper around the established facelet interchange spelling rather
+than inventing a CubeLab-specific grouped-by-face schema.
 
-The 2×2×2 and 3×3×3 **Singmaster Piece List** is another reversible state declaration, not
-an algorithm. It contains every line exactly once: `Corner 1:` through `Corner 8:`, then on
-a 3×3 `Edge 1:` through `Edge 12:`. Its fixed positions are corners `URF UFL ULB UBR DFR
-DLF DBL DRB` and edges `DR UB DL UF UR DB UL DF FL FR BR BL`. Each value gives the stickers
-currently at that numbered position in the facelet order for that position. CubeLab checks
-the fully reconstructed facelets with `PieceReducer`, so duplicate cubies, an invalid twist,
-or an invalid parity are rejected rather than silently loaded.
+The 2×2×2 and 3×3×3 **Singmaster Piece Cycles** are another reversible state declaration,
+not an algorithm. Uppercase position names distinguish them from SSE's lowercase cycles:
+`(URF,UBR,ULB)` cycles corners, while a `+` or `-` suffix records a corner twist and `+`
+records an edge flip. CubeLab checks the reconstructed state with `PieceReducer`, so invalid
+orientation or permutation parity is rejected rather than silently loaded.
 
 ## SSE cubie-state cycles (2×2 and 3×3)
 

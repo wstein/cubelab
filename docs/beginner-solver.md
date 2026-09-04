@@ -2,7 +2,7 @@
 
 `src/Solver/BeginnerSolver.res` solves a validated 3×3 state through seven explicit
 Layer-by-Layer goals. It accepts the canonical cube state, not the source algorithm, so
-compact or JSON facelets, colour notation, nets, cubie coordinates, Singmaster piece lists,
+compact or Kociemba JSON facelets, colour notation, nets, cubie coordinates, Singmaster piece cycles,
 Orbit64, and algorithms all
 use the same solving path.
 
