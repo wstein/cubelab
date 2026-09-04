@@ -1736,7 +1736,7 @@ test("copies the hand-entered state in the chosen format, only once it is comple
   await toggle.click();
   await dialog.locator('[data-manual-state-copy-format="json"]').click();
   const json = await page.evaluate(() => navigator.clipboard.readText());
-  expect(JSON.parse(json).U).toEqual(Array(9).fill("U"));
+  expect(JSON.parse(json).facelets).toBe("UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB");
 
   await toggle.click();
   await dialog.locator('[data-manual-state-copy-format="singmaster"]').click();
