@@ -938,6 +938,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
      rendered box (cqi units) instead of a fixed rem value — the net's
      sticker size already varies with viewport and puzzle size. */
   container-type: inline-size;
+  transition: transform 0.1s ease;
 }
 
 .manual-state-sticker:hover { border-color: #67e8f9; }
@@ -965,16 +966,8 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   z-index: 1;
 }
 .manual-state-sticker[data-auto="true"] {
+  transform: scale(0.85);
   box-shadow: inset 0 0 0 2px rgba(103, 232, 249, 0.85);
-}
-
-.manual-state-sticker[data-auto="true"]::after {
-  position: absolute;
-  top: 0.08rem;
-  right: 0.12rem;
-  color: #67e8f9;
-  content: "✦";
-  font: 700 0.55rem/1 var(--font-mono);
 }
 
 .manual-state-sticker[data-centre="true"] {

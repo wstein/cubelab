@@ -96,7 +96,7 @@ cannot race and clobber that double-click — right-click (erase) then click rem
 correct one. The six 3×3 centre stickers are physically fixed to the core and define face
 orientation; they are rendered a nuance darker with no hover or focus frame and are not
 selectable (arrow keys skip them during keyboard navigation). Both click and key entry
-automatically fill subsequently forced stickers, marked with a cyan inset outline and star.
+automatically fill subsequently forced stickers, rendered slightly smaller with a cyan inset outline.
 Auto-fill is recomputed from only the stickers entered by the user, so a sticker returns to its dots
 whenever an edit makes more than one colour possible. **Reset**
 intentionally leaves stickers blank so a completed draft can be corrected. CubeLab does
