@@ -104,7 +104,7 @@ position.
 The net also accepts keyboard entry: arrow keys move a focus cursor between stickers,
 wrapping across a 3×3's face boundaries so the cursor keeps moving in the same visual
 direction rather than stopping at an edge (2×2 has no such wrap and stops there); U, R, F,
-D, L, or B paints the focused sticker directly; C clears it.
+D, L, or B paints the focused sticker directly; E erases it.
 
 In the net's own empty upper-right corner, two small CSS-rendered 3D cubes preview the
 draft from complementary angles (together showing all six faces) so the editor also reads

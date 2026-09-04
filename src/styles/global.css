@@ -876,6 +876,12 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   font: 800 0.6rem var(--font-mono);
 }
 
+.manual-state-key-emphasis {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
 .manual-state-face-key {
   display: grid;
   grid-template-columns: repeat(6, 0.62rem);

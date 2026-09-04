@@ -223,14 +223,18 @@ test("the 2x2 and 3x3 manual state editor keeps a constrained draft separate fro
   assert.match(client, /store\.patch\(\{input: manualStateDraft\.join\(""\)\}\)/);
   assert.match(page, /class="manual-state-main"[\s\S]*data-manual-state-net[\s\S]*data-manual-state-status/);
   assert.match(page, /class="manual-state-key manual-state-face-key"[\s\S]*data-face="U">U[\s\S]*data-face="B">B[\s\S]*move cursor/);
+  assert.match(page, /manual-state-key-emphasis">E<\/span>erase[\s\S]*manual-state-key-emphasis">← ↑ ↓ →<\/span>move cursor/);
   assert.doesNotMatch(page, /class="manual-state-key">(?:click|drag|right-click|double-click)</);
   assert.match(page, /data-manual-state-copy-toggle[\s\S]*manual-state-footer/);
   assert.match(page, /manual-state-shortcuts[\s\S]*data-manual-state-copy-toggle/);
   assert.doesNotMatch(styles, /\.manual-state-shortcuts \{[\s\S]{0,120}grid-(?:column|row):/);
   assert.match(styles, /\.manual-state-face-key \{[\s\S]*grid-template-columns: repeat\(6, 0\.62rem\);/);
+  assert.match(styles, /\.manual-state-key-emphasis \{[\s\S]*font-weight: 800;/);
   assert.match(styles, /\.manual-state-tools \{[\s\S]*flex: 0 1 18rem;/);
   assert.match(client, /manualStateSummaryRow\("Known", `\$\{entered \+ 6\}\/54`/);
   assert.match(client, /const remaining = total - entered;[\s\S]*if \(remaining === 0\) return;/);
+  assert.match(client, /if \(key === "E"\) \{[\s\S]*eraseManualStateSticker\(index\)/);
+  assert.match(client, /if \(key === "C"\) \{[\s\S]*event\.stopPropagation\(\);[\s\S]*return;/);
 });
 
 test("the Vanilla DOM client wires reachability-aware outputs", () => {

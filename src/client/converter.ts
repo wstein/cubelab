@@ -5529,7 +5529,7 @@ if (root) {
   // Keyboard entry on the flat net: arrow keys move DOM focus between
   // stickers — wrapping across face boundaries on a 3×3, via the same
   // topology the design mock verified — U/R/F/D/L/B paint the focused
-  // sticker's colour, and C clears it. Scoped to 3×3: a 2×2's wrap isn't
+  // sticker's colour, and E erases it. Scoped to 3×3: a 2×2's wrap isn't
   // specified there, and guessing the topology wrong would be worse than a
   // cursor that simply stops at a face edge.
   const manualStateArrowTarget = (
@@ -5571,10 +5571,18 @@ if (root) {
       paintManualStateSticker(index, key as ManualStateFace);
       return;
     }
-    if (key === "C") {
+    if (key === "E") {
       event.preventDefault();
       event.stopPropagation();
       eraseManualStateSticker(index);
+      return;
+    }
+    // C used to erase here. Keep it from reaching the page-level camera
+    // reset shortcut while a sticker is focused, but do not give it a second
+    // meaning now that E is the documented erase key.
+    if (key === "C") {
+      event.preventDefault();
+      event.stopPropagation();
       return;
     }
     const direction = manualStateArrowKeys[event.key];
