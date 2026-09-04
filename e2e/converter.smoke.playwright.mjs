@@ -169,6 +169,36 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   expect(pageErrors).toEqual([]);
 });
 
+test("shows Singmaster cycle notation on the Converter page and accepts it back as Setup and a solver target", async ({page}) => {
+  await page.goto("/");
+  const input = page.locator("[data-input]");
+  const singmasterCard = page.locator('[data-output="singmaster"]');
+
+  await input.fill("R U F2 L' D B");
+  const expectedFacelets = algorithmFacelets("R U F2 L' D B");
+  // Output cards render on a debounce — wait for the actual cycle shape
+  // rather than reading textContent() immediately (which can race the
+  // update, or excluding only the placeholder, which a still-in-flight
+  // update can transiently pass through empty).
+  const cycleShape = /^\(([A-Z]{2,3}[+-]?,?)+\)( \(([A-Z]{2,3}[+-]?,?)+\))*$/;
+  await expect(singmasterCard).toHaveText(cycleShape);
+  const cycles = await singmasterCard.textContent();
+
+  // Round-trips back through Setup to the same state.
+  await input.fill(cycles ?? "");
+  await expect(page.locator("[data-status]")).toHaveText("Singmaster permutation cycles");
+  await expect(page.locator('[data-output="facelets"]')).toHaveText(expectedFacelets);
+
+  // Also accepted as the two-phase solver's target state, not only Setup.
+  await input.fill(""); // solved Setup — solve *toward* the scrambled target instead
+  await page.locator("[data-two-phase-target]").fill(cycles ?? "");
+  await page.locator("[data-two-phase-solve]").click();
+  await expect(page.locator("[data-two-phase-result]")).not.toHaveText(
+    /Solve the Setup 3×3 state in the background\.|error|invalid|unexpected/i,
+    {timeout: 45_000},
+  );
+});
+
 test("replays optional moves from a setup state and keeps both fields shareable", async ({page}) => {
   await page.goto("/");
   const setup = page.locator("[data-input]");
