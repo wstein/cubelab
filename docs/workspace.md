@@ -94,7 +94,11 @@ Double-clicking an already-filled sticker loads its colour into the palette with
 changing the sticker; a plain click on a filled sticker otherwise does nothing, so it
 cannot race and clobber that double-click — right-click (erase) then click remains how to
 correct one. Both automatically fill
-subsequently forced stickers, marked with a cyan inset outline and star. Auto-fill is
+subsequently forced stickers, marked with a cyan inset outline and star. The six
+3×3 centre stickers are physically fixed to the core; they are rendered a nuance
+darker with a default cursor and tooltip indicating they define face orientation
+and cannot be painted (though double-clicking still samples their colour into
+the palette). Auto-fill is
 recomputed from only the stickers entered by the user, so a sticker returns to its dots
 whenever an edit makes more than one colour possible. **Reset**
 intentionally leaves stickers blank so a completed draft can be corrected. CubeLab does
