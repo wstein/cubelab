@@ -222,12 +222,13 @@ test("the 2x2 and 3x3 manual state editor keeps a constrained draft separate fro
   assert.match(client, /manualStateOpen\.disabled = size !== 2 && size !== 3/);
   assert.match(client, /store\.patch\(\{input: manualStateDraft\.join\(""\)\}\)/);
   assert.match(page, /class="manual-state-main"[\s\S]*data-manual-state-net[\s\S]*data-manual-state-status/);
-  assert.match(page, /class="manual-state-key manual-state-face-key"[\s\S]*data-face="U">U[\s\S]*data-face="B">B[\s\S]*move cursor/);
-  assert.match(page, /manual-state-key-emphasis">E<\/span>erase[\s\S]*manual-state-key-emphasis">← ↑ ↓ →<\/span>move cursor/);
+  assert.match(page, /class="manual-state-key manual-state-face-key"[\s\S]*data-face="U">U[\s\S]*data-face="B">B[\s\S]*manual-state-key-emphasis">E<\/span>erase[\s\S]*manual-state-key-emphasis">← ↑ ↓ →<\/span>/);
+  assert.doesNotMatch(page, /set colour|move cursor/);
   assert.doesNotMatch(page, /class="manual-state-key">(?:click|drag|right-click|double-click)</);
   assert.match(page, /data-manual-state-copy-toggle[\s\S]*manual-state-footer/);
   assert.match(page, /manual-state-shortcuts[\s\S]*data-manual-state-copy-toggle/);
   assert.doesNotMatch(styles, /\.manual-state-shortcuts \{[\s\S]{0,120}grid-(?:column|row):/);
+  assert.match(styles, /\.manual-state-shortcuts-grid \{[\s\S]*grid-template-columns: minmax\(0, 1fr\);/);
   assert.match(styles, /\.manual-state-face-key \{[\s\S]*grid-template-columns: repeat\(6, 0\.62rem\);/);
   assert.match(styles, /\.manual-state-key-emphasis \{[\s\S]*font-weight: 800;/);
   assert.match(styles, /\.manual-state-tools \{[\s\S]*flex: 0 1 18rem;/);
