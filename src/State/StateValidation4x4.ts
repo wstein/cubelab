@@ -147,7 +147,14 @@ const cornerState = (compact: string): ReScriptResult<unknown> => {
   return PieceReducer.reduce(parsed._0) as ReScriptResult<unknown>;
 };
 
-const hasPerfectWingMatching = (compact: string): boolean => {
+/**
+ * Whether the supplied (possibly partial) wing stickers admit one distinct
+ * physical wing for every slot. Null means that sticker has not been entered
+ * yet, which lets the manual editor use exactly this reachability model for
+ * its live colour dots.
+ */
+export const canComplete4x4Wings = (compact: ReadonlyArray<string | null>): boolean => {
+  if (compact.length !== 96) return false;
   const sourceColours = allWingSlots.map(({indices}) => [
     faces[Math.floor(indices[0] / 16)]!,
     faces[Math.floor(indices[1] / 16)]!,
@@ -156,7 +163,8 @@ const hasPerfectWingMatching = (compact: string): boolean => {
     const [firstColour, secondColour] = sourceColours[source]!;
     const slots = new Set<number>();
     destinations.forEach(([first, second]) => {
-      if (compact[first] !== firstColour || compact[second] !== secondColour) return;
+      if (compact[first] !== null && compact[first] !== firstColour) return;
+      if (compact[second] !== null && compact[second] !== secondColour) return;
       const slot = allWingSlots.findIndex(({indices}) => indices.includes(first) && indices.includes(second));
       if (slot >= 0) slots.add(slot);
     });
@@ -191,7 +199,7 @@ export const validate4x4 = (state: unknown): string | null => {
   if (faces.some((face) => centres.filter((colour) => colour === face).length !== 4)) {
     return "Invalid 4×4 centres: each centre colour must occur exactly four times.";
   }
-  if (!hasPerfectWingMatching(compact)) {
+  if (!canComplete4x4Wings(compact.split(""))) {
     return "Invalid 4×4 wings: the stickers cannot form a legal permutation and orientation of the 24 wing pieces.";
   }
   return null;

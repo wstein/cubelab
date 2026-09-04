@@ -116,8 +116,11 @@ intentionally leaves stickers blank so a completed draft can be corrected. CubeL
 alter Setup or the viewport until **Load** is enabled. On 2×2×2, 3×3×3, and 4×4×4 that requires a
 complete, physically valid position. The 4×4×4 validator checks corner orientation and permutation,
 all twenty-four wing-piece placements and orientations, and the four-centre inventory for each
-colour; legitimate reduction-parity positions remain valid. The 5×5×5 editor enforces complete exact
-colour quotas and its fixed core centres but does not claim full big-cube reachability validation.
+colour; legitimate reduction-parity positions remain valid. Before either a 4×4×4 or 5×5×5
+sticker is accepted, its colour dots preserve a feasible assignment of corner and edge-piece
+identities (including the 5×5×5 wing and middle-edge orbits). The 5×5×5 editor additionally
+enforces complete exact colour quotas and its fixed core centres, but does not claim full
+big-cube reachability validation.
 Hovering an outer corner or edge-wing sticker on either big-cube net frames its
 matching stickers, while independent centre stickers deliberately have no false piece frame.
 

@@ -142,7 +142,7 @@ describe("3×3 manual state constraints", () => {
 });
 
 describe("4×4 and 5×5 manual state entry", () => {
-  test("accepts quota-respecting drafts without pretending to prove big-cube reachability", () => {
+  test("keeps only colour choices that retain a big-cube piece assignment", () => {
     for (const size of [4, 5] as const) {
       const empty = emptyManualState(size);
       expect(canCompleteManualState(size, empty)).toBe(true);
@@ -154,6 +154,30 @@ describe("4×4 and 5×5 manual state entry", () => {
       const centreIndex = size === 4 ? 5 : 12;
       expect(manualStatePieceMates(size, centreIndex)).toEqual([]);
     }
+  });
+
+  test("rejects quota-preserving wing swaps on 4×4 and 5×5", () => {
+    const invalid4 = solvedManualState(4);
+    [invalid4[45], invalid4[50]] = [invalid4[50]!, invalid4[45]!];
+    expect(canCompleteManualState(4, invalid4)).toBe(false);
+
+    const invalid5 = solvedManualState(5);
+    [invalid5[71], invalid5[77]] = [invalid5[77]!, invalid5[71]!];
+    expect(canCompleteManualState(5, invalid5)).toBe(false);
+  });
+
+  test("removes dead-end wing colours from live 4×4 and 5×5 dots", () => {
+    const draft4 = solvedManualState(4);
+    [draft4[45], draft4[50]] = [draft4[50]!, draft4[45]!];
+    draft4[45] = null;
+    draft4[50] = null;
+    expect(allowedManualStateColours(4, draft4, 45)).toEqual(["F"]);
+
+    const draft5 = solvedManualState(5);
+    [draft5[71], draft5[77]] = [draft5[77]!, draft5[71]!];
+    draft5[71] = null;
+    draft5[77] = null;
+    expect(allowedManualStateColours(5, draft5, 71)).toEqual(["F"]);
   });
 
   test("pins the six 5×5 core centres while leaving its other centres editable", () => {

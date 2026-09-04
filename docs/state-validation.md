@@ -64,5 +64,10 @@ does not label the four same-colour centres, or the two same-colour wing twins, 
 unobservable internal permutation is matched existentially. This is essential: legitimate
 4×4 reduction parity is not an impossible state. The validation therefore proves all
 facelet-visible corner, wing, centre, and reduction-parity constraints without inventing
-identities the input does not contain. 5×5×5 currently retains its quota and fixed-core-centre
-checks only.
+identities the input does not contain.
+
+The 5×5×5 manual editor does not yet provide a complete physical-state validator. Its live
+colour dots nevertheless preserve a feasible assignment for corners, the twenty-four wing
+pieces, and the twelve middle edges, alongside centre quotas and the six fixed core centres.
+It therefore rejects impossible piece colour combinations as they are entered, while reserving
+the stronger whole-state reachability claim for 4×4×4.

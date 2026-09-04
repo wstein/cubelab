@@ -3,10 +3,11 @@
  * Drafts use FaceletCodec's compact URFDLB order. A tentative sticker is
  * accepted only if its remaining cubies still admit a legal completion. For a
  * 3×3 that includes the corner/edge permutation-parity agreement; for a 2×2
- * it is the corner permutation and twist rule. On 4×4 the complete draft is
- * additionally checked by StateValidation4x4 before it can load; 5×5 still
- * deliberately limits itself to exact colour quotas.
+ * it is the corner permutation and twist rule. On 4×4 and 5×5, colour dots
+ * also respect corner and edge-piece identities; a complete 4×4 is further
+ * checked by StateValidation4x4 before it can load.
  */
+import {canComplete4x4Wings} from "../State/StateValidation4x4";
 /** FaceletCodec's serialized order. Keep this independent of the editor UI. */
 export const faceletOrder = ["U", "R", "F", "D", "L", "B"] as const;
 export type ManualStateFace = typeof faceletOrder[number];
@@ -110,6 +111,31 @@ const outerPieceSlots = (size: 4 | 5): number[][] => {
   return slots;
 };
 
+/** Piece families whose copies may be permuted independently on big cubes. */
+const highOrderPieceKinds = (size: 4 | 5): CubieKind[] => {
+  const slots = outerPieceSlots(size);
+  const cornerKind: CubieKind = {...corners, slots: slots.slice(0, 8)};
+  const edgeSlots = slots.slice(8);
+  if (size === 4) {
+    return [{...cornerKind}, {
+      slots: edgeSlots,
+      pieces: edges.pieces.flatMap((piece) => [piece, piece]),
+      orientations: 2,
+    }];
+  }
+  // 5×5 wings at offsets one and three form the 24-piece wing orbit; the
+  // central edge strip is the twelve-piece middle-edge orbit.
+  return [cornerKind, {
+    slots: [...edgeSlots.slice(0, 12), ...edgeSlots.slice(24, 36)],
+    pieces: edges.pieces.flatMap((piece) => [piece, piece]),
+    orientations: 2,
+  }, {
+    slots: edgeSlots.slice(12, 24),
+    pieces: edges.pieces,
+    orientations: 2,
+  }];
+};
+
 const popcountParity = (value: number): number => {
   let bits = value;
   let parity = 0;
@@ -137,6 +163,28 @@ const kindsForSize = (size: 2 | 3): CubieKind[] => [
   {...corners, slots: size === 2 ? cornerSlots2 : cornerSlots3},
   ...(size === 3 ? [edges] : []),
 ];
+
+/** A cheap exact bipartite assignment within one corner or edge orbit. */
+const canAssignKind = (draft: ManualStateDraft, kind: CubieKind): boolean => {
+  const domains = kind.slots.map((slot) => {
+    const sources = new Set<number>();
+    candidatesFor(kind).at(0)!.forEach((candidate) => {
+      if (matches(draft, slot, candidate)) sources.add(candidate.piece);
+    });
+    return [...sources];
+  });
+  const sourceForSlot = Array<number>(kind.pieces.length).fill(-1);
+  const assign = (slot: number, seen: Set<number>): boolean => domains[slot]!.some((source) => {
+    if (seen.has(source)) return false;
+    seen.add(source);
+    if (sourceForSlot[source] === -1 || assign(sourceForSlot[source]!, seen)) {
+      sourceForSlot[source] = slot;
+      return true;
+    }
+    return false;
+  });
+  return domains.every((_, slot) => assign(slot, new Set<number>()));
+};
 
 /** Which orientation sums and permutation parities still have a completion. */
 const feasibleSignatures = (draft: ManualStateDraft, kind: CubieKind): boolean[][] => {
@@ -200,7 +248,11 @@ const colourCounts = (draft: ManualStateDraft): Record<ManualStateFace, number> 
 export const canCompleteManualState = (size: ManualStateSize, draft: ManualStateDraft): boolean => {
   if (draft.length !== manualStateStickerCount(size)) return false;
   if (fixedCentreIndices(size).some((index, face) => draft[index] !== faceletOrder[face])) return false;
-  if (size >= 4) return Object.values(colourCounts(draft)).every((count) => count <= size * size);
+  if (size >= 4) {
+    if (!Object.values(colourCounts(draft)).every((count) => count <= size * size)) return false;
+    if (!highOrderPieceKinds(size).every((kind) => canAssignKind(draft, kind))) return false;
+    return size !== 4 || canComplete4x4Wings(draft);
+  }
   const corner = feasibleSignatures(draft, kindsForSize(size)[0]);
   if (size === 2) return corner[0][0] || corner[0][1];
   const edge = feasibleSignatures(draft, edges);
@@ -216,10 +268,6 @@ export const allowedManualStateColours = (
   if (index < 0 || index >= draft.length) return [];
   const fixedCentre = fixedCentreFace(size, index);
   if (fixedCentre !== null) return [fixedCentre];
-  if (size >= 4) {
-    const counts = colourCounts(draft);
-    return manualStateFaces.filter((colour) => counts[colour] < size * size || draft[index] === colour);
-  }
   return manualStateFaces.filter((colour) => {
     const candidate = [...draft];
     candidate[index] = colour;

@@ -1353,8 +1353,8 @@ if (root) {
     manualStateIntro.textContent = manualSize <= 3
       ? "Pick a face colour, then fill the net. Nothing changes in Setup until the complete, physically valid state is loaded."
       : manualSize === 5
-      ? "Pick a face colour, then fill the net. Colour quotas and fixed core centres are enforced; nothing changes in Setup until the complete facelet state is loaded."
-      : "Pick a face colour, then fill the net. Colour quotas are enforced, and Load checks full 4×4 physical reachability.";
+      ? "Pick a face colour, then fill the net. Colour quotas, fixed core centres, and piece identities are enforced; nothing changes in Setup until the complete facelet state is loaded."
+      : "Pick a face colour, then fill the net. Colour quotas and piece identities are enforced, and Load checks full 4×4 physical reachability.";
     manualStateDialog.dataset.manualStateSize = String(manualSize);
     manualStateColour = "U";
     renderManualStateEditor();
@@ -1572,7 +1572,7 @@ if (root) {
     manualStateOpen.textContent = `Enter ${size}×${size} state`;
     manualStateOpen.title = size === 2 || size === 3
       ? `Build a ${size}×${size}×${size} cube state sticker by sticker with reachability guidance`
-      : `Build a ${size}×${size}×${size} cube state sticker by sticker with exact colour quotas`;
+      : `Build a ${size}×${size}×${size} cube state sticker by sticker with constrained piece identities`;
     nissPanel.hidden = size !== 3 || activeTab !== "workbench";
     hamiltonPanel.hidden = activeTab !== "workbench";
     optimal2x2Row.hidden = size !== 2;
