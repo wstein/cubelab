@@ -210,9 +210,6 @@ if (root) {
   const manualStateEraser = root.querySelector<HTMLButtonElement>("[data-manual-state-eraser]")!;
   const manualStateReset = root.querySelector<HTMLButtonElement>("[data-manual-state-reset]")!;
   const manualStateSolved = root.querySelector<HTMLButtonElement>("[data-manual-state-solved]")!;
-  const manualStateStatus = root.querySelector<HTMLOutputElement>("[data-manual-state-status]")!;
-  const manualStateStatusPill = root.querySelector<HTMLElement>("[data-manual-state-status-pill]")!;
-  const manualStateStatusText = root.querySelector<HTMLElement>("[data-manual-state-status-text]")!;
   const manualStateSummary = root.querySelector<HTMLElement>("[data-manual-state-summary]")!;
   const manualStateLoad = root.querySelector<HTMLButtonElement>("[data-manual-state-load]")!;
   const manualStateCopyToggle = root.querySelector<HTMLButtonElement>("[data-manual-state-copy-toggle]")!;
@@ -854,11 +851,6 @@ if (root) {
     if (isManualStateCentre(index)) return false;
     const manualSize = size as ManualStateSize;
     if (!allowedManualStateColours(manualSize, manualStateSourceDraft(manualSize), index).includes(colour)) {
-      manualStateStatusText.textContent = `${manualStateFaceName[colour]} cannot go there without making the cube impossible.`;
-      manualStateStatusPill.textContent = "Impossible";
-      manualStateStatusPill.hidden = false;
-      manualStateStatus.classList.add("failure");
-      manualStateStatus.classList.remove("success");
       return false;
     }
     manualStateDraft[index] = colour;
@@ -1160,21 +1152,6 @@ if (root) {
       manualStateCopyMenu.hidden = true;
       manualStateCopyToggle.setAttribute("aria-expanded", "false");
     }
-    const complete = entered === total && diagnostic === null;
-    manualStateStatusText.textContent = diagnostic !== null
-      ? diagnostic
-      : entered === total
-      ? "Complete and physically valid — ready to load into Setup."
-      : manualSize === 2
-      ? `Entered ${displayEntered} / ${displayTotal}. Every displayed dot can still make a real cube.`
-      : `Entered ${displayEntered} / ${displayTotal}. Every dot is checked against the complete cube; options appear as they are verified.`;
-    manualStateStatusPill.textContent = diagnostic !== null ? "Impossible" : complete ? "Complete" : "Possible";
-    // The complete sentence already conveys completion; an adjacent
-    // "Complete" pill merely repeats it. Keep category pills for draft and
-    // error states, where they carry useful scanning information.
-    manualStateStatusPill.hidden = complete;
-    manualStateStatus.classList.toggle("success", complete);
-    manualStateStatus.classList.toggle("failure", diagnostic !== null);
     const perColourPlaced: Record<ManualStateFace, number> = {U: 0, D: 0, R: 0, L: 0, F: 0, B: 0};
     manualStateDraft.forEach((value) => {
       if (value !== null) perColourPlaced[value] += 1;
@@ -5585,14 +5562,7 @@ if (root) {
   });
   manualStateLoad.addEventListener("click", () => {
     const diagnostic = manualStateCompleteDiagnostic();
-    if (diagnostic !== null) {
-      manualStateStatusText.textContent = diagnostic;
-      manualStateStatusPill.textContent = "Impossible";
-      manualStateStatusPill.hidden = false;
-      manualStateStatus.classList.add("failure");
-      manualStateStatus.classList.remove("success");
-      return;
-    }
+    if (diagnostic !== null) return;
     store.patch({input: manualStateDraft.join("")});
     manualStateDialog.close();
     input.focus();

@@ -220,10 +220,9 @@ test("the 2x2 and 3x3 manual state editor keeps a constrained draft separate fro
   assert.match(client, /refreshManualStateAutoFill\(manualSize, false\)/);
   assert.match(client, /if \(manualSize === 2\) \{[\s\S]{0,200}allowedManualStateColours/);
   assert.match(client, /manualStateOpen\.disabled = size !== 2 && size !== 3/);
-  assert.match(client, /store\.patch\(\{input: manualStateDraft\.join\(""\)\}\)/);
-  assert.match(page, /class="manual-state-main"[\s\S]*data-manual-state-net[\s\S]*data-manual-state-status/);
-  assert.match(styles, /\.manual-state-status \{[\s\S]*align-items: center;[\s\S]*gap: 0\.65rem;/);
-  assert.match(client, /manualStateStatusPill\.hidden = complete;/);
+  assert.match(page, /class="manual-state-main"[\s\S]*data-manual-state-net/);
+  assert.doesNotMatch(page, /data-manual-state-status/);
+  assert.match(styles, /\.manual-state-shortcuts \{[\s\S]*margin-top: 0\.8rem;/);
   assert.match(page, /class="manual-state-key manual-state-face-key"[\s\S]*data-face="U">U[\s\S]*data-face="B">B[\s\S]*class="manual-state-shortcut-actions"[\s\S]*manual-state-key-emphasis">E<\/span>erase[\s\S]*manual-state-key-emphasis">← ↑ ↓ →<\/span>/);
   assert.doesNotMatch(page, /set colour|move cursor/);
   assert.doesNotMatch(page, /class="manual-state-key">(?:click|drag|right-click|double-click)</);

@@ -116,13 +116,12 @@ and drags only ever land on the flat net. A live summary card tracks Entered/Cor
 progress; on 3×3×3 it also distinguishes **Known** stickers by including the six fixed
 centres. While a draft is incomplete, it includes a colour-by-colour remaining bar, and each palette swatch also shows its own
 remaining count. The summary, palette, copy control, and actions form one right-hand
-rail. The bold, colour-coded keyboard reference sits immediately above **Copy as…** in
-that right-hand rail: face/colour keys on the left, with **E** to erase and arrow keys
-stacked to their right. The live validity banner sits directly below the net, with its
-state pill and message on one line; a completed draft omits the redundant **Complete**
-pill. This
-keeps the cube, its preview, and the relevant
-controls visible together without a separate full-width footer.
+rail. Spaced neatly below the action buttons, the bold, colour-coded keyboard
+reference card sits immediately above **Copy as…**: face/colour keys on the left,
+with **E** to erase and arrow keys stacked to their right. Valid progress is shown
+continuously through remaining counters, the live dot matrix, and the enabled
+state of **Load** without an extra redundant status banner. This keeps the cube,
+its preview, and the relevant controls visible together in a clean, focused layout.
 **Copy as…** places the current draft on the clipboard as compact facelets, spaced
 facelets, a Singmaster-style per-piece list, or JSON, once the draft is complete; it is
 disabled until then.
