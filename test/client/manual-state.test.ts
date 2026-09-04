@@ -151,8 +151,20 @@ describe("4×4 and 5×5 manual state entry", () => {
       quotaFilled.fill("U", 0, size * size);
       expect(allowedManualStateColours(size, quotaFilled, size * size)).not.toContain("U");
       expect(canCompleteManualState(size, quotaFilled)).toBe(true);
-      expect(manualStatePieceMates(size, 0)).toEqual([]);
+      const centreIndex = size === 4 ? 5 : 12;
+      expect(manualStatePieceMates(size, centreIndex)).toEqual([]);
     }
+  });
+
+  test("pins the six 5×5 core centres while leaving its other centres editable", () => {
+    const empty = emptyManualState(5);
+    expect(empty.filter((colour) => colour !== null)).toHaveLength(6);
+    expect([12, 37, 62, 87, 112, 137].map((index) => empty[index])).toEqual(faceletOrder);
+    expect(allowedManualStateColours(5, empty, 12)).toEqual(["U"]);
+    expect(allowedManualStateColours(5, empty, 6)).toEqual(["U", "D", "R", "L", "F", "B"]);
+    const malformed = [...empty];
+    malformed[12] = "R";
+    expect(canCompleteManualState(5, malformed)).toBe(false);
   });
 });
 
@@ -171,6 +183,31 @@ describe("manualStatePieceMates", () => {
 
   test("names the other sticker of a 3×3 edge", () => {
     expect(manualStatePieceMates(3, 5)).toEqual([10]);
+  });
+
+  test("frames matching outer cubies on 4×4 and 5×5 nets", () => {
+    // U's right edge at row 2 belongs to R's top edge, read in reverse.
+    expect(manualStatePieceMates(4, 7)).toEqual([18]);
+    expect(manualStatePieceMates(5, 14)).toEqual([27]);
+    // The UFR corner is three stickers at every order.
+    expect(manualStatePieceMates(5, 24).sort((a, b) => a - b)).toEqual([25, 54]);
+  });
+
+  test("frames every outer high-order sticker and never frames an interior centre", () => {
+    for (const size of [4, 5] as const) {
+      const perFace = size * size;
+      for (let face = 0; face < 6; face += 1) {
+        for (let row = 0; row < size; row += 1) {
+          for (let column = 0; column < size; column += 1) {
+            const index = face * perFace + row * size + column;
+            const mates = manualStatePieceMates(size, index);
+            const outer = row === 0 || row === size - 1 || column === 0 || column === size - 1;
+            expect(mates).toHaveLength(outer ? (row === 0 || row === size - 1) && (column === 0 || column === size - 1) ? 2 : 1 : 0);
+            mates.forEach((mate) => expect(manualStatePieceMates(size, mate)).toContain(index));
+          }
+        }
+      }
+    }
   });
 
   test("is empty for a fixed centre and for a 2×2 (no edges)", () => {

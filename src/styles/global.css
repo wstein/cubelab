@@ -754,6 +754,20 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   min-width: 0;
 }
 
+/* High-order faces need room for individually legible stickers rather than
+   shrinking their 4×4/5×5 grids into a field of colour dots. The dialog is
+   content-sized, so widening only this column lets the tools column retain
+   its compact, stable width. */
+.manual-state-dialog[data-manual-state-size="4"] .manual-state-main {
+  flex-basis: 48rem;
+  max-width: 48rem;
+}
+
+.manual-state-dialog[data-manual-state-size="5"] .manual-state-main {
+  flex-basis: 55rem;
+  max-width: 55rem;
+}
+
 .manual-state-net {
   display: grid;
   grid-template-columns: repeat(4, minmax(4rem, 1fr));
@@ -795,6 +809,14 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
+}
+
+.manual-state-dialog[data-manual-state-size="4"] .manual-state-previews {
+  --manual-state-preview-edge: clamp(4rem, 5.5vw, 6.8rem);
+}
+
+.manual-state-dialog[data-manual-state-size="5"] .manual-state-previews {
+  --manual-state-preview-edge: clamp(4.3rem, 6vw, 7.2rem);
 }
 
 .manual-state-preview {
@@ -1203,6 +1225,11 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 @media (max-width: 560px) {
   .manual-state-layout { align-items: flex-start; justify-content: flex-start; flex-direction: column; }
   .manual-state-main, .manual-state-tools { width: 100%; max-width: none; }
+  .manual-state-dialog[data-manual-state-size="4"] .manual-state-main,
+  .manual-state-dialog[data-manual-state-size="5"] .manual-state-main {
+    flex-basis: auto;
+    max-width: none;
+  }
   .manual-state-previews { flex-wrap: wrap; }
   .manual-state-net { grid-template-columns: repeat(4, minmax(2.8rem, 1fr)); width: 100%; }
   .manual-state-tools { width: 100%; }

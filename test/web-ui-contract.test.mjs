@@ -238,7 +238,10 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /\.manual-state-face-key \{[\s\S]*grid-template-columns: repeat\(6, 0\.62rem\);/);
   assert.match(styles, /\.manual-state-key-emphasis \{[\s\S]*font-weight: 800;/);
   assert.match(styles, /\.manual-state-tools \{[\s\S]*flex: 0 1 18rem;/);
-  assert.match(client, /manualStateSummaryRow\("Known", `\$\{entered \+ 6\}\/54`/);
+  assert.match(client, /if \(manualSize === 3 \|\| manualSize === 5\)[\s\S]*manualStateSummaryRow\("Known", `\$\{entered \+ 6\}\/\$\{rawTotal\}`/);
+  assert.match(client, /isManualStateFixedCentre\(manualSize, index\)/);
+  assert.match(styles, /data-manual-state-size="4"[\s\S]*\.manual-state-main/);
+  assert.match(styles, /data-manual-state-size="5"[\s\S]*\.manual-state-main/);
   assert.match(client, /const remaining = total - entered;[\s\S]*remainingLabel\.textContent = "Remaining"/);
   assert.doesNotMatch(client, /if \(remaining === 0\) return;/);
   assert.match(client, /if \(key === "E"\) \{[\s\S]*eraseManualStateSticker\(index\)/);

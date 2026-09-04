@@ -95,10 +95,11 @@ paints that colour directly, regardless of which palette swatch is currently sel
 Double-clicking an already-filled sticker loads its colour into the palette without
 changing the sticker; a plain click on a filled sticker otherwise does nothing, so it
 cannot race and clobber that double-click — right-click (erase) then click remains how to
-correct one. The six 3×3 centre stickers are physically fixed to the core and define face
+correct one. The six fixed core-centre stickers on 3×3×3 and 5×5×5 define face
 orientation; they are rendered a nuance darker with no hover or focus frame and are not
-selectable (arrow keys skip them during keyboard navigation). Double-clicking a centre
-sticker similarly selects its colour into the palette. Both click and key entry
+selectable (arrow keys skip them during keyboard navigation). The remaining 5×5×5 centre
+stickers remain editable. Double-clicking a centre sticker similarly selects its colour
+into the palette. Both click and key entry
 automatically fill subsequently forced stickers, rendered slightly smaller with a cyan inset outline.
 Auto-set stickers cannot be erased directly; erasing the user-placed sticker that forced them returns
 them to dots. Auto-fill is recomputed from only the stickers entered by the user, so a sticker returns to its dots
@@ -106,7 +107,9 @@ whenever an edit makes more than one colour possible. **Reset**
 intentionally leaves stickers blank so a completed draft can be corrected. CubeLab does not
 alter Setup or the viewport until **Load** is enabled. On 2×2×2 and 3×3×3 that requires a
 complete, physically valid position. On 4×4×4 and 5×5×5, the editor enforces complete exact
-colour quotas but does not claim full big-cube reachability validation.
+colour quotas (and 5×5×5's fixed core centres) but does not claim full big-cube reachability
+validation. Hovering an outer corner or edge-wing sticker on either big-cube net frames its
+matching stickers, while independent centre stickers deliberately have no false piece frame.
 
 The net also accepts keyboard entry: arrow keys move a focus cursor between stickers,
 wrapping across a 3×3's face boundaries so the cursor keeps moving in the same visual

@@ -57,7 +57,58 @@ const cornerSlots3 = [
 export const manualStateCornerSlots = (size: ManualStateSize): number[][] =>
   size === 2 ? cornerSlots2 : cornerSlots3;
 export const manualStateEdgeSlots = (): number[][] => edges.slots;
-const centreIndices3 = [4, 13, 22, 31, 40, 49];
+const faceletIndex = (size: ManualStateSize, face: number, row: number, column: number): number =>
+  face * size * size + row * size + column;
+
+/** The one immovable core sticker on every odd-order face. */
+export const isManualStateFixedCentre = (size: ManualStateSize, index: number): boolean => {
+  if (size !== 3 && size !== 5) return false;
+  const perFace = size * size;
+  return index >= 0 && index < 6 * perFace && index % perFace === Math.floor(perFace / 2);
+};
+
+const fixedCentreFace = (size: ManualStateSize, index: number): ManualStateFace | null =>
+  isManualStateFixedCentre(size, index)
+    ? faceletOrder[Math.floor(index / (size * size))]
+    : null;
+
+const fixedCentreIndices = (size: ManualStateSize): number[] =>
+  size === 3 || size === 5
+    ? faceletOrder.map((_, face) => faceletIndex(size, face, Math.floor(size / 2), Math.floor(size / 2)))
+    : [];
+
+/** Outer corner and wing stickers for an arbitrary order in URFDLB order. */
+const outerPieceSlots = (size: 4 | 5): number[][] => {
+  const n = size - 1;
+  const at = (face: number, row: number, column: number) => faceletIndex(size, face, row, column);
+  const slots = [
+    [at(0, n, n), at(1, 0, 0), at(2, 0, n)], // URF
+    [at(0, n, 0), at(2, 0, 0), at(4, 0, n)], // UFL
+    [at(0, 0, 0), at(4, 0, 0), at(5, 0, n)], // ULB
+    [at(0, 0, n), at(5, 0, 0), at(1, 0, n)], // UBR
+    [at(3, 0, n), at(2, n, n), at(1, n, 0)], // DFR
+    [at(3, 0, 0), at(4, n, n), at(2, n, 0)], // DLF
+    [at(3, n, 0), at(5, n, n), at(4, n, 0)], // DBL
+    [at(3, n, n), at(1, n, n), at(5, n, 0)], // DRB
+  ];
+  for (let offset = 1; offset < n; offset += 1) {
+    slots.push(
+      [at(0, offset, n), at(1, 0, n - offset)], // UR
+      [at(0, n, offset), at(2, 0, offset)], // UF
+      [at(0, offset, 0), at(4, 0, offset)], // UL
+      [at(0, 0, offset), at(5, 0, n - offset)], // UB
+      [at(3, offset, n), at(1, n, offset)], // DR
+      [at(3, 0, offset), at(2, n, offset)], // DF
+      [at(3, offset, 0), at(4, n, n - offset)], // DL
+      [at(3, n, offset), at(5, n, n - offset)], // DB
+      [at(2, offset, n), at(1, offset, 0)], // FR
+      [at(2, offset, 0), at(4, offset, n)], // FL
+      [at(5, offset, n), at(4, offset, 0)], // BL
+      [at(5, offset, 0), at(1, offset, n)], // BR
+    );
+  }
+  return slots;
+};
 
 const popcountParity = (value: number): number => {
   let bits = value;
@@ -130,7 +181,7 @@ export const solvedManualState = (size: ManualStateSize): ManualStateDraft =>
 
 export const emptyManualState = (size: ManualStateSize): ManualStateDraft => {
   const draft: ManualStateDraft = Array(manualStateStickerCount(size)).fill(null);
-  if (size === 3) centreIndices3.forEach((index, face) => { draft[index] = faceletOrder[face]; });
+  fixedCentreIndices(size).forEach((index, face) => { draft[index] = faceletOrder[face]; });
   return draft;
 };
 
@@ -148,8 +199,8 @@ const colourCounts = (draft: ManualStateDraft): Record<ManualStateFace, number> 
 /** True when a partial draft has at least one physically legal completion. */
 export const canCompleteManualState = (size: ManualStateSize, draft: ManualStateDraft): boolean => {
   if (draft.length !== manualStateStickerCount(size)) return false;
+  if (fixedCentreIndices(size).some((index, face) => draft[index] !== faceletOrder[face])) return false;
   if (size >= 4) return Object.values(colourCounts(draft)).every((count) => count <= size * size);
-  if (size === 3 && centreIndices3.some((index, face) => draft[index] !== faceletOrder[face])) return false;
   const corner = feasibleSignatures(draft, kindsForSize(size)[0]);
   if (size === 2) return corner[0][0] || corner[0][1];
   const edge = feasibleSignatures(draft, edges);
@@ -163,7 +214,8 @@ export const allowedManualStateColours = (
   index: number,
 ): ManualStateFace[] => {
   if (index < 0 || index >= draft.length) return [];
-  if (size === 3 && centreIndices3.includes(index)) return [faceletOrder[centreIndices3.indexOf(index)]];
+  const fixedCentre = fixedCentreFace(size, index);
+  if (fixedCentre !== null) return [fixedCentre];
   if (size >= 4) {
     const counts = colourCounts(draft);
     return manualStateFaces.filter((colour) => counts[colour] < size * size || draft[index] === colour);
@@ -186,7 +238,8 @@ export const locallyAllowedManualStateColours = (
   index: number,
 ): ManualStateFace[] => {
   if (index < 0 || index >= draft.length) return [];
-  if (size === 3 && centreIndices3.includes(index)) return [faceletOrder[centreIndices3.indexOf(index)]];
+  const fixedCentre = fixedCentreFace(size, index);
+  if (fixedCentre !== null) return [fixedCentre];
   if (size >= 4) return allowedManualStateColours(size, draft, index);
   const perColour = size * size;
   const counts: Record<ManualStateFace, number> = {U: 0, D: 0, R: 0, L: 0, F: 0, B: 0};
@@ -226,7 +279,7 @@ export const fillForcedManualStateColours = (
   while (changed) {
     changed = false;
     for (let index = 0; index < filled.length; index += 1) {
-      if (filled[index] !== null || size === 3 && centreIndices3.includes(index)) continue;
+      if (filled[index] !== null || isManualStateFixedCentre(size, index)) continue;
       const allowed = allowedManualStateColours(size, filled, index);
       if (allowed.length === 1) {
         filled[index] = allowed[0];
@@ -262,7 +315,7 @@ export const fillLocallyForcedManualStateColours = (
   while (changed) {
     changed = false;
     for (let index = 0; index < filled.length; index += 1) {
-      if (filled[index] !== null || size === 3 && centreIndices3.includes(index)) continue;
+      if (filled[index] !== null || isManualStateFixedCentre(size, index)) continue;
       const allowed = locallyAllowedManualStateColours(size, filled, index);
       if (allowed.length !== 1) continue;
       filled[index] = allowed[0];
@@ -274,7 +327,7 @@ export const fillLocallyForcedManualStateColours = (
     }
   }
   const unplaced = filled.filter(
-    (colour, index) => colour === null && (size !== 3 || !centreIndices3.includes(index)),
+    (colour, index) => colour === null && !isManualStateFixedCentre(size, index),
   ).length;
   if (unplaced > 0 && unplaced <= 16) {
     filled = fillForcedManualStateColours(size, filled);
@@ -286,7 +339,10 @@ export const fillLocallyForcedManualStateColours = (
  * for a centre or an out-of-range index. Reuses the same slot tables the
  * feasibility checks already derive from, rather than a second piece list. */
 export const manualStatePieceMates = (size: ManualStateSize, index: number): number[] => {
-  if (size >= 4) return [];
+  if (size >= 4) {
+    const slot = outerPieceSlots(size).find((candidate) => candidate.includes(index));
+    return slot ? slot.filter((other) => other !== index) : [];
+  }
   for (const kind of kindsForSize(size)) {
     const slot = kind.slots.find((candidate) => candidate.includes(index));
     if (slot) return slot.filter((other) => other !== index);

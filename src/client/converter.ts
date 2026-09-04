@@ -30,6 +30,7 @@ import {
   faceletOrder,
   fillForcedManualStateColours,
   fillLocallyForcedManualStateColours,
+  isManualStateFixedCentre,
   locallyAllowedManualStateColours,
   manualStateCornerSlots,
   manualStateEdgeSlots,
@@ -822,7 +823,8 @@ if (root) {
   // and disabled on the flat net. Any of the other entry points below (the
   // preview cubes, the keyboard shortcut) need the same guard since they are
   // not disabled <button> elements.
-  const isManualStateCentre = (index: number): boolean => size === 3 && index % 9 === 4;
+  const isManualStateCentre = (index: number): boolean =>
+    isManualStateFixedCentre(size as ManualStateSize, index);
 
   // Shared by the flat net, both preview cubes, and the keyboard shortcut:
   // one place decides whether a sticker can take a colour and applies it.
@@ -914,7 +916,7 @@ if (root) {
     return row;
   };
 
-  // entered/total exclude the 6 fixed 3×3 centres — see the caller.
+  // entered/total exclude the six fixed odd-order core centres — see the caller.
   const renderManualStateSummary = (
     manualSize: ManualStateSize,
     entered: number,
@@ -931,12 +933,13 @@ if (root) {
         manualStateSummaryRow("Corners", `${corners}/${cornerSlots.length}`, (corners / cornerSlots.length) * 100, "#f0c419"),
       );
     }
-    if (manualSize === 3) {
-      // The six fixed centres are known from the beginning, unlike the 48
+    if (manualSize === 3 || manualSize === 5) {
+      // The six fixed core centres are known from the beginning, unlike the
       // paintable stickers counted by Entered. Make that distinction visible
-      // when the 3×3 draft is being reconstructed by hand.
+      // whenever an odd-order draft is being reconstructed by hand.
+      const rawTotal = manualStateStickerCount(manualSize);
       manualStateSummary.append(
-        manualStateSummaryRow("Known", `${entered + 6}/54`, ((entered + 6) / 54) * 100, "#63b3ff"),
+        manualStateSummaryRow("Known", `${entered + 6}/${rawTotal}`, ((entered + 6) / rawTotal) * 100, "#63b3ff"),
       );
     }
     if (manualSize === 3) {
@@ -1043,7 +1046,7 @@ if (root) {
         sticker.type = "button";
         sticker.className = "manual-state-preview-sticker";
         sticker.dataset.manualStateIndex = String(index);
-        sticker.dataset.centre = String(manualSize === 3 && localIndex === 4);
+        sticker.dataset.centre = String(isManualStateFixedCentre(manualSize, index));
         // Not disabled (see the matching net-sticker comment in
         // buildManualStateGrid): a disabled button also suppresses hover,
         // which is all a preview sticker ever does.
@@ -1084,7 +1087,7 @@ if (root) {
         const face = manualStatePreviewFaceOrder[Math.floor(index / (manualSize * manualSize))];
         const localIndex = index % (manualSize * manualSize);
         const value = manualStateDraft[index];
-        const centre = manualSize === 3 && localIndex === 4;
+        const centre = isManualStateFixedCentre(manualSize, index);
         sticker.dataset.face = value ?? "unknown";
         sticker.dataset.centre = String(centre);
         if (centre) {
@@ -1124,7 +1127,7 @@ if (root) {
         sticker.type = "button";
         sticker.className = "manual-state-sticker";
         sticker.dataset.manualStateIndex = String(index);
-        const centre = manualSize === 3 && localIndex === 4;
+        const centre = isManualStateFixedCentre(manualSize, index);
         sticker.dataset.centre = String(centre);
         if (centre) {
           sticker.tabIndex = -1;
@@ -1147,7 +1150,7 @@ if (root) {
     // blank 3×3 draft misleadingly claim 6/54 done. Every count shown to the
     // user excludes them; completion itself still checks the raw total,
     // since a correct centre placement genuinely is part of a valid cube.
-    const centreCount = manualSize === 3 ? 6 : 0;
+    const centreCount = manualSize === 3 || manualSize === 5 ? 6 : 0;
     const displayTotal = total - centreCount;
     const displayEntered = entered - centreCount;
     const diagnostic = entered === total ? manualStateCompleteDiagnostic() : null;
@@ -1186,7 +1189,7 @@ if (root) {
         const index = faceIndex * manualSize * manualSize + localIndex;
         const sticker = manualStateStickerElements[index];
         const value = manualStateDraft[index];
-        const centre = manualSize === 3 && localIndex === 4;
+        const centre = isManualStateFixedCentre(manualSize, index);
         sticker.dataset.face = value ?? "unknown";
         sticker.dataset.centre = String(centre);
         sticker.dataset.auto = String(manualStateAutoIndices.has(index));
@@ -1313,7 +1316,10 @@ if (root) {
     manualStateTitle.textContent = `Enter ${manualSize}×${manualSize}×${manualSize} state`;
     manualStateIntro.textContent = manualSize <= 3
       ? "Pick a face colour, then fill the net. Nothing changes in Setup until the complete, physically valid state is loaded."
+      : manualSize === 5
+      ? "Pick a face colour, then fill the net. Colour quotas and fixed core centres are enforced; nothing changes in Setup until the complete facelet state is loaded."
       : "Pick a face colour, then fill the net. Colour quotas are enforced; nothing changes in Setup until the complete facelet state is loaded.";
+    manualStateDialog.dataset.manualStateSize = String(manualSize);
     manualStateColour = "U";
     renderManualStateEditor();
     manualStateDialog.showModal();
