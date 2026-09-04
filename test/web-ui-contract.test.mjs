@@ -354,6 +354,12 @@ test("controller mode reads the current Setup rather than a stale recognized sta
   assert.match(client, /immediately after Quick load cannot resurrect the previous solved/);
 });
 
+test("smart cube hardware face turn indices remain fixed on spatial cube rotation", () => {
+  assert.match(client, /Smart cube hardware face encoders are physically fixed to their turn indices/);
+  assert.doesNotMatch(client, /smartCubeControllerOrientation\.push\(regrip\)/);
+  assert.doesNotMatch(client, /smartCubeControllerOrientationBaseline/);
+});
+
 test("the web UI exposes a state-verified 3x3 NISS helper", () => {
   assert.match(page, /data-niss-panel/);
   assert.match(page, /data-niss-normal/);

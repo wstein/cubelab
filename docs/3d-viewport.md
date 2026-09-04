@@ -216,8 +216,7 @@ state. **Controller mode** deliberately separates those concerns: the gyro still
 camera, but a selected practice/timer scramble or Academy drill owns the virtual state. Physical
 facelet reports are ignored until the user returns to physical mirroring, so an old device state
 cannot repaint an instant virtual scramble. When a coached move tape is active, controller
-packets are projected into that same virtual frame, matched against the next guide, and advance
-the tape on a correct turn.
+packets advance the tape on a correct turn using their fixed hardware face indices.
 
 ## Provenance and licensing
 

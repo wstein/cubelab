@@ -1676,10 +1676,6 @@ if (root) {
   let smartCubeControllerState: CubeState | null = null;
   let smartCubeControllerInspection = false;
   let smartCubeControllerOrientation: Array<{axis: "X" | "Y" | "Z"; turns: number}> = [];
-  let smartCubeControllerOrientationBaseline: {
-    quaternion: OrientationQuaternion;
-    coordinateFrame: OrientationCoordinateFrame;
-  } | null = null;
   let smartCubeOrientationTracking = false;
   let lastOrientationLogTime = 0;
   let latestSmartCubeOrientation: Pick<
@@ -3313,9 +3309,6 @@ if (root) {
     smartCubeSyncMode = enabled ? "VirtualController" : "PhysicalMirror";
     smartCubeControllerInspection = false;
     smartCubeControllerOrientation = [];
-    smartCubeControllerOrientationBaseline = enabled && latestSmartCubeOrientation
-      ? {...latestSmartCubeOrientation}
-      : null;
     smartCubeController.classList.toggle("active", enabled);
     smartCubeController.setAttribute("aria-pressed", String(enabled));
     smartCubeDock.dataset.syncMode = enabled ? "controller" : "mirror";
@@ -3742,29 +3735,9 @@ if (root) {
           quaternion: event.quaternion,
           coordinateFrame: event.coordinateFrame,
         };
-        if (smartCubeSyncMode === "VirtualController") {
-          const baseline = smartCubeControllerOrientationBaseline;
-          if (baseline?.coordinateFrame === event.coordinateFrame) {
-            const regrip = detectGyroQuarterRotation(
-              baseline.quaternion,
-              event.quaternion,
-              event.coordinateFrame,
-              "world",
-            );
-            if (regrip) {
-              smartCubeControllerOrientation.push(regrip);
-              smartCubeControllerOrientationBaseline = {
-                quaternion: event.quaternion,
-                coordinateFrame: event.coordinateFrame,
-              };
-            }
-          } else {
-            smartCubeControllerOrientationBaseline = {
-              quaternion: event.quaternion,
-              coordinateFrame: event.coordinateFrame,
-            };
-          }
-        }
+        // Smart cube hardware face encoders are physically fixed to their turn indices
+        // (U, R, F, D, L, B). Rotating the cube in hand rotates the 3D viewport view
+        // via setDeviceOrientation, while face turn packets remain fixed to their physical faces.
         const now = performance.now();
         if (now - lastOrientationLogTime >= 350) {
           lastOrientationLogTime = now;

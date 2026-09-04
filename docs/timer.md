@@ -74,8 +74,9 @@ timestamps used for replay; they do not infer turns from the scramble or timer d
 **Controller mode** is an explicit smart-cube dock toggle for high-repetition
 screen-based drills. It keeps the physical and virtual states separate. Timer
 scramble selection writes the requested source into Setup and assigns its resolved state
-to the virtual cube immediately. Each face packet is projected through accumulated gyro
-regrips and applied to that state. Facelet reports never overwrite the controller render
+to the virtual cube immediately. Physical face turn packets apply directly to that
+state using the hardware's fixed face indices, while gyro orientation continuously
+drives the 3D viewport camera. Facelet reports never overwrite the controller render
 or its virtual state.
 
 During timer inspection, gyro pose continues to drive the viewport while the
