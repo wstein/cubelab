@@ -945,6 +945,16 @@ if (root) {
     const edges = edgeSlots.filter((slot) => slot.every((i) => manualStateDraft[i] !== null)).length;
     manualStateSummary.replaceChildren(
       manualStateSummaryRow("Entered", `${entered}/${total}`, (entered / total) * 100, "#63b3ff"),
+    );
+    if (manualSize === 3) {
+      // The six fixed centres are known from the beginning, unlike the 48
+      // paintable stickers counted by Entered. Make that distinction visible
+      // when the 3×3 draft is being reconstructed by hand.
+      manualStateSummary.append(
+        manualStateSummaryRow("Known", `${entered + 6}/54`, ((entered + 6) / 54) * 100, "#63b3ff"),
+      );
+    }
+    manualStateSummary.append(
       manualStateSummaryRow("Corners", `${corners}/${cornerSlots.length}`, (corners / cornerSlots.length) * 100, "#f0c419"),
     );
     if (manualSize === 3) {

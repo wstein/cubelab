@@ -113,7 +113,8 @@ either one rings that sticker and its other same-piece stickers everywhere they 
 including the flat net — but are not a paint surface: at their small rendered size a
 foreshortened corner sticker's hit-test can resolve to a neighbouring sticker, so clicks
 and drags only ever land on the flat net. A live summary card tracks Entered/Corner/Edge
-progress and a colour-by-colour remaining bar; each palette swatch also shows its own
+progress; on 3×3×3 it also distinguishes **Known** stickers by including the six fixed
+centres. It includes a colour-by-colour remaining bar, and each palette swatch also shows its own
 remaining count. The summary, palette, copy control, and actions form one right-hand
 rail. Shortcuts occupy the net's empty lower-right quadrant, while the live validity
 banner sits directly below the net. This keeps the cube, its preview, and the relevant
