@@ -64,6 +64,11 @@ virtual-controller timer records every projected face turn with its elapsed solv
 before exporting it in this field. Invalid or non-monotonic reconstruction timestamps are
 rejected rather than silently replayed out of order.
 
+Each reconstructed solve also has an expandable compact breakdown: recorded move count,
+TPS across the recorded segment, pauses of 0.5 seconds or longer, and the elapsed plus
+inter-move time for every turn. These values are calculated directly from the same
+timestamps used for replay; they do not infer turns from the scramble or timer duration.
+
 ## Smart Controller mode
 
 **Controller mode** is an explicit smart-cube dock toggle for high-repetition

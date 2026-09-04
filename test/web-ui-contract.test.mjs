@@ -9,6 +9,7 @@ const workbenchPage = await readFile(new URL("../src/pages/workbench.astro", imp
 const patternsPage = await readFile(new URL("../src/pages/patterns.astro", import.meta.url), "utf8");
 const timerPage = await readFile(new URL("../src/pages/timer.astro", import.meta.url), "utf8");
 const client = await readFile(new URL("../src/client/converter.ts", import.meta.url), "utf8");
+const timerWorkspace = await readFile(new URL("../src/client/timer/workspace.ts", import.meta.url), "utf8");
 const solverWorker = await readFile(new URL("../src/client/workers/solver.worker.ts", import.meta.url), "utf8");
 const viewport = await readFile(new URL("../src/client/cube-gl.ts", import.meta.url), "utf8");
 const orientationVerifier = await readFile(
@@ -87,6 +88,8 @@ test("the workspace exposes a manual speedcubing timer", () => {
   assert.match(viewportComponent, /data-smart-cube-mac-recovery/);
   assert.match(client, /smartCubeSyncMode === "VirtualController"/);
   assert.match(client, /cubelab:timer-scramble/);
+  assert.match(timerWorkspace, /dataset\.timerBreakdown/);
+  assert.match(timerWorkspace, /reconstructionBreakdown/);
   assert.match(client, /academyRequestGuard\.isCurrent\(request\)/);
   assert.match(client, /academyTargetDiagnostic/);
   assert.match(client, /nextRandomDrillRotation/);

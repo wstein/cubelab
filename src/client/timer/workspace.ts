@@ -19,7 +19,7 @@ import {readTimerSessions, writeTimerSessions, type TimerSession} from "./storag
 import {hasVerifiedTnoodle, readPreferences} from "../preferences";
 import {TnoodleClient} from "../scramble/tnoodle-client";
 import {practiceScramble} from "../scramble/practice";
-import {downloadCsTimerSession, importCsTimerSession, reconstructionReplayNotation} from "./cstimer";
+import {downloadCsTimerSession, importCsTimerSession, reconstructionBreakdown, reconstructionReplayNotation} from "./cstimer";
 
 const newId = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const inputActive = (target: EventTarget | null): boolean =>
@@ -134,9 +134,34 @@ export const mountTimerWorkspace = (root: HTMLElement): void => {
       row.innerHTML = `<dt>${label}</dt><dd>${value}</dd>`;
       return row;
     }));
+    const renderReconstruction = (reconstruction: NonNullable<SolveRecord["reconstruction"]>) => {
+      const breakdown = reconstructionBreakdown(reconstruction.moves);
+      const details = document.createElement("details");
+      details.className = "timer-reconstruction";
+      details.dataset.timerBreakdown = "";
+      const summary = document.createElement("summary");
+      const tps = breakdown.turnsPerSecond === null ? "— TPS" : `${breakdown.turnsPerSecond.toFixed(2)} TPS`;
+      summary.textContent = `${breakdown.moves.length} moves · ${tps} · ${breakdown.pauseCount} pause${breakdown.pauseCount === 1 ? "" : "s"}`;
+      details.append(summary);
+      const timings = document.createElement("ol");
+      timings.className = "timer-reconstruction-moves";
+      breakdown.moves.forEach(({move, elapsedMs, intervalMs, isPause}) => {
+        const timing = document.createElement("li");
+        if (isPause) timing.dataset.pause = "true";
+        const token = document.createElement("code");
+        token.textContent = move;
+        const elapsed = document.createElement("span");
+        elapsed.textContent = `${formatTime(elapsedMs)} · +${formatTime(intervalMs)}`;
+        timing.append(token, elapsed);
+        timings.append(timing);
+      });
+      details.append(timings);
+      return details;
+    };
     solves.replaceChildren(...session.solves.slice().reverse().map((solve) => {
       const item = document.createElement("li");
       item.innerHTML = `<code>${formatTime(solve.durationMs)}${solve.penalty === "+2" ? " +2" : solve.penalty === "DNF" ? " DNF" : ""}</code>${solve.reconstruction?.moves.length ? `<button type="button" data-timer-replay="${solve.id}">Replay</button>` : ""}<button type="button" data-timer-penalty="${solve.id}">+2</button><button type="button" data-timer-dnf="${solve.id}">DNF</button><button type="button" data-timer-delete="${solve.id}">Delete</button>`;
+      if (solve.reconstruction?.moves.length) item.append(renderReconstruction(solve.reconstruction));
       return item;
     }));
     publishHud(shown);

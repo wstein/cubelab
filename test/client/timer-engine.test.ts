@@ -16,7 +16,7 @@ import {
   type SolveRecord,
 } from "../../src/client/timer/engine";
 import {readTimerSessions, writeTimerSessions, type StorageLike} from "../../src/client/timer/storage";
-import {exportCsTimerSession, importCsTimerSession, reconstructionReplayNotation} from "../../src/client/timer/cstimer";
+import {exportCsTimerSession, importCsTimerSession, reconstructionBreakdown, reconstructionReplayNotation} from "../../src/client/timer/cstimer";
 
 const solve = (durationMs: number, penalty: SolveRecord["penalty"] = "none"): SolveRecord => ({
   id: `${durationMs}-${penalty}`,
@@ -138,4 +138,21 @@ test("rejects malformed or non-monotonic csTimer reconstruction timestamps", () 
   }));
   expect(imported).toEqual({ok: false, message: "The csTimer session contains no valid 3×3 solves."});
   expect(reconstructionReplayNotation([{move: "R", elapsedMs: 60_001}])).toBe("@60s @0.001s R");
+});
+
+test("summarizes reconstruction TPS, pauses, and per-move intervals", () => {
+  expect(reconstructionBreakdown([
+    {move: "R", elapsedMs: 100}, {move: "U", elapsedMs: 350}, {move: "F2", elapsedMs: 1_100},
+  ])).toEqual({
+    moves: [
+      {move: "R", elapsedMs: 100, intervalMs: 100, isPause: false},
+      {move: "U", elapsedMs: 350, intervalMs: 250, isPause: false},
+      {move: "F2", elapsedMs: 1_100, intervalMs: 750, isPause: true},
+    ],
+    recordedDurationMs: 1_100,
+    turnsPerSecond: 3 / 1.1,
+    pauseCount: 1,
+    longestPauseMs: 750,
+  });
+  expect(reconstructionBreakdown([])).toMatchObject({turnsPerSecond: null, pauseCount: 0});
 });

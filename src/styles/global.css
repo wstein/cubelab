@@ -203,9 +203,15 @@ body {
 .timer-stats dd { margin: 0.2rem 0 0; color: var(--text-primary); font: 600 1rem var(--font-mono); }
 
 .timer-solves { display: grid; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
-.timer-solves li { display: flex; align-items: center; gap: 0.4rem; padding: 0.5rem; border-radius: 7px; background: rgba(255,255,255,0.035); }
+.timer-solves li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding: 0.5rem; border-radius: 7px; background: rgba(255,255,255,0.035); }
 .timer-solves code { margin-right: auto; color: var(--text-primary); }
 .timer-solves button { padding: 0.2rem 0.35rem; border: 1px solid var(--border-subtle); border-radius: 4px; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.timer-reconstruction { flex-basis: 100%; color: var(--text-secondary); font-size: 0.78rem; }
+.timer-reconstruction summary { cursor: pointer; }
+.timer-reconstruction-moves { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 0.25rem 0.6rem; margin: 0.5rem 0 0; padding: 0; list-style: none; }
+.timer-reconstruction-moves li { display: flex; justify-content: space-between; gap: 0.4rem; padding: 0; background: transparent; border-radius: 0; font: 0.75rem var(--font-mono); }
+.timer-reconstruction-moves li[data-pause="true"] { color: var(--accent-warm); }
+.timer-reconstruction-moves code { margin: 0; color: inherit; }
 
 /* Converter studio */
 .studio {

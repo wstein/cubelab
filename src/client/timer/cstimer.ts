@@ -22,6 +22,21 @@ export type CsTimerImportResult =
   | {ok: true; solves: SolveRecord[]}
   | {ok: false; message: string};
 
+export const RECONSTRUCTION_PAUSE_MS = 500;
+
+export type ReconstructionMoveTiming = RecordedMove & {
+  intervalMs: number;
+  isPause: boolean;
+};
+
+export type ReconstructionBreakdown = {
+  moves: ReconstructionMoveTiming[];
+  recordedDurationMs: number;
+  turnsPerSecond: number | null;
+  pauseCount: number;
+  longestPauseMs: number;
+};
+
 const penaltyFor = (penalty: SolveRecord["penalty"]): CsTimerPenalty =>
   penalty === "DNF" ? -1 : penalty === "+2" ? 2_000 : 0;
 
@@ -125,6 +140,31 @@ export const reconstructionReplayNotation = (moves: RecordedMove[]): string => {
     previousElapsedMs = elapsedMs;
   }
   return notation.join(" ");
+};
+
+/** Summarizes the exact smart-cube timestamps stored by csTimer and CubeLab. */
+export const reconstructionBreakdown = (moves: RecordedMove[]): ReconstructionBreakdown => {
+  let previousElapsedMs = 0;
+  let pauseCount = 0;
+  let longestPauseMs = 0;
+  const timedMoves = moves.map(({move, elapsedMs}, index) => {
+    const intervalMs = Math.max(0, elapsedMs - previousElapsedMs);
+    previousElapsedMs = elapsedMs;
+    const isPause = index > 0 && intervalMs >= RECONSTRUCTION_PAUSE_MS;
+    if (isPause) {
+      pauseCount += 1;
+      longestPauseMs = Math.max(longestPauseMs, intervalMs);
+    }
+    return {move, elapsedMs, intervalMs, isPause};
+  });
+  const recordedDurationMs = timedMoves.at(-1)?.elapsedMs ?? 0;
+  return {
+    moves: timedMoves,
+    recordedDurationMs,
+    turnsPerSecond: recordedDurationMs > 0 ? moves.length / (recordedDurationMs / 1_000) : null,
+    pauseCount,
+    longestPauseMs,
+  };
 };
 
 /** Reads csTimer's `session1` entries, including its optional smart-cube replay field. */
