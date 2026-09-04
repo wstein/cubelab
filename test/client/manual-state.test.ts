@@ -7,6 +7,7 @@ import {
   emptyManualState,
   faceletOrder,
   fillForcedManualStateColours2,
+  fillLocallyForcedManualStateColours,
   locallyAllowedManualStateColours,
   manualStateCornerSlots,
   manualStateEdgeSlots,
@@ -78,6 +79,33 @@ describe("3×3 manual state constraints", () => {
     draft[index] = null;
     expect(locallyAllowedManualStateColours(3, draft, index)).toContain(solvedColour);
     expect(allowedManualStateColours(3, draft, index)).not.toContain(solvedColour);
+  });
+
+  test("auto-fills remaining stickers when only one colour has quota remaining", () => {
+    const draft = solvedManualState(3);
+    // Blank out the 4 edge stickers on the Back face
+    draft[46] = null;
+    draft[50] = null;
+    draft[48] = null;
+    draft[52] = null;
+    expect(locallyAllowedManualStateColours(3, draft, 46)).toEqual(["B"]);
+    const filled = fillLocallyForcedManualStateColours(3, draft);
+    expect(filled[46]).toBe("B");
+    expect(filled[50]).toBe("B");
+    expect(filled[48]).toBe("B");
+    expect(filled[52]).toBe("B");
+  });
+
+  test("filters out pieces that are already claimed by another completed slot", () => {
+    const empty = emptyManualState(3);
+    // Place UR edge [5, 10] = ["U", "R"], UF edge [7, 19] = ["U", "F"], UL edge [3, 37] = ["U", "L"]
+    empty[5] = "U"; empty[10] = "R";
+    empty[7] = "U"; empty[19] = "F";
+    empty[3] = "U"; empty[37] = "L";
+    // For UB edge slot [1, 46], place draft[1] = "U"
+    empty[1] = "U";
+    // With UR, UF, UL claimed, UB is the only unclaimed piece with a "U" sticker
+    expect(locallyAllowedManualStateColours(3, empty, 46)).toEqual(["B"]);
   });
 });
 

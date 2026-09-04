@@ -172,15 +172,30 @@ export const locallyAllowedManualStateColours = (
 ): ManualStateFace[] => {
   if (index < 0 || index >= draft.length) return [];
   if (size === 3 && centreIndices3.includes(index)) return [faceletOrder[centreIndices3.indexOf(index)]];
+  const perColour = size * size;
+  const counts: Record<ManualStateFace, number> = {U: 0, D: 0, R: 0, L: 0, F: 0, B: 0};
+  draft.forEach((face) => {
+    if (face !== null) counts[face] += 1;
+  });
   for (const kind of kindsForSize(size)) {
     const slotIndex = kind.slots.findIndex((slot) => slot.includes(index));
     if (slotIndex < 0) continue;
     const localIndex = kind.slots[slotIndex].indexOf(index);
-    return candidatesFor(kind)
-      [slotIndex]
-      .filter((candidate) => matches(draft, kind.slots[slotIndex], candidate))
+    const candidates = candidatesFor(kind);
+    const claimed = new Set<number>();
+    kind.slots.forEach((slot, sIndex) => {
+      if (sIndex === slotIndex) return;
+      if (slot.every((s) => draft[s] !== null)) {
+        const matched = candidates[sIndex].find((c) => matches(draft, slot, c));
+        if (matched) claimed.add(matched.piece);
+      }
+    });
+    return candidates[slotIndex]
+      .filter((candidate) => !claimed.has(candidate.piece) && matches(draft, kind.slots[slotIndex], candidate))
       .map((candidate) => candidate.stickers[localIndex])
-      .filter((colour, candidateIndex, values) => values.indexOf(colour) === candidateIndex);
+      .filter((colour, candidateIndex, values) =>
+        values.indexOf(colour) === candidateIndex && (counts[colour] < perColour || draft[index] === colour),
+      );
   }
   return [];
 };
