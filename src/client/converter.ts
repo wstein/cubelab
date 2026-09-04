@@ -1320,6 +1320,7 @@ if (root) {
     manualStateColour = "U";
     renderManualStateEditor();
     manualStateDialog.showModal();
+    updateViewportDialogOcclusion();
   };
 
   const recognize = (result: Result<CubeState>, label: string): Result<RecognizedInput> => {
@@ -5423,7 +5424,24 @@ if (root) {
   solveCardButton?.addEventListener("click", () => {
     void takeSolveCard();
   });
-  shortcutsHelp.addEventListener("click", () => shortcutsDialog.showModal());
+  // Any modal <dialog> geometrically overlaps the same viewport bounds
+  // IntersectionObserver tracks, so opening one otherwise leaves auto-orbit
+  // and any active focus/turnGuide highlight rendering and compositing
+  // every frame behind it, unseen. showModal() has no companion "open"
+  // event, so each call site pairs with this explicitly; a dialog's native
+  // "close" event fires for every way it closes (a button's own .close(),
+  // Escape, or a form submission), so one listener per dialog catches them
+  // all without hunting down every close trigger.
+  const updateViewportDialogOcclusion = () => {
+    viewport?.setDialogOpen(manualStateDialog.open || shortcutsDialog.open || settingsDialog.open);
+  };
+  [manualStateDialog, shortcutsDialog, settingsDialog].forEach((dialog) => {
+    dialog.addEventListener("close", updateViewportDialogOcclusion);
+  });
+  shortcutsHelp.addEventListener("click", () => {
+    shortcutsDialog.showModal();
+    updateViewportDialogOcclusion();
+  });
   shortcutsClose.addEventListener("click", () => shortcutsDialog.close());
   manualStateOpen.addEventListener("click", openManualStateEditor);
   [manualStateClose, manualStateCancel].forEach((button) => {
@@ -5681,6 +5699,7 @@ if (root) {
     delete settingsTnoodleStatus.dataset.status;
     settingsInspectionSeconds.value = String(preferences.inspectionSeconds);
     settingsDialog.showModal();
+    updateViewportDialogOcclusion();
   });
   settingsClose.addEventListener("click", () => settingsDialog.close());
   settingsSize.addEventListener("change", () => store.patch({size: Number(settingsSize.value)}));
@@ -5885,7 +5904,10 @@ if (root) {
       event.preventDefault();
       flushPendingDirectMove();
       if (shortcutsDialog.open) shortcutsDialog.close();
-      else shortcutsDialog.showModal();
+      else {
+        shortcutsDialog.showModal();
+        updateViewportDialogOcclusion();
+      }
       return;
     }
     if (shortcutsDialog.open) return;

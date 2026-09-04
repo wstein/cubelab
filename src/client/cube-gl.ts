@@ -669,6 +669,7 @@ export type CubeViewport = {
     frame?: OrientationCoordinateFrame,
   ) => void;
   setAutoOrbit: (enabled: boolean) => void;
+  setDialogOpen: (open: boolean) => void;
   resetCamera: () => void;
   refresh: () => void;
   capturePng: () => Promise<Blob | null>;
@@ -738,6 +739,11 @@ export const createCubeViewport = (
   let distance = DEFAULT_DISTANCE;
   let frame: number | null = null;
   let visible = true;
+  // A modal <dialog> covering the canvas leaves it geometrically intersecting
+  // the viewport — IntersectionObserver has no concept of top-layer
+  // occlusion — so auto-orbit and any focus/turnGuide/milestone highlight
+  // kept rendering and compositing every frame behind it otherwise.
+  let dialogOpen = false;
   let dragging = false;
   let previousX = 0;
   let previousY = 0;
@@ -1437,11 +1443,12 @@ export const createCubeViewport = (
   };
 
   const requestRender = () => {
-    if (disposed || !visible || frame !== null) return;
+    if (disposed || !visible || dialogOpen || frame !== null) return;
     frame = window.requestAnimationFrame(render);
   };
 
-  const canAutoOrbit = () => autoOrbit && !deviceOrientation && visible && !document.hidden && !disposed;
+  const canAutoOrbit = () =>
+    autoOrbit && !deviceOrientation && visible && !dialogOpen && !document.hidden && !disposed;
 
   const stopAutoOrbitFrame = () => {
     if (autoOrbitFrame !== null) window.cancelAnimationFrame(autoOrbitFrame);
@@ -1796,6 +1803,16 @@ export const createCubeViewport = (
         startAutoOrbitFrame();
       } else stopAutoOrbitFrame();
       requestRender();
+    },
+    setDialogOpen(open) {
+      if (dialogOpen === open) return;
+      dialogOpen = open;
+      if (open) {
+        stopAutoOrbitFrame();
+      } else {
+        requestRender();
+        startAutoOrbitFrame();
+      }
     },
     resetCamera() {
       deviceOrientationBase = null;
