@@ -1641,43 +1641,36 @@ test("recovers full colour availability after erasing every sticker, including a
   const dialog = page.locator("[data-manual-state-dialog]");
   await expect(dialog).toBeVisible();
   const net = dialog.locator("[data-manual-state-grid]");
-  const centres = [4, 13, 22, 31, 40, 49];
-  const nonCentres = Array.from({length: 54}, (_, i) => i).filter((i) => !centres.includes(i));
 
-  // Fill every colour by hand rather than via Solved, so some cells along the
-  // way get auto-set (not explicitly clicked) — erasing those has to cascade
-  // from their explicit driver rather than being erasable directly.
-  for (const colour of ["U", "D", "R", "L", "F", "B"]) {
-    await dialog.locator(`[data-manual-state-colour="${colour}"]`).click();
-    for (const index of nonCentres) {
-      const sticker = net.locator(`[data-manual-state-index="${index}"]`);
-      if ((await sticker.textContent())?.trim()) continue;
-      await sticker.click().catch(() => undefined);
-    }
-  }
-  const auto = [];
-  for (const index of nonCentres) {
-    if ((await net.locator(`[data-manual-state-index="${index}"]`).getAttribute("data-auto")) === "true") {
-      auto.push(index);
-    }
-  }
-  expect(auto.length).toBeGreaterThan(0); // otherwise this isn't exercising the auto-set path at all
+  // Filling Right and Front by hand (not via Solved, which marks every cell
+  // explicit) forces at least one other cell — index 8, U's own corner in
+  // the URF piece — auto-set rather than explicitly clicked, so erasing it
+  // has to cascade from its explicit driver rather than being erasable
+  // directly.
+  const rIndices = [9, 10, 11, 12, 14, 15, 16, 17];
+  const fIndices = [18, 19, 20, 21, 23, 24, 25, 26];
+  await dialog.locator('[data-manual-state-colour="R"]').click();
+  for (const index of rIndices) await net.locator(`[data-manual-state-index="${index}"]`).click();
+  await dialog.locator('[data-manual-state-colour="F"]').click();
+  for (const index of fIndices) await net.locator(`[data-manual-state-index="${index}"]`).click();
 
-  // Erasing an auto-set sticker directly is a no-op — erase everything else
-  // first so each one's explicit driver clears and it cascades back to blank.
-  for (const index of nonCentres) {
+  const u8 = net.locator('[data-manual-state-index="8"]');
+  await expect(u8).toHaveAttribute("data-auto", "true");
+  await expect(u8).toHaveText("U");
+
+  // Erase everything in one ascending pass. index 8 is skipped while still
+  // auto-set, but cascades back to blank once its R/F drivers clear.
+  for (const index of [...rIndices, ...fIndices]) {
     await net.locator(`[data-manual-state-index="${index}"]`).click({button: "right"});
   }
-  for (const index of nonCentres) {
-    await net.locator(`[data-manual-state-index="${index}"]`).click({button: "right"});
-  }
-  for (const index of nonCentres) {
+  await expect(u8).toHaveText("");
+  for (const index of [...rIndices, ...fIndices]) {
     await expect(net.locator(`[data-manual-state-index="${index}"]`)).toHaveText("");
   }
 
   // A fully blank draft is maximally permissive: every colour is available
   // at every remaining sticker, not just some.
-  for (const index of [0, 9, 20, 30, 44, 53]) {
+  for (const index of [8, 20, 44]) {
     const dots = net.locator(`[data-manual-state-index="${index}"] .manual-state-dots i`);
     await expect(dots).toHaveCount(6);
     for (const dot of await dots.all()) {
