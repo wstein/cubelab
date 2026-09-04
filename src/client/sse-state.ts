@@ -137,3 +137,81 @@ export const parseSseState = (input: string, size: 2 | 3 = 3): Result<SseStateIm
     return {TAG: "Error", _0: reason instanceof Error ? reason.message : String(reason)};
   }
 };
+
+/** Renders a 3×3 state as SSE cycles with orientation-bearing cubie spellings. */
+export const renderSseState = (state: CubeState): Result<string, string> => {
+  if (state.size !== 3) return {TAG: "Error", _0: "SSE state output is available only for 3×3×3."};
+  const reduced = PieceReducer.reduce(state) as Result<{cp: number[]; co: number[]; ep: number[]; eo: number[]}, unknown>;
+  if (reduced.TAG === "Error") return {TAG: "Error", _0: PieceReducer.describeError(reduced._0) as string};
+  const cycles = (permutation: number[], orientations: number[], labels: string[]) => {
+    const visited = new Set<number>();
+    const output: string[] = [];
+    const orientationBetween = (source: string, destination: string, sourceSlot: number, destinationSlot: number, modulus: number) => {
+      const sourceCanonical = labels[sourceSlot]!;
+      const destinationCanonical = labels[destinationSlot]!;
+      for (let orientation = 0; orientation < modulus; orientation += 1) {
+        const matches = [...sourceCanonical].every((face, colourIndex) => {
+          const sourcePosition = source.indexOf(face);
+          return destinationCanonical[(colourIndex + orientation) % modulus] === destination[sourcePosition];
+        });
+        if (matches) return orientation;
+      }
+      return -1;
+    };
+    const spellDestination = (source: string, sourceSlot: number, destinationSlot: number, orientation: number) => {
+      const destination = new Array<string>(source.length);
+      for (let colourIndex = 0; colourIndex < source.length; colourIndex += 1) {
+        const position = source.indexOf(labels[sourceSlot]![colourIndex]!);
+        destination[position] = labels[destinationSlot]![(colourIndex + orientation) % source.length]!;
+      }
+      return destination.join("");
+    };
+    const spellCycle = (members: number[]) => {
+      const modulus = labels[0]!.length;
+      if (members.length === 1) {
+        const orientation = orientations[members[0]]!;
+        const prefix = orientation === 0 ? "" : orientation === 1 ? "+" : "-";
+        return `(${prefix}${labels[members[0]]!})`;
+      }
+      const spellings = [labels[members[0]]!];
+      for (let index = 1; index < members.length; index += 1) {
+        spellings.push(spellDestination(spellings[index - 1]!, members[index - 1]!, members[index]!, orientations[members[index]!]!));
+      }
+      const closingOrientation = orientationBetween(
+        spellings[spellings.length - 1]!,
+        spellings[0]!,
+        members[members.length - 1]!,
+        members[0]!,
+        modulus,
+      );
+      const prefixOrientation = (orientations[members[0]]! - closingOrientation + modulus) % modulus;
+      const prefix = prefixOrientation === 0 ? "" : prefixOrientation === 1 ? "+" : "-";
+      return `(${prefix}${spellings.join(",")})`;
+    };
+    for (let start = 0; start < permutation.length; start += 1) {
+      if (visited.has(start)) continue;
+      const members = [start];
+      visited.add(start);
+      if (permutation[start] === start) {
+        if (orientations[start] !== 0) output.push(spellCycle(members));
+        continue;
+      }
+      let current = start;
+      while (true) {
+        const next = permutation.findIndex((piece) => piece === current);
+        if (next === start) break;
+        members.push(next);
+        visited.add(next);
+        current = next;
+      }
+      output.push(spellCycle(members));
+    }
+    return output;
+  };
+  const tokens = [
+    ...cycles(reduced._0.cp, reduced._0.co, cornerLabels),
+    ...cycles(reduced._0.ep, reduced._0.eo, edgeLabels),
+  ];
+  // A centre singleton is an explicit, state-neutral SSE spelling for solved.
+  return {TAG: "Ok", _0: tokens.length === 0 ? "(u)" : tokens.join(" ")};
+};

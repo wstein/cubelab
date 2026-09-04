@@ -30,6 +30,10 @@ test("the static shell declares size-scoped cubie and Orbit64 cards", () => {
   assert.match(page, /data-output-card=\{key\}/);
   assert.match(page, /data-copy-orbit64/);
   assert.match(page, />Copy as Orbit64</);
+  assert.match(page, /key: "sse"[\s\S]*sizes: "3"/);
+  assert.match(page, /key: "acube"[\s\S]*sizes: "3"/);
+  assert.match(client, /renderSseState/);
+  assert.match(client, /renderAcubeState/);
 });
 
 test("the dedicated player route reuses the full interactive viewport", () => {

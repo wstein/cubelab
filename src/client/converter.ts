@@ -18,7 +18,7 @@ import {TnoodleClient} from "./scramble/tnoodle-client";
 import {createAcademyRequestGuard} from "./academy-request";
 import {looksLikeAcubeState, parseAcubeState} from "./acube-state";
 import {countAcubeCompletions, materializeAcubeConstraint, parseAcubeConstraint, renderAcubeState} from "./acube-engine";
-import {looksLikeSseState, parseSseState} from "./sse-state";
+import {looksLikeSseState, parseSseState, renderSseState} from "./sse-state";
 import {
   allowedManualStateColours,
   emptyManualState,
@@ -1560,7 +1560,11 @@ if (root) {
           `Unavailable — ${PieceReducer.describeError(pieces._0)}`,
           false,
         );
-        if (size === 3) setOutput("orbit64", "Unavailable — invalid piece state", false);
+        if (size === 3) {
+          setOutput("orbit64", "Unavailable — invalid piece state", false);
+          setOutput("sse", "Unavailable — invalid piece state", false);
+          setOutput("acube", "Unavailable — invalid piece state", false);
+        }
       } else {
         const renderedPieces = PieceReducer.render(pieces._0) as Result<string, unknown>;
         setOutput(
@@ -1577,6 +1581,10 @@ if (root) {
             orbit.TAG === "Ok" ? orbit._0 : `Unavailable — ${Orbit64Codec.describeError(orbit._0)}`,
             orbit.TAG === "Ok",
           );
+          const sse = renderSseState(state);
+          setOutput("sse", sse.TAG === "Ok" ? sse._0 : `Unavailable — ${sse._0}`, sse.TAG === "Ok");
+          const acube = renderAcubeState(state);
+          setOutput("acube", acube.TAG === "Ok" ? acube._0 : `Unavailable — ${acube._0}`, acube.TAG === "Ok");
         }
       }
     }
@@ -3861,7 +3869,7 @@ if (root) {
       status.classList.add("error");
       error.textContent = describeError(parsed._0);
       error.hidden = false;
-      for (const key of ["facelets", "net", "colours", "colour-net", "pieces", "orbit64"]) {
+      for (const key of ["facelets", "net", "colours", "colour-net", "pieces", "orbit64", "sse", "acube"]) {
         setOutput(key, "—", false);
       }
       lastLabel = "Parse error";

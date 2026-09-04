@@ -17,6 +17,10 @@ Cubie names are case-insensitive on import. Cycles run left to right exactly as
 ACube documents them; an oriented cubie spelling such as `FRU` is retained as
 the corresponding cubie orientation.
 
+For every valid 3×3 state, the Converter emits ACube's unfolded positional form:
+twelve edges followed by eight corners. This output is complete and pasteable into
+Setup without changing notation.
+
 ACube also accepts partial constraints: `?`, `@`, bracketed ignored pieces, and
 their wildcard forms. Those describe many possible cubes, while CubeLab's
 Setup field requires one complete physical state. Setup therefore rejects a

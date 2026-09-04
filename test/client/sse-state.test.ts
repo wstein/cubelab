@@ -4,7 +4,7 @@ import * as FaceletCodec from "../../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../../src/Move/MoveExecutor.res.mjs";
 import * as MoveParser from "../../src/Move/MoveParser.res.mjs";
 import * as StateTypes from "../../src/State/StateTypes.res.mjs";
-import {looksLikeSseState, parseSseState} from "../../src/client/sse-state";
+import {looksLikeSseState, parseSseState, renderSseState} from "../../src/client/sse-state";
 
 const stateAfter = (algorithm: string, size = 3) => {
   const parsed = MoveParser.parse(size, algorithm);
@@ -54,4 +54,14 @@ test("recognizes SSE state candidates and rejects malformed cycles", () => {
   const malformed = parseSseState("(ulb,urf) trailing");
   expect(malformed.TAG).toBe("Error");
   expect(malformed._0).toMatch(/Unexpected SSE state input/);
+});
+
+test("renders a round-trippable SSE state, including solved", () => {
+  for (const state of [StateTypes.solved(3)._0, stateAfter("R U F2 L' D B")]) {
+    const rendered = renderSseState(state);
+    expect(rendered.TAG).toBe("Ok");
+    const reparsed = parseSseState(rendered._0);
+    expect(reparsed.TAG).toBe("Ok");
+    expect(FaceletCodec.render(reparsed._0.state)).toBe(FaceletCodec.render(state));
+  }
 });
