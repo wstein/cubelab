@@ -940,9 +940,8 @@ if (root) {
       manualStateSummary.append(manualStateSummaryRow("Edges", `${edges}/12`, (edges / 12) * 100, "#f0c419"));
     }
     const remaining = total - entered;
-    // A completed draft has no useful empty progress indicator. Its complete
-    // status is already conveyed by the summary rows and validity banner.
-    if (remaining === 0) return;
+    // Keep the final 0-left row visible: stable summary geometry makes the
+    // completion state easier to verify than a row disappearing at the end.
     const divider = document.createElement("div");
     divider.className = "manual-state-summary-divider";
     const remainingRow = document.createElement("div");

@@ -238,7 +238,8 @@ test("the 2x2 and 3x3 manual state editor keeps a constrained draft separate fro
   assert.match(styles, /\.manual-state-key-emphasis \{[\s\S]*font-weight: 800;/);
   assert.match(styles, /\.manual-state-tools \{[\s\S]*flex: 0 1 18rem;/);
   assert.match(client, /manualStateSummaryRow\("Known", `\$\{entered \+ 6\}\/54`/);
-  assert.match(client, /const remaining = total - entered;[\s\S]*if \(remaining === 0\) return;/);
+  assert.match(client, /const remaining = total - entered;[\s\S]*remainingLabel\.textContent = "Remaining"/);
+  assert.doesNotMatch(client, /if \(remaining === 0\) return;/);
   assert.match(client, /if \(key === "E"\) \{[\s\S]*eraseManualStateSticker\(index\)/);
   assert.match(client, /if \(isManualStateCentre\(index\) \|\| manualStateAutoIndices\.has\(index\)\) return;/);
   assert.match(client, /sticker\.dataset\.centre = String\(centre\)/);

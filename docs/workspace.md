@@ -120,7 +120,8 @@ including the flat net — but are not a paint surface: at their small rendered 
 foreshortened corner sticker's hit-test can resolve to a neighbouring sticker, so clicks
 and drags only ever land on the flat net. A live summary card tracks Entered/Corner/Edge
 progress; on 3×3×3 it also distinguishes **Known** stickers by including the six fixed
-centres. While a draft is incomplete, it includes a colour-by-colour remaining bar, and each palette swatch also shows its own
+centres. It always includes a colour-by-colour remaining bar—including its final `0 left`
+state—while each palette swatch also shows its own
 remaining count. The summary, palette, copy control, and actions form one right-hand
 rail. Spaced neatly below the action buttons, the bold, colour-coded keyboard
 reference card sits immediately above **Copy as…**: face/colour keys on the left,
