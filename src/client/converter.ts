@@ -5436,6 +5436,12 @@ if (root) {
   };
   [manualStateDialog, shortcutsDialog, settingsDialog].forEach((dialog) => {
     dialog.addEventListener("close", updateViewportDialogOcclusion);
+    dialog.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        dialog.close();
+      }
+    });
   });
   shortcutsHelp.addEventListener("click", () => {
     shortcutsDialog.showModal();
@@ -5907,7 +5913,15 @@ if (root) {
       }
       return;
     }
-    if (shortcutsDialog.open) return;
+    if (manualStateDialog.open || settingsDialog.open || shortcutsDialog.open) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (manualStateDialog.open) manualStateDialog.close();
+        if (settingsDialog.open) settingsDialog.close();
+        if (shortcutsDialog.open) shortcutsDialog.close();
+      }
+      return;
+    }
     if (event.key === "Escape") {
       event.preventDefault();
       if (playerMode) {

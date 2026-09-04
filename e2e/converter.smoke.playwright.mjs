@@ -1530,6 +1530,9 @@ test("resolves a blank 3x3 hand-entry grid quickly, without a lingering spinner 
   await expect(firstDots.locator("i")).toHaveCount(6);
   await expect(firstDots.locator('i[data-face="U"]')).toHaveCount(1);
   await expect(firstDots.locator('i[data-face="B"]')).toHaveCount(1);
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
 });
 
 test("shows counted colour pads, a live summary card, and rings a hovered sticker's piece-mates", async ({page}) => {
@@ -1624,12 +1627,63 @@ test("navigates and paints the net with the keyboard, wrapping across a face edg
   const focusedIndex = await page.evaluate(() => document.activeElement?.getAttribute("data-manual-state-index"));
   expect(focusedIndex).toBe("9");
 
-  // C clears whichever sticker currently has focus.
+  // E erases whichever sticker currently has focus.
   await page.keyboard.press("f");
   const r0 = net.locator('[data-manual-state-index="9"]');
   await expect(r0).toHaveText("F");
-  await page.keyboard.press("c");
+  await page.keyboard.press("e");
   await expect(r0).toHaveText("");
+});
+
+test("recovers full colour availability after erasing every sticker, including auto-set ones", async ({page}) => {
+  await page.goto("/");
+  await page.locator("[data-manual-state-open]").click();
+  const dialog = page.locator("[data-manual-state-dialog]");
+  await expect(dialog).toBeVisible();
+  const net = dialog.locator("[data-manual-state-grid]");
+  const centres = [4, 13, 22, 31, 40, 49];
+  const nonCentres = Array.from({length: 54}, (_, i) => i).filter((i) => !centres.includes(i));
+
+  // Fill every colour by hand rather than via Solved, so some cells along the
+  // way get auto-set (not explicitly clicked) — erasing those has to cascade
+  // from their explicit driver rather than being erasable directly.
+  for (const colour of ["U", "D", "R", "L", "F", "B"]) {
+    await dialog.locator(`[data-manual-state-colour="${colour}"]`).click();
+    for (const index of nonCentres) {
+      const sticker = net.locator(`[data-manual-state-index="${index}"]`);
+      if ((await sticker.textContent())?.trim()) continue;
+      await sticker.click().catch(() => undefined);
+    }
+  }
+  const auto = [];
+  for (const index of nonCentres) {
+    if ((await net.locator(`[data-manual-state-index="${index}"]`).getAttribute("data-auto")) === "true") {
+      auto.push(index);
+    }
+  }
+  expect(auto.length).toBeGreaterThan(0); // otherwise this isn't exercising the auto-set path at all
+
+  // Erasing an auto-set sticker directly is a no-op — erase everything else
+  // first so each one's explicit driver clears and it cascades back to blank.
+  for (const index of nonCentres) {
+    await net.locator(`[data-manual-state-index="${index}"]`).click({button: "right"});
+  }
+  for (const index of nonCentres) {
+    await net.locator(`[data-manual-state-index="${index}"]`).click({button: "right"});
+  }
+  for (const index of nonCentres) {
+    await expect(net.locator(`[data-manual-state-index="${index}"]`)).toHaveText("");
+  }
+
+  // A fully blank draft is maximally permissive: every colour is available
+  // at every remaining sticker, not just some.
+  for (const index of [0, 9, 20, 30, 44, 53]) {
+    const dots = net.locator(`[data-manual-state-index="${index}"] .manual-state-dots i`);
+    await expect(dots).toHaveCount(6);
+    for (const dot of await dots.all()) {
+      await expect(dot).toHaveAttribute("data-available", "true");
+    }
+  }
 });
 
 test("shows two CSS-3D preview cubes in the net and a shortcuts reference in the header", async ({page}) => {
