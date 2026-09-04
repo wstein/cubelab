@@ -116,8 +116,9 @@ and drags only ever land on the flat net. A live summary card tracks Entered/Cor
 progress; on 3×3×3 it also distinguishes **Known** stickers by including the six fixed
 centres. It includes a colour-by-colour remaining bar, and each palette swatch also shows its own
 remaining count. The summary, palette, copy control, and actions form one right-hand
-rail. Keyboard shortcuts sit in that right-hand rail, while the live validity banner sits
-directly below the net. This keeps the cube, its preview, and the relevant
+rail. The bold, colour-coded keyboard reference sits immediately above **Copy as…** in
+that right-hand rail, while the live validity banner sits directly below the net. This
+keeps the cube, its preview, and the relevant
 controls visible together without a separate full-width footer.
 **Copy as…** places the current draft on the clipboard as compact facelets, spaced
 facelets, a Singmaster-style per-piece list, or JSON, once the draft is complete; it is
