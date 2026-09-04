@@ -1094,7 +1094,6 @@ if (root) {
         const localIndex = index % (manualSize * manualSize);
         const value = manualStateDraft[index];
         sticker.dataset.face = value ?? "unknown";
-        sticker.dataset.centre = String(manualSize === 3 && localIndex === 4);
         if (index === manualStateHoverIndex) sticker.dataset.pieceHover = "self";
         else if (hoverMates.includes(index)) sticker.dataset.pieceHover = "mate";
         else delete sticker.dataset.pieceHover;
@@ -1187,12 +1186,6 @@ if (root) {
         else if (hoverMates.includes(index)) sticker.dataset.pieceHover = "mate";
         else delete sticker.dataset.pieceHover;
         const centre = manualSize === 3 && localIndex === 4;
-        sticker.dataset.centre = String(centre);
-        if (centre) {
-          sticker.title = "Fixed centre (double-click to select colour)";
-        } else {
-          sticker.removeAttribute("title");
-        }
         // Not a native disabled button: that would also suppress hover and
         // dblclick (picking the centre's own colour into the palette), not
         // just click/drag paint — isManualStateCentre already guards every

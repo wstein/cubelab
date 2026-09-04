@@ -838,7 +838,6 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .manual-state-preview-sticker[data-face="D"] { background: #facc15; }
 .manual-state-preview-sticker[data-face="L"] { background: #f97316; }
 .manual-state-preview-sticker[data-face="B"] { background: #3b82f6; }
-.manual-state-preview-sticker[data-centre="true"] { filter: brightness(0.86); }
 
 .manual-state-preview-sticker[data-piece-hover="self"] { box-shadow: inset 0 0 0 2px #f4f7fc; }
 .manual-state-preview-sticker[data-piece-hover="mate"] { box-shadow: inset 0 0 0 2px #ffc94a; }
@@ -971,15 +970,6 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   color: #67e8f9;
   content: "✦";
   font: 700 0.55rem/1 var(--font-mono);
-}
-
-.manual-state-sticker[data-centre="true"] {
-  cursor: default;
-  filter: brightness(0.86);
-}
-
-.manual-state-sticker[data-centre="true"]:hover {
-  border-color: rgba(255, 255, 255, 0.28);
 }
 
 .manual-state-sticker[data-face="U"], .manual-state-colour[data-manual-state-colour="U"] { background: #f8fafc; }
