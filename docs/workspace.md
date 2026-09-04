@@ -119,7 +119,8 @@ remaining count. The summary, palette, copy control, and actions form one right-
 rail. The bold, colour-coded keyboard reference sits immediately above **Copy as…** in
 that right-hand rail: face/colour keys on the left, with **E** to erase and arrow keys
 stacked to their right. The live validity banner sits directly below the net, with its
-state pill and message on one line. This
+state pill and message on one line; a completed draft omits the redundant **Complete**
+pill. This
 keeps the cube, its preview, and the relevant
 controls visible together without a separate full-width footer.
 **Copy as…** places the current draft on the clipboard as compact facelets, spaced

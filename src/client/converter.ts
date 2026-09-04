@@ -856,6 +856,7 @@ if (root) {
     if (!allowedManualStateColours(manualSize, manualStateSourceDraft(manualSize), index).includes(colour)) {
       manualStateStatusText.textContent = `${manualStateFaceName[colour]} cannot go there without making the cube impossible.`;
       manualStateStatusPill.textContent = "Impossible";
+      manualStateStatusPill.hidden = false;
       manualStateStatus.classList.add("failure");
       manualStateStatus.classList.remove("success");
       return false;
@@ -1168,6 +1169,10 @@ if (root) {
       ? `Entered ${displayEntered} / ${displayTotal}. Every displayed dot can still make a real cube.`
       : `Entered ${displayEntered} / ${displayTotal}. Every dot is checked against the complete cube; options appear as they are verified.`;
     manualStateStatusPill.textContent = diagnostic !== null ? "Impossible" : complete ? "Complete" : "Possible";
+    // The complete sentence already conveys completion; an adjacent
+    // "Complete" pill merely repeats it. Keep category pills for draft and
+    // error states, where they carry useful scanning information.
+    manualStateStatusPill.hidden = complete;
     manualStateStatus.classList.toggle("success", complete);
     manualStateStatus.classList.toggle("failure", diagnostic !== null);
     const perColourPlaced: Record<ManualStateFace, number> = {U: 0, D: 0, R: 0, L: 0, F: 0, B: 0};
@@ -5610,6 +5615,7 @@ if (root) {
     if (diagnostic !== null) {
       manualStateStatusText.textContent = diagnostic;
       manualStateStatusPill.textContent = "Impossible";
+      manualStateStatusPill.hidden = false;
       manualStateStatus.classList.add("failure");
       manualStateStatus.classList.remove("success");
       return;
