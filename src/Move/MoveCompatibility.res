@@ -12,6 +12,7 @@ type compatibility = {
   speedsolving: assessment,
   ruwix: assessment,
   sse: assessment,
+  acube: assessment,
 }
 
 type sourceFeatures = {
@@ -192,6 +193,7 @@ let evaluate = (
   let speedsolvingReasons = []
   let ruwixReasons = []
   let sseReasons = []
+  let acubeReasons = []
   let features = {
     adjacentUnits: false,
     blockComment: false,
@@ -312,6 +314,29 @@ let evaluate = (
     addReason(sseReasons, "This source was not parsed as SSE 3×3 / CubeTwister notation.")
   }
 
+  if notationDialect == Acube {
+    if features.pause {
+      addReason(acubeReasons, "ACube turn input does not define pause nodes.")
+    }
+    if features.blockComment || input->String.includes("#") || input->String.includes("//") {
+      addReason(acubeReasons, "ACube turn input does not define comments or annotations.")
+    }
+    if hasExplicitMultiplier(input, notationDialect) {
+      addReason(acubeReasons, "ACube turn input does not define algorithm repeat multipliers.")
+    }
+    if input->String.includes("(") || input->String.includes("[") || input->String.includes("{") {
+      addReason(acubeReasons, "ACube turn input does not define grouped or bracket algorithms.")
+    }
+    if containsAny(input, "xyzXYZ") {
+      addReason(
+        acubeReasons,
+        "ACube spells whole-cube rotations e, s, and m rather than x, y, and z.",
+      )
+    }
+  } else {
+    addReason(acubeReasons, "This source was not parsed as ACube 4 turn notation.")
+  }
+
   {
     wca: assessment(wcaReasons),
     signLgn: assessment(signReasons),
@@ -319,5 +344,6 @@ let evaluate = (
     speedsolving: assessment(speedsolvingReasons),
     ruwix: assessment(ruwixReasons),
     sse: assessment(sseReasons),
+    acube: assessment(acubeReasons),
   }
 }

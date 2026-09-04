@@ -252,12 +252,22 @@ let parseBaseMove = parser => {
       if parser.size != 3 {
         fail(parser, "M, E, and S are supported only on 3×3×3.", ~start, ~end_=parser.cursor)
       }
-      let slice = switch family {
-      | "M" | "m" => M
-      | "E" | "e" => E
-      | _ => S
+      if parser.notationDialect == Acube && family >= "a" && family <= "z" {
+        // ACube calls its whole-cube rotations e/s/m, in the directions of
+        // E/S/M respectively. In conventional x/y/z notation that is y', z, x'.
+        switch family {
+        | "m" => Rotation(X)
+        | "e" => Rotation(Y)
+        | _ => Rotation(Z)
+        }
+      } else {
+        let slice = switch family {
+        | "M" | "m" => M
+        | "E" | "e" => E
+        | _ => S
+        }
+        SliceTurn(slice)
       }
-      SliceTurn(slice)
     }
   | _ =>
     switch faceFromCharacter(family) {
@@ -715,6 +725,17 @@ and parseUnit = parser => {
     | Some(_) => {
         let move = parseBaseMove(parser)
         let turns = parseSuffix(parser, ~allowZero=true)
+        // ACube's lower-case m and e whole-cube rotations follow the M and E
+        // slice directions. Those are x' and y' in conventional notation;
+        // lower-case s follows z directly.
+        let turns = if parser.notationDialect == Acube {
+          switch parser.input->String.get(start)->Option.map(String.make) {
+          | Some("m" | "e") => -turns
+          | _ => turns
+          }
+        } else {
+          turns
+        }
         {desc: Move(move, turns), loc: {start, end_: parser.cursor}}
       }
     | None => fail(parser, "Expected an algorithm unit.", ~start)

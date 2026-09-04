@@ -16,6 +16,7 @@ import {mountTimerWorkspace} from "./timer/workspace";
 import {defaultPreferences, hasVerifiedTnoodle, readPreferences, writePreferences} from "./preferences";
 import {TnoodleClient} from "./scramble/tnoodle-client";
 import {createAcademyRequestGuard} from "./academy-request";
+import {looksLikeAcubeState, parseAcubeState} from "./acube-state";
 import {looksLikeSseState, parseSseState} from "./sse-state";
 import {
   allowedManualStateColours,
@@ -146,7 +147,7 @@ type StateError = {_0?: string; TAG: string; actual?: number; character?: string
 type CubeState = {size: number; facelets: string[][]};
 type Scheme = "Western" | "Japanese" | {TAG: "Custom"; _0: string};
 type CompatibilityAssessment = {compatible: boolean; reasons: string[]};
-type CompatibilityResult = Record<"wca" | "signLgn" | "cubingJs" | "speedsolving" | "ruwix" | "sse", CompatibilityAssessment>;
+type CompatibilityResult = Record<"wca" | "signLgn" | "cubingJs" | "speedsolving" | "ruwix" | "sse" | "acube", CompatibilityAssessment>;
 type RecognizedInput = {
   state: CubeState;
   label: string;
@@ -1313,6 +1314,12 @@ if (root) {
         ? {TAG: "Ok", _0: {state: pieces._0, label: "Cubie coordinates"}}
         : {TAG: "Error", _0: PieceReducer.describeError(pieces._0)};
     }
+    if (size === 3 && looksLikeAcubeState(compact)) {
+      const acube = parseAcubeState(compact);
+      return acube.TAG === "Ok"
+        ? {TAG: "Ok", _0: {state: acube._0.state, label: "ACube cubie state"}}
+        : acube;
+    }
     if ((size === 2 || size === 3) && looksLikeSseState(compact)) {
       const sse = parseSseState(compact, size);
       if (sse.TAG === "Error") return sse;
@@ -2091,6 +2098,7 @@ if (root) {
     speedsolving: "SpeedSolving Wiki",
     ruwix: "Ruwix Advanced",
     sse: "SSE / CubeTwister",
+    acube: "ACube 4",
   };
   const compatibilitySuccess: Record<keyof CompatibilityResult, string> = {
     wca: "Uses only the WCA Article 12 move-token subset. This does not determine event-specific competition legality.",
@@ -2099,6 +2107,7 @@ if (root) {
     speedsolving: "The original source uses conventions documented by the SpeedSolving Wiki profile.",
     ruwix: "The original source uses move forms documented by Ruwix Advanced notation.",
     sse: "The original source fits Randelshofer's SSE 3×3 / CubeTwister notation.",
+    acube: "The original source fits ACube 4's 3×3 turn notation.",
   };
 
   const updateCompatibility = (recognized: RecognizedInput | null) => {

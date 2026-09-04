@@ -61,6 +61,14 @@ test("SSE catalogue source receives its own profile rather than portable standar
   assert.match(result.cubingJs.reasons.join(" "), /SSE/);
 });
 
+test("ACube's e, s, and m rotation spelling receives its own profile", () => {
+  const result = evaluate("R r E m s", {notationDialect: "Acube"});
+  assert.equal(result.acube.compatible, true, result.acube.reasons.join(" "));
+  assert.equal(result.sse.compatible, false);
+  assert.equal(result.wca.compatible, false);
+  assert.match(evaluate("x", {notationDialect: "Acube"}).acube.reasons.join(" "), /e, s, and m/);
+});
+
 test("Ruwix outer-block subscripts identify their site-specific source profile", () => {
   const result = evaluate("F₂'", {size: 5});
   assert.equal(result.ruwix.compatible, true);

@@ -158,6 +158,17 @@ test("maps SSE 3×3 tier, mid-layer, slice, and cube turns to equivalent CubeLab
   assert.match(wrongSize._0.message, /only for 3×3×3/);
 });
 
+test("maps ACube's e, s, and m whole-cube rotations to conventional axes", () => {
+  const acube = parseWithOptions(3, "Wide", "Acube", "m e s m' e' s'");
+  const modern = parse(3, "x' y' z x y z'");
+  const acubeState = MoveExecutor.applyAlg(StateTypes.solved(3)._0, acube);
+  const modernState = MoveExecutor.applyAlg(StateTypes.solved(3)._0, modern);
+  assert.equal(acubeState.TAG, "Ok");
+  assert.equal(modernState.TAG, "Ok");
+  assert.equal(FaceletCodec.render(acubeState._0), FaceletCodec.render(modernState._0));
+  assert.equal(MoveTransform.serialize(acube), "x' y' z x y z'");
+});
+
 test("accepts SSE's compact adjacent move sequences without relaxing other dialects", () => {
   const spaced = parseWithOptions(3, "Wide", "Sse", "CD2 MR2 MD MR2 MD'");
   const compact = parseWithOptions(3, "Wide", "Sse", "CD2MR2MDMR2MD'");

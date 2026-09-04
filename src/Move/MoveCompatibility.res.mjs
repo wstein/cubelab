@@ -191,6 +191,7 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
   let speedsolvingReasons = [];
   let ruwixReasons = [];
   let sseReasons = [];
+  let acubeReasons = [];
   let features = {
     adjacentUnits: false,
     blockComment: false,
@@ -288,13 +289,33 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
   } else {
     addReason(sseReasons, "This source was not parsed as SSE 3×3 / CubeTwister notation.");
   }
+  if (notationDialect === "Acube") {
+    if (features.pause) {
+      addReason(acubeReasons, "ACube turn input does not define pause nodes.");
+    }
+    if (features.blockComment || input.includes("#") || input.includes("//")) {
+      addReason(acubeReasons, "ACube turn input does not define comments or annotations.");
+    }
+    if (hasExplicitMultiplier(input, notationDialect)) {
+      addReason(acubeReasons, "ACube turn input does not define algorithm repeat multipliers.");
+    }
+    if (input.includes("(") || input.includes("[") || input.includes("{")) {
+      addReason(acubeReasons, "ACube turn input does not define grouped or bracket algorithms.");
+    }
+    if (containsAny(input, "xyzXYZ")) {
+      addReason(acubeReasons, "ACube spells whole-cube rotations e, s, and m rather than x, y, and z.");
+    }
+  } else {
+    addReason(acubeReasons, "This source was not parsed as ACube 4 turn notation.");
+  }
   return {
     wca: assessment(wcaReasons),
     signLgn: assessment(signReasons),
     cubingJs: assessment(cubingReasons),
     speedsolving: assessment(speedsolvingReasons),
     ruwix: assessment(ruwixReasons),
-    sse: assessment(sseReasons)
+    sse: assessment(sseReasons),
+    acube: assessment(acubeReasons)
   };
 }
 

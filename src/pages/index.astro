@@ -269,7 +269,7 @@ const cards = [
               data-input
               rows="1"
               wrap="off"
-              placeholder="Paste facelets, colours, a net, cubie coordinates, Orbit64, or SSE cubie cycles. Smart-cube Sync loads this field. Leave blank for solved."
+              placeholder="Paste facelets, colours, a net, cubie coordinates, Orbit64, SSE cubie cycles, or ACube states. Smart-cube Sync loads this field. Leave blank for solved."
               spellcheck="false"></textarea>
             <label class="moves-input-label" for="cube-moves">Moves</label>
             <textarea
@@ -663,6 +663,11 @@ s100"></textarea>
                   class="compatibility-pill"
                   data-compatibility-profile="sse"
                   tabindex="0">SSE / CubeTwister</span
+                >
+                <span
+                  class="compatibility-pill"
+                  data-compatibility-profile="acube"
+                  tabindex="0">ACube 4</span
                 >
               </div>
             </div>
@@ -1428,6 +1433,7 @@ s100"></textarea>
               <option value="Ruwix">Ruwix suffix layers</option>
               <option value="Twizzle">Twizzle / cubing.js (experimental NISS)</option>
               <option value="Sse">SSE 3×3 (Superset ENG)</option>
+              <option value="Acube">ACube 4 (3×3 state / e-s-m rotations)</option>
             </select>
           </label>
         </section>

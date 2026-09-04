@@ -67,10 +67,12 @@ describe("application state store", () => {
     expect(parsed.activeTab).toBe("converter");
   });
 
-  test("round-trips explicit Twizzle and SSE notation dialects", () => {
+  test("round-trips explicit Twizzle, SSE, and ACube notation dialects", () => {
     expect(readHash("#dialect=Twizzle").notationDialect).toBe("Twizzle");
     expect(readHash("#dialect=Sse").notationDialect).toBe("Sse");
+    expect(readHash("#dialect=Acube").notationDialect).toBe("Acube");
     expect(writeHash({...defaultAppState, notationDialect: "Twizzle"})).toContain("dialect=Twizzle");
+    expect(writeHash({...defaultAppState, notationDialect: "Acube"})).toContain("dialect=Acube");
   });
 
   test("accepts only the supported viewport styles", () => {

@@ -23,6 +23,7 @@ type notationDialect =
   | Fmc
   | Twizzle
   | Sse
+  | Acube
 
 type layerRange = {
   from_: int,

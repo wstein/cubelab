@@ -254,6 +254,8 @@ test("the web UI explains source portability without claiming competition legali
   assert.match(page, /data-compatibility-profile="speedsolving"/);
   assert.match(page, /data-compatibility-profile="ruwix"/);
   assert.match(page, /data-compatibility-profile="sse"/);
+  assert.match(page, /data-compatibility-profile="acube"/);
+  assert.match(page, /option value="Acube"/);
   assert.match(client, /MoveCompatibility\.evaluate/);
   assert.match(client, /const source = movesInput\.value\.trim\(\) === "" \? input\.value : movesInput\.value/);
   assert.match(client, /does not determine event-specific competition legality/);
@@ -285,6 +287,8 @@ test("the web UI exposes pure algorithm transforms and a clearly labeled practic
 test("the Setup parser recognizes explicit SSE cubie-state cycles apart from algorithms", () => {
   assert.match(client, /looksLikeSseState/);
   assert.match(client, /parseSseState/);
+  assert.match(client, /looksLikeAcubeState/);
+  assert.match(client, /parseAcubeState/);
   assert.match(client, /marked-centre orientation omitted/);
   assert.match(page, /SSE cubie cycles/);
 });

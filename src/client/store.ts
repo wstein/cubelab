@@ -2,7 +2,7 @@ import type {CubeStyle} from "./cube-gl";
 
 export type SchemeName = "Western" | "Japanese" | "Custom";
 export type LowercaseMode = "Wide" | "InnerSlice";
-export type NotationDialect = "Modern" | "Ruwix" | "Twizzle" | "Sse";
+export type NotationDialect = "Modern" | "Ruwix" | "Twizzle" | "Sse" | "Acube";
 export type ActiveTab = "converter" | "academy" | "workbench" | "patterns" | "timer";
 export type AcademyMethod =
   | "beginner"
@@ -102,7 +102,9 @@ export const readHash = (hash: string): AppState => {
       ? "Twizzle"
       : params.get("dialect") === "Sse"
         ? "Sse"
-        : "Modern";
+        : params.get("dialect") === "Acube"
+          ? "Acube"
+          : "Modern";
   const requestedStyle = params.get("style");
   const cubeStyle: CubeStyle = requestedStyle === "Speed" ? "Speed" : "Standard";
   const turnGuides = params.get("guides") !== "off";

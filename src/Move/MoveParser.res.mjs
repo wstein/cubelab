@@ -449,23 +449,43 @@ function parseBaseMove(parser) {
       if (parser.size !== 3) {
         fail(parser, "M, E, and S are supported only on 3×3×3.", start, parser.cursor);
       }
-      let slice;
-      switch (family) {
-        case "E" :
-        case "e" :
-          slice = "E";
-          break;
-        case "M" :
-        case "m" :
-          slice = "M";
-          break;
-        default:
-          slice = "S";
+      if (parser.notationDialect === "Acube" && family >= "a" && family <= "z") {
+        switch (family) {
+          case "e" :
+            return {
+              TAG: "Rotation",
+              _0: "Y"
+            };
+          case "m" :
+            return {
+              TAG: "Rotation",
+              _0: "X"
+            };
+          default:
+            return {
+              TAG: "Rotation",
+              _0: "Z"
+            };
+        }
+      } else {
+        let slice;
+        switch (family) {
+          case "E" :
+          case "e" :
+            slice = "E";
+            break;
+          case "M" :
+          case "m" :
+            slice = "M";
+            break;
+          default:
+            slice = "S";
+        }
+        return {
+          TAG: "SliceTurn",
+          _0: slice
+        };
       }
-      return {
-        TAG: "SliceTurn",
-        _0: slice
-      };
   }
 }
 
@@ -1100,11 +1120,29 @@ function parseUnit(parser) {
   }
   let move = parseBaseMove(parser);
   let turns = parseSuffix(parser, true);
+  let turns$1;
+  if (parser.notationDialect === "Acube") {
+    let match$1 = Stdlib_Option.map(parser.input[start], prim => String(prim));
+    if (match$1 !== undefined) {
+      switch (match$1) {
+        case "e" :
+        case "m" :
+          turns$1 = -turns | 0;
+          break;
+        default:
+          turns$1 = turns;
+      }
+    } else {
+      turns$1 = turns;
+    }
+  } else {
+    turns$1 = turns;
+  }
   return {
     desc: {
       TAG: "Move",
       _0: move,
-      _1: turns
+      _1: turns$1
     },
     loc: {
       start: start,
