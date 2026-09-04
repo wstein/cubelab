@@ -138,9 +138,9 @@ export const parseSseState = (input: string, size: 2 | 3 = 3): Result<SseStateIm
   }
 };
 
-/** Renders a 3×3 state as SSE cycles with orientation-bearing cubie spellings. */
+/** Renders a 2×2 or 3×3 state as SSE cycles with orientation-bearing cubie spellings. */
 export const renderSseState = (state: CubeState): Result<string, string> => {
-  if (state.size !== 3) return {TAG: "Error", _0: "SSE state output is available only for 3×3×3."};
+  if (state.size !== 2 && state.size !== 3) return {TAG: "Error", _0: "SSE state output is available only for 2×2×2 and 3×3×3."};
   const reduced = PieceReducer.reduce(state) as Result<{cp: number[]; co: number[]; ep: number[]; eo: number[]}, unknown>;
   if (reduced.TAG === "Error") return {TAG: "Error", _0: PieceReducer.describeError(reduced._0) as string};
   const cycles = (permutation: number[], orientations: number[], labels: string[]) => {
@@ -210,8 +210,8 @@ export const renderSseState = (state: CubeState): Result<string, string> => {
   };
   const tokens = [
     ...cycles(reduced._0.cp, reduced._0.co, cornerLabels),
-    ...cycles(reduced._0.ep, reduced._0.eo, edgeLabels),
+    ...(state.size === 3 ? cycles(reduced._0.ep, reduced._0.eo, edgeLabels) : []),
   ];
-  // A centre singleton is an explicit, state-neutral SSE spelling for solved.
-  return {TAG: "Ok", _0: tokens.length === 0 ? "(u)" : tokens.join(" ")};
+  // A singleton is an explicit, state-neutral SSE spelling for a solved cube.
+  return {TAG: "Ok", _0: tokens.length === 0 ? state.size === 3 ? "(u)" : "(urf)" : tokens.join(" ")};
 };

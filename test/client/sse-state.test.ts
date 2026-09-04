@@ -56,11 +56,15 @@ test("recognizes SSE state candidates and rejects malformed cycles", () => {
   expect(malformed._0).toMatch(/Unexpected SSE state input/);
 });
 
-test("renders a round-trippable SSE state, including solved", () => {
-  for (const state of [StateTypes.solved(3)._0, stateAfter("R U F2 L' D B")]) {
+test("renders a round-trippable SSE state, including 2×2 and solved", () => {
+  for (const [state, size] of [
+    [StateTypes.solved(2)._0, 2],
+    [stateAfter("R U F2 L' D B"), 3],
+    [StateTypes.solved(3)._0, 3],
+  ] as const) {
     const rendered = renderSseState(state);
     expect(rendered.TAG).toBe("Ok");
-    const reparsed = parseSseState(rendered._0);
+    const reparsed = parseSseState(rendered._0, size);
     expect(reparsed.TAG).toBe("Ok");
     expect(FaceletCodec.render(reparsed._0.state)).toBe(FaceletCodec.render(state));
   }

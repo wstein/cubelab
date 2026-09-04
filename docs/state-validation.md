@@ -16,7 +16,7 @@ a leading `+` or `-` adjusts an edge flip or corner twist. CubeLab converts thes
 to cubie coordinates, reconstructs facelets, and runs the same reachability validation
 described below. Edge and marked-centre SSE parts are deliberately 3×3-only.
 
-For a valid 3×3 state, the Converter can also emit a pasteable SSE spelling. It keeps a
+For a valid 2×2 or 3×3 state, the Converter can also emit a pasteable SSE spelling. It keeps a
 cubie's orientation in that cubie's cycle spelling (and uses a first-part prefix when a
 cycle needs one), so no cubie is repeated in a separate orientation cycle.
 
