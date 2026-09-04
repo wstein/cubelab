@@ -1593,6 +1593,15 @@ test("paints a specific dot's colour on click and loads a filled sticker's colou
   await dialog.locator('[data-manual-state-colour="U"]').click();
   await sticker8.click();
   await expect(sticker8).toHaveText("R");
+
+  // A fixed centre is a real <button> too, not a native disabled one — that
+  // would also suppress its double-click, not just click/drag paint.
+  const rCentre = net.locator('[data-manual-state-index="13"]');
+  await expect(rCentre).toHaveText("R");
+  await dialog.locator('[data-manual-state-colour="U"]').click();
+  await rCentre.dblclick();
+  await expect(dialog.locator('[data-manual-state-colour="R"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(rCentre).toHaveText("R");
 });
 
 test("shows two CSS-3D preview cubes and a shortcuts reference beside the net", async ({page}) => {

@@ -1033,7 +1033,9 @@ if (root) {
         sticker.type = "button";
         sticker.className = "manual-state-preview-sticker";
         sticker.dataset.manualStateIndex = String(index);
-        sticker.disabled = manualSize === 3 && localIndex === 4;
+        // Not disabled (see the matching net-sticker comment in
+        // buildManualStateGrid): a disabled button also suppresses hover,
+        // which is all a preview sticker ever does.
         sticker.tabIndex = -1;
         faceEl.append(sticker);
         stickers[index] = sticker;
@@ -1176,7 +1178,10 @@ if (root) {
         else if (hoverMates.includes(index)) sticker.dataset.pieceHover = "mate";
         else delete sticker.dataset.pieceHover;
         const centre = manualSize === 3 && localIndex === 4;
-        sticker.disabled = centre;
+        // Not a native disabled button: that would also suppress hover and
+        // dblclick (picking the centre's own colour into the palette), not
+        // just click/drag paint — isManualStateCentre already guards every
+        // mutating path below, so disabling here was only ever redundant.
         sticker.setAttribute("aria-label", `${manualStateFaceName[face]} sticker ${localIndex + 1}${centre ? ", fixed centre" : value === null ? ", blank" : `, ${manualStateFaceName[value]}${manualStateAutoIndices.has(index) ? ", filled automatically" : ""}`}`);
         if (value !== null) {
           sticker.textContent = value;
