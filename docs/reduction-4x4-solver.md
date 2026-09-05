@@ -124,9 +124,29 @@ is the entry point: given a centre string, it returns the shortest move
 sequence (as both move indices and notations) reaching U/D rank 0, replay
 verified in tests against the canonical executor. Move and symmetry tables
 are cached at the module level the same way `TwoPhaseSolver` caches its own,
-so repeated searches do not rebuild them. Phase-two/three search and the
-solver integration are not ported yet. The module is not connected to the
-Converter. The existing Academy guides remain independent and intact.
+so repeated searches do not rebuild them.
+
+The twelfth increment chains phase-one into a concrete phase-two search and
+handles the gap increment ten's design note flagged: reaching phase-one's
+own rank 0 does not guarantee phase-two's restricted moves can reach the
+joint target, since whatever F/B-vs-R/L split phase-one's move path left in
+place is frozen from phase-two's perspective. `searchPhase2Ranks` is
+phase-two's own IDA*, the same shape as phase-one's search but over the
+`(udRank, fbRank)` pair, pruned by `phase2CombinedDistance` and by
+`phase2Moves`' own face ids. `searchPhase1Candidates` collects several
+distinct phase-one endpoints per depth instead of just the first (stopping
+each branch the moment it reaches rank 0, a looser enumeration than
+upstream's exactly-this-length search, which only needs diversity here, not
+a specific count) so `solveCentreReduction` can retry phase-two against each
+until one succeeds, mirroring upstream's own multi-candidate strategy
+without needing its `value = ctp + length1` priority ordering — an
+admissible phase-two bound already rejects unreachable candidates quickly.
+`solveCentreReduction` is the combined entry point: given a centre string,
+it returns phase-one and phase-two notations that a test replay-verifies
+reach `rankUdCentres == 0` and `rankFbCentres == phase2TargetFbRank`
+together. Phase-three search and the solver integration are not ported yet.
+The module is not connected to the Converter. The existing Academy guides
+remain independent and intact.
 
 `Reduction4x4.reduce4x4` is the handoff gate for stage 3. It accepts only a
 4×4 with monochrome 2×2 centres and paired visible wings, converts it to the

@@ -2,7 +2,7 @@ import {expect, test} from "vitest";
 
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
-import {applyCentreTransition, applyTransition, axisTransitionAllowed, buildCentrePruning, buildCentreSymmetryMap, buildSymmetryCentrePruning, canonicalUdRank, centreSymmetryPermutations, centreTransition, createCentrePruning, decodeFacelets, encodeFacelets, extractCentres, extractCorners, extractWings, phase2CombinedDistance, phase2FbDistance, phase2Moves, phase2TargetFbRank, udRankDistance, phase3Moves, pruningDepth, rankFbCentres, rankUdCentres, setPruningDepth, solvePhase1Centres, transitionUdRank, unrankUdCentres} from "../src/Solver/ThreePhase4x4.res.mjs";
+import {applyCentreTransition, applyTransition, axisTransitionAllowed, buildCentrePruning, buildCentreSymmetryMap, buildSymmetryCentrePruning, canonicalUdRank, centreSymmetryPermutations, centreTransition, createCentrePruning, decodeFacelets, encodeFacelets, extractCentres, extractCorners, extractWings, phase2CombinedDistance, phase2FbDistance, phase2Moves, phase2TargetFbRank, udRankDistance, phase3Moves, pruningDepth, rankFbCentres, rankUdCentres, setPruningDepth, solveCentreReduction, solvePhase1Centres, transitionUdRank, unrankUdCentres} from "../src/Solver/ThreePhase4x4.res.mjs";
 
 function buildPhase2DistanceInputs() {
   const symmetryMap = buildCentreSymmetryMap();
@@ -352,3 +352,65 @@ test("phase-one search never repeats a face and keeps same-axis moves in ascendi
     lastFaceId = faceId;
   });
 });
+
+test("centre reduction returns immediately for an already-solved centre string", () => {
+  const solved = "UUUUDDDDFFFFBBBBRRRRLLLL";
+  const reduction = solveCentreReduction(solved, 10, 10, 10);
+  expect(reduction.TAG).toBe("Ok");
+  if (reduction.TAG !== "Ok") return;
+  expect(reduction._0.phase1Notations).toHaveLength(0);
+  expect(reduction._0.phase2Notations).toHaveLength(0);
+});
+
+test("centre reduction rejects a centre string without exactly eight U/D and F/B stickers", () => {
+  const invalid = "U".repeat(9) + "F".repeat(15);
+  const reduction = solveCentreReduction(invalid, 10, 10, 10);
+  expect(reduction.TAG).toBe("Error");
+});
+
+test("centre reduction chains phase-one and phase-two into a replay-verified F/B-vs-R/L separation", () => {
+  const scrambled = MoveExecutor.parseAndApply(4, "Rw U Fw2 Dw2 Lw' B2");
+  expect(scrambled.TAG).toBe("Ok");
+  if (scrambled.TAG !== "Ok") return;
+  const centres = extractCentres(scrambled._0);
+  expect(rankUdCentres(centres)).not.toBe(0);
+
+  const reduction = solveCentreReduction(centres, 12, 12, 20);
+  expect(reduction.TAG).toBe("Ok");
+  if (reduction.TAG !== "Ok") return;
+
+  let replayed = scrambled._0;
+  [...reduction._0.phase1Notations, ...reduction._0.phase2Notations].forEach((notation) => {
+    const next = applyTransition(replayed, notation);
+    expect(next.TAG).toBe("Ok");
+    if (next.TAG === "Ok") replayed = next._0;
+  });
+  const finalCentres = extractCentres(replayed);
+  expect(rankUdCentres(finalCentres)).toBe(0);
+  expect(rankFbCentres(finalCentres)).toBe(phase2TargetFbRank);
+}, 30000);
+
+test("centre reduction's phase-two segment never repeats a face or reverses same-axis order", () => {
+  const scrambled = MoveExecutor.parseAndApply(4, "Rw U Fw2 Dw2 Lw' B2");
+  expect(scrambled.TAG).toBe("Ok");
+  if (scrambled.TAG !== "Ok") return;
+  const reduction = solveCentreReduction(extractCentres(scrambled._0), 12, 12, 20);
+  expect(reduction.TAG).toBe("Ok");
+  if (reduction.TAG !== "Ok") return;
+
+  const faceIdOf = new Map();
+  ["U", "R", "F", "D", "L", "B", "Uw", "Rw", "Fw", "Dw", "Lw", "Bw"].forEach((face, index) => {
+    faceIdOf.set(face, index);
+  });
+  const faceOfNotation = (notation) => notation.replace(/[2']/g, "");
+
+  let lastFaceId = -1;
+  reduction._0.phase2Notations.forEach((notation) => {
+    const faceId = faceIdOf.get(faceOfNotation(notation));
+    expect(faceId).not.toBe(lastFaceId);
+    if (lastFaceId >= 0 && faceId % 3 === lastFaceId % 3) {
+      expect(faceId).toBeGreaterThan(lastFaceId);
+    }
+    lastFaceId = faceId;
+  });
+}, 30000);

@@ -864,3 +864,243 @@ let solvePhase1Centres = (centres: string, maximumDepth: int): result<phase1Solu
     }
   }
 }
+
+/* Phase-one/two chaining. Reaching phase-one's own rank 0 does not by
+ * itself guarantee phase-two's restricted moves can reach the joint target:
+ * whatever F/B-vs-R/L contamination phase-one's move path left in place is
+ * frozen from phase-two's perspective (its restricted moves permute R/L and
+ * U/D/F/B block content independently — verified in increment ten's own
+ * design note — so they can rearrange but not repair a bad split). Matching
+ * upstream's own strategy of trying many phase-one endpoints rather than
+ * trusting the first one, searchPhase1Candidates collects several distinct
+ * phase-one solutions at each depth (stopping each branch the moment it
+ * reaches rank 0, so it is a looser enumeration than upstream's
+ * exactly-this-length search, which is fine — this only needs diversity,
+ * not a specific count), and solveCentreReduction retries phase-two against
+ * each until one succeeds. */
+let searchPhase1Candidates = (
+  rank: int,
+  depth: int,
+  permutations: array<array<int>>,
+  symmetryMap: centreSymmetryMap,
+  symmetryTable: array<int>,
+  limit: int,
+): array<array<int>> => {
+  let collected = ref([])
+  let rec go = (currentRank: int, remaining: int, lastFaceId: int, moves: array<int>) =>
+    if collected.contents->Array.length >= limit {
+      ()
+    } else if currentRank == 0 {
+      collected := collected.contents->Array.concat([moves])
+    } else if remaining == 0 {
+      ()
+    } else {
+      switch udRankDistance(currentRank, symmetryMap, symmetryTable) {
+      | Error(_) => ()
+      | Ok(distance) if distance > remaining => ()
+      | Ok(_) =>
+        for moveIndex in 0 to 35 {
+          if collected.contents->Array.length < limit {
+            let faceId = Belt.Array.getUnsafe(centreMoveFaceIds, moveIndex)
+            if axisTransitionAllowed(lastFaceId, faceId) {
+              let next = transitionUdRank(currentRank, Belt.Array.getUnsafe(permutations, moveIndex))
+              go(next, remaining - 1, faceId, moves->Array.concat([moveIndex]))
+            }
+          }
+        }
+      }
+    }
+  go(rank, depth, -1, [])
+  collected.contents
+}
+
+let phase2MovePermutationsCache: ref<option<array<array<int>>>> = ref(None)
+
+let phase2MovePermutations = (): result<array<array<int>>, inputError> =>
+  switch phase2MovePermutationsCache.contents {
+  | Some(permutations) => Ok(permutations)
+  | None => {
+      let permutations = ref([])
+      let failure = ref(None)
+      phase2Moves->Array.forEach(move =>
+        switch centreTransition(move.notation) {
+        | Ok(permutation) => permutations := permutations.contents->Array.concat([permutation])
+        | Error(reason) => failure := Some(reason)
+        }
+      )
+      switch failure.contents {
+      | Some(reason) => Error(reason)
+      | None => {
+          phase2MovePermutationsCache := Some(permutations.contents)
+          Ok(permutations.contents)
+        }
+      }
+    }
+  }
+
+let rec searchPhase2Ranks = (
+  udRank: int,
+  fbRank: int,
+  depth: int,
+  lastFaceId: int,
+  permutations: array<array<int>>,
+  symmetryMap: centreSymmetryMap,
+  symmetryTable: array<int>,
+): option<array<int>> =>
+  if udRank == 0 && fbRank == phase2TargetFbRank {
+    Some([])
+  } else if depth == 0 {
+    None
+  } else {
+    switch phase2CombinedDistance(udRank, fbRank, symmetryMap, symmetryTable) {
+    | Error(_) => None
+    | Ok(distance) if distance > depth => None
+    | Ok(_) => {
+        let found = ref(None)
+        for moveIndex in 0 to phase2Moves->Array.length - 1 {
+          if found.contents == None {
+            let move = Belt.Array.getUnsafe(phase2Moves, moveIndex)
+            if axisTransitionAllowed(lastFaceId, move.faceId) {
+              let permutation = Belt.Array.getUnsafe(permutations, moveIndex)
+              let nextUdRank = transitionUdRank(udRank, permutation)
+              let nextFbRank = transitionUdRank(fbRank, permutation)
+              switch searchPhase2Ranks(
+                nextUdRank,
+                nextFbRank,
+                depth - 1,
+                move.faceId,
+                permutations,
+                symmetryMap,
+                symmetryTable,
+              ) {
+              | Some(tail) => found := Some([moveIndex]->Array.concat(tail))
+              | None => ()
+              }
+            }
+          }
+        }
+        found.contents
+      }
+    }
+  }
+
+let solvePhase2Ranks = (
+  udRank: int,
+  fbRank: int,
+  maximumDepth: int,
+  permutations: array<array<int>>,
+  symmetryMap: centreSymmetryMap,
+  symmetryTable: array<int>,
+): option<array<int>> =>
+  switch phase2CombinedDistance(udRank, fbRank, symmetryMap, symmetryTable) {
+  | Error(_) => None
+  | Ok(minimumDepth) => {
+      let found = ref(None)
+      let depth = ref(minimumDepth)
+      while found.contents == None && depth.contents <= maximumDepth {
+        found := searchPhase2Ranks(udRank, fbRank, depth.contents, -1, permutations, symmetryMap, symmetryTable)
+        if found.contents == None {
+          depth := depth.contents + 1
+        }
+      }
+      found.contents
+    }
+  }
+
+type centreReduction = {
+  phase1Notations: array<string>,
+  phase2Notations: array<string>,
+}
+
+/* Entry point for the combined phase-one/two centre reduction. Tries
+ * increasing phase-one depths; at each depth, tries up to candidatesPerDepth
+ * distinct phase-one endpoints against phase-two before giving up on that
+ * depth and searching one move deeper. This mirrors upstream's own
+ * multi-candidate retry (Search.doSearch's PHASE2_ATTEMPTS loop) without
+ * needing its value = ctp + length1 priority ordering — an admissible
+ * phase-two bound already rejects unreachable candidates quickly, so trying
+ * candidates in the order they are found is enough at this scale. */
+let solveCentreReduction = (
+  centres: string,
+  maximumPhase1Depth: int,
+  maximumPhase2Depth: int,
+  candidatesPerDepth: int,
+): result<centreReduction, inputError> => {
+  let udRank = rankUdCentres(centres)
+  let fbRank = rankFbCentres(centres)
+  if udRank < 0 || fbRank < 0 {
+    Error(
+      InvalidFacelets(
+        "Centre reduction requires a centre string with exactly eight U/D and eight F/B stickers.",
+      ),
+    )
+  } else {
+    switch (
+      centreMovePermutations(),
+      phase2MovePermutations(),
+      cachedCentreSymmetryMap(),
+      cachedCentreSymmetryTable(),
+    ) {
+    | (Error(reason), _, _, _) => Error(reason)
+    | (_, Error(reason), _, _) => Error(reason)
+    | (_, _, Error(reason), _) => Error(reason)
+    | (_, _, _, Error(reason)) => Error(reason)
+    | (Ok(phase1Permutations), Ok(phase2Permutations), Ok(symmetryMap), Ok(symmetryTable)) =>
+      switch udRankDistance(udRank, symmetryMap, symmetryTable) {
+      | Error(reason) => Error(reason)
+      | Ok(minimumPhase1Depth) => {
+          let found = ref(None)
+          let phase1Depth = ref(minimumPhase1Depth)
+          while found.contents == None && phase1Depth.contents <= maximumPhase1Depth {
+            let candidates = searchPhase1Candidates(
+              udRank,
+              phase1Depth.contents,
+              phase1Permutations,
+              symmetryMap,
+              symmetryTable,
+              candidatesPerDepth,
+            )
+            candidates->Array.forEach(phase1Moves =>
+              if found.contents == None {
+                let endFbRank = phase1Moves->Array.reduce(fbRank, (rank, moveIndex) =>
+                  transitionUdRank(rank, Belt.Array.getUnsafe(phase1Permutations, moveIndex))
+                )
+                switch solvePhase2Ranks(
+                  0,
+                  endFbRank,
+                  maximumPhase2Depth,
+                  phase2Permutations,
+                  symmetryMap,
+                  symmetryTable,
+                ) {
+                | Some(phase2Moves_) =>
+                  found := Some({
+                    phase1Notations: phase1Moves->Array.map(index =>
+                      Belt.Array.getUnsafe(centreMoveNotations, index)
+                    ),
+                    phase2Notations: phase2Moves_->Array.map(index =>
+                      Belt.Array.getUnsafe(phase2Moves, index).notation
+                    ),
+                  })
+                | None => ()
+                }
+              }
+            )
+            if found.contents == None {
+              phase1Depth := phase1Depth.contents + 1
+            }
+          }
+          switch found.contents {
+          | Some(reduction) => Ok(reduction)
+          | None =>
+            Error(
+              InvalidTransition(
+                "No centre reduction was found within the given phase-one/two depth and candidate limits.",
+              ),
+            )
+          }
+        }
+      }
+    }
+  }
+}

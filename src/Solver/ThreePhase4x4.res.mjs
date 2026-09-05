@@ -1362,6 +1362,223 @@ function solvePhase1Centres(centres, maximumDepth) {
   }
 }
 
+function searchPhase1Candidates(rank, depth, permutations, symmetryMap, symmetryTable, limit) {
+  let collected = {
+    contents: []
+  };
+  let go = (currentRank, remaining, lastFaceId, moves) => {
+    if (collected.contents.length >= limit) {
+      return;
+    }
+    if (currentRank === 0) {
+      collected.contents = collected.contents.concat([moves]);
+      return;
+    }
+    if (remaining === 0) {
+      return;
+    }
+    let distance = udRankDistance(currentRank, symmetryMap, symmetryTable);
+    if (distance.TAG !== "Ok") {
+      return;
+    }
+    if (distance._0 > remaining) {
+      return;
+    }
+    for (let moveIndex = 0; moveIndex <= 35; ++moveIndex) {
+      if (collected.contents.length < limit) {
+        let faceId = centreMoveFaceIds[moveIndex];
+        if (axisTransitionAllowed(lastFaceId, faceId)) {
+          let next = transitionUdRank(currentRank, permutations[moveIndex]);
+          go(next, remaining - 1 | 0, faceId, moves.concat([moveIndex]));
+        }
+      }
+    }
+  };
+  go(rank, depth, -1, []);
+  return collected.contents;
+}
+
+let phase2MovePermutationsCache = {
+  contents: undefined
+};
+
+function phase2MovePermutations() {
+  let permutations = phase2MovePermutationsCache.contents;
+  if (permutations !== undefined) {
+    return {
+      TAG: "Ok",
+      _0: permutations
+    };
+  }
+  let permutations$1 = {
+    contents: []
+  };
+  let failure = {
+    contents: undefined
+  };
+  phase2Moves.forEach(move => {
+    let permutation = centreTransition(move.notation);
+    if (permutation.TAG === "Ok") {
+      permutations$1.contents = permutations$1.contents.concat([permutation._0]);
+    } else {
+      failure.contents = permutation._0;
+    }
+  });
+  let reason = failure.contents;
+  if (reason !== undefined) {
+    return {
+      TAG: "Error",
+      _0: reason
+    };
+  } else {
+    phase2MovePermutationsCache.contents = permutations$1.contents;
+    return {
+      TAG: "Ok",
+      _0: permutations$1.contents
+    };
+  }
+}
+
+function searchPhase2Ranks(udRank, fbRank, depth, lastFaceId, permutations, symmetryMap, symmetryTable) {
+  if (udRank === 0 && fbRank === phase2TargetFbRank) {
+    return [];
+  }
+  if (depth === 0) {
+    return;
+  }
+  let distance = phase2CombinedDistance(udRank, fbRank, symmetryMap, symmetryTable);
+  if (distance.TAG !== "Ok") {
+    return;
+  }
+  if (distance._0 > depth) {
+    return;
+  }
+  let found;
+  for (let moveIndex = 0, moveIndex_finish = phase2Moves.length; moveIndex < moveIndex_finish; ++moveIndex) {
+    if (found === undefined) {
+      let move = phase2Moves[moveIndex];
+      if (axisTransitionAllowed(lastFaceId, move.faceId)) {
+        let permutation = permutations[moveIndex];
+        let nextUdRank = transitionUdRank(udRank, permutation);
+        let nextFbRank = transitionUdRank(fbRank, permutation);
+        let tail = searchPhase2Ranks(nextUdRank, nextFbRank, depth - 1 | 0, move.faceId, permutations, symmetryMap, symmetryTable);
+        if (tail !== undefined) {
+          found = [moveIndex].concat(tail);
+        }
+      }
+    }
+  }
+  return found;
+}
+
+function solvePhase2Ranks(udRank, fbRank, maximumDepth, permutations, symmetryMap, symmetryTable) {
+  let minimumDepth = phase2CombinedDistance(udRank, fbRank, symmetryMap, symmetryTable);
+  if (minimumDepth.TAG !== "Ok") {
+    return;
+  }
+  let found;
+  let depth = minimumDepth._0;
+  while (found === undefined && depth <= maximumDepth) {
+    found = searchPhase2Ranks(udRank, fbRank, depth, -1, permutations, symmetryMap, symmetryTable);
+    if (found === undefined) {
+      depth = depth + 1 | 0;
+    }
+  };
+  return found;
+}
+
+function solveCentreReduction(centres, maximumPhase1Depth, maximumPhase2Depth, candidatesPerDepth) {
+  let udRank = rankUdCentres(centres);
+  let fbRank = rankFbCentres(centres);
+  if (udRank < 0 || fbRank < 0) {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidFacelets",
+        _0: "Centre reduction requires a centre string with exactly eight U/D and eight F/B stickers."
+      }
+    };
+  }
+  let match = centreMovePermutations();
+  let match$1 = phase2MovePermutations();
+  let match$2 = cachedCentreSymmetryMap();
+  let match$3 = cachedCentreSymmetryTable();
+  if (match.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: match._0
+    };
+  }
+  let phase1Permutations = match._0;
+  if (match$1.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: match$1._0
+    };
+  }
+  let phase2Permutations = match$1._0;
+  if (match$2.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: match$2._0
+    };
+  }
+  let symmetryMap = match$2._0;
+  if (match$3.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: match$3._0
+    };
+  }
+  let symmetryTable = match$3._0;
+  let reason = udRankDistance(udRank, symmetryMap, symmetryTable);
+  if (reason.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: reason._0
+    };
+  }
+  let found = {
+    contents: undefined
+  };
+  let phase1Depth = reason._0;
+  while (found.contents === undefined && phase1Depth <= maximumPhase1Depth) {
+    let candidates = searchPhase1Candidates(udRank, phase1Depth, phase1Permutations, symmetryMap, symmetryTable, candidatesPerDepth);
+    candidates.forEach(phase1Moves => {
+      if (found.contents !== undefined) {
+        return;
+      }
+      let endFbRank = Stdlib_Array.reduce(phase1Moves, fbRank, (rank, moveIndex) => transitionUdRank(rank, phase1Permutations[moveIndex]));
+      let phase2Moves_ = solvePhase2Ranks(0, endFbRank, maximumPhase2Depth, phase2Permutations, symmetryMap, symmetryTable);
+      if (phase2Moves_ !== undefined) {
+        found.contents = {
+          phase1Notations: phase1Moves.map(index => centreMoveNotations[index]),
+          phase2Notations: phase2Moves_.map(index => phase2Moves[index].notation)
+        };
+        return;
+      }
+    });
+    if (found.contents === undefined) {
+      phase1Depth = phase1Depth + 1 | 0;
+    }
+  };
+  let reduction = found.contents;
+  if (reduction !== undefined) {
+    return {
+      TAG: "Ok",
+      _0: reduction
+    };
+  } else {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidTransition",
+        _0: "No centre reduction was found within the given phase-one/two depth and candidate limits."
+      }
+    };
+  }
+}
+
 export {
   encodeFacelets,
   decodeFacelets,
@@ -1416,5 +1633,11 @@ export {
   cachedCentreSymmetryTable,
   searchPhase1Rank,
   solvePhase1Centres,
+  searchPhase1Candidates,
+  phase2MovePermutationsCache,
+  phase2MovePermutations,
+  searchPhase2Ranks,
+  solvePhase2Ranks,
+  solveCentreReduction,
 }
 /* centreCoordinateSize Not a pure module */
