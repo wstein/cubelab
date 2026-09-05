@@ -1643,6 +1643,22 @@ test("paints a specific dot's colour on click and loads a filled sticker's colou
   await expect(sticker8).toHaveAttribute("data-face", "R");
   await sticker8.click({modifiers: ["Shift"]});
   await expect(sticker8).toHaveAttribute("data-face", "unknown");
+
+  // When eraser is active, its button receives the selected frame (.active / aria-pressed),
+  // and clicking candidate dots on a blank sticker still paints that dot's colour.
+  const eraser = dialog.locator("[data-manual-state-eraser]");
+  await eraser.click();
+  await expect(eraser).toHaveAttribute("aria-pressed", "true");
+  await expect(eraser).toHaveClass(/active/);
+  await sticker8.locator('.manual-state-dots i[data-face="R"]').click();
+  await expect(sticker8).toHaveAttribute("data-face", "R");
+  // Clicking the filled sticker while eraser is active erases it back to unknown.
+  await sticker8.click();
+  await expect(sticker8).toHaveAttribute("data-face", "unknown");
+
+  await sticker8.click();
+  await expect(sticker8).toHaveAttribute("data-face", "unknown");
+  await dialog.locator('[data-manual-state-colour="U"]').click();
   await sticker8.click();
   await expect(sticker8).toHaveAttribute("data-face", "U");
   await sticker8.click({modifiers: ["Shift"]});
@@ -1655,7 +1671,7 @@ test("paints a specific dot's colour on click and loads a filled sticker's colou
   const rCentre = net.locator('[data-manual-state-index="13"]');
   await expect(rCentre).toHaveAttribute("data-face", "R");
   await dialog.locator('[data-manual-state-colour="U"]').click();
-  await rCentre.dblclick();
+  await rCentre.dblclick({force: true});
   await expect(dialog.locator('[data-manual-state-colour="R"]')).toHaveAttribute("aria-pressed", "true");
   await expect(rCentre).toHaveAttribute("data-face", "R");
 });
