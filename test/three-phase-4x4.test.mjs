@@ -2,7 +2,7 @@ import {expect, test} from "vitest";
 
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
-import {applyCentreTransition, applyTransition, axisTransitionAllowed, buildCentrePruning, buildCentreSymmetryMap, buildSymmetryCentrePruning, canonicalUdRank, centreSymmetryPermutations, centreTransition, createCentrePruning, decodeFacelets, encodeFacelets, extractCentres, extractCorners, extractWings, phase2CombinedDistance, phase2FbDistance, phase2Moves, phase2TargetFbRank, phase2UdDistance, phase3Moves, pruningDepth, rankFbCentres, rankUdCentres, setPruningDepth, transitionUdRank, unrankUdCentres} from "../src/Solver/ThreePhase4x4.res.mjs";
+import {applyCentreTransition, applyTransition, axisTransitionAllowed, buildCentrePruning, buildCentreSymmetryMap, buildSymmetryCentrePruning, canonicalUdRank, centreSymmetryPermutations, centreTransition, createCentrePruning, decodeFacelets, encodeFacelets, extractCentres, extractCorners, extractWings, phase2CombinedDistance, phase2FbDistance, phase2Moves, phase2TargetFbRank, udRankDistance, phase3Moves, pruningDepth, rankFbCentres, rankUdCentres, setPruningDepth, solvePhase1Centres, transitionUdRank, unrankUdCentres} from "../src/Solver/ThreePhase4x4.res.mjs";
 
 function buildPhase2DistanceInputs() {
   const symmetryMap = buildCentreSymmetryMap();
@@ -199,7 +199,7 @@ test("phase-two distance functions read zero exactly at each coordinate's own ta
   expect(symmetryMap).not.toBeNull();
   expect(symmetryTable).not.toBeNull();
 
-  const ud = phase2UdDistance(0, symmetryMap, symmetryTable);
+  const ud = udRankDistance(0, symmetryMap, symmetryTable);
   expect(ud.TAG).toBe("Ok");
   if (ud.TAG === "Ok") expect(ud._0).toBe(0);
 
@@ -269,5 +269,86 @@ test("phase-two coordinate transitions agree with re-ranking a real move's facel
     if (transition.TAG !== "Ok") return;
     expect(transitionUdRank(beforeUdRank, transition._0)).toBe(afterUdRank);
     expect(transitionUdRank(beforeFbRank, transition._0)).toBe(afterFbRank);
+  });
+});
+
+test("phase-one search returns immediately for an already-solved centre string", () => {
+  const solved = "UUUUDDDDFFFFBBBBRRRRLLLL";
+  const solution = solvePhase1Centres(solved, 10);
+  expect(solution.TAG).toBe("Ok");
+  if (solution.TAG !== "Ok") return;
+  expect(solution._0.moveIndices).toHaveLength(0);
+  expect(solution._0.notations).toHaveLength(0);
+});
+
+test("phase-one search rejects a centre string without exactly eight U/D stickers", () => {
+  const invalid = "U".repeat(9) + "F".repeat(15);
+  const solution = solvePhase1Centres(invalid, 10);
+  expect(solution.TAG).toBe("Error");
+});
+
+test("phase-one search finds a replay-verified solution for a one-move scramble", () => {
+  const scrambled = MoveExecutor.parseAndApply(4, "Rw");
+  expect(scrambled.TAG).toBe("Ok");
+  if (scrambled.TAG !== "Ok") return;
+  const centres = extractCentres(scrambled._0);
+  expect(rankUdCentres(centres)).not.toBe(0);
+
+  const solution = solvePhase1Centres(centres, 10);
+  expect(solution.TAG).toBe("Ok");
+  if (solution.TAG !== "Ok") return;
+  expect(solution._0.notations.length).toBeGreaterThan(0);
+
+  let replayed = scrambled._0;
+  solution._0.notations.forEach((notation) => {
+    const next = applyTransition(replayed, notation);
+    expect(next.TAG).toBe("Ok");
+    if (next.TAG === "Ok") replayed = next._0;
+  });
+  expect(rankUdCentres(extractCentres(replayed))).toBe(0);
+});
+
+test("phase-one search finds a replay-verified solution for a multi-move scramble", () => {
+  const scrambled = MoveExecutor.parseAndApply(4, "Rw U Fw2 Dw2 Lw' B2");
+  expect(scrambled.TAG).toBe("Ok");
+  if (scrambled.TAG !== "Ok") return;
+  const centres = extractCentres(scrambled._0);
+  expect(rankUdCentres(centres)).not.toBe(0);
+
+  const solution = solvePhase1Centres(centres, 12);
+  expect(solution.TAG).toBe("Ok");
+  if (solution.TAG !== "Ok") return;
+
+  let replayed = scrambled._0;
+  solution._0.notations.forEach((notation) => {
+    const next = applyTransition(replayed, notation);
+    expect(next.TAG).toBe("Ok");
+    if (next.TAG === "Ok") replayed = next._0;
+  });
+  expect(rankUdCentres(extractCentres(replayed))).toBe(0);
+});
+
+test("phase-one search never repeats a face and keeps same-axis moves in ascending order", () => {
+  const scrambled = MoveExecutor.parseAndApply(4, "Rw U Fw2 Dw2 Lw' B2");
+  expect(scrambled.TAG).toBe("Ok");
+  if (scrambled.TAG !== "Ok") return;
+  const solution = solvePhase1Centres(extractCentres(scrambled._0), 12);
+  expect(solution.TAG).toBe("Ok");
+  if (solution.TAG !== "Ok") return;
+
+  const faceIdOf = new Map();
+  ["U", "R", "F", "D", "L", "B", "Uw", "Rw", "Fw", "Dw", "Lw", "Bw"].forEach((face, index) => {
+    faceIdOf.set(face, index);
+  });
+  const faceOfNotation = (notation) => notation.replace(/[2']/g, "");
+
+  let lastFaceId = -1;
+  solution._0.notations.forEach((notation) => {
+    const faceId = faceIdOf.get(faceOfNotation(notation));
+    expect(faceId).not.toBe(lastFaceId);
+    if (lastFaceId >= 0 && faceId % 3 === lastFaceId % 3) {
+      expect(faceId).toBeGreaterThan(lastFaceId);
+    }
+    lastFaceId = faceId;
   });
 });

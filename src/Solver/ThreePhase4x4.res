@@ -678,7 +678,7 @@ let phase2FbRotationInverse: result<array<int>, inputError> = centreTransition("
  * comment on centreSymmetryMap: "compactRank * 64 + inverse symmetry"), so
  * distance lookups go through it directly rather than through
  * canonicalUdRank. */
-let phase2UdDistance = (
+let udRankDistance = (
   udRank: int,
   symmetryMap: centreSymmetryMap,
   symmetryTable: array<int>,
@@ -697,7 +697,7 @@ let phase2FbDistance = (
 ): result<int, inputError> =>
   switch phase2FbRotationInverse {
   | Error(reason) => Error(reason)
-  | Ok(permutation) => phase2UdDistance(transitionUdRank(fbRank, permutation), symmetryMap, symmetryTable)
+  | Ok(permutation) => udRankDistance(transitionUdRank(fbRank, permutation), symmetryMap, symmetryTable)
   }
 
 let phase2CombinedDistance = (
@@ -707,10 +707,160 @@ let phase2CombinedDistance = (
   symmetryTable: array<int>,
 ): result<int, inputError> =>
   switch (
-    phase2UdDistance(udRank, symmetryMap, symmetryTable),
+    udRankDistance(udRank, symmetryMap, symmetryTable),
     phase2FbDistance(fbRank, symmetryMap, symmetryTable),
   ) {
   | (Error(reason), _) => Error(reason)
   | (_, Error(reason)) => Error(reason)
   | (Ok(udDistance), Ok(fbDistance)) => Ok(udDistance > fbDistance ? udDistance : fbDistance)
   }
+
+/* Phase-one IDA* search over the raw U/D-centre coordinate, using the full
+ * 36-move set and the already-committed symmetry pruning table as an
+ * admissible heuristic (udRankDistance) — the same table-driven IDA* shape
+ * already proven out in TwoPhaseSolver.searchPhase1WithinTotal, adapted to
+ * this coordinate's single-rank goal. centreMoveFaceIds tags each of
+ * centreMoveNotations' 36 entries with the upstream face id its
+ * axisTransitionAllowed rule keys on: outer and wide turns of the same
+ * physical face get distinct ids (U=0, its wide counterpart u=6), since a
+ * wide turn does not merely repeat the outer one. */
+let centreMoveFaceIds = [
+  0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5,
+  6, 6, 6, 7, 7, 7, 8, 8, 8, 9, 9, 9, 10, 10, 10, 11, 11, 11,
+]
+
+let centreMovePermutationsCache: ref<option<array<array<int>>>> = ref(None)
+
+let centreMovePermutations = (): result<array<array<int>>, inputError> =>
+  switch centreMovePermutationsCache.contents {
+  | Some(permutations) => Ok(permutations)
+  | None => {
+      let permutations = ref([])
+      let failure = ref(None)
+      centreMoveNotations->Array.forEach(notation =>
+        switch centreTransition(notation) {
+        | Ok(permutation) => permutations := permutations.contents->Array.concat([permutation])
+        | Error(reason) => failure := Some(reason)
+        }
+      )
+      switch failure.contents {
+      | Some(reason) => Error(reason)
+      | None => {
+          centreMovePermutationsCache := Some(permutations.contents)
+          Ok(permutations.contents)
+        }
+      }
+    }
+  }
+
+let centreSymmetryMapCache: ref<option<centreSymmetryMap>> = ref(None)
+
+/* Cached the same way TwoPhaseSolver caches its own move/pruning tables:
+ * built once per process, reused by every subsequent search call. */
+let cachedCentreSymmetryMap = (): result<centreSymmetryMap, inputError> =>
+  switch centreSymmetryMapCache.contents {
+  | Some(map) => Ok(map)
+  | None =>
+    switch buildCentreSymmetryMap() {
+    | Ok(map) => {
+        centreSymmetryMapCache := Some(map)
+        Ok(map)
+      }
+    | Error(reason) => Error(reason)
+    }
+  }
+
+let centreSymmetryTableCache: ref<option<array<int>>> = ref(None)
+
+let cachedCentreSymmetryTable = (): result<array<int>, inputError> =>
+  switch centreSymmetryTableCache.contents {
+  | Some(table) => Ok(table)
+  | None =>
+    switch buildSymmetryCentrePruning(15) {
+    | Ok(table) => {
+        centreSymmetryTableCache := Some(table)
+        Ok(table)
+      }
+    | Error(reason) => Error(reason)
+    }
+  }
+
+let rec searchPhase1Rank = (
+  rank: int,
+  depth: int,
+  lastFaceId: int,
+  permutations: array<array<int>>,
+  symmetryMap: centreSymmetryMap,
+  symmetryTable: array<int>,
+): option<array<int>> =>
+  if rank == 0 {
+    Some([])
+  } else if depth == 0 {
+    None
+  } else {
+    switch udRankDistance(rank, symmetryMap, symmetryTable) {
+    | Error(_) => None
+    | Ok(distance) if distance > depth => None
+    | Ok(_) => {
+        let found = ref(None)
+        for moveIndex in 0 to 35 {
+          if found.contents == None {
+            let faceId = Belt.Array.getUnsafe(centreMoveFaceIds, moveIndex)
+            if axisTransitionAllowed(lastFaceId, faceId) {
+              let next = transitionUdRank(rank, Belt.Array.getUnsafe(permutations, moveIndex))
+              switch searchPhase1Rank(next, depth - 1, faceId, permutations, symmetryMap, symmetryTable) {
+              | Some(tail) => found := Some([moveIndex]->Array.concat(tail))
+              | None => ()
+              }
+            }
+          }
+        }
+        found.contents
+      }
+    }
+  }
+
+type phase1Solution = {moveIndices: array<int>, notations: array<string>}
+
+/* IDA*: try each total depth in turn, starting from the admissible bound at
+ * the root, exactly like TwoPhaseSolver.totalDepthSearch. maximumDepth caps
+ * the search rather than running unbounded, since a state whose rank is
+ * outside 0..centreCoordinateSize-1 (not exactly eight U/D stickers) would
+ * otherwise search forever. */
+let solvePhase1Centres = (centres: string, maximumDepth: int): result<phase1Solution, inputError> => {
+  let rank = rankUdCentres(centres)
+  if rank < 0 {
+    Error(InvalidFacelets("Phase-one search requires a centre string with exactly eight U/D stickers."))
+  } else {
+    switch (centreMovePermutations(), cachedCentreSymmetryMap(), cachedCentreSymmetryTable()) {
+    | (Error(reason), _, _) => Error(reason)
+    | (_, Error(reason), _) => Error(reason)
+    | (_, _, Error(reason)) => Error(reason)
+    | (Ok(permutations), Ok(symmetryMap), Ok(symmetryTable)) =>
+      switch udRankDistance(rank, symmetryMap, symmetryTable) {
+      | Error(reason) => Error(reason)
+      | Ok(minimumDepth) => {
+          let found = ref(None)
+          let depth = ref(minimumDepth)
+          while found.contents == None && depth.contents <= maximumDepth {
+            found := searchPhase1Rank(rank, depth.contents, -1, permutations, symmetryMap, symmetryTable)
+            if found.contents == None {
+              depth := depth.contents + 1
+            }
+          }
+          switch found.contents {
+          | None =>
+            Error(InvalidTransition("No phase-one solution was found within the given depth."))
+          | Some(moveIndices) =>
+            Ok({
+              moveIndices,
+              notations: moveIndices->Array.map(index =>
+                Belt.Array.getUnsafe(centreMoveNotations, index)
+              ),
+            })
+          }
+        }
+      }
+    }
+  }
+}

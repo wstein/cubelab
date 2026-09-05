@@ -98,7 +98,7 @@ rotation conjugates the U/D target to the F/B target
 (`transitionUdRank(0, x) == phase2TargetFbRank`, verified), so
 `phase2FbDistance` reuses the already-committed phase-one symmetry pruning
 table by rotating into the U/D frame first rather than building a second
-table; `phase2UdDistance` and `phase2CombinedDistance` (their max) complete
+table; `udRankDistance` and `phase2CombinedDistance` (their max) complete
 the admissible heuristic. This bound is looser than a phase-two-move-specific
 table would be (it reflects the full move set, not the 28-move restriction),
 which is a performance follow-up, not a correctness gap. It also does not
@@ -106,9 +106,27 @@ track upstream's centre/wing parity-avoidance bit: a phase-one endpoint that
 isn't reachable to the joint target by phase-two's restricted moves alone is
 expected, and the fix is retrying other phase-one endpoints (matching
 upstream's own multi-candidate strategy) in the phase-one/two chaining
-increment, not a flaw in this coordinate. Search coordinates beyond phase-two
-and the solver integration are not ported yet. The module is not connected
-to the Converter. The existing Academy guides remain independent and intact.
+increment, not a flaw in this coordinate. `udRankDistance` names what was
+`phase2UdDistance` in that increment's first commit, since the eleventh
+increment below reuses it as a general "distance to U/D rank 0" bound, not
+something phase-two-specific.
+
+The eleventh increment adds a concrete phase-one search: table-driven IDA*
+over the raw U/D-centre coordinate using the full 36-move set, in the same
+shape as `TwoPhaseSolver.searchPhase1WithinTotal` — recurse move by move,
+prune via an admissible distance bound, deepen the total when no solution
+exists at the current depth. The bound is `udRankDistance` against the
+already-committed 15,582-orbit symmetry table; `centreMoveFaceIds` tags each
+of `centreMoveNotations`' 36 entries with the face id `axisTransitionAllowed`
+already keys on (outer and wide turns of the same physical face get distinct
+ids, since a wide turn is not a repeat of the outer one). `solvePhase1Centres`
+is the entry point: given a centre string, it returns the shortest move
+sequence (as both move indices and notations) reaching U/D rank 0, replay
+verified in tests against the canonical executor. Move and symmetry tables
+are cached at the module level the same way `TwoPhaseSolver` caches its own,
+so repeated searches do not rebuild them. Phase-two/three search and the
+solver integration are not ported yet. The module is not connected to the
+Converter. The existing Academy guides remain independent and intact.
 
 `Reduction4x4.reduce4x4` is the handoff gate for stage 3. It accepts only a
 4×4 with monochrome 2×2 centres and paired visible wings, converts it to the
