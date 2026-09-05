@@ -1313,9 +1313,7 @@ if (root) {
       const faceNet = NetCodec.parse(size, net) as Result<CubeState>;
       if (faceNet.TAG === "Ok") return recognize(faceNet, "Facelet net");
       const colourNet = ColorCodec.parseNet(scheme(), size, net) as Result<CubeState>;
-      return colourNet.TAG === "Ok"
-        ? recognize(colourNet, "Colour net")
-        : parseAlgorithm(inputValue);
+      if (colourNet.TAG === "Ok") return recognize(colourNet, "Colour net");
     }
     const facelets = FaceletCodec.parse(size, compact) as Result<CubeState>;
     if (facelets.TAG === "Ok") return recognize(facelets, "Compact facelets");

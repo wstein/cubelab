@@ -73,3 +73,46 @@ test("net parsing rejects non-canonical geometry", () => {
   assert.equal(result.TAG, "Error");
   assert.equal(result._0.TAG, "InvalidNet");
 });
+
+for (const size of [2, 3, 4, 5]) {
+  test(`facelet parser accepts spaced facelets for ${size}x${size}`, () => {
+    const state = solved(size);
+    const compact = FaceletCodec.render(state);
+    const stickersPerFace = size * size;
+    // Split into 6 face blocks separated by spaces
+    const spaced = [];
+    for (let face = 0; face < 6; face++) {
+      spaced.push(compact.slice(face * stickersPerFace, (face + 1) * stickersPerFace));
+    }
+    const spacedString = spaced.join(" ");
+    const parsed = FaceletCodec.parse(size, spacedString);
+    assert.equal(parsed.TAG, "Ok");
+    assert.equal(FaceletCodec.render(parsed._0), compact);
+
+    // Also test mixed whitespace: spaces, tabs, and newlines
+    const multilineSpaced = spaced.join("\n  \t ");
+    const parsedMultiline = FaceletCodec.parse(size, multilineSpaced);
+    assert.equal(parsedMultiline.TAG, "Ok");
+    assert.equal(FaceletCodec.render(parsedMultiline._0), compact);
+
+    // ColorCodec parseCompact also accepts spaced strings
+    const westernColors = ColorCodec.renderCompact("Western", state);
+    assert.equal(westernColors.TAG, "Ok");
+    const spacedColors = [];
+    for (let face = 0; face < 6; face++) {
+      spacedColors.push(westernColors._0.slice(face * stickersPerFace, (face + 1) * stickersPerFace));
+    }
+    const parsedColors = ColorCodec.parseCompact("Western", size, spacedColors.join(" "));
+    assert.equal(parsedColors.TAG, "Ok");
+    assert.equal(FaceletCodec.render(parsedColors._0), compact);
+  });
+}
+
+test("facelet parser accepts user 3x3 spaced facelet state", () => {
+  const input = "DFLFUBRBU RDFURDLUB DRFLFRULB LBDFDBUFR LDFULDRUB URFRBLDLB";
+  const parsed = FaceletCodec.parse(3, input);
+  assert.equal(parsed.TAG, "Ok");
+  assert.equal(parsed._0.size, 3);
+  assert.equal(FaceletCodec.render(parsed._0), input.replace(/\s+/g, ""));
+});
+

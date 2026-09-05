@@ -10,6 +10,35 @@ function render(state) {
   }).join("");
 }
 
+function isWhitespace(character) {
+  if (character === " " || character === "\t" || character === "\n") {
+    return true;
+  } else {
+    return character === "\r";
+  }
+}
+
+function stripWhitespace(input) {
+  let len = input.length;
+  let nonWhitespaceCount = 0;
+  for (let index = 0; index < len; ++index) {
+    let character = String(input[index]);
+    if (!isWhitespace(character)) {
+      nonWhitespaceCount = nonWhitespaceCount + 1 | 0;
+    }
+  }
+  let output = Stdlib_Array.make(nonWhitespaceCount, "");
+  let writeIndex = 0;
+  for (let index$1 = 0; index$1 < len; ++index$1) {
+    let character$1 = String(input[index$1]);
+    if (!isWhitespace(character$1)) {
+      output[writeIndex] = character$1;
+      writeIndex = writeIndex + 1 | 0;
+    }
+  }
+  return output.join("");
+}
+
 function parse(size, input) {
   if (!StateTypes.isSupportedSize(size)) {
     return {
@@ -20,7 +49,7 @@ function parse(size, input) {
       }
     };
   }
-  let compact = input.trim();
+  let compact = stripWhitespace(input);
   let expected = (6 * size | 0) * size | 0;
   if (compact.length !== expected) {
     return {
@@ -95,6 +124,8 @@ function parse(size, input) {
 
 export {
   render,
+  isWhitespace,
+  stripWhitespace,
   parse,
 }
 /* No side effect */

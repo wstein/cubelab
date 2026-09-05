@@ -8,11 +8,35 @@ let render = (state: cubeState): string =>
   })
   ->Array.join("")
 
+let isWhitespace = (character: string): bool =>
+  character == " " || character == "\t" || character == "\n" || character == "\r"
+
+let stripWhitespace = (input: string): string => {
+  let len = input->String.length
+  let nonWhitespaceCount = ref(0)
+  for index in 0 to len - 1 {
+    let character = input->String.get(index)->Belt.Option.getUnsafe->String.make
+    if !isWhitespace(character) {
+      nonWhitespaceCount := nonWhitespaceCount.contents + 1
+    }
+  }
+  let output = Array.make(~length=nonWhitespaceCount.contents, "")
+  let writeIndex = ref(0)
+  for index in 0 to len - 1 {
+    let character = input->String.get(index)->Belt.Option.getUnsafe->String.make
+    if !isWhitespace(character) {
+      output[writeIndex.contents] = character
+      writeIndex := writeIndex.contents + 1
+    }
+  }
+  output->Array.join("")
+}
+
 let parse = (~size: int, input: string): result<cubeState, stateError> =>
   if !isSupportedSize(size) {
     Error(InvalidSize("Cube size must be between 2 and 5."))
   } else {
-    let compact = input->String.trim
+    let compact = input->stripWhitespace
     let expected = 6 * size * size
     if compact->String.length != expected {
       Error(InvalidLength({expected, actual: compact->String.length}))

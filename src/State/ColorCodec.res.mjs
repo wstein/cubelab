@@ -121,7 +121,7 @@ function translateToFaces(mapping, input) {
   let error;
   for (let index = 0, index_finish = input.length; index < index_finish; ++index) {
     let character = String(input[index]);
-    if (character === " " || character === "\n") {
+    if (character === " " || character === "\t" || character === "\n" || character === "\r") {
       output[index] = character;
     } else {
       let face = colourToFace(mapping, character);

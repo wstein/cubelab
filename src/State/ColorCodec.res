@@ -79,7 +79,7 @@ let translateToFaces = (~mapping: string, input: string): result<string, stateEr
   let error = ref(None)
   for index in 0 to input->String.length - 1 {
     let character = input->String.get(index)->Belt.Option.getUnsafe->String.make
-    if character == " " || character == "\n" {
+    if character == " " || character == "\t" || character == "\n" || character == "\r" {
       output[index] = character
     } else {
       switch colourToFace(~mapping, ~colour=character) {
