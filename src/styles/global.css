@@ -827,6 +827,43 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform: translateY(calc(-100% - var(--manual-state-face-gap)));
 }
 
+/* 3D view: exploded isometric layout where all non-frontal faces
+   (Top, Down, Left, Right) project into their respective 3D planes. */
+.manual-state-net[data-representation="isometric"] {
+  --attached-face-gap: var(--manual-state-face-gap);
+  --attached-fold-gap: 0.2rem;
+  --attached-diagonal-shift: calc(var(--manual-state-face-gap) * 0.2929);
+  overflow: visible;
+}
+
+.manual-state-net[data-representation="isometric"] .manual-state-face {
+  transition: transform 160ms ease;
+}
+
+.manual-state-net[data-representation="isometric"] .manual-state-face[data-face="U"] {
+  transform: translateX(var(--attached-diagonal-shift)) skewX(-45deg);
+  transform-origin: bottom left;
+}
+
+.manual-state-net[data-representation="isometric"] .manual-state-face[data-face="R"] {
+  transform: translateY(calc(-1 * var(--attached-diagonal-shift))) skewY(-45deg);
+  transform-origin: top left;
+}
+
+.manual-state-net[data-representation="isometric"] .manual-state-face[data-face="B"] {
+  transform: translateY(calc(-100% - var(--manual-state-face-gap)));
+}
+
+.manual-state-net[data-representation="isometric"] .manual-state-face[data-face="L"] {
+  transform: skewY(-45deg);
+  transform-origin: top right;
+}
+
+.manual-state-net[data-representation="isometric"] .manual-state-face[data-face="D"] {
+  transform: skewX(-45deg);
+  transform-origin: top left;
+}
+
 /* Each face has a stable view-transition name, allowing the browser to carry
    it through the same flat-to-folded motion in reverse when Flat net is
    selected again. Users who request reduced motion receive the instant layout

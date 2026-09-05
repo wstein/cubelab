@@ -404,7 +404,7 @@ if (root) {
   const manualStateExplicitIndices = new Set<number>();
   const manualStateAutoIndices = new Set<number>();
   let manualStateHoverIndex: number | null = null;
-  let manualStateRepresentation: "standard" | "attached" = "standard";
+  let manualStateRepresentation: "standard" | "attached" | "isometric" = "standard";
   let manualStateDotGeneration = 0;
   // Built once per manual-state size and reused across renders: recreating
   // every sticker button on every single paint or erase click would force a
@@ -1220,7 +1220,7 @@ if (root) {
     });
   };
   wireManualStateHover(manualStateGrid);
-  const setManualStateRepresentation = (representation: "standard" | "attached") => {
+  const setManualStateRepresentation = (representation: "standard" | "attached" | "isometric") => {
     if (representation === manualStateRepresentation) return;
     const renderRepresentation = () => {
       manualStateRepresentation = representation;
@@ -1237,7 +1237,7 @@ if (root) {
   };
   manualStateRepresentationButtons.forEach((button) => {
     button.addEventListener("click", () => {
-      setManualStateRepresentation(button.dataset.manualStateRepresentation as "standard" | "attached");
+      setManualStateRepresentation(button.dataset.manualStateRepresentation as "standard" | "attached" | "isometric");
     });
   });
 

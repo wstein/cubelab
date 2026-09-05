@@ -129,12 +129,13 @@ wrapping across a 3×3's face boundaries so the cursor keeps moving in the same 
 direction rather than stopping at an edge (2×2 has no such wrap and stops there); U, R, F,
 D, L, or B paints the focused sticker directly; E erases it.
 
-The **Flat net** and **Folded net** are selectable layouts of the same editor, so only one
+The **Flat net**, **Folded net**, and **3D view** are selectable layouts of the same editor, so only one
 is shown at a time. Folded net keeps Front square, folds Up and Right away in perspective, and
-leaves Left, Down, and Back visibly attached. Because the layouts share the same sticker buttons,
-they always retain identical colour dots, click/drag paint, erase, double-click colour pickup,
-keyboard entry, and piece-hover highlighting. Where supported and motion is not reduced, the same
-six face elements morph in both directions between the two layouts.
+leaves Left, Down, and Back visibly attached. 3D view projects all non-frontal faces into their
+respective 3D planes (Left and Right vertical, Up and Down horizontal) in an exploded axonometric layout.
+Because the layouts share the same sticker buttons, they always retain identical colour dots, click/drag paint,
+erase, double-click colour pickup, keyboard entry, and piece-hover highlighting. Where supported and motion is not
+reduced, the same six face elements morph smoothly across all three layouts.
 A live summary card tracks Entered/Corner/Edge
 progress; on 2×2×2 and 3×3×3 it also tracks completed corners and edges, and on 3×3×3 it
 distinguishes **Known** stickers by including the six fixed
