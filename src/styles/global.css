@@ -833,7 +833,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   --attached-fold-gap: 0.2rem;
   --manual-state-explode-gap: 0.8rem;
   overflow: visible;
-  padding: 1.2rem 1.2rem 2.2rem 1.2rem;
+  padding: 2.2rem 1.2rem 2.2rem 1.2rem;
 }
 
 .manual-state-net[data-representation="isometric"] .manual-state-face {
@@ -856,9 +856,9 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform-origin: bottom right;
 }
 
-/* 2. Exploded Left face: parallel to R, exploded with same relation along -X */
+/* 2. Exploded Left face: parallel to R, exploded up one face along -X */
 .manual-state-net[data-representation="isometric"] .manual-state-face[data-face="L"] {
-  transform: translate(calc(13.4% - var(--manual-state-explode-gap)), calc(-50% - 0.5 * var(--manual-state-explode-gap))) skewY(-30deg) scaleX(0.866025);
+  transform: translate(calc(13.4% - var(--manual-state-explode-gap)), calc(-150% - var(--manual-state-face-gap) - 0.5 * var(--manual-state-explode-gap))) skewY(-30deg) scaleX(0.866025);
   transform-origin: top right;
 }
 
@@ -868,9 +868,9 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform-origin: top left;
 }
 
-/* 4. Exploded Back face: parallel to F, exploded with same relation along -Y */
+/* 4. Exploded Back face: parallel to F, exploded up one face along -Y */
 .manual-state-net[data-representation="isometric"] .manual-state-face[data-face="B"] {
-  transform: translate(calc(-13.4% + var(--manual-state-explode-gap)), calc(-50% - 0.5 * var(--manual-state-explode-gap))) skewY(30deg) scaleX(0.866025);
+  transform: translate(calc(-13.4% + var(--manual-state-explode-gap)), calc(-150% - var(--manual-state-face-gap) - 0.5 * var(--manual-state-explode-gap))) skewY(30deg) scaleX(0.866025);
   transform-origin: top left;
 }
 
