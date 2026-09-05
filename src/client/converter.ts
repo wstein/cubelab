@@ -1231,6 +1231,8 @@ if (root) {
   };
   wireManualStateHover(manualStateGrid);
   let manualStateYaw = -45;
+  let manualStateFlip = 0;
+  let manualStateFlipped = false;
   const rotateManualStateIsometric = async (direction: "cw" | "ccw") => {
     if (manualStateRepresentation !== "isometric" || manualStateIsRotating) return;
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1268,11 +1270,56 @@ if (root) {
     }
   };
 
+  const flipManualStateIsometric = async () => {
+    if (manualStateRepresentation !== "isometric" || manualStateIsRotating) return;
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const nextFlipped = !manualStateFlipped;
+
+    if (prefersReducedMotion) {
+      manualStateFlipped = nextFlipped;
+      manualStateFlip = nextFlipped ? 180 : 0;
+      manualStateNet.style.setProperty("--manual-state-flip", `${manualStateFlip}deg`);
+      if (nextFlipped) {
+        manualStateNet.dataset.flipped = "true";
+      } else {
+        delete manualStateNet.dataset.flipped;
+      }
+      return;
+    }
+
+    manualStateIsRotating = true;
+    try {
+      // 1. Unexplode hidden faces flush into the cube
+      manualStateNet.dataset.animState = "unexploded";
+      await new Promise((resolve) => setTimeout(resolve, 220));
+
+      // 2. Rotate closed cube 180° upside down around X axis (x2)
+      manualStateFlip += 180;
+      manualStateNet.style.setProperty("--manual-state-flip", `${manualStateFlip}deg`);
+      await new Promise((resolve) => setTimeout(resolve, 380));
+
+      // 3. Explode newly hidden faces outward for the flipped orientation
+      manualStateFlipped = nextFlipped;
+      if (nextFlipped) {
+        manualStateNet.dataset.flipped = "true";
+      } else {
+        delete manualStateNet.dataset.flipped;
+      }
+      delete manualStateNet.dataset.animState;
+      await new Promise((resolve) => setTimeout(resolve, 220));
+    } finally {
+      delete manualStateNet.dataset.animState;
+      manualStateIsRotating = false;
+    }
+  };
+
   manualStateRotateButtons.forEach((button) => {
     button.addEventListener("click", () => {
-      const dir = button.dataset.manualStateRotate as "cw" | "ccw";
+      const dir = button.dataset.manualStateRotate as "cw" | "ccw" | "flip";
       if (dir === "cw" || dir === "ccw") {
         rotateManualStateIsometric(dir);
+      } else if (dir === "flip") {
+        flipManualStateIsometric();
       }
     });
   });
@@ -1284,6 +1331,12 @@ if (root) {
     if (representation === "isometric") {
       manualStateYaw = -45 + manualStateOrientation * 90;
       manualStateNet.style.setProperty("--manual-state-yaw", `${manualStateYaw}deg`);
+      manualStateNet.style.setProperty("--manual-state-flip", `${manualStateFlip}deg`);
+      if (manualStateFlipped) {
+        manualStateNet.dataset.flipped = "true";
+      } else {
+        delete manualStateNet.dataset.flipped;
+      }
     }
     const renderRepresentation = () => {
       manualStateRepresentation = representation;
@@ -5752,6 +5805,12 @@ if (root) {
       rotateManualStateIsometric(event.key === "[" ? "ccw" : "cw");
       return;
     }
+    if (event.key === "x" || event.key === "X") {
+      event.preventDefault();
+      event.stopPropagation();
+      flipManualStateIsometric();
+      return;
+    }
     const direction = manualStateArrowKeys[event.key];
     if (!direction) return;
     event.preventDefault();
@@ -6070,6 +6129,9 @@ if (root) {
         } else if (event.key === "]") {
           event.preventDefault();
           rotateManualStateIsometric("cw");
+        } else if (event.key === "x" || event.key === "X") {
+          event.preventDefault();
+          flipManualStateIsometric();
         }
       }
       return;

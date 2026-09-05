@@ -898,7 +898,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   margin-top: var(--manual-state-3d-offset, -1.8rem);
   position: relative;
   transform-style: preserve-3d;
-  transform: rotateX(-35.264deg) rotateY(var(--manual-state-yaw, -45deg));
+  transform: rotateX(-35.264deg) rotateY(var(--manual-state-yaw, -45deg)) rotateX(var(--manual-state-flip, 0deg));
   transition: transform 380ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -1022,6 +1022,108 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 .manual-state-net[data-representation="isometric"][data-orientation="3"] .manual-state-face[data-face="D"] {
   transform: rotateX(-90deg) translateZ(calc(var(--manual-state-half-size) + var(--manual-state-explode-dist)));
+  z-index: 2;
+}
+
+/* Base 3D placement when flipped */
+.manual-state-net[data-representation="isometric"][data-flipped="true"] .manual-state-face[data-face="F"] {
+  transform: rotateY(0deg) translateZ(var(--manual-state-half-size));
+}
+.manual-state-net[data-representation="isometric"][data-flipped="true"] .manual-state-face[data-face="R"] {
+  transform: rotateY(90deg) translateZ(var(--manual-state-half-size));
+}
+.manual-state-net[data-representation="isometric"][data-flipped="true"] .manual-state-face[data-face="B"] {
+  transform: rotateY(180deg) translateZ(var(--manual-state-half-size));
+}
+.manual-state-net[data-representation="isometric"][data-flipped="true"] .manual-state-face[data-face="L"] {
+  transform: rotateY(-90deg) translateZ(var(--manual-state-half-size));
+}
+.manual-state-net[data-representation="isometric"][data-flipped="true"] .manual-state-face[data-face="U"] {
+  transform: rotateX(90deg) translateZ(var(--manual-state-half-size));
+}
+.manual-state-net[data-representation="isometric"][data-flipped="true"] .manual-state-face[data-face="D"] {
+  transform: rotateX(-90deg) translateZ(var(--manual-state-half-size));
+}
+
+/* Flipped Orientation 0 (yaw = -45deg): Front faces B, R, D on top (z-index 5); Exploded L, F, U behind (z-index 2) */
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="0"] .manual-state-face[data-face="B"],
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="0"] .manual-state-face[data-face="R"],
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="0"] .manual-state-face[data-face="D"],
+.manual-state-net[data-representation="isometric"][data-flipped="true"]:not([data-orientation]) .manual-state-face[data-face="B"],
+.manual-state-net[data-representation="isometric"][data-flipped="true"]:not([data-orientation]) .manual-state-face[data-face="R"],
+.manual-state-net[data-representation="isometric"][data-flipped="true"]:not([data-orientation]) .manual-state-face[data-face="D"] {
+  z-index: 5;
+}
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="0"] .manual-state-face[data-face="L"],
+.manual-state-net[data-representation="isometric"][data-flipped="true"]:not([data-orientation]) .manual-state-face[data-face="L"] {
+  transform: rotateY(-90deg) translateZ(calc(var(--manual-state-half-size) + var(--manual-state-explode-dist)));
+  z-index: 2;
+}
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="0"] .manual-state-face[data-face="F"],
+.manual-state-net[data-representation="isometric"][data-flipped="true"]:not([data-orientation]) .manual-state-face[data-face="F"] {
+  transform: rotateY(0deg) translateZ(calc(var(--manual-state-half-size) + var(--manual-state-explode-dist)));
+  z-index: 2;
+}
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="0"] .manual-state-face[data-face="U"],
+.manual-state-net[data-representation="isometric"][data-flipped="true"]:not([data-orientation]) .manual-state-face[data-face="U"] {
+  transform: rotateX(90deg) translateZ(calc(var(--manual-state-half-size) + var(--manual-state-explode-dist)));
+  z-index: 2;
+}
+
+/* Flipped Orientation 1 (CW 90°): Front faces L, B, D on top (z-index 5); Exploded F, R, U behind (z-index 2) */
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="1"] .manual-state-face[data-face="L"],
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="1"] .manual-state-face[data-face="B"],
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="1"] .manual-state-face[data-face="D"] {
+  z-index: 5;
+}
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="1"] .manual-state-face[data-face="F"] {
+  transform: rotateY(0deg) translateZ(calc(var(--manual-state-half-size) + var(--manual-state-explode-dist)));
+  z-index: 2;
+}
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="1"] .manual-state-face[data-face="R"] {
+  transform: rotateY(90deg) translateZ(calc(var(--manual-state-half-size) + var(--manual-state-explode-dist)));
+  z-index: 2;
+}
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="1"] .manual-state-face[data-face="U"] {
+  transform: rotateX(90deg) translateZ(calc(var(--manual-state-half-size) + var(--manual-state-explode-dist)));
+  z-index: 2;
+}
+
+/* Flipped Orientation 2 (180°): Front faces F, L, D on top (z-index 5); Exploded R, B, U behind (z-index 2) */
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="2"] .manual-state-face[data-face="F"],
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="2"] .manual-state-face[data-face="L"],
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="2"] .manual-state-face[data-face="D"] {
+  z-index: 5;
+}
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="2"] .manual-state-face[data-face="R"] {
+  transform: rotateY(90deg) translateZ(calc(var(--manual-state-half-size) + var(--manual-state-explode-dist)));
+  z-index: 2;
+}
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="2"] .manual-state-face[data-face="B"] {
+  transform: rotateY(180deg) translateZ(calc(var(--manual-state-half-size) + var(--manual-state-explode-dist)));
+  z-index: 2;
+}
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="2"] .manual-state-face[data-face="U"] {
+  transform: rotateX(90deg) translateZ(calc(var(--manual-state-half-size) + var(--manual-state-explode-dist)));
+  z-index: 2;
+}
+
+/* Flipped Orientation 3 (CCW 90° / 270°): Front faces R, F, D on top (z-index 5); Exploded B, L, U behind (z-index 2) */
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="3"] .manual-state-face[data-face="R"],
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="3"] .manual-state-face[data-face="F"],
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="3"] .manual-state-face[data-face="D"] {
+  z-index: 5;
+}
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="3"] .manual-state-face[data-face="B"] {
+  transform: rotateY(180deg) translateZ(calc(var(--manual-state-half-size) + var(--manual-state-explode-dist)));
+  z-index: 2;
+}
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="3"] .manual-state-face[data-face="L"] {
+  transform: rotateY(-90deg) translateZ(calc(var(--manual-state-half-size) + var(--manual-state-explode-dist)));
+  z-index: 2;
+}
+.manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="3"] .manual-state-face[data-face="U"] {
+  transform: rotateX(90deg) translateZ(calc(var(--manual-state-half-size) + var(--manual-state-explode-dist)));
   z-index: 2;
 }
 
