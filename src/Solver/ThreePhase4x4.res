@@ -318,6 +318,192 @@ let transitionUdRank = (rank: int, permutation: array<int>): int => {
   rankUdSlots(next.contents)
 }
 
+/* Port of Center1.initSym2Raw's 48-element centre symmetry walk. These are
+ * not merely the 24 spatial cube rotations: the upstream coordinate also
+ * uses the complementary centre transforms needed to canonicalise the U/D
+ * subset. Keep them as coordinate permutations, derived from the canonical
+ * executor, rather than treating display rotations as solver moves. */
+let composeCentrePermutations = (first: array<int>, second: array<int>): array<int> =>
+  second->Array.map(target => Belt.Array.getUnsafe(first, target))
+
+let centreSymmetryGenerators = (): result<array<array<int>>, inputError> => {
+  let generators = ref([])
+  let failure = ref(None)
+  /* Center1.rot: (0) Uw2 Dw2, (1) Rw Lw', (2) z2, (3) Uw Dw' Fw Bw'. The z2
+   * transform is written directly because it is a coordinate reflection in
+   * the upstream symmetry enumeration, not a searched cube rotation. */
+  let notations = ["Uw2 Dw2", "Rw Lw'", "Uw Dw' Fw Bw'"]
+  notations->Array.forEach(notation =>
+    switch centreTransition(notation) {
+    | Ok(permutation) => generators := generators.contents->Array.concat([permutation])
+    | Error(reason) => failure := Some(reason)
+    }
+  )
+  let z2 = [
+    1, 0, 3, 2, 5, 4, 7, 6,
+    9, 8, 11, 10, 13, 12, 15, 14,
+    21, 20, 23, 22, 17, 16, 19, 18,
+  ]
+  switch failure.contents {
+  | Some(reason) => Error(reason)
+  | None => Ok([Belt.Array.getUnsafe(generators.contents, 0), Belt.Array.getUnsafe(generators.contents, 1), z2, Belt.Array.getUnsafe(generators.contents, 2)])
+  }
+}
+
+let centreSymmetryPermutations = (): result<array<array<int>>, inputError> =>
+  switch centreSymmetryGenerators() {
+  | Error(reason) => Error(reason)
+  | Ok(generators) => {
+    let identity = Array.make(~length=24, 0)
+    for slot in 0 to 23 { identity[slot] = slot }
+    let permutations = ref([])
+    let current = ref(identity)
+    for index in 0 to 47 {
+      permutations := permutations.contents->Array.concat([current.contents])
+      current := composeCentrePermutations(current.contents, Belt.Array.getUnsafe(generators, 0))
+      if index % 2 == 1 {
+        current := composeCentrePermutations(current.contents, Belt.Array.getUnsafe(generators, 1))
+      }
+      if index % 8 == 7 {
+        current := composeCentrePermutations(current.contents, Belt.Array.getUnsafe(generators, 2))
+      }
+      if index % 16 == 15 {
+        current := composeCentrePermutations(current.contents, Belt.Array.getUnsafe(generators, 3))
+      }
+    }
+    Ok(permutations.contents)
+  }
+  }
+
+type canonicalCentreRank = {rawRank: int, symmetry: int}
+
+/* Raw-to-symmetry seam. The returned symmetry identifies the transform which
+ * maps rawRank to its orbit representative, enabling later packed-table
+ * generators to store one distance per representative. */
+let canonicalUdRank = (rawRank: int): result<canonicalCentreRank, inputError> =>
+  if rawRank < 0 || rawRank >= centreCoordinateSize {
+    Error(InvalidTransition("Invalid phase-one centre rank."))
+  } else {
+    switch centreSymmetryPermutations() {
+    | Error(reason) => Error(reason)
+    | Ok(symmetries) => {
+      let bestRank = ref(rawRank)
+      let bestSymmetry = ref(0)
+      symmetries->Array.forEachWithIndex((permutation, symmetry) => {
+        let candidate = transitionUdRank(rawRank, permutation)
+        if candidate < bestRank.contents {
+          bestRank := candidate
+          bestSymmetry := symmetry
+        }
+      })
+      Ok({rawRank: bestRank.contents, symmetry: bestSymmetry.contents})
+    }
+  }
+  }
+
+type centreSymmetryMap = {
+  /* Same encoding as upstream Center1.raw2sym: high bits are a compact
+   * representative rank; low six bits select the transform back to it. */
+  rawToSymmetry: array<int>,
+  representatives: array<int>,
+}
+
+let inverseCentreSymmetryIndices = (symmetries: array<array<int>>): array<int> => {
+  let inverses = Array.make(~length=48, -1)
+  for firstIndex in 0 to 47 {
+    for secondIndex in 0 to 47 {
+      let combined = composeCentrePermutations(
+        Belt.Array.getUnsafe(symmetries, firstIndex),
+        Belt.Array.getUnsafe(symmetries, secondIndex),
+      )
+      let identity = ref(true)
+      for slot in 0 to 23 {
+        if Belt.Array.getUnsafe(combined, slot) != slot { identity := false }
+      }
+      if identity.contents { inverses[firstIndex] = secondIndex }
+    }
+  }
+  inverses
+}
+
+/* Enumerate each symmetry orbit once, in raw-rank order. The first raw rank
+ * encountered is therefore its canonical representative. This is deliberately
+ * a table-generation operation: the result is cached with the pruning table,
+ * never rebuilt on an interactive solve. */
+let buildCentreSymmetryMap = (): result<centreSymmetryMap, inputError> =>
+  switch centreSymmetryPermutations() {
+  | Error(reason) => Error(reason)
+  | Ok(symmetries) => {
+    let rawToSymmetry = Array.make(~length=centreCoordinateSize, -1)
+    let inverses = inverseCentreSymmetryIndices(symmetries)
+    let representatives = ref([])
+    for rawRank in 0 to centreCoordinateSize - 1 {
+      if Belt.Array.getUnsafe(rawToSymmetry, rawRank) == -1 {
+        let compactRank = representatives.contents->Array.length
+        representatives := representatives.contents->Array.concat([rawRank])
+        symmetries->Array.forEachWithIndex((permutation, symmetry) => {
+          let orbitRank = transitionUdRank(rawRank, permutation)
+          if Belt.Array.getUnsafe(rawToSymmetry, orbitRank) == -1 {
+            let inverse = Belt.Array.getUnsafe(inverses, symmetry)
+            rawToSymmetry[orbitRank] = compactRank * 64 + inverse
+          }
+        })
+      }
+    }
+    Ok({rawToSymmetry, representatives: representatives.contents})
+  }
+  }
+
+let createPackedPruning = (size: int): array<int> =>
+  Array.make(~length=(size + 1) / 2, 255)
+
+/* Symmetry-reduced packed BFS. Every successor is converted through raw2sym
+ * before enqueueing, so the stored coordinate is one of 15,582 orbit
+ * representatives rather than one of 735,471 raw centre subsets. */
+let buildSymmetryCentrePruning = (maximumDepth: int): result<array<int>, inputError> =>
+  switch buildCentreSymmetryMap() {
+  | Error(reason) => Error(reason)
+  | Ok(symmetryMap) => {
+    let transitions = ref([])
+    let failure = ref(None)
+    centreMoveNotations->Array.forEach(notation =>
+      switch centreTransition(notation) {
+      | Ok(permutation) => transitions := transitions.contents->Array.concat([permutation])
+      | Error(reason) => failure := Some(reason)
+      }
+    )
+    switch failure.contents {
+    | Some(reason) => Error(reason)
+    | None => {
+      let table = createPackedPruning(symmetryMap.representatives->Array.length)
+      let queue = Array.make(~length=symmetryMap.representatives->Array.length, 0)
+      let head = ref(0)
+      let tail = ref(1)
+      setPruningDepth(table, 0, 0)
+      queue[0] = 0
+      while head.contents < tail.contents {
+        let compactRank = Belt.Array.getUnsafe(queue, head.contents)
+        head := head.contents + 1
+        let depth = pruningDepth(table, compactRank)
+        if depth < maximumDepth {
+          let rawRank = Belt.Array.getUnsafe(symmetryMap.representatives, compactRank)
+          transitions.contents->Array.forEach(permutation => {
+            let successorRaw = transitionUdRank(rawRank, permutation)
+            let successorCompact = Belt.Array.getUnsafe(symmetryMap.rawToSymmetry, successorRaw) / 64
+            if pruningDepth(table, successorCompact) == 15 {
+              setPruningDepth(table, successorCompact, depth + 1)
+              queue[tail.contents] = successorCompact
+              tail := tail.contents + 1
+            }
+          })
+        }
+      }
+      Ok(table)
+    }
+    }
+  }
+  }
+
 /* Breadth-first packed pruning build. maximumDepth permits deterministic,
  * small test builds; pass 15 for the complete raw-coordinate traversal. */
 let buildCentrePruning = (maximumDepth: int): result<array<int>, inputError> => {

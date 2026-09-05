@@ -48,13 +48,15 @@ centre transition permutations by moving a unique marker through that executor;
 the row is stored target-to-source for direct coordinate application.
 The seventh increment ranks the phase-one U/D centre coordinate as eight
 selected slots among 24 (`C(24,8) = 735,471` raw states), matching the raw
-domain used before upstream symmetry reduction. Packed pruning-table traversal
-now performs deterministic breadth-first population to a supplied depth bound;
-`bun run solver:generate-4x4-centres` performs the full raw-table build,
-rejects any unreached state, and writes its packed artifact to
-`public/solver/three-phase-centre.v1.bin`. Symmetry reduction and search
-coordinates are not ported yet. The module is not connected to the Converter.
-The existing Academy guides remain independent and intact.
+domain used before upstream symmetry reduction. The eighth increment ports
+`Center1`'s exact 48-transform walk (including its non-rotational `z2`
+coordinate transform), validates the upstream 15,582-orbit reduction, and
+encodes each raw rank as a compact representative plus inverse symmetry. The
+centre-table generator now runs packed BFS on those representatives and writes
+the 7,791-byte artifact to `public/solver/three-phase-centre.v1.bin`; it
+rejects any unreached compact state. Search coordinates beyond phase-one and
+the solver integration are not ported yet. The module is not connected to the
+Converter. The existing Academy guides remain independent and intact.
 
 `Reduction4x4.reduce4x4` is the handoff gate for stage 3. It accepts only a
 4×4 with monochrome 2×2 centres and paired visible wings, converts it to the

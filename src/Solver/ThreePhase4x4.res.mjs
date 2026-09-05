@@ -521,6 +521,269 @@ function transitionUdRank(rank, permutation) {
   return rankUdSlots(next);
 }
 
+function composeCentrePermutations(first, second) {
+  return second.map(target => first[target]);
+}
+
+function centreSymmetryGenerators() {
+  let generators = {
+    contents: []
+  };
+  let failure = {
+    contents: undefined
+  };
+  let notations = [
+    "Uw2 Dw2",
+    "Rw Lw'",
+    "Uw Dw' Fw Bw'"
+  ];
+  notations.forEach(notation => {
+    let permutation = centreTransition(notation);
+    if (permutation.TAG === "Ok") {
+      generators.contents = generators.contents.concat([permutation._0]);
+    } else {
+      failure.contents = permutation._0;
+    }
+  });
+  let z2 = [
+    1,
+    0,
+    3,
+    2,
+    5,
+    4,
+    7,
+    6,
+    9,
+    8,
+    11,
+    10,
+    13,
+    12,
+    15,
+    14,
+    21,
+    20,
+    23,
+    22,
+    17,
+    16,
+    19,
+    18
+  ];
+  let reason = failure.contents;
+  if (reason !== undefined) {
+    return {
+      TAG: "Error",
+      _0: reason
+    };
+  } else {
+    return {
+      TAG: "Ok",
+      _0: [
+        generators.contents[0],
+        generators.contents[1],
+        z2,
+        generators.contents[2]
+      ]
+    };
+  }
+}
+
+function centreSymmetryPermutations() {
+  let reason = centreSymmetryGenerators();
+  if (reason.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: reason._0
+    };
+  }
+  let generators = reason._0;
+  let identity = Stdlib_Array.make(24, 0);
+  for (let slot = 0; slot <= 23; ++slot) {
+    identity[slot] = slot;
+  }
+  let permutations = [];
+  let current = identity;
+  for (let index = 0; index <= 47; ++index) {
+    permutations = permutations.concat([current]);
+    current = composeCentrePermutations(current, generators[0]);
+    if (index % 2 === 1) {
+      current = composeCentrePermutations(current, generators[1]);
+    }
+    if (index % 8 === 7) {
+      current = composeCentrePermutations(current, generators[2]);
+    }
+    if (index % 16 === 15) {
+      current = composeCentrePermutations(current, generators[3]);
+    }
+  }
+  return {
+    TAG: "Ok",
+    _0: permutations
+  };
+}
+
+function canonicalUdRank(rawRank) {
+  if (rawRank < 0 || rawRank >= centreCoordinateSize) {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidTransition",
+        _0: "Invalid phase-one centre rank."
+      }
+    };
+  }
+  let reason = centreSymmetryPermutations();
+  if (reason.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: reason._0
+    };
+  }
+  let bestRank = {
+    contents: rawRank
+  };
+  let bestSymmetry = {
+    contents: 0
+  };
+  reason._0.forEach((permutation, symmetry) => {
+    let candidate = transitionUdRank(rawRank, permutation);
+    if (candidate < bestRank.contents) {
+      bestRank.contents = candidate;
+      bestSymmetry.contents = symmetry;
+      return;
+    }
+  });
+  return {
+    TAG: "Ok",
+    _0: {
+      rawRank: bestRank.contents,
+      symmetry: bestSymmetry.contents
+    }
+  };
+}
+
+function inverseCentreSymmetryIndices(symmetries) {
+  let inverses = Stdlib_Array.make(48, -1);
+  for (let firstIndex = 0; firstIndex <= 47; ++firstIndex) {
+    for (let secondIndex = 0; secondIndex <= 47; ++secondIndex) {
+      let combined = composeCentrePermutations(symmetries[firstIndex], symmetries[secondIndex]);
+      let identity = true;
+      for (let slot = 0; slot <= 23; ++slot) {
+        if (combined[slot] !== slot) {
+          identity = false;
+        }
+      }
+      if (identity) {
+        inverses[firstIndex] = secondIndex;
+      }
+    }
+  }
+  return inverses;
+}
+
+function buildCentreSymmetryMap() {
+  let reason = centreSymmetryPermutations();
+  if (reason.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: reason._0
+    };
+  }
+  let symmetries = reason._0;
+  let rawToSymmetry = Stdlib_Array.make(centreCoordinateSize, -1);
+  let inverses = inverseCentreSymmetryIndices(symmetries);
+  let representatives = [];
+  for (let rawRank = 0; rawRank < centreCoordinateSize; ++rawRank) {
+    if (rawToSymmetry[rawRank] === -1) {
+      let compactRank = representatives.length;
+      representatives = representatives.concat([rawRank]);
+      symmetries.forEach((permutation, symmetry) => {
+        let orbitRank = transitionUdRank(rawRank, permutation);
+        if (rawToSymmetry[orbitRank] !== -1) {
+          return;
+        }
+        let inverse = inverses[symmetry];
+        rawToSymmetry[orbitRank] = (compactRank << 6) + inverse | 0;
+      });
+    }
+  }
+  return {
+    TAG: "Ok",
+    _0: {
+      rawToSymmetry: rawToSymmetry,
+      representatives: representatives
+    }
+  };
+}
+
+function createPackedPruning(size) {
+  return Stdlib_Array.make((size + 1 | 0) / 2 | 0, 255);
+}
+
+function buildSymmetryCentrePruning(maximumDepth) {
+  let reason = buildCentreSymmetryMap();
+  if (reason.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: reason._0
+    };
+  }
+  let symmetryMap = reason._0;
+  let transitions = {
+    contents: []
+  };
+  let failure = {
+    contents: undefined
+  };
+  centreMoveNotations.forEach(notation => {
+    let permutation = centreTransition(notation);
+    if (permutation.TAG === "Ok") {
+      transitions.contents = transitions.contents.concat([permutation._0]);
+    } else {
+      failure.contents = permutation._0;
+    }
+  });
+  let reason$1 = failure.contents;
+  if (reason$1 !== undefined) {
+    return {
+      TAG: "Error",
+      _0: reason$1
+    };
+  }
+  let table = createPackedPruning(symmetryMap.representatives.length);
+  let queue = Stdlib_Array.make(symmetryMap.representatives.length, 0);
+  let head = 0;
+  let tail = {
+    contents: 1
+  };
+  setPruningDepth(table, 0, 0);
+  queue[0] = 0;
+  while (head < tail.contents) {
+    let compactRank = queue[head];
+    head = head + 1 | 0;
+    let depth = pruningDepth(table, compactRank);
+    if (depth < maximumDepth) {
+      let rawRank = symmetryMap.representatives[compactRank];
+      transitions.contents.forEach(permutation => {
+        let successorRaw = transitionUdRank(rawRank, permutation);
+        let successorCompact = symmetryMap.rawToSymmetry[successorRaw] / 64 | 0;
+        if (pruningDepth(table, successorCompact) === 15) {
+          setPruningDepth(table, successorCompact, depth + 1 | 0);
+          queue[tail.contents] = successorCompact;
+          tail.contents = tail.contents + 1 | 0;
+          return;
+        }
+      });
+    }
+  };
+  return {
+    TAG: "Ok",
+    _0: table
+  };
+}
+
 function buildCentrePruning(maximumDepth) {
   let transitions = {
     contents: []
@@ -599,6 +862,14 @@ export {
   setPruningDepth,
   centreMoveNotations,
   transitionUdRank,
+  composeCentrePermutations,
+  centreSymmetryGenerators,
+  centreSymmetryPermutations,
+  canonicalUdRank,
+  inverseCentreSymmetryIndices,
+  buildCentreSymmetryMap,
+  createPackedPruning,
+  buildSymmetryCentrePruning,
   buildCentrePruning,
 }
 /* centreCoordinateSize Not a pure module */

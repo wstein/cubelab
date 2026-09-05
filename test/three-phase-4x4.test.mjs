@@ -2,7 +2,7 @@ import {expect, test} from "vitest";
 
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
-import {applyCentreTransition, applyTransition, buildCentrePruning, centreTransition, createCentrePruning, decodeFacelets, encodeFacelets, extractCentres, extractCorners, extractWings, pruningDepth, rankUdCentres, setPruningDepth, unrankUdCentres} from "../src/Solver/ThreePhase4x4.res.mjs";
+import {applyCentreTransition, applyTransition, buildCentrePruning, buildCentreSymmetryMap, buildSymmetryCentrePruning, canonicalUdRank, centreSymmetryPermutations, centreTransition, createCentrePruning, decodeFacelets, encodeFacelets, extractCentres, extractCorners, extractWings, pruningDepth, rankUdCentres, setPruningDepth, transitionUdRank, unrankUdCentres} from "../src/Solver/ThreePhase4x4.res.mjs";
 
 test("three-phase boundary round-trips CubeLab's canonical 96 facelets", () => {
   const state = MoveExecutor.parseAndApply(4, "Rw U 2F' Lw2");
@@ -79,6 +79,38 @@ test("phase-one U/D centre coordinate ranks and un-ranks all selected slots", ()
   expect(unrankUdCentres(rank)).toHaveLength(8);
 });
 
+test("phase-one centre symmetry enumerates the upstream 48 unique transforms", () => {
+  const symmetries = centreSymmetryPermutations();
+  expect(symmetries.TAG).toBe("Ok");
+  if (symmetries.TAG !== "Ok") return;
+  expect(symmetries._0).toHaveLength(48);
+  expect(new Set(symmetries._0.map((permutation) => permutation.join(","))).size).toBe(48);
+  expect(symmetries._0.every((permutation) => [...permutation].sort((left, right) => left - right).join(",") === [...Array(24).keys()].join(","))).toBe(true);
+});
+
+test("phase-one centre symmetry canonically maps every orbit to its minimum raw rank", () => {
+  const symmetries = centreSymmetryPermutations();
+  expect(symmetries.TAG).toBe("Ok");
+  if (symmetries.TAG !== "Ok") return;
+  const rawRank = rankUdCentres("UUFDDDDDDFFFBBBBRRRRLLLL");
+  const canonical = canonicalUdRank(rawRank);
+  expect(canonical.TAG).toBe("Ok");
+  if (canonical.TAG !== "Ok") return;
+  const orbit = symmetries._0.map((permutation) => transitionUdRank(rawRank, permutation));
+  expect(canonical._0.rawRank).toBe(Math.min(...orbit));
+  expect(canonical._0.symmetry).toBe(orbit.indexOf(Math.min(...orbit)));
+});
+
+test("phase-one raw-to-symmetry map reaches the upstream 15,582 compact ranks", () => {
+  const map = buildCentreSymmetryMap();
+  expect(map.TAG).toBe("Ok");
+  if (map.TAG !== "Ok") return;
+  expect(map._0.representatives).toHaveLength(15582);
+  expect(map._0.rawToSymmetry).toHaveLength(735471);
+  expect(map._0.rawToSymmetry.every((entry) => entry >= 0)).toBe(true);
+  expect(Math.floor(map._0.rawToSymmetry[0] / 64)).toBe(0);
+});
+
 test("phase-one pruning storage packs two four-bit depths per entry", () => {
   const table = createCentrePruning();
   expect(pruningDepth(table, 0)).toBe(15);
@@ -94,4 +126,12 @@ test("phase-one BFS seeds solved and discovers one-move centre states", () => {
   if (table.TAG !== "Ok") return;
   expect(pruningDepth(table._0, 0)).toBe(0);
   expect([...table._0].some((packed) => packed === 1 || Math.floor(packed / 16) === 1)).toBe(true);
+});
+
+test("symmetry-reduced phase-one BFS stores only compact centre representatives", () => {
+  const table = buildSymmetryCentrePruning(1);
+  expect(table.TAG).toBe("Ok");
+  if (table.TAG !== "Ok") return;
+  expect(table._0).toHaveLength(7791);
+  expect(pruningDepth(table._0, 0)).toBe(0);
 });
