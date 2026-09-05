@@ -273,8 +273,12 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /if \(key === "E"\) \{[\s\S]*eraseManualStateSticker\(index\)/);
   assert.match(client, /if \(isManualStateCentre\(index\) \|\| manualStateAutoIndices\.has\(index\)\) return;/);
   assert.match(client, /sticker\.dataset\.centre = String\(centre\)/);
-  assert.match(client, /if \(next !== null && isManualStateCentre\(next\)\) \{[\s\S]*next = manualStateArrowTarget/);
-  assert.match(client, /return index !== null && !isManualStateCentre\(index\) \? index : null;/);
+  assert.match(client, /const manualStateVisibleFaces = \(\): readonly ManualStateFace\[\]/);
+  assert.match(client, /manualStateRepresentation === "isometric"\s*\? manualStateScreenArrowTarget/);
+  assert.match(client, /wireManualStateKeyboard\(manualStateDialog\)/);
+  assert.match(client, /paintRoot\.addEventListener\("pointerdown"/);
+  assert.match(client, /paintRoot\.setPointerCapture\(event\.pointerId\)/);
+  assert.match(client, /document\.elementFromPoint\(event\.clientX, event\.clientY\)/);
   assert.doesNotMatch(page, /data-manual-state-previews/);
   assert.doesNotMatch(styles, /\.manual-state-preview/);
   assert.doesNotMatch(page, /data-manual-state-attached-net/);
@@ -286,6 +290,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /\.manual-state-net\[data-representation="attached"\] \.manual-state-face/);
   assert.match(styles, /\.manual-state-net\[data-representation="isometric"\] \{/);
   assert.match(styles, /\.manual-state-net\[data-representation="isometric"\] \.manual-state-face/);
+  assert.match(styles, /\.manual-state-face\[data-interactive="false"\]\s*\{[\s\S]*pointer-events:\s*none/);
   assert.match(styles, /--manual-state-face-gap: 0\.3rem;[\s\S]*gap: var\(--manual-state-face-gap\);/);
   assert.match(styles, /--attached-face-gap: var\(--manual-state-face-gap\);/);
   assert.match(styles, /--attached-fold-gap: 0\.2rem;/);

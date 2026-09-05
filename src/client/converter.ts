@@ -407,6 +407,10 @@ if (root) {
   const manualStateExplicitIndices = new Set<number>();
   const manualStateAutoIndices = new Set<number>();
   let manualStateHoverIndex: number | null = null;
+  // The keyboard target is a real, persistent cursor rather than whichever
+  // button happened to retain browser focus after using the palette or view
+  // controls. It makes keyboard painting predictable in every representation.
+  let manualStateCursorIndex: number | null = null;
   let manualStateRepresentation: "standard" | "attached" | "isometric" = "attached";
   let manualStateOrientation: 0 | 1 | 2 | 3 = 0;
   let manualStateIsRotating = false;
@@ -1072,6 +1076,39 @@ if (root) {
     });
   };
 
+  const manualStateVisibleFaces = (): readonly ManualStateFace[] => {
+    if (manualStateRepresentation !== "isometric") return manualStateFaces;
+    const visible = manualStateFlipped
+      ? ([
+        ["B", "R", "D"], ["L", "B", "D"], ["F", "L", "D"], ["R", "F", "D"],
+      ] as const)
+      : ([
+        ["F", "R", "U"], ["L", "F", "U"], ["B", "L", "U"], ["R", "B", "U"],
+      ] as const);
+    return visible[manualStateOrientation];
+  };
+
+  const isManualStateStickerInteractive = (index: number): boolean => {
+    if (isManualStateCentre(index)) return false;
+    if (manualStateRepresentation !== "isometric") return true;
+    const manualSize = size as ManualStateSize;
+    return manualStateVisibleFaces().includes(faceletOrder[Math.floor(index / (manualSize * manualSize))]);
+  };
+
+  const syncManualStateInteraction = () => {
+    const visibleFaces = new Set(manualStateVisibleFaces());
+    manualStateGrid.querySelectorAll<HTMLElement>(".manual-state-face").forEach((face) => {
+      face.dataset.interactive = String(manualStateRepresentation !== "isometric" || visibleFaces.has(face.dataset.face as ManualStateFace));
+    });
+    if (manualStateCursorIndex === null || !isManualStateStickerInteractive(manualStateCursorIndex)) {
+      manualStateCursorIndex = manualStateStickerElements.findIndex((_, index) => isManualStateStickerInteractive(index));
+      if (manualStateCursorIndex < 0) manualStateCursorIndex = null;
+    }
+    manualStateStickerElements.forEach((sticker, index) => {
+      sticker.dataset.cursor = String(index === manualStateCursorIndex);
+    });
+  };
+
   const renderManualStateEditor = () => {
     manualStateDotGeneration += 1;
     const manualSize = size as ManualStateSize;
@@ -1119,6 +1156,7 @@ if (root) {
       buildManualStateGrid(manualSize);
       manualStateBuiltSize = manualSize;
     }
+    syncManualStateInteraction();
     const pendingDots: Array<{index: number; element: HTMLElement}> = [];
     const hoverMates = manualStateHoverIndex === null
       ? []
@@ -1133,6 +1171,7 @@ if (root) {
         sticker.dataset.face = value ?? "unknown";
         sticker.dataset.centre = String(centre);
         sticker.dataset.auto = String(manualStateAutoIndices.has(index));
+        sticker.dataset.cursor = String(index === manualStateCursorIndex);
         if (centre) {
           sticker.tabIndex = -1;
           sticker.setAttribute("aria-disabled", "true");
@@ -1242,6 +1281,7 @@ if (root) {
       manualStateYaw += (direction === "cw" ? -90 : 90);
       manualStateNet.style.setProperty("--manual-state-yaw", `${manualStateYaw}deg`);
       manualStateNet.dataset.orientation = String(nextOrientation);
+      syncManualStateInteraction();
       return;
     }
 
@@ -1259,6 +1299,7 @@ if (root) {
       // 3. Explode newly hidden faces outward for the next orientation
       manualStateOrientation = nextOrientation;
       manualStateNet.dataset.orientation = String(nextOrientation);
+      syncManualStateInteraction();
       delete manualStateNet.dataset.animState;
       await new Promise((resolve) => setTimeout(resolve, 220));
     } finally {
@@ -1281,6 +1322,7 @@ if (root) {
       } else {
         delete manualStateNet.dataset.flipped;
       }
+      syncManualStateInteraction();
       return;
     }
 
@@ -1308,6 +1350,7 @@ if (root) {
       } else {
         delete manualStateNet.dataset.flipped;
       }
+      syncManualStateInteraction();
       delete manualStateNet.dataset.animState;
       await new Promise((resolve) => setTimeout(resolve, 220));
     } finally {
@@ -1378,6 +1421,7 @@ if (root) {
     });
     manualStateAutoIndices.clear();
     manualStateHoverIndex = null;
+    manualStateCursorIndex = null;
     manualStateTitle.textContent = `Enter ${manualSize}×${manualSize}×${manualSize} state`;
     manualStateIntro.textContent = manualSize <= 3
       ? "Pick a face colour, then fill the net. Nothing changes in Setup until the complete, physically valid state is loaded."
@@ -1388,6 +1432,9 @@ if (root) {
     manualStateColour = "U";
     renderManualStateEditor();
     manualStateDialog.showModal();
+    window.requestAnimationFrame(() => {
+      if (manualStateCursorIndex !== null) setManualStateCursor(manualStateCursorIndex, true);
+    });
     updateViewportDialogOcclusion();
   };
 
@@ -5663,21 +5710,47 @@ if (root) {
     manualStateColour = null;
     renderManualStateEditor();
   });
-  const manualStateRawStickerAt = (event: Event): number | null => {
-    const sticker = (event.target as Element).closest("[data-manual-state-index]");
+  const manualStateRawStickerAtElement = (element: Element | null): number | null => {
+    const sticker = element?.closest("[data-manual-state-index]");
     if (!sticker) return null;
     const index = Number(sticker.dataset.manualStateIndex);
     return Number.isInteger(index) ? index : null;
   };
+  const manualStateRawStickerAt = (event: Event): number | null =>
+    manualStateRawStickerAtElement(event.target as Element | null);
   const manualStateStickerAt = (event: Event): number | null => {
     const index = manualStateRawStickerAt(event);
-    return index !== null && !isManualStateCentre(index) ? index : null;
+    return index !== null && isManualStateStickerInteractive(index) ? index : null;
   };
-  let manualStateDragErase: boolean | null = null;
+  const manualStateStickerAtPoint = (x: number, y: number): number | null => {
+    const index = manualStateRawStickerAtElement(document.elementFromPoint(x, y));
+    return index !== null && isManualStateStickerInteractive(index) ? index : null;
+  };
+  const setManualStateCursor = (index: number, focus = false) => {
+    if (!isManualStateStickerInteractive(index)) return;
+    manualStateCursorIndex = index;
+    manualStateStickerElements.forEach((sticker, stickerIndex) => {
+      sticker.dataset.cursor = String(stickerIndex === index);
+    });
+    if (focus) manualStateStickerElements[index]?.focus({preventScroll: true});
+  };
+  type ManualStateStroke = {
+    pointerId: number;
+    erase: boolean;
+    visited: Set<number>;
+  };
+  let manualStateStroke: ManualStateStroke | null = null;
+  let suppressManualStateClick = false;
   const wireManualStatePainting = (paintRoot: HTMLElement) => {
     paintRoot.addEventListener("click", (event) => {
+      if (suppressManualStateClick) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       const index = manualStateStickerAt(event);
       if (index === null) return;
+      setManualStateCursor(index);
       // A blank sticker's dots are individually clickable: whichever one was
       // actually clicked wins over the currently selected palette colour, so
       // a dot works as a direct shortcut rather than requiring the palette
@@ -5714,40 +5787,64 @@ if (root) {
       if (index === null) return;
       const value = manualStateDraft[index];
       if (value === null) return;
+      setManualStateCursor(index);
       manualStateColour = value;
       renderManualStateEditor();
     });
-    // Drag paints (or erases) a run of stickers without a click per tile.
-    // mousedown only arms which mode the drag is in — right button, or
-    // Eraser selected, means erase — the origin cell itself is still painted
-    // by the ordinary click handler above so a plain click keeps working.
-    paintRoot.addEventListener("mousedown", (event) => {
-      const rawIndex = manualStateRawStickerAt(event);
-      if (rawIndex !== null && isManualStateCentre(rawIndex)) {
-        event.preventDefault();
-        return;
+    // Pointer capture keeps a drag coherent while the 3D planes move under
+    // it. elementFromPoint resolves the foremost visible face at each point;
+    // a per-stroke set makes a tile paint at most once.
+    const paintStrokeAt = (index: number, event: PointerEvent, stroke: ManualStateStroke) => {
+      if (stroke.visited.has(index)) return;
+      stroke.visited.add(index);
+      setManualStateCursor(index);
+      const dot = (document.elementFromPoint(event.clientX, event.clientY) as Element | null)
+        ?.closest<HTMLElement>(".manual-state-dots i");
+      if (!stroke.erase && dot?.dataset.face) {
+        paintManualStateSticker(index, dot.dataset.face as ManualStateFace);
+      } else if (stroke.erase) {
+        eraseManualStateSticker(index);
+      } else if (manualStateColour !== null && manualStateDraft[index] === null) {
+        paintManualStateSticker(index, manualStateColour);
       }
-      if (manualStateStickerAt(event) === null) return;
-      manualStateDragErase = (event as MouseEvent).button === 2 || manualStateColour === null;
-    });
-    paintRoot.addEventListener("mousemove", (event) => {
-      if (manualStateDragErase === null || (event as MouseEvent).buttons === 0) return;
+    };
+    paintRoot.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 && event.button !== 2) return;
       const index = manualStateStickerAt(event);
       if (index === null) return;
-      if (manualStateDragErase) eraseManualStateSticker(index);
-      else if (manualStateColour !== null) paintManualStateSticker(index, manualStateColour);
+      event.preventDefault();
+      const stroke: ManualStateStroke = {
+        pointerId: event.pointerId,
+        erase: event.button === 2 || manualStateColour === null,
+        visited: new Set<number>(),
+      };
+      manualStateStroke = stroke;
+      suppressManualStateClick = true;
+      window.setTimeout(() => { suppressManualStateClick = false; }, 0);
+      paintRoot.setPointerCapture(event.pointerId);
+      paintStrokeAt(index, event, stroke);
+    });
+    paintRoot.addEventListener("pointermove", (event) => {
+      const stroke = manualStateStroke;
+      if (!stroke || stroke.pointerId !== event.pointerId) return;
+      const index = manualStateStickerAtPoint(event.clientX, event.clientY);
+      if (index !== null) paintStrokeAt(index, event, stroke);
+    });
+    const finishManualStateStroke = (event: PointerEvent) => {
+      if (manualStateStroke?.pointerId !== event.pointerId) return;
+      if (paintRoot.hasPointerCapture(event.pointerId)) paintRoot.releasePointerCapture(event.pointerId);
+      manualStateStroke = null;
+    };
+    paintRoot.addEventListener("pointerup", finishManualStateStroke);
+    paintRoot.addEventListener("pointercancel", finishManualStateStroke);
+    paintRoot.addEventListener("lostpointercapture", () => {
+      manualStateStroke = null;
     });
   };
   wireManualStatePainting(manualStateGrid);
-  window.addEventListener("mouseup", () => {
-    manualStateDragErase = null;
-  });
-  // Keyboard entry: arrow keys move DOM focus between stickers
-  // — wrapping across face boundaries on a 3×3, via the same
-  // topology the design mock verified — U/R/F/D/L/B paint the focused
-  // sticker's colour, and E erases it. Scoped to 3×3: a 2×2's wrap isn't
-  // specified there, and guessing the topology wrong would be worse than a
-  // cursor that simply stops at a face edge.
+  // Flat and folded nets preserve physical cube topology. The small 3×3
+  // table below provides the orientation; interpolating its endpoints lets
+  // the same topology work at every supported size.
   const manualStateArrowTarget = (
     manualSize: ManualStateSize,
     index: number,
@@ -5763,10 +5860,18 @@ if (root) {
       || (direction === "top" && row === 0)
       || (direction === "bottom" && row === manualSize - 1);
     if (atEdge) {
-      if (manualSize !== 3) return null;
-      const [wrapFace, wrapLocal] =
-        MANUAL_STATE_EDGE_WRAP[face][direction][direction === "left" || direction === "right" ? row : col];
-      return faceletOrder.indexOf(wrapFace) * 9 + wrapLocal;
+      const offset = direction === "left" || direction === "right" ? row : col;
+      const samples = MANUAL_STATE_EDGE_WRAP[face][direction];
+      const [wrapFace, first] = samples[0];
+      const [, last] = samples[samples.length - 1];
+      const firstRow = Math.floor(first / 3);
+      const firstColumn = first % 3;
+      const lastRow = Math.floor(last / 3);
+      const lastColumn = last % 3;
+      const ratio = offset / (manualSize - 1);
+      const wrapRow = Math.round((firstRow + (lastRow - firstRow) * ratio) * (manualSize - 1) / 2);
+      const wrapColumn = Math.round((firstColumn + (lastColumn - firstColumn) * ratio) * (manualSize - 1) / 2);
+      return faceletOrder.indexOf(wrapFace) * perFace + wrapRow * manualSize + wrapColumn;
     }
     const step = {left: -1, right: 1, top: -manualSize, bottom: manualSize}[direction];
     return index + step;
@@ -5775,11 +5880,40 @@ if (root) {
     ArrowLeft: "left", ArrowRight: "right", ArrowUp: "top", ArrowDown: "bottom",
   };
   const manualStateFocusableSticker = (index: number): HTMLElement | null => manualStateStickerElements[index] ?? null;
-  const wireManualStateKeyboard = (net: HTMLElement) => net.addEventListener("keydown", (event) => {
+  const manualStateScreenArrowTarget = (
+    index: number,
+    direction: "top" | "bottom" | "left" | "right",
+  ): number | null => {
+    const source = manualStateFocusableSticker(index);
+    if (!source) return null;
+    const sourceRect = source.getBoundingClientRect();
+    const sourceX = sourceRect.left + sourceRect.width / 2;
+    const sourceY = sourceRect.top + sourceRect.height / 2;
+    const axis = direction === "left" || direction === "right" ? "x" : "y";
+    const sign = direction === "left" || direction === "top" ? -1 : 1;
+    let best: {index: number; score: number} | null = null;
+    manualStateStickerElements.forEach((candidate, candidateIndex) => {
+      if (candidateIndex === index || !isManualStateStickerInteractive(candidateIndex)) return;
+      const rect = candidate.getBoundingClientRect();
+      const dx = rect.left + rect.width / 2 - sourceX;
+      const dy = rect.top + rect.height / 2 - sourceY;
+      const primary = sign * (axis === "x" ? dx : dy);
+      if (primary < 1) return;
+      const lateral = Math.abs(axis === "x" ? dy : dx);
+      // Prefer the closest sticker in the intended screen direction while
+      // strongly discouraging diagonal jumps across an exploded gap.
+      const score = primary + lateral * 2;
+      if (best === null || score < best.score) best = {index: candidateIndex, score};
+    });
+    return best?.index ?? null;
+  };
+  const wireManualStateKeyboard = (keyboardRoot: HTMLElement) => keyboardRoot.addEventListener("keydown", (event) => {
     const focused = (document.activeElement as Element | null)?.closest("[data-manual-state-index]");
-    if (!focused || !net.contains(focused)) return;
-    const index = Number(focused.dataset.manualStateIndex);
-    if (!Number.isInteger(index) || isManualStateCentre(index)) return;
+    const focusedIndex = focused ? Number(focused.dataset.manualStateIndex) : null;
+    const index = focusedIndex !== null && Number.isInteger(focusedIndex) && isManualStateStickerInteractive(focusedIndex)
+      ? focusedIndex
+      : manualStateCursorIndex;
+    if (index === null || !isManualStateStickerInteractive(index)) return;
     const manualSize = size as ManualStateSize;
     const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
     if ((faceletOrder as readonly string[]).includes(key)) {
@@ -5818,13 +5952,17 @@ if (root) {
     if (!direction) return;
     event.preventDefault();
     event.stopPropagation();
-    let next = manualStateArrowTarget(manualSize, index, direction);
-    if (next !== null && isManualStateCentre(next)) {
-      next = manualStateArrowTarget(manualSize, next, direction);
+    let next = manualStateRepresentation === "isometric"
+      ? manualStateScreenArrowTarget(index, direction)
+      : manualStateArrowTarget(manualSize, index, direction);
+    while (next !== null && !isManualStateStickerInteractive(next)) {
+      next = manualStateRepresentation === "isometric"
+        ? manualStateScreenArrowTarget(next, direction)
+        : manualStateArrowTarget(manualSize, next, direction);
     }
-    if (next !== null) manualStateFocusableSticker(next)?.focus();
+    if (next !== null) setManualStateCursor(next, true);
   });
-  wireManualStateKeyboard(manualStateNet);
+  wireManualStateKeyboard(manualStateDialog);
   manualStateReset.addEventListener("click", () => {
     manualStateDraft = emptyManualState(size as ManualStateSize);
     manualStateExplicitIndices.clear();
