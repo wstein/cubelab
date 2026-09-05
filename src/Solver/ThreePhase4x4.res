@@ -820,14 +820,14 @@ let rec searchPhase1Rank = (
     }
   }
 
-type phase1Solution = {moveIndices: array<int>, notations: array<string>}
+type moveSolution = {moveIndices: array<int>, notations: array<string>}
 
 /* IDA*: try each total depth in turn, starting from the admissible bound at
  * the root, exactly like TwoPhaseSolver.totalDepthSearch. maximumDepth caps
  * the search rather than running unbounded, since a state whose rank is
  * outside 0..centreCoordinateSize-1 (not exactly eight U/D stickers) would
  * otherwise search forever. */
-let solvePhase1Centres = (centres: string, maximumDepth: int): result<phase1Solution, inputError> => {
+let solvePhase1Centres = (centres: string, maximumDepth: int): result<moveSolution, inputError> => {
   let rank = rankUdCentres(centres)
   if rank < 0 {
     Error(InvalidFacelets("Phase-one search requires a centre string with exactly eight U/D stickers."))
@@ -1099,6 +1099,329 @@ let solveCentreReduction = (
               ),
             )
           }
+        }
+      }
+    }
+  }
+}
+
+/* Phase-three centre coordinate: again an independent design, not a
+ * bit-compatible port of Center3. Center3 reads CornerCube.getParity() to
+ * keep its own coordinate consistent with the untouched corner permutation
+ * and the wing/edge parity — machinery this port does not need, because
+ * this codebase's existing OLL/PLL-4×4 parity detection and repair
+ * (Reduction4x4.res) already runs downstream of reduction. Dropping it
+ * simplifies phase three to its real remaining job once phase two is
+ * solved (U/D confined to slots 0–7, F/B to 8–15, R/L to 16–23): resolve
+ * which specific face within each pair each slot belongs to.
+ *
+ * Verified against the canonical executor before relying on it: every one
+ * of phase-three's 20 restricted moves keeps each of those three blocks
+ * closed (checked centreTransition's full 24-slot permutation for every
+ * outer move and every wide half turn phase three allows — each stays
+ * within 0–7, 8–15, and 16–23 respectively, never crossing between them).
+ * That licenses three independent 8-slot choose-4 coordinates — reusing
+ * rankSubset/unrankSubset the way increment ten first tried and then
+ * corrected away from at the 24-slot level, safe here because the
+ * boundary really is closed:
+ *   - udHalfRank: which 4 of slots 0–7 hold D (target: slots 4–7).
+ *   - fbHalfRank: which 4 of slots 8–15 hold B (target: slots 12–15,
+ *     relative 4–7 within the block).
+ *   - rlHalfRank: which 4 of slots 16–23 hold L (target: slots 20–23,
+ *     relative 4–7 within the block).
+ * All three share the same target rank by construction (the same relative
+ * pattern), so one constant serves all three. */
+let rankSubset = (n: int, k: int, selected: array<int>): int =>
+  if selected->Array.length != k {
+    -1
+  } else {
+    let rank = ref(0)
+    let previous = ref(-1)
+    for selectionIndex in 0 to k - 1 {
+      let selectedSlot = Belt.Array.getUnsafe(selected, selectionIndex)
+      for candidate in previous.contents + 1 to selectedSlot - 1 {
+        rank := rank.contents + choose(n - candidate - 1, k - selectionIndex - 1)
+      }
+      previous := selectedSlot
+    }
+    rank.contents
+  }
+
+let unrankSubset = (n: int, k: int, rank: int): array<int> =>
+  if rank < 0 || rank >= choose(n, k) {
+    []
+  } else {
+    let remainingRank = ref(rank)
+    let selected = ref([])
+    let candidate = ref(0)
+    for selectionIndex in 0 to k - 1 {
+      let finding = ref(true)
+      while finding.contents {
+        let count = choose(n - candidate.contents - 1, k - selectionIndex - 1)
+        if remainingRank.contents < count {
+          selected := selected.contents->Array.concat([candidate.contents])
+          candidate := candidate.contents + 1
+          finding := false
+        } else {
+          remainingRank := remainingRank.contents - count
+          candidate := candidate.contents + 1
+        }
+      }
+    }
+    selected.contents
+  }
+
+let halfBlockCoordinateSize = choose(8, 4)
+let halfBlockTargetRank = rankSubset(8, 4, [4, 5, 6, 7])
+
+let rankHalfBlock = (centres: string, offset: int, markColour: string): int =>
+  if centres->String.length != 24 {
+    -1
+  } else {
+    let selected = ref([])
+    for relative in 0 to 7 {
+      let colour = centres->String.get(offset + relative)->Belt.Option.getUnsafe->String.make
+      if colour == markColour {
+        selected := selected.contents->Array.concat([relative])
+      }
+    }
+    rankSubset(8, 4, selected.contents)
+  }
+
+let rankUdHalf = (centres: string): int => rankHalfBlock(centres, 0, "D")
+let rankFbHalf = (centres: string): int => rankHalfBlock(centres, 8, "B")
+let rankRlHalf = (centres: string): int => rankHalfBlock(centres, 16, "L")
+
+let transitionSubsetRank = (rank: int, permutation: array<int>, n: int, k: int): int => {
+  let selected = unrankSubset(n, k, rank)
+  let marked = Array.make(~length=n, false)
+  selected->Array.forEach(slot => marked[slot] = true)
+  let next = ref([])
+  for targetSlot in 0 to n - 1 {
+    if Belt.Array.getUnsafe(marked, Belt.Array.getUnsafe(permutation, targetSlot)) {
+      next := next.contents->Array.concat([targetSlot])
+    }
+  }
+  rankSubset(n, k, next.contents)
+}
+
+let restrictPermutation = (permutation: array<int>, offset: int, size: int): result<
+  array<int>,
+  inputError,
+> => {
+  let restricted = Array.make(~length=size, 0)
+  let failure = ref(None)
+  for targetRelative in 0 to size - 1 {
+    let source = Belt.Array.getUnsafe(permutation, offset + targetRelative) - offset
+    if source < 0 || source >= size {
+      failure := Some(InvalidTransition("Transition crosses a phase-three block boundary."))
+    } else {
+      restricted[targetRelative] = source
+    }
+  }
+  switch failure.contents {
+  | Some(reason) => Error(reason)
+  | None => Ok(restricted)
+  }
+}
+
+type phase3MovePermutations = {
+  udHalf: array<array<int>>,
+  fbHalf: array<array<int>>,
+  rlHalf: array<array<int>>,
+}
+
+let phase3MovePermutationsCache: ref<option<phase3MovePermutations>> = ref(None)
+
+let phase3MovePermutations = (): result<phase3MovePermutations, inputError> =>
+  switch phase3MovePermutationsCache.contents {
+  | Some(permutations) => Ok(permutations)
+  | None => {
+      let udHalf = ref([])
+      let fbHalf = ref([])
+      let rlHalf = ref([])
+      let failure = ref(None)
+      phase3Moves->Array.forEach(move =>
+        switch centreTransition(move.notation) {
+        | Error(reason) => failure := Some(reason)
+        | Ok(permutation) =>
+          switch (
+            restrictPermutation(permutation, 0, 8),
+            restrictPermutation(permutation, 8, 8),
+            restrictPermutation(permutation, 16, 8),
+          ) {
+          | (Ok(ud), Ok(fb), Ok(rl)) => {
+              udHalf := udHalf.contents->Array.concat([ud])
+              fbHalf := fbHalf.contents->Array.concat([fb])
+              rlHalf := rlHalf.contents->Array.concat([rl])
+            }
+          | (Error(reason), _, _) | (_, Error(reason), _) | (_, _, Error(reason)) =>
+            failure := Some(reason)
+          }
+        }
+      )
+      switch failure.contents {
+      | Some(reason) => Error(reason)
+      | None => {
+          let permutations = {udHalf: udHalf.contents, fbHalf: fbHalf.contents, rlHalf: rlHalf.contents}
+          phase3MovePermutationsCache := Some(permutations)
+          Ok(permutations)
+        }
+      }
+    }
+  }
+
+/* Each half-block coordinate has only 70 raw states, so a full unpacked BFS
+ * (no nibble packing, no symmetry reduction) is instant and more than small
+ * enough to keep three of them resident — unlike phase one's 735,471-state
+ * space, there is no packing trade-off worth making here. */
+let buildHalfBlockPruning = (permutations: array<array<int>>): array<int> => {
+  let table = Array.make(~length=halfBlockCoordinateSize, 255)
+  let queue = Array.make(~length=halfBlockCoordinateSize, 0)
+  let head = ref(0)
+  let tail = ref(1)
+  table[halfBlockTargetRank] = 0
+  queue[0] = halfBlockTargetRank
+  while head.contents < tail.contents {
+    let current = Belt.Array.getUnsafe(queue, head.contents)
+    head := head.contents + 1
+    let depth = Belt.Array.getUnsafe(table, current)
+    permutations->Array.forEach(permutation => {
+      let next = transitionSubsetRank(current, permutation, 8, 4)
+      if Belt.Array.getUnsafe(table, next) == 255 {
+        table[next] = depth + 1
+        queue[tail.contents] = next
+        tail := tail.contents + 1
+      }
+    })
+  }
+  table
+}
+
+type phase3CentreTables = {
+  permutations: phase3MovePermutations,
+  udHalfPruning: array<int>,
+  fbHalfPruning: array<int>,
+  rlHalfPruning: array<int>,
+}
+
+let phase3CentreTablesCache: ref<option<phase3CentreTables>> = ref(None)
+
+let cachedPhase3CentreTables = (): result<phase3CentreTables, inputError> =>
+  switch phase3CentreTablesCache.contents {
+  | Some(tables) => Ok(tables)
+  | None =>
+    switch phase3MovePermutations() {
+    | Error(reason) => Error(reason)
+    | Ok(permutations) => {
+        let tables = {
+          permutations,
+          udHalfPruning: buildHalfBlockPruning(permutations.udHalf),
+          fbHalfPruning: buildHalfBlockPruning(permutations.fbHalf),
+          rlHalfPruning: buildHalfBlockPruning(permutations.rlHalf),
+        }
+        phase3CentreTablesCache := Some(tables)
+        Ok(tables)
+      }
+    }
+  }
+
+let phase3CentreDistance = (udHalfRank: int, fbHalfRank: int, rlHalfRank: int, tables: phase3CentreTables): int => {
+  let udDistance = Belt.Array.getUnsafe(tables.udHalfPruning, udHalfRank)
+  let fbDistance = Belt.Array.getUnsafe(tables.fbHalfPruning, fbHalfRank)
+  let rlDistance = Belt.Array.getUnsafe(tables.rlHalfPruning, rlHalfRank)
+  let maxUdFb = udDistance > fbDistance ? udDistance : fbDistance
+  maxUdFb > rlDistance ? maxUdFb : rlDistance
+}
+
+let rec searchPhase3Centres = (
+  udHalfRank: int,
+  fbHalfRank: int,
+  rlHalfRank: int,
+  depth: int,
+  lastFaceId: int,
+  tables: phase3CentreTables,
+): option<array<int>> =>
+  if udHalfRank == halfBlockTargetRank && fbHalfRank == halfBlockTargetRank && rlHalfRank == halfBlockTargetRank {
+    Some([])
+  } else if depth == 0 {
+    None
+  } else if phase3CentreDistance(udHalfRank, fbHalfRank, rlHalfRank, tables) > depth {
+    None
+  } else {
+    let found = ref(None)
+    for moveIndex in 0 to phase3Moves->Array.length - 1 {
+      if found.contents == None {
+        let move = Belt.Array.getUnsafe(phase3Moves, moveIndex)
+        if axisTransitionAllowed(lastFaceId, move.faceId) {
+          let nextUd = transitionSubsetRank(
+            udHalfRank,
+            Belt.Array.getUnsafe(tables.permutations.udHalf, moveIndex),
+            8,
+            4,
+          )
+          let nextFb = transitionSubsetRank(
+            fbHalfRank,
+            Belt.Array.getUnsafe(tables.permutations.fbHalf, moveIndex),
+            8,
+            4,
+          )
+          let nextRl = transitionSubsetRank(
+            rlHalfRank,
+            Belt.Array.getUnsafe(tables.permutations.rlHalf, moveIndex),
+            8,
+            4,
+          )
+          switch searchPhase3Centres(nextUd, nextFb, nextRl, depth - 1, move.faceId, tables) {
+          | Some(tail) => found := Some([moveIndex]->Array.concat(tail))
+          | None => ()
+          }
+        }
+      }
+    }
+    found.contents
+  }
+
+/* Entry point mirroring solvePhase1Centres' shape: given a centre string
+ * that is already phase-two-solved (each pair confined to its own block —
+ * callers are expected to have reached that via solveCentreReduction first),
+ * find the shortest phase-three move sequence resolving all three
+ * half-blocks to their target. Does not yet combine with wing pairing
+ * (Edge3's equivalent) or chain from phase two automatically; both are
+ * later increments. */
+let solvePhase3Centres = (centres: string, maximumDepth: int): result<moveSolution, inputError> => {
+  let udHalfRank = rankUdHalf(centres)
+  let fbHalfRank = rankFbHalf(centres)
+  let rlHalfRank = rankRlHalf(centres)
+  if udHalfRank < 0 || fbHalfRank < 0 || rlHalfRank < 0 {
+    Error(
+      InvalidFacelets(
+        "Phase-three centre search requires a phase-two-solved centre string (each pair confined to its own block).",
+      ),
+    )
+  } else {
+    switch cachedPhase3CentreTables() {
+    | Error(reason) => Error(reason)
+    | Ok(tables) => {
+        let minimumDepth = phase3CentreDistance(udHalfRank, fbHalfRank, rlHalfRank, tables)
+        let found = ref(None)
+        let depth = ref(minimumDepth)
+        while found.contents == None && depth.contents <= maximumDepth {
+          found := searchPhase3Centres(udHalfRank, fbHalfRank, rlHalfRank, depth.contents, -1, tables)
+          if found.contents == None {
+            depth := depth.contents + 1
+          }
+        }
+        switch found.contents {
+        | None =>
+          Error(InvalidTransition("No phase-three centre solution was found within the given depth."))
+        | Some(moveIndices) =>
+          Ok({
+            moveIndices,
+            notations: moveIndices->Array.map(index =>
+              Belt.Array.getUnsafe(phase3Moves, index).notation
+            ),
+          })
         }
       }
     }

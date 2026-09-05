@@ -1579,6 +1579,348 @@ function solveCentreReduction(centres, maximumPhase1Depth, maximumPhase2Depth, c
   }
 }
 
+function rankSubset(n, k, selected) {
+  if (selected.length !== k) {
+    return -1;
+  }
+  let rank = 0;
+  let previous = -1;
+  for (let selectionIndex = 0; selectionIndex < k; ++selectionIndex) {
+    let selectedSlot = selected[selectionIndex];
+    for (let candidate = previous + 1 | 0; candidate < selectedSlot; ++candidate) {
+      rank = rank + choose((n - candidate | 0) - 1 | 0, (k - selectionIndex | 0) - 1 | 0) | 0;
+    }
+    previous = selectedSlot;
+  }
+  return rank;
+}
+
+function unrankSubset(n, k, rank) {
+  if (rank < 0 || rank >= choose(n, k)) {
+    return [];
+  }
+  let remainingRank = rank;
+  let selected = [];
+  let candidate = 0;
+  for (let selectionIndex = 0; selectionIndex < k; ++selectionIndex) {
+    let finding = true;
+    while (finding) {
+      let count = choose((n - candidate | 0) - 1 | 0, (k - selectionIndex | 0) - 1 | 0);
+      if (remainingRank < count) {
+        selected = selected.concat([candidate]);
+        candidate = candidate + 1 | 0;
+        finding = false;
+      } else {
+        remainingRank = remainingRank - count | 0;
+        candidate = candidate + 1 | 0;
+      }
+    };
+  }
+  return selected;
+}
+
+let halfBlockCoordinateSize = choose(8, 4);
+
+let halfBlockTargetRank = rankSubset(8, 4, [
+  4,
+  5,
+  6,
+  7
+]);
+
+function rankHalfBlock(centres, offset, markColour) {
+  if (centres.length !== 24) {
+    return -1;
+  }
+  let selected = [];
+  for (let relative = 0; relative <= 7; ++relative) {
+    let colour = String(centres[offset + relative | 0]);
+    if (colour === markColour) {
+      selected = selected.concat([relative]);
+    }
+  }
+  return rankSubset(8, 4, selected);
+}
+
+function rankUdHalf(centres) {
+  return rankHalfBlock(centres, 0, "D");
+}
+
+function rankFbHalf(centres) {
+  return rankHalfBlock(centres, 8, "B");
+}
+
+function rankRlHalf(centres) {
+  return rankHalfBlock(centres, 16, "L");
+}
+
+function transitionSubsetRank(rank, permutation, n, k) {
+  let selected = unrankSubset(n, k, rank);
+  let marked = Stdlib_Array.make(n, false);
+  selected.forEach(slot => {
+    marked[slot] = true;
+  });
+  let next = [];
+  for (let targetSlot = 0; targetSlot < n; ++targetSlot) {
+    if (marked[permutation[targetSlot]]) {
+      next = next.concat([targetSlot]);
+    }
+  }
+  return rankSubset(n, k, next);
+}
+
+function restrictPermutation(permutation, offset, size) {
+  let restricted = Stdlib_Array.make(size, 0);
+  let failure;
+  for (let targetRelative = 0; targetRelative < size; ++targetRelative) {
+    let source = permutation[offset + targetRelative | 0] - offset | 0;
+    if (source < 0 || source >= size) {
+      failure = {
+        TAG: "InvalidTransition",
+        _0: "Transition crosses a phase-three block boundary."
+      };
+    } else {
+      restricted[targetRelative] = source;
+    }
+  }
+  let reason = failure;
+  if (reason !== undefined) {
+    return {
+      TAG: "Error",
+      _0: reason
+    };
+  } else {
+    return {
+      TAG: "Ok",
+      _0: restricted
+    };
+  }
+}
+
+let phase3MovePermutationsCache = {
+  contents: undefined
+};
+
+function phase3MovePermutations() {
+  let permutations = phase3MovePermutationsCache.contents;
+  if (permutations !== undefined) {
+    return {
+      TAG: "Ok",
+      _0: permutations
+    };
+  }
+  let udHalf = {
+    contents: []
+  };
+  let fbHalf = {
+    contents: []
+  };
+  let rlHalf = {
+    contents: []
+  };
+  let failure = {
+    contents: undefined
+  };
+  phase3Moves.forEach(move => {
+    let reason = centreTransition(move.notation);
+    if (reason.TAG !== "Ok") {
+      failure.contents = reason._0;
+      return;
+    }
+    let permutation = reason._0;
+    let match = restrictPermutation(permutation, 0, 8);
+    let match$1 = restrictPermutation(permutation, 8, 8);
+    let match$2 = restrictPermutation(permutation, 16, 8);
+    if (match.TAG !== "Ok") {
+      failure.contents = match._0;
+      return;
+    }
+    if (match$1.TAG !== "Ok") {
+      failure.contents = match$1._0;
+      return;
+    }
+    if (match$2.TAG !== "Ok") {
+      failure.contents = match$2._0;
+      return;
+    }
+    udHalf.contents = udHalf.contents.concat([match._0]);
+    fbHalf.contents = fbHalf.contents.concat([match$1._0]);
+    rlHalf.contents = rlHalf.contents.concat([match$2._0]);
+  });
+  let reason = failure.contents;
+  if (reason !== undefined) {
+    return {
+      TAG: "Error",
+      _0: reason
+    };
+  }
+  let permutations_udHalf = udHalf.contents;
+  let permutations_fbHalf = fbHalf.contents;
+  let permutations_rlHalf = rlHalf.contents;
+  let permutations$1 = {
+    udHalf: permutations_udHalf,
+    fbHalf: permutations_fbHalf,
+    rlHalf: permutations_rlHalf
+  };
+  phase3MovePermutationsCache.contents = permutations$1;
+  return {
+    TAG: "Ok",
+    _0: permutations$1
+  };
+}
+
+function buildHalfBlockPruning(permutations) {
+  let table = Stdlib_Array.make(halfBlockCoordinateSize, 255);
+  let queue = Stdlib_Array.make(halfBlockCoordinateSize, 0);
+  let head = 0;
+  let tail = {
+    contents: 1
+  };
+  table[halfBlockTargetRank] = 0;
+  queue[0] = halfBlockTargetRank;
+  while (head < tail.contents) {
+    let current = queue[head];
+    head = head + 1 | 0;
+    let depth = table[current];
+    permutations.forEach(permutation => {
+      let next = transitionSubsetRank(current, permutation, 8, 4);
+      if (table[next] === 255) {
+        table[next] = depth + 1 | 0;
+        queue[tail.contents] = next;
+        tail.contents = tail.contents + 1 | 0;
+        return;
+      }
+    });
+  };
+  return table;
+}
+
+let phase3CentreTablesCache = {
+  contents: undefined
+};
+
+function cachedPhase3CentreTables() {
+  let tables = phase3CentreTablesCache.contents;
+  if (tables !== undefined) {
+    return {
+      TAG: "Ok",
+      _0: tables
+    };
+  }
+  let reason = phase3MovePermutations();
+  if (reason.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: reason._0
+    };
+  }
+  let permutations = reason._0;
+  let tables_udHalfPruning = buildHalfBlockPruning(permutations.udHalf);
+  let tables_fbHalfPruning = buildHalfBlockPruning(permutations.fbHalf);
+  let tables_rlHalfPruning = buildHalfBlockPruning(permutations.rlHalf);
+  let tables$1 = {
+    permutations: permutations,
+    udHalfPruning: tables_udHalfPruning,
+    fbHalfPruning: tables_fbHalfPruning,
+    rlHalfPruning: tables_rlHalfPruning
+  };
+  phase3CentreTablesCache.contents = tables$1;
+  return {
+    TAG: "Ok",
+    _0: tables$1
+  };
+}
+
+function phase3CentreDistance(udHalfRank, fbHalfRank, rlHalfRank, tables) {
+  let udDistance = tables.udHalfPruning[udHalfRank];
+  let fbDistance = tables.fbHalfPruning[fbHalfRank];
+  let rlDistance = tables.rlHalfPruning[rlHalfRank];
+  let maxUdFb = udDistance > fbDistance ? udDistance : fbDistance;
+  if (maxUdFb > rlDistance) {
+    return maxUdFb;
+  } else {
+    return rlDistance;
+  }
+}
+
+function searchPhase3Centres(udHalfRank, fbHalfRank, rlHalfRank, depth, lastFaceId, tables) {
+  if (udHalfRank === halfBlockTargetRank && fbHalfRank === halfBlockTargetRank && rlHalfRank === halfBlockTargetRank) {
+    return [];
+  }
+  if (depth === 0) {
+    return;
+  }
+  if (phase3CentreDistance(udHalfRank, fbHalfRank, rlHalfRank, tables) > depth) {
+    return;
+  }
+  let found;
+  for (let moveIndex = 0, moveIndex_finish = phase3Moves.length; moveIndex < moveIndex_finish; ++moveIndex) {
+    if (found === undefined) {
+      let move = phase3Moves[moveIndex];
+      if (axisTransitionAllowed(lastFaceId, move.faceId)) {
+        let nextUd = transitionSubsetRank(udHalfRank, tables.permutations.udHalf[moveIndex], 8, 4);
+        let nextFb = transitionSubsetRank(fbHalfRank, tables.permutations.fbHalf[moveIndex], 8, 4);
+        let nextRl = transitionSubsetRank(rlHalfRank, tables.permutations.rlHalf[moveIndex], 8, 4);
+        let tail = searchPhase3Centres(nextUd, nextFb, nextRl, depth - 1 | 0, move.faceId, tables);
+        if (tail !== undefined) {
+          found = [moveIndex].concat(tail);
+        }
+      }
+    }
+  }
+  return found;
+}
+
+function solvePhase3Centres(centres, maximumDepth) {
+  let udHalfRank = rankHalfBlock(centres, 0, "D");
+  let fbHalfRank = rankHalfBlock(centres, 8, "B");
+  let rlHalfRank = rankHalfBlock(centres, 16, "L");
+  if (udHalfRank < 0 || fbHalfRank < 0 || rlHalfRank < 0) {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidFacelets",
+        _0: "Phase-three centre search requires a phase-two-solved centre string (each pair confined to its own block)."
+      }
+    };
+  }
+  let reason = cachedPhase3CentreTables();
+  if (reason.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: reason._0
+    };
+  }
+  let tables = reason._0;
+  let minimumDepth = phase3CentreDistance(udHalfRank, fbHalfRank, rlHalfRank, tables);
+  let found;
+  let depth = minimumDepth;
+  while (found === undefined && depth <= maximumDepth) {
+    found = searchPhase3Centres(udHalfRank, fbHalfRank, rlHalfRank, depth, -1, tables);
+    if (found === undefined) {
+      depth = depth + 1 | 0;
+    }
+  };
+  let moveIndices = found;
+  if (moveIndices !== undefined) {
+    return {
+      TAG: "Ok",
+      _0: {
+        moveIndices: moveIndices,
+        notations: moveIndices.map(index => phase3Moves[index].notation)
+      }
+    };
+  } else {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidTransition",
+        _0: "No phase-three centre solution was found within the given depth."
+      }
+    };
+  }
+}
+
 export {
   encodeFacelets,
   decodeFacelets,
@@ -1639,5 +1981,23 @@ export {
   searchPhase2Ranks,
   solvePhase2Ranks,
   solveCentreReduction,
+  rankSubset,
+  unrankSubset,
+  halfBlockCoordinateSize,
+  halfBlockTargetRank,
+  rankHalfBlock,
+  rankUdHalf,
+  rankFbHalf,
+  rankRlHalf,
+  transitionSubsetRank,
+  restrictPermutation,
+  phase3MovePermutationsCache,
+  phase3MovePermutations,
+  buildHalfBlockPruning,
+  phase3CentreTablesCache,
+  cachedPhase3CentreTables,
+  phase3CentreDistance,
+  searchPhase3Centres,
+  solvePhase3Centres,
 }
 /* centreCoordinateSize Not a pure module */

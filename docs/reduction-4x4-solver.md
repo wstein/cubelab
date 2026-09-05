@@ -144,8 +144,34 @@ admissible phase-two bound already rejects unreachable candidates quickly.
 `solveCentreReduction` is the combined entry point: given a centre string,
 it returns phase-one and phase-two notations that a test replay-verifies
 reach `rankUdCentres == 0` and `rankFbCentres == phase2TargetFbRank`
-together. Phase-three search and the solver integration are not ported yet.
-The module is not connected to the Converter. The existing Academy guides
+together.
+
+The thirteenth increment adds the phase-three centre coordinate — again an
+independent design rather than a `Center3` port. Center3 folds in
+`CornerCube.getParity()` to keep its coordinate consistent with the
+untouched corner permutation and the wing/edge parity; this port does not
+need that, because the existing OLL/PLL-4×4 parity detection and repair in
+`Reduction4x4.res` already runs downstream of reduction. Dropping it leaves
+phase three's real remaining job, once phase two is solved (U/D confined to
+slots 0–7, F/B to 8–15, R/L to 16–23): resolve which specific face within
+each pair each slot belongs to. Before relying on a per-block coordinate the
+way increment ten's first attempt wrongly did at the 24-slot level, every
+one of phase-three's 20 restricted moves was checked against the canonical
+executor's full 24-slot permutation — outer turns and every wide half
+turn phase three allows all keep each of the three blocks closed, never
+crossing between them. That licenses three independent 8-slot choose-4
+coordinates (`rankUdHalf`, `rankFbHalf`, `rankRlHalf`, generalised via
+reintroduced `rankSubset`/`unrankSubset` helpers), each targeting the same
+`halfBlockTargetRank` by construction. Each has only 70 raw states, so
+`buildHalfBlockPruning` runs a full unpacked BFS per coordinate — no nibble
+packing or symmetry reduction needed at this size, unlike phase one.
+`searchPhase3Centres` and `solvePhase3Centres` mirror phase-one's search
+shape over the three ranks jointly, pruned by `phase3CentreDistance` (the
+max of the three individual bounds) and by `phase3Moves`' own face ids;
+tests replay-verify solutions against the canonical executor the same way.
+This does not yet combine with wing pairing (`Edge3`'s equivalent) or chain
+automatically from phase two's output — both are later increments. The
+module is not connected to the Converter. The existing Academy guides
 remain independent and intact.
 
 `Reduction4x4.reduce4x4` is the handoff gate for stage 3. It accepts only a

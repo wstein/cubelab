@@ -2,7 +2,7 @@ import {expect, test} from "vitest";
 
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
-import {applyCentreTransition, applyTransition, axisTransitionAllowed, buildCentrePruning, buildCentreSymmetryMap, buildSymmetryCentrePruning, canonicalUdRank, centreSymmetryPermutations, centreTransition, createCentrePruning, decodeFacelets, encodeFacelets, extractCentres, extractCorners, extractWings, phase2CombinedDistance, phase2FbDistance, phase2Moves, phase2TargetFbRank, udRankDistance, phase3Moves, pruningDepth, rankFbCentres, rankUdCentres, setPruningDepth, solveCentreReduction, solvePhase1Centres, transitionUdRank, unrankUdCentres} from "../src/Solver/ThreePhase4x4.res.mjs";
+import {applyCentreTransition, applyTransition, axisTransitionAllowed, buildCentrePruning, buildCentreSymmetryMap, buildSymmetryCentrePruning, canonicalUdRank, centreSymmetryPermutations, centreTransition, createCentrePruning, decodeFacelets, encodeFacelets, extractCentres, extractCorners, extractWings, halfBlockTargetRank, phase2CombinedDistance, phase2FbDistance, phase2Moves, phase2TargetFbRank, udRankDistance, phase3Moves, pruningDepth, rankFbCentres, rankFbHalf, rankRlHalf, rankUdCentres, rankUdHalf, setPruningDepth, solveCentreReduction, solvePhase1Centres, solvePhase3Centres, transitionUdRank, unrankUdCentres} from "../src/Solver/ThreePhase4x4.res.mjs";
 
 function buildPhase2DistanceInputs() {
   const symmetryMap = buildCentreSymmetryMap();
@@ -406,6 +406,89 @@ test("centre reduction's phase-two segment never repeats a face or reverses same
 
   let lastFaceId = -1;
   reduction._0.phase2Notations.forEach((notation) => {
+    const faceId = faceIdOf.get(faceOfNotation(notation));
+    expect(faceId).not.toBe(lastFaceId);
+    if (lastFaceId >= 0 && faceId % 3 === lastFaceId % 3) {
+      expect(faceId).toBeGreaterThan(lastFaceId);
+    }
+    lastFaceId = faceId;
+  });
+}, 30000);
+
+test("phase-three half-block ranks all read their shared target at solved", () => {
+  const solved = "UUUUDDDDFFFFBBBBRRRRLLLL";
+  expect(rankUdHalf(solved)).toBe(halfBlockTargetRank);
+  expect(rankFbHalf(solved)).toBe(halfBlockTargetRank);
+  expect(rankRlHalf(solved)).toBe(halfBlockTargetRank);
+});
+
+test("phase-three half-block ranks detect a phase-two-solved but phase-three-unsolved state", () => {
+  // Each pair still confined to its own block (phase two solved), but D/U,
+  // B/F, and L/R are not yet sorted into their specific faces within it.
+  const mixed = "UDUDDUDUFBFBBFBFRLRLLRLR";
+  expect(rankUdHalf(mixed)).toBeGreaterThanOrEqual(0);
+  expect(rankUdHalf(mixed)).not.toBe(halfBlockTargetRank);
+  expect(rankFbHalf(mixed)).toBeGreaterThanOrEqual(0);
+  expect(rankFbHalf(mixed)).not.toBe(halfBlockTargetRank);
+  expect(rankRlHalf(mixed)).toBeGreaterThanOrEqual(0);
+  expect(rankRlHalf(mixed)).not.toBe(halfBlockTargetRank);
+});
+
+test("phase-three centre search returns immediately for an already-solved centre string", () => {
+  const solved = "UUUUDDDDFFFFBBBBRRRRLLLL";
+  const solution = solvePhase3Centres(solved, 10);
+  expect(solution.TAG).toBe("Ok");
+  if (solution.TAG !== "Ok") return;
+  expect(solution._0.moveIndices).toHaveLength(0);
+});
+
+test("phase-three centre search rejects a state that is not phase-two-solved", () => {
+  // Five U's and three D's in the U/D block: no possible 4-of-8 selection
+  // matches, so rankUdHalf is undefined (-1) rather than a false coordinate.
+  const notPhaseTwoSolved = "UUUUUDDDFFFFBBBBRRRRLLLL";
+  const solution = solvePhase3Centres(notPhaseTwoSolved, 10);
+  expect(solution.TAG).toBe("Error");
+});
+
+test("phase-three centre search finds a replay-verified solution for a phase-two-solved scramble", () => {
+  const scrambled = MoveExecutor.parseAndApply(4, "U R2 F' Uw2 Bw2");
+  expect(scrambled.TAG).toBe("Ok");
+  if (scrambled.TAG !== "Ok") return;
+  const centres = extractCentres(scrambled._0);
+  expect(rankUdHalf(centres)).not.toBe(halfBlockTargetRank);
+
+  const solution = solvePhase3Centres(centres, 12);
+  expect(solution.TAG).toBe("Ok");
+  if (solution.TAG !== "Ok") return;
+
+  let replayed = scrambled._0;
+  solution._0.notations.forEach((notation) => {
+    const next = applyTransition(replayed, notation);
+    expect(next.TAG).toBe("Ok");
+    if (next.TAG === "Ok") replayed = next._0;
+  });
+  const finalCentres = extractCentres(replayed);
+  expect(rankUdHalf(finalCentres)).toBe(halfBlockTargetRank);
+  expect(rankFbHalf(finalCentres)).toBe(halfBlockTargetRank);
+  expect(rankRlHalf(finalCentres)).toBe(halfBlockTargetRank);
+}, 30000);
+
+test("phase-three centre search never repeats a face or reverses same-axis order", () => {
+  const scrambled = MoveExecutor.parseAndApply(4, "U R2 F' Uw2 Bw2");
+  expect(scrambled.TAG).toBe("Ok");
+  if (scrambled.TAG !== "Ok") return;
+  const solution = solvePhase3Centres(extractCentres(scrambled._0), 12);
+  expect(solution.TAG).toBe("Ok");
+  if (solution.TAG !== "Ok") return;
+
+  const faceIdOf = new Map();
+  ["U", "R", "F", "D", "L", "B", "Uw", "Rw", "Fw", "Dw", "Lw", "Bw"].forEach((face, index) => {
+    faceIdOf.set(face, index);
+  });
+  const faceOfNotation = (notation) => notation.replace(/[2']/g, "");
+
+  let lastFaceId = -1;
+  solution._0.notations.forEach((notation) => {
     const faceId = faceIdOf.get(faceOfNotation(notation));
     expect(faceId).not.toBe(lastFaceId);
     if (lastFaceId >= 0 && faceId % 3 === lastFaceId % 3) {
