@@ -5,6 +5,7 @@ import {
   createReduction4x4SolverClient,
   createSolverClient,
   createTwoPhaseSolverClient,
+  createManualStateVerifierClient,
 } from "../../src/client/workers/solver-client";
 
 type Listener = (event: MessageEvent<unknown>) => void;
@@ -36,6 +37,15 @@ class FakeWorker {
 }
 
 describe("solver worker client", () => {
+  test("correlates manual-state verification responses without blocking the caller", async () => {
+    const worker = new FakeWorker();
+    const client = createManualStateVerifierClient(worker as unknown as Worker);
+    const verification = client.verify(4, [null], 0);
+    expect(worker.requests).toEqual([{id: 0, type: "verifyManualStateColours", size: 4, draft: [null], index: 0}]);
+    worker.respond({id: 0, ok: true, solution: ["U", "F"]});
+    await expect(verification).resolves.toEqual(["U", "F"]);
+  });
+
   test("correlates asynchronous solver responses to their requests", async () => {
     const worker = new FakeWorker();
     const client = createSolverClient<{id: string}, {moves: string}>(worker as unknown as Worker);

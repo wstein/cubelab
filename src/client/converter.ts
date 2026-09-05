@@ -16,6 +16,7 @@ import {inspectReduction4x4} from "../Solver/Reduction4x4";
 import {
   createOptimal2x2SolverClient,
   createReduction4x4SolverClient,
+  createManualStateVerifierClient,
   createSolverClient,
   createTwoPhaseSolverClient,
 } from "./workers/solver-client";
@@ -503,6 +504,9 @@ if (root) {
   const solverClient = createSolverClient<CubeState, TutorialSolution>(
     new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
   );
+  const manualStateVerifier = createManualStateVerifierClient(
+    new Worker(new URL("./workers/manual-state.worker.ts", import.meta.url), {type: "module"}),
+  );
   let twoPhaseSolveBusy = false;
   let optimal2x2SolveBusy = false;
   let reduction4x4SolveBusy = false;
@@ -954,8 +958,14 @@ if (root) {
       const next = pending[offset];
       window.setTimeout(() => {
         if (generation !== manualStateDotGeneration) return;
-        renderManualStateDots(next.element, allowedManualStateColours(manualSize, snapshot, next.index));
-        verifyNext(offset + 1);
+        void manualStateVerifier.verify(manualSize, snapshot, next.index).then((choices) => {
+          if (generation !== manualStateDotGeneration) return;
+          renderManualStateDots(next.element, choices as ManualStateFace[]);
+          verifyNext(offset + 1);
+        }).catch(() => {
+          // Leave the conservative local result visible if a worker cannot start.
+          verifyNext(offset + 1);
+        });
       }, 0);
     };
     verifyNext(0);

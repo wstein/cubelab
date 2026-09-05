@@ -12,6 +12,7 @@ const client = await readFile(new URL("../src/client/converter.ts", import.meta.
 const manualState = await readFile(new URL("../src/client/manual-state.ts", import.meta.url), "utf8");
 const timerWorkspace = await readFile(new URL("../src/client/timer/workspace.ts", import.meta.url), "utf8");
 const solverWorker = await readFile(new URL("../src/client/workers/solver.worker.ts", import.meta.url), "utf8");
+const manualStateWorker = await readFile(new URL("../src/client/workers/manual-state.worker.ts", import.meta.url), "utf8");
 const viewport = await readFile(new URL("../src/client/cube-gl.ts", import.meta.url), "utf8");
 const orientationVerifier = await readFile(
   new URL("../src/client/smart-cube/orientation-verifier.ts", import.meta.url),
@@ -250,6 +251,8 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /refreshManualStateAutoFill\(manualSize, true\)/);
   assert.match(client, /if \(manualSize === 2\) \{[\s\S]{0,200}allowedManualStateColours[\s\S]{0,200}else \{[\s\S]{0,200}locallyAllowedManualStateColours[\s\S]{0,200}pendingDots\.push/);
   assert.match(client, /if \(manualSize >= 3\) verifyManualStateDots\(manualSize, pendingDots\)/);
+  assert.match(client, /createManualStateVerifierClient/);
+  assert.match(manualStateWorker, /allowedManualStateColours\(request\.size, request\.draft, request\.index\)/);
   assert.match(client, /manualStateDialog\.showModal\(\);[\s\S]{0,200}renderManualStateEditor\(\);/);
   assert.match(manualState, /const highOrderPieceKindsBySize/);
   assert.match(manualState, /const candidateCache = new WeakMap<CubieKind, Candidate\[\]\[\]>\(\)/);

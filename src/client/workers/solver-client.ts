@@ -40,6 +40,38 @@ export const createSolverClient = <TState, TSolution>(worker: Worker) => {
   };
 };
 
+/** Exact manual-state dot checks run off the interaction thread. */
+export const createManualStateVerifierClient = (worker: Worker) => {
+  let nextId = 0;
+  const pending = new Map<number, {resolve: (value: string[]) => void; reject: (reason: Error) => void}>();
+  worker.addEventListener("message", (event: MessageEvent<WorkerResponse<string[]>>) => {
+    const response = event.data;
+    const request = pending.get(response.id);
+    if (!request) return;
+    pending.delete(response.id);
+    if (response.ok) request.resolve(response.solution);
+    else request.reject(new Error(response.error));
+  });
+  worker.addEventListener("error", () => {
+    pending.forEach(({reject}) => reject(new Error("The manual-state verifier worker could not start.")));
+    pending.clear();
+  });
+  return {
+    verify(size: number, draft: Array<string | null>, index: number): Promise<string[]> {
+      const id = nextId++;
+      return new Promise((resolve, reject) => {
+        pending.set(id, {resolve, reject});
+        worker.postMessage({id, type: "verifyManualStateColours", size, draft, index});
+      });
+    },
+    terminate(): void {
+      pending.forEach(({reject}) => reject(new Error("The manual-state verifier was stopped.")));
+      pending.clear();
+      worker.terminate();
+    },
+  };
+};
+
 /** Dedicated request contract for full-cube two-phase searches. */
 export const createTwoPhaseSolverClient = <TState, TSolution>(
   worker: Worker,

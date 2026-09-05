@@ -208,3 +208,7 @@ The worker client uses request identifiers and supports multiple future solver r
 without conflating their responses. Any worker startup or runtime error rejects the pending
 request and appears in the Academy status area. Table-based or deep searches added later
 should use this same client boundary instead of running on the UI thread.
+
+The manual-state editor similarly sends its deferred exact colour-dot verification to a
+dedicated worker. Local hints remain visible if that worker cannot start, while clicks and
+auto-fill retain their synchronous final correctness gates.
