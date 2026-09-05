@@ -862,10 +862,10 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform-origin: top right;
 }
 
-/* 3. Exploded Down face: parallel to U, exploded straight down with same relation */
+/* 3. Exploded Down face: parallel to U, flipped as seen from the back/bottom side */
 .manual-state-net[data-representation="isometric"] .manual-state-face[data-face="D"] {
-  transform: translate(calc(100% + 0.5 * var(--manual-state-face-gap)), var(--manual-state-explode-gap)) matrix(0.866025, 0.5, -0.866025, 0.5, 0, 0);
-  transform-origin: top left;
+  transform: translate(calc(0.5 * var(--manual-state-face-gap)), var(--manual-state-explode-gap)) matrix(0.866025, -0.5, 0.866025, 0.5, 0, 0);
+  transform-origin: top right;
 }
 
 /* 4. Exploded Back face: parallel to F, exploded up one face along -Y */
