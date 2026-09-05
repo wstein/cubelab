@@ -402,6 +402,7 @@ test("the web UI exposes pure algorithm transforms and a clearly labeled practic
   assert.match(page, /data-alg-transform="invert"/);
   assert.match(page, /data-alg-transform="simplify"/);
   assert.match(page, /data-alg-transform="optimize-regrips"/);
+  assert.match(page, /data-alg-transform="expand-regrips"/);
   assert.match(page, /data-alg-transform="mirror-lr"/);
   assert.match(page, /data-alg-transform="mirror-fb"/);
   assert.match(page, /data-alg-transform="mirror-ud"/);
@@ -413,6 +414,7 @@ test("the web UI exposes pure algorithm transforms and a clearly labeled practic
   assert.match(client, /MoveTransform\.invert/);
   assert.match(client, /MoveTransform\.simplify/);
   assert.match(client, /MoveTransform\.optimizeRegrips/);
+  assert.match(client, /MoveTransform\.expandRegripsToFaces/);
   assert.match(client, /MoveTransform\.mirror/);
   assert.match(client, /MoveTransform\.rotate/);
   assert.match(client, /MoveTransform\.practiceScramble/);

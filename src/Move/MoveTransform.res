@@ -515,6 +515,72 @@ let optimizeRegrips = (alg: alg): alg =>
   | Ok(flat) => flat->rewritePairs(0, [])->pushRotationsRight
   }
 
+/* The canonical 3×3 inner-layer spelling produced by unfoldSlices uses the
+ * L/D/F faces. Accept it here as well as M/E/S so the two Workbench tools
+ * compose without requiring the user to normalize the text first. */
+let sliceFromUnit = unit =>
+  switch unit.desc {
+  | Move(SliceTurn(slice), turns) => Some((slice, turns))
+  | Move(FaceTurn(L, {from_: 2, to_: 2}), turns) => Some((M, turns))
+  | Move(FaceTurn(D, {from_: 2, to_: 2}), turns) => Some((E, turns))
+  | Move(FaceTurn(F, {from_: 2, to_: 2}), turns) => Some((S, turns))
+  | _ => None
+  }
+
+let expandSliceRegrip = (slice, turns) =>
+  switch slice {
+  | M => [
+      moveUnit(FaceTurn(L, {from_: 1, to_: 1}), -turns),
+      moveUnit(FaceTurn(R, {from_: 1, to_: 1}), turns),
+      moveUnit(Rotation(X), -turns),
+    ]
+  | E => [
+      moveUnit(FaceTurn(D, {from_: 1, to_: 1}), -turns),
+      moveUnit(FaceTurn(U, {from_: 1, to_: 1}), turns),
+      moveUnit(Rotation(Y), -turns),
+    ]
+  | S => [
+      moveUnit(FaceTurn(B, {from_: 1, to_: 1}), turns),
+      moveUnit(FaceTurn(F, {from_: 1, to_: 1}), -turns),
+      moveUnit(Rotation(Z), turns),
+    ]
+  }
+
+/* Opposite outer layers commute. Use one stable spelling after expansion so
+ * a 3×3 optimize → unfold → expand round trip remains readable and stable. */
+let rec canonicalizeOuterPairs = (units, index, output) =>
+  if index >= units->Array.length {
+    output
+  } else if index + 1 < units->Array.length {
+    let left = Belt.Array.getUnsafe(units, index)
+    let right = Belt.Array.getUnsafe(units, index + 1)
+    switch (outerFace(left), outerFace(right)) {
+    | (Some((R, _)), Some((L, _)))
+    | (Some((U, _)), Some((D, _)))
+    | (Some((F, _)), Some((B, _))) =>
+      canonicalizeOuterPairs(units, index + 2, output->Array.concat([right, left]))
+    | _ => canonicalizeOuterPairs(units, index + 1, output->Array.concat([left]))
+    }
+  } else {
+    output->Array.concat([Belt.Array.getUnsafe(units, index)])
+  }
+
+/** Expand 3×3 slices/regrips into an equivalent outer-face algorithm.
+ * This is the inverse-oriented companion to optimizeRegrips, not a solver. */
+let expandRegripsToFaces = (alg: alg): alg =>
+  switch simplify(alg) {
+  | Error(_) => alg
+  | Ok(flat) => {
+      let expanded = flat->Array.reduce([], (output, unit) =>
+        switch sliceFromUnit(unit) {
+        | Some((slice, turns)) => output->Array.concat(expandSliceRegrip(slice, turns))
+        | None => output->Array.concat([unit])
+        }
+      )
+      expanded->pushRotationsRight->canonicalizeOuterPairs(0, [])
+    }
+  }
+
 let practiceLength = size =>
   switch size {
   | 2 => 11

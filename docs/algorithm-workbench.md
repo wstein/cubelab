@@ -59,6 +59,14 @@ moves.” The transform keeps rotations explicit, moves them to the end of each
 uninterrupted move run, and uses the canonical representative of the resulting cube
 orientation. Pauses and comments remain boundaries.
 
+### Expand regrips
+
+**Expand regrips** is the 3×3-only outer-face companion to **Optimize regrips**.
+It accepts `M/E/S` or CubeLab's canonical unfolded `2L/2D/2F` forms, plus visible
+whole-cube rotations, and rewrites them as an equivalent outer-face sequence. For
+example, `2L 2D' 2L' 2D x y` becomes `L' R B' F D' U L' R`. It is a deterministic
+notation expansion, not a general solver.
+
 ### Mirror
 
 Three involutive reflections are available:
@@ -113,7 +121,7 @@ visible, editable, and shareable. Its presentation then depends on smart-cube mo
 ## Browser integration
 
 The action ribbon below the input exposes **Invert**, **Simplify**, 3×3-only **Optimize
-regrips**, all three mirror
+regrips** and **Expand regrips**, all three mirror
 planes (**L/R**, **F/B**, and **U/D**), all three coordinate rotations (**x**, **y**, and
 **z**), and **Practice scramble**. Algebraic actions are enabled only when the
 current input is a recognized algorithm; state codecs cannot accidentally be rewritten

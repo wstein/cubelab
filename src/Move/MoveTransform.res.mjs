@@ -3,6 +3,7 @@
 import * as StateTypes from "../State/StateTypes.res.mjs";
 import * as Stdlib_Math from "@rescript/runtime/lib/es6/Stdlib_Math.js";
 import * as MoveExecutor from "./MoveExecutor.res.mjs";
+import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
 
 let generatedLoc = {
@@ -1420,6 +1421,262 @@ function optimizeRegrips(alg) {
   }
 }
 
+function sliceFromUnit(unit) {
+  let match = unit.desc;
+  if (typeof match !== "object") {
+    return;
+  }
+  if (match.TAG !== "Move") {
+    return;
+  }
+  let slice = match._0;
+  switch (slice.TAG) {
+    case "FaceTurn" :
+      switch (slice._0) {
+        case "L" :
+          let match$1 = slice._1;
+          if (match$1.from_ !== 2 || match$1.to_ !== 2) {
+            return;
+          } else {
+            return [
+              "M",
+              match._1
+            ];
+          }
+        case "F" :
+          let match$2 = slice._1;
+          if (match$2.from_ !== 2 || match$2.to_ !== 2) {
+            return;
+          } else {
+            return [
+              "S",
+              match._1
+            ];
+          }
+        case "D" :
+          let match$3 = slice._1;
+          if (match$3.from_ !== 2 || match$3.to_ !== 2) {
+            return;
+          } else {
+            return [
+              "E",
+              match._1
+            ];
+          }
+        default:
+          return;
+      }
+    case "SliceTurn" :
+      return [
+        slice._0,
+        match._1
+      ];
+    case "Rotation" :
+      return;
+  }
+}
+
+function expandSliceRegrip(slice, turns) {
+  switch (slice) {
+    case "M" :
+      return [
+        {
+          desc: {
+            TAG: "Move",
+            _0: {
+              TAG: "FaceTurn",
+              _0: "L",
+              _1: {
+                from_: 1,
+                to_: 1
+              }
+            },
+            _1: -turns | 0
+          },
+          loc: generatedLoc
+        },
+        {
+          desc: {
+            TAG: "Move",
+            _0: {
+              TAG: "FaceTurn",
+              _0: "R",
+              _1: {
+                from_: 1,
+                to_: 1
+              }
+            },
+            _1: turns
+          },
+          loc: generatedLoc
+        },
+        {
+          desc: {
+            TAG: "Move",
+            _0: {
+              TAG: "Rotation",
+              _0: "X"
+            },
+            _1: -turns | 0
+          },
+          loc: generatedLoc
+        }
+      ];
+    case "E" :
+      return [
+        {
+          desc: {
+            TAG: "Move",
+            _0: {
+              TAG: "FaceTurn",
+              _0: "D",
+              _1: {
+                from_: 1,
+                to_: 1
+              }
+            },
+            _1: -turns | 0
+          },
+          loc: generatedLoc
+        },
+        {
+          desc: {
+            TAG: "Move",
+            _0: {
+              TAG: "FaceTurn",
+              _0: "U",
+              _1: {
+                from_: 1,
+                to_: 1
+              }
+            },
+            _1: turns
+          },
+          loc: generatedLoc
+        },
+        {
+          desc: {
+            TAG: "Move",
+            _0: {
+              TAG: "Rotation",
+              _0: "Y"
+            },
+            _1: -turns | 0
+          },
+          loc: generatedLoc
+        }
+      ];
+    case "S" :
+      return [
+        {
+          desc: {
+            TAG: "Move",
+            _0: {
+              TAG: "FaceTurn",
+              _0: "B",
+              _1: {
+                from_: 1,
+                to_: 1
+              }
+            },
+            _1: turns
+          },
+          loc: generatedLoc
+        },
+        {
+          desc: {
+            TAG: "Move",
+            _0: {
+              TAG: "FaceTurn",
+              _0: "F",
+              _1: {
+                from_: 1,
+                to_: 1
+              }
+            },
+            _1: -turns | 0
+          },
+          loc: generatedLoc
+        },
+        {
+          desc: {
+            TAG: "Move",
+            _0: {
+              TAG: "Rotation",
+              _0: "Z"
+            },
+            _1: turns
+          },
+          loc: generatedLoc
+        }
+      ];
+  }
+}
+
+function canonicalizeOuterPairs(units, _index, _output) {
+  while (true) {
+    let output = _output;
+    let index = _index;
+    if (index >= units.length) {
+      return output;
+    }
+    if ((index + 1 | 0) >= units.length) {
+      return output.concat([units[index]]);
+    }
+    let left = units[index];
+    let right = units[index + 1 | 0];
+    let match = outerFace(left);
+    let match$1 = outerFace(right);
+    let exit = 0;
+    if (match !== undefined) {
+      switch (match[0]) {
+        case "U" :
+          exit = match$1 !== undefined && match$1[0] === "D" ? 2 : 1;
+          break;
+        case "F" :
+          exit = match$1 !== undefined && match$1[0] === "B" ? 2 : 1;
+          break;
+        case "R" :
+          exit = match$1 !== undefined && match$1[0] === "L" ? 2 : 1;
+          break;
+        default:
+          exit = 1;
+      }
+    } else {
+      exit = 1;
+    }
+    switch (exit) {
+      case 1 :
+        _output = output.concat([left]);
+        _index = index + 1 | 0;
+        continue;
+      case 2 :
+        _output = output.concat([
+          right,
+          left
+        ]);
+        _index = index + 2 | 0;
+        continue;
+    }
+  };
+}
+
+function expandRegripsToFaces(alg) {
+  let flat = simplify(alg);
+  if (flat.TAG !== "Ok") {
+    return alg;
+  }
+  let expanded = Stdlib_Array.reduce(flat._0, [], (output, unit) => {
+    let match = sliceFromUnit(unit);
+    if (match !== undefined) {
+      return output.concat(expandSliceRegrip(match[0], match[1]));
+    } else {
+      return output.concat([unit]);
+    }
+  });
+  return canonicalizeOuterPairs(pushRotationsRight(expanded), 0, []);
+}
+
 function practiceLength(size) {
   switch (size) {
     case 2 :
@@ -1608,6 +1865,10 @@ export {
   canonicalRotations,
   pushRotationsRight,
   optimizeRegrips,
+  sliceFromUnit,
+  expandSliceRegrip,
+  canonicalizeOuterPairs,
+  expandRegripsToFaces,
   practiceLength,
   practiceFamilies,
   randomIndex,

@@ -415,6 +415,13 @@ const cards = [
               <button
                 type="button"
                 class="transform-btn"
+                data-alg-transform="expand-regrips"
+                title="Rewrite 3×3 M/E/S slices and x/y/z regrips as outer face turns"
+                disabled>⇱ Expand regrips</button
+              >
+              <button
+                type="button"
+                class="transform-btn"
                 data-alg-transform="normalize"
                 title="Rewrite in CubeLab's canonical notation without changing the move sequence"
                 disabled>🧭 Normalize</button
@@ -722,6 +729,8 @@ s100"></textarea>
               it can trade face turns for <code>M/E/S</code> slices, wide turns, and
               visible <code>x/y/z</code> regrips while preserving the exact final state.
               It does not change the bounded face-turn search under <strong>Try to shorten</strong>.
+              <strong>Expand regrips</strong> is its outer-face counterpart and also
+              accepts unfolded <code>2L/2D/2F</code> slice notation.
             </p>
             <div class="compatibility-strip" data-compatibility hidden>
               <span class="compatibility-label">Source compatibility</span>

@@ -107,6 +107,13 @@ test("does not move a regrip across a comment boundary", () => {
   assert.equal(compact(3, serialize(optimized)), compact(3, source));
 });
 
+test("expands unfolded slices and regrips back into outer face turns", () => {
+  const source = "2L 2D' 2L' 2D x y";
+  const expanded = MoveTransform.expandRegripsToFaces(parse(3, source));
+  assert.equal(serialize(expanded), "L' R B' F D' U L' R");
+  assert.equal(compact(3, serialize(expanded)), compact(3, source));
+});
+
 test("generates bounded size-aware practice scrambles without adjacent equal axes", () => {
   const expectedLengths = new Map([[2, 11], [3, 25], [4, 45], [5, 60]]);
   for (const [size, expectedLength] of expectedLengths) {
