@@ -404,7 +404,7 @@ if (root) {
   const manualStateExplicitIndices = new Set<number>();
   const manualStateAutoIndices = new Set<number>();
   let manualStateHoverIndex: number | null = null;
-  let manualStateRepresentation: "standard" | "attached" | "isometric" = "standard";
+  let manualStateRepresentation: "standard" | "attached" | "isometric" = "attached";
   let manualStateDotGeneration = 0;
   // Built once per manual-state size and reused across renders: recreating
   // every sticker button on every single paint or erase click would force a

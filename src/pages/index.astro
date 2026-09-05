@@ -1607,14 +1607,15 @@ s100"></textarea>
         <div class="manual-state-layout">
           <div class="manual-state-main">
             <div class="manual-state-representation-switch" role="group" aria-label="Net representation">
-              <button type="button" class="transform-btn active" data-manual-state-representation="standard" aria-pressed="true">Flat net</button>
-              <button type="button" class="transform-btn" data-manual-state-representation="attached" aria-pressed="false">Folded net</button>
+              <button type="button" class="transform-btn" data-manual-state-representation="standard" aria-pressed="false">Flat net</button>
+              <button type="button" class="transform-btn active" data-manual-state-representation="attached" aria-pressed="true">Folded net</button>
               <button type="button" class="transform-btn" data-manual-state-representation="isometric" aria-pressed="false">3D view</button>
             </div>
             <section
               class="manual-state-net"
               aria-label="Cube sticker net"
               data-manual-state-net
+              data-representation="attached"
             >
               <div class="manual-state-net-faces" data-manual-state-grid></div>
             </section>
