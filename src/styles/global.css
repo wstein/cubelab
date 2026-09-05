@@ -806,6 +806,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
      controls: Front, Left, and Down stay square; Up and Right fold away;
      Back completes the connected strip. */
   --attached-face-size: min(14vw, 9rem);
+  --attached-face-gap: 0.45rem;
   position: relative;
   display: block;
   height: min(44vw, 30rem);
@@ -829,12 +830,12 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="F"] {
   left: 25%;
-  top: var(--attached-face-size);
+  top: calc(var(--attached-face-size) + var(--attached-face-gap));
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="L"] {
-  left: calc(25% - var(--attached-face-size));
-  top: var(--attached-face-size);
+  left: calc(25% - var(--attached-face-size) - var(--attached-face-gap));
+  top: calc(var(--attached-face-size) + var(--attached-face-gap));
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="U"] {
@@ -845,19 +846,19 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="R"] {
-  left: calc(25% + var(--attached-face-size));
-  top: var(--attached-face-size);
+  left: calc(25% + var(--attached-face-size) + var(--attached-face-gap));
+  top: calc(var(--attached-face-size) + var(--attached-face-gap));
   transform: skewY(-35deg);
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="B"] {
-  left: calc(25% + var(--attached-face-size) + var(--attached-face-size));
+  left: calc(25% + var(--attached-face-size) + var(--attached-face-size) + var(--attached-face-gap) + var(--attached-face-gap));
   top: 0;
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="D"] {
   left: 25%;
-  top: calc(var(--attached-face-size) + var(--attached-face-size));
+  top: calc(var(--attached-face-size) + var(--attached-face-size) + var(--attached-face-gap) + var(--attached-face-gap));
 }
 
 .manual-state-shortcuts {
