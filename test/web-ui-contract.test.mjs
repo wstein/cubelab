@@ -252,13 +252,14 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /if \(manualSize === 2\) \{[\s\S]{0,200}allowedManualStateColours[\s\S]{0,200}else \{[\s\S]{0,200}locallyAllowedManualStateColours[\s\S]{0,200}pendingDots\.push/);
   assert.match(client, /if \(manualSize >= 3\) verifyManualStateDots\(manualSize, pendingDots\)/);
   assert.match(client, /createManualStateVerifierClient/);
+  assert.match(client, /choices\.length === 1[\s\S]{0,700}manualStateAutoIndices\.add\(next\.index\)/);
   assert.match(manualStateWorker, /allowedManualStateColours\(request\.size, request\.draft, request\.index\)/);
   assert.match(client, /manualStateDialog\.showModal\(\);[\s\S]{0,200}renderManualStateEditor\(\);/);
   assert.match(manualState, /const highOrderPieceKindsBySize/);
   assert.match(manualState, /const candidateCache = new WeakMap<CubieKind, Candidate\[\]\[\]>\(\)/);
   assert.doesNotMatch(manualState, /candidatesFor\(kind\)\.at\(0\)!/);
   assert.match(manualState, /const kinds = size >= 4 \? highOrderPieceKindsBySize\[size\] : kindsForSize\(size\)/);
-  assert.match(manualState, /if \(size <= 3 && unplaced > 0 && unplaced <= 16\)/);
+  assert.match(manualState, /size >= 4 && unplaced > 0 && unplaced <= 2/);
   assert.match(client, /manualStateOpen\.disabled = size < 2 \|\| size > 5/);
   assert.match(client, /singmaster"\]'\)!\.hidden = manualSize >= 4/);
   assert.match(page, /class="manual-state-main"[\s\S]*data-manual-state-net/);

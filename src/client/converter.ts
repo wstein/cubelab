@@ -1000,6 +1000,17 @@ if (root) {
         if (generation !== manualStateDotGeneration) return;
         void manualStateVerifier.verify(manualSize, snapshot, next.index).then((choices) => {
           if (generation !== manualStateDotGeneration) return;
+          if (choices.length === 1 && manualStateDraft[next.index] === null) {
+            // Local propagation can intentionally leave duplicate-wing choices
+            // open. Once the exact background check proves one colour, promote
+            // it to the same reversible auto-fill state as a local singleton.
+            manualStateDraft[next.index] = choices[0] as ManualStateFace;
+            touchManualStateDraft();
+            manualStateAutoIndices.add(next.index);
+            manualStateDirtyDots = null;
+            renderManualStateEditor();
+            return;
+          }
           renderManualStateDots(next.element, choices as ManualStateFace[]);
           verifyNext(offset + 1);
         }).catch(() => {
