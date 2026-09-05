@@ -940,6 +940,15 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   opacity: 0.72;
 }
 
+/* Exploded rear faces are fully interactive sticker surfaces with subtle depth styling */
+.manual-state-net[data-representation="isometric"] .manual-state-face[data-facing="rear"] {
+  opacity: 0.85;
+}
+.manual-state-net[data-representation="isometric"] .manual-state-face[data-facing="rear"]:hover,
+.manual-state-net[data-representation="isometric"] .manual-state-face[data-facing="rear"]:focus-within {
+  opacity: 1;
+}
+
 .manual-state-net[data-representation="isometric"] {
   touch-action: none;
 }
