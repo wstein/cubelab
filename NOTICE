@@ -1,0 +1,12 @@
+Cube Rosetta includes a port in progress of TPR-4x4x4-Solver's three-phase
+4x4x4 algorithm.
+
+Copyright (C) 2014, 2023 Shuang Chen
+Upstream project: TPR-4x4x4-Solver (cs.threephase)
+Source supplied to this project: repomix-output-cs0x7f-TPR-4x4x4-Solver.xml
+License of the upstream Search.java implementation: GNU GPL version 3 or later.
+
+The upstream GPL notice must be retained with any translated or derived source.
+The GNU GPLv3 and GNU AGPLv3 contain an explicit compatibility provision for
+combining their version-3-covered works; see
+https://www.gnu.org/licenses/license-compatibility.en.html.

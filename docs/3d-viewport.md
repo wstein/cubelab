@@ -226,6 +226,6 @@ packets advance the tape on a correct turn using their fixed hardware face indic
 ## Provenance and licensing
 
 The physical design vocabulary was informed by the Standard and Speed looks in
-the separate `flix-cube` project. Because that project is AGPL-3.0 and Cube
-Rosetta is MIT, this module is an independent implementation of the underlying
+the separate `flix-cube` project. Cube Rosetta is AGPL-3.0-or-later; this module
+is an independent implementation of the underlying
 geometric ideas and does not copy or translate its source code.

@@ -183,3 +183,8 @@ Set `PLAYWRIGHT_PORT` when port 4321 is already in use, for example:
 ```sh
 PLAYWRIGHT_PORT=4322 bun run test:browser
 ```
+# License
+
+Cube Rosetta is licensed under **AGPL-3.0-or-later**. See [LICENSE](LICENSE)
+and [NOTICE](NOTICE), including the retained GPLv3-or-later notice for the
+TPR-4x4x4-Solver port in progress.
