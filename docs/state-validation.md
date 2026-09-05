@@ -71,3 +71,7 @@ colour dots nevertheless preserve a feasible assignment for corners, the twenty-
 pieces, and the twelve middle edges, alongside centre quotas and the six fixed core centres.
 It therefore rejects impossible piece colour combinations as they are entered, while reserving
 the stronger whole-state reachability claim for 4×4×4.
+
+The editor reuses its fixed cubie-slot and candidate tables across feasibility checks. This
+keeps the same reachability guidance while avoiding reconstruction of cube geometry for every
+visible colour dot.

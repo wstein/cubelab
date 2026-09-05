@@ -9,6 +9,7 @@ const workbenchPage = await readFile(new URL("../src/pages/workbench.astro", imp
 const patternsPage = await readFile(new URL("../src/pages/patterns.astro", import.meta.url), "utf8");
 const timerPage = await readFile(new URL("../src/pages/timer.astro", import.meta.url), "utf8");
 const client = await readFile(new URL("../src/client/converter.ts", import.meta.url), "utf8");
+const manualState = await readFile(new URL("../src/client/manual-state.ts", import.meta.url), "utf8");
 const timerWorkspace = await readFile(new URL("../src/client/timer/workspace.ts", import.meta.url), "utf8");
 const solverWorker = await readFile(new URL("../src/client/workers/solver.worker.ts", import.meta.url), "utf8");
 const viewport = await readFile(new URL("../src/client/cube-gl.ts", import.meta.url), "utf8");
@@ -247,6 +248,9 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /const manualStateExplicitIndices = new Set<number>\(\)/);
   assert.match(client, /refreshManualStateAutoFill\(manualSize, true\)/);
   assert.match(client, /if \(manualSize === 2 \|\| manualSize >= 4\) \{[\s\S]{0,200}allowedManualStateColours/);
+  assert.match(manualState, /const highOrderPieceKindsBySize/);
+  assert.match(manualState, /const candidateCache = new WeakMap<CubieKind, Candidate\[\]\[\]>\(\)/);
+  assert.doesNotMatch(manualState, /candidatesFor\(kind\)\.at\(0\)!/);
   assert.match(client, /manualStateOpen\.disabled = size < 2 \|\| size > 5/);
   assert.match(client, /singmaster"\]'\)!\.hidden = manualSize >= 4/);
   assert.match(page, /class="manual-state-main"[\s\S]*data-manual-state-net/);

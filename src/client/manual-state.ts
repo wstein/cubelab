@@ -79,7 +79,7 @@ const fixedCentreIndices = (size: ManualStateSize): number[] =>
     : [];
 
 /** Outer corner and wing stickers for an arbitrary order in URFDLB order. */
-const outerPieceSlots = (size: 4 | 5): number[][] => {
+const buildOuterPieceSlots = (size: 4 | 5): number[][] => {
   const n = size - 1;
   const at = (face: number, row: number, column: number) => faceletIndex(size, face, row, column);
   const slots = [
@@ -112,8 +112,7 @@ const outerPieceSlots = (size: 4 | 5): number[][] => {
 };
 
 /** Piece families whose copies may be permuted independently on big cubes. */
-const highOrderPieceKinds = (size: 4 | 5): CubieKind[] => {
-  const slots = outerPieceSlots(size);
+const buildHighOrderPieceKinds = (size: 4 | 5, slots: number[][]): CubieKind[] => {
   const cornerKind: CubieKind = {...corners, slots: slots.slice(0, 8)};
   const edgeSlots = slots.slice(8);
   if (size === 4) {
@@ -136,6 +135,17 @@ const highOrderPieceKinds = (size: 4 | 5): CubieKind[] => {
   }];
 };
 
+// These tables describe cube geometry, not the user's draft. Keep one copy
+// for the lifetime of the editor so every feasibility probe reuses them.
+const outerPieceSlotsBySize = {
+  4: buildOuterPieceSlots(4),
+  5: buildOuterPieceSlots(5),
+} as const;
+const highOrderPieceKindsBySize = {
+  4: buildHighOrderPieceKinds(4, outerPieceSlotsBySize[4]),
+  5: buildHighOrderPieceKinds(5, outerPieceSlotsBySize[5]),
+} as const;
+
 const popcountParity = (value: number): number => {
   let bits = value;
   let parity = 0;
@@ -146,29 +156,47 @@ const popcountParity = (value: number): number => {
   return parity;
 };
 
-const candidatesFor = (kind: CubieKind): Candidate[][] => kind.slots.map(() =>
-  kind.pieces.flatMap((colours, piece) => Array.from({length: kind.orientations}, (_, orientation) => {
-    const stickers = Array<ManualStateFace>(kind.orientations);
-    colours.forEach((colour, colourIndex) => {
-      stickers[(colourIndex + orientation) % kind.orientations] = colour;
-    });
-    return {piece, orientation, stickers};
-  })),
-);
+const lowOrderPieceKinds = {
+  2: [{...corners, slots: cornerSlots2}],
+  3: [{...corners, slots: cornerSlots3}, edges],
+} as const;
+
+const candidateCache = new WeakMap<CubieKind, Candidate[][]>();
+const candidatesFor = (kind: CubieKind): Candidate[][] => {
+  const cached = candidateCache.get(kind);
+  if (cached) return cached;
+  const candidates = kind.slots.map(() =>
+    kind.pieces.flatMap((colours, piece) => Array.from({length: kind.orientations}, (_, orientation) => {
+      const stickers = Array<ManualStateFace>(kind.orientations);
+      colours.forEach((colour, colourIndex) => {
+        stickers[(colourIndex + orientation) % kind.orientations] = colour;
+      });
+      return {piece, orientation, stickers};
+    })),
+  );
+  candidateCache.set(kind, candidates);
+  return candidates;
+};
+
+// Build candidate tables once, rather than once for every sticker and colour.
+[
+  ...lowOrderPieceKinds[2],
+  ...lowOrderPieceKinds[3],
+  ...highOrderPieceKindsBySize[4],
+  ...highOrderPieceKindsBySize[5],
+].forEach(candidatesFor);
 
 const matches = (draft: ManualStateDraft, slot: number[], candidate: Candidate): boolean =>
   slot.every((index, localIndex) => draft[index] === null || draft[index] === candidate.stickers[localIndex]);
 
-const kindsForSize = (size: 2 | 3): CubieKind[] => [
-  {...corners, slots: size === 2 ? cornerSlots2 : cornerSlots3},
-  ...(size === 3 ? [edges] : []),
-];
+const kindsForSize = (size: 2 | 3): readonly CubieKind[] => lowOrderPieceKinds[size];
 
 /** A cheap exact bipartite assignment within one corner or edge orbit. */
 const canAssignKind = (draft: ManualStateDraft, kind: CubieKind): boolean => {
+  const candidates = candidatesFor(kind);
   const domains = kind.slots.map((slot) => {
     const sources = new Set<number>();
-    candidatesFor(kind).at(0)!.forEach((candidate) => {
+    candidates[0]!.forEach((candidate) => {
       if (matches(draft, slot, candidate)) sources.add(candidate.piece);
     });
     return [...sources];
@@ -250,7 +278,7 @@ export const canCompleteManualState = (size: ManualStateSize, draft: ManualState
   if (fixedCentreIndices(size).some((index, face) => draft[index] !== faceletOrder[face])) return false;
   if (size >= 4) {
     if (!Object.values(colourCounts(draft)).every((count) => count <= size * size)) return false;
-    if (!highOrderPieceKinds(size).every((kind) => canAssignKind(draft, kind))) return false;
+    if (!highOrderPieceKindsBySize[size].every((kind) => canAssignKind(draft, kind))) return false;
     return size !== 4 || canComplete4x4Wings(draft);
   }
   const corner = feasibleSignatures(draft, kindsForSize(size)[0]);
@@ -388,7 +416,7 @@ export const fillLocallyForcedManualStateColours = (
  * feasibility checks already derive from, rather than a second piece list. */
 export const manualStatePieceMates = (size: ManualStateSize, index: number): number[] => {
   if (size >= 4) {
-    const slot = outerPieceSlots(size).find((candidate) => candidate.includes(index));
+    const slot = outerPieceSlotsBySize[size].find((candidate) => candidate.includes(index));
     return slot ? slot.filter((other) => other !== index) : [];
   }
   for (const kind of kindsForSize(size)) {
