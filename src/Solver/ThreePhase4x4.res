@@ -298,11 +298,19 @@ let setPruningDepth = (table: array<int>, index: int, depth: int): unit => {
   }
 }
 
+/* The upstream u/r/f/d/l/b move indices (Center1.move cases 6–11) rotate the
+ * outer face and its adjacent inner slice together — e.g. case 6 (u) swaps
+ * ct[0..3] (the outer U face) in the same call as the inner-slice cycles —
+ * so they are wide/block turns, not bare inner slices. "2U" in this
+ * codebase's SiGN-derived notation means only the second layer from U (the
+ * inner slice alone, leaving the U face fixed); "Uw" is the block turn that
+ * matches upstream. Confirmed by comparing centreTransition("2U") against
+ * centreTransition("Uw"): only the latter also permutes slots 0–3. */
 let centreMoveNotations = [
   "U", "U'", "U2", "R", "R'", "R2", "F", "F'", "F2",
   "D", "D'", "D2", "L", "L'", "L2", "B", "B'", "B2",
-  "2U", "2U'", "2U2", "2R", "2R'", "2R2", "2F", "2F'", "2F2",
-  "2D", "2D'", "2D2", "2L", "2L'", "2L2", "2B", "2B'", "2B2",
+  "Uw", "Uw'", "Uw2", "Rw", "Rw'", "Rw2", "Fw", "Fw'", "Fw2",
+  "Dw", "Dw'", "Dw2", "Lw", "Lw'", "Lw2", "Bw", "Bw'", "Bw2",
 ]
 
 let transitionUdRank = (rank: int, permutation: array<int>): int => {
@@ -519,12 +527,12 @@ let phase2Moves: array<restrictedMove> = [
   {notation: "D", faceId: 3}, {notation: "D2", faceId: 3}, {notation: "D'", faceId: 3},
   {notation: "L", faceId: 4}, {notation: "L2", faceId: 4}, {notation: "L'", faceId: 4},
   {notation: "B", faceId: 5}, {notation: "B2", faceId: 5}, {notation: "B'", faceId: 5},
-  {notation: "2U2", faceId: 6},
-  {notation: "2R", faceId: 7}, {notation: "2R2", faceId: 7}, {notation: "2R'", faceId: 7},
-  {notation: "2F2", faceId: 8},
-  {notation: "2D2", faceId: 9},
-  {notation: "2L", faceId: 10}, {notation: "2L2", faceId: 10}, {notation: "2L'", faceId: 10},
-  {notation: "2B2", faceId: 11},
+  {notation: "Uw2", faceId: 6},
+  {notation: "Rw", faceId: 7}, {notation: "Rw2", faceId: 7}, {notation: "Rw'", faceId: 7},
+  {notation: "Fw2", faceId: 8},
+  {notation: "Dw2", faceId: 9},
+  {notation: "Lw", faceId: 10}, {notation: "Lw2", faceId: 10}, {notation: "Lw'", faceId: 10},
+  {notation: "Bw2", faceId: 11},
 ]
 
 let phase3Moves: array<restrictedMove> = [
@@ -534,12 +542,12 @@ let phase3Moves: array<restrictedMove> = [
   {notation: "D", faceId: 3}, {notation: "D2", faceId: 3}, {notation: "D'", faceId: 3},
   {notation: "L2", faceId: 4},
   {notation: "B", faceId: 5}, {notation: "B2", faceId: 5}, {notation: "B'", faceId: 5},
-  {notation: "2U2", faceId: 6},
-  {notation: "2R2", faceId: 7},
-  {notation: "2F2", faceId: 8},
-  {notation: "2D2", faceId: 9},
-  {notation: "2L2", faceId: 10},
-  {notation: "2B2", faceId: 11},
+  {notation: "Uw2", faceId: 6},
+  {notation: "Rw2", faceId: 7},
+  {notation: "Fw2", faceId: 8},
+  {notation: "Dw2", faceId: 9},
+  {notation: "Lw2", faceId: 10},
+  {notation: "Bw2", faceId: 11},
 ]
 
 /* Port of Moves.ckmv, specialised to face ids rather than raw move indices:
@@ -593,3 +601,4 @@ let buildCentrePruning = (maximumDepth: int): result<array<int>, inputError> => 
   }
 }
 }
+

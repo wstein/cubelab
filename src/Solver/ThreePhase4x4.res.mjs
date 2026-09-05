@@ -486,24 +486,24 @@ let centreMoveNotations = [
   "B",
   "B'",
   "B2",
-  "2U",
-  "2U'",
-  "2U2",
-  "2R",
-  "2R'",
-  "2R2",
-  "2F",
-  "2F'",
-  "2F2",
-  "2D",
-  "2D'",
-  "2D2",
-  "2L",
-  "2L'",
-  "2L2",
-  "2B",
-  "2B'",
-  "2B2"
+  "Uw",
+  "Uw'",
+  "Uw2",
+  "Rw",
+  "Rw'",
+  "Rw2",
+  "Fw",
+  "Fw'",
+  "Fw2",
+  "Dw",
+  "Dw'",
+  "Dw2",
+  "Lw",
+  "Lw'",
+  "Lw2",
+  "Bw",
+  "Bw'",
+  "Bw2"
 ];
 
 function transitionUdRank(rank, permutation) {
@@ -858,43 +858,43 @@ let phase2Moves = [
     faceId: 5
   },
   {
-    notation: "2U2",
+    notation: "Uw2",
     faceId: 6
   },
   {
-    notation: "2R",
+    notation: "Rw",
     faceId: 7
   },
   {
-    notation: "2R2",
+    notation: "Rw2",
     faceId: 7
   },
   {
-    notation: "2R'",
+    notation: "Rw'",
     faceId: 7
   },
   {
-    notation: "2F2",
+    notation: "Fw2",
     faceId: 8
   },
   {
-    notation: "2D2",
+    notation: "Dw2",
     faceId: 9
   },
   {
-    notation: "2L",
+    notation: "Lw",
     faceId: 10
   },
   {
-    notation: "2L2",
+    notation: "Lw2",
     faceId: 10
   },
   {
-    notation: "2L'",
+    notation: "Lw'",
     faceId: 10
   },
   {
-    notation: "2B2",
+    notation: "Bw2",
     faceId: 11
   }
 ];
@@ -957,27 +957,27 @@ let phase3Moves = [
     faceId: 5
   },
   {
-    notation: "2U2",
+    notation: "Uw2",
     faceId: 6
   },
   {
-    notation: "2R2",
+    notation: "Rw2",
     faceId: 7
   },
   {
-    notation: "2F2",
+    notation: "Fw2",
     faceId: 8
   },
   {
-    notation: "2D2",
+    notation: "Dw2",
     faceId: 9
   },
   {
-    notation: "2L2",
+    notation: "Lw2",
     faceId: 10
   },
   {
-    notation: "2B2",
+    notation: "Bw2",
     faceId: 11
   }
 ];

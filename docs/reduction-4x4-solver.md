@@ -61,10 +61,21 @@ phase-three restricted sets, each move tagged with the upstream face id
 `axisTransitionAllowed` ports that rule directly — reject a repeated face,
 and within an axis pair (`faceId mod 3`) accept only ascending face-id
 order — the same commuting-move symmetry break already used by
-`TwoPhaseSolver.canonicalFaceTransition` for the 3×3 search. Search
-coordinates beyond phase-one and the solver integration are not ported yet.
-The module is not connected to the Converter. The existing Academy guides
-remain independent and intact.
+`TwoPhaseSolver.canonicalFaceTransition` for the 3×3 search.
+
+Building the ninth increment surfaced a bug in `centreMoveNotations` (used by
+every phase-one table build since the sixth increment): its "wide" half used
+this codebase's `2X` SiGN inner-slice notation (layer two only, outer face
+untouched) where upstream's `u/r/f/d/l/b` move indices are block turns — the
+outer face and its adjacent inner slice together, confirmed by comparing
+`centreTransition("2U")` against `centreTransition("Uw")` and by
+`CenterCube.move`'s own case 6 rotating `ct[0..3]` (the outer U face) in the
+same call as the inner-slice cycle. `centreMoveNotations` now uses `Uw`-style
+wide notation; `public/solver/three-phase-centre.v1.bin` has been
+regenerated (still 7,791 bytes — the fix changes stored distances, not the
+15,582-orbit count). Search coordinates beyond phase-one and the solver
+integration are not ported yet. The module is not connected to the
+Converter. The existing Academy guides remain independent and intact.
 
 `Reduction4x4.reduce4x4` is the handoff gate for stage 3. It accepts only a
 4×4 with monochrome 2×2 centres and paired visible wings, converts it to the
