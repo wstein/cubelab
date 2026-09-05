@@ -401,6 +401,22 @@ function rankUdCentres(centres) {
   return rank;
 }
 
+function rankUdSlots(selected) {
+  if (selected.length !== 8) {
+    return -1;
+  }
+  let rank = 0;
+  let previous = -1;
+  for (let selectionIndex = 0; selectionIndex <= 7; ++selectionIndex) {
+    let selectedSlot = selected[selectionIndex];
+    for (let candidate = previous + 1 | 0; candidate < selectedSlot; ++candidate) {
+      rank = rank + choose((24 - candidate | 0) - 1 | 0, (8 - selectionIndex | 0) - 1 | 0) | 0;
+    }
+    previous = selectedSlot;
+  }
+  return rank;
+}
+
 function unrankUdCentres(rank) {
   if (rank < 0 || rank >= choose(24, 8)) {
     return [];
@@ -451,6 +467,112 @@ function setPruningDepth(table, index, depth) {
   }
 }
 
+let centreMoveNotations = [
+  "U",
+  "U'",
+  "U2",
+  "R",
+  "R'",
+  "R2",
+  "F",
+  "F'",
+  "F2",
+  "D",
+  "D'",
+  "D2",
+  "L",
+  "L'",
+  "L2",
+  "B",
+  "B'",
+  "B2",
+  "2U",
+  "2U'",
+  "2U2",
+  "2R",
+  "2R'",
+  "2R2",
+  "2F",
+  "2F'",
+  "2F2",
+  "2D",
+  "2D'",
+  "2D2",
+  "2L",
+  "2L'",
+  "2L2",
+  "2B",
+  "2B'",
+  "2B2"
+];
+
+function transitionUdRank(rank, permutation) {
+  let selected = unrankUdCentres(rank);
+  let marked = Stdlib_Array.make(24, false);
+  selected.forEach(slot => {
+    marked[slot] = true;
+  });
+  let next = [];
+  for (let targetSlot = 0; targetSlot <= 23; ++targetSlot) {
+    if (marked[permutation[targetSlot]]) {
+      next = next.concat([targetSlot]);
+    }
+  }
+  return rankUdSlots(next);
+}
+
+function buildCentrePruning(maximumDepth) {
+  let transitions = {
+    contents: []
+  };
+  let error = {
+    contents: undefined
+  };
+  centreMoveNotations.forEach(notation => {
+    let permutation = centreTransition(notation);
+    if (permutation.TAG === "Ok") {
+      transitions.contents = transitions.contents.concat([permutation._0]);
+    } else {
+      error.contents = permutation._0;
+    }
+  });
+  let reason = error.contents;
+  if (reason !== undefined) {
+    return {
+      TAG: "Error",
+      _0: reason
+    };
+  }
+  let table = createCentrePruning();
+  let queue = Stdlib_Array.make(centreCoordinateSize, 0);
+  let head = 0;
+  let tail = {
+    contents: 1
+  };
+  setPruningDepth(table, 0, 0);
+  queue[0] = 0;
+  while (head < tail.contents) {
+    let current = queue[head];
+    head = head + 1 | 0;
+    let depth = pruningDepth(table, current);
+    if (depth < maximumDepth) {
+      transitions.contents.forEach(permutation => {
+        let next = transitionUdRank(current, permutation);
+        if (pruningDepth(table, next) === 15) {
+          setPruningDepth(table, next, depth + 1 | 0);
+          queue[tail.contents] = next;
+          tail.contents = tail.contents + 1 | 0;
+          return;
+        }
+      });
+    }
+  };
+  return {
+    TAG: "Ok",
+    _0: table
+  };
+}
+
 export {
   encodeFacelets,
   decodeFacelets,
@@ -469,10 +591,14 @@ export {
   applyCentreTransition,
   choose,
   rankUdCentres,
+  rankUdSlots,
   unrankUdCentres,
   centreCoordinateSize,
   createCentrePruning,
   pruningDepth,
   setPruningDepth,
+  centreMoveNotations,
+  transitionUdRank,
+  buildCentrePruning,
 }
 /* centreCoordinateSize Not a pure module */

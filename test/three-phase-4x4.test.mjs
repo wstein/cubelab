@@ -2,7 +2,7 @@ import {expect, test} from "vitest";
 
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
-import {applyCentreTransition, applyTransition, centreTransition, createCentrePruning, decodeFacelets, encodeFacelets, extractCentres, extractCorners, extractWings, pruningDepth, rankUdCentres, setPruningDepth, unrankUdCentres} from "../src/Solver/ThreePhase4x4.res.mjs";
+import {applyCentreTransition, applyTransition, buildCentrePruning, centreTransition, createCentrePruning, decodeFacelets, encodeFacelets, extractCentres, extractCorners, extractWings, pruningDepth, rankUdCentres, setPruningDepth, unrankUdCentres} from "../src/Solver/ThreePhase4x4.res.mjs";
 
 test("three-phase boundary round-trips CubeLab's canonical 96 facelets", () => {
   const state = MoveExecutor.parseAndApply(4, "Rw U 2F' Lw2");
@@ -86,4 +86,12 @@ test("phase-one pruning storage packs two four-bit depths per entry", () => {
   setPruningDepth(table, 1, 9);
   expect(pruningDepth(table, 0)).toBe(0);
   expect(pruningDepth(table, 1)).toBe(9);
+});
+
+test("phase-one BFS seeds solved and discovers one-move centre states", () => {
+  const table = buildCentrePruning(1);
+  expect(table.TAG).toBe("Ok");
+  if (table.TAG !== "Ok") return;
+  expect(pruningDepth(table._0, 0)).toBe(0);
+  expect([...table._0].some((packed) => packed === 1 || Math.floor(packed / 16) === 1)).toBe(true);
 });

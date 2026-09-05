@@ -1,10 +1,11 @@
 /*
  * Three-phase 4×4 port boundary.
  *
- * Derived from the GPLv3-or-later TPR-4x4x4-Solver interface by Shuang Chen;
- * see NOTICE. This module is the first ReScript port increment. It preserves
- * the upstream solver's U/R/F/D/L/B, row-major, 96-facelet contract while
- * using CubeLab's validated state codec at the boundary.
+ * Derived from the GPLv3-or-later TPR-4x4x4-Solver interface by Shuang Chen
+ * (cs.threephase), supplied as repomix-output-cs0x7f-TPR-4x4x4-Solver.xml.
+ * See NOTICE. This ReScript port preserves the upstream solver's U/R/F/D/L/B,
+ * row-major, 96-facelet contract while using CubeLab's validated state codec
+ * at the boundary.
  */
 
 open StateTypes
@@ -232,6 +233,23 @@ let rankUdCentres = (centres: string): int => {
   }
 }
 
+let rankUdSlots = (selected: array<int>): int => {
+  if selected->Array.length != 8 {
+    -1
+  } else {
+    let rank = ref(0)
+    let previous = ref(-1)
+    for selectionIndex in 0 to 7 {
+      let selectedSlot = Belt.Array.getUnsafe(selected, selectionIndex)
+      for candidate in previous.contents + 1 to selectedSlot - 1 {
+        rank := rank.contents + choose(24 - candidate - 1, 8 - selectionIndex - 1)
+      }
+      previous := selectedSlot
+    }
+    rank.contents
+  }
+}
+
 let unrankUdCentres = (rank: int): array<int> => {
   if rank < 0 || rank >= choose(24, 8) {
     []
@@ -278,4 +296,64 @@ let setPruningDepth = (table: array<int>, index: int, depth: int): unit => {
   } else {
     table[tableIndex] = (packed % 16) + normalized * 16
   }
+}
+
+let centreMoveNotations = [
+  "U", "U'", "U2", "R", "R'", "R2", "F", "F'", "F2",
+  "D", "D'", "D2", "L", "L'", "L2", "B", "B'", "B2",
+  "2U", "2U'", "2U2", "2R", "2R'", "2R2", "2F", "2F'", "2F2",
+  "2D", "2D'", "2D2", "2L", "2L'", "2L2", "2B", "2B'", "2B2",
+]
+
+let transitionUdRank = (rank: int, permutation: array<int>): int => {
+  let selected = unrankUdCentres(rank)
+  let marked = Array.make(~length=24, false)
+  selected->Array.forEach(slot => marked[slot] = true)
+  let next = ref([])
+  for targetSlot in 0 to 23 {
+    if Belt.Array.getUnsafe(marked, Belt.Array.getUnsafe(permutation, targetSlot)) {
+      next := next.contents->Array.concat([targetSlot])
+    }
+  }
+  rankUdSlots(next.contents)
+}
+
+/* Breadth-first packed pruning build. maximumDepth permits deterministic,
+ * small test builds; pass 15 for the complete raw-coordinate traversal. */
+let buildCentrePruning = (maximumDepth: int): result<array<int>, inputError> => {
+  let transitions = ref([])
+  let error = ref(None)
+  centreMoveNotations->Array.forEach(notation =>
+    switch centreTransition(notation) {
+    | Ok(permutation) => transitions := transitions.contents->Array.concat([permutation])
+    | Error(reason) => error := Some(reason)
+    }
+  )
+  switch error.contents {
+  | Some(reason) => Error(reason)
+  | None => {
+    let table = createCentrePruning()
+    let queue = Array.make(~length=centreCoordinateSize, 0)
+    let head = ref(0)
+    let tail = ref(1)
+    setPruningDepth(table, 0, 0)
+    queue[0] = 0
+    while head.contents < tail.contents {
+      let current = Belt.Array.getUnsafe(queue, head.contents)
+      head := head.contents + 1
+      let depth = pruningDepth(table, current)
+      if depth < maximumDepth {
+        transitions.contents->Array.forEach(permutation => {
+          let next = transitionUdRank(current, permutation)
+          if pruningDepth(table, next) == 15 {
+            setPruningDepth(table, next, depth + 1)
+            queue[tail.contents] = next
+            tail := tail.contents + 1
+          }
+        })
+      }
+    }
+    Ok(table)
+  }
+}
 }
