@@ -1266,7 +1266,7 @@ if (root) {
     });
   };
   wireManualStateHover(manualStateGrid);
-  let manualStateYaw = -40;
+  let manualStateYaw = -35;
   let manualStateFlip = 0;
   let manualStateFlipped = false;
   const rotateManualStateIsometric = async (direction: "cw" | "ccw") => {
@@ -1375,7 +1375,7 @@ if (root) {
     manualStateIsRotating = false;
     delete manualStateNet.dataset.animState;
     if (representation === "isometric") {
-      manualStateYaw = -40 + manualStateOrientation * 90;
+      manualStateYaw = -35 + manualStateOrientation * 90;
       manualStateNet.style.setProperty("--manual-state-yaw", `${manualStateYaw}deg`);
       manualStateNet.style.setProperty("--manual-state-flip", `${manualStateFlip}deg`);
       if (manualStateFlipped) {
@@ -1406,7 +1406,7 @@ if (root) {
   const openManualStateEditor = () => {
     if (size < 2 || size > 5) return;
     manualStateOrientation = 0;
-    manualStateYaw = -40;
+    manualStateYaw = -35;
     manualStateNet.style.setProperty("--manual-state-yaw", `${manualStateYaw}deg`);
     manualStateNet.dataset.orientation = "0";
     manualStateFlip = 0;
