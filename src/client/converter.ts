@@ -1284,6 +1284,33 @@ if (root) {
   let manualStateYaw = -35;
   let manualStateFlip = 0;
   let manualStateFlipped = false;
+  const resetManualState3dOrientation = (immediate: boolean = true) => {
+    manualStateOrientation = 0;
+    manualStateYaw = -35;
+    manualStateFlip = 0;
+    manualStateFlipped = false;
+    manualStateIsRotating = false;
+    manualStateNet.dataset.orientation = "0";
+    delete manualStateNet.dataset.flipped;
+    if (immediate) {
+      manualStateNet.dataset.animState = "resetting";
+    } else {
+      delete manualStateNet.dataset.animState;
+    }
+    manualStateNet.style.setProperty("--manual-state-yaw", `${manualStateYaw}deg`);
+    manualStateNet.style.setProperty("--manual-state-flip", `${manualStateFlip}deg`);
+    manualStateGrid.style.setProperty("--manual-state-yaw", `${manualStateYaw}deg`);
+    manualStateGrid.style.setProperty("--manual-state-flip", `${manualStateFlip}deg`);
+    if (immediate) {
+      void manualStateNet.offsetHeight;
+      void manualStateGrid.offsetHeight;
+      requestAnimationFrame(() => {
+        if (manualStateNet.dataset.animState === "resetting") {
+          delete manualStateNet.dataset.animState;
+        }
+      });
+    }
+  };
   const rotateManualStateIsometric = async (direction: "cw" | "ccw") => {
     if (manualStateRepresentation !== "isometric" || manualStateIsRotating) return;
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1420,16 +1447,7 @@ if (root) {
 
   const openManualStateEditor = () => {
     if (size < 2 || size > 5) return;
-    manualStateOrientation = 0;
-    manualStateYaw = -35;
-    manualStateNet.style.setProperty("--manual-state-yaw", `${manualStateYaw}deg`);
-    manualStateNet.dataset.orientation = "0";
-    manualStateFlip = 0;
-    manualStateFlipped = false;
-    manualStateNet.style.setProperty("--manual-state-flip", "0deg");
-    delete manualStateNet.dataset.flipped;
-    manualStateIsRotating = false;
-    delete manualStateNet.dataset.animState;
+    resetManualState3dOrientation(true);
     const manualSize = size as ManualStateSize;
     const setup = input.value.trim() === "" ? null : parseState(input.value);
     manualStateDraft = setup?.TAG === "Ok" && setup._0.state.size === manualSize
@@ -1451,6 +1469,8 @@ if (root) {
     manualStateColour = "U";
     renderManualStateEditor();
     manualStateDialog.showModal();
+    void manualStateNet.offsetHeight;
+    void manualStateGrid.offsetHeight;
     window.requestAnimationFrame(() => {
       if (manualStateCursorIndex !== null) setManualStateCursor(manualStateCursorIndex, true);
     });
@@ -5822,6 +5842,9 @@ if (root) {
     updateViewportDialogOcclusion();
   });
   shortcutsClose.addEventListener("click", () => shortcutsDialog.close());
+  manualStateDialog.addEventListener("close", () => {
+    resetManualState3dOrientation(true);
+  });
   manualStateOpen.addEventListener("click", openManualStateEditor);
   manualStateCancel.addEventListener("click", () => manualStateDialog.close());
   manualStatePalette.addEventListener("click", (event) => {

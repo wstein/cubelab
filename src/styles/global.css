@@ -1186,6 +1186,11 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform: rotateX(-90deg) translateZ(var(--manual-state-half-size)) !important;
 }
 
+.manual-state-net[data-representation="isometric"][data-anim-state="resetting"] .manual-state-net-faces,
+.manual-state-net[data-representation="isometric"][data-anim-state="resetting"] .manual-state-face {
+  transition: none !important;
+}
+
 /* Each face has a stable view-transition name, allowing the browser to carry
    it through the same flat-to-folded motion in reverse when Flat net is
    selected again. Users who request reduced motion receive the instant layout
