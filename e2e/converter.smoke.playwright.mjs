@@ -1676,6 +1676,53 @@ test("paints a specific dot's colour on click and loads a filled sticker's colou
   await expect(rCentre).toHaveAttribute("data-face", "R");
 });
 
+test("holding shift highlights erase button and changes palette text to Reset, and shift-clicking a color resets all stickers of that color", async ({page}) => {
+  await page.goto("/");
+  await page.locator("[data-manual-state-open]").click();
+  const dialog = page.locator("[data-manual-state-dialog]");
+  await expect(dialog).toBeVisible();
+  const net = dialog.locator("[data-manual-state-grid]");
+  const eraser = dialog.locator("[data-manual-state-eraser]");
+
+  // Paint two stickers with Red: sticker 8 and sticker 9 (R0, not centre 13)
+  await dialog.locator('[data-manual-state-colour="R"]').click();
+  const sticker8 = net.locator('[data-manual-state-index="8"]');
+  const sticker9 = net.locator('[data-manual-state-index="9"]');
+  await sticker8.click();
+  await sticker9.click();
+  await expect(sticker8).toHaveAttribute("data-face", "R");
+  await expect(sticker9).toHaveAttribute("data-face", "R");
+
+  // Also paint one sticker with Blue: sticker 0
+  await dialog.locator('[data-manual-state-colour="B"]').click();
+  const sticker0 = net.locator('[data-manual-state-index="0"]');
+  await sticker0.click();
+  await expect(sticker0).toHaveAttribute("data-face", "B");
+
+  // Pressing Shift highlights the Eraser button and changes text in the colorpad to "Reset"
+  await page.keyboard.down("Shift");
+  await expect(eraser).toHaveClass(/shift-active/);
+  const rButton = dialog.locator('[data-manual-state-colour="R"] [data-manual-state-colour-left]');
+  const bButton = dialog.locator('[data-manual-state-colour="B"] [data-manual-state-colour-left]');
+  await expect(rButton).toHaveText("Reset");
+  await expect(bButton).toHaveText("Reset");
+
+  // Releasing Shift restores normal label and removes highlight
+  await page.keyboard.up("Shift");
+  await expect(eraser).not.toHaveClass(/shift-active/);
+  await expect(rButton).not.toHaveText("Reset");
+
+  // Shift-clicking a color button in the colorpad resets all stickers of that color (except fixed centres)
+  await dialog.locator('[data-manual-state-colour="R"]').click({modifiers: ["Shift"]});
+  await expect(sticker8).toHaveAttribute("data-face", "unknown");
+  await expect(sticker9).toHaveAttribute("data-face", "unknown");
+  // Non-red stickers remain untouched
+  await expect(sticker0).toHaveAttribute("data-face", "B");
+  // Fixed Red centre (13) remains untouched
+  const rCentre = net.locator('[data-manual-state-index="13"]');
+  await expect(rCentre).toHaveAttribute("data-face", "R");
+});
+
 test("navigates and paints the net with the keyboard, wrapping across a face edge", async ({page}) => {
   await page.goto("/");
   await page.locator("[data-manual-state-open]").click();

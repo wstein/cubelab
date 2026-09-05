@@ -278,6 +278,8 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /\.manual-state-key-emphasis \{[\s\S]*font-weight: 800;/);
   assert.match(styles, /\.manual-state-tools \{[\s\S]*flex: 0 1 18rem;/);
   assert.match(styles, /\.manual-state-tool\[data-manual-state-eraser\]\[aria-pressed="true"\]/);
+  assert.match(styles, /\.manual-state-tool\[data-manual-state-eraser\]\.shift-active/);
+  assert.match(client, /resetManualStateColour/);
   assert.match(client, /if \(manualSize === 3 \|\| manualSize === 5\)[\s\S]*manualStateSummaryRow\("Known", `\$\{entered \+ 6\}\/\$\{rawTotal\}`/);
   assert.match(client, /isManualStateFixedCentre\(manualSize, index\)/);
   assert.match(styles, /data-manual-state-size="4"[\s\S]*\.manual-state-main/);
