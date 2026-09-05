@@ -1,5 +1,16 @@
 # 4×4 reduction solver
 
+## Provenance
+
+The in-progress three-phase engine derives from **TPR-4x4x4-Solver** by Shuang
+Chen (`cs.threephase`), supplied to this workspace as
+`repomix-output-cs0x7f-TPR-4x4x4-Solver.xml`. Upstream `Search.java` is
+GPLv3-or-later. CubeLab retains that attribution and GPL notice in `NOTICE` and
+in translated source headers; CubeLab-owned surrounding code is
+AGPL-3.0-or-later. The port currently translates only the facelet-coordinate
+boundary and coordinate-building primitives. It does not yet include a working
+upstream-equivalent three-phase search.
+
 CubeLab's current 4×4×4 capability is a replay-verified **reduced-state
 finisher**. It is not a general 4×4 solver.
 
