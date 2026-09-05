@@ -856,22 +856,29 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform-origin: bottom right;
 }
 
-/* 2. Exploded Left face: parallel to R, exploded up one face along -X */
+/* 2. Exploded Left face: parallel to R, exploded up one face along -X, mirrored horizontally */
 .manual-state-net[data-representation="isometric"] .manual-state-face[data-face="L"] {
   transform: translate(calc(13.4% - var(--manual-state-explode-gap)), calc(-150% - var(--manual-state-face-gap) - 0.5 * var(--manual-state-explode-gap))) skewY(-30deg) scaleX(0.866025);
   transform-origin: top right;
+  direction: rtl;
 }
 
-/* 3. Exploded Down face: parallel to U, flipped as seen from the back/bottom side */
+/* 3. Exploded Down face: parallel to U, mirrored vertically as seen from the back/bottom side */
 .manual-state-net[data-representation="isometric"] .manual-state-face[data-face="D"] {
-  transform: translate(calc(0.5 * var(--manual-state-face-gap)), var(--manual-state-explode-gap)) matrix(0.866025, -0.5, 0.866025, 0.5, 0, 0);
-  transform-origin: top right;
+  transform: translate(calc(50% + 0.5 * var(--manual-state-face-gap)), var(--manual-state-explode-gap)) matrix(0.866025, 0.5, 0.866025, -0.5, 0, 0);
+  transform-origin: center;
 }
 
-/* 4. Exploded Back face: parallel to F, exploded up one face along -Y */
+/* 4. Exploded Back face: parallel to F, exploded up one face along -Y, mirrored horizontally */
 .manual-state-net[data-representation="isometric"] .manual-state-face[data-face="B"] {
   transform: translate(calc(-13.4% + var(--manual-state-explode-gap)), calc(-150% - var(--manual-state-face-gap) - 0.5 * var(--manual-state-explode-gap))) skewY(30deg) scaleX(0.866025);
   transform-origin: top left;
+  direction: rtl;
+}
+
+.manual-state-net[data-representation="isometric"] .manual-state-face[data-face="L"] .manual-state-sticker,
+.manual-state-net[data-representation="isometric"] .manual-state-face[data-face="B"] .manual-state-sticker {
+  direction: ltr;
 }
 
 /* Each face has a stable view-transition name, allowing the browser to carry
@@ -1810,6 +1817,15 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   background: rgba(239, 68, 68, 0.15);
   color: #f87171;
   border-color: rgba(239, 68, 68, 0.3);
+}
+
+.setup-orientation-badge {
+  white-space: nowrap;
+}
+
+.setup-canonicalise {
+  border-color: rgba(103, 232, 249, 0.46);
+  color: #c8f7ff;
 }
 
 @media (max-width: 540px) {
