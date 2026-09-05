@@ -855,7 +855,6 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="B"] {
   left: calc(25% + var(--attached-face-size) + var(--attached-face-size) + var(--attached-face-gap) + var(--attached-face-gap));
   top: 0;
-  transform: skewY(-45deg);
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="D"] {
