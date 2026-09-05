@@ -803,65 +803,27 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
    keeps colour dots, hover rings, keyboard focus, and pointer handling
    identical in both views. */
 .manual-state-net[data-representation="attached"] {
-  /* Match the original folded-net proportions while keeping the real sticker
-     controls: Front, Left, and Down stay square; Up and Right fold away;
-     Back completes the connected strip. */
-  --attached-face-size: min(14vw, 9rem);
   --attached-face-gap: var(--manual-state-face-gap);
   --attached-fold-gap: 0.2rem;
-  position: relative;
-  display: block;
-  height: min(44vw, 30rem);
-  min-height: 27rem;
-  max-height: 30rem;
-  overflow: hidden;
-}
-
-.manual-state-net[data-representation="attached"] .manual-state-net-faces {
-  display: block;
+  overflow: visible;
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face {
-  position: absolute;
-  width: var(--attached-face-size);
-  grid-column: auto;
-  grid-row: auto;
-  transform-origin: top left;
-  transition: transform 160ms ease, left 160ms ease, top 160ms ease;
-}
-
-.manual-state-net[data-representation="attached"] .manual-state-face[data-face="F"] {
-  left: 25%;
-  top: calc(var(--attached-face-size) + var(--attached-face-gap));
-}
-
-.manual-state-net[data-representation="attached"] .manual-state-face[data-face="L"] {
-  left: calc(25% - var(--attached-face-size) - var(--attached-face-gap));
-  top: calc(var(--attached-face-size) + var(--attached-face-gap));
+  transition: transform 160ms ease;
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="U"] {
-  left: 25%;
-  top: 0;
-  transform: skewX(-45deg);
+  transform: translateY(var(--manual-state-face-gap)) skewX(-45deg);
   transform-origin: bottom left;
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="R"] {
-  /* The folded U/R seam is deliberately tighter than the open-net gutter. */
-  left: calc(25% + var(--attached-face-size) + var(--attached-fold-gap));
-  top: calc(var(--attached-face-size) + var(--attached-fold-gap));
-  transform: skewY(-45deg);
+  transform: translateX(calc(-1 * var(--manual-state-face-gap))) skewY(-45deg);
+  transform-origin: top left;
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="B"] {
-  left: calc(25% + var(--attached-face-size) + var(--attached-face-size) + var(--attached-face-gap) + var(--attached-face-gap));
-  top: 0;
-}
-
-.manual-state-net[data-representation="attached"] .manual-state-face[data-face="D"] {
-  left: 25%;
-  top: calc(var(--attached-face-size) + var(--attached-face-size) + var(--attached-face-gap) + var(--attached-face-gap));
+  transform: translateY(calc(-100% - var(--manual-state-face-gap)));
 }
 
 /* Each face has a stable view-transition name, allowing the browser to carry
