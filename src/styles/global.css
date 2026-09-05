@@ -805,6 +805,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .manual-state-net[data-representation="attached"] {
   --attached-face-gap: var(--manual-state-face-gap);
   --attached-fold-gap: 0.2rem;
+  --attached-diagonal-shift: calc(var(--manual-state-face-gap) * 0.2929);
   overflow: visible;
 }
 
@@ -813,12 +814,12 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="U"] {
-  transform: skewX(-45deg);
+  transform: translateX(var(--attached-diagonal-shift)) skewX(-45deg);
   transform-origin: bottom left;
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="R"] {
-  transform: skewY(-45deg);
+  transform: translateY(calc(-1 * var(--attached-diagonal-shift))) skewY(-45deg);
   transform-origin: top left;
 }
 
