@@ -16,7 +16,7 @@ Implemented state codecs:
 - strict 2×2 CP/CO and centre-normalized 3×3 CP/CO/EP/EO coordinates;
 - Singmaster corner/edge permutation cycles for complete 2×2 and 3×3 states;
 - SSE cubie-state cycles for complete 2×2 and 3×3 states;
-- normative 12-character Orbit64 encoding for complete 3×3 cubie states.
+- normative 12-character Orbit64 encoding for complete 3×3 cubie states and centre frames.
 
 The input badge identifies the recognized source format, including algorithms,
 Orbit64, cubie coordinates, Singmaster piece cycles, compact

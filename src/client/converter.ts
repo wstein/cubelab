@@ -1607,7 +1607,7 @@ if (root) {
           renderedPieces.TAG === "Ok",
         );
         if (size === 3) {
-          const orbit = Orbit64Codec.encode(pieces._0) as Result<string, unknown>;
+          const orbit = Orbit64Codec.encodeState(state) as Result<string, unknown>;
           setOutput(
             "orbit64",
             orbit.TAG === "Ok" ? orbit._0 : `Unavailable — ${Orbit64Codec.describeError(orbit._0)}`,

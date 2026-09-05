@@ -93,6 +93,16 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await expect(page.locator("[data-status]")).toHaveText("Colour net");
   await expect(page.locator('[data-output="orbit64"]')).toHaveText("AAAAAAAAAAAA");
 
+  await input.fill("x");
+  const rotatedFacelets = algorithmFacelets("x");
+  const rotatedOrbitOutput = page.locator('[data-output="orbit64"]');
+  await expect(rotatedOrbitOutput).not.toHaveText("AAAAAAAAAAAA");
+  const rotatedOrbit = await rotatedOrbitOutput.textContent();
+  expect(rotatedOrbit).toMatch(/^[A-Za-z0-9_-]{12}$/);
+  expect(rotatedOrbit).not.toBe("AAAAAAAAAAAA");
+  await input.fill(rotatedOrbit);
+  await expect(page.locator('[data-output="facelets"]')).toHaveText(rotatedFacelets);
+
   await input.fill(
     "cp: 0 1 2 3 4 5 6 7; co: 0 0 0 0 0 0 0 0; " +
       "ep: 0 1 2 3 4 5 6 7 8 9 10 11; eo: 0 0 0 0 0 0 0 0 0 0 0 0",
@@ -163,7 +173,7 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await expect(page.locator('[data-compatibility-profile="wca"]')).toContainText("✓");
   await expect(page.locator('[data-compatibility-profile="signLgn"]')).toContainText("✓");
   await expect(page.locator('[data-output="pieces"]')).toContainText("cp: 3 0 1 2");
-  await expect(page.locator('[data-output="orbit64"]')).toHaveText("AcIufRZj-AAA");
+  await expect(page.locator('[data-output="orbit64"]')).toHaveText("FRot3QyvoAAA");
   await input.fill("(M2 E2 S2)(R L) # adjacent groups");
   await expect(page.locator("[data-status]")).toHaveText("Algorithm · SiGN");
   await expect(page.locator('[data-compatibility-profile="wca"]')).toContainText("×");

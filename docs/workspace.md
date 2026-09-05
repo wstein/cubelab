@@ -70,7 +70,10 @@ permutation cycles; the 3×3 cards also offer unfolded ACube positional spelling
 Every listed format is
 directly pasteable into Setup.
 The Setup header also offers a one-click **Copy as compact facelets** action for the recognised
-state, alongside the 3×3 Orbit64 copy action.
+state, alongside the 3×3 Orbit64 copy action. Orbit64 stores every legal 3×3 position together
+with its whole-cube centre frame, so decoding restores the original facelet orientation. Its
+70-bit payload uses parity-aware cubie ranking and a 24-way frame code; impossible sticker
+arrangements remain rejected rather than serialised.
 Moves are parsed with the selected notation dialect and replayed from whatever Setup
 resolves to. This includes Setup algorithms: CubeLab first evaluates the Setup algorithm to
 its state, then places that state at tape position zero and replays only Moves. Thus the

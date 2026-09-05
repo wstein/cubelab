@@ -4,6 +4,7 @@ import {test} from "vitest";
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
 import * as Orbit64Codec from "../src/State/Orbit64Codec.res.mjs";
+import * as PatternState from "../src/State/PatternState.res.mjs";
 import * as PieceReducer from "../src/State/PieceReducer.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
 
@@ -15,65 +16,64 @@ const solvedPieces = {
   eo: Array(12).fill(0),
 };
 
-const packIndependent = (cpRank, coRank, epRank, eoRank) => {
-  let value = BigInt(cpRank);
-  value = value * 2187n + BigInt(coRank);
-  value = value * 479001600n + BigInt(epRank);
-  value = value * 2048n + BigInt(eoRank);
-  const bytes = Buffer.alloc(9);
-  for (let index = 8; index >= 0; index -= 1) {
-    bytes[index] = Number(value % 256n);
-    value /= 256n;
-  }
-  return bytes.toString("base64url");
-};
-
 const apply = (algorithm) => {
   const result = MoveExecutor.parseAndApply(3, algorithm);
   assert.equal(result.TAG, "Ok", result._0);
   return result._0;
 };
 
-test("normative solved and superflip vectors are stable", () => {
+test("normative frame-preserving solved and superflip vectors are stable", () => {
   assert.equal(Orbit64Codec.encode(solvedPieces)._0, "AAAAAAAAAAAA");
 
   const superflip = {...solvedPieces, eo: Array(12).fill(1)};
-  assert.equal(Orbit64Codec.encode(superflip)._0, "AAAAAAAAAAf_");
-  assert.deepEqual(Orbit64Codec.decode("AAAAAAAAAAf_")._0, superflip);
+  assert.equal(Orbit64Codec.encode(superflip)._0, "AAAAAAAAAL_o");
+  assert.deepEqual(Orbit64Codec.decode("AAAAAAAAAL_o")._0, superflip);
 });
 
-test("the U golden vector matches an independent mixed-radix pack", () => {
+test("the U golden vector is stable under parity-aware packing", () => {
   const pieces = PieceReducer.reduce(apply("U"))._0;
   const token = Orbit64Codec.encode(pieces);
   assert.equal(token.TAG, "Ok");
-  assert.equal(token._0, "AcIufRZj-AAA");
-  assert.equal(token._0, packIndependent(15120, 0, 119750400, 0));
+  assert.equal(token._0, "FRot3QyvoAAA");
 });
 
-test("legal states round-trip through a 12-character URL-safe token", () => {
-  for (const algorithm of ["R U F'", "M E' S2", "x R U y' M2", "[R, U] F2 D'"]) {
+test("legal states and their centre frames round-trip through a 12-character URL-safe token", () => {
+  for (const algorithm of ["R U F'", "M E' S2", "x", "y", "z", "x R U y' M2", "[R, U] F2 D'"]) {
     const state = apply(algorithm);
     const encoded = Orbit64Codec.encodeState(state);
     assert.equal(encoded.TAG, "Ok");
     assert.match(encoded._0, /^[A-Za-z0-9_-]{12}$/);
     const decoded = Orbit64Codec.decodeState(encoded._0);
     assert.equal(decoded.TAG, "Ok");
+    assert.equal(FaceletCodec.render(decoded._0), FaceletCodec.render(state));
     assert.deepEqual(PieceReducer.reduce(decoded._0)._0, PieceReducer.reduce(state)._0);
   }
+
+  assert.notEqual(Orbit64Codec.encodeState(apply("x"))._0, "AAAAAAAAAAAA");
 });
 
-test("decoding rejects malformed length, alphabet, header, and parity", () => {
+test("all 24 whole-cube frames round-trip a non-symmetric position exactly", () => {
+  const base = apply("R U F'");
+  const tokens = new Set();
+  for (const orientation of PatternState.orientationAlgorithms(3)) {
+    const state = MoveExecutor.applyAlg(base, orientation.alg);
+    assert.equal(state.TAG, "Ok");
+    const encoded = Orbit64Codec.encodeState(state._0);
+    assert.equal(encoded.TAG, "Ok");
+    tokens.add(encoded._0);
+    const decoded = Orbit64Codec.decodeState(encoded._0);
+    assert.equal(decoded.TAG, "Ok");
+    assert.equal(FaceletCodec.render(decoded._0), FaceletCodec.render(state._0));
+  }
+  assert.equal(tokens.size, 24);
+});
+
+test("decoding rejects malformed length, alphabet, and reserved payload bits", () => {
   assert.equal(Orbit64Codec.decode("short")._0.TAG, "InvalidTokenLength");
   assert.equal(Orbit64Codec.decode("AAAAAAAAAAA=")._0.TAG, "InvalidTokenCharacter");
 
   const unsupportedHeader = Buffer.from([0x80, 0, 0, 0, 0, 0, 0, 0, 0]).toString("base64url");
   assert.equal(Orbit64Codec.decode(unsupportedHeader)._0.TAG, "InvalidHeader");
-
-  const oddEdgePermutation = packIndependent(0, 0, 39916800, 0);
-  const parityResult = Orbit64Codec.decode(oddEdgePermutation);
-  assert.equal(parityResult._0.TAG, "InvalidCoordinates");
-  assert.equal(parityResult._0._0.TAG, "SolvabilityViolation");
-  assert.equal(parityResult._0._0._0, "PermutationParityMismatch");
 });
 
 test("encoding rejects non-3x3 and unreachable coordinate states", () => {
