@@ -71,12 +71,20 @@ const permUnrankWithParity = (rank: bigint, n: number, required: number): number
   const direct = [...output, available[0], available[1]];
   return parity(direct) === required ? direct : [...output, available[1], available[0]];
 };
-const baseRank = (digits: number[], base: number, count: number): bigint =>
-  digits.slice(0, count).reduce((value, digit) => value * BigInt(base) + BigInt(digit), 0n);
+/** Orbit64 orientation digits are little-endian: the first is the units digit. */
+const baseRank = (digits: number[], base: number, count: number): bigint => {
+  let value = 0n;
+  let place = 1n;
+  for (const digit of digits.slice(0, count)) {
+    value += BigInt(digit) * place;
+    place *= BigInt(base);
+  }
+  return value;
+};
 const baseUnrank = (value: bigint, base: number, count: number): number[] => {
   const output = Array<number>(count + 1).fill(0);
   let remainder = value;
-  for (let i = count - 1; i >= 0; i -= 1) { output[i] = Number(remainder % BigInt(base)); remainder /= BigInt(base); }
+  for (let i = 0; i < count; i += 1) { output[i] = Number(remainder % BigInt(base)); remainder /= BigInt(base); }
   output[count] = (base - output.slice(0, count).reduce((sum, x) => sum + x, 0) % base) % base;
   return output;
 };
@@ -136,14 +144,7 @@ const unrankCoordinate = (kind: Coordinate["kind"], value: bigint): Coordinate =
   return kind === "wing" ? {kind, p: permUnrank(value, 24)} : {kind, p: multisetUnrank(value)};
 };
 const carriesFrame = (size: number) => size === 3 || size === 5;
-const frameFaces = [
-  "URFDLB", "UBRDFL", "ULBDRF", "UFLDBR",
-  "RFULBD", "RDFLUB", "RBDLFU", "RUB LDF".replaceAll(" ", ""),
-  "FLUBRD", "FURBDL", "FRDBLU", "FDLBUR",
-  "DLFURB", "DFRUBL", "DRBULF", "DBLUFR",
-  "LBU RFD".replaceAll(" ", ""), "LUFRDB", "LFDRBU", "LDBRUF",
-  "BRUFLD", "BDRFUL", "BLDFRU", "BULFDR",
-];
+// Normative frame rank order: x turns, then z turns, then y turns.
 const rotationSteps = [
   ...Array.from({length: 16}, (_, index) => {
     const x = Math.floor(index / 4); const y = index % 4;
@@ -159,8 +160,14 @@ const transform = (state: CubeState, algorithm: string): CubeState | null => {
   const applied = MoveExecutor.applyAlg(state, parsed._0) as {TAG: string; _0: unknown};
   return applied.TAG === "Ok" ? applied._0 as CubeState : null;
 };
+const hasCanonicalFixedCentres = (size: number, state: CubeState): boolean =>
+  fixedCentreFrame(size, FaceletCodec.render(state) as string) === FACES;
 const fixedCentreFrame = (size: number, facelets: string): string =>
   [...Array(6).keys()].map(face => facelets[face * size * size + Math.floor(size * size / 2)]).join("");
+const frameForState = (state: CubeState): number => rotationSteps.findIndex(step => {
+  const canonical = transform(state, inverseRotation(step));
+  return canonical !== null && hasCanonicalFixedCentres(state.size, canonical);
+});
 const coordinateCount = (size: number) => {
   const total = layout(size).reduce((value, kind) => value * radices[kind], 1n);
   return carriesFrame(size) ? total / 2n : total;
@@ -259,11 +266,7 @@ export const decodeState = (input: string): Result<CubeState> => {
   const parsed = FaceletCodec.parse(n, rendered) as {TAG: string; _0: unknown};
   if (parsed.TAG !== "Ok") return fail("InvalidState", "Decoded Orbit64 facelets are invalid.");
   if (!carriesFrame(n) || frame === 0) return ok(parsed._0 as CubeState);
-  const rotation = rotationSteps.find(step => {
-    const candidate = transform(parsed._0 as CubeState, step);
-    return candidate !== null && fixedCentreFrame(n, FaceletCodec.render(candidate) as string) === frameFaces[frame];
-  });
-  const framed = rotation === undefined ? null : transform(parsed._0 as CubeState, rotation);
+  const framed = transform(parsed._0 as CubeState, rotationSteps[frame]);
   return framed ? ok(framed) : fail("InvalidFrame", "Orbit64's stored whole-cube frame could not be applied.");
 };
 export const encodeState = (state: CubeState): Result<string> => {
@@ -271,17 +274,10 @@ export const encodeState = (state: CubeState): Result<string> => {
   if (!(n in widths)) return fail("UnsupportedSize", "Orbit64 supports 2×2×2 through 5×5×5.");
   let canonical = state;
   let frame = 0;
-  const facelets = FaceletCodec.render(state) as string;
   if (carriesFrame(n)) {
-    const shown = fixedCentreFrame(n, facelets);
-    frame = frameFaces.indexOf(shown);
+    frame = frameForState(state);
     if (frame < 0) return fail("InvalidCoordinates", "The odd-cube fixed centres do not form a right-handed whole-cube frame.");
-    const rotation = rotationSteps.find(step => {
-      const candidate = transform(state, inverseRotation(step));
-      return candidate !== null && fixedCentreFrame(n, FaceletCodec.render(candidate) as string) === FACES;
-    });
-    if (rotation === undefined) return fail("InvalidCoordinates", "The odd-cube centre frame could not be canonicalised.");
-    canonical = transform(state, inverseRotation(rotation))!;
+    canonical = transform(state, inverseRotation(rotationSteps[frame]))!;
   }
   const canonicalFacelets = FaceletCodec.render(canonical) as string;
   const coordinates = inputCoordinates(n, canonicalFacelets);
@@ -295,13 +291,8 @@ export const encodeState = (state: CubeState): Result<string> => {
 /** Rotate an odd cube into Orbit64's canonical U/R/F fixed-centre frame. */
 export const canonicaliseState = (state: CubeState): Result<CubeState> => {
   if (!carriesFrame(state.size)) return fail("UnsupportedSize", "Orientation canonicalisation is available for 3×3×3 and 5×5×5 states.");
-  const facelets = FaceletCodec.render(state) as string;
-  const frame = frameFaces.indexOf(fixedCentreFrame(state.size, facelets));
+  const frame = frameForState(state);
   if (frame < 0) return fail("InvalidCoordinates", "The fixed centres do not form a right-handed whole-cube frame.");
-  const rotation = rotationSteps.find(step => {
-    const candidate = transform(state, inverseRotation(step));
-    return candidate !== null && fixedCentreFrame(state.size, FaceletCodec.render(candidate) as string) === FACES;
-  });
-  const canonical = rotation === undefined ? null : transform(state, inverseRotation(rotation));
+  const canonical = transform(state, inverseRotation(rotationSteps[frame]));
   return canonical ? ok(canonical) : fail("InvalidFrame", "The fixed-centre frame could not be canonicalised.");
 };

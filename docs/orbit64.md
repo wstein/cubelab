@@ -23,7 +23,8 @@ midge flips omit their forced final orientation. For every size, those stored
 orientation digits are little-endian: the first digit is the units digit.
 On odd cubes the midge
 permutation is ranked in the parity class selected by the corners; the final
-factor is one of the 24 right-handed whole-cube frames. On even cubes the
+factor is one of the 24 right-handed whole-cube frames in Flix's `x`, then
+`z`, then `y` wire order. On even cubes the
 movable centre orbits already determine the pose, so no frame factor is
 present.
 

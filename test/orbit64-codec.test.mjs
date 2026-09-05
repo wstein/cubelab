@@ -7,10 +7,10 @@ import * as Orbit64Codec from "../src/State/Orbit64Codec.ts";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
 
 const vectors = [
-  [2, "EJ6Rr", "LFLD BLRD BLBU RFRR UUDU DFFB"],
-  [3, "AAAAAAAAB-go", "UUUUURUUU RURBRLRDR FFFLFRFFF DDDLDRDDD LLLFLFLDL BBBBBRBBB"],
-  [4, "BJSsuyGPOiU06kIz-eqibqTP1th", "DLLDLLDLBFLFLRBR DRDLFBRLUURUUDDU FUUFLDFDRBUFURRL LBDFFFDFFFBRFBFR RDDDBLUUBURBRULB BFBBUDRURBLLBRDU"],
-  [5, "AQsjv5K4-XPjKJZMNvMLvYKqohuv1x7JGUoNROgDJ2w", "DBRFRFUBLDDBUFFURBDDFUUDL BLDBFULULLLRRUURRDFDRLLFD LFLRURFURRFFFFBUBLUFRLUBU BDBRFDFRUULRDFDULLDDRBRFL LDBFUUFDUFRLLURBRDDBBRFRD DLDUFBBBBLFRBDUBDLBLBLBRU"],
+  [2, "EJ6kr", "LFLD BLRD BLBU RFRR UUDU DFFB"],
+  [3, "AAAAAAAACC-Y", "UUUUURUUU RURBRLRDR FFFLFRFFF DDDLDRDDD LLLFLFLDL BBBBBRBBB"],
+  [4, "BJStkD4cayBhsWj6eHgDZLTP1th", "DLLDLLDLBFLFLRBR DRDLFBRLUURUUDDU FUUFLDFDRBUFURRL LBDFFFDFFFBRFBFR RDDDBLUUBURBRULB BFBBUDRURBLLBRDU"],
+  [5, "AQshP-X3WpOUAtv878ZKcZyT5P3So75Lb-WOh2gDJ2w", "DBRFRFUBLDDBUFFURBDDFUUDL BLDBFULULLLRRUURRDFDRLLFD LFLRURFURRFFFFBUBLUFRLUBU BDBRFDFRUULRDFDULLDDRBRFL LDBFUUFDUFRLLURBRDDBBRFRD DLDUFBBBBLFRBDUBDLBLBLBRU"],
 ];
 
 test("decodes Flix Orbit64's published vectors for every supported size", () => {
@@ -31,6 +31,17 @@ test("solved states use the published size-specific fixed widths", () => {
     assert.equal(encoded.TAG, "Ok");
     assert.equal(encoded._0, "A".repeat(width));
   }
+});
+
+test("keeps Flix's normative 3x3 compatibility vectors", () => {
+  for (const token of ["AAAAAAAAAAAA", "AAAAAAAAAAAE", "AAAAAAAAAL_o", "FRot3QyvoAAA"]) {
+    const decoded = Orbit64Codec.decodeState(token);
+    assert.equal(decoded.TAG, "Ok");
+    assert.deepEqual(Orbit64Codec.encodeState(decoded._0), {TAG: "Ok", _0: token});
+  }
+  const x = MoveExecutor.parseAndApply(3, "x");
+  assert.equal(x.TAG, "Ok");
+  assert.deepEqual(Orbit64Codec.encodeState(x._0), {TAG: "Ok", _0: "AAAAAAAAAAAE"});
 });
 
 test("rejects non-state classes and unknown widths", () => {
