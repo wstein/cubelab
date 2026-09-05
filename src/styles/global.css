@@ -2898,6 +2898,17 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   cursor: default;
 }
 
+.reduction-academy-steps {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.7rem 0 0;
+  padding: 0.6rem 0 0 1.25rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
 .academy-phase.satisfied {
   border-color: rgba(52, 211, 153, 0.24);
 }

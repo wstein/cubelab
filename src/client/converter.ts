@@ -2333,6 +2333,7 @@ if (root) {
     metrics: string,
     satisfied: boolean,
     active: boolean,
+    steps: string[],
   ) => {
     const phase = document.createElement("article");
     phase.className = `academy-phase reduction-academy-phase${satisfied ? " satisfied" : ""}${active ? " active" : ""}`;
@@ -2343,7 +2344,14 @@ if (root) {
     const metric = document.createElement("span");
     metric.className = "academy-phase-metrics";
     metric.textContent = metrics;
-    phase.append(heading, detail, metric);
+    const guide = document.createElement("ol");
+    guide.className = "reduction-academy-steps";
+    steps.forEach((step) => {
+      const item = document.createElement("li");
+      item.textContent = step;
+      guide.append(item);
+    });
+    phase.append(heading, detail, metric, guide);
     return phase;
   };
 
@@ -2380,29 +2388,70 @@ if (root) {
     academy.phases.append(
       reductionAcademyPhase(
         1,
-        "Build six centre blocks",
-        "Use free centres to form one monochrome 2×2 block per face; establish the colour scheme before pairing edges.",
+        "Build the first centre blocks",
+        "Centres are free-moving pieces: make a 1×2 bar, make a second matching bar, then join them into a 2×2 face block.",
         `${progress.centreBlocksComplete}/6 centre blocks`,
         centresDone,
         progress.stage === "centres",
+        [
+          "Choose one colour and make a 1×2 bar with an inner-slice turn; keep it out of the working layer.",
+          "Make a second bar of the same colour, align the two bars, then join them to complete the 2×2 centre block.",
+          "Use the completed block to establish the colour scheme: its opposite centre must be the opposite cube colour.",
+        ],
       ),
       reductionAcademyPhase(
         2,
-        "Pair 24 wing rows",
+        "Complete all six centre blocks",
+        "Solve opposite centres first, then hold completed faces on L/R while forming the remaining four blocks. This keeps every protected 2×2 block out of the active inner slice.",
+        `${progress.centreBlocksComplete}/6 centre blocks · ${centresDone ? "centre stage complete" : "finish before wing pairing"}`,
+        centresDone,
+        progress.stage === "centres" && progress.centreBlocksComplete >= 2,
+        [
+          "Build the opposite 2×2 block with the first completed centre held on the bottom or back.",
+          "For each side centre, form two 1×2 bars in the free layers, join them, then restore the inner slice you opened.",
+          "Before moving on, verify four stickers of one colour occupy every completed centre block; do not treat a mixed 2×2 as solved.",
+        ],
+      ),
+      reductionAcademyPhase(
+        3,
+        "Pair the first 22 wing rows",
         outstandingWings.length === 0
           ? "Every visible two-sticker wing row agrees. The paired rows form the dedges for the reduced 3×3."
           : `Match each visible two-sticker wing row. Next unmatched rows: ${outstandingWings.join(" · ")}.`,
         `${progress.wingRowsPaired}/24 wing rows${outstandingWings.length === 0 ? "" : ` · ${outstandingWings.length} to pair`}`,
         wingsDone,
         progress.stage === "wings",
+        [
+          "Choose two wing pieces with the same two colours. Bring them to the U-layer working slots without disturbing completed centres.",
+          "Use a slice–pair–restore cycle: open an inner U slice, use outer R/U/F turns to align the two wings, then restore that exact inner slice.",
+          "Store each finished dedge away from the working slots. After every pair, check that both visible row stickers agree before choosing the next colours.",
+        ],
       ),
       reductionAcademyPhase(
-        3,
-        "Finish the reduced 3×3",
-        "Run the verified reduced-state finisher. It keeps the outer-layer solution on the original 4×4; a parity case remains a separate repair lesson.",
-        progress.stage === "reduced" ? "Ready for handoff" : "Locked until centres and wings are reduced",
+        4,
+        "Resolve the last two wing pairs",
+        "When ordinary slice pairing would break a finished dedge, use the last-two-edge sequence instead of forcing a normal pair.",
+        wingsDone ? "Use only if two final wing pairs remain" : "Unlocked after the first wing pairs are stored",
+        wingsDone,
+        progress.stage === "wings" && progress.wingRowsPaired >= 20,
+        [
+          "Place the two unfinished pairs in the U-layer working lanes; use a U or whole-cube y adjustment first if needed.",
+          "Apply the edge-flip sequence: R U R' F R' F' R. It flips the working wing while preserving the centre structure.",
+          "For the standard last-two setup, use: u' R U R' F R' F' R u. Re-check the two rows and repeat only after a new setup move.",
+        ],
+      ),
+      reductionAcademyPhase(
+        5,
+        "Recognise parity, then finish the reduced 3×3",
+        "A 4×4 can show a last-layer case impossible on a 3×3. Repair it before the 3×3 handoff; otherwise continue with the verified finisher.",
+        progress.stage === "reduced" ? "Ready for parity check and handoff" : "Locked until centres and wings are reduced",
         progress.stage === "reduced",
         progress.stage === "reduced",
+        [
+          "OLL parity: one dedge appears flipped in the last layer. Hold it at UF and use: r U2 x r U2 r U2 r' U2 l U2 r' U2 r U2 r' U2 r'.",
+          "PLL parity: two dedges need a swap after the 3×3 last layer. Use: r2 U2 r2 u2 r2 u2.",
+          "When no parity case remains, choose Continue with reduced 3×3 finish. The worker replay-verifies the outer-layer solution against this exact 4×4 state.",
+        ],
       ),
     );
     academy.finish.hidden = progress.stage !== "reduced";

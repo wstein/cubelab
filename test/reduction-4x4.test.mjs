@@ -2,6 +2,7 @@ import {expect, test} from "vitest";
 
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
+import * as MoveParser from "../src/Move/MoveParser.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
 import {inspectReduction4x4, isMonochromeSolved4x4, reduce4x4} from "../src/Solver/Reduction4x4.ts";
 import * as TwoPhaseSolver from "../src/Solver/TwoPhaseSolver.res.mjs";
@@ -78,4 +79,16 @@ test("refuses a 4×4 with unresolved centres or wing pairs", () => {
   if (result.TAG === "Error") {
     expect(result._0.message).toMatch(/Build centre blocks|Pair wing rows/);
   }
+});
+
+test("the Academy's 4×4 last-two-edge and parity sequences parse in modern notation", () => {
+  const sequences = [
+    "R U R' F R' F' R",
+    "u' R U R' F R' F' R u",
+    "r U2 x r U2 r U2 r' U2 l U2 r' U2 r U2 r' U2 r'",
+    "r2 U2 r2 u2 r2 u2",
+  ];
+  sequences.forEach((sequence) => {
+    expect(MoveParser.parseWithOptions(4, "Wide", "Modern", sequence).TAG).toBe("Ok");
+  });
 });

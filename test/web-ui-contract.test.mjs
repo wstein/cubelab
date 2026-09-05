@@ -528,6 +528,8 @@ test("the SPA workspace keeps one viewport beside four URL-addressable destinati
   assert.match(client, /tutorialPhaseMoveCount/);
   assert.match(client, /inspectReduction4x4/);
   assert.match(client, /renderReduction4x4Academy/);
+  assert.match(client, /Resolve the last two wing pairs/);
+  assert.match(client, /OLL parity/);
   assert.match(client, /phase\.sequences/);
   assert.match(client, /benchmarkTarget/);
 });
