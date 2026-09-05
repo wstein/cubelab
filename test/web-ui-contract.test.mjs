@@ -186,18 +186,17 @@ test("the converter exposes a lazy HTM-optimal 2×2 solver through its worker co
   assert.match(solverWorker, /Optimal2x2Solver\.solve\(request\.state\)/);
 });
 
-test("the converter offers a bounded full 4×4 reduction attempt through the worker", () => {
+test("the converter only finishes an already-reduced 4×4 through the worker", () => {
   assert.match(page, /data-reduction-4x4-row/);
-  assert.match(page, /Attempt reduction/);
-  assert.match(page, /Experimental bounded reduction/);
+  assert.match(page, /Finish reduced state/);
+  assert.match(page, /Requires completed centres and paired wings/);
   assert.match(client, /createReduction4x4SolverClient/);
   assert.match(client, /reduction4x4Row\.hidden = size !== 4/);
   assert.match(client, /reduction4x4SolverClient\.solve\(setup\._0\.state\)/);
-  assert.match(client, /Experimental result:.*STM.*OBTM/);
+  assert.match(client, /STM.*OBTM reduced finish/);
   assert.match(client, /Setup changed; generate a new 4×4 solution/);
   assert.match(solverWorker, /type: "solveReduced4x4"/);
   assert.match(solverWorker, /reduce4x4\(request\.state\)/);
-  assert.match(solverWorker, /solveFullReduction4x4\(request\.state\)/);
   assert.match(solverWorker, /isMonochromeSolved4x4\(replay\._0\)/);
 });
 

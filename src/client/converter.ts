@@ -642,8 +642,8 @@ if (root) {
     reduction4x4Algorithm = "";
     reduction4x4SourceKey = "";
     reduction4x4Apply.disabled = true;
-    reduction4x4Solve.textContent = "Attempt reduction";
-    reduction4x4Result.textContent = "Experimental bounded reduction; not a complete or move-optimized 4×4 solver.";
+    reduction4x4Solve.textContent = "Finish reduced state";
+    reduction4x4Result.textContent = "Requires completed centres and paired wings; then solves the reduced 3×3 state.";
     reduction4x4Result.classList.remove("success", "failure");
   };
   const viewport = createCubeViewport(canvas, motionOverlay, (message) => {
@@ -5082,8 +5082,8 @@ if (root) {
       reduction4x4SolverClient.terminate();
       reduction4x4SolverClient = newReduction4x4SolverClient();
       reduction4x4SolveBusy = false;
-      reduction4x4Solve.textContent = "Attempt reduction";
-      reduction4x4Result.textContent = "4×4 reduction search stopped immediately.";
+      reduction4x4Solve.textContent = "Finish reduced state";
+      reduction4x4Result.textContent = "4×4 finishing search stopped immediately.";
       reduction4x4Result.classList.remove("success", "failure");
       return;
     }
@@ -5114,7 +5114,7 @@ if (root) {
       if (request !== reduction4x4Request || sourceKey !== reduction4x4SourceKey) return;
       reduction4x4Algorithm = MoveTransform.serialize(solution.alg) as string;
       reduction4x4Apply.disabled = reduction4x4Algorithm === "";
-      reduction4x4Result.textContent = `Experimental result: ${solution.stm} STM · ${solution.obtm} OBTM · ${reduction4x4Algorithm || "Solved"}`;
+      reduction4x4Result.textContent = `${solution.stm} STM · ${solution.obtm} OBTM reduced finish · ${reduction4x4Algorithm || "Solved"}`;
       reduction4x4Result.classList.add("success");
     } catch (reason) {
       if (request !== reduction4x4Request) return;
@@ -5123,7 +5123,7 @@ if (root) {
     } finally {
       if (request !== reduction4x4Request) return;
       reduction4x4SolveBusy = false;
-      reduction4x4Solve.textContent = "Attempt reduction";
+      reduction4x4Solve.textContent = "Finish reduced state";
       reduction4x4Solve.disabled = size !== 4;
     }
   });

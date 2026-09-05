@@ -3,7 +3,8 @@
 ## Status
 
 This is the acceptance contract for a future complete 4×4 solver. The current
-Converter action is experimental and does not meet this contract.
+Converter action only finishes an already reduced state and does not meet this
+contract.
 
 ## Metrics
 

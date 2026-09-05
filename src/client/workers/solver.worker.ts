@@ -5,7 +5,7 @@ import * as TwoPhaseSolver from "../../Solver/TwoPhaseSolver.res.mjs";
 import * as Optimal2x2Solver from "../../Solver/Optimal2x2Solver";
 import * as MoveExecutor from "../../Move/MoveExecutor.res.mjs";
 import {inspectReduction4x4, isMonochromeSolved4x4, reduce4x4} from "../../Solver/Reduction4x4";
-import {solveFullReduction4x4} from "../../Solver/FullReduction4x4";
+import {measureReduction4x4Moves, solveFullReduction4x4} from "../../Solver/FullReduction4x4";
 
 type TutorialMethod = "beginner" | "advancedLbl" | "beginnerCfop" | "fullCfop" | "advancedCfop" | "petrus" | "enhancedPetrus";
 type WorkerRequest =
@@ -129,17 +129,6 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
       });
       const reduced = reduce4x4(request.state);
       if (reduced.TAG === "Error") {
-        if (!reduced._0.message.startsWith("4×4 OLL parity detected:")
-          && !reduced._0.message.startsWith("4×4 PLL parity detected:")) {
-          self.postMessage({id: request.id, type: "reduction4x4Progress", stage: "Running bounded centre and wing reduction search…"});
-          const full = solveFullReduction4x4(request.state);
-          if (full.TAG === "Error") {
-            self.postMessage({id: request.id, ok: false, error: full._0.message});
-            return;
-          }
-          self.postMessage({id: request.id, ok: true, solution: full._0});
-          return;
-        }
         self.postMessage({id: request.id, ok: false, error: reduced._0.message});
         return;
       }
@@ -156,7 +145,12 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
         self.postMessage({id: request.id, ok: false, error: "The reduced 3×3 solution did not solve the original 4×4."});
         return;
       }
-      self.postMessage({id: request.id, ok: true, solution: solution._0});
+      const metrics = measureReduction4x4Moves(solution._0.alg);
+      if (metrics === null) {
+        self.postMessage({id: request.id, ok: false, error: "The reduced 4×4 solution could not be measured."});
+        return;
+      }
+      self.postMessage({id: request.id, ok: true, solution: {...solution._0, ...metrics}});
       return;
     }
     if (request.type === "solveFullReduction4x4") {
