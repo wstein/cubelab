@@ -787,12 +787,20 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(client, /pendingDirectMove/);
   assert.match(client, /let smartCubeRecording = false/);
   assert.match(client, /let smartCubeRecordingTapeDirty = false/);
+  assert.match(client, /let smartCubeRecordingState: CubeState \| null = null/);
+  assert.match(client, /let smartCubeRecordingTapePresented = false/);
   assert.match(client, /appendSmartCubeRecordingToken\(move\)/);
+  assert.match(client, /const advanceSmartCubeRecordingState = \(token: string\)/);
+  assert.match(client, /MoveExecutor\.applyStep\(smartCubeRecordingState, step\)/);
   assert.match(client, /Recorded regrip/);
   assert.match(client, /Record · verified \+ gyro/);
   const recordingBranch = client.indexOf("if (smartCubeRecording) {", client.indexOf("const applySmartCubeMove"));
   const recordingStopPlayback = client.indexOf("stopPlayback();", recordingBranch);
   assert.ok(recordingBranch >= 0 && client.indexOf("return;", recordingBranch) < recordingStopPlayback);
+  assert.ok(
+    client.indexOf("advanceSmartCubeRecordingState(move);", recordingBranch) < recordingStopPlayback,
+    "recording advances the tape-owned virtual state before leaving the physical-move path",
+  );
   assert.match(viewportComponent, /data-coaching-mode="coached"/);
   assert.match(viewportComponent, /data-coaching-mode="continuous"/);
   assert.match(page, /data-alg-transform="filter-regrips"/);
