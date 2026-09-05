@@ -2908,6 +2908,10 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   color: #e0e7ff;
 }
 
+.reduction-academy-phase {
+  cursor: default;
+}
+
 .academy-phase.satisfied {
   border-color: rgba(52, 211, 153, 0.24);
 }

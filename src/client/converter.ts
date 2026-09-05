@@ -12,6 +12,7 @@ import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as HamiltonMacro from "../Move/HamiltonMacro";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
+import {inspectReduction4x4} from "../Solver/Reduction4x4";
 import {
   createOptimal2x2SolverClient,
   createReduction4x4SolverClient,
@@ -166,7 +167,7 @@ type RecognizedInput = {
   timeline?: AlgorithmTimeline;
   timelineKey?: string;
 };
-type TutorialMethod = AcademyMethod;
+type TutorialMethod = Exclude<AcademyMethod, "reduction4x4">;
 type TutorialPhase = {
   number: number;
   title: string;
@@ -188,6 +189,12 @@ type AcademyElements = {
   phases: HTMLElement;
   copy: HTMLButtonElement;
   solution: HTMLElement;
+};
+type ReductionAcademyElements = {
+  status: HTMLElement;
+  current: HTMLElement;
+  phases: HTMLElement;
+  finish: HTMLButtonElement;
 };
 
 const root = document.querySelector<HTMLElement>("[data-converter]");
@@ -313,6 +320,7 @@ if (root) {
   const academyDrillFamily = root.querySelector<HTMLSelectElement>("[data-academy-drill-family]")!;
   const academyLoadDrill = root.querySelector<HTMLButtonElement>("[data-academy-load-drill]")!;
   const academyRandomDrill = root.querySelector<HTMLButtonElement>("[data-academy-random-drill]")!;
+  const academySharedActions = root.querySelectorAll<HTMLElement>(".academy-shared-action");
   const twoPhaseSolve = root.querySelector<HTMLButtonElement>("[data-two-phase-solve]")!;
   const twoPhaseApply = root.querySelector<HTMLButtonElement>("[data-two-phase-apply]")!;
   const twoPhaseResult = root.querySelector<HTMLOutputElement>("[data-two-phase-result]")!;
@@ -326,6 +334,7 @@ if (root) {
   const reduction4x4Apply = root.querySelector<HTMLButtonElement>("[data-reduction-4x4-apply]")!;
   const reduction4x4Result = root.querySelector<HTMLOutputElement>("[data-reduction-4x4-result]")!;
   const academyTarget = root.querySelector<HTMLInputElement>("[data-academy-target]")!;
+  const academyTargetControl = academyTarget.closest<HTMLElement>(".academy-target-input");
   const academyDom = (prefix: string) => ({
     status: root.querySelector<HTMLElement>(`[data-${prefix}-status]`)!,
     current: root.querySelector<HTMLElement>(`[data-${prefix}-current]`)!,
@@ -334,6 +343,12 @@ if (root) {
     solution: root.querySelector<HTMLElement>(`[data-${prefix}-solution]`)!,
   });
   const academyComparison = root.querySelector<HTMLElement>("[data-academy-comparison]")!;
+  const reduction4x4Academy: ReductionAcademyElements = {
+    status: root.querySelector<HTMLElement>("[data-reduction-4x4-academy-status]")!,
+    current: root.querySelector<HTMLElement>("[data-reduction-4x4-academy-current]")!,
+    phases: root.querySelector<HTMLElement>("[data-reduction-4x4-academy-phases]")!,
+    finish: root.querySelector<HTMLButtonElement>("[data-reduction-4x4-academy-finish]")!,
+  };
   const autoOrbitButton = root.querySelector<HTMLButtonElement>("[data-auto-orbit]")!;
   const turnGuidesButton = root.querySelector<HTMLButtonElement>("[data-turn-guides]")!;
   const settingsOpen = root.querySelector<HTMLButtonElement>("[data-settings-open]")!;
@@ -2186,8 +2201,8 @@ if (root) {
       const moveCount = savedTutorialSolutions.get(academy.method)?.solution.moveCount;
       return moveCount === undefined ? [] : [{label: academy.label, moveCount}];
     });
-    academyComparison.hidden = compared.length < 2;
-    if (compared.length < 2) {
+    academyComparison.hidden = academyMethod === "reduction4x4" || compared.length < 2;
+    if (academyMethod === "reduction4x4" || compared.length < 2) {
       academyComparison.textContent = "";
       return;
     }
@@ -2197,7 +2212,8 @@ if (root) {
       .join(" · ")}. Shortest: ${best.label}.`;
   };
 
-  const selectedTutorialMethod = (): TutorialMethod => academyMethod;
+  const selectedTutorialMethod = (): TutorialMethod | null =>
+    academyMethod === "reduction4x4" ? null : academyMethod;
 
   const isSolvedState = (state: CubeState): boolean => {
     const solved = StateTypes.solved(state.size) as Result<CubeState, unknown>;
@@ -2256,6 +2272,11 @@ if (root) {
 
   const updateAcademySolveButton = () => {
     const method = selectedTutorialMethod();
+    if (method === null) {
+      academySolve.disabled = true;
+      academySolve.textContent = "Use reduction milestones";
+      return;
+    }
     academySolve.disabled = academySolveBusy
       || activeRecognized === null
       || academyTargetDiagnostic() !== null
@@ -2285,6 +2306,91 @@ if (root) {
     coachStatus.textContent = "";
   };
 
+  const reductionAcademyPhase = (
+    number: number,
+    title: string,
+    instruction: string,
+    metrics: string,
+    satisfied: boolean,
+    active: boolean,
+  ) => {
+    const phase = document.createElement("article");
+    phase.className = `academy-phase reduction-academy-phase${satisfied ? " satisfied" : ""}${active ? " active" : ""}`;
+    const heading = document.createElement("strong");
+    heading.textContent = `${number}. ${title}`;
+    const detail = document.createElement("span");
+    detail.textContent = instruction;
+    const metric = document.createElement("span");
+    metric.className = "academy-phase-metrics";
+    metric.textContent = metrics;
+    phase.append(heading, detail, metric);
+    return phase;
+  };
+
+  const renderReduction4x4Academy = (recognized: RecognizedInput | null) => {
+    const academy = reduction4x4Academy;
+    academy.status.classList.remove("error");
+    academy.phases.replaceChildren();
+    academy.current.hidden = true;
+    academy.finish.hidden = true;
+    academy.finish.disabled = true;
+    if (size !== 4) {
+      academy.status.textContent = "4×4 Reduction Academy is available for 4×4 states.";
+      return;
+    }
+    if (recognized === null) {
+      academy.status.textContent = "Enter a complete, physically valid 4×4 state to inspect reduction.";
+      return;
+    }
+    const inspection = inspectReduction4x4(recognized.state);
+    if (inspection.TAG === "Error") {
+      academy.status.textContent = "This 4×4 state cannot be inspected for reduction.";
+      academy.status.classList.add("error");
+      return;
+    }
+    const progress = inspection._0;
+    academy.status.textContent = `${progress.centreBlocksComplete}/6 centre blocks · ${progress.wingRowsPaired}/24 wing rows paired.`;
+    academy.current.hidden = false;
+    academy.current.textContent = progress.nextGoal;
+    const centresDone = progress.centreBlocksComplete === 6;
+    const wingsDone = progress.wingRowsPaired === 24;
+    academy.phases.append(
+      reductionAcademyPhase(
+        1,
+        "Build six centre blocks",
+        "Use free centres to form one monochrome 2×2 block per face; establish the colour scheme before pairing edges.",
+        `${progress.centreBlocksComplete}/6 centre blocks`,
+        centresDone,
+        progress.stage === "centres",
+      ),
+      reductionAcademyPhase(
+        2,
+        "Pair 24 wing rows",
+        "Match each visible two-sticker wing row. A paired row becomes one dedge for the reduced 3×3.",
+        `${progress.wingRowsPaired}/24 wing rows`,
+        wingsDone,
+        progress.stage === "wings",
+      ),
+      reductionAcademyPhase(
+        3,
+        "Finish the reduced 3×3",
+        "Run the verified reduced-state finisher. It keeps the outer-layer solution on the original 4×4; a parity case remains a separate repair lesson.",
+        progress.stage === "reduced" ? "Ready for handoff" : "Locked until centres and wings are reduced",
+        progress.stage === "reduced",
+        progress.stage === "reduced",
+      ),
+    );
+    academy.finish.hidden = progress.stage !== "reduced";
+    academy.finish.disabled = progress.stage !== "reduced";
+  };
+
+  const updateAcademyMethodControls = () => {
+    const reductionMode = academyMethod === "reduction4x4";
+    academySharedActions.forEach((control) => { control.hidden = reductionMode; });
+    if (academyTargetControl) academyTargetControl.hidden = reductionMode;
+    if (reductionMode) academyComparison.hidden = true;
+  };
+
   const updateAcademySource = (recognized: RecognizedInput | null) => {
     academyRequestGuard.invalidate();
     academySolveBusy = false;
@@ -2300,9 +2406,11 @@ if (root) {
             ? "This cube is already solved. Every Academy phase is satisfied at 0 HTM; load a scramble for a non-zero tutorial."
             : `Ready to teach the recognized ${recognized.label.toLowerCase()} setup to the selected target pattern.`;
     });
+    renderReduction4x4Academy(recognized);
     const diagnostic = academyTargetDiagnostic();
-    if (diagnostic !== null) {
-      const academy = academyForMethod(selectedTutorialMethod());
+    const method = selectedTutorialMethod();
+    if (diagnostic !== null && method !== null) {
+      const academy = academyForMethod(method);
       academy.status.textContent = diagnostic;
       academy.status.classList.add("error");
     }
@@ -4190,13 +4298,17 @@ if (root) {
     root.querySelectorAll<HTMLElement>("[data-academy-method-panel]").forEach((panel) => {
       panel.hidden = panel.dataset.academyMethodPanel !== academyMethod;
     });
+    updateAcademyMethodControls();
     if (appStateApplied && academyMethodChanged) {
       academyRequestGuard.invalidate();
       academySolveBusy = false;
       const method = selectedTutorialMethod();
-      const saved = savedTutorialSolutions.get(method);
-      const academy = academyForMethod(method);
-      if (saved) presentTutorialSolution(saved.initialState, saved.solution, academy);
+      if (method !== null) {
+        const saved = savedTutorialSolutions.get(method);
+        const academy = academyForMethod(method);
+        if (saved) presentTutorialSolution(saved.initialState, saved.solution, academy);
+      }
+      renderReduction4x4Academy(activeRecognized);
     }
     updateAcademySolveButton();
     appStateApplied = true;
@@ -4297,6 +4409,14 @@ if (root) {
         academyMethod: button.dataset.academyMethod as AcademyMethod,
       });
     });
+  });
+
+  reduction4x4Academy.finish.addEventListener("click", () => {
+    if (size !== 4 || activeRecognized === null) return;
+    const inspection = inspectReduction4x4(activeRecognized.state);
+    if (inspection.TAG !== "Ok" || inspection._0.stage !== "reduced") return;
+    store.patch({activeTab: "converter"});
+    window.requestAnimationFrame(() => reduction4x4Solve.click());
   });
 
   root.querySelectorAll<HTMLButtonElement>("[data-size]").forEach((button) => {
@@ -5173,7 +5293,7 @@ if (root) {
 
   academySolve.addEventListener("click", () => {
     const method = selectedTutorialMethod();
-    if (size !== 3 || activeRecognized === null) return;
+    if (method === null || size !== 3 || activeRecognized === null) return;
     const initialState = activeRecognized.state;
     const target = academyTargetState();
     const academy = academyForMethod(method);
@@ -5220,7 +5340,7 @@ if (root) {
 
   academyInstantDrill.addEventListener("click", () => {
     if (!smartCubeConnected || !activeRecognized || size !== 3) {
-      academyForMethod(selectedTutorialMethod()).status.textContent = "Connect a 3×3 smart cube to start an instant drill.";
+      academyForMethod(selectedTutorialMethod() ?? "beginner").status.textContent = "Connect a 3×3 smart cube to start an instant drill.";
       return;
     }
     setSmartCubeControllerMode(true);
@@ -5241,12 +5361,12 @@ if (root) {
 
   const loadCuratedDrill = (drill: DrillCase, yRotation = 0) => {
     if (!drill || !smartCubeConnected) {
-      academyForMethod(selectedTutorialMethod()).status.textContent = "Connect a smart cube to load a curated virtual drill.";
+      academyForMethod(selectedTutorialMethod() ?? "beginner").status.textContent = "Connect a smart cube to load a curated virtual drill.";
       return;
     }
     const parsed = MoveParser.parseWithOptions(3, "Wide", "Modern", drill.algorithm) as Result<unknown[], {message: string}>;
     if (parsed.TAG === "Error") {
-      academyForMethod(selectedTutorialMethod()).status.textContent = parsed._0.message;
+      academyForMethod(selectedTutorialMethod() ?? "beginner").status.textContent = parsed._0.message;
       return;
     }
     const solved = StateTypes.solved(3) as Result<CubeState, unknown>;
@@ -5254,7 +5374,7 @@ if (root) {
     const rotated = MoveTransform.rotate(parsed._0, "Y", yRotation);
     const caseState = MoveExecutor.applyAlg(solved._0, MoveTransform.invert(rotated)) as Result<CubeState, unknown>;
     if (caseState.TAG === "Error") {
-      academyForMethod(selectedTutorialMethod()).status.textContent = "Could not construct the selected drill case.";
+      academyForMethod(selectedTutorialMethod() ?? "beginner").status.textContent = "Could not construct the selected drill case.";
       return;
     }
     setSmartCubeControllerMode(true);

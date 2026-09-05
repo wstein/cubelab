@@ -494,6 +494,7 @@ test("the SPA workspace keeps one viewport beside four URL-addressable destinati
   assert.match(page, /data-academy-method="advancedCfop"/);
   assert.match(page, /data-academy-method="petrus"/);
   assert.match(page, /data-academy-method="enhancedPetrus"/);
+  assert.match(page, /data-academy-method="reduction4x4"/);
   assert.match(page, /57 OLL \+ 21 PLL/);
   assert.match(page, /data-academy-method-panel="beginner"/);
   assert.match(page, /data-academy-method-panel="advancedLbl"/);
@@ -502,6 +503,9 @@ test("the SPA workspace keeps one viewport beside four URL-addressable destinati
   assert.match(page, /data-academy-method-panel="advancedCfop"/);
   assert.match(page, /data-academy-method-panel="petrus"/);
   assert.match(page, /data-academy-method-panel="enhancedPetrus"/);
+  assert.match(page, /data-academy-method-panel="reduction4x4"/);
+  assert.match(page, /data-reduction-4x4-academy-status/);
+  assert.match(page, /data-reduction-4x4-academy-finish/);
   assert.doesNotMatch(page, /solver not enabled yet/);
   assert.match(page, /data-academy-comparison/);
   assert.equal((page.match(/<CubeViewport \/>/g) ?? []).length, 1);
@@ -522,6 +526,8 @@ test("the SPA workspace keeps one viewport beside four URL-addressable destinati
   assert.match(client, /store\.patch\(\{activeTab:/);
   assert.match(client, /academyMethod:/);
   assert.match(client, /tutorialPhaseMoveCount/);
+  assert.match(client, /inspectReduction4x4/);
+  assert.match(client, /renderReduction4x4Academy/);
   assert.match(client, /phase\.sequences/);
   assert.match(client, /benchmarkTarget/);
 });

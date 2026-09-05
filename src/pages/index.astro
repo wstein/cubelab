@@ -943,6 +943,16 @@ s100"></textarea>
                       >5 phases · COLL/EPLL</span
                     >
                   </button>
+                  <button
+                    type="button"
+                    class="academy-method"
+                    data-academy-method="reduction4x4"
+                    aria-pressed="false"
+                  >
+                    <strong>🧊 4×4 Reduction</strong><span
+                      >Centres · wings · 3×3 handoff</span
+                    >
+                  </button>
                 </div>
                 <button
                   type="button"
@@ -1260,6 +1270,41 @@ s100"></textarea>
                 data-enhanced-petrus-solution
                 hidden>
               </pre>
+            </div>
+
+            <div data-academy-method-panel="reduction4x4" hidden>
+              <header class="feature-header academy-method-header">
+                <div>
+                  <span class="panel-label"
+                    >Centres first, then paired wings, then a verified 3×3 finish</span
+                  >
+                  <h3>4×4 Reduction Academy</h3>
+                </div>
+              </header>
+              <p class="academy-intro">
+                Learn the parts that are unique to a 4×4: make each 2×2 centre
+                block, pair the 24 wing rows into 12 edges, then hand the
+                reduced state to the existing verified 3×3 finisher. Reduction
+                parity remains a separate, explicit next lesson rather than a
+                hidden claim by the 3×3 handoff.
+              </p>
+              <div
+                class="academy-status"
+                data-reduction-4x4-academy-status
+                aria-live="polite"
+              >
+                Enter a valid 4×4 state to inspect reduction.
+              </div>
+              <div class="academy-current" data-reduction-4x4-academy-current hidden></div>
+              <div class="academy-phases" data-reduction-4x4-academy-phases></div>
+              <div class="academy-solution-actions">
+                <button
+                  type="button"
+                  class="academy-solve-btn"
+                  data-reduction-4x4-academy-finish
+                  hidden
+                >Continue with reduced 3×3 finish</button>
+              </div>
             </div>
           </section>
 

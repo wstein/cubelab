@@ -100,6 +100,8 @@ describe("application state store", () => {
     expect(readHash("#tab=academy&method=classicalPetrus").academyMethod).toBe("petrus");
     expect(readHash("#tab=academy&method=enhancedPetrus").academyMethod).toBe("enhancedPetrus");
     expect(readHash("#tab=academy&method=modernPetrus").academyMethod).toBe("enhancedPetrus");
+    expect(readHash("#tab=academy&method=reduction4x4").academyMethod).toBe("reduction4x4");
+    expect(readHash("#tab=academy&method=reduction").academyMethod).toBe("reduction4x4");
     expect(readHash("#tab=workbench").activeTab).toBe("workbench");
     expect(readHash("#tab=patterns").activeTab).toBe("patterns");
     expect(readHash("#tab=unknown").activeTab).toBe("converter");
@@ -117,6 +119,8 @@ describe("application state store", () => {
       .toContain("tab=academy&method=petrus");
     expect(writeHash({...defaultAppState, activeTab: "academy", academyMethod: "enhancedPetrus"}))
       .toContain("tab=academy&method=enhancedPetrus");
+    expect(writeHash({...defaultAppState, activeTab: "academy", academyMethod: "reduction4x4"}))
+      .toContain("tab=academy&method=reduction4x4");
   });
 
   test("persists an explicit turn-guide opt-out", () => {
