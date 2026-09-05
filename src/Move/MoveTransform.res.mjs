@@ -408,6 +408,171 @@ function simplify(alg) {
   };
 }
 
+function segment(units, start, length) {
+  let output = [];
+  for (let index = 0; index < length; ++index) {
+    output.push(units[start + index | 0]);
+  }
+  return output;
+}
+
+function isMoveUnit(unit) {
+  let match = unit.desc;
+  if (typeof match !== "object") {
+    return false;
+  } else {
+    return match.TAG === "Move";
+  }
+}
+
+function allMoveUnits(units) {
+  return units.every(isMoveUnit);
+}
+
+function matchesAt(units, start, pattern) {
+  if ((start + pattern.length | 0) > units.length) {
+    return false;
+  }
+  let matches = true;
+  for (let index = 0, index_finish = pattern.length; index < index_finish; ++index) {
+    if (!isMoveUnit(units[start + index | 0]) || Primitive_object.notequal(units[start + index | 0].desc, pattern[index].desc)) {
+      matches = false;
+    }
+  }
+  return matches;
+}
+
+function findCommutator(units, start) {
+  let found;
+  let remaining = units.length - start | 0;
+  let aLength = 1;
+  while (found === undefined && (aLength << 2) <= remaining) {
+    let bLength = 1;
+    while (found === undefined && ((aLength << 1) + (bLength << 1) | 0) <= remaining) {
+      let left = segment(units, start, aLength);
+      let right = segment(units, start + aLength | 0, bLength);
+      let afterRight = (start + aLength | 0) + bLength | 0;
+      if (left.every(isMoveUnit) && right.every(isMoveUnit) && matchesAt(units, afterRight, invert(left)) && matchesAt(units, afterRight + aLength | 0, invert(right))) {
+        found = {
+          consumed: (aLength << 1) + (bLength << 1) | 0,
+          unit: {
+            desc: {
+              TAG: "Commutator",
+              _0: left,
+              _1: right,
+              _2: 1
+            },
+            loc: generatedLoc
+          }
+        };
+      }
+      bLength = bLength + 1 | 0;
+    };
+    aLength = aLength + 1 | 0;
+  };
+  return found;
+}
+
+function findConjugate(units, start) {
+  let found;
+  let remaining = units.length - start | 0;
+  let aLength = 1;
+  while (found === undefined && ((aLength << 1) + 1 | 0) <= remaining) {
+    let bLength = 1;
+    while (found === undefined && ((aLength << 1) + bLength | 0) <= remaining) {
+      let left = segment(units, start, aLength);
+      let right = segment(units, start + aLength | 0, bLength);
+      if (left.every(isMoveUnit) && right.every(isMoveUnit) && matchesAt(units, (start + aLength | 0) + bLength | 0, invert(left))) {
+        found = {
+          consumed: (aLength << 1) + bLength | 0,
+          unit: {
+            desc: {
+              TAG: "Conjugate",
+              _0: left,
+              _1: right,
+              _2: 1
+            },
+            loc: generatedLoc
+          }
+        };
+      }
+      bLength = bLength + 1 | 0;
+    };
+    aLength = aLength + 1 | 0;
+  };
+  return found;
+}
+
+function findRepeat(units, start) {
+  let found;
+  let remaining = units.length - start | 0;
+  let blockLength = 1;
+  while (found === undefined && (blockLength << 1) <= remaining) {
+    let body = segment(units, start, blockLength);
+    if (body.every(isMoveUnit)) {
+      let repeats = 1;
+      while (matchesAt(units, start + (repeats * blockLength | 0) | 0, body)) {
+        repeats = repeats + 1 | 0;
+      };
+      if (repeats >= 2) {
+        found = {
+          consumed: repeats * blockLength | 0,
+          unit: {
+            desc: {
+              TAG: "Group",
+              _0: body,
+              _1: repeats
+            },
+            loc: generatedLoc
+          }
+        };
+      }
+    }
+    blockLength = blockLength + 1 | 0;
+  };
+  return found;
+}
+
+function factorStructureUnits(units, _index, _output) {
+  while (true) {
+    let output = _output;
+    let index = _index;
+    if (index >= units.length) {
+      return output;
+    }
+    if (isMoveUnit(units[index])) {
+      let value = findCommutator(units, index);
+      let factor;
+      if (value !== undefined) {
+        factor = value;
+      } else {
+        let value$1 = findConjugate(units, index);
+        factor = value$1 !== undefined ? value$1 : findRepeat(units, index);
+      }
+      if (factor !== undefined) {
+        _output = output.concat([factor.unit]);
+        _index = index + factor.consumed | 0;
+        continue;
+      }
+      _output = output.concat([units[index]]);
+      _index = index + 1 | 0;
+      continue;
+    }
+    _output = output.concat([units[index]]);
+    _index = index + 1 | 0;
+    continue;
+  };
+}
+
+function factorStructure(alg) {
+  let flat = simplify(alg);
+  if (flat.TAG === "Ok") {
+    return factorStructureUnits(flat._0, 0, []);
+  } else {
+    return alg;
+  }
+}
+
 function moveUnit(move, turns) {
   return {
     desc: {
@@ -1677,6 +1842,176 @@ function expandRegripsToFaces(alg) {
   return canonicalizeOuterPairs(pushRotationsRight(expanded), 0, []);
 }
 
+function regripAsWide(axis, turns) {
+  switch (axis) {
+    case "X" :
+      return [
+        {
+          desc: {
+            TAG: "Move",
+            _0: {
+              TAG: "FaceTurn",
+              _0: "R",
+              _1: {
+                from_: 1,
+                to_: 2
+              }
+            },
+            _1: turns
+          },
+          loc: generatedLoc
+        },
+        {
+          desc: {
+            TAG: "Move",
+            _0: {
+              TAG: "FaceTurn",
+              _0: "L",
+              _1: {
+                from_: 1,
+                to_: 1
+              }
+            },
+            _1: -turns | 0
+          },
+          loc: generatedLoc
+        }
+      ];
+    case "Y" :
+      return [
+        {
+          desc: {
+            TAG: "Move",
+            _0: {
+              TAG: "FaceTurn",
+              _0: "U",
+              _1: {
+                from_: 1,
+                to_: 2
+              }
+            },
+            _1: turns
+          },
+          loc: generatedLoc
+        },
+        {
+          desc: {
+            TAG: "Move",
+            _0: {
+              TAG: "FaceTurn",
+              _0: "D",
+              _1: {
+                from_: 1,
+                to_: 1
+              }
+            },
+            _1: -turns | 0
+          },
+          loc: generatedLoc
+        }
+      ];
+    case "Z" :
+      return [
+        {
+          desc: {
+            TAG: "Move",
+            _0: {
+              TAG: "FaceTurn",
+              _0: "F",
+              _1: {
+                from_: 1,
+                to_: 2
+              }
+            },
+            _1: turns
+          },
+          loc: generatedLoc
+        },
+        {
+          desc: {
+            TAG: "Move",
+            _0: {
+              TAG: "FaceTurn",
+              _0: "B",
+              _1: {
+                from_: 1,
+                to_: 1
+              }
+            },
+            _1: -turns | 0
+          },
+          loc: generatedLoc
+        }
+      ];
+  }
+}
+
+function regripsToWide(alg) {
+  return Stdlib_Array.reduce(alg, [], (output, unit) => {
+    let match = unit.desc;
+    if (typeof match !== "object") {
+      return output.concat([unit]);
+    }
+    if (match.TAG !== "Move") {
+      return output.concat([unit]);
+    }
+    let axis = match._0;
+    switch (axis.TAG) {
+      case "FaceTurn" :
+      case "SliceTurn" :
+        return output.concat([unit]);
+      case "Rotation" :
+        return output.concat(regripAsWide(axis._0, match._1));
+    }
+  });
+}
+
+function filterRegrips(alg) {
+  let pending = {
+    contents: []
+  };
+  let output = {
+    contents: []
+  };
+  alg.forEach(unit => {
+    let match = unit.desc;
+    if (typeof match === "object" && match.TAG === "Move") {
+      let exit = 0;
+      switch (match._0.TAG) {
+        case "FaceTurn" :
+        case "SliceTurn" :
+          exit = 2;
+          break;
+        case "Rotation" :
+          pending.contents = pending.contents.concat([unit]);
+          return;
+      }
+      if (exit === 2) {
+        let moved = [unit];
+        for (let index = pending.contents.length - 1 | 0; index >= 0; --index) {
+          let match$1 = pending.contents[index].desc;
+          if (typeof match$1 === "object" && match$1.TAG === "Move") {
+            let axis = match$1._0;
+            switch (axis.TAG) {
+              case "FaceTurn" :
+              case "SliceTurn" :
+                break;
+              case "Rotation" :
+                moved = rotate(moved, axis._0, -match$1._1 | 0);
+                break;
+            }
+          }
+        }
+        output.contents = output.contents.concat(moved);
+        return;
+      }
+    }
+    output.contents = output.contents.concat(pending.contents).concat([unit]);
+    pending.contents = [];
+  });
+  return output.contents;
+}
+
 function practiceLength(size) {
   switch (size) {
     case 2 :
@@ -1843,6 +2178,15 @@ export {
   flushRun,
   addToRun,
   simplify,
+  segment,
+  isMoveUnit,
+  allMoveUnits,
+  matchesAt,
+  findCommutator,
+  findConjugate,
+  findRepeat,
+  factorStructureUnits,
+  factorStructure,
   moveUnit,
   outerFace,
   sliceRegripPair,
@@ -1869,6 +2213,9 @@ export {
   expandSliceRegrip,
   canonicalizeOuterPairs,
   expandRegripsToFaces,
+  regripAsWide,
+  regripsToWide,
+  filterRegrips,
   practiceLength,
   practiceFamilies,
   randomIndex,

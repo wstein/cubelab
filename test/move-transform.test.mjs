@@ -114,6 +114,37 @@ test("expands unfolded slices and regrips back into outer face turns", () => {
   assert.equal(compact(3, serialize(expanded)), compact(3, source));
 });
 
+test("factors commutators, conjugates, and repeats for every supported size", () => {
+  for (const size of [2, 3, 4, 5]) {
+    for (const [source, expected] of [
+      ["R U R' U'", "[R, U]"],
+      ["R U R'", "[R: U]"],
+      ["R U R U", "(R U)2"],
+      ["R F U L F' R' L' U'", "[R F, U L]"],
+    ]) {
+      const factored = MoveTransform.factorStructure(parse(size, source));
+      assert.equal(serialize(factored), expected, `${size}×${size}: ${source}`);
+      assert.equal(compact(size, serialize(factored)), compact(size, source));
+    }
+  }
+});
+
+test("factors unfolded and named slice commutators before their regrips", () => {
+  for (const [source, expected] of [
+    ["2L 2D' 2L' 2D x y", "[2L, 2D'] x y"],
+    ["M E' M' E x y", "[M, E'] x y"],
+  ]) {
+    const factored = MoveTransform.factorStructure(parse(3, source));
+    assert.equal(serialize(factored), expected);
+    assert.equal(compact(3, serialize(factored)), compact(3, source));
+  }
+});
+
+test("does not factor across a comment boundary", () => {
+  const source = "R U /* keep */ R' U'";
+  assert.equal(serialize(MoveTransform.factorStructure(parse(3, source))), source);
+});
+
 test("generates bounded size-aware practice scrambles without adjacent equal axes", () => {
   const expectedLengths = new Map([[2, 11], [3, 25], [4, 45], [5, 60]]);
   for (const [size, expectedLength] of expectedLengths) {

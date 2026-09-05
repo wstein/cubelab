@@ -33,6 +33,15 @@ as hard boundaries so a transform cannot move a turn across an editor annotation
 This is an exact cube-group rewrite, not a heuristic move-count optimizer: overlapping
 but differently spelled layer ranges are not synthesized into new range expressions.
 
+### Factor structure
+
+**Factor structure** is available for every supported cube size. It recognizes contiguous
+move runs of the forms `A B A' B'`, `A B A'`, and repeated `A` blocks, and writes them
+as `[A, B]`, `[A: B]`, and `(A)n`, respectively. `A` and `B` can themselves contain
+multiple moves. For example, `2L 2D' 2L' 2D x y` becomes `[2L, 2D'] x y`, while
+`M E' M' E x y` becomes `[M, E'] x y` on a 3×3. Comments and pauses stay hard
+boundaries, so factoring cannot silently move a turn through an annotation.
+
 ### Optimize regrips
 
 **Optimize regrips** is an opt-in, 3×3-only notation transform. It preserves the exact
@@ -120,8 +129,8 @@ visible, editable, and shareable. Its presentation then depends on smart-cube mo
 
 ## Browser integration
 
-The action ribbon below the input exposes **Invert**, **Simplify**, 3×3-only **Optimize
-regrips** and **Expand regrips**, all three mirror
+The action ribbon below the input exposes **Invert**, **Simplify**, **Factor structure**,
+3×3-only **Optimize regrips** and **Expand regrips**, all three mirror
 planes (**L/R**, **F/B**, and **U/D**), all three coordinate rotations (**x**, **y**, and
 **z**), and **Practice scramble**. Algebraic actions are enabled only when the
 current input is a recognized algorithm; state codecs cannot accidentally be rewritten

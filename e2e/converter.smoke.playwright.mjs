@@ -1141,6 +1141,9 @@ test("applies algorithm workbench actions and generates size-aware practice scra
   await expect(moves).toHaveValue("2L 2D' 2L' 2D x y");
   await page.getByRole("button", {name: "Expand regrips"}).click();
   await expect(moves).toHaveValue("L' R B' F D' U L' R");
+  await moves.fill("2L 2D' 2L' 2D x y");
+  await page.getByRole("button", {name: "Factor structure"}).click();
+  await expect(moves).toHaveValue("[2L, 2D'] x y");
 
   await moves.fill("R U R'");
   await page.getByRole("button", {name: "Mirror L/R"}).click();

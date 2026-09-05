@@ -228,6 +228,159 @@ let simplify = (alg: alg): result<alg, MoveExecutor.executionError> =>
     }
   }
 
+let segment = (units, start, length) => {
+  let output = []
+  for index in 0 to length - 1 {
+    output->Array.push(Belt.Array.getUnsafe(units, start + index))
+  }
+  output
+}
+
+let isMoveUnit = unit =>
+  switch unit.desc {
+  | Move(_, _) => true
+  | _ => false
+  }
+
+let allMoveUnits = units => units->Array.every(isMoveUnit)
+
+let matchesAt = (units, start, pattern) => {
+  if start + pattern->Array.length > units->Array.length {
+    false
+  } else {
+    let matches = ref(true)
+    for index in 0 to pattern->Array.length - 1 {
+      if (
+        !isMoveUnit(Belt.Array.getUnsafe(units, start + index)) ||
+        Belt.Array.getUnsafe(units, start + index).desc != Belt.Array.getUnsafe(pattern, index).desc
+      ) {
+        matches := false
+      }
+    }
+    matches.contents
+  }
+}
+
+type structureFactor = {consumed: int, unit: locatedUnit}
+
+let findCommutator = (units, start) => {
+  let found = ref(None)
+  let remaining = units->Array.length - start
+  let aLength = ref(1)
+  while found.contents == None && aLength.contents * 4 <= remaining {
+    let bLength = ref(1)
+    while found.contents == None && aLength.contents * 2 + bLength.contents * 2 <= remaining {
+      let left = segment(units, start, aLength.contents)
+      let right = segment(units, start + aLength.contents, bLength.contents)
+      let afterRight = start + aLength.contents + bLength.contents
+      if (
+        allMoveUnits(left) &&
+        allMoveUnits(right) &&
+        matchesAt(units, afterRight, invert(left)) &&
+        matchesAt(units, afterRight + aLength.contents, invert(right))
+      ) {
+        found :=
+          Some({
+            consumed: aLength.contents * 2 + bLength.contents * 2,
+            unit: located(Commutator(left, right, 1)),
+          })
+      }
+      bLength := bLength.contents + 1
+    }
+    aLength := aLength.contents + 1
+  }
+  found.contents
+}
+
+let findConjugate = (units, start) => {
+  let found = ref(None)
+  let remaining = units->Array.length - start
+  let aLength = ref(1)
+  while found.contents == None && aLength.contents * 2 + 1 <= remaining {
+    let bLength = ref(1)
+    while found.contents == None && aLength.contents * 2 + bLength.contents <= remaining {
+      let left = segment(units, start, aLength.contents)
+      let right = segment(units, start + aLength.contents, bLength.contents)
+      if (
+        allMoveUnits(left) &&
+        allMoveUnits(right) &&
+        matchesAt(units, start + aLength.contents + bLength.contents, invert(left))
+      ) {
+        found :=
+          Some({
+            consumed: aLength.contents * 2 + bLength.contents,
+            unit: located(Conjugate(left, right, 1)),
+          })
+      }
+      bLength := bLength.contents + 1
+    }
+    aLength := aLength.contents + 1
+  }
+  found.contents
+}
+
+let findRepeat = (units, start) => {
+  let found = ref(None)
+  let remaining = units->Array.length - start
+  let blockLength = ref(1)
+  while found.contents == None && blockLength.contents * 2 <= remaining {
+    let body = segment(units, start, blockLength.contents)
+    if allMoveUnits(body) {
+      let repeats = ref(1)
+      while matchesAt(units, start + repeats.contents * blockLength.contents, body) {
+        repeats := repeats.contents + 1
+      }
+      if repeats.contents >= 2 {
+        found :=
+          Some({
+            consumed: repeats.contents * blockLength.contents,
+            unit: located(Group(body, repeats.contents)),
+          })
+      }
+    }
+    blockLength := blockLength.contents + 1
+  }
+  found.contents
+}
+
+let rec factorStructureUnits = (units, index, output) =>
+  if index >= units->Array.length {
+    output
+  } else if !isMoveUnit(Belt.Array.getUnsafe(units, index)) {
+    factorStructureUnits(
+      units,
+      index + 1,
+      output->Array.concat([Belt.Array.getUnsafe(units, index)]),
+    )
+  } else {
+    let factor = switch findCommutator(units, index) {
+    | Some(value) => Some(value)
+    | None =>
+      switch findConjugate(units, index) {
+      | Some(value) => Some(value)
+      | None => findRepeat(units, index)
+      }
+    }
+    switch factor {
+    | Some({consumed, unit}) =>
+      factorStructureUnits(units, index + consumed, output->Array.concat([unit]))
+    | None =>
+      factorStructureUnits(
+        units,
+        index + 1,
+        output->Array.concat([Belt.Array.getUnsafe(units, index)]),
+      )
+    }
+  }
+
+/** Compress flat, repeated move runs into commutator, conjugate, and group AST nodes.
+ * This syntax-only transform is size independent and never crosses annotations. */
+let factorStructure = (alg: alg): alg =>
+  switch simplify(alg) {
+  | Error(_) => alg
+  | Ok(flat) => factorStructureUnits(flat, 0, [])
+  }
+
 let moveUnit = (move, turns) => located(Move(move, turns))
 
 let outerFace = unit =>
@@ -580,6 +733,63 @@ let expandRegripsToFaces = (alg: alg): alg =>
       expanded->pushRotationsRight->canonicalizeOuterPairs(0, [])
     }
   }
+
+/* Smart-cube recordings expose gyro regrips as x/y/z. Retain the physical
+ * handling while spelling each regrip as a wide turn plus the opposite outer
+ * face: x = Rw L', y = Uw D', z = Fw B'. */
+let regripAsWide = (axis, turns) =>
+  switch axis {
+  | X => [
+      moveUnit(FaceTurn(R, {from_: 1, to_: 2}), turns),
+      moveUnit(FaceTurn(L, {from_: 1, to_: 1}), -turns),
+    ]
+  | Y => [
+      moveUnit(FaceTurn(U, {from_: 1, to_: 2}), turns),
+      moveUnit(FaceTurn(D, {from_: 1, to_: 1}), -turns),
+    ]
+  | Z => [
+      moveUnit(FaceTurn(F, {from_: 1, to_: 2}), turns),
+      moveUnit(FaceTurn(B, {from_: 1, to_: 1}), -turns),
+    ]
+  }
+
+/** Replaces top-level x/y/z recording events with exact 3×3 wide-turn pairs. */
+let regripsToWide = (alg: alg): alg =>
+  alg->Array.reduce([], (output, unit) =>
+    switch unit.desc {
+    | Move(Rotation(axis), turns) => output->Array.concat(regripAsWide(axis, turns))
+    | _ => output->Array.concat([unit])
+    }
+  )
+
+/* Rewrites face turns through each preceding regrip into the original fixed
+ * frame, then omits the regrips. A trailing regrip is deliberately discarded:
+ * it changes only the reader's grip, not the fixed-frame turn tape. */
+let filterRegrips = (alg: alg): alg => {
+  let pending = ref([])
+  let output = ref([])
+  alg->Array.forEach(unit =>
+    switch unit.desc {
+    | Move(Rotation(_), _) => pending := pending.contents->Array.concat([unit])
+    | Move(_, _) => {
+        let moved = ref([unit])
+        for index in pending.contents->Array.length - 1 downto 0 {
+          switch Belt.Array.getUnsafe(pending.contents, index).desc {
+          | Move(Rotation(axis), turns) => moved := rotate(moved.contents, ~axis, ~turns=-turns)
+          | _ => ()
+          }
+        }
+        output := output.contents->Array.concat(moved.contents)
+      }
+    | _ => {
+        /* Do not move a rotation over a semantic editor boundary. */
+        output := output.contents->Array.concat(pending.contents)->Array.concat([unit])
+        pending := []
+      }
+    }
+  )
+  output.contents
+}
 
 let practiceLength = size =>
   switch size {

@@ -408,6 +408,13 @@ const cards = [
               <button
                 type="button"
                 class="transform-btn"
+                data-alg-transform="factor-structure"
+                title="Rewrite repeated move runs as commutators, conjugates, and groups"
+                disabled>⌘ Factor structure</button
+              >
+              <button
+                type="button"
+                class="transform-btn"
                 data-alg-transform="optimize-regrips"
                 title="Rewrite an equivalent 3×3 algorithm using M/E/S slices, wide turns, and x/y/z regrips"
                 disabled>⚙ Optimize regrips</button
@@ -418,6 +425,20 @@ const cards = [
                 data-alg-transform="expand-regrips"
                 title="Rewrite 3×3 M/E/S slices and x/y/z regrips as outer face turns"
                 disabled>⇱ Expand regrips</button
+              >
+              <button
+                type="button"
+                class="transform-btn"
+                data-alg-transform="regrips-to-wide"
+                title="Rewrite recorded x/y/z regrips as exact wide-turn pairs"
+                disabled>⇱ Regrips → wide</button
+              >
+              <button
+                type="button"
+                class="transform-btn"
+                data-alg-transform="filter-regrips"
+                title="Remove recorded x/y/z regrips and remap later turns into the fixed frame"
+                disabled>⇲ Filter regrips</button
               >
               <button
                 type="button"
@@ -731,6 +752,8 @@ s100"></textarea>
               It does not change the bounded face-turn search under <strong>Try to shorten</strong>.
               <strong>Expand regrips</strong> is its outer-face counterpart and also
               accepts unfolded <code>2L/2D/2F</code> slice notation.
+              <strong>Factor structure</strong> works on every supported size and finds
+              repeated blocks, commutators, and conjugates without crossing comments or pauses.
             </p>
             <div class="compatibility-strip" data-compatibility hidden>
               <span class="compatibility-label">Source compatibility</span>

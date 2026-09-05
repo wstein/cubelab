@@ -401,6 +401,7 @@ test("the web UI explains source portability without claiming competition legali
 test("the web UI exposes pure algorithm transforms and a clearly labeled practice scramble", () => {
   assert.match(page, /data-alg-transform="invert"/);
   assert.match(page, /data-alg-transform="simplify"/);
+  assert.match(page, /data-alg-transform="factor-structure"/);
   assert.match(page, /data-alg-transform="optimize-regrips"/);
   assert.match(page, /data-alg-transform="expand-regrips"/);
   assert.match(page, /data-alg-transform="mirror-lr"/);
@@ -413,6 +414,7 @@ test("the web UI exposes pure algorithm transforms and a clearly labeled practic
   assert.match(page, /not official WCA/);
   assert.match(client, /MoveTransform\.invert/);
   assert.match(client, /MoveTransform\.simplify/);
+  assert.match(client, /MoveTransform\.factorStructure/);
   assert.match(client, /MoveTransform\.optimizeRegrips/);
   assert.match(client, /MoveTransform\.expandRegripsToFaces/);
   assert.match(client, /MoveTransform\.mirror/);
@@ -789,6 +791,10 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(client, /Record · verified \+ gyro/);
   assert.match(viewportComponent, /data-coaching-mode="coached"/);
   assert.match(viewportComponent, /data-coaching-mode="continuous"/);
+  assert.match(page, /data-alg-transform="regrips-to-wide"/);
+  assert.match(page, /data-alg-transform="filter-regrips"/);
+  assert.match(client, /MoveTransform\.regripsToWide\(alg\)/);
+  assert.match(client, /MoveTransform\.filterRegrips\(alg\)/);
   assert.match(client, /phaseMilestonePositions/);
   assert.match(client, /Step \$\{completedPhase\.number\} complete/);
   assert.match(client, /Next: \$\{nextPhase\.title\}/);

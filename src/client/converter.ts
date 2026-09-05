@@ -2948,7 +2948,10 @@ if (root) {
     transformButtons.forEach((button) => {
       button.disabled = button.dataset.algTransform === "unfold"
         ? !macroDefinition.test(movesInput.value)
-        : button.dataset.algTransform === "optimize-regrips" || button.dataset.algTransform === "expand-regrips"
+        : button.dataset.algTransform === "optimize-regrips"
+          || button.dataset.algTransform === "expand-regrips"
+          || button.dataset.algTransform === "regrips-to-wide"
+          || button.dataset.algTransform === "filter-regrips"
           ? !available || size !== 3
         : !available;
     });
@@ -5128,6 +5131,9 @@ if (root) {
           }
           break;
         }
+        case "factor-structure":
+          commitTransformedMoves(MoveTransform.serialize(MoveTransform.factorStructure(alg)));
+          break;
         case "optimize-regrips":
           if (size === 3) {
             commitTransformedMoves(MoveTransform.serialize(MoveTransform.optimizeRegrips(alg)));
@@ -5136,6 +5142,16 @@ if (root) {
         case "expand-regrips":
           if (size === 3) {
             commitTransformedMoves(MoveTransform.serialize(MoveTransform.expandRegripsToFaces(alg)));
+          }
+          break;
+        case "regrips-to-wide":
+          if (size === 3) {
+            commitTransformedMoves(MoveTransform.serialize(MoveTransform.regripsToWide(alg)));
+          }
+          break;
+        case "filter-regrips":
+          if (size === 3) {
+            commitTransformedMoves(MoveTransform.serialize(MoveTransform.filterRegrips(alg)));
           }
           break;
         case "normalize":
