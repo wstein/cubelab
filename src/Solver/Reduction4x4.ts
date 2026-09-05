@@ -1,5 +1,6 @@
 import * as FaceletCodec from "../State/FaceletCodec.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
+import * as StateTypes from "../State/StateTypes.res.mjs";
 import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
@@ -146,13 +147,17 @@ const centreMoveNotations = faces.flatMap((face) => [
   `2${face}`, `2${face}'`, `2${face}2`,
 ]);
 
-const centreProgress = (state: unknown): {blocks: number; score: number} | null => {
+const centreValues = (state: unknown): string | null => {
   const compact = compactFacelets(state);
   if (compact === null) return null;
+  return faces.flatMap((_, faceIndex) => centreIndices.map((index) => compact[faceIndex * 16 + index]!)).join("");
+};
+
+const centreProgressFor = (values: string): {blocks: number; score: number} => {
   let blocks = 0;
   let score = 0;
   for (let faceIndex = 0; faceIndex < faces.length; faceIndex += 1) {
-    const centre = centreIndices.map((index) => compact[faceIndex * 16 + index]!);
+    const centre = [...values.slice(faceIndex * 4, faceIndex * 4 + 4)];
     const largestGroup = Math.max(...[...new Set(centre)].map((colour) => centre.filter((value) => value === colour).length));
     score += largestGroup;
     if (largestGroup === 4) blocks += 1;
@@ -160,44 +165,71 @@ const centreProgress = (state: unknown): {blocks: number; score: number} | null 
   return {blocks, score};
 };
 
+type CentreMove = {notation: string; alg: unknown[]; permutation: number[]};
+
+// Centre search does not need to replay all 96 stickers for every candidate.
+// Derive each move's exact 24-centre permutation once from the move executor,
+// then search that compact coordinate and replay only the winning sequence.
+const centreMoves: CentreMove[] = (() => {
+  const locations = faces.flatMap((face) => centreIndices.map((index) => StateTypes.storageIndex(face) * 16 + index));
+  const locationToSlot = new Map(locations.map((location, slot) => [location, slot]));
+  const markerState = {
+    size: 4,
+    facelets: StateTypes.storageOrder.map((_, faceIndex) => Array.from({length: 16}, (_, index) => `${faceIndex * 16 + index}`)),
+  };
+  return centreMoveNotations.flatMap((notation) => {
+    const alg = parseGuide(notation);
+    if (alg === null) return [];
+    const replay = MoveExecutor.applyAlg(markerState, alg) as ReScriptResult<{facelets: string[][]}>;
+    if (replay.TAG === "Error") return [];
+    const permutation = faces.flatMap((face) => centreIndices.map((index) =>
+      locationToSlot.get(Number(replay._0.facelets[StateTypes.storageIndex(face)]![index]!))
+    ));
+    return permutation.every((slot) => slot !== undefined)
+      ? [{notation, alg, permutation: permutation as number[]}]
+      : [];
+  });
+})();
+
+const applyCentreMove = (values: string, move: CentreMove): string =>
+  move.permutation.map((source) => values[source]!).join("");
+
+const centreSearchScore = (progress: {blocks: number; score: number}): number =>
+  progress.blocks * 100 + progress.score;
+
 /**
  * A bounded beam search for the next centre improvement. It intentionally
  * returns one short, replay-verified setup rather than claiming to automate a
  * full 4×4 solve. The Academy can therefore teach a real move on every step.
  */
 export const planNextCentreBlock4x4 = (state: unknown): ReScriptResult<CentreGuide4x4> => {
-  const initial = centreProgress(state);
-  if (initial === null) return {TAG: "Error", _0: {message: "The centre guide supports only complete 4×4 states."}};
+  const start = centreValues(state);
+  if (start === null) return {TAG: "Error", _0: {message: "The centre guide supports only complete 4×4 states."}};
+  const initial = centreProgressFor(start);
   if (initial.blocks === 6) return {TAG: "Error", _0: {message: "All six centre blocks are complete."}};
-  const moves = centreMoveNotations
-    .map((notation) => ({notation, alg: parseGuide(notation)}))
-    .filter((move): move is {notation: string; alg: unknown[]} => move.alg !== null);
-  type Candidate = {state: unknown; alg: unknown[]; lastFace: string; score: number; blocks: number};
-  let frontier: Candidate[] = [{state, alg: [], lastFace: "", score: initial.score, blocks: initial.blocks}];
+  type Candidate = {values: string; alg: unknown[]; lastFace: string; score: number; blocks: number};
+  let frontier: Candidate[] = [{values: start, alg: [], lastFace: "", ...initial}];
   let best: Candidate | null = null;
-  for (let depth = 0; depth < 6; depth += 1) {
+  for (let depth = 0; depth < 10; depth += 1) {
     const next: Candidate[] = [];
     const seen = new Set<string>();
     frontier.forEach((candidate) => {
-      moves.forEach((move) => {
+      centreMoves.forEach((move) => {
         const face = move.notation.replace(/^2/, "")[0]!;
         if (face === candidate.lastFace) return;
-        const replay = MoveExecutor.applyAlg(candidate.state, move.alg) as ReScriptResult<unknown>;
-        if (replay.TAG === "Error") return;
-        const progress = centreProgress(replay._0);
-        if (progress === null) return;
-        const key = compactFacelets(replay._0);
-        if (key === null || seen.has(key)) return;
-        seen.add(key);
-        const expanded = {...candidate, state: replay._0, alg: [...candidate.alg, ...move.alg], lastFace: face, ...progress};
+        const values = applyCentreMove(candidate.values, move);
+        if (seen.has(values)) return;
+        seen.add(values);
+        const progress = centreProgressFor(values);
+        const expanded = {...candidate, values, alg: [...candidate.alg, ...move.alg], lastFace: face, ...progress};
         next.push(expanded);
         if (progress.blocks > initial.blocks || (progress.blocks === initial.blocks && progress.score > initial.score)) {
           if (best === null || progress.blocks > best.blocks || (progress.blocks === best.blocks && progress.score > best.score)) best = expanded;
         }
       });
     });
-    next.sort((left, right) => right.blocks - left.blocks || right.score - left.score || left.alg.length - right.alg.length);
-    frontier = next.slice(0, 96);
+    next.sort((left, right) => centreSearchScore(right) - centreSearchScore(left) || left.alg.length - right.alg.length);
+    frontier = next.slice(0, 1600);
     if (frontier.length === 0) break;
   }
   if (best === null) return {TAG: "Error", _0: {message: "No centre improvement was found in the local search. Make one centre setup move, then request the next guide."}};
