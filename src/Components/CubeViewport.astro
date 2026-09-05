@@ -44,6 +44,7 @@
     <span class="smart-cube-status" data-smart-cube-status role="status" aria-live="polite">
       No smart cube connected
     </span>
+    <span class="smart-cube-battery" data-smart-cube-record-capability hidden></span>
     <span class="smart-cube-battery" data-smart-cube-battery hidden></span>
     <span class="smart-cube-mistakes" data-smart-cube-mistakes hidden></span>
     <button
@@ -177,6 +178,15 @@
         <button type="button" class="transport-btn transport-terminal" data-playback-end aria-label="Go to end" aria-keyshortcuts="End" title="Go to end (End)">
           <span class="transport-icon" aria-hidden="true"><i class="transport-triangle right"></i><i class="transport-bar"></i></span>
         </button>
+        <button
+          type="button"
+          class="transport-btn transport-record"
+          data-playback-record
+          aria-label="Start smart-cube recording"
+          aria-pressed="false"
+          title="Connect a smart cube to record physical turns"
+          disabled
+        ><span aria-hidden="true">●</span><span class="visually-hidden">Record</span></button>
       </div>
       <div class="playback-options">
         <div
@@ -210,13 +220,6 @@
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          class="loop-btn"
-          data-playback-record
-          aria-pressed="false"
-          title="Record direct turns into the Moves tape"
-        >Record</button>
         <button type="button" class="loop-btn" data-playback-loop aria-pressed="false">Loop</button>
       </div>
     </div>

@@ -764,7 +764,7 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(viewportComponent, /data-playback-play/);
   assert.match(viewportComponent, /data-playback-forward/);
   assert.match(viewportComponent, /data-playback-end/);
-  assert.equal(viewportComponent.match(/class="transport-btn/g)?.length, 7);
+  assert.equal(viewportComponent.match(/class="transport-btn/g)?.length, 8);
   assert.doesNotMatch(viewportComponent, /data-playback-(?:toggle|sequence-back|sequence-forward)/);
   assert.match(viewportComponent, /data-playback-scrubber/);
   assert.match(viewportComponent, /data-playback-speed/);
@@ -772,7 +772,8 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(client, /const duration = 720/);
   assert.match(viewportComponent, /data-playback-loop/);
   assert.match(viewportComponent, /data-playback-record/);
-  assert.match(viewportComponent, /Record direct turns into the Moves tape/);
+  assert.match(viewportComponent, /Start smart-cube recording/);
+  assert.match(viewportComponent, /data-smart-cube-record-capability/);
   assert.match(client, /MAX_PLAYBACK_STEPS/);
   assert.match(client, /transitionTo/);
   assert.match(client, /case "ArrowLeft"/);
@@ -782,9 +783,10 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(viewportComponent, /data-shortcuts-help/);
   assert.match(client, /queueDirectMove/);
   assert.match(client, /pendingDirectMove/);
-  assert.match(client, /let recordingTape = false/);
-  assert.match(client, /appendRecordedMove\(movesInput\.value, token\)/);
-  assert.match(client, /Recording direct turns into Moves/);
+  assert.match(client, /let smartCubeRecording = false/);
+  assert.match(client, /appendSmartCubeRecordingToken\(move\)/);
+  assert.match(client, /Recorded regrip/);
+  assert.match(client, /Record · verified \+ gyro/);
   assert.match(viewportComponent, /data-coaching-mode="coached"/);
   assert.match(viewportComponent, /data-coaching-mode="continuous"/);
   assert.match(client, /phaseMilestonePositions/);
