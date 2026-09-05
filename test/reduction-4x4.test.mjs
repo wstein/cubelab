@@ -3,6 +3,7 @@ import {expect, test} from "vitest";
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
 import * as MoveParser from "../src/Move/MoveParser.res.mjs";
+import * as MoveTransform from "../src/Move/MoveTransform.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
 import {
   inspectReduction4x4,
@@ -14,13 +15,30 @@ import {
   reduce4x4,
 } from "../src/Solver/Reduction4x4.ts";
 import * as TwoPhaseSolver from "../src/Solver/TwoPhaseSolver.res.mjs";
-import {solveFullReduction4x4} from "../src/Solver/FullReduction4x4.ts";
+import {normalizeFullReductionAlgorithm, solveFullReduction4x4} from "../src/Solver/FullReduction4x4.ts";
 
 const apply = (size, algorithm) => {
   const result = MoveExecutor.parseAndApply(size, algorithm);
   if (result.TAG !== "Ok") throw new Error(String(result._0));
   return result._0;
 };
+
+test("normalizes adjacent reduction turns before reporting a solution", () => {
+  const parsed = MoveParser.parseWithOptions(4, "Wide", "Modern", "2U 2U R R'");
+  expect(parsed.TAG).toBe("Ok");
+  if (parsed.TAG !== "Ok") return;
+  const normalized = normalizeFullReductionAlgorithm(parsed._0);
+  expect(normalized.TAG).toBe("Ok");
+  if (normalized.TAG !== "Ok") return;
+  expect(MoveTransform.serialize(normalized._0)).toBe("2U2");
+  const before = MoveExecutor.applyAlg(StateTypes.solved(4)._0, parsed._0);
+  const after = MoveExecutor.applyAlg(StateTypes.solved(4)._0, normalized._0);
+  expect(before.TAG).toBe("Ok");
+  expect(after.TAG).toBe("Ok");
+  if (before.TAG === "Ok" && after.TAG === "Ok") {
+    expect(FaceletCodec.render(after._0)).toBe(FaceletCodec.render(before._0));
+  }
+});
 
 test("reduces a paired 4×4 outer-turn state to the equivalent 3×3", () => {
   const algorithm = "R U F2 L'";

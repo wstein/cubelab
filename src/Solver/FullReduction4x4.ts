@@ -32,6 +32,21 @@ const apply = (state: unknown, alg: unknown[]): ReScriptResult<unknown> =>
   MoveExecutor.applyAlg(state, alg) as ReScriptResult<unknown>;
 
 /**
+ * Canonicalize the joined centre, wing, parity, and 3×3 segments before a
+ * solution crosses the worker boundary. This removes exact cancellations and
+ * same-axis combinations introduced where independently planned segments meet.
+ */
+export const normalizeFullReductionAlgorithm = (alg: unknown[]): ReScriptResult<unknown[]> =>
+  MoveTransform.simplify(alg) as ReScriptResult<unknown[]>;
+
+const physicalMoveCount = (alg: unknown[]): number | null => {
+  const expanded = MoveExecutor.expand(alg) as ReScriptResult<Array<{move?: {TAG?: string}}>>;
+  return expanded.TAG === "Ok"
+    ? expanded._0.filter((step) => step.move?.TAG !== "Rotation").length
+    : null;
+};
+
+/**
  * Bounded, original reduction orchestrator. It composes CubeLab's verified
  * centre and wing planners and only returns a solution after the existing
  * 3x3 finish has replayed to a monochrome 4x4. It deliberately makes no
@@ -97,15 +112,23 @@ export const solveFullReduction4x4 = (input: unknown): ReScriptResult<FullReduct
   TwoPhaseSolver.prepareTables();
   const finish = TwoPhaseSolver.solve(projected._0.state) as ReScriptResult<{alg: unknown[]}>;
   if (finish.TAG === "Error") return {TAG: "Error", _0: {stage: "finish", message: "The reduced 3×3 finish failed."}};
-  const solution = [...alg, ...finish._0.alg];
+  const normalized = normalizeFullReductionAlgorithm([...alg, ...finish._0.alg]);
+  if (normalized.TAG === "Error") {
+    return {TAG: "Error", _0: {stage: "finish", message: "The full solution could not be normalized."}};
+  }
+  const solution = normalized._0;
   const replay = apply(input, solution);
   if (replay.TAG === "Error" || !isMonochromeSolved4x4(replay._0)) {
     return {TAG: "Error", _0: {stage: "finish", message: "The proposed full reduction did not replay to a solved 4×4."}};
   }
+  const moveCount = physicalMoveCount(solution);
+  if (moveCount === null) {
+    return {TAG: "Error", _0: {stage: "finish", message: "The normalized solution could not be expanded."}};
+  }
   return {TAG: "Ok", _0: {
     alg: solution,
     algorithm: MoveTransform.serialize(solution) as string,
-    moveCount: solution.length,
+    moveCount,
     centreSteps,
     wingSteps,
   }};

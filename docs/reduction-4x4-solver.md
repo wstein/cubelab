@@ -35,6 +35,11 @@ the original 4×4 and must leave every face monochrome.
 The full-reduction attempt is a baseline, not a completeness or near-optimality
 claim. If its bounded local searches cannot make progress, it reports the
 specific stage that stopped; it never presents a partial reduction as a solve.
+Before reporting a candidate, CubeLab canonicalizes the joined reduction and
+3×3 segments. This removes exact cancellations and compatible same-axis turns
+at segment boundaries. The displayed HTM is then counted from the normalized
+expanded algorithm, excluding whole-cube rotations; it is not the raw number
+of planner AST nodes.
 The regression suite covers both an already reduced state and a simple
 centre-complete wing-pairing state; each case replays the returned algorithm
 against the original facelets before asserting that the cube is solved.
