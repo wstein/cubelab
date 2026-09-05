@@ -2204,6 +2204,7 @@ if (root) {
   let smartCubeControllerOrientation: Array<{axis: "X" | "Y" | "Z"; turns: number}> = [];
   let smartCubeOrientationTracking = false;
   let smartCubeRecording = false;
+  let smartCubeRecordingTapeDirty = false;
   let smartCubeRecordingOrientation: Pick<SmartCubeOrientationEvent, "quaternion" | "coordinateFrame"> | null = null;
   let lastOrientationLogTime = 0;
   let latestSmartCubeOrientation: Pick<
@@ -3231,6 +3232,7 @@ if (root) {
     if (smartCubeRecording && !available) {
       smartCubeRecording = false;
       smartCubeRecordingOrientation = null;
+      smartCubeRecordingTapeDirty = false;
     }
     playbackRecord.disabled = !available;
     playbackRecord.classList.toggle("active", smartCubeRecording);
@@ -3256,6 +3258,10 @@ if (root) {
       updateSmartCubeRecordingUi();
       return;
     }
+    // The physical move has already animated live. Rebuilding Moves must not
+    // start the ordinary tape-extension animation over the same turn.
+    suppressNextSmartCubeExtension = true;
+    smartCubeRecordingTapeDirty = true;
     store.patch({moves: next});
   };
 
@@ -4116,6 +4122,7 @@ if (root) {
     if (enabled && smartCubeRecording) {
       smartCubeRecording = false;
       smartCubeRecordingOrientation = null;
+      smartCubeRecordingTapeDirty = false;
     }
     smartCubeSyncMode = enabled ? "VirtualController" : "PhysicalMirror";
     smartCubeControllerInspection = false;
@@ -4270,7 +4277,12 @@ if (root) {
       await applyVirtualControllerMove(move);
       return;
     }
-    appendSmartCubeRecordingToken(move);
+    if (smartCubeRecording) {
+      appendSmartCubeRecordingToken(move);
+      commitSmartCubeMoveState(record);
+      renderSmartCubeLiveState();
+      return;
+    }
     const continueCoaching = smartCubeCoachingWaiting;
     clearTutorialFocus();
     clearTurnGuide();
@@ -4477,6 +4489,7 @@ if (root) {
       if (smartCubeRecording) {
         smartCubeRecording = false;
         smartCubeRecordingOrientation = null;
+        smartCubeRecordingTapeDirty = false;
       }
       smartCubeLedFeedback = false;
       smartCubeRecordCapability.hidden = true;
@@ -4661,6 +4674,7 @@ if (root) {
     updatePatternDetection(recognized);
     updateTransformAvailability(movesTransformReady());
     updateShortenAvailability();
+    if (smartCubeRecording && smartCubeRecordingTapeDirty) return;
     if (!recognized.timeline || !recognized.timelineKey) {
       stopPlayback();
       activeTimeline = stateSnapshotTimeline(recognized.state);
@@ -6992,10 +7006,13 @@ if (root) {
     if (smartCubeRecording) {
       smartCubeRecording = false;
       smartCubeRecordingOrientation = null;
+      smartCubeRecordingTapeDirty = false;
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Recording stopped; captured turns were appended to Moves.`;
+      scheduleUpdate();
     } else {
       stopPlayback();
       smartCubeRecording = true;
+      smartCubeRecordingTapeDirty = false;
       smartCubeRecordingOrientation = latestSmartCubeOrientation;
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Recording physical turns into Moves.`;
     }

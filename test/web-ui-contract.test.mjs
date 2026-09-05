@@ -786,9 +786,13 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(client, /queueDirectMove/);
   assert.match(client, /pendingDirectMove/);
   assert.match(client, /let smartCubeRecording = false/);
+  assert.match(client, /let smartCubeRecordingTapeDirty = false/);
   assert.match(client, /appendSmartCubeRecordingToken\(move\)/);
   assert.match(client, /Recorded regrip/);
   assert.match(client, /Record · verified \+ gyro/);
+  const recordingBranch = client.indexOf("if (smartCubeRecording) {", client.indexOf("const applySmartCubeMove"));
+  const recordingStopPlayback = client.indexOf("stopPlayback();", recordingBranch);
+  assert.ok(recordingBranch >= 0 && client.indexOf("return;", recordingBranch) < recordingStopPlayback);
   assert.match(viewportComponent, /data-coaching-mode="coached"/);
   assert.match(viewportComponent, /data-coaching-mode="continuous"/);
   assert.match(page, /data-alg-transform="filter-regrips"/);
