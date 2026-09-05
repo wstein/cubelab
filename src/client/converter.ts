@@ -1289,6 +1289,18 @@ if (root) {
   };
 
   const updateSetupOrientationUi = (recognized: RecognizedInput | null) => {
+    if (recognized?.state.size === 5) {
+      const facelets = FaceletCodec.render(recognized.state);
+      const fixedCentres = [12, 37, 62, 87, 112, 137];
+      const isCanonical = fixedCentres.every((index, face) => facelets[index] === "URFDLB"[face]);
+      setupOrientation.hidden = false;
+      setupOrientation.textContent = isCanonical ? "Canonical U/R/F frame" : "Rotated centre frame";
+      setupOrientation.classList.toggle("error", !isCanonical);
+      // The existing canonicaliser is cubie-coordinate based and therefore
+      // only meaningful for 3×3; Orbit64 itself still preserves this 5×5 frame.
+      setupCanonicalise.hidden = true;
+      return;
+    }
     const canonical = recognized === null ? null : canonicaliseSetupOrientation(recognized.state);
     if (canonical === null || canonical.TAG === "Error") {
       setupOrientation.hidden = true;
