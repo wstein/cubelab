@@ -2944,6 +2944,8 @@ if (root) {
     transformButtons.forEach((button) => {
       button.disabled = button.dataset.algTransform === "unfold"
         ? !macroDefinition.test(movesInput.value)
+        : button.dataset.algTransform === "optimize-regrips"
+          ? !available || size !== 3
         : !available;
     });
   };
@@ -5038,6 +5040,11 @@ if (root) {
           }
           break;
         }
+        case "optimize-regrips":
+          if (size === 3) {
+            commitTransformedMoves(MoveTransform.serialize(MoveTransform.optimizeRegrips(alg)));
+          }
+          break;
         case "normalize":
           commitTransformedMoves(MoveTransform.serialize(alg));
           break;

@@ -228,6 +228,75 @@ let simplify = (alg: alg): result<alg, MoveExecutor.executionError> =>
     }
   }
 
+let moveUnit = (move, turns) => located(Move(move, turns))
+
+let outerFace = unit =>
+  switch unit.desc {
+  | Move(FaceTurn(face, {from_: 1, to_: 1}), turns) => Some((face, turns))
+  | _ => None
+  }
+
+/* On a 3×3, a pair of opposite outer turns can be expressed as one slice
+ * and one whole-cube regrip. The caller later moves those regrips rightward
+ * through the sequence, changing subsequent move names by conjugation. */
+let sliceRegripPair = (left, right) =>
+  switch (outerFace(left), outerFace(right)) {
+  | (Some((L, leftTurns)), Some((R, rightTurns)))
+  | (Some((R, rightTurns)), Some((L, leftTurns))) if leftTurns == -rightTurns =>
+    Some([moveUnit(SliceTurn(M), rightTurns), moveUnit(Rotation(X), rightTurns)])
+  | (Some((D, downTurns)), Some((U, upTurns)))
+  | (Some((U, upTurns)), Some((D, downTurns))) if downTurns == -upTurns =>
+    Some([moveUnit(SliceTurn(E), upTurns), moveUnit(Rotation(Y), upTurns)])
+  | (Some((B, backTurns)), Some((F, frontTurns)))
+  | (Some((F, frontTurns)), Some((B, backTurns))) if backTurns == -frontTurns =>
+    Some([moveUnit(SliceTurn(S), -frontTurns), moveUnit(Rotation(Z), frontTurns)])
+  | _ => None
+  }
+
+let widePair = (left, right) => {
+  let matchPair = (face, faceTurns, slice, sliceTurns) =>
+    switch (face, slice) {
+    | (R, M) if sliceTurns == -faceTurns =>
+      Some(moveUnit(FaceTurn(R, {from_: 1, to_: 2}), faceTurns))
+    | (L, M) if sliceTurns == faceTurns =>
+      Some(moveUnit(FaceTurn(L, {from_: 1, to_: 2}), faceTurns))
+    | (U, E) if sliceTurns == -faceTurns =>
+      Some(moveUnit(FaceTurn(U, {from_: 1, to_: 2}), faceTurns))
+    | (D, E) if sliceTurns == faceTurns =>
+      Some(moveUnit(FaceTurn(D, {from_: 1, to_: 2}), faceTurns))
+    | (F, S) if sliceTurns == faceTurns =>
+      Some(moveUnit(FaceTurn(F, {from_: 1, to_: 2}), faceTurns))
+    | (B, S) if sliceTurns == -faceTurns =>
+      Some(moveUnit(FaceTurn(B, {from_: 1, to_: 2}), faceTurns))
+    | _ => None
+    }
+  switch (left.desc, right.desc) {
+  | (Move(FaceTurn(face, {from_: 1, to_: 1}), faceTurns), Move(SliceTurn(slice), sliceTurns)) =>
+    matchPair(face, faceTurns, slice, sliceTurns)
+  | (Move(SliceTurn(slice), sliceTurns), Move(FaceTurn(face, {from_: 1, to_: 1}), faceTurns)) =>
+    matchPair(face, faceTurns, slice, sliceTurns)
+  | _ => None
+  }
+}
+
+let rec rewritePairs = (units, index, output) =>
+  if index >= units->Array.length {
+    output
+  } else if index + 1 < units->Array.length {
+    let left = Belt.Array.getUnsafe(units, index)
+    let right = Belt.Array.getUnsafe(units, index + 1)
+    switch sliceRegripPair(left, right) {
+    | Some(replacement) => rewritePairs(units, index + 2, output->Array.concat(replacement))
+    | None =>
+      switch widePair(left, right) {
+      | Some(replacement) => rewritePairs(units, index + 2, output->Array.concat([replacement]))
+      | None => rewritePairs(units, index + 1, output->Array.concat([left]))
+      }
+    }
+  } else {
+    output->Array.concat([Belt.Array.getUnsafe(units, index)])
+  }
+
 let mirrorFace = (plane, face) =>
   switch (plane, face) {
   | (LR, R) => L
@@ -353,6 +422,98 @@ let rotate = (alg: alg, ~axis: axis, ~turns: int): alg => {
   }
   output.contents
 }
+
+let rec rotationCandidates = (remaining, prefix, output) =>
+  if remaining == 0 {
+    output->Array.push(prefix)
+  } else {
+    [(X, 1), (X, -1), (X, 2), (Y, 1), (Y, -1), (Y, 2), (Z, 1), (Z, -1), (Z, 2)]->Array.forEach(((
+      axis,
+      turns,
+    )) =>
+      rotationCandidates(
+        remaining - 1,
+        prefix->Array.concat([moveUnit(Rotation(axis), turns)]),
+        output,
+      )
+    )
+  }
+
+let equivalentRotation = (left, right) =>
+  switch StateTypes.solved(3) {
+  | Error(_) => false
+  | Ok(solved) =>
+    switch (MoveExecutor.applyAlg(solved, left), MoveExecutor.applyAlg(solved, right)) {
+    | (Ok(leftState), Ok(rightState)) => leftState == rightState
+    | _ => false
+    }
+  }
+
+/* The 24 whole-cube orientations all have a representation of at most three
+ * x/y/z tokens when quarter, inverse-quarter, and half turns are available. */
+let canonicalRotations = rotations => {
+  let found = ref(None)
+  let length = ref(0)
+  while found.contents == None && length.contents <= 3 {
+    let candidates = []
+    rotationCandidates(length.contents, [], candidates)
+    let index = ref(0)
+    while found.contents == None && index.contents < candidates->Array.length {
+      let candidate = Belt.Array.getUnsafe(candidates, index.contents)
+      if equivalentRotation(rotations, candidate) {
+        found := Some(candidate)
+      }
+      index := index.contents + 1
+    }
+    length := length.contents + 1
+  }
+  switch found.contents {
+  | Some(candidate) => candidate
+  | None => rotations
+  }
+}
+
+/* Move whole-cube rotations to the end of a contiguous move run. For r A,
+ * the exact rewrite is rotate(A, r^-1) r in the fixed-world executor. This keeps rotations as visible
+ * regrips while allowing slice pairs found earlier to compose cleanly. */
+let pushRotationsRight = units => {
+  let output = ref([])
+  let pending = ref([])
+  let flushPending = () => {
+    output := output.contents->Array.concat(canonicalRotations(pending.contents))
+    pending := []
+  }
+  units->Array.forEach(unit =>
+    switch unit.desc {
+    | Move(Rotation(_), _) => pending := pending.contents->Array.concat([unit])
+    | Move(_, _) => {
+        let moved = ref([unit])
+        for index in pending.contents->Array.length - 1 downto 0 {
+          switch Belt.Array.getUnsafe(pending.contents, index).desc {
+          | Move(Rotation(axis), turns) => moved := rotate(moved.contents, ~axis, ~turns=-turns)
+          | _ => ()
+          }
+        }
+        output := output.contents->Array.concat(moved.contents)
+      }
+    | _ => {
+        flushPending()
+        output := output.contents->Array.concat([unit])
+      }
+    }
+  )
+  flushPending()
+  output.contents
+}
+
+/** A deterministic 3×3 notation compactor for M/E/S, wide turns, and regrips.
+ * It only uses local exact identities; unlike AlgorithmOptimizer it makes no
+ * claim to find a globally shortest algorithm. */
+let optimizeRegrips = (alg: alg): alg =>
+  switch simplify(alg) {
+  | Error(_) => alg
+  | Ok(flat) => flat->rewritePairs(0, [])->pushRotationsRight
+  }
 
 let practiceLength = size =>
   switch size {

@@ -33,6 +33,32 @@ as hard boundaries so a transform cannot move a turn across an editor annotation
 This is an exact cube-group rewrite, not a heuristic move-count optimizer: overlapping
 but differently spelled layer ranges are not synthesized into new range expressions.
 
+### Optimize regrips
+
+**Optimize regrips** is an opt-in, 3×3-only notation transform. It preserves the exact
+final cube state while applying local identities that can exchange opposite face turns
+for `M`, `E`, or `S` plus visible `x/y/z` regrips, and can fold an outer face turn with
+its matching slice into a wide turn. It is deliberately separate from **Try to shorten**:
+it does not expand that bounded face-turn search and does not claim an HTM- or
+STM-minimal result.
+
+For example, CubeLab rewrites:
+
+```text
+L' R B' F D' U L' R
+```
+
+as:
+
+```text
+M E' M' E x y
+```
+
+This is four non-rotation turns and two whole-cube regrips, not simply “four free
+moves.” The transform keeps rotations explicit, moves them to the end of each
+uninterrupted move run, and uses the canonical representative of the resulting cube
+orientation. Pauses and comments remain boundaries.
+
 ### Mirror
 
 Three involutive reflections are available:
@@ -86,7 +112,8 @@ visible, editable, and shareable. Its presentation then depends on smart-cube mo
 
 ## Browser integration
 
-The action ribbon below the input exposes **Invert**, **Simplify**, all three mirror
+The action ribbon below the input exposes **Invert**, **Simplify**, 3×3-only **Optimize
+regrips**, all three mirror
 planes (**L/R**, **F/B**, and **U/D**), all three coordinate rotations (**x**, **y**, and
 **z**), and **Practice scramble**. Algebraic actions are enabled only when the
 current input is a recognized algorithm; state codecs cannot accidentally be rewritten

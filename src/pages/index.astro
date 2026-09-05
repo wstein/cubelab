@@ -408,6 +408,13 @@ const cards = [
               <button
                 type="button"
                 class="transform-btn"
+                data-alg-transform="optimize-regrips"
+                title="Rewrite an equivalent 3×3 algorithm using M/E/S slices, wide turns, and x/y/z regrips"
+                disabled>⚙ Optimize regrips</button
+              >
+              <button
+                type="button"
+                class="transform-btn"
                 data-alg-transform="normalize"
                 title="Rewrite in CubeLab's canonical notation without changing the move sequence"
                 disabled>🧭 Normalize</button
@@ -711,7 +718,10 @@ s100"></textarea>
               (<code>(U3')2'</code> → <code>U2</code>) as well as merging
               adjacent same-face turns. <strong>Normalize</strong> rewrites the same
               move sequence in CubeLab's canonical spelling without merging or expanding
-              anything.
+              anything. <strong>Optimize regrips</strong> is a separate 3×3 transform:
+              it can trade face turns for <code>M/E/S</code> slices, wide turns, and
+              visible <code>x/y/z</code> regrips while preserving the exact final state.
+              It does not change the bounded face-turn search under <strong>Try to shorten</strong>.
             </p>
             <div class="compatibility-strip" data-compatibility hidden>
               <span class="compatibility-label">Source compatibility</span>

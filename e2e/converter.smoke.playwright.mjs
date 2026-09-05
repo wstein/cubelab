@@ -1134,6 +1134,10 @@ test("applies algorithm workbench actions and generates size-aware practice scra
   await page.getByRole("button", {name: "Normalize"}).click();
   await expect(moves).toHaveValue("Rw2 Fw'");
 
+  await moves.fill("L' R B' F D' U L' R");
+  await page.getByRole("button", {name: "Optimize regrips"}).click();
+  await expect(moves).toHaveValue("M E' M' E x y");
+
   await moves.fill("R U R'");
   await page.getByRole("button", {name: "Mirror L/R"}).click();
   await expect(moves).toHaveValue("L' U' L");
@@ -1170,6 +1174,7 @@ test("applies algorithm workbench actions and generates size-aware practice scra
   await input.fill("");
 
   await page.locator('[data-size="2"]').click();
+  await expect(page.getByRole("button", {name: "Optimize regrips"})).toBeDisabled();
   await page.getByRole("button", {name: "Practice scramble"}).click();
   await expect(page.locator("[data-status]")).toHaveText("Algorithm · SiGN");
   const scramble = await input.inputValue();
@@ -1938,4 +1943,3 @@ test("manual state editor undoes last painted sticker via keyboard shortcut", as
   await page.keyboard.press("Escape");
   await expect(dialog).not.toBeVisible();
 });
-

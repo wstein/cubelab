@@ -130,7 +130,7 @@ Converter, Beginner Academy, CFOP Academy, and Alg Workbench are views in a
 mounted across tab switches, and the selected view is preserved in the URL hash.
 
 The input panel exposes the complete mirror and coordinate-rotation suite alongside
-Invert, Simplify, and Practice scramble actions. State-format input disables algebraic
+Invert, Simplify, the opt-in 3×3 regrip optimizer, and Practice scramble actions. State-format input disables algebraic
 actions, and every generated algorithm is serialized into explicit modern notation
 before being reparsed by the normal pipeline.
 

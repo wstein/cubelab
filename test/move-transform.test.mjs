@@ -77,6 +77,36 @@ test("unfolds M, E, and S into exact size-aware inner layers without flattening 
   }
 });
 
+test("optimizes paired opposite 3x3 face turns into slices and trailing regrips", () => {
+  const source = parse(3, "L' R B' F D' U L' R");
+  const optimized = MoveTransform.optimizeRegrips(source);
+
+  assert.equal(serialize(optimized), "M E' M' E x y");
+  assert.equal(compact(3, serialize(optimized)), compact(3, "L' R B' F D' U L' R"));
+});
+
+test("optimizes every face plus its matching slice into a wide turn", () => {
+  for (const [source, expected] of [
+    ["R M'", "Rw"], ["L M", "Lw"], ["U E'", "Uw"],
+    ["D E", "Dw"], ["F S", "Fw"], ["B S'", "Bw"],
+  ]) {
+    const optimized = MoveTransform.optimizeRegrips(parse(3, source));
+    assert.equal(serialize(optimized), expected);
+    assert.equal(compact(3, serialize(optimized)), compact(3, source));
+  }
+});
+
+test("does not synthesize a slice from unmatched opposite face turns", () => {
+  assert.equal(serialize(MoveTransform.optimizeRegrips(parse(3, "L R U"))), "L R U");
+});
+
+test("does not move a regrip across a comment boundary", () => {
+  const source = "L' R /* hold frame */ B' F";
+  const optimized = MoveTransform.optimizeRegrips(parse(3, source));
+  assert.equal(serialize(optimized), "M x /* hold frame */ S' z");
+  assert.equal(compact(3, serialize(optimized)), compact(3, source));
+});
+
 test("generates bounded size-aware practice scrambles without adjacent equal axes", () => {
   const expectedLengths = new Map([[2, 11], [3, 25], [4, 45], [5, 60]]);
   for (const [size, expectedLength] of expectedLengths) {

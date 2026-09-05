@@ -407,6 +407,463 @@ function simplify(alg) {
   };
 }
 
+function moveUnit(move, turns) {
+  return {
+    desc: {
+      TAG: "Move",
+      _0: move,
+      _1: turns
+    },
+    loc: generatedLoc
+  };
+}
+
+function outerFace(unit) {
+  let match = unit.desc;
+  if (typeof match !== "object") {
+    return;
+  }
+  if (match.TAG !== "Move") {
+    return;
+  }
+  let match$1 = match._0;
+  switch (match$1.TAG) {
+    case "FaceTurn" :
+      let match$2 = match$1._1;
+      if (match$2.from_ !== 1 || match$2.to_ !== 1) {
+        return;
+      } else {
+        return [
+          match$1._0,
+          match._1
+        ];
+      }
+    case "SliceTurn" :
+    case "Rotation" :
+      return;
+  }
+}
+
+function sliceRegripPair(left, right) {
+  let match = outerFace(left);
+  let match$1 = outerFace(right);
+  let exit = 0;
+  let leftTurns;
+  let rightTurns;
+  let downTurns;
+  let upTurns;
+  let backTurns;
+  let frontTurns;
+  if (match === undefined) {
+    return;
+  }
+  switch (match[0]) {
+    case "U" :
+      if (match$1 === undefined) {
+        return;
+      }
+      if (match$1[0] !== "D") {
+        return;
+      }
+      downTurns = match$1[1];
+      upTurns = match[1];
+      exit = 2;
+      break;
+    case "L" :
+      if (match$1 === undefined) {
+        return;
+      }
+      if (match$1[0] !== "R") {
+        return;
+      }
+      leftTurns = match[1];
+      rightTurns = match$1[1];
+      exit = 1;
+      break;
+    case "F" :
+      if (match$1 === undefined) {
+        return;
+      }
+      if (match$1[0] !== "B") {
+        return;
+      }
+      backTurns = match$1[1];
+      frontTurns = match[1];
+      exit = 3;
+      break;
+    case "R" :
+      if (match$1 === undefined) {
+        return;
+      }
+      if (match$1[0] !== "L") {
+        return;
+      }
+      leftTurns = match$1[1];
+      rightTurns = match[1];
+      exit = 1;
+      break;
+    case "B" :
+      if (match$1 === undefined) {
+        return;
+      }
+      if (match$1[0] !== "F") {
+        return;
+      }
+      backTurns = match[1];
+      frontTurns = match$1[1];
+      exit = 3;
+      break;
+    case "D" :
+      if (match$1 === undefined) {
+        return;
+      }
+      if (match$1[0] !== "U") {
+        return;
+      }
+      downTurns = match[1];
+      upTurns = match$1[1];
+      exit = 2;
+      break;
+  }
+  switch (exit) {
+    case 1 :
+      if (leftTurns === (-rightTurns | 0)) {
+        return [
+          {
+            desc: {
+              TAG: "Move",
+              _0: {
+                TAG: "SliceTurn",
+                _0: "M"
+              },
+              _1: rightTurns
+            },
+            loc: generatedLoc
+          },
+          {
+            desc: {
+              TAG: "Move",
+              _0: {
+                TAG: "Rotation",
+                _0: "X"
+              },
+              _1: rightTurns
+            },
+            loc: generatedLoc
+          }
+        ];
+      } else {
+        return;
+      }
+    case 2 :
+      if (downTurns === (-upTurns | 0)) {
+        return [
+          {
+            desc: {
+              TAG: "Move",
+              _0: {
+                TAG: "SliceTurn",
+                _0: "E"
+              },
+              _1: upTurns
+            },
+            loc: generatedLoc
+          },
+          {
+            desc: {
+              TAG: "Move",
+              _0: {
+                TAG: "Rotation",
+                _0: "Y"
+              },
+              _1: upTurns
+            },
+            loc: generatedLoc
+          }
+        ];
+      } else {
+        return;
+      }
+    case 3 :
+      if (backTurns === (-frontTurns | 0)) {
+        return [
+          {
+            desc: {
+              TAG: "Move",
+              _0: {
+                TAG: "SliceTurn",
+                _0: "S"
+              },
+              _1: -frontTurns | 0
+            },
+            loc: generatedLoc
+          },
+          {
+            desc: {
+              TAG: "Move",
+              _0: {
+                TAG: "Rotation",
+                _0: "Z"
+              },
+              _1: frontTurns
+            },
+            loc: generatedLoc
+          }
+        ];
+      } else {
+        return;
+      }
+  }
+}
+
+function widePair(left, right) {
+  let matchPair = (face, faceTurns, slice, sliceTurns) => {
+    switch (face) {
+      case "U" :
+        switch (slice) {
+          case "E" :
+            if (sliceTurns === (-faceTurns | 0)) {
+              return {
+                desc: {
+                  TAG: "Move",
+                  _0: {
+                    TAG: "FaceTurn",
+                    _0: "U",
+                    _1: {
+                      from_: 1,
+                      to_: 2
+                    }
+                  },
+                  _1: faceTurns
+                },
+                loc: generatedLoc
+              };
+            } else {
+              return;
+            }
+          case "M" :
+          case "S" :
+            return;
+        }
+      case "L" :
+        switch (slice) {
+          case "M" :
+            if (sliceTurns === faceTurns) {
+              return {
+                desc: {
+                  TAG: "Move",
+                  _0: {
+                    TAG: "FaceTurn",
+                    _0: "L",
+                    _1: {
+                      from_: 1,
+                      to_: 2
+                    }
+                  },
+                  _1: faceTurns
+                },
+                loc: generatedLoc
+              };
+            } else {
+              return;
+            }
+          case "E" :
+          case "S" :
+            return;
+        }
+      case "F" :
+        switch (slice) {
+          case "M" :
+          case "E" :
+            return;
+          case "S" :
+            if (sliceTurns === faceTurns) {
+              return {
+                desc: {
+                  TAG: "Move",
+                  _0: {
+                    TAG: "FaceTurn",
+                    _0: "F",
+                    _1: {
+                      from_: 1,
+                      to_: 2
+                    }
+                  },
+                  _1: faceTurns
+                },
+                loc: generatedLoc
+              };
+            } else {
+              return;
+            }
+        }
+      case "R" :
+        switch (slice) {
+          case "M" :
+            if (sliceTurns === (-faceTurns | 0)) {
+              return {
+                desc: {
+                  TAG: "Move",
+                  _0: {
+                    TAG: "FaceTurn",
+                    _0: "R",
+                    _1: {
+                      from_: 1,
+                      to_: 2
+                    }
+                  },
+                  _1: faceTurns
+                },
+                loc: generatedLoc
+              };
+            } else {
+              return;
+            }
+          case "E" :
+          case "S" :
+            return;
+        }
+      case "B" :
+        switch (slice) {
+          case "M" :
+          case "E" :
+            return;
+          case "S" :
+            if (sliceTurns === (-faceTurns | 0)) {
+              return {
+                desc: {
+                  TAG: "Move",
+                  _0: {
+                    TAG: "FaceTurn",
+                    _0: "B",
+                    _1: {
+                      from_: 1,
+                      to_: 2
+                    }
+                  },
+                  _1: faceTurns
+                },
+                loc: generatedLoc
+              };
+            } else {
+              return;
+            }
+        }
+      case "D" :
+        switch (slice) {
+          case "E" :
+            if (sliceTurns === faceTurns) {
+              return {
+                desc: {
+                  TAG: "Move",
+                  _0: {
+                    TAG: "FaceTurn",
+                    _0: "D",
+                    _1: {
+                      from_: 1,
+                      to_: 2
+                    }
+                  },
+                  _1: faceTurns
+                },
+                loc: generatedLoc
+              };
+            } else {
+              return;
+            }
+          case "M" :
+          case "S" :
+            return;
+        }
+    }
+  };
+  let match = left.desc;
+  let match$1 = right.desc;
+  if (typeof match !== "object") {
+    return;
+  }
+  if (match.TAG !== "Move") {
+    return;
+  }
+  let slice = match._0;
+  switch (slice.TAG) {
+    case "FaceTurn" :
+      let match$2 = slice._1;
+      if (match$2.from_ !== 1) {
+        return;
+      }
+      if (match$2.to_ !== 1) {
+        return;
+      }
+      if (typeof match$1 !== "object") {
+        return;
+      }
+      if (match$1.TAG !== "Move") {
+        return;
+      }
+      let slice$1 = match$1._0;
+      switch (slice$1.TAG) {
+        case "SliceTurn" :
+          return matchPair(slice._0, match._1, slice$1._0, match$1._1);
+        case "FaceTurn" :
+        case "Rotation" :
+          return;
+      }
+    case "SliceTurn" :
+      if (typeof match$1 !== "object") {
+        return;
+      }
+      if (match$1.TAG !== "Move") {
+        return;
+      }
+      let match$3 = match$1._0;
+      switch (match$3.TAG) {
+        case "FaceTurn" :
+          let match$4 = match$3._1;
+          if (match$4.from_ !== 1 || match$4.to_ !== 1) {
+            return;
+          } else {
+            return matchPair(match$3._0, match$1._1, slice._0, match._1);
+          }
+        case "SliceTurn" :
+        case "Rotation" :
+          return;
+      }
+    case "Rotation" :
+      return;
+  }
+}
+
+function rewritePairs(units, _index, _output) {
+  while (true) {
+    let output = _output;
+    let index = _index;
+    if (index >= units.length) {
+      return output;
+    }
+    if ((index + 1 | 0) >= units.length) {
+      return output.concat([units[index]]);
+    }
+    let left = units[index];
+    let right = units[index + 1 | 0];
+    let replacement = sliceRegripPair(left, right);
+    if (replacement !== undefined) {
+      _output = output.concat(replacement);
+      _index = index + 2 | 0;
+      continue;
+    }
+    let replacement$1 = widePair(left, right);
+    if (replacement$1 !== undefined) {
+      _output = output.concat([replacement$1]);
+      _index = index + 2 | 0;
+      continue;
+    }
+    _output = output.concat([left]);
+    _index = index + 1 | 0;
+    continue;
+  };
+}
+
 function mirrorFace(plane, face) {
   switch (plane) {
     case "LR" :
@@ -809,6 +1266,160 @@ function rotate(alg, axis, turns) {
   return output;
 }
 
+function rotationCandidates(remaining, prefix, output) {
+  if (remaining === 0) {
+    output.push(prefix);
+  } else {
+    [
+      [
+        "X",
+        1
+      ],
+      [
+        "X",
+        -1
+      ],
+      [
+        "X",
+        2
+      ],
+      [
+        "Y",
+        1
+      ],
+      [
+        "Y",
+        -1
+      ],
+      [
+        "Y",
+        2
+      ],
+      [
+        "Z",
+        1
+      ],
+      [
+        "Z",
+        -1
+      ],
+      [
+        "Z",
+        2
+      ]
+    ].forEach(param => rotationCandidates(remaining - 1 | 0, prefix.concat([{
+        desc: {
+          TAG: "Move",
+          _0: {
+            TAG: "Rotation",
+            _0: param[0]
+          },
+          _1: param[1]
+        },
+        loc: generatedLoc
+      }]), output));
+  }
+}
+
+function equivalentRotation(left, right) {
+  let solved = StateTypes.solved(3);
+  if (solved.TAG !== "Ok") {
+    return false;
+  }
+  let solved$1 = solved._0;
+  let match = MoveExecutor.applyAlg(solved$1, left);
+  let match$1 = MoveExecutor.applyAlg(solved$1, right);
+  if (match.TAG === "Ok" && match$1.TAG === "Ok") {
+    return Primitive_object.equal(match._0, match$1._0);
+  } else {
+    return false;
+  }
+}
+
+function canonicalRotations(rotations) {
+  let found;
+  let length = 0;
+  while (found === undefined && length <= 3) {
+    let candidates = [];
+    rotationCandidates(length, [], candidates);
+    let index = 0;
+    while (found === undefined && index < candidates.length) {
+      let candidate = candidates[index];
+      if (equivalentRotation(rotations, candidate)) {
+        found = candidate;
+      }
+      index = index + 1 | 0;
+    };
+    length = length + 1 | 0;
+  };
+  let candidate$1 = found;
+  if (candidate$1 !== undefined) {
+    return candidate$1;
+  } else {
+    return rotations;
+  }
+}
+
+function pushRotationsRight(units) {
+  let output = {
+    contents: []
+  };
+  let pending = {
+    contents: []
+  };
+  let flushPending = () => {
+    output.contents = output.contents.concat(canonicalRotations(pending.contents));
+    pending.contents = [];
+  };
+  units.forEach(unit => {
+    let match = unit.desc;
+    if (typeof match === "object" && match.TAG === "Move") {
+      let exit = 0;
+      switch (match._0.TAG) {
+        case "FaceTurn" :
+        case "SliceTurn" :
+          exit = 2;
+          break;
+        case "Rotation" :
+          pending.contents = pending.contents.concat([unit]);
+          return;
+      }
+      if (exit === 2) {
+        let moved = [unit];
+        for (let index = pending.contents.length - 1 | 0; index >= 0; --index) {
+          let match$1 = pending.contents[index].desc;
+          if (typeof match$1 === "object" && match$1.TAG === "Move") {
+            let axis = match$1._0;
+            switch (axis.TAG) {
+              case "FaceTurn" :
+              case "SliceTurn" :
+                break;
+              case "Rotation" :
+                moved = rotate(moved, axis._0, -match$1._1 | 0);
+                break;
+            }
+          }
+        }
+        output.contents = output.contents.concat(moved);
+        return;
+      }
+    }
+    flushPending();
+    output.contents = output.contents.concat([unit]);
+  });
+  flushPending();
+  return output.contents;
+}
+
+function optimizeRegrips(alg) {
+  let flat = simplify(alg);
+  if (flat.TAG === "Ok") {
+    return pushRotationsRight(rewritePairs(flat._0, 0, []));
+  } else {
+    return alg;
+  }
+}
+
 function practiceLength(size) {
   switch (size) {
     case 2 :
@@ -975,6 +1586,11 @@ export {
   flushRun,
   addToRun,
   simplify,
+  moveUnit,
+  outerFace,
+  sliceRegripPair,
+  widePair,
+  rewritePairs,
   mirrorFace,
   mirrorAxisFactor,
   mirrorUnit,
@@ -987,6 +1603,11 @@ export {
   rotateUnitOnce,
   rotateOnce,
   rotate,
+  rotationCandidates,
+  equivalentRotation,
+  canonicalRotations,
+  pushRotationsRight,
+  optimizeRegrips,
   practiceLength,
   practiceFamilies,
   randomIndex,
