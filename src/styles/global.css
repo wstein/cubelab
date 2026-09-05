@@ -833,7 +833,17 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   --attached-fold-gap: 0.2rem;
   --manual-state-explode-gap: 0.8rem;
   overflow: visible;
-  padding: 2.2rem 1.2rem 2.2rem 1.2rem;
+  padding: 5.5rem 1.5rem 7.5rem 1.5rem;
+}
+
+.manual-state-dialog[data-manual-state-size="4"] .manual-state-net[data-representation="isometric"] {
+  padding-top: 7rem;
+  padding-bottom: 9.5rem;
+}
+
+.manual-state-dialog[data-manual-state-size="5"] .manual-state-net[data-representation="isometric"] {
+  padding-top: 8.5rem;
+  padding-bottom: 12rem;
 }
 
 .manual-state-net[data-representation="isometric"] .manual-state-face {
