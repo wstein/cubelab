@@ -114,3 +114,28 @@ test("finds a replay-verified centre-preserving next wing-pair guide", () => {
     expect(guide._0.after).toBe(after._0.wingRowsPaired);
   }
 });
+
+test("uses an outer-turn setup when a pairing seed is not already in a working slot", () => {
+  // This is an outer-turn conjugate of a pairing case. A direct seed attempt
+  // has no improvement here; the Academy planner must set the wing up, pair
+  // it, and restore the surrounding outer-layer state.
+  const scrambled = apply(4, "U R u' R U R' F R' F' R u R' U'");
+  const before = inspectReduction4x4(scrambled);
+  expect(before.TAG).toBe("Ok");
+  if (before.TAG !== "Ok") return;
+  expect(before._0).toMatchObject({centreBlocksComplete: 6, wingRowsPaired: 20});
+
+  const guide = planNextWingPair4x4(scrambled);
+  expect(guide.TAG).toBe("Ok");
+  if (guide.TAG !== "Ok") return;
+  expect(guide._0.algorithm).not.toBe("");
+  const replay = MoveExecutor.applyAlg(scrambled, guide._0.alg);
+  expect(replay.TAG).toBe("Ok");
+  if (replay.TAG !== "Ok") return;
+  const after = inspectReduction4x4(replay._0);
+  expect(after.TAG).toBe("Ok");
+  if (after.TAG === "Ok") {
+    expect(after._0.centreBlocksComplete).toBe(6);
+    expect(after._0.wingRowsPaired).toBeGreaterThan(before._0.wingRowsPaired);
+  }
+});

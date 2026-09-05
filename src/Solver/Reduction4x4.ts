@@ -98,12 +98,33 @@ const pairingSeedNotations = [
   "u' R U R' F R' F' R u",
 ];
 
+// Outer turns preserve every 2×2 centre block.  Conjugating a pairing seed by
+// one gives the guide a small, deterministic way to bring an unpaired wing
+// into its working slots and then put the surrounding reduction back exactly.
+// This is deliberately finite: it is a responsive Academy hint, not a hidden
+// exhaustive 4×4 solver.
+const outerSetupNotations = [
+  "",
+  "U", "U'", "U2",
+  "R", "R'", "R2",
+  "F", "F'", "F2",
+  "D", "D'", "D2",
+  "L", "L'", "L2",
+  "B", "B'", "B2",
+];
+
+// A second setup turn is only tried when the single-turn search has no
+// verified improvement. With the seed viewed in every cube frame, U/R/F are a
+// sufficient compact basis for that fallback and keep the hint responsive.
+const secondSetupNotations = ["", "U", "U'", "U2", "R", "R'", "R2", "F", "F'", "F2"];
+
 /**
  * Finds one small, replay-verified edge-pairing improvement. This is a
  * deliberately bounded guide, not a claim to be a complete reduction search:
- * it tries conjugated slice-pair-restore seeds and returns only a move that
- * preserves all six completed centre blocks while increasing the observable
- * paired-wing score.
+ * it tries each slice-pair-restore seed in all viewing frames, with an optional
+ * outer-turn setup and exact restore. It returns only a move that preserves all
+ * six completed centre blocks while increasing the observable paired-wing
+ * score.
  */
 export const planNextWingPair4x4 = (state: unknown): ReScriptResult<WingPairGuide4x4> => {
   const initial = inspectReduction4x4(state);
@@ -114,35 +135,53 @@ export const planNextWingPair4x4 = (state: unknown): ReScriptResult<WingPairGuid
   if (initial._0.wingRowsPaired === 24) {
     return {TAG: "Error", _0: {message: "All visible wing rows are already paired."}};
   }
-  const candidates: unknown[][] = [];
+  const setups = outerSetupNotations
+    .map((notation) => parseGuide(notation))
+    .filter((setup): setup is unknown[] => setup !== null);
+  const rotatedSeeds = new Map<string, unknown[]>();
   pairingSeedNotations.forEach((notation) => {
     const seed = parseGuide(notation);
     if (seed === null) return;
     for (let x = 0; x < 4; x += 1) {
       for (let y = 0; y < 4; y += 1) {
-        candidates.push(MoveTransform.rotate(MoveTransform.rotate(seed, "X", x), "Y", y));
+        for (let z = 0; z < 4; z += 1) {
+          const rotated = MoveTransform.rotate(MoveTransform.rotate(MoveTransform.rotate(seed, "X", x), "Y", y), "Z", z);
+          rotatedSeeds.set(MoveTransform.serialize(rotated) as string, rotated);
+        }
       }
     }
   });
   let best: WingPairGuide4x4 | null = null;
-  candidates.forEach((alg) => {
-    const replay = MoveExecutor.applyAlg(state, alg) as ReScriptResult<unknown>;
-    if (replay.TAG === "Error") return;
-    const after = inspectReduction4x4(replay._0);
-    if (after.TAG === "Error" || after._0.centreBlocksComplete !== 6) return;
-    if (after._0.wingRowsPaired <= initial._0.wingRowsPaired) return;
-    const guide = {
-      alg,
-      algorithm: MoveTransform.serialize(alg) as string,
-      before: initial._0.wingRowsPaired,
-      after: after._0.wingRowsPaired,
-    };
-    if (best === null
-      || guide.after > best.after
-      || (guide.after === best.after && guide.algorithm.length < best.algorithm.length)) best = guide;
-  });
+  const evaluate = (candidateSetups: unknown[][]): void => {
+    candidateSetups.forEach((setup) => {
+      rotatedSeeds.forEach((seed) => {
+        const alg = [...setup, ...seed, ...MoveTransform.invert(setup)];
+        const replay = MoveExecutor.applyAlg(state, alg) as ReScriptResult<unknown>;
+        if (replay.TAG === "Error") return;
+        const after = inspectReduction4x4(replay._0);
+        if (after.TAG === "Error" || after._0.centreBlocksComplete !== 6) return;
+        if (after._0.wingRowsPaired <= initial._0.wingRowsPaired) return;
+        const guide = {
+          alg,
+          algorithm: MoveTransform.serialize(alg) as string,
+          before: initial._0.wingRowsPaired,
+          after: after._0.wingRowsPaired,
+        };
+        if (best === null
+          || guide.after > best.after
+          || (guide.after === best.after && guide.algorithm.length < best.algorithm.length)) best = guide;
+      });
+    });
+  };
+  evaluate(setups);
+  if (best === null) {
+    const secondTurns = secondSetupNotations
+      .map((notation) => parseGuide(notation))
+      .filter((setup): setup is unknown[] => setup !== null);
+    evaluate(secondTurns.flatMap((first) => secondTurns.map((second) => [...first, ...second])));
+  }
   return best === null
-    ? {TAG: "Error", _0: {message: "No centre-preserving pairing guide was found in the bounded seed set. Use the displayed manual setup steps, then request another guide."}}
+    ? {TAG: "Error", _0: {message: "No verified pairing move was found in the local setup search. Make one manual wing setup, then request the next guide."}}
     : {TAG: "Ok", _0: best};
 };
 
