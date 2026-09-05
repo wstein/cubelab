@@ -772,10 +772,11 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-net {
+  --manual-state-face-gap: 0.45rem;
   display: grid;
   grid-template-columns: repeat(4, minmax(4rem, 1fr));
   grid-template-rows: repeat(3, auto);
-  gap: 0.6rem;
+  gap: var(--manual-state-face-gap);
   width: 100%;
 }
 
@@ -806,7 +807,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
      controls: Front, Left, and Down stay square; Up and Right fold away;
      Back completes the connected strip. */
   --attached-face-size: min(14vw, 9rem);
-  --attached-face-gap: 0.45rem;
+  --attached-face-gap: var(--manual-state-face-gap);
   position: relative;
   display: block;
   height: min(44vw, 30rem);
@@ -854,11 +855,28 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="B"] {
   left: calc(25% + var(--attached-face-size) + var(--attached-face-size) + var(--attached-face-gap) + var(--attached-face-gap));
   top: 0;
+  transform: skewY(-45deg);
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="D"] {
   left: 25%;
   top: calc(var(--attached-face-size) + var(--attached-face-size) + var(--attached-face-gap) + var(--attached-face-gap));
+}
+
+/* Each face has a stable view-transition name, allowing the browser to carry
+   it through the same flat-to-folded motion in reverse when Standard net is
+   selected again. Users who request reduced motion receive the instant layout
+   change instead. */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-group(manual-state-face-u),
+  ::view-transition-group(manual-state-face-r),
+  ::view-transition-group(manual-state-face-f),
+  ::view-transition-group(manual-state-face-d),
+  ::view-transition-group(manual-state-face-l),
+  ::view-transition-group(manual-state-face-b) {
+    animation-duration: 260ms;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
 }
 
 .manual-state-shortcuts {

@@ -1042,6 +1042,9 @@ if (root) {
       group.className = "manual-state-face";
       group.dataset.face = face;
       group.style.setProperty("--manual-state-size", String(manualSize));
+      // Named view-transition participants let the same six editor faces
+      // travel between unfolded and attached layouts in either direction.
+      group.style.setProperty("view-transition-name", `manual-state-face-${face.toLowerCase()}`);
       group.setAttribute("aria-label", `${manualStateFaceName[face]} face`);
       // No visual face-letter headline: the net's fixed U/L/F/R/B/D cross
       // arrangement already says which cluster is which, and repeating it as
@@ -1217,10 +1220,24 @@ if (root) {
     });
   };
   wireManualStateHover(manualStateGrid);
+  const setManualStateRepresentation = (representation: "standard" | "attached") => {
+    if (representation === manualStateRepresentation) return;
+    const renderRepresentation = () => {
+      manualStateRepresentation = representation;
+      renderManualStateEditor();
+    };
+    const startViewTransition = (document as Document & {
+      startViewTransition?: (update: () => void) => unknown;
+    }).startViewTransition;
+    if (startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      startViewTransition.call(document, renderRepresentation);
+    } else {
+      renderRepresentation();
+    }
+  };
   manualStateRepresentationButtons.forEach((button) => {
     button.addEventListener("click", () => {
-      manualStateRepresentation = button.dataset.manualStateRepresentation as "standard" | "attached";
-      renderManualStateEditor();
+      setManualStateRepresentation(button.dataset.manualStateRepresentation as "standard" | "attached");
     });
   });
 
