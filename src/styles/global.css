@@ -772,7 +772,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-net {
-  --manual-state-face-gap: 0.45rem;
+  --manual-state-face-gap: 0.3rem;
   display: grid;
   grid-template-columns: repeat(4, minmax(4rem, 1fr));
   grid-template-rows: repeat(3, auto);
@@ -823,7 +823,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="B"] {
-  transform: translateY(calc(-100% - var(--manual-state-face-gap)));
+  transform: translate(calc(-1 * var(--manual-state-face-gap)), calc(-100% - var(--manual-state-face-gap)));
 }
 
 /* Each face has a stable view-transition name, allowing the browser to carry
