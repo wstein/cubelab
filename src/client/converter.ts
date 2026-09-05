@@ -431,6 +431,7 @@ if (root) {
   let activeRecognized: RecognizedInput | null = null;
   let manualStateDraft: ManualStateDraft = emptyManualState(2);
   let manualStateColour: ManualStateFace | null = "U";
+  let manualStateShiftPressed = false;
   const manualStateExplicitIndices = new Set<number>();
   const manualStateAutoIndices = new Set<number>();
   let manualStateHoverIndex: number | null = null;
@@ -959,6 +960,25 @@ if (root) {
     renderManualStateEditor();
   };
 
+  const resetManualStateColour = (face: ManualStateFace) => {
+    const manualSize = size as ManualStateSize;
+    let changed = false;
+    for (let index = 0; index < manualStateDraft.length; index += 1) {
+      if (manualStateDraft[index] === face && !isManualStateCentre(index)) {
+        manualStateDraft[index] = null;
+        manualStateExplicitIndices.delete(index);
+        manualStateAutoIndices.delete(index);
+        changed = true;
+      }
+    }
+    if (changed) {
+      touchManualStateDraft();
+      manualStateDirtyDots = null;
+      refreshManualStateAutoFill(manualSize, true);
+      renderManualStateEditor();
+    }
+  };
+
   const paintManualStateSticker = (index: number, colour: ManualStateFace): boolean => {
     if (isManualStateCentre(index)) return false;
     const manualSize = size as ManualStateSize;
@@ -1226,10 +1246,12 @@ if (root) {
       const face = button.dataset.manualStateColour as ManualStateFace;
       button.setAttribute("aria-pressed", String(manualStateColour === face));
       const left = button.querySelector<HTMLElement>("[data-manual-state-colour-left]");
-      if (left) left.textContent = `${manualSize * manualSize - perColourPlaced[face]} left`;
+      if (left) left.textContent = manualStateShiftPressed ? "Reset" : `${manualSize * manualSize - perColourPlaced[face]} left`;
     });
     manualStateEraser.setAttribute("aria-pressed", String(manualStateColour === null));
     manualStateEraser.classList.toggle("active", manualStateColour === null);
+    manualStateEraser.dataset.shiftActive = String(manualStateShiftPressed);
+    manualStateEraser.classList.toggle("shift-active", manualStateShiftPressed);
     manualStateNet.dataset.representation = manualStateRepresentation;
     manualStateNet.dataset.orientation = String(manualStateOrientation);
     if (manualStateRotationGroup) {
@@ -1317,6 +1339,29 @@ if (root) {
         manualStateStickerElements[manualStateCursorIndex]?.focus({preventScroll: true});
       }
     }
+  };
+
+  const renderManualStatePaletteLabels = () => {
+    const manualSize = size as ManualStateSize;
+    const perColourPlaced: Record<ManualStateFace, number> = {U: 0, D: 0, R: 0, L: 0, F: 0, B: 0};
+    manualStateDraft.forEach((value) => {
+      if (value !== null) perColourPlaced[value] += 1;
+    });
+    manualStatePalette.querySelectorAll<HTMLButtonElement>("[data-manual-state-colour]").forEach((button) => {
+      const face = button.dataset.manualStateColour as ManualStateFace;
+      const left = button.querySelector<HTMLElement>("[data-manual-state-colour-left]");
+      if (left) {
+        left.textContent = manualStateShiftPressed ? "Reset" : `${manualSize * manualSize - perColourPlaced[face]} left`;
+      }
+    });
+  };
+
+  const setManualStateShiftPressed = (pressed: boolean) => {
+    if (manualStateShiftPressed === pressed) return;
+    manualStateShiftPressed = pressed;
+    manualStateEraser.dataset.shiftActive = String(pressed);
+    manualStateEraser.classList.toggle("shift-active", pressed);
+    renderManualStatePaletteLabels();
   };
 
   // Hover only re-rings the affected stickers rather than calling
@@ -1551,6 +1596,7 @@ if (root) {
       : "Pick a face colour, then fill the net. Colour quotas and piece identities are enforced, and Load checks full 4×4 physical reachability.";
     manualStateDialog.dataset.manualStateSize = String(manualSize);
     manualStateColour = "U";
+    setManualStateShiftPressed(false);
     // Put the dialog in the top layer before building its reachability-aware
     // dots, which are intentionally more substantial on big cubes.
     manualStateDialog.showModal();
@@ -6098,13 +6144,38 @@ if (root) {
   shortcutsClose.addEventListener("click", () => shortcutsDialog.close());
   manualStateDialog.addEventListener("close", () => {
     resetManualState3dOrientation(true);
+    setManualStateShiftPressed(false);
+  });
+  window.addEventListener("keydown", (event) => {
+    if (!manualStateDialog.open) return;
+    if (event.key === "Shift") setManualStateShiftPressed(true);
+  });
+  window.addEventListener("keyup", (event) => {
+    if (!manualStateDialog.open) return;
+    if (event.key === "Shift" || !event.shiftKey) setManualStateShiftPressed(false);
+  });
+  window.addEventListener("blur", () => {
+    if (manualStateShiftPressed) setManualStateShiftPressed(false);
+  });
+  manualStateDialog.addEventListener("pointermove", (event) => {
+    if (!manualStateDialog.open) return;
+    if (manualStateShiftPressed !== event.shiftKey) setManualStateShiftPressed(event.shiftKey);
+  });
+  manualStateDialog.addEventListener("pointerdown", (event) => {
+    if (!manualStateDialog.open) return;
+    if (manualStateShiftPressed !== event.shiftKey) setManualStateShiftPressed(event.shiftKey);
   });
   manualStateOpen.addEventListener("click", openManualStateEditor);
   manualStateCancel.addEventListener("click", () => manualStateDialog.close());
   manualStatePalette.addEventListener("click", (event) => {
     const button = (event.target as Element).closest<HTMLButtonElement>("[data-manual-state-colour]");
     if (!button) return;
-    manualStateColour = button.dataset.manualStateColour as ManualStateFace;
+    const face = button.dataset.manualStateColour as ManualStateFace;
+    if (event.shiftKey || manualStateShiftPressed) {
+      resetManualStateColour(face);
+      return;
+    }
+    manualStateColour = face;
     renderManualStateEditor();
   });
   manualStateEraser.addEventListener("click", () => {

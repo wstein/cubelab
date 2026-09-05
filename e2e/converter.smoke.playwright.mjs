@@ -1684,20 +1684,20 @@ test("holding shift highlights erase button and changes palette text to Reset, a
   const net = dialog.locator("[data-manual-state-grid]");
   const eraser = dialog.locator("[data-manual-state-eraser]");
 
-  // Paint two stickers with Red: sticker 8 and sticker 9 (R0, not centre 13)
+  // Paint two distinct stickers with Red: sticker 0 (U-top-left) and sticker 8 (U-bottom-right)
   await dialog.locator('[data-manual-state-colour="R"]').click();
-  const sticker8 = net.locator('[data-manual-state-index="8"]');
-  const sticker9 = net.locator('[data-manual-state-index="9"]');
-  await sticker8.click();
-  await sticker9.click();
-  await expect(sticker8).toHaveAttribute("data-face", "R");
-  await expect(sticker9).toHaveAttribute("data-face", "R");
-
-  // Also paint one sticker with Blue: sticker 0
-  await dialog.locator('[data-manual-state-colour="B"]').click();
   const sticker0 = net.locator('[data-manual-state-index="0"]');
+  const sticker8 = net.locator('[data-manual-state-index="8"]');
   await sticker0.click();
-  await expect(sticker0).toHaveAttribute("data-face", "B");
+  await sticker8.click();
+  await expect(sticker0).toHaveAttribute("data-face", "R");
+  await expect(sticker8).toHaveAttribute("data-face", "R");
+
+  // Also paint one sticker with Blue: sticker 1 (U-top-edge)
+  await dialog.locator('[data-manual-state-colour="B"]').click();
+  const sticker1 = net.locator('[data-manual-state-index="1"]');
+  await sticker1.click();
+  await expect(sticker1).toHaveAttribute("data-face", "B");
 
   // Pressing Shift highlights the Eraser button and changes text in the colorpad to "Reset"
   await page.keyboard.down("Shift");
@@ -1714,10 +1714,10 @@ test("holding shift highlights erase button and changes palette text to Reset, a
 
   // Shift-clicking a color button in the colorpad resets all stickers of that color (except fixed centres)
   await dialog.locator('[data-manual-state-colour="R"]').click({modifiers: ["Shift"]});
+  await expect(sticker0).toHaveAttribute("data-face", "unknown");
   await expect(sticker8).toHaveAttribute("data-face", "unknown");
-  await expect(sticker9).toHaveAttribute("data-face", "unknown");
   // Non-red stickers remain untouched
-  await expect(sticker0).toHaveAttribute("data-face", "B");
+  await expect(sticker1).toHaveAttribute("data-face", "B");
   // Fixed Red centre (13) remains untouched
   const rCentre = net.locator('[data-manual-state-index="13"]');
   await expect(rCentre).toHaveAttribute("data-face", "R");

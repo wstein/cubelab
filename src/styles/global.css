@@ -1521,7 +1521,9 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-tool[data-manual-state-eraser][aria-pressed="true"],
-.manual-state-tool[data-manual-state-eraser].active {
+.manual-state-tool[data-manual-state-eraser].active,
+.manual-state-tool[data-manual-state-eraser].shift-active,
+.manual-state-tool[data-manual-state-eraser][data-shift-active="true"] {
   border-color: #67e8f9;
   background: rgba(103, 232, 249, 0.12);
   box-shadow: 0 0 0 2px rgba(103, 232, 249, 0.2);
@@ -1529,7 +1531,9 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-tool[data-manual-state-eraser][aria-pressed="true"]:hover,
-.manual-state-tool[data-manual-state-eraser].active:hover {
+.manual-state-tool[data-manual-state-eraser].active:hover,
+.manual-state-tool[data-manual-state-eraser].shift-active:hover,
+.manual-state-tool[data-manual-state-eraser][data-shift-active="true"]:hover {
   background: rgba(103, 232, 249, 0.18);
   border-color: #67e8f9;
 }
