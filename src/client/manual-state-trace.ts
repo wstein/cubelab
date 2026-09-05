@@ -8,9 +8,10 @@
  * it means "verification never ran", "verification was cancelled" or "this
  * draft genuinely has no completion". This narrates which one it is.
  *
- * Off by default and free when off. Turn it on with either:
- *   localStorage.setItem("cubeRosetta.traceDots", "1")   // persists
- *   ?traceDots=1                                          // one session
+ * Off by default and free when off. Turn it on with any of:
+ *   cubeRosettaTraceDots(true)   // console, takes effect immediately
+ *   ?traceDots=1                 // URL query, for the loading session
+ *   localStorage.setItem("cubeRosetta.traceDots", "1")   // needs a reload
  */
 import {
   explainManualStateColours,
@@ -31,7 +32,33 @@ const resolveEnabled = (): boolean => {
   }
 };
 
-const enabled = resolveEnabled();
+// Read once at load, then kept in a mutable so the per-dot guard stays a plain
+// boolean test. Re-reading localStorage would put a synchronous storage hit on
+// a path that runs for every visible dot on every render.
+let enabled = resolveEnabled();
+
+/**
+ * Turn tracing on or off in a running session.
+ *
+ * A debugging aid that only takes effect after a reload is a debugging aid you
+ * reach for once and then abandon, so this is exposed on window as
+ * `cubeRosettaTraceDots(true)` and persists the choice for later sessions.
+ */
+const setEnabled = (next: boolean): boolean => {
+  enabled = next;
+  try {
+    if (next) window.localStorage.setItem("cubeRosetta.traceDots", "1");
+    else window.localStorage.removeItem("cubeRosetta.traceDots");
+  } catch {
+    // Persisting is best-effort; the in-memory flag still applies this session.
+  }
+  console.info(`[Dots] tracing ${next ? "enabled" : "disabled"}. Interact with the editor to see events.`);
+  return enabled;
+};
+
+if (typeof window !== "undefined") {
+  (window as unknown as {cubeRosettaTraceDots: (next: boolean) => boolean}).cubeRosettaTraceDots = setEnabled;
+}
 
 const stamp = (): string => `${performance.now().toFixed(1)}ms`;
 
@@ -47,7 +74,10 @@ export type DotTraceEvent =
   | {type: "skip"; index: number; reason: string};
 
 export const dotTrace = {
-  enabled,
+  get enabled(): boolean {
+    return enabled;
+  },
+  setEnabled,
 
   log(event: DotTraceEvent): void {
     if (!enabled) return;

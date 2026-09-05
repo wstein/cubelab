@@ -112,9 +112,13 @@ the same pixel whether verification never ran, was cancelled, or correctly found
 `manual-state-trace.ts` narrates which one it is. It is off by default and free when off:
 
 ```js
-localStorage.setItem("cubeRosetta.traceDots", "1");   // persists across reloads
-// or append ?traceDots=1 to the URL for one session
+cubeRosettaTraceDots(true);    // in the console; takes effect immediately and persists
+cubeRosettaTraceDots(false);   // off again
 ```
+
+`?traceDots=1` appended to the **URL** enables it for the loading session. Setting the
+`cubeRosetta.traceDots` localStorage key directly also works, but the flag is read once at
+module load, so that route needs a reload — `cubeRosettaTraceDots(true)` does not.
 
 It logs each `render`, `queue`, `verify`, `promote`, `cancel`, and `skip` with the dot generation
 and the outstanding verification debt, so a cancelled pass and its recovery are both visible. A
