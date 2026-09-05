@@ -1337,7 +1337,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 
 .manual-state-palette {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.35rem;
   margin: 0.5rem 0;
 }
@@ -1364,13 +1364,6 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .manual-state-colour[aria-pressed="true"] {
   border-color: #67e8f9;
   box-shadow: 0 0 0 2px rgba(103, 232, 249, 0.2);
-}
-
-.manual-state-tool-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.4rem;
-  margin-top: 0.5rem;
 }
 
 .manual-state-tool {
