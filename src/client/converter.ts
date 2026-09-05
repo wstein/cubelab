@@ -1467,8 +1467,10 @@ if (root) {
       : "Pick a face colour, then fill the net. Colour quotas and piece identities are enforced, and Load checks full 4×4 physical reachability.";
     manualStateDialog.dataset.manualStateSize = String(manualSize);
     manualStateColour = "U";
-    renderManualStateEditor();
+    // Put the dialog in the top layer before building its reachability-aware
+    // dots, which are intentionally more substantial on big cubes.
     manualStateDialog.showModal();
+    renderManualStateEditor();
     void manualStateNet.offsetHeight;
     void manualStateGrid.offsetHeight;
     window.requestAnimationFrame(() => {
