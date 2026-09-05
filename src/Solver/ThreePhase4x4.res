@@ -12,6 +12,7 @@ open StateTypes
 type inputError =
   | UnsupportedState(string)
   | InvalidFacelets(string)
+  | InvalidTransition(string)
 
 let encodeFacelets = (state: cubeState): result<string, inputError> =>
   if state.size != 4 {
@@ -93,4 +94,24 @@ let extractCorners = (state: cubeState): array<string> =>
       ->Array.map(index => facelets->String.get(index)->Belt.Option.getUnsafe->String.make)
       ->Array.join("")
     )
+  }
+
+/* Transition oracle for ported coordinates. The later centre/edge tables are
+ * generated against this exact 4×4 move semantics, so a table transition can
+ * always be checked against the canonical state executor. */
+let applyTransition = (
+  state: cubeState,
+  notation: string,
+): result<cubeState, inputError> =>
+  if state.size != 4 {
+    Error(UnsupportedState("Three-phase transitions require a 4×4 state."))
+  } else {
+    switch MoveParser.parseWithOptions(~size=4, ~lowercaseMode=Wide, ~notationDialect=Modern, notation) {
+    | Error(_) => Error(InvalidTransition("Invalid 4×4 transition notation."))
+    | Ok(alg) =>
+      switch MoveExecutor.applyAlg(state, alg) {
+      | Ok(next) => Ok(next)
+      | Error(_) => Error(InvalidTransition("4×4 transition could not be applied."))
+      }
+    }
   }

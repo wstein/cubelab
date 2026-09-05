@@ -30,7 +30,9 @@ U/D/F/B/R/L coordinate order. The third increment ports
 `FullCube.edgeFacelet`: all 24 ordered wing pairs extract from CubeLab state in
 the upstream coordinate order. The fourth increment ports
 `FullCube.cornerFacelet`: all eight oriented corner triples now extract in
-upstream slot order. Move-transition, pruning-table, and search coordinates
+upstream slot order. The fifth increment adds a validated move-transition seam
+for outer, inner, and wide 4×4 moves; coordinate tables will be generated and
+checked against this canonical executor. Pruning-table and search coordinates
 are not ported yet; the module is not connected to the Converter.
 
 `Reduction4x4.reduce4x4` is the handoff gate for stage 3. It accepts only a
