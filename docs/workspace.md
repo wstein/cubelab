@@ -113,7 +113,12 @@ starts blank for an empty Setup, or from a valid existing Setup. On 2×2×2, eac
 sticker shows only colours that have a complete reachable continuation, so every displayed
 dot is selectable. On 3×3×3 through 5×5×5, a cheap local corner/edge and colour-quota
 check paints dots immediately; full reachability verification corrects any optimistic dot
-asynchronously. A click is always gated by that full check, and auto-fill candidates are
+asynchronously. Verification debt is tracked per sticker across renders so that cancelled or
+interrupted passes automatically requeue unverified stickers on subsequent passes without
+repainting provisional values. In addition, routine chrome-only renders (palette clicks, eraser
+activation, representation changes, or eyedropper double-clicks) preserve in-flight verification
+passes rather than bumping the generation and discarding progress. A click is always gated by
+that full check, and auto-fill candidates are
 likewise verified before being written; on 4×4×4 and 5×5×5 it uses the same local propagation
 instead of rechecking every blank sticker, except for a two-sticker exact endgame pass. The dots never change position: they are fixed as
 **Up / Down**, **Right / Left**, and **Front / Back**; unavailable colours are dimmed. Clicking a specific dot
