@@ -187,3 +187,72 @@ let applyCentreTransition = (centres: string, permutation: array<int>): string =
   permutation
   ->Array.map(source => centres->String.get(source)->Belt.Option.getUnsafe->String.make)
   ->Array.join("")
+
+/* Phase-one centre coordinate: choose the eight U/D-coloured centres among
+ * the 24 ordered slots. This is the 735,471-state raw coordinate used before
+ * symmetry reduction in the upstream Center1 table. */
+let choose = (n: int, k: int): int => {
+  if k < 0 || k > n {
+    0
+  } else {
+    let reduced = if k > n - k {n - k} else {k}
+    let value = ref(1)
+    for offset in 1 to reduced {
+      value := value.contents * (n - reduced + offset) / offset
+    }
+    value.contents
+  }
+}
+
+let rankUdCentres = (centres: string): int => {
+  if centres->String.length != 24 {
+    -1
+  } else {
+    let selected = ref([])
+    for slot in 0 to 23 {
+      let colour = centres->String.get(slot)->Belt.Option.getUnsafe->String.make
+      if colour == "U" || colour == "D" {
+        selected := selected.contents->Array.concat([slot])
+      }
+    }
+    if selected.contents->Array.length != 8 {
+      -1
+    } else {
+      let rank = ref(0)
+      let previous = ref(-1)
+      for selectionIndex in 0 to 7 {
+        let selectedSlot = Belt.Array.getUnsafe(selected.contents, selectionIndex)
+        for candidate in previous.contents + 1 to selectedSlot - 1 {
+          rank := rank.contents + choose(24 - candidate - 1, 8 - selectionIndex - 1)
+        }
+        previous := selectedSlot
+      }
+      rank.contents
+    }
+  }
+}
+
+let unrankUdCentres = (rank: int): array<int> => {
+  if rank < 0 || rank >= choose(24, 8) {
+    []
+  } else {
+    let remainingRank = ref(rank)
+    let selected = ref([])
+    let candidate = ref(0)
+    for selectionIndex in 0 to 7 {
+      let finding = ref(true)
+      while finding.contents {
+        let count = choose(24 - candidate.contents - 1, 8 - selectionIndex - 1)
+        if remainingRank.contents < count {
+          selected := selected.contents->Array.concat([candidate.contents])
+          candidate := candidate.contents + 1
+          finding := false
+        } else {
+          remainingRank := remainingRank.contents - count
+          candidate := candidate.contents + 1
+        }
+      }
+    }
+    selected.contents
+  }
+}

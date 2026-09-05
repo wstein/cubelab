@@ -2,7 +2,7 @@ import {expect, test} from "vitest";
 
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
-import {applyCentreTransition, applyTransition, centreTransition, decodeFacelets, encodeFacelets, extractCentres, extractCorners, extractWings} from "../src/Solver/ThreePhase4x4.res.mjs";
+import {applyCentreTransition, applyTransition, centreTransition, decodeFacelets, encodeFacelets, extractCentres, extractCorners, extractWings, rankUdCentres, unrankUdCentres} from "../src/Solver/ThreePhase4x4.res.mjs";
 
 test("three-phase boundary round-trips CubeLab's canonical 96 facelets", () => {
   const state = MoveExecutor.parseAndApply(4, "Rw U 2F' Lw2");
@@ -68,4 +68,13 @@ test("generated centre transition matches a physical inner-layer move", () => {
   if (moved.TAG === "Ok") {
     expect(applyCentreTransition(extractCentres(state._0), permutation._0)).toBe(extractCentres(moved._0));
   }
+});
+
+test("phase-one U/D centre coordinate ranks and un-ranks all selected slots", () => {
+  const solved = "UUUUDDDDFFFFBBBBRRRRLLLL";
+  expect(rankUdCentres(solved)).toBe(0);
+  expect(unrankUdCentres(0)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+  const rank = rankUdCentres("UUFDDDDDDFFFBBBBRRRRLLLL");
+  expect(rank).toBeGreaterThanOrEqual(0);
+  expect(unrankUdCentres(rank)).toHaveLength(8);
 });

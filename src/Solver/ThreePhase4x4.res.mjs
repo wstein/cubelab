@@ -5,6 +5,7 @@ import * as StateTypes from "../State/StateTypes.res.mjs";
 import * as FaceletCodec from "../State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
+import * as Primitive_int from "@rescript/runtime/lib/es6/Primitive_int.js";
 
 function encodeFacelets(state) {
   if (state.size !== 4) {
@@ -362,6 +363,68 @@ function applyCentreTransition(centres, permutation) {
   return permutation.map(source => String(centres[source])).join("");
 }
 
+function choose(n, k) {
+  if (k < 0 || k > n) {
+    return 0;
+  }
+  let reduced = k > (n - k | 0) ? n - k | 0 : k;
+  let value = 1;
+  for (let offset = 1; offset <= reduced; ++offset) {
+    value = Primitive_int.div(value * ((n - reduced | 0) + offset | 0) | 0, offset);
+  }
+  return value;
+}
+
+function rankUdCentres(centres) {
+  if (centres.length !== 24) {
+    return -1;
+  }
+  let selected = [];
+  for (let slot = 0; slot <= 23; ++slot) {
+    let colour = String(centres[slot]);
+    if (colour === "U" || colour === "D") {
+      selected = selected.concat([slot]);
+    }
+  }
+  if (selected.length !== 8) {
+    return -1;
+  }
+  let rank = 0;
+  let previous = -1;
+  for (let selectionIndex = 0; selectionIndex <= 7; ++selectionIndex) {
+    let selectedSlot = selected[selectionIndex];
+    for (let candidate = previous + 1 | 0; candidate < selectedSlot; ++candidate) {
+      rank = rank + choose((24 - candidate | 0) - 1 | 0, (8 - selectionIndex | 0) - 1 | 0) | 0;
+    }
+    previous = selectedSlot;
+  }
+  return rank;
+}
+
+function unrankUdCentres(rank) {
+  if (rank < 0 || rank >= choose(24, 8)) {
+    return [];
+  }
+  let remainingRank = rank;
+  let selected = [];
+  let candidate = 0;
+  for (let selectionIndex = 0; selectionIndex <= 7; ++selectionIndex) {
+    let finding = true;
+    while (finding) {
+      let count = choose((24 - candidate | 0) - 1 | 0, (8 - selectionIndex | 0) - 1 | 0);
+      if (remainingRank < count) {
+        selected = selected.concat([candidate]);
+        candidate = candidate + 1 | 0;
+        finding = false;
+      } else {
+        remainingRank = remainingRank - count | 0;
+        candidate = candidate + 1 | 0;
+      }
+    };
+  }
+  return selected;
+}
+
 export {
   encodeFacelets,
   decodeFacelets,
@@ -378,5 +441,8 @@ export {
   centreSlotForFacelet,
   centreTransition,
   applyCentreTransition,
+  choose,
+  rankUdCentres,
+  unrankUdCentres,
 }
 /* No side effect */

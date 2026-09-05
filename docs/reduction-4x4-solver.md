@@ -35,8 +35,11 @@ for outer, inner, and wide 4×4 moves; coordinate tables will be generated and
 checked against this canonical executor. The sixth increment generates compact
 centre transition permutations by moving a unique marker through that executor;
 the row is stored target-to-source for direct coordinate application.
-Pruning-table and search coordinates are not ported yet; the module is not
-connected to the Converter.
+The seventh increment ranks the phase-one U/D centre coordinate as eight
+selected slots among 24 (`C(24,8) = 735,471` raw states), matching the raw
+domain used before upstream symmetry reduction. Packed pruning-table traversal
+and search coordinates are not ported yet; the module is not connected to the
+Converter. The existing Academy guides remain independent and intact.
 
 `Reduction4x4.reduce4x4` is the handoff gate for stage 3. It accepts only a
 4×4 with monochrome 2×2 centres and paired visible wings, converts it to the
