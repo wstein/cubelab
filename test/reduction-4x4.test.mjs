@@ -10,6 +10,7 @@ import {
   planNextCentreBlock4x4,
   planNextWingPair4x4,
   planOLLParityRepair4x4,
+  planPLLParityRepair4x4,
   reduce4x4,
 } from "../src/Solver/Reduction4x4.ts";
 import * as TwoPhaseSolver from "../src/Solver/TwoPhaseSolver.res.mjs";
@@ -169,27 +170,6 @@ test("uses an outer-turn setup when a pairing seed is not already in a working s
   }
 });
 
-test("recognises and repairs OLL parity in a fully paired 4×4", () => {
-  const state = FaceletCodec.parse(
-    4,
-    "FBBBBUURBUURDLLLUUUDBRRRBRRRDUUDLDDFUFFDUFFDBRRBUFFRFDDFFDDFBLLRUUUFFLLLFLLLULLLLRRRDBBDDBBDFBBR",
-  );
-  expect(state.TAG).toBe("Ok");
-  if (state.TAG !== "Ok") return;
-  const inspection = inspectReduction4x4(state._0);
-  expect(inspection.TAG).toBe("Ok");
-  if (inspection.TAG === "Ok") expect(inspection._0).toMatchObject({stage: "reduced", wingRowsPaired: 24});
-  const blocked = reduce4x4(state._0);
-  expect(blocked.TAG).toBe("Error");
-  if (blocked.TAG === "Error") expect(blocked._0.message).toMatch(/OLL parity/);
-
-  const repair = planOLLParityRepair4x4(state._0);
-  expect(repair.TAG).toBe("Ok");
-  if (repair.TAG !== "Ok") return;
-  const replay = MoveExecutor.applyAlg(state._0, repair._0.alg);
-  expect(replay.TAG).toBe("Ok");
-  if (replay.TAG === "Ok") expect(reduce4x4(replay._0).TAG).toBe("Ok");
-});
 test("keeps a legal 22/24 last-two-dedge state on the wing-pair path", () => {
   // This legal centre-complete state reaches 24/24 through 22 -> 20 -> 24.
   // The first sequence is a setup loss, so a strict one-ply hill climb cannot
@@ -224,5 +204,69 @@ test("keeps a legal 22/24 last-two-dedge state on the wing-pair path", () => {
   expect(after.TAG).toBe("Ok");
   if (after.TAG === "Ok") {
     expect(after._0).toMatchObject({centreBlocksComplete: 6, wingRowsPaired: 24});
+  }
+});
+
+test("recognises and repairs OLL parity in a fully paired 4×4", () => {
+  const state = FaceletCodec.parse(
+    4,
+    "FBBBBUURBUURDLLLUUUDBRRRBRRRDUUDLDDFUFFDUFFDBRRBUFFRFDDFFDDFBLLRUUUFFLLLFLLLULLLLRRRDBBDDBBDFBBR",
+  );
+  expect(state.TAG).toBe("Ok");
+  if (state.TAG !== "Ok") return;
+  const inspection = inspectReduction4x4(state._0);
+  expect(inspection.TAG).toBe("Ok");
+  if (inspection.TAG === "Ok") expect(inspection._0).toMatchObject({stage: "reduced", wingRowsPaired: 24});
+  const blocked = reduce4x4(state._0);
+  expect(blocked.TAG).toBe("Error");
+  if (blocked.TAG === "Error") expect(blocked._0.message).toMatch(/OLL parity/);
+
+  const repair = planOLLParityRepair4x4(state._0);
+  expect(repair.TAG).toBe("Ok");
+  if (repair.TAG !== "Ok") return;
+  const replay = MoveExecutor.applyAlg(state._0, repair._0.alg);
+  expect(replay.TAG).toBe("Ok");
+  if (replay.TAG === "Ok") expect(reduce4x4(replay._0).TAG).toBe("Ok");
+});
+
+test("recognises and repairs PLL parity in a fully paired 4×4", () => {
+  const parity = apply(4, "2R2 U2 2R2 u2 2R2 u2");
+  const blocked = reduce4x4(parity);
+  expect(blocked.TAG).toBe("Error");
+  if (blocked.TAG === "Error") expect(blocked._0.message).toMatch(/PLL parity/);
+  const repair = planPLLParityRepair4x4(parity);
+  expect(repair.TAG).toBe("Ok");
+  if (repair.TAG !== "Ok") return;
+  const replay = MoveExecutor.applyAlg(parity, repair._0.alg);
+  expect(replay.TAG).toBe("Ok");
+  if (replay.TAG === "Ok") expect(reduce4x4(replay._0).TAG).toBe("Ok");
+});
+
+test("keeps a mirrored monochrome centre frame in the centre stage", () => {
+  const state = FaceletCodec.parse(
+    4,
+    "UUUBFRRLFRRLURRLUBBUBUUUBUUURDDRRDDFFFFRFFFRLLLDDUUBDDDLDDDLDUUFLRRFDBBLDBBLFFFBRBBBFLLBFLLBDRRL",
+  );
+  expect(state.TAG).toBe("Ok");
+  if (state.TAG !== "Ok") return;
+  const inspection = inspectReduction4x4(state._0);
+  expect(inspection.TAG).toBe("Ok");
+  if (inspection.TAG === "Ok") {
+    expect(inspection._0).toMatchObject({centreBlocksComplete: 6, centreFrameValid: false, stage: "centres"});
+    expect(inspection._0.nextGoal).toMatch(/valid U\/R\/F colour frame/);
+  }
+  const reduced = reduce4x4(state._0);
+  expect(reduced.TAG).toBe("Error");
+  if (reduced.TAG === "Error") expect(reduced._0.message).toMatch(/before wing pairing/);
+  const repair = planNextCentreBlock4x4(state._0);
+  expect(repair.TAG).toBe("Ok");
+  if (repair.TAG !== "Ok") return;
+  expect(repair._0.frameRepair).toBe(true);
+  const replay = MoveExecutor.applyAlg(state._0, repair._0.alg);
+  expect(replay.TAG).toBe("Ok");
+  if (replay.TAG === "Ok") {
+    const repaired = inspectReduction4x4(replay._0);
+    expect(repaired.TAG).toBe("Ok");
+    if (repaired.TAG === "Ok") expect(repaired._0).toMatchObject({centreFrameValid: true, stage: "reduced"});
   }
 });

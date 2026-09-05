@@ -60,3 +60,19 @@ may lose up to four matched rows, while the final combined sequence is offered
 only when it restores all centre blocks and improves the original wing score.
 If no such sequence is verified, the guide reports that the position needs a
 setup or parity step; it does not describe the cube state as impossible.
+
+## Centre frames and parity hand-off
+
+A monochrome 2×2 centre block is not by itself a completed reduction. The six
+blocks must also form one of the 24 whole-cube U/R/F orientations. A mirrored
+or otherwise invalid arrangement remains in the centre stage; the Academy's
+centre-coordinate search supplies a verified reordering sequence before wing
+pairing continues.
+
+Once centres and wings are reduced, `reduce4x4` distinguishes the two legal
+even-cube parity cases from genuinely invalid input. OLL parity is an odd
+reduced-edge orientation sum; PLL parity is a reduced corner/edge permutation
+parity mismatch. The Academy offers the applicable repair only after replaying
+it and confirming that the resulting 3×3 projection is legal. The converter
+routes either parity result back to that repair step instead of attempting a
+3×3 finish.

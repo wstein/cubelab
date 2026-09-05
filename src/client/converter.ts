@@ -12,7 +12,7 @@ import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as HamiltonMacro from "../Move/HamiltonMacro";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
-import {inspectReduction4x4, planNextCentreBlock4x4, planNextWingPair4x4, planOLLParityRepair4x4, reduce4x4} from "../Solver/Reduction4x4";
+import {inspectReduction4x4, planNextCentreBlock4x4, planNextWingPair4x4, planOLLParityRepair4x4, planPLLParityRepair4x4, reduce4x4} from "../Solver/Reduction4x4";
 import {
   createOptimal2x2SolverClient,
   createReduction4x4SolverClient,
@@ -2472,20 +2472,25 @@ if (root) {
       return;
     }
     const progress = inspection._0;
-    academy.status.textContent = `${progress.centreBlocksComplete}/6 centre blocks · ${progress.wingRowsPaired}/24 wing rows paired.`;
+    academy.status.textContent = `${progress.centreBlocksComplete}/6 centre blocks · ${progress.wingRowsPaired}/24 wing rows paired${progress.centreBlocksComplete === 6 && !progress.centreFrameValid ? " · centre colour frame needs rebuilding." : "."}`;
     academy.current.hidden = false;
     academy.current.textContent = progress.nextGoal;
-    const centresDone = progress.centreBlocksComplete === 6;
+    const centresDone = progress.centreBlocksComplete === 6 && progress.centreFrameValid;
     const wingsDone = progress.wingRowsPaired === 24;
     const reduced = wingsDone ? reduce4x4(recognized.state) : null;
-    const ollParity = reduced?.TAG === "Error"
-      && reduced._0.message.startsWith("4×4 OLL parity detected:");
+    const parityKind = reduced?.TAG === "Error"
+      ? reduced._0.message.startsWith("4×4 OLL parity detected:") ? "OLL"
+      : reduced._0.message.startsWith("4×4 PLL parity detected:") ? "PLL"
+      : null
+      : null;
     const finishReady = reduced?.TAG === "Ok";
     const centreGuide = progress.stage === "centres"
       ? planNextCentreBlock4x4(recognized.state)
       : null;
     const centreGuideStep = centreGuide?.TAG === "Ok"
-      ? `Next verified centre setup: ${centreGuide._0.algorithm}. This improves ${centreGuide._0.beforeBlocks}/6 to ${centreGuide._0.afterBlocks}/6 completed blocks${centreGuide._0.afterBlocks === centreGuide._0.beforeBlocks ? ` (centre grouping ${centreGuide._0.beforeScore}/24 → ${centreGuide._0.afterScore}/24)` : ""}.`
+      ? centreGuide._0.frameRepair
+        ? `Verified centre-frame repair: ${centreGuide._0.algorithm}. This reorders the monochrome centre blocks into a valid U/R/F frame without returning to wing pairing.`
+        : `Next verified centre setup: ${centreGuide._0.algorithm}. This improves ${centreGuide._0.beforeBlocks}/6 to ${centreGuide._0.afterBlocks}/6 completed blocks${centreGuide._0.afterBlocks === centreGuide._0.beforeBlocks ? ` (centre grouping ${centreGuide._0.beforeScore}/24 → ${centreGuide._0.afterScore}/24)` : ""}.`
       : null;
     const outstandingWings = progress.wingRows
       .filter((row) => !row.complete)
@@ -2512,7 +2517,7 @@ if (root) {
         2,
         "Complete all six centre blocks",
         "Solve opposite centres first, then hold completed faces on L/R while forming the remaining four blocks. This keeps every protected 2×2 block out of the active inner slice.",
-        `${progress.centreBlocksComplete}/6 centre blocks · ${centresDone ? "centre stage complete" : "finish before wing pairing"}`,
+        `${progress.centreBlocksComplete}/6 monochrome blocks · ${centresDone ? "centre stage complete" : progress.centreBlocksComplete === 6 ? "rebuild the invalid U/R/F colour frame" : "finish before wing pairing"}`,
         centresDone,
         progress.stage === "centres" && progress.centreBlocksComplete >= 2,
         [
@@ -2559,8 +2564,8 @@ if (root) {
         "A 4×4 can show a last-layer case impossible on a 3×3. Repair it before the 3×3 handoff; otherwise continue with the verified finisher.",
         finishReady
           ? "Reduction and parity check complete — ready for the 3×3 handoff"
-          : ollParity
-          ? "OLL parity detected — apply the verified repair"
+          : parityKind !== null
+          ? `${parityKind} parity detected — apply the verified repair`
           : progress.stage === "reduced"
           ? "Check the remaining reduced-state parity before handoff"
           : "Locked until centres and wings are reduced",
@@ -2568,7 +2573,7 @@ if (root) {
         progress.stage === "reduced",
         [
           "OLL parity: one dedge appears flipped in the last layer. Hold it at UF and use: r U2 x r U2 r U2 r' U2 l U2 r' U2 r U2 r' U2 r'.",
-          "PLL parity: two dedges need a swap after the 3×3 last layer. Use: r2 U2 r2 u2 r2 u2.",
+          "PLL parity: two dedges need a swap after the 3×3 last layer. Use: 2R2 U2 2R2 u2 2R2 u2.",
           "When no parity case remains, choose Continue with reduced 3×3 finish. The worker replay-verifies the outer-layer solution against this exact 4×4 state.",
         ],
       ),
@@ -2600,15 +2605,18 @@ if (root) {
         academy.guide.classList.add("error");
       }
     }
-    if (ollParity) {
-      const repair = planOLLParityRepair4x4(recognized.state);
+    if (parityKind !== null) {
+      const repair = parityKind === "OLL"
+        ? planOLLParityRepair4x4(recognized.state)
+        : planPLLParityRepair4x4(recognized.state);
       academy.guide.hidden = false;
       academy.guide.textContent = repair.TAG === "Ok"
-        ? `OLL parity is present in the reduced state. Apply: ${repair._0.algorithm}. The replay preserves centres and paired wings, then makes the 3×3 handoff legal.`
+        ? `${parityKind} parity is present in the reduced state. Apply: ${repair._0.algorithm}. The replay preserves centres and paired wings, then makes the 3×3 handoff legal.`
         : repair._0.message;
       academy.guide.classList.toggle("error", repair.TAG === "Error");
       academy.repairParity.hidden = repair.TAG !== "Ok";
       academy.repairParity.disabled = repair.TAG !== "Ok";
+      academy.repairParity.textContent = `Apply ${parityKind}-parity repair`;
     }
     academy.finish.hidden = !finishReady;
     academy.finish.disabled = !finishReady;
@@ -4669,7 +4677,10 @@ if (root) {
 
   reduction4x4Academy.repairParity.addEventListener("click", () => {
     if (size !== 4 || activeRecognized === null) return;
-    const repair = planOLLParityRepair4x4(activeRecognized.state);
+    const reduced = reduce4x4(activeRecognized.state);
+    const repair = reduced.TAG === "Error" && reduced._0.message.startsWith("4×4 PLL parity detected:")
+      ? planPLLParityRepair4x4(activeRecognized.state)
+      : planOLLParityRepair4x4(activeRecognized.state);
     if (repair.TAG !== "Ok") return;
     store.patch({moves: [movesInput.value.trim(), repair._0.algorithm].filter(Boolean).join(" ")});
   });
@@ -5022,6 +5033,13 @@ if (root) {
     if (setup.TAG === "Error") {
       reduction4x4Result.textContent = describeError(setup._0);
       reduction4x4Result.classList.add("failure");
+      return;
+    }
+    const reduction = reduce4x4(setup._0.state);
+    if (reduction.TAG === "Error" && /^4×4 (?:OLL|PLL) parity detected:/.test(reduction._0.message)) {
+      reduction4x4Result.textContent = `${reduction._0.message} Opening the Academy repair step.`;
+      reduction4x4Result.classList.add("failure");
+      store.patch({activeTab: "academy", academyMethod: "reduction4x4"});
       return;
     }
     const sourceKey = solverSetupSourceKeyForCurrent();

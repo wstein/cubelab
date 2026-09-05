@@ -30,6 +30,7 @@ export type Reduction4x4Inspection = {
   centres: Reduction4x4Milestone[];
   wingRows: Reduction4x4Milestone[];
   centreBlocksComplete: number;
+  centreFrameValid: boolean;
   wingRowsPaired: number;
   stage: "centres" | "wings" | "reduced";
   nextGoal: string;
@@ -44,6 +45,7 @@ export type OLLParityRepair4x4 = {alg: unknown[]; algorithm: string};
 export type CentreGuide4x4 = {
   alg: unknown[];
   algorithm: string;
+  frameRepair: boolean;
   beforeBlocks: number;
   afterBlocks: number;
   beforeScore: number;
@@ -84,17 +86,20 @@ export const inspectReduction4x4 = (state: unknown): ReScriptResult<Reduction4x4
   }
   const centreBlocksComplete = centres.filter(({complete}) => complete).length;
   const wingRowsPaired = wingRows.filter(({complete}) => complete).length;
-  const stage = centreBlocksComplete < faces.length
+  const centreFrameValid = isCentreFrameValid(state);
+  const stage = centreBlocksComplete < faces.length || !centreFrameValid
     ? "centres"
     : wingRowsPaired < wingRows.length
     ? "wings"
     : "reduced";
-  const nextGoal = stage === "centres"
+  const nextGoal = !centreFrameValid && centreBlocksComplete === faces.length
+    ? "Reposition the completed centre blocks into a valid U/R/F colour frame before wing pairing."
+    : stage === "centres"
     ? `Build centre blocks (${centreBlocksComplete}/6 complete).`
     : stage === "wings"
     ? `Pair wing rows (${wingRowsPaired}/24 matched).`
     : "Reduction complete — ready for the 3×3 finish.";
-  return {TAG: "Ok", _0: {centres, wingRows, centreBlocksComplete, wingRowsPaired, stage, nextGoal}};
+  return {TAG: "Ok", _0: {centres, wingRows, centreBlocksComplete, centreFrameValid, wingRowsPaired, stage, nextGoal}};
 };
 
 const parseGuide = (notation: string): unknown[] | null => {
@@ -112,6 +117,15 @@ const edgeFlipSlots = (error: unknown): number[] | null => {
     : null;
 };
 
+const hasPermutationParityMismatch = (error: unknown): boolean => {
+  if (typeof error !== "object" || error === null) return false;
+  const outer = error as {TAG?: unknown; _0?: unknown};
+  return outer.TAG === "SolvabilityViolation" && (
+    outer._0 === "PermutationParityMismatch"
+    || (typeof outer._0 === "object" && outer._0 !== null && (outer._0 as {TAG?: unknown}).TAG === "PermutationParityMismatch")
+  );
+};
+
 const pairingSeedNotations = [
   "2R U R' U' 2R'",
   "2R U R U' 2R'",
@@ -121,6 +135,9 @@ const pairingSeedNotations = [
 // This standard 4×4 OLL-parity repair toggles reduced edge-orientation parity
 // while retaining paired wings and completed 2×2 centres.
 const ollParityNotation = "r U2 x r U2 r U2 r' U2 l U2 r' U2 r U2 r' U2 r'";
+// In this app's Modern notation `2R` is the inner right slice and `u` is the
+// two-layer U turn. This is the standard 4×4 PLL-parity swap in that dialect.
+const pllParityNotation = "2R2 U2 2R2 u2 2R2 u2";
 
 // Outer turns preserve every 2×2 centre block.  Conjugating a pairing seed by
 // one gives the guide a small, deterministic way to bring an unpaired wing
@@ -153,16 +170,43 @@ const centreValues = (state: unknown): string | null => {
   return faces.flatMap((_, faceIndex) => centreIndices.map((index) => compact[faceIndex * 16 + index]!)).join("");
 };
 
-const centreProgressFor = (values: string): {blocks: number; score: number} => {
+const centreFrames = (() => {
+  const solved = StateTypes.solved(4) as ReScriptResult<unknown>;
+  if (solved.TAG === "Error") return new Set<string>();
+  const frames = new Set<string>();
+  for (let x = 0; x < 4; x += 1) {
+    for (let y = 0; y < 4; y += 1) {
+      for (let z = 0; z < 4; z += 1) {
+        const rotation = parseGuide(`${"x ".repeat(x)}${"y ".repeat(y)}${"z ".repeat(z)}`);
+        if (rotation === null) continue;
+        const rotated = MoveExecutor.applyAlg(solved._0, rotation) as ReScriptResult<unknown>;
+        if (rotated.TAG !== "Error") {
+          const frame = centreValues(rotated._0);
+          if (frame !== null) frames.add(frame);
+        }
+      }
+    }
+  }
+  return frames;
+})();
+
+const isCentreFrameValid = (state: unknown): boolean => {
+  const values = centreValues(state);
+  return values !== null && centreFrames.has(values);
+};
+
+const centreProgressFor = (values: string): {blocks: number; score: number; fixed: number} => {
   let blocks = 0;
   let score = 0;
+  let fixed = 0;
   for (let faceIndex = 0; faceIndex < faces.length; faceIndex += 1) {
     const centre = [...values.slice(faceIndex * 4, faceIndex * 4 + 4)];
     const largestGroup = Math.max(...[...new Set(centre)].map((colour) => centre.filter((value) => value === colour).length));
     score += largestGroup;
     if (largestGroup === 4) blocks += 1;
+    fixed += centre.filter((colour) => colour === faces[faceIndex]).length;
   }
-  return {blocks, score};
+  return {blocks, score, fixed};
 };
 
 type CentreMove = {notation: string; alg: unknown[]; permutation: number[]};
@@ -206,8 +250,9 @@ export const planNextCentreBlock4x4 = (state: unknown): ReScriptResult<CentreGui
   const start = centreValues(state);
   if (start === null) return {TAG: "Error", _0: {message: "The centre guide supports only complete 4×4 states."}};
   const initial = centreProgressFor(start);
-  if (initial.blocks === 6) return {TAG: "Error", _0: {message: "All six centre blocks are complete."}};
-  type Candidate = {values: string; alg: unknown[]; lastFace: string; score: number; blocks: number};
+  const repairFrame = initial.blocks === 6 && !isCentreFrameValid(state);
+  if (initial.blocks === 6 && !repairFrame) return {TAG: "Error", _0: {message: "All six centre blocks are complete."}};
+  type Candidate = {values: string; alg: unknown[]; lastFace: string; score: number; blocks: number; fixed: number};
   let frontier: Candidate[] = [{values: start, alg: [], lastFace: "", ...initial}];
   let best: Candidate | null = null;
   for (let depth = 0; depth < 10; depth += 1) {
@@ -223,21 +268,27 @@ export const planNextCentreBlock4x4 = (state: unknown): ReScriptResult<CentreGui
         const progress = centreProgressFor(values);
         const expanded = {...candidate, values, alg: [...candidate.alg, ...move.alg], lastFace: face, ...progress};
         next.push(expanded);
-        if (progress.blocks > initial.blocks || (progress.blocks === initial.blocks && progress.score > initial.score)) {
-          if (best === null || progress.blocks > best.blocks || (progress.blocks === best.blocks && progress.score > best.score)) best = expanded;
+        const improves = repairFrame
+          ? progress.fixed > initial.fixed
+          : progress.blocks > initial.blocks || (progress.blocks === initial.blocks && progress.score > initial.score);
+        if (improves) {
+          if (best === null
+            || (repairFrame && progress.fixed > best.fixed)
+            || (!repairFrame && (progress.blocks > best.blocks || (progress.blocks === best.blocks && progress.score > best.score)))) best = expanded;
         }
       });
     });
-    next.sort((left, right) => centreSearchScore(right) - centreSearchScore(left) || left.alg.length - right.alg.length);
+    next.sort((left, right) => (repairFrame ? right.fixed - left.fixed : centreSearchScore(right) - centreSearchScore(left)) || left.alg.length - right.alg.length);
     frontier = next.slice(0, 1600);
     if (frontier.length === 0) break;
   }
-  if (best === null) return {TAG: "Error", _0: {message: "No centre improvement was found in the local search. Make one centre setup move, then request the next guide."}};
+  if (best === null) return {TAG: "Error", _0: {message: repairFrame ? "No centre-frame reordering sequence was found in the local search." : "No centre improvement was found in the local search. Make one centre setup move, then request the next guide."}};
   return {
     TAG: "Ok",
     _0: {
       alg: best.alg,
       algorithm: MoveTransform.serialize(best.alg) as string,
+      frameRepair: repairFrame,
       beforeBlocks: initial.blocks,
       afterBlocks: best.blocks,
       beforeScore: initial.score,
@@ -333,14 +384,14 @@ export const planNextWingPair4x4 = (state: unknown): ReScriptResult<WingPairGuid
         secondSteps.set(MoveTransform.serialize(alg) as string, alg);
       });
     });
-    firstSteps.forEach((first) => {
-      secondSteps.forEach((second) => {
+    for (const first of firstSteps) {
+      for (const second of secondSteps.values()) {
         const replay = MoveExecutor.applyAlg(first.state, second) as ReScriptResult<unknown>;
-        if (replay.TAG === "Error") return;
+        if (replay.TAG === "Error") continue;
         const after = inspectReduction4x4(replay._0);
         if (after.TAG === "Error"
           || after._0.centreBlocksComplete !== 6
-          || after._0.wingRowsPaired <= initial._0.wingRowsPaired) return;
+          || after._0.wingRowsPaired <= initial._0.wingRowsPaired) continue;
         const alg = [...first.alg, ...second];
         const guide = {
           alg,
@@ -351,8 +402,9 @@ export const planNextWingPair4x4 = (state: unknown): ReScriptResult<WingPairGuid
         if (best === null
           || guide.after > best.after
           || (guide.after === best.after && guide.algorithm.length < best.algorithm.length)) best = guide;
-      });
-    });
+        if (guide.after === 24) return {TAG: "Ok", _0: guide};
+      }
+    }
   }
   return best === null
     ? {TAG: "Error", _0: {message: "No single improving wing-pair move was found; this position needs a setup or parity step before requesting the next guide."}}
@@ -408,6 +460,9 @@ export const reduce4x4 = (state: unknown): ReScriptResult<Reduced4x4> => {
         },
       };
     }
+    if (hasPermutationParityMismatch(pieces._0)) {
+      return {TAG: "Error", _0: {message: "4×4 PLL parity detected: one dedge pair is swapped in the reduced state. Apply the PLL-parity repair before the 3×3 finish."}};
+    }
     return {TAG: "Error", _0: {message: `The reduced 3×3 state is not physically reachable: ${PieceReducer.describeError(pieces._0)}.`}};
   }
   return {TAG: "Ok", _0: {state: parsed._0, compact: reducedCompact}};
@@ -426,6 +481,20 @@ export const planOLLParityRepair4x4 = (state: unknown): ReScriptResult<OLLParity
   const replay = MoveExecutor.applyAlg(state, alg) as ReScriptResult<unknown>;
   if (replay.TAG === "Error" || reduce4x4(replay._0).TAG === "Error") {
     return {TAG: "Error", _0: {message: "The OLL-parity repair did not produce a legal reduced 3×3 state."}};
+  }
+  return {TAG: "Ok", _0: {alg, algorithm: MoveTransform.serialize(alg) as string}};
+};
+
+/** Returns the verified PLL-parity repair for a fully paired 4×4. */
+export const planPLLParityRepair4x4 = (state: unknown): ReScriptResult<OLLParityRepair4x4> => {
+  const projected = reduce4x4(state);
+  if (projected.TAG === "Ok") return {TAG: "Error", _0: {message: "No PLL parity repair is needed."}};
+  if (!projected._0.message.startsWith("4×4 PLL parity detected:")) return {TAG: "Error", _0: projected._0};
+  const alg = parseGuide(pllParityNotation);
+  if (alg === null) return {TAG: "Error", _0: {message: "The PLL-parity repair could not be parsed."}};
+  const replay = MoveExecutor.applyAlg(state, alg) as ReScriptResult<unknown>;
+  if (replay.TAG === "Error" || reduce4x4(replay._0).TAG === "Error") {
+    return {TAG: "Error", _0: {message: "The PLL-parity repair did not produce a legal reduced 3×3 state."}};
   }
   return {TAG: "Ok", _0: {alg, algorithm: MoveTransform.serialize(alg) as string}};
 };
