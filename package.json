@@ -18,7 +18,9 @@
     "build": "rescript && astro build",
     "preview": "astro preview",
     "patterns:import": "bun scripts/import-flix-patterns.ts",
-    "solver:generate-2x2": "rescript && bun scripts/generate-optimal-2x2-table.ts"
+    "solver:generate-2x2": "rescript && bun scripts/generate-optimal-2x2-table.ts",
+    "benchmark:4x4": "bun scripts/benchmark-reduction-4x4.ts",
+    "benchmark:4x4:release": "bun scripts/benchmark-reduction-4x4.ts --release"
   },
   "keywords": [
     "rescript"

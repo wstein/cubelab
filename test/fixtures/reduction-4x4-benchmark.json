@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "status": "scaffold",
+  "generator": "WCA-legal random-state generator required before gating",
+  "ciCorpusSize": 200,
+  "releaseCorpusSize": 1000,
+  "records": []
+}
