@@ -30,6 +30,10 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
 
   await expect(page.locator("[data-status]")).toHaveText("Solved default");
   await expect(page.locator('[data-output="orbit64"]')).toHaveText("AAAAAAAAAAAA");
+  const quickFaceletCopy = page.locator("[data-copy-facelets]");
+  await expect(quickFaceletCopy).toBeVisible();
+  await quickFaceletCopy.click();
+  await expect(quickFaceletCopy).toHaveText("Copied");
   const quickOrbitCopy = page.locator("[data-copy-orbit64]");
   await expect(quickOrbitCopy).toBeVisible();
   await quickOrbitCopy.click();

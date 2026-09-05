@@ -69,6 +69,8 @@ positional states, or an algorithm. The 2×2/3×3 cards offer SSE and reversible
 permutation cycles; the 3×3 cards also offer unfolded ACube positional spellings.
 Every listed format is
 directly pasteable into Setup.
+The Setup header also offers a one-click **Copy as compact facelets** action for the recognised
+state, alongside the 3×3 Orbit64 copy action.
 Moves are parsed with the selected notation dialect and replayed from whatever Setup
 resolves to. This includes Setup algorithms: CubeLab first evaluates the Setup algorithm to
 its state, then places that state at tape position zero and replays only Moves. Thus the

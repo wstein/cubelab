@@ -32,6 +32,8 @@ test("the static shell declares the reversible state-interchange cards", () => {
   assert.match(page, /data-output-card=\{key\}/);
   assert.match(page, /data-copy-orbit64/);
   assert.match(page, />Copy as Orbit64</);
+  assert.match(page, /data-copy-facelets/);
+  assert.match(page, />Copy as compact facelets</);
   assert.match(page, /key: "sse"[\s\S]*sizes: "2,3"/);
   assert.match(page, /key: "singmaster"[\s\S]*sizes: "2,3"/);
   assert.match(page, /key: "acube"[\s\S]*sizes: "3"/);
