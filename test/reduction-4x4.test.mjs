@@ -113,6 +113,17 @@ test("the bounded full-reduction orchestrator solves an already reduced 4×4", (
   if (replay.TAG === "Ok") expect(isMonochromeSolved4x4(replay._0)).toBe(true);
 });
 
+test("the bounded full-reduction orchestrator reduces a simple wing-pairing case", () => {
+  const fourByFour = apply(4, "2R U R' U' 2R'");
+  const solution = solveFullReduction4x4(fourByFour);
+  expect(solution.TAG).toBe("Ok");
+  if (solution.TAG !== "Ok") return;
+  expect(solution._0.wingSteps).toBeGreaterThan(0);
+  const replay = MoveExecutor.applyAlg(fourByFour, solution._0.alg);
+  expect(replay.TAG).toBe("Ok");
+  if (replay.TAG === "Ok") expect(isMonochromeSolved4x4(replay._0)).toBe(true);
+});
+
 test("refuses a 4×4 with unresolved centres or wing pairs", () => {
   const unresolved = apply(4, "2R");
   const result = reduce4x4(unresolved);
