@@ -841,14 +841,14 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="U"] {
   left: 25%;
   top: 0;
-  transform: skewX(-35deg);
+  transform: skewX(-45deg);
   transform-origin: bottom left;
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="R"] {
   left: calc(25% + var(--attached-face-size) + var(--attached-face-gap));
   top: calc(var(--attached-face-size) + var(--attached-face-gap));
-  transform: skewY(-35deg);
+  transform: skewY(-45deg);
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="B"] {
