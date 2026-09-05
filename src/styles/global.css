@@ -802,14 +802,16 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
    keeps colour dots, hover rings, keyboard focus, and pointer handling
    identical in both views. */
 .manual-state-net[data-representation="attached"] {
-  --attached-face-size: min(22vw, 16rem);
+  /* Match the original folded-net proportions while keeping the real sticker
+     controls: Front, Left, and Down stay square; Up and Right fold away;
+     Back completes the connected strip. */
+  --attached-face-size: min(14vw, 9rem);
   position: relative;
   display: block;
-  height: min(70vh, 75vw);
-  min-height: 22rem;
-  max-height: 46rem;
-  overflow: visible;
-  perspective: 70rem;
+  height: min(44vw, 30rem);
+  min-height: 27rem;
+  max-height: 30rem;
+  overflow: hidden;
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-net-faces {
@@ -826,37 +828,36 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="F"] {
-  left: 34%;
-  top: 40%;
+  left: 25%;
+  top: var(--attached-face-size);
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="L"] {
-  left: 8%;
-  top: 40%;
+  left: calc(25% - var(--attached-face-size));
+  top: var(--attached-face-size);
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="U"] {
-  left: 34%;
-  top: 16%;
-  transform: skewX(-32deg) scaleY(0.82);
+  left: 25%;
+  top: 0;
+  transform: skewX(-35deg);
   transform-origin: bottom left;
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="R"] {
-  left: 58%;
-  top: 40%;
-  transform: skewY(-32deg) scaleX(0.82);
+  left: calc(25% + var(--attached-face-size));
+  top: var(--attached-face-size);
+  transform: skewY(-35deg);
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="B"] {
-  left: 77%;
-  top: 24%;
-  transform: skewY(-32deg) scaleX(0.82);
+  left: calc(25% + var(--attached-face-size) + var(--attached-face-size));
+  top: 0;
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="D"] {
-  left: 34%;
-  top: 66%;
+  left: 25%;
+  top: calc(var(--attached-face-size) + var(--attached-face-size));
 }
 
 .manual-state-shortcuts {
