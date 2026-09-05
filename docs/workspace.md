@@ -64,16 +64,17 @@ remains a random-turn practice sequence and is not labeled as an official WCA sc
 
 The editor separates **Setup (state)** from optional **Moves**. Setup accepts compact
 facelets, compact colours, canonical nets, cubie coordinates,
-3×3 Orbit64, SSE corner-cycle cubie-state cycles, Singmaster permutation cycles, ACube
+Orbit64 state tokens for 2×2 through 5×5, SSE corner-cycle cubie-state cycles, Singmaster permutation cycles, ACube
 positional states, or an algorithm. The 2×2/3×3 cards offer SSE and reversible Singmaster
 permutation cycles; the 3×3 cards also offer unfolded ACube positional spellings.
 Every listed format is
 directly pasteable into Setup.
 The Setup header also offers a one-click **Copy as compact facelets** action for the recognised
-state, alongside the 3×3 Orbit64 copy action. Orbit64 stores every legal 3×3 position together
-with its whole-cube centre frame, so decoding restores the original facelet orientation. Its
-70-bit payload uses parity-aware cubie ranking and a 24-way frame code; impossible sticker
-arrangements remain rejected rather than serialised.
+state, alongside an Orbit64 copy action at every supported size. Orbit64 uses the Flix
+mixed-radix piece coordinates: corners on 2×2, corners/midges on 3×3, wings and centres
+on 4×4, and both centre orbits on 5×5. The state widths are 5, 12, 27, and 43 Base64URL
+characters. Odd-cube tokens also preserve their 24-way fixed-centre frame; impossible
+sticker arrangements remain rejected rather than serialised.
 Moves are parsed with the selected notation dialect and replayed from whatever Setup
 resolves to. This includes Setup algorithms: CubeLab first evaluates the Setup algorithm to
 its state, then places that state at tape position zero and replays only Moves. Thus the

@@ -1,7 +1,7 @@
 import * as ColorCodec from "../State/ColorCodec.res.mjs";
 import * as FaceletCodec from "../State/FaceletCodec.res.mjs";
 import * as NetCodec from "../State/NetCodec.res.mjs";
-import * as Orbit64Codec from "../State/Orbit64Codec.res.mjs";
+import * as Orbit64Codec from "../State/Orbit64Codec";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import * as StateTypes from "../State/StateTypes.res.mjs";
 import {validate4x4} from "../State/StateValidation4x4";
@@ -1365,7 +1365,7 @@ if (root) {
         : " · marked-centre orientation omitted";
       return {TAG: "Ok", _0: {state: sse._0.state, label: `SSE cubie state${suffix}`}};
     }
-    if (size === 3 && /^[A-Za-z0-9_-]{12}$/.test(compact)) {
+    if (Orbit64Codec.widths[size] === compact.length && /^[A-Za-z0-9_-]+$/.test(compact)) {
       const orbit = Orbit64Codec.decodeState(compact) as Result<CubeState, unknown>;
       return orbit.TAG === "Ok"
         ? {TAG: "Ok", _0: {state: orbit._0, label: "Orbit64"}}
@@ -1499,7 +1499,7 @@ if (root) {
       pieceTitle.textContent = size === 2 ? "2×2 CP / CO" : "3×3 CP / CO / EP / EO";
     }
     const orbitQuickCopy = root.querySelector<HTMLButtonElement>("[data-copy-orbit64]");
-    if (orbitQuickCopy) orbitQuickCopy.hidden = size !== 3;
+    if (orbitQuickCopy) orbitQuickCopy.hidden = !(size in Orbit64Codec.widths);
     manualStateOpen.disabled = size < 2 || size > 5;
     manualStateOpen.textContent = `Enter ${size}×${size} state`;
     manualStateOpen.title = size === 2 || size === 3
@@ -1591,8 +1591,10 @@ if (root) {
           `Unavailable — ${PieceReducer.describeError(pieces._0)}`,
           false,
         );
-        if (size === 3) {
+        if (size === 2 || size === 3) {
           setOutput("orbit64", "Unavailable — invalid piece state", false);
+        }
+        if (size === 3) {
           setOutput("acube", "Unavailable — invalid piece state", false);
         }
         setOutput("sse", "Unavailable — invalid piece state", false);
@@ -1606,13 +1608,15 @@ if (root) {
             : `Unavailable — ${PieceReducer.describeError(renderedPieces._0)}`,
           renderedPieces.TAG === "Ok",
         );
-        if (size === 3) {
+        if (size === 2 || size === 3) {
           const orbit = Orbit64Codec.encodeState(state) as Result<string, unknown>;
           setOutput(
             "orbit64",
             orbit.TAG === "Ok" ? orbit._0 : `Unavailable — ${Orbit64Codec.describeError(orbit._0)}`,
             orbit.TAG === "Ok",
           );
+        }
+        if (size === 3) {
           const acube = renderAcubeState(state);
           setOutput("acube", acube.TAG === "Ok" ? acube._0 : `Unavailable — ${acube._0}`, acube.TAG === "Ok");
         }
@@ -1625,6 +1629,14 @@ if (root) {
           singmaster.TAG === "Ok",
         );
       }
+    }
+    if (size === 4 || size === 5) {
+      const orbit = Orbit64Codec.encodeState(state);
+      setOutput(
+        "orbit64",
+        orbit.TAG === "Ok" ? orbit._0 : `Unavailable — ${Orbit64Codec.describeError(orbit._0)}`,
+        orbit.TAG === "Ok",
+      );
     }
   };
 

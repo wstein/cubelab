@@ -28,7 +28,7 @@ const styles = await readFile(new URL("../src/styles/global.css", import.meta.ur
 
 test("the static shell declares the reversible state-interchange cards", () => {
   assert.match(page, /key: "pieces"[\s\S]*sizes: "2,3"/);
-  assert.match(page, /key: "orbit64"[\s\S]*sizes: "3"/);
+  assert.match(page, /key: "orbit64"[\s\S]*sizes: "2,3,4,5"/);
   assert.match(page, /data-output-card=\{key\}/);
   assert.match(page, /data-copy-orbit64/);
   assert.match(page, />Copy as Orbit64</);
@@ -308,7 +308,7 @@ test("the Vanilla DOM client wires reachability-aware outputs", () => {
   assert.match(client, /const net = inputValue\.trimEnd\(\)/);
   assert.match(client, /card\.hidden =/);
   assert.match(client, /querySelectorAll<HTMLButtonElement>\(`\[data-copy=/);
-  assert.match(client, /orbitQuickCopy\.hidden = size !== 3/);
+  assert.match(client, /orbitQuickCopy\.hidden = !\(size in Orbit64Codec\.widths\)/);
 });
 
 test("the web UI exposes an explicit lowercase mode without heuristic switching", () => {

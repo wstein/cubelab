@@ -3,98 +3,57 @@ import {test} from "vitest";
 
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
-import * as Orbit64Codec from "../src/State/Orbit64Codec.res.mjs";
-import * as PatternState from "../src/State/PatternState.res.mjs";
-import * as PieceReducer from "../src/State/PieceReducer.res.mjs";
+import * as Orbit64Codec from "../src/State/Orbit64Codec.ts";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
 
-const solvedPieces = {
-  size: 3,
-  cp: [0, 1, 2, 3, 4, 5, 6, 7],
-  co: Array(8).fill(0),
-  ep: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-  eo: Array(12).fill(0),
-};
+const vectors = [
+  [2, "EJ6Rr", "LFLD BLRD BLBU RFRR UUDU DFFB"],
+  [3, "AAAAAAAAB-go", "UUUUURUUU RURBRLRDR FFFLFRFFF DDDLDRDDD LLLFLFLDL BBBBBRBBB"],
+  [4, "BJSsuyGPOiU06kIz-eqibqTP1th", "DLLDLLDLBFLFLRBR DRDLFBRLUURUUDDU FUUFLDFDRBUFURRL LBDFFFDFFFBRFBFR RDDDBLUUBURBRULB BFBBUDRURBLLBRDU"],
+  [5, "AQsjv5K4-XPjKJZMNvMLvYKqohuv1x7JGUoNROgDJ2w", "DBRFRFUBLDDBUFFURBDDFUUDL BLDBFULULLLRRUURRDFDRLLFD LFLRURFURRFFFFBUBLUFRLUBU BDBRFDFRUULRDFDULLDDRBRFL LDBFUUFDUFRLLURBRDDBBRFRD DLDUFBBBBLFRBDUBDLBLBLBRU"],
+];
 
-const apply = (algorithm) => {
-  const result = MoveExecutor.parseAndApply(3, algorithm);
-  assert.equal(result.TAG, "Ok", result._0);
-  return result._0;
-};
-
-test("normative frame-preserving solved and superflip vectors are stable", () => {
-  assert.equal(Orbit64Codec.encode(solvedPieces)._0, "AAAAAAAAAAAA");
-
-  const superflip = {...solvedPieces, eo: Array(12).fill(1)};
-  assert.equal(Orbit64Codec.encode(superflip)._0, "AAAAAAAAAL_o");
-  assert.deepEqual(Orbit64Codec.decode("AAAAAAAAAL_o")._0, superflip);
-});
-
-test("the U golden vector is stable under parity-aware packing", () => {
-  const pieces = PieceReducer.reduce(apply("U"))._0;
-  const token = Orbit64Codec.encode(pieces);
-  assert.equal(token.TAG, "Ok");
-  assert.equal(token._0, "FRot3QyvoAAA");
-});
-
-test("legal states and their centre frames round-trip through a 12-character URL-safe token", () => {
-  for (const algorithm of ["R U F'", "M E' S2", "x", "y", "z", "x R U y' M2", "[R, U] F2 D'"]) {
-    const state = apply(algorithm);
-    const encoded = Orbit64Codec.encodeState(state);
-    assert.equal(encoded.TAG, "Ok");
-    assert.match(encoded._0, /^[A-Za-z0-9_-]{12}$/);
-    const decoded = Orbit64Codec.decodeState(encoded._0);
-    assert.equal(decoded.TAG, "Ok");
-    assert.equal(FaceletCodec.render(decoded._0), FaceletCodec.render(state));
-    assert.deepEqual(PieceReducer.reduce(decoded._0)._0, PieceReducer.reduce(state)._0);
+test("decodes Flix Orbit64's published vectors for every supported size", () => {
+  for (const [size, token, spaced] of vectors) {
+    const decoded = Orbit64Codec.decodeState(token);
+    assert.equal(decoded.TAG, "Ok", decoded.TAG === "Error" ? decoded._0.message : "");
+    assert.equal(decoded._0.size, size);
+    assert.equal(FaceletCodec.render(decoded._0), spaced.replaceAll(" ", ""));
+    assert.deepEqual(Orbit64Codec.encodeState(decoded._0), {TAG: "Ok", _0: token});
   }
-
-  assert.notEqual(Orbit64Codec.encodeState(apply("x"))._0, "AAAAAAAAAAAA");
 });
 
-test("all 24 whole-cube frames round-trip a non-symmetric position exactly", () => {
-  const base = apply("R U F'");
-  const tokens = new Set();
-  for (const orientation of PatternState.orientationAlgorithms(3)) {
-    const state = MoveExecutor.applyAlg(base, orientation.alg);
-    assert.equal(state.TAG, "Ok");
-    const encoded = Orbit64Codec.encodeState(state._0);
+test("solved states use the published size-specific fixed widths", () => {
+  for (const [size, width] of Object.entries(Orbit64Codec.widths)) {
+    const solved = StateTypes.solved(Number(size));
+    assert.equal(solved.TAG, "Ok");
+    const encoded = Orbit64Codec.encodeState(solved._0);
     assert.equal(encoded.TAG, "Ok");
-    tokens.add(encoded._0);
-    const decoded = Orbit64Codec.decodeState(encoded._0);
-    assert.equal(decoded.TAG, "Ok");
-    assert.equal(FaceletCodec.render(decoded._0), FaceletCodec.render(state._0));
+    assert.equal(encoded._0, "A".repeat(width));
   }
-  assert.equal(tokens.size, 24);
 });
 
-test("decoding rejects malformed length, alphabet, and reserved payload bits", () => {
-  assert.equal(Orbit64Codec.decode("short")._0.TAG, "InvalidTokenLength");
-  assert.equal(Orbit64Codec.decode("AAAAAAAAAAA=")._0.TAG, "InvalidTokenCharacter");
+test("rejects non-state classes and unknown widths", () => {
+  assert.equal(Orbit64Codec.decodeState("Q".repeat(12))._0.TAG, "InvalidHeader");
+  assert.equal(Orbit64Codec.decodeState("AAAAAA")._0.TAG, "InvalidTokenLength");
+  assert.equal(Orbit64Codec.decodeState("AAAAAAAAAAA=")._0.TAG, "InvalidTokenCharacter");
 
-  const unsupportedHeader = Buffer.from([0x80, 0, 0, 0, 0, 0, 0, 0, 0]).toString("base64url");
-  assert.equal(Orbit64Codec.decode(unsupportedHeader)._0.TAG, "InvalidHeader");
 });
 
-test("encoding rejects non-3x3 and unreachable coordinate states", () => {
-  const twoByTwo = {
-    size: 2,
-    cp: solvedPieces.cp,
-    co: solvedPieces.co,
-    ep: [],
-    eo: [],
-  };
-  assert.equal(Orbit64Codec.encode(twoByTwo)._0.TAG, "UnsupportedSize");
-
-  const invalid = {...solvedPieces, co: [1, 0, 0, 0, 0, 0, 0, 0]};
-  assert.equal(Orbit64Codec.encode(invalid)._0.TAG, "InvalidCoordinates");
-});
-
-test("state wrappers reproduce the solved compact facelets", () => {
-  const decoded = Orbit64Codec.decodeState("AAAAAAAAAAAA");
-  assert.equal(decoded.TAG, "Ok");
-  assert.equal(
-    FaceletCodec.render(decoded._0),
-    FaceletCodec.render(StateTypes.solved(3)._0),
-  );
+test("preserves all odd-cube whole-cube centre frames", () => {
+  const rotations = [
+    ...Array.from({length: 16}, (_, index) => `${"x ".repeat(Math.floor(index / 4))}${"y ".repeat(index % 4)}`.trim()),
+    ...[1, 3].flatMap(z => Array.from({length: 4}, (_, y) => `${"z ".repeat(z)}${"y ".repeat(y)}`.trim())),
+  ];
+  for (const size of [3, 5]) {
+    for (const rotation of rotations) {
+      const state = MoveExecutor.parseAndApply(size, `${rotation} R U`);
+      assert.equal(state.TAG, "Ok");
+      const token = Orbit64Codec.encodeState(state._0);
+      assert.equal(token.TAG, "Ok");
+      const decoded = Orbit64Codec.decodeState(token._0);
+      assert.equal(decoded.TAG, "Ok");
+      assert.equal(FaceletCodec.render(decoded._0), FaceletCodec.render(state._0));
+    }
+  }
 });
