@@ -263,10 +263,9 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /sticker\.dataset\.centre = String\(centre\)/);
   assert.match(client, /if \(next !== null && isManualStateCentre\(next\)\) \{[\s\S]*next = manualStateArrowTarget/);
   assert.match(client, /return index !== null && !isManualStateCentre\(index\) \? index : null;/);
-  assert.match(styles, /\.manual-state-sticker\[data-centre="true"\]\s*\{[\s\S]*filter:\s*brightness\(0\.86\)/);
-  assert.match(styles, /\.manual-state-preview-sticker\[data-centre="true"\]\s*\{[\s\S]*pointer-events:\s*none/);
+  assert.doesNotMatch(page, /data-manual-state-previews/);
+  assert.doesNotMatch(styles, /\.manual-state-preview/);
   assert.match(styles, /\.manual-state-sticker\[data-centre="true"\]:hover[\s\S]*box-shadow:\s*none/);
-  assert.match(styles, /\.manual-state-preview-sticker\[data-centre="true"\]\s*\{[\s\S]*filter:\s*brightness\(0\.86\)/);
   assert.match(client, /paintRoot\.addEventListener\("dblclick",[\s\S]*manualStateRawStickerAt/);
   assert.match(client, /sticker\.title = "Double-click to select colour"/);
   assert.match(styles, /\.manual-state-sticker\[data-auto="true"\]\s*\{[\s\S]*transform:\s*scale\(/);

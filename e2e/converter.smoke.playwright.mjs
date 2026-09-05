@@ -1573,7 +1573,7 @@ test("shows counted colour pads, a live summary card, and rings a hovered sticke
   const net = dialog.locator("[data-manual-state-grid]");
 
   const summaryRows = dialog.locator("[data-manual-state-summary] .manual-state-summary-row");
-  await expect(summaryRows).toHaveCount(4); // Entered, Corners, Edges, Remaining
+  await expect(summaryRows).toHaveCount(5); // Entered, Corners, Known, Edges, Remaining
   const paletteLeft = dialog.locator(".manual-state-colour-left");
   await expect(paletteLeft.first()).toHaveText("8 left"); // 9 stickers/face minus the fixed centre
 
@@ -1582,15 +1582,14 @@ test("shows counted colour pads, a live summary card, and rings a hovered sticke
   await expect(paletteLeft.first()).toHaveText("7 left");
 
   await net.locator('[data-manual-state-index="9"]').hover();
-  // The flat net and both preview cubes each carry their own copy of every
-  // index, so a hovered piece rings across all three roots at once.
+  // The flat net rings the hovered piece and its piece-mates.
   const selfRings = dialog.locator('[data-piece-hover="self"]');
-  await expect(selfRings).toHaveCount(3);
+  await expect(selfRings).toHaveCount(1);
   for (const el of await selfRings.all()) await expect(el).toHaveAttribute("data-manual-state-index", "9");
   const mateRings = dialog.locator('[data-piece-hover="mate"]');
-  await expect(mateRings).toHaveCount(6);
+  await expect(mateRings).toHaveCount(2);
   const mateIndices = await mateRings.evaluateAll((els) => els.map((e) => e.getAttribute("data-manual-state-index")).sort());
-  expect(mateIndices).toEqual(["20", "20", "20", "8", "8", "8"]);
+  expect(mateIndices).toEqual(["20", "8"]);
 
   // [data-manual-state-grid] is display:contents (its face groups are
   // promoted into .manual-state-net's own grid), so it has no box of its
@@ -1709,27 +1708,17 @@ test("recovers full colour availability after erasing every sticker, including a
   }
 });
 
-test("shows two CSS-3D preview cubes in the net and a shortcuts reference in the header", async ({page}) => {
+test("does not show 3D preview cubes in the net and shows a shortcuts reference", async ({page}) => {
   await page.goto("/");
   await page.locator("[data-manual-state-open]").click();
   const dialog = page.locator("[data-manual-state-dialog]");
   await expect(dialog).toBeVisible();
 
-  const previews = dialog.locator(".manual-state-preview");
-  await expect(previews).toHaveCount(2);
-  // Not a paint surface: a foreshortened corner sticker on a cube this small
-  // can project to a few-pixel-wide box, and document.elementFromPoint
-  // there genuinely — verified directly, not a test artifact — resolves to
-  // whichever adjacent face's sticker is nearer at that exact pixel.
-  // Painting stays exact on the flat net; the previews stay decorative and
-  // hover-reactive only, which the piece-mates test above already covers.
-  await expect(previews.first().locator(".manual-state-preview-sticker")).toHaveCount(54);
-  await expect(dialog.locator('.manual-state-preview-sticker[data-face="unknown"]').first()).toBeAttached();
+  await expect(dialog.locator(".manual-state-preview")).toHaveCount(0);
 
   const shortcuts = dialog.locator(".manual-state-shortcuts");
   await expect(shortcuts).toBeVisible();
-  await expect(shortcuts).toContainText("set colour");
-  await expect(shortcuts).toContainText("paint run");
+  await expect(shortcuts).toContainText("Shortcuts");
   await expect(shortcuts).toContainText("erase");
 });
 

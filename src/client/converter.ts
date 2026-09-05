@@ -217,7 +217,6 @@ if (root) {
   const manualStateCancel = root.querySelector<HTMLButtonElement>("[data-manual-state-cancel]")!;
   const manualStateNet = root.querySelector<HTMLElement>("[data-manual-state-net]")!;
   const manualStateGrid = root.querySelector<HTMLElement>("[data-manual-state-grid]")!;
-  const manualStatePreviews = root.querySelector<HTMLElement>("[data-manual-state-previews]")!;
   const manualStatePalette = root.querySelector<HTMLElement>("[data-manual-state-palette]")!;
   const manualStateEraser = root.querySelector<HTMLButtonElement>("[data-manual-state-eraser]")!;
   const manualStateReset = root.querySelector<HTMLButtonElement>("[data-manual-state-reset]")!;
@@ -411,7 +410,6 @@ if (root) {
   // flickered, even though only a handful of stickers actually changed.
   let manualStateBuiltSize: ManualStateSize | null = null;
   const manualStateStickerElements: HTMLButtonElement[] = [];
-  const manualStatePreviewStickerElements: HTMLButtonElement[][] = [];
   let tutorialPhases: TutorialPhaseRange[] = [];
   let activeAcademy: AcademyElements | null = null;
   let commentedTutorialSolution = "";
@@ -1028,121 +1026,6 @@ if (root) {
     B: {top: [["U", 2], ["U", 1], ["U", 0]], bottom: [["D", 8], ["D", 7], ["D", 6]], left: [["R", 2], ["R", 5], ["R", 8]], right: [["L", 0], ["L", 3], ["L", 6]]},
   };
 
-  // A pure-CSS 3D cube, not WebGL: six absolutely-positioned faces rotated
-  // into place inside one preserve-3d container, each hidden by
-  // backface-visibility once it faces away. Two of these at complementary
-  // angles show every sticker between them, including the wrapped Back face
-  // the flat net can't show without folding it.
-  const MANUAL_STATE_PREVIEW_FACE_TRANSFORM: Record<ManualStateFace, string> = {
-    U: "rotateX(90deg)",
-    D: "rotateX(-90deg)",
-    F: "",
-    B: "rotateY(180deg)",
-    R: "rotateY(90deg)",
-    L: "rotateY(-90deg)",
-  };
-  const manualStatePreviewFaceOrder: ManualStateFace[] = ["U", "R", "F", "D", "L", "B"];
-
-  const buildManualStatePreviewCube = (
-    manualSize: ManualStateSize,
-    yaw: number,
-    pitch: number,
-    frontFaces: ManualStateFace[],
-    stickers: HTMLButtonElement[],
-  ): HTMLElement => {
-    const box = document.createElement("div");
-    box.className = "manual-state-preview";
-    const cube = document.createElement("div");
-    cube.className = "manual-state-preview-cube";
-    cube.style.transform = `rotateX(${pitch}deg) rotateY(${yaw}deg)`;
-    // Reads the same custom property .manual-state-preview sets its own
-    // width/height from (global.css), instead of a hardcoded pixel value
-    // that has to be kept in sync by hand — that mismatch used to misjoin
-    // the faces at the edges whenever either side changed alone.
-    const half = "calc(var(--manual-state-preview-edge) / 2)";
-    manualStatePreviewFaceOrder.forEach((face) => {
-      const faceIndex = manualStatePreviewFaceOrder.indexOf(face);
-      const faceEl = document.createElement("div");
-      faceEl.className = "manual-state-preview-face";
-      faceEl.style.gridTemplateColumns = `repeat(${manualSize}, 1fr)`;
-      faceEl.style.gridTemplateRows = `repeat(${manualSize}, 1fr)`;
-      faceEl.style.transform =
-        `${MANUAL_STATE_PREVIEW_FACE_TRANSFORM[face]} translateZ(${half})`.trim();
-      // backface-visibility hides a turned-away face visually, but does not
-      // stop it intercepting clicks and hovers meant for whatever is turned
-      // toward the viewer at the same screen position — CSS 3D hit-testing
-      // is not guaranteed to prefer the nearer face. Each preview's fixed
-      // angle only ever shows three faces at once, chosen so the two
-      // previews together cover all six; the other three are made
-      // non-interactive rather than trusted to lose every hit-test.
-      faceEl.style.pointerEvents = frontFaces.includes(face) ? "auto" : "none";
-      for (let localIndex = 0; localIndex < manualSize * manualSize; localIndex += 1) {
-        const index = faceIndex * manualSize * manualSize + localIndex;
-        const sticker = document.createElement("button");
-        sticker.type = "button";
-        sticker.className = "manual-state-preview-sticker";
-        sticker.dataset.manualStateIndex = String(index);
-        sticker.dataset.centre = String(isManualStateFixedCentre(manualSize, index));
-        // Not disabled (see the matching net-sticker comment in
-        // buildManualStateGrid): a disabled button also suppresses hover,
-        // which is all a preview sticker ever does.
-        sticker.tabIndex = -1;
-        faceEl.append(sticker);
-        stickers[index] = sticker;
-      }
-      cube.append(faceEl);
-    });
-    box.append(cube);
-    return box;
-  };
-
-  // Complementary angles rather than mirrored ones, so the two previews
-  // between them show all six faces — the mockup's own reason for two
-  // rather than one. frontFaces was read off an actual screenshot at each
-  // angle, not derived analytically: (-34, -20) shows U/F/R cleanly, and
-  // (146, 20) shows B/L cleanly with only thin, unreliable slivers of D/R.
-  const manualStatePreviewAngles: Array<[number, number, ManualStateFace[]]> = [
-    [-34, -20, ["U", "F", "R"]],
-    [146, 20, ["D", "B", "L"]],
-  ];
-
-  const buildManualStatePreviews = (manualSize: ManualStateSize) => {
-    manualStatePreviewStickerElements.length = 0;
-    manualStatePreviews.replaceChildren(
-      ...manualStatePreviewAngles.map(([yaw, pitch, frontFaces]) => {
-        const stickers: HTMLButtonElement[] = [];
-        manualStatePreviewStickerElements.push(stickers);
-        return buildManualStatePreviewCube(manualSize, yaw, pitch, frontFaces, stickers);
-      }),
-    );
-  };
-
-  const updateManualStatePreviews = (manualSize: ManualStateSize, hoverMates: number[]) => {
-    manualStatePreviewStickerElements.forEach((stickers) => {
-      stickers.forEach((sticker, index) => {
-        const face = manualStatePreviewFaceOrder[Math.floor(index / (manualSize * manualSize))];
-        const localIndex = index % (manualSize * manualSize);
-        const value = manualStateDraft[index];
-        const centre = isManualStateFixedCentre(manualSize, index);
-        sticker.dataset.face = value ?? "unknown";
-        sticker.dataset.centre = String(centre);
-        if (centre) {
-          delete sticker.dataset.pieceHover;
-        } else if (index === manualStateHoverIndex) {
-          sticker.dataset.pieceHover = "self";
-        } else if (hoverMates.includes(index)) {
-          sticker.dataset.pieceHover = "mate";
-        } else {
-          delete sticker.dataset.pieceHover;
-        }
-        sticker.setAttribute(
-          "aria-label",
-          `${manualStateFaceName[face]} sticker ${localIndex + 1}${centre ? ", fixed centre" : value === null ? ", blank" : `, ${manualStateFaceName[value]}`}`,
-        );
-      });
-    });
-  };
-
   const buildManualStateGrid = (manualSize: ManualStateSize) => {
     manualStateGrid.replaceChildren();
     manualStateStickerElements.length = 0;
@@ -1211,14 +1094,12 @@ if (root) {
     renderManualStateSummary(manualSize, displayEntered, displayTotal, perColourPlaced);
     if (manualStateBuiltSize !== manualSize) {
       buildManualStateGrid(manualSize);
-      buildManualStatePreviews(manualSize);
       manualStateBuiltSize = manualSize;
     }
     const pendingDots: Array<{index: number; element: HTMLElement}> = [];
     const hoverMates = manualStateHoverIndex === null
       ? []
       : manualStatePieceMates(manualSize, manualStateHoverIndex);
-    updateManualStatePreviews(manualSize, hoverMates);
     (["U", "L", "F", "R", "B", "D"] as ManualStateFace[]).forEach((face) => {
       const faceIndex = (["U", "R", "F", "D", "L", "B"] as ManualStateFace[]).indexOf(face);
       for (let localIndex = 0; localIndex < manualSize * manualSize; localIndex += 1) {
@@ -1283,33 +1164,23 @@ if (root) {
   // movement.
   const updateManualStatePieceHighlight = () => {
     const manualSize = size as ManualStateSize;
-    [manualStateGrid, manualStatePreviews].forEach((root) => {
-      root.querySelectorAll<HTMLElement>("[data-piece-hover]").forEach((el) => {
-        delete el.dataset.pieceHover;
-      });
+    manualStateGrid.querySelectorAll<HTMLElement>("[data-piece-hover]").forEach((el) => {
+      delete el.dataset.pieceHover;
     });
     if (manualStateHoverIndex === null || isManualStateCentre(manualStateHoverIndex)) return;
     const mates = manualStatePieceMates(manualSize, manualStateHoverIndex);
-    // querySelectorAll, not querySelector: manualStatePreviews holds two
-    // preview cubes, each with its own copy of every index, so a single
-    // "first match" would silently miss the second cube's sticker.
-    [manualStateGrid, manualStatePreviews].forEach((root) => {
-      root.querySelectorAll<HTMLElement>(`[data-manual-state-index="${manualStateHoverIndex}"]`).forEach((self) => {
-        if (self.dataset.centre !== "true") {
-          self.dataset.pieceHover = "self";
-        }
-      });
-      mates.forEach((mate) => {
-        root.querySelectorAll<HTMLElement>(`[data-manual-state-index="${mate}"]`).forEach((mateEl) => {
-          if (mateEl.dataset.centre !== "true") {
-            mateEl.dataset.pieceHover = "mate";
-          }
-        });
-      });
+    const self = manualStateStickerElements[manualStateHoverIndex];
+    if (self && self.dataset.centre !== "true") {
+      self.dataset.pieceHover = "self";
+    }
+    mates.forEach((mate) => {
+      const mateEl = manualStateStickerElements[mate];
+      if (mateEl && mateEl.dataset.centre !== "true") {
+        mateEl.dataset.pieceHover = "mate";
+      }
     });
   };
-  // The flat net and both preview cubes share one hover-highlight source of
-  // truth (manualStateHoverIndex), wired identically on each root.
+  // The flat net hover-highlight source of truth (manualStateHoverIndex).
   const wireManualStateHover = (hoverRoot: HTMLElement) => {
     hoverRoot.addEventListener("mouseover", (event) => {
       const sticker = (event.target as Element).closest<HTMLButtonElement>("[data-manual-state-index]");
@@ -1334,7 +1205,6 @@ if (root) {
     });
   };
   wireManualStateHover(manualStateGrid);
-  wireManualStateHover(manualStatePreviews);
 
   const openManualStateEditor = () => {
     if (size < 2 || size > 5) return;
