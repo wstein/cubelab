@@ -808,6 +808,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
      Back completes the connected strip. */
   --attached-face-size: min(14vw, 9rem);
   --attached-face-gap: var(--manual-state-face-gap);
+  --attached-fold-gap: 0.2rem;
   position: relative;
   display: block;
   height: min(44vw, 30rem);
@@ -847,8 +848,9 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="R"] {
-  left: calc(25% + var(--attached-face-size) + var(--attached-face-gap));
-  top: calc(var(--attached-face-size) + var(--attached-face-gap));
+  /* The folded U/R seam is deliberately tighter than the open-net gutter. */
+  left: calc(25% + var(--attached-face-size) + var(--attached-fold-gap));
+  top: calc(var(--attached-face-size) + var(--attached-fold-gap));
   transform: skewY(-45deg);
 }
 
