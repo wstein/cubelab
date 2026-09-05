@@ -12,7 +12,7 @@ import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as HamiltonMacro from "../Move/HamiltonMacro";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
-import {inspectReduction4x4, planNextWingPair4x4, planOLLParityRepair4x4, reduce4x4} from "../Solver/Reduction4x4";
+import {inspectReduction4x4, planNextCentreBlock4x4, planNextWingPair4x4, planOLLParityRepair4x4, reduce4x4} from "../Solver/Reduction4x4";
 import {
   createOptimal2x2SolverClient,
   createReduction4x4SolverClient,
@@ -199,6 +199,7 @@ type ReductionAcademyElements = {
   current: HTMLElement;
   phases: HTMLElement;
   guide: HTMLElement;
+  applyCentre: HTMLButtonElement;
   applyGuide: HTMLButtonElement;
   repairParity: HTMLButtonElement;
   finish: HTMLButtonElement;
@@ -355,6 +356,7 @@ if (root) {
     current: root.querySelector<HTMLElement>("[data-reduction-4x4-academy-current]")!,
     phases: root.querySelector<HTMLElement>("[data-reduction-4x4-academy-phases]")!,
     guide: root.querySelector<HTMLElement>("[data-reduction-4x4-academy-guide]")!,
+    applyCentre: root.querySelector<HTMLButtonElement>("[data-reduction-4x4-academy-apply-centre]")!,
     applyGuide: root.querySelector<HTMLButtonElement>("[data-reduction-4x4-academy-apply-guide]")!,
     repairParity: root.querySelector<HTMLButtonElement>("[data-reduction-4x4-academy-repair-parity]")!,
     finish: root.querySelector<HTMLButtonElement>("[data-reduction-4x4-academy-finish]")!,
@@ -2447,6 +2449,8 @@ if (root) {
     academy.current.hidden = true;
     academy.guide.hidden = true;
     academy.guide.textContent = "";
+    academy.applyCentre.hidden = true;
+    academy.applyCentre.disabled = true;
     academy.applyGuide.hidden = true;
     academy.applyGuide.disabled = true;
     academy.repairParity.hidden = true;
@@ -2555,6 +2559,21 @@ if (root) {
         ],
       ),
     );
+    if (progress.stage === "centres") {
+      const guide = planNextCentreBlock4x4(recognized.state);
+      academy.guide.hidden = false;
+      if (guide.TAG === "Ok") {
+        const result = guide._0.afterBlocks > guide._0.beforeBlocks
+          ? `${guide._0.beforeBlocks}/6 → ${guide._0.afterBlocks}/6 centre blocks`
+          : `centre grouping score ${guide._0.beforeScore}/24 → ${guide._0.afterScore}/24`;
+        academy.guide.textContent = `Next verified centre setup: ${guide._0.algorithm} · ${result}.`;
+        academy.applyCentre.hidden = false;
+        academy.applyCentre.disabled = false;
+      } else {
+        academy.guide.textContent = guide._0.message;
+        academy.guide.classList.add("error");
+      }
+    }
     if (progress.stage === "wings") {
       const guide = planNextWingPair4x4(recognized.state);
       academy.guide.hidden = false;
@@ -4613,6 +4632,13 @@ if (root) {
     if (reduce4x4(activeRecognized.state).TAG !== "Ok") return;
     store.patch({activeTab: "converter"});
     window.requestAnimationFrame(() => reduction4x4Solve.click());
+  });
+
+  reduction4x4Academy.applyCentre.addEventListener("click", () => {
+    if (size !== 4 || activeRecognized === null) return;
+    const guide = planNextCentreBlock4x4(activeRecognized.state);
+    if (guide.TAG !== "Ok") return;
+    store.patch({moves: [movesInput.value.trim(), guide._0.algorithm].filter(Boolean).join(" ")});
   });
 
   reduction4x4Academy.applyGuide.addEventListener("click", () => {

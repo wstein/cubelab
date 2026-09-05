@@ -7,6 +7,7 @@ import * as StateTypes from "../src/State/StateTypes.res.mjs";
 import {
   inspectReduction4x4,
   isMonochromeSolved4x4,
+  planNextCentreBlock4x4,
   planNextWingPair4x4,
   planOLLParityRepair4x4,
   reduce4x4,
@@ -60,6 +61,28 @@ test("reports centre and wing milestones before attempting the 3×3 handoff", ()
     expect(unresolved._0.stage).not.toBe("reduced");
     expect(unresolved._0.nextGoal).toMatch(/centre blocks|wing rows/);
     expect(unresolved._0.wingRows.every((row) => row.edge && row.colours)).toBe(true);
+  }
+});
+
+test("finds a replay-verified centre improvement from an unsolved 4×4", () => {
+  const scrambled = apply(4, "2R U 2F L 2U B 2L D 2B R");
+  const before = inspectReduction4x4(scrambled);
+  expect(before.TAG).toBe("Ok");
+  if (before.TAG !== "Ok") return;
+  expect(before._0.centreBlocksComplete).toBe(0);
+
+  const guide = planNextCentreBlock4x4(scrambled);
+  expect(guide.TAG).toBe("Ok");
+  if (guide.TAG !== "Ok") return;
+  expect(guide._0.algorithm).not.toBe("");
+  const replay = MoveExecutor.applyAlg(scrambled, guide._0.alg);
+  expect(replay.TAG).toBe("Ok");
+  if (replay.TAG !== "Ok") return;
+  const after = inspectReduction4x4(replay._0);
+  expect(after.TAG).toBe("Ok");
+  if (after.TAG === "Ok") {
+    expect(after._0.centreBlocksComplete).toBeGreaterThanOrEqual(before._0.centreBlocksComplete);
+    expect(guide._0.afterScore).toBeGreaterThan(guide._0.beforeScore);
   }
 });
 

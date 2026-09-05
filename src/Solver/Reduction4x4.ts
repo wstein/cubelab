@@ -40,6 +40,14 @@ export type WingPairGuide4x4 = {
   after: number;
 };
 export type OLLParityRepair4x4 = {alg: unknown[]; algorithm: string};
+export type CentreGuide4x4 = {
+  alg: unknown[];
+  algorithm: string;
+  beforeBlocks: number;
+  afterBlocks: number;
+  beforeScore: number;
+  afterScore: number;
+};
 
 const compactFacelets = (state: unknown): string | null => {
   if ((state as {size?: unknown}).size !== 4) return null;
@@ -132,6 +140,79 @@ const outerSetupNotations = [
 // verified improvement. With the seed viewed in every cube frame, U/R/F are a
 // sufficient compact basis for that fallback and keep the hint responsive.
 const secondSetupNotations = ["", "U", "U'", "U2", "R", "R'", "R2", "F", "F'", "F2"];
+
+const centreMoveNotations = faces.flatMap((face) => [
+  face, `${face}'`, `${face}2`,
+  `2${face}`, `2${face}'`, `2${face}2`,
+]);
+
+const centreProgress = (state: unknown): {blocks: number; score: number} | null => {
+  const compact = compactFacelets(state);
+  if (compact === null) return null;
+  let blocks = 0;
+  let score = 0;
+  for (let faceIndex = 0; faceIndex < faces.length; faceIndex += 1) {
+    const centre = centreIndices.map((index) => compact[faceIndex * 16 + index]!);
+    const largestGroup = Math.max(...[...new Set(centre)].map((colour) => centre.filter((value) => value === colour).length));
+    score += largestGroup;
+    if (largestGroup === 4) blocks += 1;
+  }
+  return {blocks, score};
+};
+
+/**
+ * A bounded beam search for the next centre improvement. It intentionally
+ * returns one short, replay-verified setup rather than claiming to automate a
+ * full 4×4 solve. The Academy can therefore teach a real move on every step.
+ */
+export const planNextCentreBlock4x4 = (state: unknown): ReScriptResult<CentreGuide4x4> => {
+  const initial = centreProgress(state);
+  if (initial === null) return {TAG: "Error", _0: {message: "The centre guide supports only complete 4×4 states."}};
+  if (initial.blocks === 6) return {TAG: "Error", _0: {message: "All six centre blocks are complete."}};
+  const moves = centreMoveNotations
+    .map((notation) => ({notation, alg: parseGuide(notation)}))
+    .filter((move): move is {notation: string; alg: unknown[]} => move.alg !== null);
+  type Candidate = {state: unknown; alg: unknown[]; lastFace: string; score: number; blocks: number};
+  let frontier: Candidate[] = [{state, alg: [], lastFace: "", score: initial.score, blocks: initial.blocks}];
+  let best: Candidate | null = null;
+  for (let depth = 0; depth < 6; depth += 1) {
+    const next: Candidate[] = [];
+    const seen = new Set<string>();
+    frontier.forEach((candidate) => {
+      moves.forEach((move) => {
+        const face = move.notation.replace(/^2/, "")[0]!;
+        if (face === candidate.lastFace) return;
+        const replay = MoveExecutor.applyAlg(candidate.state, move.alg) as ReScriptResult<unknown>;
+        if (replay.TAG === "Error") return;
+        const progress = centreProgress(replay._0);
+        if (progress === null) return;
+        const key = compactFacelets(replay._0);
+        if (key === null || seen.has(key)) return;
+        seen.add(key);
+        const expanded = {...candidate, state: replay._0, alg: [...candidate.alg, ...move.alg], lastFace: face, ...progress};
+        next.push(expanded);
+        if (progress.blocks > initial.blocks || (progress.blocks === initial.blocks && progress.score > initial.score)) {
+          if (best === null || progress.blocks > best.blocks || (progress.blocks === best.blocks && progress.score > best.score)) best = expanded;
+        }
+      });
+    });
+    next.sort((left, right) => right.blocks - left.blocks || right.score - left.score || left.alg.length - right.alg.length);
+    frontier = next.slice(0, 96);
+    if (frontier.length === 0) break;
+  }
+  if (best === null) return {TAG: "Error", _0: {message: "No centre improvement was found in the local search. Make one centre setup move, then request the next guide."}};
+  return {
+    TAG: "Ok",
+    _0: {
+      alg: best.alg,
+      algorithm: MoveTransform.serialize(best.alg) as string,
+      beforeBlocks: initial.blocks,
+      afterBlocks: best.blocks,
+      beforeScore: initial.score,
+      afterScore: best.score,
+    },
+  };
+};
 
 /**
  * Finds one small, replay-verified edge-pairing improvement. This is a
