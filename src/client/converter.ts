@@ -12,7 +12,7 @@ import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as HamiltonMacro from "../Move/HamiltonMacro";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
-import {inspectReduction4x4, planNextWingPair4x4} from "../Solver/Reduction4x4";
+import {inspectReduction4x4, planNextWingPair4x4, planOLLParityRepair4x4, reduce4x4} from "../Solver/Reduction4x4";
 import {
   createOptimal2x2SolverClient,
   createReduction4x4SolverClient,
@@ -200,6 +200,7 @@ type ReductionAcademyElements = {
   phases: HTMLElement;
   guide: HTMLElement;
   applyGuide: HTMLButtonElement;
+  repairParity: HTMLButtonElement;
   finish: HTMLButtonElement;
 };
 
@@ -355,6 +356,7 @@ if (root) {
     phases: root.querySelector<HTMLElement>("[data-reduction-4x4-academy-phases]")!,
     guide: root.querySelector<HTMLElement>("[data-reduction-4x4-academy-guide]")!,
     applyGuide: root.querySelector<HTMLButtonElement>("[data-reduction-4x4-academy-apply-guide]")!,
+    repairParity: root.querySelector<HTMLButtonElement>("[data-reduction-4x4-academy-repair-parity]")!,
     finish: root.querySelector<HTMLButtonElement>("[data-reduction-4x4-academy-finish]")!,
   };
   const autoOrbitButton = root.querySelector<HTMLButtonElement>("[data-auto-orbit]")!;
@@ -2447,6 +2449,8 @@ if (root) {
     academy.guide.textContent = "";
     academy.applyGuide.hidden = true;
     academy.applyGuide.disabled = true;
+    academy.repairParity.hidden = true;
+    academy.repairParity.disabled = true;
     academy.finish.hidden = true;
     academy.finish.disabled = true;
     if (size !== 4) {
@@ -2469,6 +2473,10 @@ if (root) {
     academy.current.textContent = progress.nextGoal;
     const centresDone = progress.centreBlocksComplete === 6;
     const wingsDone = progress.wingRowsPaired === 24;
+    const reduced = wingsDone ? reduce4x4(recognized.state) : null;
+    const ollParity = reduced?.TAG === "Error"
+      && reduced._0.message.startsWith("4×4 OLL parity detected:");
+    const finishReady = reduced?.TAG === "Ok";
     const outstandingWings = progress.wingRows
       .filter((row) => !row.complete)
       .map((row) => `${row.face} ${row.edge}: ${row.colours?.join("/") ?? "?"}`);
@@ -2531,8 +2539,14 @@ if (root) {
         5,
         "Recognise parity, then finish the reduced 3×3",
         "A 4×4 can show a last-layer case impossible on a 3×3. Repair it before the 3×3 handoff; otherwise continue with the verified finisher.",
-        progress.stage === "reduced" ? "Ready for parity check and handoff" : "Locked until centres and wings are reduced",
-        progress.stage === "reduced",
+        finishReady
+          ? "Reduction and parity check complete — ready for the 3×3 handoff"
+          : ollParity
+          ? "OLL parity detected — apply the verified repair"
+          : progress.stage === "reduced"
+          ? "Check the remaining reduced-state parity before handoff"
+          : "Locked until centres and wings are reduced",
+        finishReady,
         progress.stage === "reduced",
         [
           "OLL parity: one dedge appears flipped in the last layer. Hold it at UF and use: r U2 x r U2 r U2 r' U2 l U2 r' U2 r U2 r' U2 r'.",
@@ -2553,8 +2567,18 @@ if (root) {
         academy.guide.classList.add("error");
       }
     }
-    academy.finish.hidden = progress.stage !== "reduced";
-    academy.finish.disabled = progress.stage !== "reduced";
+    if (ollParity) {
+      const repair = planOLLParityRepair4x4(recognized.state);
+      academy.guide.hidden = false;
+      academy.guide.textContent = repair.TAG === "Ok"
+        ? `OLL parity is present in the reduced state. Apply: ${repair._0.algorithm}. The replay preserves centres and paired wings, then makes the 3×3 handoff legal.`
+        : repair._0.message;
+      academy.guide.classList.toggle("error", repair.TAG === "Error");
+      academy.repairParity.hidden = repair.TAG !== "Ok";
+      academy.repairParity.disabled = repair.TAG !== "Ok";
+    }
+    academy.finish.hidden = !finishReady;
+    academy.finish.disabled = !finishReady;
   };
 
   const updateAcademyMethodControls = () => {
@@ -4586,8 +4610,7 @@ if (root) {
 
   reduction4x4Academy.finish.addEventListener("click", () => {
     if (size !== 4 || activeRecognized === null) return;
-    const inspection = inspectReduction4x4(activeRecognized.state);
-    if (inspection.TAG !== "Ok" || inspection._0.stage !== "reduced") return;
+    if (reduce4x4(activeRecognized.state).TAG !== "Ok") return;
     store.patch({activeTab: "converter"});
     window.requestAnimationFrame(() => reduction4x4Solve.click());
   });
@@ -4602,6 +4625,13 @@ if (root) {
       return;
     }
     store.patch({moves: [movesInput.value.trim(), guide._0.algorithm].filter(Boolean).join(" ")});
+  });
+
+  reduction4x4Academy.repairParity.addEventListener("click", () => {
+    if (size !== 4 || activeRecognized === null) return;
+    const repair = planOLLParityRepair4x4(activeRecognized.state);
+    if (repair.TAG !== "Ok") return;
+    store.patch({moves: [movesInput.value.trim(), repair._0.algorithm].filter(Boolean).join(" ")});
   });
 
   root.querySelectorAll<HTMLButtonElement>("[data-size]").forEach((button) => {
@@ -4948,7 +4978,7 @@ if (root) {
       reduction4x4Result.classList.remove("success", "failure");
       return;
     }
-    const setup = parseState(input.value);
+    const setup = parseWorkspaceState();
     if (setup.TAG === "Error") {
       reduction4x4Result.textContent = describeError(setup._0);
       reduction4x4Result.classList.add("failure");

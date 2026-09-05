@@ -4,7 +4,13 @@ import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
 import * as MoveParser from "../src/Move/MoveParser.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
-import {inspectReduction4x4, isMonochromeSolved4x4, planNextWingPair4x4, reduce4x4} from "../src/Solver/Reduction4x4.ts";
+import {
+  inspectReduction4x4,
+  isMonochromeSolved4x4,
+  planNextWingPair4x4,
+  planOLLParityRepair4x4,
+  reduce4x4,
+} from "../src/Solver/Reduction4x4.ts";
 import * as TwoPhaseSolver from "../src/Solver/TwoPhaseSolver.res.mjs";
 
 const apply = (size, algorithm) => {
@@ -138,4 +144,26 @@ test("uses an outer-turn setup when a pairing seed is not already in a working s
     expect(after._0.centreBlocksComplete).toBe(6);
     expect(after._0.wingRowsPaired).toBeGreaterThan(before._0.wingRowsPaired);
   }
+});
+
+test("recognises and repairs OLL parity in a fully paired 4×4", () => {
+  const state = FaceletCodec.parse(
+    4,
+    "FBBBBUURBUURDLLLUUUDBRRRBRRRDUUDLDDFUFFDUFFDBRRBUFFRFDDFFDDFBLLRUUUFFLLLFLLLULLLLRRRDBBDDBBDFBBR",
+  );
+  expect(state.TAG).toBe("Ok");
+  if (state.TAG !== "Ok") return;
+  const inspection = inspectReduction4x4(state._0);
+  expect(inspection.TAG).toBe("Ok");
+  if (inspection.TAG === "Ok") expect(inspection._0).toMatchObject({stage: "reduced", wingRowsPaired: 24});
+  const blocked = reduce4x4(state._0);
+  expect(blocked.TAG).toBe("Error");
+  if (blocked.TAG === "Error") expect(blocked._0.message).toMatch(/OLL parity/);
+
+  const repair = planOLLParityRepair4x4(state._0);
+  expect(repair.TAG).toBe("Ok");
+  if (repair.TAG !== "Ok") return;
+  const replay = MoveExecutor.applyAlg(state._0, repair._0.alg);
+  expect(replay.TAG).toBe("Ok");
+  if (replay.TAG === "Ok") expect(reduce4x4(replay._0).TAG).toBe("Ok");
 });

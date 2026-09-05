@@ -39,6 +39,7 @@ export type WingPairGuide4x4 = {
   before: number;
   after: number;
 };
+export type OLLParityRepair4x4 = {alg: unknown[]; algorithm: string};
 
 const compactFacelets = (state: unknown): string | null => {
   if ((state as {size?: unknown}).size !== 4) return null;
@@ -92,11 +93,25 @@ const parseGuide = (notation: string): unknown[] | null => {
   return parsed.TAG === "Ok" ? parsed._0 : null;
 };
 
+const edgeFlipSlots = (error: unknown): number[] | null => {
+  if (typeof error !== "object" || error === null) return null;
+  const outer = error as {TAG?: unknown; _0?: unknown};
+  if (outer.TAG !== "SolvabilityViolation" || typeof outer._0 !== "object" || outer._0 === null) return null;
+  const violation = outer._0 as {TAG?: unknown; affectedSlots?: unknown};
+  return violation.TAG === "EdgeFlip" && Array.isArray(violation.affectedSlots)
+    ? violation.affectedSlots.filter((slot): slot is number => typeof slot === "number")
+    : null;
+};
+
 const pairingSeedNotations = [
   "2R U R' U' 2R'",
   "2R U R U' 2R'",
   "u' R U R' F R' F' R u",
 ];
+
+// This standard 4×4 OLL-parity repair toggles reduced edge-orientation parity
+// while retaining paired wings and completed 2×2 centres.
+const ollParityNotation = "r U2 x r U2 r U2 r' U2 l U2 r' U2 r U2 r' U2 r'";
 
 // Outer turns preserve every 2×2 centre block.  Conjugating a pairing seed by
 // one gives the guide a small, deterministic way to bring an unpaired wing
@@ -225,9 +240,35 @@ export const reduce4x4 = (state: unknown): ReScriptResult<Reduced4x4> => {
   }
   const pieces = PieceReducer.reduce(parsed._0) as ReScriptResult<unknown>;
   if (pieces.TAG === "Error") {
+    const flipped = edgeFlipSlots(pieces._0);
+    if (flipped !== null) {
+      return {
+        TAG: "Error",
+        _0: {
+          message: `4×4 OLL parity detected: ${flipped.length.toString()} reduced dedge orientation${flipped.length === 1 ? " is" : "s are"} flipped. Apply the OLL-parity repair before the 3×3 finish.`,
+        },
+      };
+    }
     return {TAG: "Error", _0: {message: `The reduced 3×3 state is not physically reachable: ${PieceReducer.describeError(pieces._0)}.`}};
   }
   return {TAG: "Ok", _0: {state: parsed._0, compact: reducedCompact}};
+};
+
+/**
+ * Returns the verified OLL-parity repair for a fully paired 4×4.  The repair
+ * is only offered when its replay makes the projected 3×3 physically legal.
+ */
+export const planOLLParityRepair4x4 = (state: unknown): ReScriptResult<OLLParityRepair4x4> => {
+  const projected = reduce4x4(state);
+  if (projected.TAG === "Ok") return {TAG: "Error", _0: {message: "No OLL parity repair is needed."}};
+  if (!projected._0.message.startsWith("4×4 OLL parity detected:")) return {TAG: "Error", _0: projected._0};
+  const alg = parseGuide(ollParityNotation);
+  if (alg === null) return {TAG: "Error", _0: {message: "The OLL-parity repair could not be parsed."}};
+  const replay = MoveExecutor.applyAlg(state, alg) as ReScriptResult<unknown>;
+  if (replay.TAG === "Error" || reduce4x4(replay._0).TAG === "Error") {
+    return {TAG: "Error", _0: {message: "The OLL-parity repair did not produce a legal reduced 3×3 state."}};
+  }
+  return {TAG: "Ok", _0: {alg, algorithm: MoveTransform.serialize(alg) as string}};
 };
 
 /** A 4×4 is solved in its current orientation when every visible face is monochrome. */
