@@ -257,10 +257,18 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /verifyManualStateDots\(manualSize, pendingDots\)/);
   // A dotless tile means the draft has no completion; it must never be silent.
   assert.match(client, /dotTrace\.deadTile\(manualSize, snapshot, next\.index, "verify"\)/);
+  assert.match(client, /const manualStateDeadIndices = new Set<number>\(\)/);
+  assert.match(client, /manual-state-dead-row/);
+  assert.match(client, /undoManualStateAction/);
+  assert.match(styles, /\.manual-state-dead-row/);
+  assert.match(styles, /\.manual-state-undo-btn/);
+  assert.match(styles, /\.manual-state-sticker\[data-dead="true"\]/);
+  assert.match(client, /\(event\.key === "z" \|\| event\.key === "Z"[\s\S]{0,40}\) && \(event\.ctrlKey \|\| event\.metaKey\)[\s\S]{0,100}undoManualStateAction\(\)/);
   assert.match(manualState, /export const explainManualStateColours/);
   assert.match(manualState, /export const manualStateColourBudget/);
   assert.match(client, /createManualStateVerifierClient/);
   assert.match(client, /choices\.length === 1[\s\S]{0,700}manualStateAutoIndices\.add\(next\.index\)/);
+  assert.match(client, /choices\.length === 1[\s\S]{0,2000}updateManualStateMetrics\(manualSize\)[\s\S]{0,300}verifyNext\(offset \+ 1\)/);
   assert.match(manualStateWorker, /allowedManualStateColours\(request\.size, request\.draft, request\.index\)/);
   assert.match(client, /manualStateDialog\.showModal\(\);[\s\S]{0,200}renderManualStateEditor\(\);/);
   assert.match(manualState, /const highOrderPieceKindsBySize/);

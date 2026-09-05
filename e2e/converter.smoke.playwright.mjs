@@ -1910,3 +1910,32 @@ test("4x4 manual state verification recovers across palette clicks and UI repres
   await expect(dialog).not.toBeVisible();
 });
 
+test("manual state editor undoes last painted sticker via keyboard shortcut", async ({page}) => {
+  await page.goto("/");
+  await page.locator('[data-size="3"]').click();
+  await page.locator("[data-manual-state-open]").click();
+  const dialog = page.locator("[data-manual-state-dialog]");
+  await expect(dialog).toBeVisible();
+
+  await dialog.locator('[data-manual-state-colour="R"]').click();
+  const sticker = dialog.locator('.manual-state-sticker[data-manual-state-index="0"]');
+  await sticker.click();
+  await expect(sticker).toHaveAttribute("data-face", "R");
+
+  const sticker2 = dialog.locator('.manual-state-sticker[data-manual-state-index="1"]');
+  await sticker2.click();
+  await expect(sticker2).toHaveAttribute("data-face", "R");
+
+  // First undo reverts sticker 1
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(sticker2).toHaveAttribute("data-face", "unknown");
+  await expect(sticker).toHaveAttribute("data-face", "R");
+
+  // Second undo reverts sticker 0
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(sticker).toHaveAttribute("data-face", "unknown");
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+});
+

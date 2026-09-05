@@ -106,4 +106,40 @@ describe("manual state dot verification queue (regression: mid-flight cancellati
     // Generation must NOT be bumped
     expect(tracker.generation).toBe(2);
   });
+
+  test("Fix C: promotion during verification does not bump generation and continues single pass", async () => {
+    const tracker = new ManualStateDotVerificationTracker();
+    let generation = 1;
+    tracker.generation = generation;
+
+    const draft = ["U", null, null, null];
+    const pending = [{index: 1}, {index: 2}, {index: 3}];
+    const visitedOffsets: number[] = [];
+
+    await runManualStateVerificationLoop(
+      pending,
+      () => generation,
+      async (index) => {
+        if (index === 1) return ["R"];
+        return ["R", "F"];
+      },
+      (item, choices) => {
+        visitedOffsets.push(item.index);
+        if (choices.length === 1) {
+          draft[item.index] = choices[0];
+          tracker.markVerified(item.index);
+          // Promoting directly updates draft without bumping generation
+        } else {
+          tracker.markVerified(item.index);
+        }
+      },
+      (cb) => setTimeout(cb, 0),
+    );
+
+    expect(generation).toBe(1);
+    expect(visitedOffsets).toEqual([1, 2, 3]);
+    expect(draft[1]).toBe("R");
+    expect(tracker.unverified.size).toBe(0);
+  });
 });
+

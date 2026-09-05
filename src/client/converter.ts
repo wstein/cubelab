@@ -466,6 +466,9 @@ if (root) {
   };
   let manualStateDirtyDots: Set<number> | null = null;
   const manualStateUnverifiedDots = new Set<number>();
+  const manualStateDeadIndices = new Set<number>();
+  const manualStatePaintHistory: number[] = [];
+  let updateManualStateMetrics: (manualSize: ManualStateSize) => void = () => {};
   // Built once per manual-state size and reused across renders: recreating
   // every sticker button on every single paint or erase click would force a
   // full style/layout recompute and flicker.
@@ -958,8 +961,21 @@ if (root) {
     touchManualStateDraft();
     manualStateExplicitIndices.delete(index);
     manualStateAutoIndices.delete(index);
+    manualStateDeadIndices.delete(index);
+    const sticker = manualStateStickerElements[index];
+    if (sticker) delete sticker.dataset.dead;
     refreshManualStateAutoFill(manualSize, true);
     renderManualStateEditor();
+  };
+
+  const undoManualStateAction = () => {
+    while (manualStatePaintHistory.length > 0) {
+      const lastIndex = manualStatePaintHistory.pop()!;
+      if (manualStateDraft[lastIndex] !== null && manualStateExplicitIndices.has(lastIndex)) {
+        eraseManualStateSticker(lastIndex);
+        return;
+      }
+    }
   };
 
   const resetManualStateColour = (face: ManualStateFace) => {
@@ -970,6 +986,9 @@ if (root) {
         manualStateDraft[index] = null;
         manualStateExplicitIndices.delete(index);
         manualStateAutoIndices.delete(index);
+        manualStateDeadIndices.delete(index);
+        const sticker = manualStateStickerElements[index];
+        if (sticker) delete sticker.dataset.dead;
         changed = true;
       }
     }
@@ -993,6 +1012,10 @@ if (root) {
     touchManualStateDraft();
     manualStateExplicitIndices.add(index);
     manualStateAutoIndices.delete(index);
+    manualStatePaintHistory.push(index);
+    manualStateDeadIndices.delete(index);
+    const sticker = manualStateStickerElements[index];
+    if (sticker) delete sticker.dataset.dead;
     refreshManualStateAutoFill(manualSize, true);
     renderManualStateEditor();
     return true;
@@ -1036,18 +1059,51 @@ if (root) {
             // Local propagation can intentionally leave duplicate-wing choices
             // open. Once the exact background check proves one colour, promote
             // it to the same reversible auto-fill state as a local singleton.
-            manualStateDraft[next.index] = choices[0] as ManualStateFace;
+            const promotedColour = choices[0] as ManualStateFace;
+            manualStateDraft[next.index] = promotedColour;
+            snapshot[next.index] = promotedColour;
             touchManualStateDraft();
             manualStateAutoIndices.add(next.index);
             manualStateUnverifiedDots.delete(next.index);
-            manualStateDirtyDots = null;
+            manualStateDeadIndices.delete(next.index);
+
+            const sticker = manualStateStickerElements[next.index];
+            if (sticker) {
+              sticker.dataset.face = promotedColour;
+              sticker.dataset.auto = "true";
+              delete sticker.dataset.dead;
+              sticker.textContent = "";
+            }
+
+            const constraintIndices = manualStateLocalConstraintIndices(manualSize, next.index);
+            const dirty = manualStateDirtyDots ?? new Set<number>();
+            const pendingIndices = new Set(pending.slice(offset + 1).map((p) => p.index));
+            constraintIndices.forEach((idx) => {
+              if (manualStateDraft[idx] === null) {
+                dirty.add(idx);
+                manualStateUnverifiedDots.add(idx);
+                const mateSticker = manualStateStickerElements[idx];
+                const dots = mateSticker?.querySelector<HTMLElement>(".manual-state-dots");
+                if (dots) {
+                  renderManualStateDots(dots, locallyAllowedManualStateColours(manualSize, manualStateDraft, idx));
+                  if (!pendingIndices.has(idx)) {
+                    pending.push({index: idx, element: dots});
+                    pendingIndices.add(idx);
+                  }
+                }
+              }
+            });
+            manualStateDirtyDots = dirty;
+
+            updateManualStateMetrics(manualSize);
+
             dotTrace.log({
               type: "promote",
               index: next.index,
-              colour: choices[0] as ManualStateFace,
+              colour: promotedColour,
               generation,
             });
-            renderManualStateEditor();
+            verifyNext(offset + 1);
             return;
           }
           dotTrace.log({
@@ -1058,8 +1114,17 @@ if (root) {
           });
           // An empty exact result means this draft has no legal completion at
           // all: the paint gate accepted a sticker it should have refused.
-          // Nothing in the UI says so, so at minimum say it here.
-          if (choices.length === 0) dotTrace.deadTile(manualSize, snapshot, next.index, "verify");
+          if (choices.length === 0) {
+            manualStateDeadIndices.add(next.index);
+            const sticker = manualStateStickerElements[next.index];
+            if (sticker) sticker.dataset.dead = "true";
+            dotTrace.deadTile(manualSize, snapshot, next.index, "verify");
+            updateManualStateMetrics(manualSize);
+          } else {
+            manualStateDeadIndices.delete(next.index);
+            const sticker = manualStateStickerElements[next.index];
+            if (sticker) delete sticker.dataset.dead;
+          }
           renderManualStateDots(next.element, choices as ManualStateFace[]);
           manualStateUnverifiedDots.delete(next.index);
           verifyNext(offset + 1);
@@ -1155,6 +1220,23 @@ if (root) {
     remainingBar.append(remainingFill);
     remainingRow.append(remainingLabels, remainingBar);
     manualStateSummary.append(divider, remainingRow);
+    if (manualStateDeadIndices.size > 0) {
+      const deadRow = document.createElement("div");
+      deadRow.className = "manual-state-dead-row";
+      const deadMsg = document.createElement("span");
+      deadMsg.className = "manual-state-dead-message";
+      deadMsg.textContent = "Dead end: tile has no legal colours";
+      const undoBtn = document.createElement("button");
+      undoBtn.type = "button";
+      undoBtn.className = "manual-state-undo-btn";
+      undoBtn.textContent = "Undo";
+      undoBtn.title = "Undo last painted sticker (Ctrl+Z / Cmd+Z)";
+      undoBtn.addEventListener("click", () => {
+        undoManualStateAction();
+      });
+      deadRow.append(deadMsg, undoBtn);
+      manualStateSummary.append(deadRow);
+    }
   };
 
   // Which [face, localIndex] a 3×3 keyboard cursor lands on after moving off
@@ -1239,6 +1321,7 @@ if (root) {
 
   const renderManualStateEditor = () => {
     if (manualStateDirtyDots === null || manualStateDirtyDots.size > 0) {
+      manualStateDeadIndices.clear();
       dotTrace.log({
         type: "cancel",
         from: manualStateDotGeneration,
@@ -1313,6 +1396,11 @@ if (root) {
         sticker.dataset.centre = String(centre);
         sticker.dataset.auto = String(manualStateAutoIndices.has(index));
         sticker.dataset.cursor = String(index === manualStateCursorIndex);
+        if (manualStateDeadIndices.has(index)) {
+          sticker.dataset.dead = "true";
+        } else {
+          delete sticker.dataset.dead;
+        }
         if (centre) {
           sticker.tabIndex = -1;
           sticker.setAttribute("aria-disabled", "true");
@@ -1358,7 +1446,10 @@ if (root) {
           if (manualSize === 2) {
             const exact = allowedManualStateColours(manualSize, manualStateDraft, index);
             renderManualStateDots(dots, exact);
-            if (exact.length === 0) dotTrace.deadTile(manualSize, manualStateDraft, index, "render");
+            if (exact.length === 0) {
+              manualStateDeadIndices.add(index);
+              dotTrace.deadTile(manualSize, manualStateDraft, index, "render");
+            }
           } else {
             const local = locallyAllowedManualStateColours(manualSize, manualStateDraft, index);
             renderManualStateDots(dots, local);
@@ -1369,6 +1460,9 @@ if (root) {
         }
       }
     });
+    if (manualSize === 2 && manualStateDeadIndices.size > 0) {
+      renderManualStateSummary(manualSize, displayEntered, displayTotal, perColourPlaced);
+    }
     if (manualSize >= 3) {
       dotTrace.log({
         type: "queue",
@@ -1400,6 +1494,27 @@ if (root) {
         left.textContent = manualStateShiftPressed ? "Reset" : `${manualSize * manualSize - perColourPlaced[face]} left`;
       }
     });
+  };
+
+  updateManualStateMetrics = (manualSize: ManualStateSize) => {
+    const total = manualStateStickerCount(manualSize);
+    const entered = manualStateEnteredCount(manualStateDraft);
+    const centreCount = manualSize === 3 || manualSize === 5 ? 6 : 0;
+    const displayTotal = total - centreCount;
+    const displayEntered = entered - centreCount;
+    const diagnostic = manualStateComplete.get() ? manualStateCompleteDiagnostic() : null;
+    manualStateLoad.disabled = entered !== total || diagnostic !== null;
+    manualStateCopyToggle.disabled = manualStateLoad.disabled;
+    if (manualStateLoad.disabled) {
+      manualStateCopyMenu.hidden = true;
+      manualStateCopyToggle.setAttribute("aria-expanded", "false");
+    }
+    const perColourPlaced: Record<ManualStateFace, number> = {U: 0, D: 0, R: 0, L: 0, F: 0, B: 0};
+    manualStateDraft.forEach((value) => {
+      if (value !== null) perColourPlaced[value] += 1;
+    });
+    renderManualStateSummary(manualSize, displayEntered, displayTotal, perColourPlaced);
+    renderManualStatePaletteLabels();
   };
 
   const setManualStateShiftPressed = (pressed: boolean) => {
@@ -1634,6 +1749,8 @@ if (root) {
     });
     manualStateAutoIndices.clear();
     manualStateUnverifiedDots.clear();
+    manualStateDeadIndices.clear();
+    manualStatePaintHistory.length = 0;
     setManualStateHoverIndex(null);
     setManualStateCursorIndex(null);
     manualStateIntro.textContent = manualSize <= 3
@@ -6456,69 +6573,81 @@ if (root) {
     });
     return best?.index ?? null;
   };
-  const wireManualStateKeyboard = (keyboardRoot: EventTarget) => keyboardRoot.addEventListener("keydown", (rawEvent) => {
-    if (!manualStateDialog.open) return;
-    const event = rawEvent as KeyboardEvent;
-    const focused = (document.activeElement as Element | null)?.closest("[data-manual-state-index]");
-    const focusedIndex = focused ? Number(focused.dataset.manualStateIndex) : null;
-    const index = focusedIndex !== null && Number.isInteger(focusedIndex) && isManualStateStickerInteractive(focusedIndex)
-      ? focusedIndex
-      : manualStateCursorIndex;
-    if (index === null || !isManualStateStickerInteractive(index)) return;
-    const manualSize = size as ManualStateSize;
-    const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
-    if ((faceletOrder as readonly string[]).includes(key)) {
+  const wireManualStateKeyboard = (keyboardRoot: EventTarget) => {
+    const handleKeyDown = (rawEvent: Event) => {
+      if (!manualStateDialog.open) return;
+      const event = rawEvent as KeyboardEvent;
+      if ((event.key === "z" || event.key === "Z" || event.code === "KeyZ") && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        event.stopPropagation();
+        undoManualStateAction();
+        return;
+      }
+      const focused = (document.activeElement as Element | null)?.closest("[data-manual-state-index]");
+      const focusedIndex = focused ? Number(focused.dataset.manualStateIndex) : null;
+      const index = focusedIndex !== null && Number.isInteger(focusedIndex) && isManualStateStickerInteractive(focusedIndex)
+        ? focusedIndex
+        : manualStateCursorIndex;
+      if (index === null || !isManualStateStickerInteractive(index)) return;
+      const manualSize = size as ManualStateSize;
+      const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
+      if ((faceletOrder as readonly string[]).includes(key)) {
+        event.preventDefault();
+        event.stopPropagation();
+        paintManualStateSticker(index, key as ManualStateFace);
+        return;
+      }
+      if (key === "E") {
+        event.preventDefault();
+        event.stopPropagation();
+        eraseManualStateSticker(index);
+        return;
+      }
+      // C used to erase here. Keep it from reaching the page-level camera
+      // reset shortcut while a sticker is focused, but do not give it a second
+      // meaning now that E is the documented erase key.
+      if (key === "C") {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      if (event.key === "[" || event.key === "]") {
+        event.preventDefault();
+        event.stopPropagation();
+        rotateManualStateIsometric(event.key === "[" ? "ccw" : "cw");
+        return;
+      }
+      if (event.key === "x" || event.key === "X") {
+        event.preventDefault();
+        event.stopPropagation();
+        flipManualStateIsometric();
+        return;
+      }
+      const direction = manualStateArrowKeys[event.key];
+      if (!direction) return;
       event.preventDefault();
       event.stopPropagation();
-      paintManualStateSticker(index, key as ManualStateFace);
-      return;
-    }
-    if (key === "E") {
-      event.preventDefault();
-      event.stopPropagation();
-      eraseManualStateSticker(index);
-      return;
-    }
-    // C used to erase here. Keep it from reaching the page-level camera
-    // reset shortcut while a sticker is focused, but do not give it a second
-    // meaning now that E is the documented erase key.
-    if (key === "C") {
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-    if (event.key === "[" || event.key === "]") {
-      event.preventDefault();
-      event.stopPropagation();
-      rotateManualStateIsometric(event.key === "[" ? "ccw" : "cw");
-      return;
-    }
-    if (event.key === "x" || event.key === "X") {
-      event.preventDefault();
-      event.stopPropagation();
-      flipManualStateIsometric();
-      return;
-    }
-    const direction = manualStateArrowKeys[event.key];
-    if (!direction) return;
-    event.preventDefault();
-    event.stopPropagation();
-    let next = manualStateRepresentation === "isometric"
-      ? manualStateScreenArrowTarget(index, direction)
-      : manualStateArrowTarget(manualSize, index, direction);
-    while (next !== null && !isManualStateStickerInteractive(next)) {
-      next = manualStateRepresentation === "isometric"
-        ? manualStateScreenArrowTarget(next, direction)
-        : manualStateArrowTarget(manualSize, next, direction);
-    }
-    if (next !== null) setManualStateCursor(next, true);
-  });
+      let next = manualStateRepresentation === "isometric"
+        ? manualStateScreenArrowTarget(index, direction)
+        : manualStateArrowTarget(manualSize, index, direction);
+      while (next !== null && !isManualStateStickerInteractive(next)) {
+        next = manualStateRepresentation === "isometric"
+          ? manualStateScreenArrowTarget(next, direction)
+          : manualStateArrowTarget(manualSize, next, direction);
+      }
+      if (next !== null) setManualStateCursor(next, true);
+    };
+    keyboardRoot.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+  };
   wireManualStateKeyboard(manualStateDialog);
   manualStateReset.addEventListener("click", () => {
     setManualStateDraft(emptyManualState(size as ManualStateSize));
     manualStateExplicitIndices.clear();
     manualStateAutoIndices.clear();
     manualStateUnverifiedDots.clear();
+    manualStateDeadIndices.clear();
+    manualStatePaintHistory.length = 0;
     manualStateDirtyDots = null;
     renderManualStateEditor();
   });
@@ -6528,6 +6657,8 @@ if (root) {
     manualStateDraft.forEach((_, index) => manualStateExplicitIndices.add(index));
     manualStateAutoIndices.clear();
     manualStateUnverifiedDots.clear();
+    manualStateDeadIndices.clear();
+    manualStatePaintHistory.length = 0;
     manualStateDirtyDots = null;
     renderManualStateEditor();
   });

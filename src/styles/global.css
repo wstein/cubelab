@@ -1372,6 +1372,12 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   color: var(--text-muted);
 }
 
+.manual-state-sticker[data-dead="true"] {
+  outline: 2px dashed #ef4444 !important;
+  outline-offset: -2px;
+  background: rgba(239, 68, 68, 0.22) !important;
+}
+
 .manual-state-dots {
   display: grid;
   /* A 3×3 raster with the middle column left empty, rather than a plain
@@ -1483,6 +1489,42 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .manual-state-summary-remaining span[data-face="D"] { background: #facc15; }
 .manual-state-summary-remaining span[data-face="L"] { background: #f97316; }
 .manual-state-summary-remaining span[data-face="B"] { background: #3b82f6; }
+
+.manual-state-dead-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.55rem;
+  background: rgba(239, 68, 68, 0.16);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  border-radius: 0.35rem;
+  color: #fca5a5;
+  font-size: 0.72rem;
+  margin-top: 0.25rem;
+}
+
+.manual-state-dead-message {
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.manual-state-undo-btn {
+  background: #ef4444;
+  color: #ffffff;
+  border: none;
+  border-radius: 0.25rem;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+
+.manual-state-undo-btn:hover {
+  background: #dc2626;
+}
 
 .manual-state-palette {
   display: grid;
