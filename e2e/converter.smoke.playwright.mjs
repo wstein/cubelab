@@ -1758,6 +1758,12 @@ test("badges and canonicalises a rotated 3x3 Setup frame", async ({page}) => {
   );
   await expect(badge).toHaveText("Canonical U/R/F frame");
   await expect(canonicalise).toBeHidden();
+
+  // The badge describes Setup at tape position zero, never the state reached
+  // after the optional Moves replay tape.
+  await page.locator("[data-moves-input]").fill("x");
+  await expect(badge).toHaveText("Canonical U/R/F frame");
+  await expect(canonicalise).toBeHidden();
 });
 
 test("copies the hand-entered state in the chosen format, only once it is complete", async ({page, context}) => {

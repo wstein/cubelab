@@ -81,7 +81,8 @@ resulting state for inspection.
 For valid 3×3 Setup states, a centre-frame badge reports whether the six facelet blocks use
 CubeLab's canonical U/R/F orientation. A valid rotated state can be explicitly rewritten with
 **Canonicalise orientation**; this preserves its physical piece arrangement while replacing the
-Setup text with canonical spaced facelets.
+Setup text with canonical spaced facelets. The badge and action always describe Setup at tape
+position zero; optional Moves do not affect them.
 
 The Academy, optimal 2×2, and two-phase solvers always take their source position from **Setup** only.
 Moves is a playback tape, so editing it never changes a solver request or invalidates an

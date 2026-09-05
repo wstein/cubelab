@@ -1428,8 +1428,7 @@ if (root) {
     }
   };
 
-  const parseWorkspaceState = (): Result<RecognizedInput> => {
-    const setup = parseState(input.value);
+  const parseWorkspaceState = (setup = parseState(input.value)): Result<RecognizedInput> => {
     if (setup.TAG === "Error") return setup;
     // Setup is the state at tape position zero. An algorithm is a convenient
     // way to describe that state, but it is not silently prepended to Moves:
@@ -3873,9 +3872,10 @@ if (root) {
     updateLowercaseUi();
     updateDialectUi();
     synchronizeAcademySetup();
-    const parsed = parseWorkspaceState();
+    const setup = parseState(input.value);
+    const parsed = parseWorkspaceState(setup);
     if (parsed.TAG === "Error") {
-      updateSetupOrientationUi(null);
+      updateSetupOrientationUi(setup.TAG === "Ok" ? setup._0 : null);
       updateNissSource(null);
       updateCompatibility(null);
       updatePatternDetection(null);
@@ -3895,7 +3895,7 @@ if (root) {
       lastLabel = "Parse error";
       return;
     }
-    updateSetupOrientationUi(parsed._0);
+    updateSetupOrientationUi(setup.TAG === "Ok" ? setup._0 : null);
     synchronizePlayback(parsed._0);
     if (smartCubeSyncMode === "PhysicalMirror" && smartCubeConnected && smartCubeLiveState) {
       renderSmartCubeLiveState();
