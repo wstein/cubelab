@@ -513,6 +513,7 @@ test("the studio connects recognized input and one canonical state to WebGL", ()
   assert.match(client, /label: "Orbit64"/);
   assert.match(client, /label: "Cubie coordinates"/);
   assert.match(client, /"Compact facelets"/);
+  assert.match(client, /"Spaced facelets"/);
   assert.match(client, /"Compact colours"/);
   assert.match(client, /viewport\?\.setScene\(state/);
 });

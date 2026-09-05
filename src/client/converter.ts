@@ -1316,10 +1316,12 @@ if (root) {
       if (colourNet.TAG === "Ok") return recognize(colourNet, "Colour net");
     }
     const facelets = FaceletCodec.parse(size, compact) as Result<CubeState>;
-    if (facelets.TAG === "Ok") return recognize(facelets, "Compact facelets");
+    if (facelets.TAG === "Ok") {
+      return recognize(facelets, /\s/.test(compact) ? "Spaced facelets" : "Compact facelets");
+    }
     const colours = ColorCodec.parseCompact(scheme(), size, compact) as Result<CubeState>;
     return colours.TAG === "Ok"
-      ? recognize(colours, "Compact colours")
+      ? recognize(colours, /\s/.test(compact) ? "Spaced colours" : "Compact colours")
       : parseAlgorithm(inputValue);
   };
 
