@@ -4,7 +4,7 @@ import * as PetrusSolver from "../../Solver/PetrusSolver.res.mjs";
 import * as TwoPhaseSolver from "../../Solver/TwoPhaseSolver.res.mjs";
 import * as Optimal2x2Solver from "../../Solver/Optimal2x2Solver";
 import * as MoveExecutor from "../../Move/MoveExecutor.res.mjs";
-import {isMonochromeSolved4x4, reduce4x4} from "../../Solver/Reduction4x4";
+import {inspectReduction4x4, isMonochromeSolved4x4, reduce4x4} from "../../Solver/Reduction4x4";
 
 type TutorialMethod = "beginner" | "advancedLbl" | "beginnerCfop" | "fullCfop" | "advancedCfop" | "petrus" | "enhancedPetrus";
 type WorkerRequest =
@@ -115,6 +115,16 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
     }
     if (request.type === "solveReduced4x4") {
       self.postMessage({id: request.id, type: "reduction4x4Progress", stage: "Checking centre blocks and wing pairs…"});
+      const inspection = inspectReduction4x4(request.state);
+      if (inspection.TAG === "Error") {
+        self.postMessage({id: request.id, ok: false, error: inspection._0.message});
+        return;
+      }
+      self.postMessage({
+        id: request.id,
+        type: "reduction4x4Progress",
+        stage: `${inspection._0.centreBlocksComplete}/6 centre blocks · ${inspection._0.wingRowsPaired}/24 wing rows · ${inspection._0.nextGoal}`,
+      });
       const reduced = reduce4x4(request.state);
       if (reduced.TAG === "Error") {
         self.postMessage({id: request.id, ok: false, error: reduced._0.message});

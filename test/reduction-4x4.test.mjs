@@ -3,7 +3,7 @@ import {expect, test} from "vitest";
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
-import {isMonochromeSolved4x4, reduce4x4} from "../src/Solver/Reduction4x4.ts";
+import {inspectReduction4x4, isMonochromeSolved4x4, reduce4x4} from "../src/Solver/Reduction4x4.ts";
 import * as TwoPhaseSolver from "../src/Solver/TwoPhaseSolver.res.mjs";
 
 const apply = (size, algorithm) => {
@@ -33,6 +33,28 @@ test("accepts a solved 4×4 in any monochrome face orientation", () => {
   expect(isMonochromeSolved4x4(solved._0)).toBe(true);
 });
 
+test("reports centre and wing milestones before attempting the 3×3 handoff", () => {
+  const solved = StateTypes.solved(4);
+  expect(solved.TAG).toBe("Ok");
+  if (solved.TAG !== "Ok") return;
+  const complete = inspectReduction4x4(solved._0);
+  expect(complete.TAG).toBe("Ok");
+  if (complete.TAG === "Ok") {
+    expect(complete._0).toMatchObject({
+      centreBlocksComplete: 6,
+      wingRowsPaired: 24,
+      stage: "reduced",
+    });
+  }
+
+  const unresolved = inspectReduction4x4(apply(4, "2R"));
+  expect(unresolved.TAG).toBe("Ok");
+  if (unresolved.TAG === "Ok") {
+    expect(unresolved._0.stage).not.toBe("reduced");
+    expect(unresolved._0.nextGoal).toMatch(/centre blocks|wing rows/);
+  }
+});
+
 test("lifts a verified two-phase finish back onto the original reduced 4×4", () => {
   const fourByFour = apply(4, "R U F2 L'");
   const reduced = reduce4x4(fourByFour);
@@ -53,6 +75,6 @@ test("refuses a 4×4 with unresolved centres or wing pairs", () => {
   const result = reduce4x4(unresolved);
   expect(result.TAG).toBe("Error");
   if (result.TAG === "Error") {
-    expect(result._0.message).toMatch(/not reduced yet/);
+    expect(result._0.message).toMatch(/Build centre blocks|Pair wing rows/);
   }
 });

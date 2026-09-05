@@ -16,11 +16,62 @@ const reducedFacelets = [0, 1, 3, 4, 5, 7, 12, 13, 15] as const;
 
 export type Reduced4x4 = {state: unknown; compact: string};
 export type Reduction4x4Error = {message: string};
+export type Reduction4x4Milestone = {
+  face: typeof faces[number];
+  complete: boolean;
+};
+export type Reduction4x4Inspection = {
+  centres: Reduction4x4Milestone[];
+  wingRows: Reduction4x4Milestone[];
+  centreBlocksComplete: number;
+  wingRowsPaired: number;
+  stage: "centres" | "wings" | "reduced";
+  nextGoal: string;
+};
 
 const compactFacelets = (state: unknown): string | null => {
   if ((state as {size?: unknown}).size !== 4) return null;
   const compact = FaceletCodec.render(state);
   return typeof compact === "string" && compact.length === 96 ? compact : null;
+};
+
+/**
+ * Reports reduction facts without pretending that a partly reduced 4×4 has
+ * become a legal 3×3. The planned search and Academy both consume these same
+ * milestones: centre blocks first, then the 24 visible wing rows, then the
+ * strict `reduce4x4` handoff below.
+ */
+export const inspectReduction4x4 = (state: unknown): ReScriptResult<Reduction4x4Inspection> => {
+  const compact = compactFacelets(state);
+  if (compact === null) return {TAG: "Error", _0: {message: "The reduction solver supports only complete 4×4 states."}};
+
+  const centres: Reduction4x4Milestone[] = [];
+  const wingRows: Reduction4x4Milestone[] = [];
+  for (let faceIndex = 0; faceIndex < faces.length; faceIndex += 1) {
+    const face = compact.slice(faceIndex * 16, (faceIndex + 1) * 16);
+    const centre = centreIndices.map((index) => face[index]!);
+    centres.push({face: faces[faceIndex]!, complete: centre.every((colour) => colour === centre[0])});
+    for (let edgeIndex = 0; edgeIndex < edgePairs.length; edgeIndex += 1) {
+      const pair = edgePairs[edgeIndex]!;
+      wingRows.push({
+        face: faces[faceIndex]!,
+        complete: face[pair[0]] === face[pair[1]],
+      });
+    }
+  }
+  const centreBlocksComplete = centres.filter(({complete}) => complete).length;
+  const wingRowsPaired = wingRows.filter(({complete}) => complete).length;
+  const stage = centreBlocksComplete < faces.length
+    ? "centres"
+    : wingRowsPaired < wingRows.length
+    ? "wings"
+    : "reduced";
+  const nextGoal = stage === "centres"
+    ? `Build centre blocks (${centreBlocksComplete}/6 complete).`
+    : stage === "wings"
+    ? `Pair wing rows (${wingRowsPaired}/24 matched).`
+    : "Reduction complete — ready for the 3×3 finish.";
+  return {TAG: "Ok", _0: {centres, wingRows, centreBlocksComplete, wingRowsPaired, stage, nextGoal}};
 };
 
 /**
@@ -34,6 +85,12 @@ const compactFacelets = (state: unknown): string | null => {
 export const reduce4x4 = (state: unknown): ReScriptResult<Reduced4x4> => {
   const compact = compactFacelets(state);
   if (compact === null) return {TAG: "Error", _0: {message: "The reduction solver supports only complete 4×4 states."}};
+
+  const inspection = inspectReduction4x4(state);
+  if (inspection.TAG === "Error") return {TAG: "Error", _0: inspection._0};
+  if (inspection._0.stage !== "reduced") {
+    return {TAG: "Error", _0: {message: inspection._0.nextGoal}};
+  }
 
   const reduced: string[] = [];
   for (let faceIndex = 0; faceIndex < faces.length; faceIndex += 1) {

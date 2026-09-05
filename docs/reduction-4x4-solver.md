@@ -32,5 +32,20 @@ in the worker, lifts the returned outer-layer algorithm onto the original
 4×4, and replay-verifies that every resulting face is monochrome. It rejects
 an unresolved position with the specific centre or wing-pair prerequisite.
 
+## Reduction milestones
+
+`Reduction4x4.inspectReduction4x4` is the shared milestone model for the
+worker, eventual reduction search, and Academy. It never calls a partly
+reduced position a 3×3 state. Instead it reports:
+
+- the number of monochrome 2×2 centre blocks, out of six;
+- the number of matched visible wing rows, out of twenty-four;
+- the current stage (`centres`, `wings`, or `reduced`) and its next goal.
+
+The worker reports those counts before it attempts the strict 3×3 handoff.
+This means a future centre/wing search can publish the same verified
+milestones as it improves the position, and an Academy can teach the two
+4×4-specific phases without duplicating the existing 3×3 Academy methods.
+
 The next implementation phase adds bounded centre and wing reduction search,
 followed by explicit parity detection and repair.
