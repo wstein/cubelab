@@ -19,6 +19,14 @@ face is monochrome in the current whole-cube orientation.
 
 ## Current foundation
 
+## Three-phase port status
+
+`Solver/ThreePhase4x4.res` is a GPL-attributed ReScript port in progress. Its
+first completed increment is the strict 96-facelet U/R/F/D/L/B row-major
+boundary: a CubeLab 4×4 state round-trips exactly through the format consumed
+by the upstream three-phase search. Centre, wing, pruning-table, and search
+coordinates are not ported yet; the module is not connected to the Converter.
+
 `Reduction4x4.reduce4x4` is the handoff gate for stage 3. It accepts only a
 4×4 with monochrome 2×2 centres and paired visible wings, converts it to the
 corresponding 3×3 facelet state, and validates that reduced state with
