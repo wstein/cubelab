@@ -316,7 +316,7 @@ describe("dot diagnostics explain an unreachable draft", () => {
   // tile keep working.
   const SIZE = 4;
   const deadDraft = (): ManualStateDraft => {
-    let rs = 13;
+    let rs = 3;
     const rnd = (m: number) => { rs = (rs * 1103515245 + 12345) & 0x7fffffff; return rs % m; };
     const explicit = new Map<number, ManualStateFace>();
     const source = () => {
@@ -387,4 +387,16 @@ describe("dot diagnostics explain an unreachable draft", () => {
     const budget = manualStateColourBudget(SIZE, solved);
     expect(budget.every(({placed, quota}) => placed === quota)).toBe(true);
   });
+
+  test("quota-aware candidate domains in canAssignKind reject exhausting a colour while an outer slot still needs it", () => {
+    const draft = solvedManualState(SIZE);
+    // Erase a U-F wing slot (index 7 is U, mate 34 is F)
+    draft[7] = null;
+    draft[34] = null;
+    // Paint an extra U on a centre (index 37 is F centre made U -> U count is now 16)
+    draft[37] = "U";
+    // U is now at quota (16/16), but the blank U-F wing slot cannot be legally assigned without U.
+    expect(canCompleteManualState(SIZE, draft)).toBe(false);
+  });
 });
+

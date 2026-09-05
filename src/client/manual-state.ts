@@ -186,18 +186,36 @@ const candidatesFor = (kind: CubieKind): Candidate[][] => {
   ...highOrderPieceKindsBySize[5],
 ].forEach(candidatesFor);
 
-const matches = (draft: ManualStateDraft, slot: number[], candidate: Candidate): boolean =>
-  slot.every((index, localIndex) => draft[index] === null || draft[index] === candidate.stickers[localIndex]);
+const matches = (
+  draft: ManualStateDraft,
+  slot: number[],
+  candidate: Candidate,
+  counts?: Record<ManualStateFace, number>,
+  quota?: number,
+): boolean =>
+  slot.every((index, localIndex) => {
+    const value = draft[index];
+    if (value !== null) return value === candidate.stickers[localIndex];
+    if (counts !== undefined && quota !== undefined) {
+      return counts[candidate.stickers[localIndex]] < quota;
+    }
+    return true;
+  });
 
 const kindsForSize = (size: 2 | 3): readonly CubieKind[] => lowOrderPieceKinds[size];
 
 /** A cheap exact bipartite assignment within one corner or edge orbit. */
-const canAssignKind = (draft: ManualStateDraft, kind: CubieKind): boolean => {
+const canAssignKind = (
+  draft: ManualStateDraft,
+  kind: CubieKind,
+  counts?: Record<ManualStateFace, number>,
+  quota?: number,
+): boolean => {
   const candidates = candidatesFor(kind);
   const domains = kind.slots.map((slot) => {
     const sources = new Set<number>();
     candidates[0]!.forEach((candidate) => {
-      if (matches(draft, slot, candidate)) sources.add(candidate.piece);
+      if (matches(draft, slot, candidate, counts, quota)) sources.add(candidate.piece);
     });
     return [...sources];
   });
@@ -277,8 +295,10 @@ export const canCompleteManualState = (size: ManualStateSize, draft: ManualState
   if (draft.length !== manualStateStickerCount(size)) return false;
   if (fixedCentreIndices(size).some((index, face) => draft[index] !== faceletOrder[face])) return false;
   if (size >= 4) {
-    if (!Object.values(colourCounts(draft)).every((count) => count <= size * size)) return false;
-    if (!highOrderPieceKindsBySize[size].every((kind) => canAssignKind(draft, kind))) return false;
+    const counts = colourCounts(draft);
+    const quota = size * size;
+    if (!Object.values(counts).every((count) => count <= quota)) return false;
+    if (!highOrderPieceKindsBySize[size].every((kind) => canAssignKind(draft, kind, counts, quota))) return false;
     return size !== 4 || canComplete4x4Wings(draft);
   }
   const corner = feasibleSignatures(draft, kindsForSize(size)[0]);
@@ -472,11 +492,13 @@ export const explainManualStateColours = (
     const candidate = [...draft];
     candidate[index] = colour;
     if (size >= 4) {
-      if (!Object.values(colourCounts(candidate)).every((count) => count <= size * size)) {
+      const counts = colourCounts(candidate);
+      const quota = size * size;
+      if (!Object.values(counts).every((count) => count <= quota)) {
         return {colour, allowed: false, reason: "colourQuota"};
       }
       const kinds = highOrderPieceKindsBySize[size];
-      const failed = kinds.findIndex((kind) => !canAssignKind(candidate, kind));
+      const failed = kinds.findIndex((kind) => !canAssignKind(candidate, kind, counts, quota));
       if (failed >= 0) return {colour, allowed: false, reason: "pieceOrbit", orbit: failed};
       if (size === 4 && !canComplete4x4Wings(candidate)) {
         return {colour, allowed: false, reason: "wingReachability"};
