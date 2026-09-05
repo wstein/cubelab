@@ -446,3 +446,80 @@ export const allowedManualStateColours2 = (draft: ManualStateDraft, index: numbe
 export const fillForcedManualStateColours2 = (draft: ManualStateDraft): ManualStateDraft =>
   fillForcedManualStateColours(2, draft);
 export const solvedManualState2 = (): ManualStateDraft => solvedManualState(2);
+
+/** Pure verification queue tracker that manages verification debt across renders. */
+export class ManualStateDotVerificationTracker {
+  unverified = new Set<number>();
+  generation = 0;
+
+  planPending(index: number, needsDots: boolean): boolean {
+    if (needsDots) {
+      this.unverified.add(index);
+      return true;
+    }
+    return this.unverified.has(index);
+  }
+
+  markVerified(index: number): void {
+    this.unverified.delete(index);
+  }
+
+  delete(index: number): void {
+    this.unverified.delete(index);
+  }
+
+  clear(): void {
+    this.unverified.clear();
+  }
+
+  shouldBumpGeneration(dirtyDots: ReadonlySet<number> | null): boolean {
+    return dirtyDots === null || dirtyDots.size > 0;
+  }
+
+  bumpGeneration(dirtyDots: ReadonlySet<number> | null): number {
+    if (this.shouldBumpGeneration(dirtyDots)) {
+      this.generation += 1;
+    }
+    return this.generation;
+  }
+}
+
+/** Pure verification loop coordinator matching verifyManualStateDots lifecycle. */
+export const runManualStateVerificationLoop = async <T extends {index: number}>(
+  pending: T[],
+  currentGeneration: () => number,
+  verify: (index: number) => Promise<ManualStateFace[]>,
+  onVerified: (item: T, choices: ManualStateFace[]) => void,
+  scheduleNext: (fn: () => void) => void = (cb) => setTimeout(cb, 0),
+): Promise<void> => {
+  const generation = currentGeneration();
+  return new Promise((resolve) => {
+    const verifyNext = (offset: number) => {
+      if (currentGeneration() !== generation || offset >= pending.length) {
+        resolve();
+        return;
+      }
+      const next = pending[offset];
+      scheduleNext(() => {
+        if (currentGeneration() !== generation) {
+          resolve();
+          return;
+        }
+        verify(next.index)
+          .then((choices) => {
+            if (currentGeneration() !== generation) {
+              resolve();
+              return;
+            }
+            onVerified(next, choices);
+            verifyNext(offset + 1);
+          })
+          .catch(() => {
+            verifyNext(offset + 1);
+          });
+      });
+    };
+    verifyNext(0);
+  });
+};
+
