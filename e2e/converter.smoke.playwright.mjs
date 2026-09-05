@@ -1738,6 +1738,24 @@ test("morphs one editable net between standard and attached layouts", async ({pa
   await expect(shortcuts).toContainText("erase");
 });
 
+test("badges and canonicalises a rotated 3x3 Setup frame", async ({page}) => {
+  await page.goto("/");
+  const setup = page.locator("[data-input]");
+  const badge = page.locator("[data-setup-orientation]");
+  const canonicalise = page.locator("[data-setup-canonicalise]");
+
+  await setup.fill("x");
+  await expect(badge).toHaveText("Rotated centre frame");
+  await expect(canonicalise).toBeVisible();
+
+  await canonicalise.click();
+  await expect(setup).toHaveValue(
+    "UUUUUUUUU RRRRRRRRR FFFFFFFFF DDDDDDDDD LLLLLLLLL BBBBBBBBB",
+  );
+  await expect(badge).toHaveText("Canonical U/R/F frame");
+  await expect(canonicalise).toBeHidden();
+});
+
 test("copies the hand-entered state in the chosen format, only once it is complete", async ({page, context}) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/");

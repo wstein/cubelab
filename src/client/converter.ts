@@ -230,6 +230,8 @@ if (root) {
   const customScheme = root.querySelector<HTMLInputElement>("[data-custom-scheme]")!;
   const noteInput = root.querySelector<HTMLInputElement>("[data-note-input]")!;
   const status = root.querySelector<HTMLElement>("[data-status]")!;
+  const setupOrientation = root.querySelector<HTMLElement>("[data-setup-orientation]")!;
+  const setupCanonicalise = root.querySelector<HTMLButtonElement>("[data-setup-canonicalise]")!;
   const error = root.querySelector<HTMLElement>("[data-error]")!;
   const lowercaseControls = root.querySelector<HTMLElement>("[data-lowercase-controls]")!;
   const canvas = root.querySelector<HTMLCanvasElement>("[data-cube-canvas]")!;
@@ -1273,6 +1275,31 @@ if (root) {
     return diagnostic === null
       ? {TAG: "Ok", _0: {state: result._0, label}}
       : {TAG: "Error", _0: diagnostic};
+  };
+
+  /** Reconstruct a valid 3×3 in CubeLab's fixed U/R/F centre frame. */
+  const canonicaliseSetupOrientation = (state: CubeState): Result<CubeState, string> => {
+    if (state.size !== 3) return {TAG: "Error", _0: "Orientation canonicalisation is available for 3×3 states."};
+    const pieces = PieceReducer.reduce(state) as Result<PieceState, unknown>;
+    if (pieces.TAG === "Error") return {TAG: "Error", _0: PieceReducer.describeError(pieces._0)};
+    const canonical = PieceReducer.reconstruct(pieces._0) as Result<CubeState, unknown>;
+    return canonical.TAG === "Ok"
+      ? canonical
+      : {TAG: "Error", _0: "Could not reconstruct the canonical 3×3 orientation."};
+  };
+
+  const updateSetupOrientationUi = (recognized: RecognizedInput | null) => {
+    const canonical = recognized === null ? null : canonicaliseSetupOrientation(recognized.state);
+    if (canonical === null || canonical.TAG === "Error") {
+      setupOrientation.hidden = true;
+      setupCanonicalise.hidden = true;
+      return;
+    }
+    const isCanonical = FaceletCodec.render(canonical._0) === FaceletCodec.render(recognized.state);
+    setupOrientation.hidden = false;
+    setupOrientation.textContent = isCanonical ? "Canonical U/R/F frame" : "Rotated centre frame";
+    setupOrientation.classList.toggle("error", !isCanonical);
+    setupCanonicalise.hidden = isCanonical;
   };
 
   // The SSE middle dot is unambiguous: CubeLab's other input dialects do not
@@ -3848,6 +3875,7 @@ if (root) {
     synchronizeAcademySetup();
     const parsed = parseWorkspaceState();
     if (parsed.TAG === "Error") {
+      updateSetupOrientationUi(null);
       updateNissSource(null);
       updateCompatibility(null);
       updatePatternDetection(null);
@@ -3867,6 +3895,7 @@ if (root) {
       lastLabel = "Parse error";
       return;
     }
+    updateSetupOrientationUi(parsed._0);
     synchronizePlayback(parsed._0);
     if (smartCubeSyncMode === "PhysicalMirror" && smartCubeConnected && smartCubeLiveState) {
       renderSmartCubeLiveState();
@@ -4131,6 +4160,16 @@ if (root) {
     resetTwoPhaseRefinement();
     store.patch({input: input.value});
     scheduleUpdate();
+  });
+  setupCanonicalise.addEventListener("click", () => {
+    const parsed = parseState(input.value);
+    if (parsed.TAG === "Error") return;
+    const canonical = canonicaliseSetupOrientation(parsed._0.state);
+    if (canonical.TAG === "Error") return;
+    const facelets = toSpacedFacelets(FaceletCodec.render(canonical._0), 3);
+    if (input.value === facelets) return;
+    input.value = facelets;
+    input.dispatchEvent(new Event("input", {bubbles: true}));
   });
   movesInput.addEventListener("input", () => {
     updateTransformAvailability(false);

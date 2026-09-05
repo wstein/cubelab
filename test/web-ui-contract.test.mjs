@@ -222,6 +222,12 @@ test("the editor separates a synchronized setup from optional replay moves", () 
   assert.match(client, /HamiltonMacro\.unfold\(program, MAX_PLAYBACK_STEPS\)/);
   assert.match(client, /Use the streaming player for longer programs/);
   assert.match(page, /Macro definitions in Moves/);
+  assert.match(page, /data-setup-orientation/);
+  assert.match(page, /data-setup-canonicalise/);
+  assert.match(client, /const canonicaliseSetupOrientation/);
+  assert.match(client, /Rotated centre frame/);
+  assert.match(client, /Canonical U\/R\/F frame/);
+  assert.match(client, /input\.dispatchEvent\(new Event\("input"/);
 });
 
 test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate from Setup", () => {

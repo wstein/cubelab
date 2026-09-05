@@ -76,6 +76,11 @@ viewport always shows the supplied Setup at the start of playback rather than a 
 solved cube. When Moves is empty, an algorithm entered in Setup is simply evaluated to its
 resulting state for inspection.
 
+For valid 3×3 Setup states, a centre-frame badge reports whether the six facelet blocks use
+CubeLab's canonical U/R/F orientation. A valid rotated state can be explicitly rewritten with
+**Canonicalise orientation**; this preserves its physical piece arrangement while replacing the
+Setup text with canonical spaced facelets.
+
 The Academy, optimal 2×2, and two-phase solvers always take their source position from **Setup** only.
 Moves is a playback tape, so editing it never changes a solver request or invalidates an
 already-returned solver candidate. Changing Setup resets that candidate and any optional
