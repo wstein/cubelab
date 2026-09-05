@@ -190,3 +190,39 @@ test("recognises and repairs OLL parity in a fully paired 4×4", () => {
   expect(replay.TAG).toBe("Ok");
   if (replay.TAG === "Ok") expect(reduce4x4(replay._0).TAG).toBe("Ok");
 });
+test("keeps a legal 22/24 last-two-dedge state on the wing-pair path", () => {
+  // This legal centre-complete state reaches 24/24 through 22 -> 20 -> 24.
+  // The first sequence is a setup loss, so a strict one-ply hill climb cannot
+  // accept it; the guide must verify the combined two-ply result instead.
+  const parsed = FaceletCodec.parse(
+    4,
+    "FFFDLUUDLUUDLLLLUFFFURRRURRRBRRLDFFFDFFFDFFFRBBRFLLDDDDBDDDBRDDURUUBULLRULLBBLLULRRDUBBBUBBBBRBU",
+  );
+  expect(parsed.TAG).toBe("Ok");
+  if (parsed.TAG !== "Ok") return;
+  const before = inspectReduction4x4(parsed._0);
+  expect(before.TAG).toBe("Ok");
+  if (before.TAG !== "Ok") return;
+  expect(before._0).toMatchObject({centreBlocksComplete: 6, wingRowsPaired: 22});
+
+  // Apply the setup to the regression state rather than using a new cube.
+  const setupReplay = MoveExecutor.applyAlg(parsed._0, MoveParser.parseWithOptions(4, "Wide", "Modern", "2L D L D' 2L'")._0);
+  expect(setupReplay.TAG).toBe("Ok");
+  if (setupReplay.TAG === "Ok") {
+    const setupProgress = inspectReduction4x4(setupReplay._0);
+    expect(setupProgress.TAG).toBe("Ok");
+    if (setupProgress.TAG === "Ok") expect(setupProgress._0.wingRowsPaired).toBe(20);
+  }
+
+  const guide = planNextWingPair4x4(parsed._0);
+  expect(guide.TAG).toBe("Ok");
+  if (guide.TAG !== "Ok") return;
+  const replay = MoveExecutor.applyAlg(parsed._0, guide._0.alg);
+  expect(replay.TAG).toBe("Ok");
+  if (replay.TAG !== "Ok") return;
+  const after = inspectReduction4x4(replay._0);
+  expect(after.TAG).toBe("Ok");
+  if (after.TAG === "Ok") {
+    expect(after._0).toMatchObject({centreBlocksComplete: 6, wingRowsPaired: 24});
+  }
+});
