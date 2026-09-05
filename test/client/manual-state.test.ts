@@ -398,5 +398,14 @@ describe("dot diagnostics explain an unreachable draft", () => {
     // U is now at quota (16/16), but the blank U-F wing slot cannot be legally assigned without U.
     expect(canCompleteManualState(SIZE, draft)).toBe(false);
   });
+
+  test("rejects replay draft with exhausted colours that leave blank slots unsatisfiable", () => {
+    const replayDraft = "RRLLU--RF-BDLLBLUL-URFLFDRB-FBDBDUDFFUBULFDFLUURFRFURBUULDRBRRFRDBDBLFLRFUBFBUDDBDDFULFBLDDLDRBU"
+      .split("")
+      .map((c) => (c === "-" ? null : (c as ManualStateFace)));
+    expect(canCompleteManualState(4, replayDraft)).toBe(false);
+    expect(allowedManualStateColours(4, replayDraft, 18)).toEqual([]);
+    expect(allowedManualStateColours(4, replayDraft, 27)).toEqual([]);
+  });
 });
 

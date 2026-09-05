@@ -913,8 +913,12 @@ if (root) {
     return source;
   };
 
-  const refreshManualStateAutoFill = (manualSize: ManualStateSize, fill: boolean) => {
-    const before = [...manualStateDraft];
+  const refreshManualStateAutoFill = (
+    manualSize: ManualStateSize,
+    fill: boolean,
+    previousDraft?: ManualStateDraft,
+  ) => {
+    const before = previousDraft ?? [...manualStateDraft];
     const source = manualStateSourceDraft(manualSize);
     manualStateAutoIndices.clear();
     manualStateDirtyDots = null;
@@ -957,6 +961,7 @@ if (root) {
   const eraseManualStateSticker = (index: number) => {
     if (isManualStateCentre(index) || manualStateAutoIndices.has(index)) return;
     const manualSize = size as ManualStateSize;
+    const before = [...manualStateDraft];
     manualStateDraft[index] = null;
     touchManualStateDraft();
     manualStateExplicitIndices.delete(index);
@@ -964,7 +969,7 @@ if (root) {
     manualStateDeadIndices.delete(index);
     const sticker = manualStateStickerElements[index];
     if (sticker) delete sticker.dataset.dead;
-    refreshManualStateAutoFill(manualSize, true);
+    refreshManualStateAutoFill(manualSize, true, before);
     renderManualStateEditor();
   };
 
@@ -1008,6 +1013,7 @@ if (root) {
     if (!allowedManualStateColours(manualSize, source, index).includes(colour)) {
       return false;
     }
+    const before = [...manualStateDraft];
     manualStateDraft[index] = colour;
     touchManualStateDraft();
     manualStateExplicitIndices.add(index);
@@ -1016,7 +1022,7 @@ if (root) {
     manualStateDeadIndices.delete(index);
     const sticker = manualStateStickerElements[index];
     if (sticker) delete sticker.dataset.dead;
-    refreshManualStateAutoFill(manualSize, true);
+    refreshManualStateAutoFill(manualSize, true, before);
     renderManualStateEditor();
     return true;
   };
@@ -1056,9 +1062,6 @@ if (root) {
         void manualStateVerifier.verify(manualSize, snapshot, next.index).then((choices) => {
           if (generation !== manualStateDotGeneration) return;
           if (choices.length === 1 && manualStateDraft[next.index] === null) {
-            // Local propagation can intentionally leave duplicate-wing choices
-            // open. Once the exact background check proves one colour, promote
-            // it to the same reversible auto-fill state as a local singleton.
             const promotedColour = choices[0] as ManualStateFace;
             manualStateDraft[next.index] = promotedColour;
             snapshot[next.index] = promotedColour;
@@ -1066,7 +1069,6 @@ if (root) {
             manualStateAutoIndices.add(next.index);
             manualStateUnverifiedDots.delete(next.index);
             manualStateDeadIndices.delete(next.index);
-
             const sticker = manualStateStickerElements[next.index];
             if (sticker) {
               sticker.dataset.face = promotedColour;
@@ -1074,27 +1076,25 @@ if (root) {
               delete sticker.dataset.dead;
               sticker.textContent = "";
             }
-
-            const constraintIndices = manualStateLocalConstraintIndices(manualSize, next.index);
+            const quotaExhausted = manualStateDraft.filter((c) => c === promotedColour).length === manualSize * manualSize;
             const dirty = manualStateDirtyDots ?? new Set<number>();
             const pendingIndices = new Set(pending.slice(offset + 1).map((p) => p.index));
-            constraintIndices.forEach((idx) => {
-              if (manualStateDraft[idx] === null) {
-                dirty.add(idx);
-                manualStateUnverifiedDots.add(idx);
-                const mateSticker = manualStateStickerElements[idx];
-                const dots = mateSticker?.querySelector<HTMLElement>(".manual-state-dots");
-                if (dots) {
-                  renderManualStateDots(dots, locallyAllowedManualStateColours(manualSize, manualStateDraft, idx));
-                  if (!pendingIndices.has(idx)) {
-                    pending.push({index: idx, element: dots});
-                    pendingIndices.add(idx);
-                  }
+            const affected = new Set(manualStateLocalConstraintIndices(manualSize, next.index));
+            if (quotaExhausted) manualStateDraft.forEach((c, idx) => { if (c === null) affected.add(idx); });
+            affected.forEach((idx) => {
+              if (manualStateDraft[idx] !== null) return;
+              dirty.add(idx);
+              manualStateUnverifiedDots.add(idx);
+              const dots = manualStateStickerElements[idx]?.querySelector<HTMLElement>(".manual-state-dots");
+              if (dots) {
+                renderManualStateDots(dots, locallyAllowedManualStateColours(manualSize, manualStateDraft, idx));
+                if (!pendingIndices.has(idx)) {
+                  pending.push({index: idx, element: dots});
+                  pendingIndices.add(idx);
                 }
               }
             });
             manualStateDirtyDots = dirty;
-
             updateManualStateMetrics(manualSize);
 
             dotTrace.log({

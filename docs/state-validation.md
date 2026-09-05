@@ -84,9 +84,15 @@ stickers already entered — no colour exceeds its `n²` quota, each piece orbit
 one-to-one assignment, and (on 4×4) the wing stickers remain reachable — and it evaluates each
 condition independently. It is not a search for an actual completion.
 
-To mitigate over-acceptance, `canAssignKind` checks colour quotas directly within piece-orbit candidate
-domains: a candidate assignment is rejected if placing it on blank slots would require a colour that has
-already exhausted its quota. This stops earlier placements from starving outer slots of required colours.
+To eliminate over-acceptance across piece orbits, `canAssignKind` groups identical piece families (such
+as duplicate 4×4/5×5 wings) and verifies candidate assignments with MRV-ordered backtracking search that
+tracks remaining colour quotas simultaneously across all blank slots in the orbit. An assignment is rejected
+if the cumulative colour demand of blank slots exceeds remaining colour budgets.
+
+Additionally, whenever sticker paints, erasures, or worker promotions exhaust or restore a colour quota,
+the editor detects `quotaChanged` across the prior and current drafts and marks all remaining blank stickers
+dirty, updating their local dot choices synchronously and preventing stale "ghost" dots from displaying
+exhausted colours.
 
 When an over-acceptance dead end does occur—where a tile resolves to zero legal colours (`choices.length === 0`)—the
 UI surfaces the issue rather than leaving it silent. The affected sticker is highlighted with a red dashed border

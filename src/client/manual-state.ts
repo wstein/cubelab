@@ -204,32 +204,120 @@ const matches = (
 
 const kindsForSize = (size: 2 | 3): readonly CubieKind[] => lowOrderPieceKinds[size];
 
-/** A cheap exact bipartite assignment within one corner or edge orbit. */
+type UniqueKindPiece = {
+  typeId: number;
+  capacity: number;
+  rotations: ManualStateFace[][];
+};
+
+const uniquePieceCache = new WeakMap<CubieKind, UniqueKindPiece[]>();
+const uniquePiecesFor = (kind: CubieKind): UniqueKindPiece[] => {
+  const cached = uniquePieceCache.get(kind);
+  if (cached) return cached;
+  const map = new Map<string, {typeId: number; capacity: number; colours: ManualStateFace[]}>();
+  kind.pieces.forEach((piece) => {
+    const key = [...piece].sort().join("");
+    const existing = map.get(key);
+    if (existing) {
+      existing.capacity += 1;
+    } else {
+      map.set(key, {typeId: map.size, capacity: 1, colours: piece});
+    }
+  });
+  const uniquePieces = [...map.values()].map(({typeId, capacity, colours}) => {
+    const rotations = Array.from({length: kind.orientations}, (_, orientation) => {
+      const stickers = Array<ManualStateFace>(kind.orientations);
+      colours.forEach((colour, colourIndex) => {
+        stickers[(colourIndex + orientation) % kind.orientations] = colour;
+      });
+      return stickers;
+    });
+    return {typeId, capacity, rotations};
+  });
+  uniquePieceCache.set(kind, uniquePieces);
+  return uniquePieces;
+};
+
+/** An exact bipartite assignment within one corner or edge orbit respecting colour quotas. */
 const canAssignKind = (
   draft: ManualStateDraft,
   kind: CubieKind,
   counts?: Record<ManualStateFace, number>,
   quota?: number,
 ): boolean => {
-  const candidates = candidatesFor(kind);
-  const domains = kind.slots.map((slot) => {
-    const sources = new Set<number>();
-    candidates[0]!.forEach((candidate) => {
-      if (matches(draft, slot, candidate, counts, quota)) sources.add(candidate.piece);
+  const uniquePieces = uniquePiecesFor(kind);
+  const slotCandidates = kind.slots.map((slot) => {
+    const matching: Array<{typeId: number; stickers: ManualStateFace[]}> = [];
+    uniquePieces.forEach((piece) => {
+      piece.rotations.forEach((stickers) => {
+        const matchesSlot = slot.every((index, localIndex) => {
+          const value = draft[index];
+          if (value !== null) return value === stickers[localIndex];
+          if (counts !== undefined && quota !== undefined) {
+            return counts[stickers[localIndex]] < quota;
+          }
+          return true;
+        });
+        if (matchesSlot) matching.push({typeId: piece.typeId, stickers});
+      });
     });
-    return [...sources];
+    return matching;
   });
-  const sourceForSlot = Array<number>(kind.pieces.length).fill(-1);
-  const assign = (slot: number, seen: Set<number>): boolean => domains[slot]!.some((source) => {
-    if (seen.has(source)) return false;
-    seen.add(source);
-    if (sourceForSlot[source] === -1 || assign(sourceForSlot[source]!, seen)) {
-      sourceForSlot[source] = slot;
-      return true;
+
+  if (slotCandidates.some((candidates) => candidates.length === 0)) return false;
+
+  const slotOrder = Array.from({length: kind.slots.length}, (_, i) => i)
+    .sort((a, b) => slotCandidates[a]!.length - slotCandidates[b]!.length);
+
+  const pieceCount = uniquePieces.map((p) => p.capacity);
+  const quotaLeft: Record<ManualStateFace, number> | null = (counts !== undefined && quota !== undefined)
+    ? {
+      U: quota - counts.U,
+      D: quota - counts.D,
+      R: quota - counts.R,
+      L: quota - counts.L,
+      F: quota - counts.F,
+      B: quota - counts.B,
+    }
+    : null;
+
+  const search = (orderIdx: number): boolean => {
+    if (orderIdx === slotOrder.length) return true;
+    const slotIdx = slotOrder[orderIdx]!;
+    const slot = kind.slots[slotIdx]!;
+    for (const candidate of slotCandidates[slotIdx]!) {
+      if (pieceCount[candidate.typeId]! <= 0) continue;
+      if (quotaLeft !== null) {
+        let validQuota = true;
+        for (let li = 0; li < slot.length; li += 1) {
+          if (draft[slot[li]!] === null && quotaLeft[candidate.stickers[li]!] <= 0) {
+            validQuota = false;
+            break;
+          }
+        }
+        if (!validQuota) continue;
+      }
+
+      pieceCount[candidate.typeId]! -= 1;
+      if (quotaLeft !== null) {
+        for (let li = 0; li < slot.length; li += 1) {
+          if (draft[slot[li]!] === null) quotaLeft[candidate.stickers[li]!] -= 1;
+        }
+      }
+
+      if (search(orderIdx + 1)) return true;
+
+      pieceCount[candidate.typeId]! += 1;
+      if (quotaLeft !== null) {
+        for (let li = 0; li < slot.length; li += 1) {
+          if (draft[slot[li]!] === null) quotaLeft[candidate.stickers[li]!] += 1;
+        }
+      }
     }
     return false;
-  });
-  return domains.every((_, slot) => assign(slot, new Set<number>()));
+  };
+
+  return search(0);
 };
 
 /** Which orientation sums and permutation parities still have a completion. */
