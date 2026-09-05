@@ -1624,30 +1624,40 @@ test("paints a specific dot's colour on click and loads a filled sticker's colou
   // still paint it Right — the dot clicked wins over the palette selection.
   const sticker8 = net.locator('[data-manual-state-index="8"]');
   await sticker8.locator('.manual-state-dots i[data-face="R"]').click();
-  await expect(sticker8).toHaveText("R");
+  await expect(sticker8).toHaveAttribute("data-face", "R");
 
   // Double-click loads that filled sticker's own colour into the palette,
   // without repainting the sticker itself.
   await sticker8.dblclick();
   await expect(dialog.locator('[data-manual-state-colour="R"]')).toHaveAttribute("aria-pressed", "true");
   await expect(dialog.locator('[data-manual-state-colour="U"]')).toHaveAttribute("aria-pressed", "false");
-  await expect(sticker8).toHaveText("R");
+  await expect(sticker8).toHaveAttribute("data-face", "R");
 
   // A plain click on an already-filled sticker no longer silently repaints
-  // it — that would race the double-click's colour pickup above. Right-click
+  // it — that would race the double-click's colour pickup above. Shift-click
   // (erase) then click remains the way to correct a filled sticker.
   await dialog.locator('[data-manual-state-colour="U"]').click();
   await sticker8.click();
-  await expect(sticker8).toHaveText("R");
+  await expect(sticker8).toHaveAttribute("data-face", "R");
+  await sticker8.click({button: "right"});
+  await expect(sticker8).toHaveAttribute("data-face", "R");
+  await sticker8.click({modifiers: ["Shift"]});
+  await expect(sticker8).toHaveAttribute("data-face", "unknown");
+  await sticker8.click();
+  await expect(sticker8).toHaveAttribute("data-face", "U");
+  await sticker8.click({modifiers: ["Shift"]});
+  await dialog.locator('[data-manual-state-colour="R"]').click();
+  await sticker8.click();
+  await expect(sticker8).toHaveAttribute("data-face", "R");
 
   // A fixed centre is a real <button> too, not a native disabled one — that
   // would also suppress its double-click, not just click/drag paint.
   const rCentre = net.locator('[data-manual-state-index="13"]');
-  await expect(rCentre).toHaveText("R");
+  await expect(rCentre).toHaveAttribute("data-face", "R");
   await dialog.locator('[data-manual-state-colour="U"]').click();
   await rCentre.dblclick();
   await expect(dialog.locator('[data-manual-state-colour="R"]')).toHaveAttribute("aria-pressed", "true");
-  await expect(rCentre).toHaveText("R");
+  await expect(rCentre).toHaveAttribute("data-face", "R");
 });
 
 test("navigates and paints the net with the keyboard, wrapping across a face edge", async ({page}) => {
@@ -1662,7 +1672,7 @@ test("navigates and paints the net with the keyboard, wrapping across a face edg
   const u8 = net.locator('[data-manual-state-index="8"]');
   await u8.click();
   await page.keyboard.press("r");
-  await expect(u8).toHaveText("R");
+  await expect(u8).toHaveAttribute("data-face", "R");
 
   // Moving right off U's last column wraps onto R's own corner column,
   // landing on global index 9 (R0) rather than stopping at the edge.
@@ -1673,9 +1683,9 @@ test("navigates and paints the net with the keyboard, wrapping across a face edg
   // E erases whichever sticker currently has focus.
   await page.keyboard.press("f");
   const r0 = net.locator('[data-manual-state-index="9"]');
-  await expect(r0).toHaveText("F");
+  await expect(r0).toHaveAttribute("data-face", "F");
   await page.keyboard.press("e");
-  await expect(r0).toHaveText("");
+  await expect(r0).toHaveAttribute("data-face", "unknown");
 });
 
 test("recovers full colour availability after erasing every sticker, including auto-set ones", async ({page}) => {
@@ -1699,16 +1709,16 @@ test("recovers full colour availability after erasing every sticker, including a
 
   const u8 = net.locator('[data-manual-state-index="8"]');
   await expect(u8).toHaveAttribute("data-auto", "true");
-  await expect(u8).toHaveText("U");
+  await expect(u8).toHaveAttribute("data-face", "U");
 
   // Erase everything in one ascending pass. index 8 is skipped while still
   // auto-set, but cascades back to blank once its R/F drivers clear.
   for (const index of [...rIndices, ...fIndices]) {
-    await net.locator(`[data-manual-state-index="${index}"]`).click({button: "right"});
+    await net.locator(`[data-manual-state-index="${index}"]`).click({modifiers: ["Shift"]});
   }
-  await expect(u8).toHaveText("");
+  await expect(u8).toHaveAttribute("data-face", "unknown");
   for (const index of [...rIndices, ...fIndices]) {
-    await expect(net.locator(`[data-manual-state-index="${index}"]`)).toHaveText("");
+    await expect(net.locator(`[data-manual-state-index="${index}"]`)).toHaveAttribute("data-face", "unknown");
   }
 
   // A fully blank draft is maximally permissive: every colour is available

@@ -120,7 +120,7 @@ instead of rechecking every blank sticker, except for a two-sticker exact endgam
 paints that colour directly, regardless of which palette swatch is currently selected.
 Double-clicking an already-filled sticker loads its colour into the palette without
 changing the sticker; a plain click on a filled sticker otherwise does nothing, so it
-cannot race and clobber that double-click — right-click (erase) then click remains how to
+cannot race and clobber that double-click — shift-click (erase) then click remains how to
 correct one. The six fixed core-centre stickers on 3×3×3 and 5×5×5 define face
 orientation; they are rendered a nuance darker with no hover or focus frame and are not
 selectable (arrow keys skip them during keyboard navigation). The remaining 5×5×5 centre

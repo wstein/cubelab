@@ -958,7 +958,9 @@ if (root) {
   const paintManualStateSticker = (index: number, colour: ManualStateFace): boolean => {
     if (isManualStateCentre(index)) return false;
     const manualSize = size as ManualStateSize;
-    if (!allowedManualStateColours(manualSize, manualStateSourceDraft(manualSize), index).includes(colour)) {
+    const source = manualStateSourceDraft(manualSize);
+    source[index] = null;
+    if (!allowedManualStateColours(manualSize, source, index).includes(colour)) {
       return false;
     }
     manualStateDraft[index] = colour;
@@ -1304,6 +1306,12 @@ if (root) {
     });
     if (manualSize >= 3) verifyManualStateDots(manualSize, pendingDots);
     manualStateDirtyDots = new Set();
+    if (manualStateCursorIndex !== null && isManualStateStickerInteractive(manualStateCursorIndex)) {
+      const active = document.activeElement;
+      if (!active || active === document.body || active.closest("[data-manual-state-index]")) {
+        manualStateStickerElements[manualStateCursorIndex]?.focus({preventScroll: true});
+      }
+    }
   };
 
   // Hover only re-rings the affected stickers rather than calling
@@ -6020,8 +6028,15 @@ if (root) {
     const index = Number(sticker.dataset.manualStateIndex);
     return Number.isInteger(index) ? index : null;
   };
-  const manualStateRawStickerAt = (event: Event): number | null =>
-    manualStateRawStickerAtElement(event.target as Element | null);
+  const manualStateRawStickerAt = (event: Event): number | null => {
+    const fromTarget = manualStateRawStickerAtElement(event.target as Element | null);
+    if (fromTarget !== null) return fromTarget;
+    if ("clientX" in event && typeof (event as MouseEvent).clientX === "number") {
+      const atPoint = document.elementFromPoint((event as MouseEvent).clientX, (event as MouseEvent).clientY);
+      return manualStateRawStickerAtElement(atPoint);
+    }
+    return null;
+  };
   const manualStateStickerAt = (event: Event): number | null => {
     const index = manualStateRawStickerAt(event);
     return index !== null && isManualStateStickerInteractive(index) ? index : null;
@@ -6054,7 +6069,16 @@ if (root) {
       }
       const index = manualStateStickerAt(event);
       if (index === null) return;
-      setManualStateCursor(index);
+      setManualStateCursor(index, true);
+      // An already-filled sticker ignores a plain click instead of silently
+      // repainting over it — double-click loads that sticker's own colour
+      // into the palette below, and a same-click repaint here would race it,
+      // clobbering the original colour before the double-click could read
+      // it. Shift-click still erases a filled sticker in one step either way.
+      if (event.shiftKey || manualStateColour === null) {
+        eraseManualStateSticker(index);
+        return;
+      }
       // A blank sticker's dots are individually clickable: whichever one was
       // actually clicked wins over the currently selected palette colour, so
       // a dot works as a direct shortcut rather than requiring the palette
@@ -6064,25 +6088,15 @@ if (root) {
         paintManualStateSticker(index, dot.dataset.face as ManualStateFace);
         return;
       }
-      if (manualStateColour === null) {
-        eraseManualStateSticker(index);
-        return;
-      }
-      // An already-filled sticker ignores a plain click instead of silently
-      // repainting over it — double-click loads that sticker's own colour
-      // into the palette below, and a same-click repaint here would race it,
-      // clobbering the original colour before the double-click could read
-      // it. Right-click still erases a filled sticker in one step either way.
       if (manualStateDraft[index] !== null) return;
       paintManualStateSticker(index, manualStateColour);
     });
-    // Right-click erases regardless of which tool is selected — a quick undo
-    // that does not require switching to the Eraser first and back after.
+    // Contextmenu is suppressed on stickers so accidental right-clicks do not
+    // spawn a browser context menu over the net.
     paintRoot.addEventListener("contextmenu", (event) => {
       const index = manualStateStickerAt(event);
       if (index === null) return;
       event.preventDefault();
-      eraseManualStateSticker(index);
     });
     // Double-click a filled sticker to pick up its colour into the palette,
     // without altering the sticker itself.
@@ -6091,7 +6105,7 @@ if (root) {
       if (index === null) return;
       const value = manualStateDraft[index];
       if (value === null) return;
-      setManualStateCursor(index);
+      setManualStateCursor(index, true);
       manualStateColour = value;
       renderManualStateEditor();
     });
@@ -6101,25 +6115,26 @@ if (root) {
     const paintStrokeAt = (index: number, event: PointerEvent, stroke: ManualStateStroke) => {
       if (stroke.visited.has(index)) return;
       stroke.visited.add(index);
-      setManualStateCursor(index);
-      const dot = (document.elementFromPoint(event.clientX, event.clientY) as Element | null)
-        ?.closest<HTMLElement>(".manual-state-dots i");
-      if (!stroke.erase && dot?.dataset.face) {
-        paintManualStateSticker(index, dot.dataset.face as ManualStateFace);
-      } else if (stroke.erase) {
+      setManualStateCursor(index, true);
+      if (stroke.erase) {
         eraseManualStateSticker(index);
-      } else if (manualStateColour !== null && manualStateDraft[index] === null) {
-        paintManualStateSticker(index, manualStateColour);
+      } else {
+        const dot = (event.target as Element | null)?.closest<HTMLElement>(".manual-state-dots i")
+          ?? (document.elementFromPoint(event.clientX, event.clientY) as Element | null)?.closest<HTMLElement>(".manual-state-dots i");
+        if (dot?.dataset.face) {
+          paintManualStateSticker(index, dot.dataset.face as ManualStateFace);
+        } else if (manualStateColour !== null && manualStateDraft[index] === null) {
+          paintManualStateSticker(index, manualStateColour);
+        }
       }
     };
     paintRoot.addEventListener("pointerdown", (event) => {
-      if (event.button !== 0 && event.button !== 2) return;
+      if (event.button !== 0) return;
       const index = manualStateStickerAt(event);
       if (index === null) return;
-      event.preventDefault();
       const stroke: ManualStateStroke = {
         pointerId: event.pointerId,
-        erase: event.button === 2 || manualStateColour === null,
+        erase: event.shiftKey || manualStateColour === null,
         visited: new Set<number>(),
       };
       manualStateStroke = stroke;
@@ -6227,7 +6242,9 @@ if (root) {
     });
     return best?.index ?? null;
   };
-  const wireManualStateKeyboard = (keyboardRoot: HTMLElement) => keyboardRoot.addEventListener("keydown", (event) => {
+  const wireManualStateKeyboard = (keyboardRoot: EventTarget) => keyboardRoot.addEventListener("keydown", (rawEvent) => {
+    if (!manualStateDialog.open) return;
+    const event = rawEvent as KeyboardEvent;
     const focused = (document.activeElement as Element | null)?.closest("[data-manual-state-index]");
     const focusedIndex = focused ? Number(focused.dataset.manualStateIndex) : null;
     const index = focusedIndex !== null && Number.isInteger(focusedIndex) && isManualStateStickerInteractive(focusedIndex)
