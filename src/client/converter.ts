@@ -1277,9 +1277,15 @@ if (root) {
       : {TAG: "Error", _0: diagnostic};
   };
 
-  /** Reconstruct a valid 3×3 in CubeLab's fixed U/R/F centre frame. */
+  /** Reconstruct a valid odd cube in CubeLab's fixed U/R/F centre frame. */
   const canonicaliseSetupOrientation = (state: CubeState): Result<CubeState, string> => {
-    if (state.size !== 3) return {TAG: "Error", _0: "Orientation canonicalisation is available for 3×3 states."};
+    if (state.size === 5) {
+      const canonical = Orbit64Codec.canonicaliseState(state) as Result<CubeState, unknown>;
+      return canonical.TAG === "Ok"
+        ? canonical
+        : {TAG: "Error", _0: Orbit64Codec.describeError(canonical._0)};
+    }
+    if (state.size !== 3) return {TAG: "Error", _0: "Orientation canonicalisation is available for 3×3 and 5×5 states."};
     const pieces = PieceReducer.reduce(state) as Result<PieceState, unknown>;
     if (pieces.TAG === "Error") return {TAG: "Error", _0: PieceReducer.describeError(pieces._0)};
     const canonical = PieceReducer.reconstruct(pieces._0) as Result<CubeState, unknown>;
@@ -1289,18 +1295,6 @@ if (root) {
   };
 
   const updateSetupOrientationUi = (recognized: RecognizedInput | null) => {
-    if (recognized?.state.size === 5) {
-      const facelets = FaceletCodec.render(recognized.state);
-      const fixedCentres = [12, 37, 62, 87, 112, 137];
-      const isCanonical = fixedCentres.every((index, face) => facelets[index] === "URFDLB"[face]);
-      setupOrientation.hidden = false;
-      setupOrientation.textContent = isCanonical ? "Canonical U/R/F frame" : "Rotated centre frame";
-      setupOrientation.classList.toggle("error", !isCanonical);
-      // The existing canonicaliser is cubie-coordinate based and therefore
-      // only meaningful for 3×3; Orbit64 itself still preserves this 5×5 frame.
-      setupCanonicalise.hidden = true;
-      return;
-    }
     const canonical = recognized === null ? null : canonicaliseSetupOrientation(recognized.state);
     if (canonical === null || canonical.TAG === "Error") {
       setupOrientation.hidden = true;
@@ -4190,7 +4184,7 @@ if (root) {
     if (parsed.TAG === "Error") return;
     const canonical = canonicaliseSetupOrientation(parsed._0.state);
     if (canonical.TAG === "Error") return;
-    const facelets = toSpacedFacelets(FaceletCodec.render(canonical._0), 3);
+    const facelets = toSpacedFacelets(FaceletCodec.render(canonical._0), canonical._0.size);
     if (input.value === facelets) return;
     input.value = facelets;
     input.dispatchEvent(new Event("input", {bubbles: true}));

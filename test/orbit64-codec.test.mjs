@@ -57,3 +57,13 @@ test("preserves all odd-cube whole-cube centre frames", () => {
     }
   }
 });
+
+test("canonicalises a rotated 5x5 fixed-centre frame without changing its cubies", () => {
+  const rotated = MoveExecutor.parseAndApply(5, "x y R U");
+  assert.equal(rotated.TAG, "Ok");
+  const canonical = Orbit64Codec.canonicaliseState(rotated._0);
+  assert.equal(canonical.TAG, "Ok");
+  const facelets = FaceletCodec.render(canonical._0);
+  assert.equal([12, 37, 62, 87, 112, 137].map(index => facelets[index]).join(""), "URFDLB");
+  assert.equal(Orbit64Codec.decodeState(Orbit64Codec.encodeState(canonical._0)._0).TAG, "Ok");
+});

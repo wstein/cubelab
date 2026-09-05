@@ -291,3 +291,17 @@ export const encodeState = (state: CubeState): Result<string> => {
   for (let i = 0; i < widths[n]; i += 1) { output = alphabet[Number(value % 64n)] + output; value /= 64n; }
   return ok(output);
 };
+
+/** Rotate an odd cube into Orbit64's canonical U/R/F fixed-centre frame. */
+export const canonicaliseState = (state: CubeState): Result<CubeState> => {
+  if (!carriesFrame(state.size)) return fail("UnsupportedSize", "Orientation canonicalisation is available for 3×3×3 and 5×5×5 states.");
+  const facelets = FaceletCodec.render(state) as string;
+  const frame = frameFaces.indexOf(fixedCentreFrame(state.size, facelets));
+  if (frame < 0) return fail("InvalidCoordinates", "The fixed centres do not form a right-handed whole-cube frame.");
+  const rotation = rotationSteps.find(step => {
+    const candidate = transform(state, inverseRotation(step));
+    return candidate !== null && fixedCentreFrame(state.size, FaceletCodec.render(candidate) as string) === FACES;
+  });
+  const canonical = rotation === undefined ? null : transform(state, inverseRotation(rotation));
+  return canonical ? ok(canonical) : fail("InvalidFrame", "The fixed-centre frame could not be canonicalised.");
+};
