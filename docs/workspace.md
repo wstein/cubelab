@@ -104,6 +104,10 @@ wing-pairing, and parity stages remain separate work.
 
 ## Manual state entry
 
+The editor keeps its private draft, hover target, keyboard cursor, and dot-verification
+generation in a small dependency-free signal layer. Derived values such as completion update
+from those signals without adding a UI framework or coupling the draft to shareable Setup state.
+
 For 2×2×2 through 5×5×5, **Enter state by hand** opens a draft-only sticker editor. It
 starts blank for an empty Setup, or from a valid existing Setup. On 2×2×2, each blank
 sticker shows only colours that have a complete reachable continuation, so every displayed

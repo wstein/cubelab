@@ -24,6 +24,7 @@ import {mountTimerWorkspace} from "./timer/workspace";
 import {defaultPreferences, hasVerifiedTnoodle, readPreferences, writePreferences} from "./preferences";
 import {TnoodleClient} from "./scramble/tnoodle-client";
 import {createAcademyRequestGuard} from "./academy-request";
+import {computed, signal} from "./signal";
 import {looksLikeAcubeState, parseAcubeState} from "./acube-state";
 import {countAcubeCompletions, materializeAcubeConstraint, parseAcubeConstraint, renderAcubeState} from "./acube-engine";
 import {looksLikeSseState, parseSseState, renderSseState} from "./sse-state";
@@ -433,6 +434,26 @@ if (root) {
   let manualStateOrientation: 0 | 1 | 2 | 3 = 0;
   let manualStateIsRotating = false;
   let manualStateDotGeneration = 0;
+  const manualStateDraftSignal = signal(manualStateDraft);
+  const manualStateHoverSignal = signal<number | null>(manualStateHoverIndex);
+  const manualStateCursorSignal = signal<number | null>(manualStateCursorIndex);
+  const manualStateGenerationSignal = signal(manualStateDotGeneration);
+  const manualStateComplete = computed([manualStateDraftSignal], () =>
+    manualStateDraftSignal.get().every((face) => face !== null),
+  );
+  const setManualStateDraft = (draft: ManualStateDraft) => {
+    manualStateDraft = draft;
+    manualStateDraftSignal.set(draft);
+  };
+  const touchManualStateDraft = () => manualStateDraftSignal.set([...manualStateDraft]);
+  const setManualStateHoverIndex = (index: number | null) => {
+    manualStateHoverIndex = index;
+    manualStateHoverSignal.set(index);
+  };
+  const setManualStateCursorIndex = (index: number | null) => {
+    manualStateCursorIndex = index;
+    manualStateCursorSignal.set(index);
+  };
   let manualStateDirtyDots: Set<number> | null = null;
   // Built once per manual-state size and reused across renders: recreating
   // every sticker button on every single paint or erase click would force a
@@ -884,14 +905,14 @@ if (root) {
     manualStateAutoIndices.clear();
     manualStateDirtyDots = null;
     if (!fill) {
-      manualStateDraft = source;
+      setManualStateDraft(source);
       return;
     }
     // Big cubes use the same cheap local propagation as their dots; the full
     // reachability predicate still gates every candidate it writes.
-    manualStateDraft = manualSize >= 4
+    setManualStateDraft(manualSize >= 4
       ? fillLocallyForcedManualStateColours(manualSize, source)
-      : fillForcedManualStateColours(manualSize, source);
+      : fillForcedManualStateColours(manualSize, source));
     manualStateDraft.forEach((colour, index) => {
       if (source[index] === null && colour !== null) manualStateAutoIndices.add(index);
     });
@@ -923,6 +944,7 @@ if (root) {
     if (isManualStateCentre(index) || manualStateAutoIndices.has(index)) return;
     const manualSize = size as ManualStateSize;
     manualStateDraft[index] = null;
+    touchManualStateDraft();
     manualStateExplicitIndices.delete(index);
     manualStateAutoIndices.delete(index);
     refreshManualStateAutoFill(manualSize, true);
@@ -936,6 +958,7 @@ if (root) {
       return false;
     }
     manualStateDraft[index] = colour;
+    touchManualStateDraft();
     manualStateExplicitIndices.add(index);
     manualStateAutoIndices.delete(index);
     refreshManualStateAutoFill(manualSize, true);
@@ -1134,20 +1157,18 @@ if (root) {
   };
 
   const isManualStateStickerInteractive = (index: number): boolean => {
-    if (isManualStateCentre(index)) return false;
-    if (manualStateRepresentation !== "isometric") return true;
-    const manualSize = size as ManualStateSize;
-    return manualStateVisibleFaces().includes(faceletOrder[Math.floor(index / (manualSize * manualSize))]);
+    return !isManualStateCentre(index);
   };
 
   const syncManualStateInteraction = () => {
     const visibleFaces = new Set(manualStateVisibleFaces());
     manualStateGrid.querySelectorAll<HTMLElement>(".manual-state-face").forEach((face) => {
-      face.dataset.interactive = String(manualStateRepresentation !== "isometric" || visibleFaces.has(face.dataset.face as ManualStateFace));
+      face.dataset.interactive = "true";
+      face.dataset.facing = visibleFaces.has(face.dataset.face as ManualStateFace) ? "front" : "rear";
     });
     if (manualStateCursorIndex === null || !isManualStateStickerInteractive(manualStateCursorIndex)) {
-      manualStateCursorIndex = manualStateStickerElements.findIndex((_, index) => isManualStateStickerInteractive(index));
-      if (manualStateCursorIndex < 0) manualStateCursorIndex = null;
+      setManualStateCursorIndex(manualStateStickerElements.findIndex((_, index) => isManualStateStickerInteractive(index)));
+      if (manualStateCursorIndex < 0) setManualStateCursorIndex(null);
     }
     manualStateStickerElements.forEach((sticker, index) => {
       sticker.dataset.cursor = String(index === manualStateCursorIndex);
@@ -1156,6 +1177,7 @@ if (root) {
 
   const renderManualStateEditor = () => {
     manualStateDotGeneration += 1;
+    manualStateGenerationSignal.set(manualStateDotGeneration);
     const manualSize = size as ManualStateSize;
     const total = manualStateStickerCount(manualSize);
     const entered = manualStateEnteredCount(manualStateDraft);
@@ -1167,7 +1189,7 @@ if (root) {
     const centreCount = manualSize === 3 || manualSize === 5 ? 6 : 0;
     const displayTotal = total - centreCount;
     const displayEntered = entered - centreCount;
-    const diagnostic = entered === total ? manualStateCompleteDiagnostic() : null;
+    const diagnostic = manualStateComplete.get() ? manualStateCompleteDiagnostic() : null;
     manualStateLoad.disabled = entered !== total || diagnostic !== null;
     manualStateCopyToggle.disabled = manualStateLoad.disabled;
     root.querySelector<HTMLButtonElement>('[data-manual-state-copy-format="singmaster"]')!.hidden = manualSize >= 4;
@@ -1298,19 +1320,19 @@ if (root) {
       const index = Number(sticker.dataset.manualStateIndex);
       if (isManualStateCentre(index)) {
         if (manualStateHoverIndex !== null) {
-          manualStateHoverIndex = null;
+          setManualStateHoverIndex(null);
           updateManualStatePieceHighlight();
         }
         return;
       }
       if (manualStateHoverIndex === index) return;
-      manualStateHoverIndex = index;
+      setManualStateHoverIndex(index);
       updateManualStatePieceHighlight();
     });
     hoverRoot.addEventListener("mouseout", (event) => {
       const related = (event as MouseEvent).relatedTarget as Element | null;
       if (related && hoverRoot.contains(related) && related.closest("[data-manual-state-index]")) return;
-      manualStateHoverIndex = null;
+      setManualStateHoverIndex(null);
       updateManualStatePieceHighlight();
     });
   };
@@ -1484,16 +1506,16 @@ if (root) {
     resetManualState3dOrientation(true);
     const manualSize = size as ManualStateSize;
     const setup = input.value.trim() === "" ? null : parseState(input.value);
-    manualStateDraft = setup?.TAG === "Ok" && setup._0.state.size === manualSize
+    setManualStateDraft(setup?.TAG === "Ok" && setup._0.state.size === manualSize
       ? (FaceletCodec.render(setup._0.state) as string).split("") as ManualStateDraft
-      : emptyManualState(manualSize);
+      : emptyManualState(manualSize));
     manualStateExplicitIndices.clear();
     manualStateDraft.forEach((colour, index) => {
       if (colour !== null) manualStateExplicitIndices.add(index);
     });
     manualStateAutoIndices.clear();
-    manualStateHoverIndex = null;
-    manualStateCursorIndex = null;
+    setManualStateHoverIndex(null);
+    setManualStateCursorIndex(null);
     manualStateIntro.textContent = manualSize <= 3
       ? "Pick a face colour, then fill the net. Nothing changes in Setup until the complete, physically valid state is loaded."
       : manualSize === 5
@@ -5965,7 +5987,7 @@ if (root) {
   };
   const setManualStateCursor = (index: number, focus = false) => {
     if (!isManualStateStickerInteractive(index)) return;
-    manualStateCursorIndex = index;
+    setManualStateCursorIndex(index);
     manualStateStickerElements.forEach((sticker, stickerIndex) => {
       sticker.dataset.cursor = String(stickerIndex === index);
     });
@@ -6217,14 +6239,14 @@ if (root) {
   });
   wireManualStateKeyboard(manualStateDialog);
   manualStateReset.addEventListener("click", () => {
-    manualStateDraft = emptyManualState(size as ManualStateSize);
+    setManualStateDraft(emptyManualState(size as ManualStateSize));
     manualStateExplicitIndices.clear();
     manualStateAutoIndices.clear();
     manualStateDirtyDots = null;
     renderManualStateEditor();
   });
   manualStateSolved.addEventListener("click", () => {
-    manualStateDraft = solvedManualState(size as ManualStateSize);
+    setManualStateDraft(solvedManualState(size as ManualStateSize));
     manualStateExplicitIndices.clear();
     manualStateDraft.forEach((_, index) => manualStateExplicitIndices.add(index));
     manualStateAutoIndices.clear();
