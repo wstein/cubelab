@@ -5,7 +5,11 @@ import {
   canCompleteManualState,
   canCompleteManualState2,
   emptyManualState,
+  explainManualStateColours,
   faceletOrder,
+  isManualStateFixedCentre,
+  manualStateColourBudget,
+  manualStateFaces,
   fillForcedManualStateColours,
   fillForcedManualStateColours2,
   fillLocallyForcedManualStateColours,
@@ -18,6 +22,7 @@ import {
   solvedManualState2,
   solvedManualState,
   type ManualStateDraft,
+  type ManualStateFace,
 } from "../../src/client/manual-state";
 import * as PieceReducer from "../../src/State/PieceReducer.res.mjs";
 
@@ -298,5 +303,88 @@ describe("corner/edge slot tables agree with PieceReducer's own facelet tables",
     const facelets = PieceReducer.edgeFacelets as [string, number][][];
     const converted = facelets.map((slot) => slot.map(([face, local]) => toGlobalIndex(3, face, local)));
     expect(manualStateEdgeSlots()).toEqual(converted);
+  });
+});
+
+describe("dot diagnostics explain an unreachable draft", () => {
+  // The paint gate (canCompleteManualState) is a relaxation: independent
+  // per-orbit matchings plus a colour quota. It reports true for drafts that
+  // have no legal completion, so the editor lets a sticker be painted into a
+  // dead end. The user only finds out later, when some tile offers no colour
+  // at all. These tests pin that behaviour so a future exact check has a
+  // failing assertion to flip, and so the diagnostics that explain the dead
+  // tile keep working.
+  const SIZE = 4;
+  const deadDraft = (): ManualStateDraft => {
+    let rs = 13;
+    const rnd = (m: number) => { rs = (rs * 1103515245 + 12345) & 0x7fffffff; return rs % m; };
+    const explicit = new Map<number, ManualStateFace>();
+    const source = () => {
+      const s = emptyManualState(SIZE);
+      explicit.forEach((colour, index) => { s[index] = colour; });
+      return s;
+    };
+    let draft = emptyManualState(SIZE);
+    for (let step = 0; step < 200; step += 1) {
+      const blanks: number[] = [];
+      for (let i = 0; i < 96; i += 1) {
+        if (draft[i] === null && !isManualStateFixedCentre(SIZE, i)) blanks.push(i);
+      }
+      if (blanks.length === 0) break;
+      if (blanks.some((i) => allowedManualStateColours(SIZE, draft, i).length === 0)) return draft;
+      const target = blanks[rnd(blanks.length)]!;
+      const gate = source();
+      gate[target] = null;
+      const choices = allowedManualStateColours(SIZE, gate, target);
+      if (choices.length === 0) break;
+      explicit.set(target, choices[rnd(choices.length)]!);
+      draft = fillLocallyForcedManualStateColours(SIZE, source());
+    }
+    throw new Error("expected the seeded walk to reach a dead draft");
+  };
+
+  test("a draft can offer no colour at a tile while the gate still reports it completable", () => {
+    const draft = deadDraft();
+    const dead = draft.findIndex((colour, index) =>
+      colour === null && !isManualStateFixedCentre(SIZE, index)
+      && allowedManualStateColours(SIZE, draft, index).length === 0);
+    expect(dead).toBeGreaterThanOrEqual(0);
+    // The contradiction: an exact predicate P must satisfy
+    // P(draft) => exists colour c. P(draft with c at the blank).
+    expect(canCompleteManualState(SIZE, draft)).toBe(true);
+    expect(manualStateFaces.some((colour) => {
+      const candidate = [...draft];
+      candidate[dead] = colour;
+      return canCompleteManualState(SIZE, candidate);
+    })).toBe(false);
+  });
+
+  test("explainManualStateColours names the sub-check that rejected each colour", () => {
+    const draft = deadDraft();
+    const dead = draft.findIndex((colour, index) =>
+      colour === null && !isManualStateFixedCentre(SIZE, index)
+      && allowedManualStateColours(SIZE, draft, index).length === 0);
+    const verdicts = explainManualStateColours(SIZE, draft, dead);
+    expect(verdicts).toHaveLength(6);
+    expect(verdicts.every((verdict) => !verdict.allowed)).toBe(true);
+    expect(verdicts.every((verdict) => verdict.reason !== "allowed")).toBe(true);
+    // The characteristic shape: a colour blocked purely by its quota, next to
+    // colours the piece orbit cannot place.
+    expect(verdicts.some((verdict) => verdict.reason === "colourQuota")).toBe(true);
+    expect(verdicts.some((verdict) => verdict.reason === "pieceOrbit")).toBe(true);
+  });
+
+  test("manualStateColourBudget shows the exhausted colour behind the dead tile", () => {
+    const draft = deadDraft();
+    const budget = manualStateColourBudget(SIZE, draft);
+    expect(budget).toHaveLength(6);
+    expect(budget.every(({placed, quota}) => placed <= quota)).toBe(true);
+    expect(budget.some(({free}) => free === 0)).toBe(true);
+  });
+
+  test("a solved draft explains every colour as allowed or quota-blocked, never orbit-blocked", () => {
+    const solved = solvedManualState(SIZE);
+    const budget = manualStateColourBudget(SIZE, solved);
+    expect(budget.every(({placed, quota}) => placed === quota)).toBe(true);
   });
 });
