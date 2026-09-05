@@ -296,6 +296,16 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /\.manual-state-sticker\[data-auto="true"\]\s*\{[\s\S]*transform:\s*scale\(/);
   assert.doesNotMatch(styles, /\.manual-state-sticker\[data-auto="true"\]::after/);
   assert.match(client, /if \(key === "C"\) \{[\s\S]*event\.stopPropagation\(\);[\s\S]*return;/);
+  assert.match(page, /data-manual-state-rotation-group/);
+  assert.match(page, /data-manual-state-rotate="ccw"/);
+  assert.match(page, /data-manual-state-rotate="cw"/);
+  assert.match(client, /rotateManualStateIsometric/);
+  assert.match(client, /manualStateNet\.dataset\.animState = "unexploded"/);
+  assert.match(styles, /\.manual-state-net\[data-representation="isometric"\]\[data-orientation="1"\]/);
+  assert.match(styles, /\.manual-state-net\[data-representation="isometric"\]\[data-orientation="2"\]/);
+  assert.match(styles, /\.manual-state-net\[data-representation="isometric"\]\[data-orientation="3"\]/);
+  assert.match(styles, /\.manual-state-net\[data-representation="isometric"\]\[data-anim-state="unexploded"\]/);
+  assert.match(client, /if \(event\.key === "\[" \|\| event\.key === "\]"\)/);
   assert.match(client, /dialog\.addEventListener\("keydown",\s*\(event\)\s*=>\s*\{[\s\S]*event\.key === "Escape"[\s\S]*dialog\.close\(\)/);
 });
 

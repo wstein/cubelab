@@ -218,6 +218,8 @@ if (root) {
   const manualStateNet = root.querySelector<HTMLElement>("[data-manual-state-net]")!;
   const manualStateGrid = root.querySelector<HTMLElement>("[data-manual-state-grid]")!;
   const manualStateRepresentationButtons = root.querySelectorAll<HTMLButtonElement>("[data-manual-state-representation]");
+  const manualStateRotationGroup = root.querySelector<HTMLElement>("[data-manual-state-rotation-group]")!;
+  const manualStateRotateButtons = root.querySelectorAll<HTMLButtonElement>("[data-manual-state-rotate]");
   const manualStatePalette = root.querySelector<HTMLElement>("[data-manual-state-palette]")!;
   const manualStateEraser = root.querySelector<HTMLButtonElement>("[data-manual-state-eraser]")!;
   const manualStateReset = root.querySelector<HTMLButtonElement>("[data-manual-state-reset]")!;
@@ -407,6 +409,8 @@ if (root) {
   const manualStateAutoIndices = new Set<number>();
   let manualStateHoverIndex: number | null = null;
   let manualStateRepresentation: "standard" | "attached" | "isometric" = "attached";
+  let manualStateOrientation: 0 | 1 | 2 | 3 = 0;
+  let manualStateIsRotating = false;
   let manualStateDotGeneration = 0;
   // Built once per manual-state size and reused across renders: recreating
   // every sticker button on every single paint or erase click would force a
@@ -1104,6 +1108,10 @@ if (root) {
     });
     manualStateEraser.setAttribute("aria-pressed", String(manualStateColour === null));
     manualStateNet.dataset.representation = manualStateRepresentation;
+    manualStateNet.dataset.orientation = String(manualStateOrientation);
+    if (manualStateRotationGroup) {
+      manualStateRotationGroup.hidden = manualStateRepresentation !== "isometric";
+    }
     manualStateRepresentationButtons.forEach((button) => {
       const selected = button.dataset.manualStateRepresentation === manualStateRepresentation;
       button.classList.toggle("active", selected);
@@ -1151,7 +1159,7 @@ if (root) {
         // isManualStateCentre guards every mutating and interaction path.
         sticker.setAttribute("aria-label", `${manualStateFaceName[face]} sticker ${localIndex + 1}${centre ? ", fixed centre" : value === null ? ", blank" : `, ${manualStateFaceName[value]}${manualStateAutoIndices.has(index) ? ", filled automatically" : ""}`}`);
         if (value !== null) {
-          sticker.textContent = value;
+          sticker.textContent = "";
         } else {
           let dots = sticker.querySelector<HTMLElement>(".manual-state-dots");
           if (!dots) {
@@ -1222,8 +1230,61 @@ if (root) {
     });
   };
   wireManualStateHover(manualStateGrid);
+  let manualStateYaw = -45;
+  const rotateManualStateIsometric = async (direction: "cw" | "ccw") => {
+    if (manualStateRepresentation !== "isometric" || manualStateIsRotating) return;
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const nextOrientation = (direction === "cw"
+      ? (manualStateOrientation + 1) % 4
+      : (manualStateOrientation + 3) % 4) as 0 | 1 | 2 | 3;
+
+    if (prefersReducedMotion) {
+      manualStateOrientation = nextOrientation;
+      manualStateYaw = -45 + nextOrientation * 90;
+      manualStateNet.style.setProperty("--manual-state-yaw", `${manualStateYaw}deg`);
+      manualStateNet.dataset.orientation = String(nextOrientation);
+      return;
+    }
+
+    manualStateIsRotating = true;
+    try {
+      // 1. Unexplode hidden faces flush into the cube
+      manualStateNet.dataset.animState = "unexploded";
+      await new Promise((resolve) => setTimeout(resolve, 220));
+
+      // 2. Rotate closed cube cw or ccw in 3D
+      manualStateYaw += (direction === "cw" ? 90 : -90);
+      manualStateNet.style.setProperty("--manual-state-yaw", `${manualStateYaw}deg`);
+      await new Promise((resolve) => setTimeout(resolve, 380));
+
+      // 3. Explode newly hidden faces outward for the next orientation
+      manualStateOrientation = nextOrientation;
+      manualStateNet.dataset.orientation = String(nextOrientation);
+      delete manualStateNet.dataset.animState;
+      await new Promise((resolve) => setTimeout(resolve, 220));
+    } finally {
+      delete manualStateNet.dataset.animState;
+      manualStateIsRotating = false;
+    }
+  };
+
+  manualStateRotateButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const dir = button.dataset.manualStateRotate as "cw" | "ccw";
+      if (dir === "cw" || dir === "ccw") {
+        rotateManualStateIsometric(dir);
+      }
+    });
+  });
+
   const setManualStateRepresentation = (representation: "standard" | "attached" | "isometric") => {
     if (representation === manualStateRepresentation) return;
+    manualStateIsRotating = false;
+    delete manualStateNet.dataset.animState;
+    if (representation === "isometric") {
+      manualStateYaw = -45 + manualStateOrientation * 90;
+      manualStateNet.style.setProperty("--manual-state-yaw", `${manualStateYaw}deg`);
+    }
     const renderRepresentation = () => {
       manualStateRepresentation = representation;
       renderManualStateEditor();
@@ -1245,6 +1306,11 @@ if (root) {
 
   const openManualStateEditor = () => {
     if (size < 2 || size > 5) return;
+    manualStateOrientation = 0;
+    manualStateYaw = -45;
+    manualStateNet.style.setProperty("--manual-state-yaw", `${manualStateYaw}deg`);
+    manualStateIsRotating = false;
+    delete manualStateNet.dataset.animState;
     const manualSize = size as ManualStateSize;
     const setup = input.value.trim() === "" ? null : parseState(input.value);
     manualStateDraft = setup?.TAG === "Ok" && setup._0.state.size === manualSize
@@ -5680,6 +5746,12 @@ if (root) {
       event.stopPropagation();
       return;
     }
+    if (event.key === "[" || event.key === "]") {
+      event.preventDefault();
+      event.stopPropagation();
+      rotateManualStateIsometric(event.key === "[" ? "ccw" : "cw");
+      return;
+    }
     const direction = manualStateArrowKeys[event.key];
     if (!direction) return;
     event.preventDefault();
@@ -5991,6 +6063,14 @@ if (root) {
         if (manualStateDialog.open) manualStateDialog.close();
         if (settingsDialog.open) settingsDialog.close();
         if (shortcutsDialog.open) shortcutsDialog.close();
+      } else if (manualStateDialog.open && manualStateRepresentation === "isometric") {
+        if (event.key === "[") {
+          event.preventDefault();
+          rotateManualStateIsometric("ccw");
+        } else if (event.key === "]") {
+          event.preventDefault();
+          rotateManualStateIsometric("cw");
+        }
       }
       return;
     }
