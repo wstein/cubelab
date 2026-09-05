@@ -75,3 +75,22 @@ let extractWings = (state: cubeState): array<string> =>
       facelets->String.get(second)->Belt.Option.getUnsafe->String.make
     )
   }
+
+/* Direct port of FullCube.cornerFacelet. These fixed 3-sticker slots retain
+ * the U/D-first orientation convention used by the phase-three handoff. */
+let cornerFaceletIndices = [
+  [15, 16, 35], [12, 32, 67], [0, 64, 83], [3, 80, 19],
+  [51, 47, 28], [48, 79, 44], [60, 95, 76], [63, 31, 92],
+]
+
+let extractCorners = (state: cubeState): array<string> =>
+  switch encodeFacelets(state) {
+  | Error(_) => []
+  | Ok(facelets) =>
+    cornerFaceletIndices
+    ->Array.map(indices =>
+      indices
+      ->Array.map(index => facelets->String.get(index)->Belt.Option.getUnsafe->String.make)
+      ->Array.join("")
+    )
+  }
