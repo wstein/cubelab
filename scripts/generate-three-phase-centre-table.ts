@@ -1,5 +1,12 @@
 import {buildSymmetryCentrePruning} from "../src/Solver/ThreePhase4x4.res.mjs";
 
+if (process.argv.length > 2) {
+  throw new Error(
+    "This command generates the phase-one centre pruning table; it does not solve a 4×4 state. " +
+      "A 96-facelet solve CLI will be added only after centre, wing, and phase-three search are complete.",
+  );
+}
+
 const result = buildSymmetryCentrePruning(15);
 if (result.TAG === "Error") throw new Error("Could not build the phase-one centre pruning table.");
 
