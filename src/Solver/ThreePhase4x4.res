@@ -256,3 +256,26 @@ let unrankUdCentres = (rank: int): array<int> => {
     selected.contents
   }
 }
+
+let centreCoordinateSize = choose(24, 8)
+
+/* Packed 4-bit distance table: 0xF means unseen. This is the storage used by
+ * the forthcoming BFS, keeping the raw phase-one table below 400 KiB. */
+let createCentrePruning = (): array<int> =>
+  Array.make(~length=(centreCoordinateSize + 1) / 2, 255)
+
+let pruningDepth = (table: array<int>, index: int): int => {
+  let packed = Belt.Array.getUnsafe(table, index / 2)
+  if index % 2 == 0 {packed % 16} else {packed / 16}
+}
+
+let setPruningDepth = (table: array<int>, index: int, depth: int): unit => {
+  let tableIndex = index / 2
+  let packed = Belt.Array.getUnsafe(table, tableIndex)
+  let normalized = depth % 16
+  if index % 2 == 0 {
+    table[tableIndex] = (packed / 16) * 16 + normalized
+  } else {
+    table[tableIndex] = (packed % 16) + normalized * 16
+  }
+}

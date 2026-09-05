@@ -425,6 +425,32 @@ function unrankUdCentres(rank) {
   return selected;
 }
 
+let centreCoordinateSize = choose(24, 8);
+
+function createCentrePruning() {
+  return Stdlib_Array.make((centreCoordinateSize + 1 | 0) / 2 | 0, 255);
+}
+
+function pruningDepth(table, index) {
+  let packed = table[index / 2 | 0];
+  if (index % 2 === 0) {
+    return packed % 16;
+  } else {
+    return packed / 16 | 0;
+  }
+}
+
+function setPruningDepth(table, index, depth) {
+  let tableIndex = index / 2 | 0;
+  let packed = table[tableIndex];
+  let normalized = depth % 16;
+  if (index % 2 === 0) {
+    table[tableIndex] = ((packed / 16 | 0) << 4) + normalized | 0;
+  } else {
+    table[tableIndex] = packed % 16 + (normalized << 4) | 0;
+  }
+}
+
 export {
   encodeFacelets,
   decodeFacelets,
@@ -444,5 +470,9 @@ export {
   choose,
   rankUdCentres,
   unrankUdCentres,
+  centreCoordinateSize,
+  createCentrePruning,
+  pruningDepth,
+  setPruningDepth,
 }
-/* No side effect */
+/* centreCoordinateSize Not a pure module */
