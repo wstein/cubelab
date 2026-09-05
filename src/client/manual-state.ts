@@ -439,6 +439,79 @@ export const manualStateLocalConstraintIndices = (size: ManualStateSize, index: 
   return kind ? kind.slots.flat() : [index];
 };
 
+export type ManualStateColourVerdict = {
+  colour: ManualStateFace;
+  allowed: boolean;
+  /** The first sub-check of canCompleteManualState that rejected this colour. */
+  reason: "allowed" | "fixedCentre" | "colourQuota" | "pieceOrbit" | "wingReachability";
+  /** For pieceOrbit, which orbit's assignment failed. */
+  orbit?: number;
+};
+
+/**
+ * Why each colour is or is not offered at one sticker.
+ *
+ * canCompleteManualState answers only yes/no, which makes an empty dot set
+ * indistinguishable from a bug. This re-runs its sub-checks individually and
+ * names the one that rejected each colour, so a dotless tile can be explained
+ * rather than merely observed. Pure and side-effect free; the tracer in
+ * manual-state-trace.ts formats it, and tests assert on it directly.
+ */
+export const explainManualStateColours = (
+  size: ManualStateSize,
+  draft: ManualStateDraft,
+  index: number,
+): ManualStateColourVerdict[] => {
+  const fixedCentre = fixedCentreFace(size, index);
+  return manualStateFaces.map((colour): ManualStateColourVerdict => {
+    if (fixedCentre !== null) {
+      return colour === fixedCentre
+        ? {colour, allowed: true, reason: "allowed"}
+        : {colour, allowed: false, reason: "fixedCentre"};
+    }
+    const candidate = [...draft];
+    candidate[index] = colour;
+    if (size >= 4) {
+      if (!Object.values(colourCounts(candidate)).every((count) => count <= size * size)) {
+        return {colour, allowed: false, reason: "colourQuota"};
+      }
+      const kinds = highOrderPieceKindsBySize[size];
+      const failed = kinds.findIndex((kind) => !canAssignKind(candidate, kind));
+      if (failed >= 0) return {colour, allowed: false, reason: "pieceOrbit", orbit: failed};
+      if (size === 4 && !canComplete4x4Wings(candidate)) {
+        return {colour, allowed: false, reason: "wingReachability"};
+      }
+      return {colour, allowed: true, reason: "allowed"};
+    }
+    return canCompleteManualState(size, candidate)
+      ? {colour, allowed: true, reason: "allowed"}
+      : {colour, allowed: false, reason: "pieceOrbit"};
+  });
+};
+
+/**
+ * Counts how much colour budget each still-blank piece slot must still spend.
+ *
+ * canCompleteManualState checks only that no colour is *over*-used. It never
+ * checks that every colour a blank slot still needs is one it can still
+ * afford, so a draft can exhaust a colour while a slot still requires it. That
+ * is the known way a draft becomes unsolvable while the predicate still
+ * reports true, and this makes the shortfall visible.
+ */
+export const manualStateColourBudget = (
+  size: ManualStateSize,
+  draft: ManualStateDraft,
+): Array<{colour: ManualStateFace; placed: number; quota: number; free: number}> => {
+  const counts = colourCounts(draft);
+  const quota = size * size;
+  return manualStateFaces.map((colour) => ({
+    colour,
+    placed: counts[colour],
+    quota,
+    free: quota - counts[colour],
+  }));
+};
+
 // Narrow aliases keep the initial 2×2 test contract readable.
 export const canCompleteManualState2 = (draft: ManualStateDraft): boolean => canCompleteManualState(2, draft);
 export const allowedManualStateColours2 = (draft: ManualStateDraft, index: number): ManualStateFace[] =>
