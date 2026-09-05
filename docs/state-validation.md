@@ -75,3 +75,48 @@ the stronger whole-state reachability claim for 4×4×4.
 The editor reuses its fixed cubie-slot and candidate tables across feasibility checks. This
 keeps the same reachability guidance while avoiding reconstruction of cube geometry for every
 visible colour dot.
+
+## Live colour dots are guided by a relaxation, not a completability test
+
+The state editor's live colour dots come from `canCompleteManualState`. On 4×4 and 5×5 that
+predicate is a **relaxation**: it checks a set of individually necessary conditions against the
+stickers already entered — no colour exceeds its `n²` quota, each piece orbit still admits a
+one-to-one assignment, and (on 4×4) the wing stickers remain reachable — and it evaluates each
+condition independently. It is not a search for an actual completion.
+
+The consequence is that the predicate over-accepts. A draft can satisfy every condition while
+having no legal completion, because nothing checks the forward-looking question: *can every
+still-blank slot still afford a colour it needs?* A colour may reach its quota while a blank
+corner or wing slot still has to spend that colour, which is a Hall-condition violation between
+remaining colour supply and remaining slot demand.
+
+Because the paint gate uses the same predicate, the editor accepts a sticker that dead-ends the
+draft. The dead end only becomes visible several stickers later, when some tile offers no colour
+at all — every dot rendered unavailable. Formally, an exact predicate `P` satisfies
+`P(draft) ⟹ ∃c. P(draft[i:=c])` for any blank `i`; the shipped predicate does not, and
+`test/client/manual-state.test.ts` pins that contradiction so a future exact check has a failing
+assertion to flip.
+
+`explainManualStateColours` and `manualStateColourBudget` exist to make this legible rather than
+mysterious. The first re-runs the sub-checks individually and names the one that rejected each
+colour (`colourQuota`, `pieceOrbit`, `wingReachability`, `fixedCentre`); the second reports how
+much budget each colour has left. Together they turn a blank grey tile into a stated cause.
+
+## Tracing the colour dots
+
+The dot pipeline has three stages that fail in ways that look identical on screen: the cheap
+local value painted synchronously, the exact value the worker returns, and the debt bookkeeping
+that decides whether a sticker is re-queued after a cancelled verification pass. A dark tile is
+the same pixel whether verification never ran, was cancelled, or correctly found no legal colour.
+
+`manual-state-trace.ts` narrates which one it is. It is off by default and free when off:
+
+```js
+localStorage.setItem("cubeRosetta.traceDots", "1");   // persists across reloads
+// or append ?traceDots=1 to the URL for one session
+```
+
+It logs each `render`, `queue`, `verify`, `promote`, `cancel`, and `skip` with the dot generation
+and the outstanding verification debt, so a cancelled pass and its recovery are both visible. A
+tile that resolves to no colour at all is reported through `dotTrace.deadTile`, which prints the
+per-colour rejection reasons, the colour budget, and a replayable draft string.
