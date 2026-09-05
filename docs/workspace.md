@@ -119,8 +119,10 @@ instead of rechecking every blank sticker, except for a two-sticker exact endgam
 **Up / Down**, **Right / Left**, and **Front / Back**; unavailable colours are dimmed. Clicking a specific dot
 paints that colour directly, regardless of which palette swatch or tool is currently selected (even when the
 **Eraser** tool is active). The palette includes an **Eraser** tool that displays an active cyan selection frame when
-active; clicking or dragging over stickers while Eraser is selected erases them, and shift-click erases
-stickers at any time. Double-clicking an already-filled sticker loads its colour into the palette without
+active. Holding **Shift** highlights the **Eraser** button and temporarily changes the text in each palette colour swatch
+to **Reset**; shift-clicking any colour swatch resets all user-placed stickers of that colour across the net (preserving
+fixed core centres) and recomputes auto-fills. Clicking or dragging over stickers while Eraser is selected erases them,
+and shift-clicking any individual sticker erases it at any time. Double-clicking an already-filled sticker loads its colour into the palette without
 changing the sticker; a plain click on a filled sticker with a colour selected otherwise does nothing, so it
 cannot race and clobber that double-click — shift-click (or selecting Eraser) then click remains how to
 correct one. The six fixed core-centre stickers on 3×3×3 and 5×5×5 define face
