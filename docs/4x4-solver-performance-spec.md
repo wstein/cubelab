@@ -31,8 +31,20 @@ hard gate failure, not a partial score.
 | Cold start, including table load | 2 s | 4 s | 8 s |
 
 All search, table loading, progress reporting, and cancellation run in the
-existing solver worker. Pruning tables are precomputed and shipped; runtime
-generation is not accepted for the warm-solve path.
+existing solver worker.
+
+## Pending product decisions
+
+Two choices remain intentionally unresolved:
+
+1. Is the 400 ms warm p50 an interactive-Academy requirement, or may a
+   click-and-wait action spend more time to reduce OBTM?
+2. Are pruning tables shipped in the application bundle or generated on first
+   use? The listed cold-start budget assumes shipped tables, but the bundle-size
+   trade-off needs an explicit product decision.
+
+The benchmark report must record the selected interaction profile and table
+delivery mode. It cannot certify the latency gates until both are decided.
 
 ## Corpus and records
 
