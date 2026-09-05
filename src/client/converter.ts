@@ -1229,6 +1229,7 @@ if (root) {
       if (left) left.textContent = `${manualSize * manualSize - perColourPlaced[face]} left`;
     });
     manualStateEraser.setAttribute("aria-pressed", String(manualStateColour === null));
+    manualStateEraser.classList.toggle("active", manualStateColour === null);
     manualStateNet.dataset.representation = manualStateRepresentation;
     manualStateNet.dataset.orientation = String(manualStateOrientation);
     if (manualStateRotationGroup) {
@@ -6163,17 +6164,21 @@ if (root) {
       // into the palette below, and a same-click repaint here would race it,
       // clobbering the original colour before the double-click could read
       // it. Shift-click still erases a filled sticker in one step either way.
-      if (event.shiftKey || manualStateColour === null) {
+      if (event.shiftKey) {
         eraseManualStateSticker(index);
         return;
       }
       // A blank sticker's dots are individually clickable: whichever one was
-      // actually clicked wins over the currently selected palette colour, so
+      // actually clicked wins over the currently selected palette colour or eraser, so
       // a dot works as a direct shortcut rather than requiring the palette
       // to already match it first.
       const dot = (event.target as Element).closest<HTMLElement>(".manual-state-dots i");
       if (dot?.dataset.face) {
         paintManualStateSticker(index, dot.dataset.face as ManualStateFace);
+        return;
+      }
+      if (manualStateColour === null) {
+        eraseManualStateSticker(index);
         return;
       }
       if (manualStateDraft[index] !== null) return;
@@ -6220,9 +6225,12 @@ if (root) {
       if (event.button !== 0) return;
       const index = manualStateStickerAt(event);
       if (index === null) return;
+      const dot = (event.target as Element | null)?.closest<HTMLElement>(".manual-state-dots i")
+        ?? (document.elementFromPoint(event.clientX, event.clientY) as Element | null)?.closest<HTMLElement>(".manual-state-dots i");
+      const dotFace = !event.shiftKey && dot?.dataset.face ? (dot.dataset.face as ManualStateFace) : null;
       const stroke: ManualStateStroke = {
         pointerId: event.pointerId,
-        erase: event.shiftKey || manualStateColour === null,
+        erase: event.shiftKey || (manualStateColour === null && dotFace === null),
         visited: new Set<number>(),
       };
       manualStateStroke = stroke;

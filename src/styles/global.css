@@ -1515,6 +1515,25 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   box-shadow: 0 0 0 2px rgba(103, 232, 249, 0.2);
 }
 
+.manual-state-palette .manual-state-tool {
+  border: 2px solid rgba(99, 102, 241, 0.3);
+  border-radius: 0.35rem;
+}
+
+.manual-state-tool[data-manual-state-eraser][aria-pressed="true"],
+.manual-state-tool[data-manual-state-eraser].active {
+  border-color: #67e8f9;
+  background: rgba(103, 232, 249, 0.12);
+  box-shadow: 0 0 0 2px rgba(103, 232, 249, 0.2);
+  color: #e8fbff;
+}
+
+.manual-state-tool[data-manual-state-eraser][aria-pressed="true"]:hover,
+.manual-state-tool[data-manual-state-eraser].active:hover {
+  background: rgba(103, 232, 249, 0.18);
+  border-color: #67e8f9;
+}
+
 .manual-state-tool {
   display: flex;
   align-items: center;
