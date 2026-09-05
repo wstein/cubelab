@@ -1300,9 +1300,10 @@ if (root) {
     }
     if (size === 3 && looksLikeAcubeState(compact, notationDialect === "Acube")) {
       const acube = parseAcubeState(compact);
-      return acube.TAG === "Ok"
-        ? {TAG: "Ok", _0: {state: acube._0.state, label: "ACube cubie state"}}
-        : acube;
+      if (acube.TAG === "Ok") {
+        return {TAG: "Ok", _0: {state: acube._0.state, label: "ACube cubie state"}};
+      }
+      if (notationDialect === "Acube") return acube;
     }
     if ((size === 2 || size === 3) && looksLikeSseState(compact)) {
       const sse = parseSseState(compact, size);

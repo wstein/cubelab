@@ -66,6 +66,21 @@ test("imports ACube cycles and standalone orientation terms", () => {
 
 test("does not confuse ACube state forms with normal grouped algorithms and refuses partial constraints", () => {
   expect(looksLikeAcubeState("(R U)2")).toBe(false);
+  expect(looksLikeAcubeState("R U R' @0.5s")).toBe(false);
+  expect(looksLikeAcubeState("[R, U]")).toBe(false);
+  expect(looksLikeAcubeState("[M: U2]")).toBe(false);
+  expect(looksLikeAcubeState("// What about this?\nR U R'")).toBe(false);
+  expect(looksLikeAcubeState(`// CFOP 1: Cross
+(x2) @0.5s (R2 F2 L2 D2 F') @1.2s
+
+// CFOP 2: F2L Pairs
+(B L2 B' L2) @0.5s (R' U2 B' R' B R) @0.5s (U' L U L') @0.5s (R U R') @1.2s
+
+// CFOP 3: One-Look OLL
+(R2 D R' U2 R D' R' U2 R') @1.2s
+
+// CFOP 4: One-Look PLL
+(R' U R' U' R D' R' D R' U D' R2 U' R2 D R2) @0.5s (U) @0.5s (x2) @0.5s`)).toBe(false);
   expect(looksLikeAcubeState("(UL UR) (UFR URB)")).toBe(true);
   expect(looksLikeAcubeState("(ul ur) (ufr urb)")).toBe(false);
   expect(looksLikeAcubeState("(ul ur) (ufr urb)", true)).toBe(true);
