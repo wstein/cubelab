@@ -857,36 +857,37 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .manual-state-net[data-representation="isometric"] {
   --attached-face-gap: var(--manual-state-face-gap);
   --attached-fold-gap: 0.2rem;
-  --manual-state-cube-size: 8rem;
+  --manual-state-cube-size: 10.5rem;
   --manual-state-half-size: calc(var(--manual-state-cube-size) / 2);
-  --manual-state-explode-dist: 8.5rem;
+  --manual-state-explode-dist: 11.2rem;
+  --manual-state-3d-offset: -1.8rem;
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 29rem;
+  min-height: 32.5rem;
   overflow: visible;
-  padding: 4rem 1.2rem;
+  padding: 1rem 1rem 2rem;
 }
 
 .manual-state-dialog[data-manual-state-size="2"] .manual-state-net[data-representation="isometric"] {
-  --manual-state-cube-size: 7rem;
-  --manual-state-explode-dist: 7.5rem;
-  min-height: 27rem;
-  padding: 3.5rem 1.2rem;
+  --manual-state-cube-size: 9rem;
+  --manual-state-explode-dist: 9.8rem;
+  --manual-state-3d-offset: -1.5rem;
+  min-height: 29rem;
 }
 
 .manual-state-dialog[data-manual-state-size="4"] .manual-state-net[data-representation="isometric"] {
-  --manual-state-cube-size: 9.5rem;
-  --manual-state-explode-dist: 10.2rem;
-  min-height: 33rem;
-  padding: 4.5rem 1.2rem;
+  --manual-state-cube-size: 12.2rem;
+  --manual-state-explode-dist: 13.1rem;
+  --manual-state-3d-offset: -2rem;
+  min-height: 36rem;
 }
 
 .manual-state-dialog[data-manual-state-size="5"] .manual-state-net[data-representation="isometric"] {
-  --manual-state-cube-size: 11rem;
-  --manual-state-explode-dist: 11.8rem;
-  min-height: 36rem;
-  padding: 5rem 1.2rem;
+  --manual-state-cube-size: 14rem;
+  --manual-state-explode-dist: 15rem;
+  --manual-state-3d-offset: -2.3rem;
+  min-height: 39.5rem;
 }
 
 /* In isometric, the net faces wrapper is the 3D cube container */
@@ -894,6 +895,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   display: block;
   width: var(--manual-state-cube-size);
   height: var(--manual-state-cube-size);
+  margin-top: var(--manual-state-3d-offset, -1.8rem);
   position: relative;
   transform-style: preserve-3d;
   transform: rotateX(-35.264deg) rotateY(var(--manual-state-yaw, -45deg));
