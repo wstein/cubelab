@@ -53,6 +53,7 @@ import {
   type ManualStateFace,
   type ManualStateSize,
 } from "./manual-state";
+import {dotTrace} from "./manual-state-trace";
 import {
   drillCaseById,
   drillCasesForFamily,
@@ -1040,14 +1041,31 @@ if (root) {
             manualStateAutoIndices.add(next.index);
             manualStateUnverifiedDots.delete(next.index);
             manualStateDirtyDots = null;
+            dotTrace.log({
+              type: "promote",
+              index: next.index,
+              colour: choices[0] as ManualStateFace,
+              generation,
+            });
             renderManualStateEditor();
             return;
           }
+          dotTrace.log({
+            type: "verify",
+            index: next.index,
+            choices: choices as ManualStateFace[],
+            generation,
+          });
+          // An empty exact result means this draft has no legal completion at
+          // all: the paint gate accepted a sticker it should have refused.
+          // Nothing in the UI says so, so at minimum say it here.
+          if (choices.length === 0) dotTrace.deadTile(manualSize, snapshot, next.index, "verify");
           renderManualStateDots(next.element, choices as ManualStateFace[]);
           manualStateUnverifiedDots.delete(next.index);
           verifyNext(offset + 1);
-        }).catch(() => {
+        }).catch((error) => {
           // Leave the conservative local result visible if a worker cannot start.
+          dotTrace.log({type: "skip", index: next.index, reason: `verifier failed: ${String(error)}`});
           verifyNext(offset + 1);
         });
       }, 0);
@@ -1221,6 +1239,12 @@ if (root) {
 
   const renderManualStateEditor = () => {
     if (manualStateDirtyDots === null || manualStateDirtyDots.size > 0) {
+      dotTrace.log({
+        type: "cancel",
+        from: manualStateDotGeneration,
+        to: manualStateDotGeneration + 1,
+        debt: manualStateUnverifiedDots.size,
+      });
       manualStateDotGeneration += 1;
       manualStateGenerationSignal.set(manualStateDotGeneration);
     }
@@ -1332,16 +1356,28 @@ if (root) {
             continue;
           }
           if (manualSize === 2) {
-            renderManualStateDots(dots, allowedManualStateColours(manualSize, manualStateDraft, index));
+            const exact = allowedManualStateColours(manualSize, manualStateDraft, index);
+            renderManualStateDots(dots, exact);
+            if (exact.length === 0) dotTrace.deadTile(manualSize, manualStateDraft, index, "render");
           } else {
-            renderManualStateDots(dots, locallyAllowedManualStateColours(manualSize, manualStateDraft, index));
+            const local = locallyAllowedManualStateColours(manualSize, manualStateDraft, index);
+            renderManualStateDots(dots, local);
+            dotTrace.log({type: "render", index, local, generation: manualStateDotGeneration});
             manualStateUnverifiedDots.add(index);
             pendingDots.push({index, element: dots});
           }
         }
       }
     });
-    if (manualSize >= 3) verifyManualStateDots(manualSize, pendingDots);
+    if (manualSize >= 3) {
+      dotTrace.log({
+        type: "queue",
+        queued: pendingDots.length,
+        debt: manualStateUnverifiedDots.size,
+        generation: manualStateDotGeneration,
+      });
+      verifyManualStateDots(manualSize, pendingDots);
+    }
     manualStateDirtyDots = new Set();
     if (manualStateCursorIndex !== null && isManualStateStickerInteractive(manualStateCursorIndex)) {
       const active = document.activeElement;
