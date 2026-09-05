@@ -117,10 +117,12 @@ asynchronously. A click is always gated by that full check, and auto-fill candid
 likewise verified before being written; on 4×4×4 and 5×5×5 it uses the same local propagation
 instead of rechecking every blank sticker, except for a two-sticker exact endgame pass. The dots never change position: they are fixed as
 **Up / Down**, **Right / Left**, and **Front / Back**; unavailable colours are dimmed. Clicking a specific dot
-paints that colour directly, regardless of which palette swatch is currently selected.
-Double-clicking an already-filled sticker loads its colour into the palette without
-changing the sticker; a plain click on a filled sticker otherwise does nothing, so it
-cannot race and clobber that double-click — shift-click (erase) then click remains how to
+paints that colour directly, regardless of which palette swatch or tool is currently selected (even when the
+**Eraser** tool is active). The palette includes an **Eraser** tool that displays an active cyan selection frame when
+active; clicking or dragging over stickers while Eraser is selected erases them, and shift-click erases
+stickers at any time. Double-clicking an already-filled sticker loads its colour into the palette without
+changing the sticker; a plain click on a filled sticker with a colour selected otherwise does nothing, so it
+cannot race and clobber that double-click — shift-click (or selecting Eraser) then click remains how to
 correct one. The six fixed core-centre stickers on 3×3×3 and 5×5×5 define face
 orientation; they are rendered a nuance darker with no hover or focus frame and are not
 selectable (arrow keys skip them during keyboard navigation). The remaining 5×5×5 centre
