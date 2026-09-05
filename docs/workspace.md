@@ -117,7 +117,13 @@ asynchronously. Verification debt is tracked per sticker across renders so that 
 interrupted passes automatically requeue unverified stickers on subsequent passes without
 repainting provisional values. In addition, routine chrome-only renders (palette clicks, eraser
 activation, representation changes, or eyedropper double-clicks) preserve in-flight verification
-passes rather than bumping the generation and discarding progress. A click is always gated by
+passes rather than bumping the generation and discarding progress. When the worker proves a singleton
+choice during verification, it promotes the sticker to reversible auto-fill directly in the current pass, updating
+local constraint mates without restarting the verification chain from scratch. Big-cube piece orbit domains
+similarly take remaining colour quotas into account, rejecting candidates that would exhaust a colour still
+demanded by unplaced outer slots. If a dead draft is ever reached where a blank tile has no legal colours left,
+the affected sticker is surfaced with a prominent red dashed outline, and the summary card displays an alert
+with a one-click **Undo** button (also callable anywhere in the dialog via `Ctrl+Z` or `Cmd+Z`). A click is always gated by
 that full check, and auto-fill candidates are
 likewise verified before being written; on 4×4×4 and 5×5×5 it uses the same local propagation
 instead of rechecking every blank sticker, except for a two-sticker exact endgame pass. The dots never change position: they are fixed as

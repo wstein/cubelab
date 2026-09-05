@@ -84,18 +84,22 @@ stickers already entered — no colour exceeds its `n²` quota, each piece orbit
 one-to-one assignment, and (on 4×4) the wing stickers remain reachable — and it evaluates each
 condition independently. It is not a search for an actual completion.
 
-The consequence is that the predicate over-accepts. A draft can satisfy every condition while
-having no legal completion, because nothing checks the forward-looking question: *can every
-still-blank slot still afford a colour it needs?* A colour may reach its quota while a blank
-corner or wing slot still has to spend that colour, which is a Hall-condition violation between
-remaining colour supply and remaining slot demand.
+To mitigate over-acceptance, `canAssignKind` checks colour quotas directly within piece-orbit candidate
+domains: a candidate assignment is rejected if placing it on blank slots would require a colour that has
+already exhausted its quota. This stops earlier placements from starving outer slots of required colours.
 
-Because the paint gate uses the same predicate, the editor accepts a sticker that dead-ends the
-draft. The dead end only becomes visible several stickers later, when some tile offers no colour
-at all — every dot rendered unavailable. Formally, an exact predicate `P` satisfies
-`P(draft) ⟹ ∃c. P(draft[i:=c])` for any blank `i`; the shipped predicate does not, and
-`test/client/manual-state.test.ts` pins that contradiction so a future exact check has a failing
-assertion to flip.
+When an over-acceptance dead end does occur—where a tile resolves to zero legal colours (`choices.length === 0`)—the
+UI surfaces the issue rather than leaving it silent. The affected sticker is highlighted with a red dashed border
+(`[data-dead="true"]`), and the summary section renders an alert row (`.manual-state-dead-row`) featuring a one-click
+**Undo** button (also bound to `Ctrl+Z` / `Cmd+Z` via `undoManualStateAction`). Clicking Undo or pressing the shortcut
+erases the last user paint and instantly restarts verification to restore a viable path.
+
+Furthermore, when the worker proves a singleton choice (`choices.length === 1`), the editor promotes that sticker
+to auto-fill in place. Rather than triggering a full `renderManualStateEditor()` that bumps the generation, cancels
+in-flight worker queries, and restarts at offset 0, the promote branch directly updates the sticker's DOM and draft
+snapshot, marks its local constraint mates as dirty in the queue, and continues the existing verification chain via
+`verifyNext(offset + 1)`. This avoids verification cycling and reduces verification cost from $O(k^2)$ to a single
+$O(k)$ pass.
 
 `explainManualStateColours` and `manualStateColourBudget` exist to make this legible rather than
 mysterious. The first re-runs the sub-checks individually and names the one that rejected each
