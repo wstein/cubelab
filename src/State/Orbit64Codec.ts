@@ -9,7 +9,8 @@ import * as FaceletCodec from "./FaceletCodec.res.mjs";
 import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 import * as MoveParser from "../Move/MoveParser.res.mjs";
 
-type CubeState = {size: number; facelets: unknown};
+type FaceletGrid = string[][];
+type CubeState = {size: number; facelets: FaceletGrid};
 type Result<T> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: OrbitError};
 type OrbitError = {TAG: string; message: string};
 type Coordinate = {kind: "corner"; p: number[]; o: number[]} | {kind: "midge"; p: number[]; o: number[]} | {kind: "wing"; p: number[]} | {kind: "center"; p: number[]};
@@ -19,6 +20,16 @@ export const widths: Record<number, number> = {2: 5, 3: 12, 4: 27, 5: 43};
 const FACES = "URFDLB";
 const ok = <T>(value: T): Result<T> => ({TAG: "Ok", _0: value});
 const fail = <T = never>(tag: string, message: string): Result<T> => ({TAG: "Error", _0: {TAG: tag, message}});
+
+const isCubeState = (value: unknown): value is CubeState => {
+  if (typeof value !== "object" || value === null) return false;
+  const state = value as {size?: unknown; facelets?: unknown};
+  return typeof state.size === "number"
+    && Number.isInteger(state.size)
+    && Array.isArray(state.facelets)
+    && state.facelets.length === 6
+    && state.facelets.every(face => Array.isArray(face) && face.every(facelet => typeof facelet === "string"));
+};
 
 export const describeError = (error: OrbitError | unknown): string =>
   typeof error === "object" && error !== null && "message" in error
@@ -269,9 +280,13 @@ export const decodeState = (input: string): Result<CubeState> => {
   const framed = transform(parsed._0 as CubeState, rotationSteps[frame]);
   return framed ? ok(framed) : fail("InvalidFrame", "Orbit64's stored whole-cube frame could not be applied.");
 };
-export const encodeState = (state: CubeState): Result<string> => {
+export const encodeState = (state: unknown): Result<string> => {
+  if (!isCubeState(state)) return fail("InvalidState", "Orbit64 state input must contain six facelet arrays.");
   const n = state.size;
   if (!(n in widths)) return fail("UnsupportedSize", "Orbit64 supports 2×2×2 through 5×5×5.");
+  if (state.facelets.some(face => face.length !== n * n)) {
+    return fail("InvalidState", `A ${n}×${n}×${n} Orbit64 state needs ${n * n} facelets per face.`);
+  }
   let canonical = state;
   let frame = 0;
   if (carriesFrame(n)) {
@@ -289,8 +304,12 @@ export const encodeState = (state: CubeState): Result<string> => {
 };
 
 /** Rotate an odd cube into Orbit64's canonical U/R/F fixed-centre frame. */
-export const canonicaliseState = (state: CubeState): Result<CubeState> => {
+export const canonicaliseState = (state: unknown): Result<CubeState> => {
+  if (!isCubeState(state)) return fail("InvalidState", "Orbit64 state input must contain six facelet arrays.");
   if (!carriesFrame(state.size)) return fail("UnsupportedSize", "Orientation canonicalisation is available for 3×3×3 and 5×5×5 states.");
+  if (state.facelets.some(face => face.length !== state.size * state.size)) {
+    return fail("InvalidState", `A ${state.size}×${state.size}×${state.size} state needs ${state.size * state.size} facelets per face.`);
+  }
   const frame = frameForState(state);
   if (frame < 0) return fail("InvalidCoordinates", "The fixed centres do not form a right-handed whole-cube frame.");
   const canonical = transform(state, inverseRotation(rotationSteps[frame]));

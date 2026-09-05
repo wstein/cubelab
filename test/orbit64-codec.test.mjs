@@ -5,16 +5,10 @@ import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
 import * as Orbit64Codec from "../src/State/Orbit64Codec.ts";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
-
-const vectors = [
-  [2, "EJ6kr", "LFLD BLRD BLBU RFRR UUDU DFFB"],
-  [3, "AAAAAAAACC-Y", "UUUUURUUU RURBRLRDR FFFLFRFFF DDDLDRDDD LLLFLFLDL BBBBBRBBB"],
-  [4, "BJStkD4cayBhsWj6eHgDZLTP1th", "DLLDLLDLBFLFLRBR DRDLFBRLUURUUDDU FUUFLDFDRBUFURRL LBDFFFDFFFBRFBFR RDDDBLUUBURBRULB BFBBUDRURBLLBRDU"],
-  [5, "AQshP-X3WpOUAtv878ZKcZyT5P3So75Lb-WOh2gDJ2w", "DBRFRFUBLDDBUFFURBDDFUUDL BLDBFULULLLRRUURRDFDRLLFD LFLRURFURRFFFFBUBLUFRLUBU BDBRFDFRUULRDFDULLDDRBRFL LDBFUUFDUFRLLURBRDDBBRFRD DLDUFBBBBLFRBDUBDLBLBLBRU"],
-];
+import {normative3x3Tokens, publishedStateVectors, solved3x3FrameTokens} from "./fixtures/orbit64-rosetta-vectors.mjs";
 
 test("decodes Flix Orbit64's published vectors for every supported size", () => {
-  for (const [size, token, spaced] of vectors) {
+  for (const [size, token, spaced] of publishedStateVectors) {
     const decoded = Orbit64Codec.decodeState(token);
     assert.equal(decoded.TAG, "Ok", decoded.TAG === "Error" ? decoded._0.message : "");
     assert.equal(decoded._0.size, size);
@@ -34,7 +28,7 @@ test("solved states use the published size-specific fixed widths", () => {
 });
 
 test("keeps Flix's normative 3x3 compatibility vectors", () => {
-  for (const token of ["AAAAAAAAAAAA", "AAAAAAAAAAAE", "AAAAAAAAAL_o", "FRot3QyvoAAA"]) {
+  for (const token of normative3x3Tokens) {
     const decoded = Orbit64Codec.decodeState(token);
     assert.equal(decoded.TAG, "Ok");
     assert.deepEqual(Orbit64Codec.encodeState(decoded._0), {TAG: "Ok", _0: token});
@@ -44,11 +38,38 @@ test("keeps Flix's normative 3x3 compatibility vectors", () => {
   assert.deepEqual(Orbit64Codec.encodeState(x._0), {TAG: "Ok", _0: "AAAAAAAAAAAE"});
 });
 
+test("encodes every published odd-cube frame rank independently", () => {
+  const rotations = [
+    ...Array.from({length: 16}, (_, index) => `${"x ".repeat(Math.floor(index / 4))}${"y ".repeat(index % 4)}`.trim()),
+    ...[1, 3].flatMap(z => Array.from({length: 4}, (_, y) => `${"z ".repeat(z)}${"y ".repeat(y)}`.trim())),
+  ];
+  assert.equal(rotations.length, 24);
+  const solved = StateTypes.solved(3);
+  assert.equal(solved.TAG, "Ok");
+  for (const [rank, token] of solved3x3FrameTokens.entries()) {
+    const state = rotations[rank] === ""
+      ? solved
+      : MoveExecutor.parseAndApply(3, rotations[rank]);
+    assert.equal(state.TAG, "Ok");
+    assert.deepEqual(Orbit64Codec.encodeState(state._0), {TAG: "Ok", _0: token});
+  }
+});
+
 test("rejects non-state classes and unknown widths", () => {
   assert.equal(Orbit64Codec.decodeState("Q".repeat(12))._0.TAG, "InvalidHeader");
   assert.equal(Orbit64Codec.decodeState("AAAAAA")._0.TAG, "InvalidTokenLength");
   assert.equal(Orbit64Codec.decodeState("AAAAAAAAAAA=")._0.TAG, "InvalidTokenCharacter");
 
+});
+
+test("returns defined errors for malformed state callers", () => {
+  assert.equal(Orbit64Codec.encodeState(null)._0.TAG, "InvalidState");
+  assert.equal(Orbit64Codec.encodeState({size: 3, facelets: []})._0.TAG, "InvalidState");
+  assert.equal(Orbit64Codec.encodeState({
+    size: 3,
+    facelets: Array.from({length: 6}, () => Array(8).fill("U")),
+  })._0.TAG, "InvalidState");
+  assert.equal(Orbit64Codec.canonicaliseState({size: 5, facelets: []})._0.TAG, "InvalidState");
 });
 
 test("preserves all odd-cube whole-cube centre frames", () => {
