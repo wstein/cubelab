@@ -4,7 +4,7 @@ import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
 import * as MoveParser from "../src/Move/MoveParser.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
-import {inspectReduction4x4, isMonochromeSolved4x4, reduce4x4} from "../src/Solver/Reduction4x4.ts";
+import {inspectReduction4x4, isMonochromeSolved4x4, planNextWingPair4x4, reduce4x4} from "../src/Solver/Reduction4x4.ts";
 import * as TwoPhaseSolver from "../src/Solver/TwoPhaseSolver.res.mjs";
 
 const apply = (size, algorithm) => {
@@ -91,4 +91,26 @@ test("the Academy's 4×4 last-two-edge and parity sequences parse in modern nota
   sequences.forEach((sequence) => {
     expect(MoveParser.parseWithOptions(4, "Wide", "Modern", sequence).TAG).toBe("Ok");
   });
+});
+
+test("finds a replay-verified centre-preserving next wing-pair guide", () => {
+  const scrambled = apply(4, "2R U R' U' 2R'");
+  const before = inspectReduction4x4(scrambled);
+  expect(before.TAG).toBe("Ok");
+  if (before.TAG !== "Ok") return;
+  expect(before._0).toMatchObject({centreBlocksComplete: 6, stage: "wings"});
+
+  const guide = planNextWingPair4x4(scrambled);
+  expect(guide.TAG).toBe("Ok");
+  if (guide.TAG !== "Ok") return;
+  const replay = MoveExecutor.applyAlg(scrambled, guide._0.alg);
+  expect(replay.TAG).toBe("Ok");
+  if (replay.TAG !== "Ok") return;
+  const after = inspectReduction4x4(replay._0);
+  expect(after.TAG).toBe("Ok");
+  if (after.TAG === "Ok") {
+    expect(after._0.centreBlocksComplete).toBe(6);
+    expect(after._0.wingRowsPaired).toBeGreaterThan(before._0.wingRowsPaired);
+    expect(guide._0.after).toBe(after._0.wingRowsPaired);
+  }
 });

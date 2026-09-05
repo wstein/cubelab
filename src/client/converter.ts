@@ -12,7 +12,7 @@ import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as HamiltonMacro from "../Move/HamiltonMacro";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
-import {inspectReduction4x4} from "../Solver/Reduction4x4";
+import {inspectReduction4x4, planNextWingPair4x4} from "../Solver/Reduction4x4";
 import {
   createOptimal2x2SolverClient,
   createReduction4x4SolverClient,
@@ -198,6 +198,8 @@ type ReductionAcademyElements = {
   status: HTMLElement;
   current: HTMLElement;
   phases: HTMLElement;
+  guide: HTMLElement;
+  applyGuide: HTMLButtonElement;
   finish: HTMLButtonElement;
 };
 
@@ -351,6 +353,8 @@ if (root) {
     status: root.querySelector<HTMLElement>("[data-reduction-4x4-academy-status]")!,
     current: root.querySelector<HTMLElement>("[data-reduction-4x4-academy-current]")!,
     phases: root.querySelector<HTMLElement>("[data-reduction-4x4-academy-phases]")!,
+    guide: root.querySelector<HTMLElement>("[data-reduction-4x4-academy-guide]")!,
+    applyGuide: root.querySelector<HTMLButtonElement>("[data-reduction-4x4-academy-apply-guide]")!,
     finish: root.querySelector<HTMLButtonElement>("[data-reduction-4x4-academy-finish]")!,
   };
   const autoOrbitButton = root.querySelector<HTMLButtonElement>("[data-auto-orbit]")!;
@@ -2339,16 +2343,17 @@ if (root) {
     `${input.value}\u0000${schemeSelect.value}\u0000${customScheme.value}`;
 
   const academySetupSourceKey = (): string =>
-    `${size}\u0000${lowercaseMode}\u0000${notationDialect}\u0000${schemeSelect.value}\u0000${customScheme.value}\u0000${input.value}`;
+    `${size}\u0000${lowercaseMode}\u0000${notationDialect}\u0000${schemeSelect.value}\u0000${customScheme.value}\u0000${input.value}\u0000${academyMethod === "reduction4x4" ? movesInput.value : ""}`;
 
   const synchronizeAcademySetup = () => {
     const key = academySetupSourceKey();
     if (key === academySetupKey) return;
     academySetupKey = key;
     const setup = parseState(input.value);
-    updateAcademySource(setup.TAG === "Ok"
-      ? {state: setup._0.state, label: setup._0.label}
-      : null);
+    const source = academyMethod === "reduction4x4"
+      ? parseWorkspaceState(setup)
+      : setup;
+    updateAcademySource(source.TAG === "Ok" ? source._0 : null);
   };
 
   const academyTargetDiagnostic = (): string | null => {
@@ -2427,8 +2432,13 @@ if (root) {
   const renderReduction4x4Academy = (recognized: RecognizedInput | null) => {
     const academy = reduction4x4Academy;
     academy.status.classList.remove("error");
+    academy.guide.classList.remove("error");
     academy.phases.replaceChildren();
     academy.current.hidden = true;
+    academy.guide.hidden = true;
+    academy.guide.textContent = "";
+    academy.applyGuide.hidden = true;
+    academy.applyGuide.disabled = true;
     academy.finish.hidden = true;
     academy.finish.disabled = true;
     if (size !== 4) {
@@ -2523,6 +2533,18 @@ if (root) {
         ],
       ),
     );
+    if (progress.stage === "wings") {
+      const guide = planNextWingPair4x4(recognized.state);
+      academy.guide.hidden = false;
+      if (guide.TAG === "Ok") {
+        academy.guide.textContent = `Next verified pair: ${guide._0.algorithm} · ${guide._0.before}/24 → ${guide._0.after}/24 wing rows. This sequence preserves all six centre blocks.`;
+        academy.applyGuide.hidden = false;
+        academy.applyGuide.disabled = false;
+      } else {
+        academy.guide.textContent = guide._0.message;
+        academy.guide.classList.add("error");
+      }
+    }
     academy.finish.hidden = progress.stage !== "reduced";
     academy.finish.disabled = progress.stage !== "reduced";
   };
@@ -4560,6 +4582,18 @@ if (root) {
     if (inspection.TAG !== "Ok" || inspection._0.stage !== "reduced") return;
     store.patch({activeTab: "converter"});
     window.requestAnimationFrame(() => reduction4x4Solve.click());
+  });
+
+  reduction4x4Academy.applyGuide.addEventListener("click", () => {
+    if (size !== 4 || activeRecognized === null) return;
+    const guide = planNextWingPair4x4(activeRecognized.state);
+    if (guide.TAG !== "Ok") {
+      reduction4x4Academy.guide.hidden = false;
+      reduction4x4Academy.guide.textContent = guide._0.message;
+      reduction4x4Academy.guide.classList.add("error");
+      return;
+    }
+    store.patch({moves: [movesInput.value.trim(), guide._0.algorithm].filter(Boolean).join(" ")});
   });
 
   root.querySelectorAll<HTMLButtonElement>("[data-size]").forEach((button) => {

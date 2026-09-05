@@ -1,5 +1,8 @@
 import * as FaceletCodec from "../State/FaceletCodec.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
+import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
+import * as MoveParser from "../Move/MoveParser.res.mjs";
+import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 
 type ReScriptResult<T> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: unknown};
 
@@ -29,6 +32,12 @@ export type Reduction4x4Inspection = {
   wingRowsPaired: number;
   stage: "centres" | "wings" | "reduced";
   nextGoal: string;
+};
+export type WingPairGuide4x4 = {
+  alg: unknown[];
+  algorithm: string;
+  before: number;
+  after: number;
 };
 
 const compactFacelets = (state: unknown): string | null => {
@@ -76,6 +85,65 @@ export const inspectReduction4x4 = (state: unknown): ReScriptResult<Reduction4x4
     ? `Pair wing rows (${wingRowsPaired}/24 matched).`
     : "Reduction complete — ready for the 3×3 finish.";
   return {TAG: "Ok", _0: {centres, wingRows, centreBlocksComplete, wingRowsPaired, stage, nextGoal}};
+};
+
+const parseGuide = (notation: string): unknown[] | null => {
+  const parsed = MoveParser.parseWithOptions(4, "Wide", "Modern", notation) as ReScriptResult<unknown[]>;
+  return parsed.TAG === "Ok" ? parsed._0 : null;
+};
+
+const pairingSeedNotations = [
+  "2R U R' U' 2R'",
+  "2R U R U' 2R'",
+  "u' R U R' F R' F' R u",
+];
+
+/**
+ * Finds one small, replay-verified edge-pairing improvement. This is a
+ * deliberately bounded guide, not a claim to be a complete reduction search:
+ * it tries conjugated slice-pair-restore seeds and returns only a move that
+ * preserves all six completed centre blocks while increasing the observable
+ * paired-wing score.
+ */
+export const planNextWingPair4x4 = (state: unknown): ReScriptResult<WingPairGuide4x4> => {
+  const initial = inspectReduction4x4(state);
+  if (initial.TAG === "Error") return initial;
+  if (initial._0.centreBlocksComplete !== 6) {
+    return {TAG: "Error", _0: {message: "Complete all six centre blocks before requesting a wing-pair guide."}};
+  }
+  if (initial._0.wingRowsPaired === 24) {
+    return {TAG: "Error", _0: {message: "All visible wing rows are already paired."}};
+  }
+  const candidates: unknown[][] = [];
+  pairingSeedNotations.forEach((notation) => {
+    const seed = parseGuide(notation);
+    if (seed === null) return;
+    for (let x = 0; x < 4; x += 1) {
+      for (let y = 0; y < 4; y += 1) {
+        candidates.push(MoveTransform.rotate(MoveTransform.rotate(seed, "X", x), "Y", y));
+      }
+    }
+  });
+  let best: WingPairGuide4x4 | null = null;
+  candidates.forEach((alg) => {
+    const replay = MoveExecutor.applyAlg(state, alg) as ReScriptResult<unknown>;
+    if (replay.TAG === "Error") return;
+    const after = inspectReduction4x4(replay._0);
+    if (after.TAG === "Error" || after._0.centreBlocksComplete !== 6) return;
+    if (after._0.wingRowsPaired <= initial._0.wingRowsPaired) return;
+    const guide = {
+      alg,
+      algorithm: MoveTransform.serialize(alg) as string,
+      before: initial._0.wingRowsPaired,
+      after: after._0.wingRowsPaired,
+    };
+    if (best === null
+      || guide.after > best.after
+      || (guide.after === best.after && guide.algorithm.length < best.algorithm.length)) best = guide;
+  });
+  return best === null
+    ? {TAG: "Error", _0: {message: "No centre-preserving pairing guide was found in the bounded seed set. Use the displayed manual setup steps, then request another guide."}}
+    : {TAG: "Ok", _0: best};
 };
 
 /**

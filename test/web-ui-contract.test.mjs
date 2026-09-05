@@ -518,6 +518,8 @@ test("the SPA workspace keeps one viewport beside four URL-addressable destinati
   assert.match(page, /data-academy-method-panel="enhancedPetrus"/);
   assert.match(page, /data-academy-method-panel="reduction4x4"/);
   assert.match(page, /data-reduction-4x4-academy-status/);
+  assert.match(page, /data-reduction-4x4-academy-guide/);
+  assert.match(page, /data-reduction-4x4-academy-apply-guide/);
   assert.match(page, /data-reduction-4x4-academy-finish/);
   assert.doesNotMatch(page, /solver not enabled yet/);
   assert.match(page, /data-academy-comparison/);
@@ -541,6 +543,7 @@ test("the SPA workspace keeps one viewport beside four URL-addressable destinati
   assert.match(client, /tutorialPhaseMoveCount/);
   assert.match(client, /inspectReduction4x4/);
   assert.match(client, /renderReduction4x4Academy/);
+  assert.match(client, /planNextWingPair4x4/);
   assert.match(client, /Resolve the last two wing pairs/);
   assert.match(client, /OLL parity/);
   assert.match(client, /phase\.sequences/);
