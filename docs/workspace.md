@@ -129,8 +129,8 @@ wrapping across a 3×3's face boundaries so the cursor keeps moving in the same 
 direction rather than stopping at an edge (2×2 has no such wrap and stops there); U, R, F,
 D, L, or B paints the focused sticker directly; E erases it.
 
-The **Standard net** and **Attached net** are selectable layouts of the same editor, so only one
-is shown at a time. Attached net keeps Front square, folds Up and Right away in perspective, and
+The **Flat net** and **Folded net** are selectable layouts of the same editor, so only one
+is shown at a time. Folded net keeps Front square, folds Up and Right away in perspective, and
 leaves Left, Down, and Back visibly attached. Because the layouts share the same sticker buttons,
 they always retain identical colour dots, click/drag paint, erase, double-click colour pickup,
 keyboard entry, and piece-hover highlighting. Where supported and motion is not reduced, the same

@@ -798,8 +798,8 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
    per-face grid-column/grid-row placement above needs no change. */
 .manual-state-net-faces { display: contents; }
 
-/* The attached net is the same six face sections and sticker buttons as the
-   standard cross. Switching representation changes only their layout, which
+/* The folded net is the same six face sections and sticker buttons as the
+   flat cross. Switching representation changes only their layout, which
    keeps colour dots, hover rings, keyboard focus, and pointer handling
    identical in both views. */
 .manual-state-net[data-representation="attached"] {
@@ -828,7 +828,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 /* Each face has a stable view-transition name, allowing the browser to carry
-   it through the same flat-to-folded motion in reverse when Standard net is
+   it through the same flat-to-folded motion in reverse when Flat net is
    selected again. Users who request reduced motion receive the instant layout
    change instead. */
 @media (prefers-reduced-motion: no-preference) {
