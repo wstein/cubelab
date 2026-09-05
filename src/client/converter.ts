@@ -812,6 +812,16 @@ if (root) {
       .join(" ");
   };
 
+  const toSpacedFacelets = (rawFacelets: string, cubeSize: number = size): string => {
+    const perFace = cubeSize * cubeSize;
+    const clean = rawFacelets.replace(/\s+/g, "");
+    const blocks: string[] = [];
+    for (let i = 0; i < clean.length; i += perFace) {
+      blocks.push(clean.slice(i, i + perFace));
+    }
+    return blocks.join(" ");
+  };
+
   const manualStateSingmasterCycles = (manualSize: ManualStateSize): string => {
     const parsed = FaceletCodec.parse(manualSize, manualStateDraft.join("")) as Result<CubeState>;
     if (parsed.TAG === "Error") return "";
@@ -3284,7 +3294,8 @@ if (root) {
     renderSmartCubeLiveState();
   };
 
-  const mirrorSmartCubeFaceletsToInput = (facelets: string) => {
+  const mirrorSmartCubeFaceletsToInput = (rawFacelets: string) => {
+    const facelets = toSpacedFacelets(rawFacelets, 3);
     if (input.value === facelets) return;
     store.patch({size: 3, input: facelets});
   };
@@ -5220,7 +5231,7 @@ if (root) {
     clearSmartCubeRecovery();
     smartCubeHalfTurnProgress = null;
     stopPlayback();
-    const facelets = FaceletCodec.render(smartCubeLiveState);
+    const facelets = toSpacedFacelets(FaceletCodec.render(smartCubeLiveState), 3);
     store.patch({size: 3, input: facelets});
     smartCubeStatus.textContent = `${smartCubeDeviceName} · Re-routing from physical state…`;
     coachStatus.textContent = "Generating a fresh verified route from the current physical state.";
@@ -5618,7 +5629,8 @@ if (root) {
   manualStateLoad.addEventListener("click", () => {
     const diagnostic = manualStateCompleteDiagnostic();
     if (diagnostic !== null) return;
-    store.patch({input: manualStateDraft.join("")});
+    const manualSize = size as ManualStateSize;
+    store.patch({input: manualStateSpacedFacelets(manualSize)});
     manualStateDialog.close();
     input.focus();
   });

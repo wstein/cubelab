@@ -228,6 +228,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(page, /data-manual-state-open/);
   assert.match(page, /data-manual-state-grid/);
   assert.match(page, /data-manual-state-load/);
+  assert.match(client, /store\.patch\(\{input: manualStateSpacedFacelets\(manualSize\)\}\)/);
   assert.match(client, /allowedManualStateColours\(manualSize, manualStateDraft, index\)/);
   assert.match(client, /fillLocallyForcedManualStateColours\(manualSize, source\)/);
   assert.match(client, /dot\.dataset\.available = String\(choices\.includes\(choice\)\)/);
@@ -556,6 +557,7 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /manager\.subscribeEvents\(handleSmartCubeEvent\)/);
   assert.match(client, /appendRecordedMove/);
   assert.match(client, /mirrorSmartCubeFaceletsToInput\(event\.facelets\)/);
+  assert.match(client, /const facelets = toSpacedFacelets\(rawFacelets, 3\)/);
   assert.match(client, /store\.patch\(\{size: 3, input: facelets\}\)/);
   assert.match(client, /if \(smartCubeStateSyncPending\)/);
   assert.match(client, /await smartCubeManager\.refresh\(\)/);
