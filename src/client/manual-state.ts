@@ -408,7 +408,7 @@ export const fillLocallyForcedManualStateColours = (
   const unplaced = filled.filter(
     (colour, index) => colour === null && !isManualStateFixedCentre(size, index),
   ).length;
-  if (unplaced > 0 && unplaced <= 16) {
+  if (size <= 3 && unplaced > 0 && unplaced <= 16) {
     filled = fillForcedManualStateColours(size, filled);
   }
   return filled;

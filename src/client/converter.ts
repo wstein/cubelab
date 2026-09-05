@@ -36,6 +36,7 @@ import {
   emptyManualState,
   faceletOrder,
   fillForcedManualStateColours,
+  fillLocallyForcedManualStateColours,
   isManualStateFixedCentre,
   locallyAllowedManualStateColours,
   manualStateCornerSlots,
@@ -878,9 +879,11 @@ if (root) {
       manualStateDraft = source;
       return;
     }
-    // Auto-fill is always based on the full completion predicate. A rendered
-    // one-dot sticker must become a value on every supported cube size.
-    manualStateDraft = fillForcedManualStateColours(manualSize, source);
+    // Big cubes use the same cheap local propagation as their dots; the full
+    // reachability predicate still gates every candidate it writes.
+    manualStateDraft = manualSize >= 4
+      ? fillLocallyForcedManualStateColours(manualSize, source)
+      : fillForcedManualStateColours(manualSize, source);
     manualStateDraft.forEach((colour, index) => {
       if (source[index] === null && colour !== null) manualStateAutoIndices.add(index);
     });

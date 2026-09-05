@@ -110,7 +110,8 @@ sticker shows only colours that have a complete reachable continuation, so every
 dot is selectable. On 3×3×3 through 5×5×5, a cheap local corner/edge and colour-quota
 check paints dots immediately; full reachability verification corrects any optimistic dot
 asynchronously. A click is always gated by that full check, and auto-fill candidates are
-likewise verified before being written. The dots never change position: they are fixed as
+likewise verified before being written; on 4×4×4 and 5×5×5 it uses the same local propagation
+instead of rechecking every blank sticker. The dots never change position: they are fixed as
 **Up / Down**, **Right / Left**, and **Front / Back**; unavailable colours are dimmed. Clicking a specific dot
 paints that colour directly, regardless of which palette swatch is currently selected.
 Double-clicking an already-filled sticker loads its colour into the palette without

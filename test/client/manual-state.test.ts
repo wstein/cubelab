@@ -154,6 +154,14 @@ describe("4×4 and 5×5 manual state entry", () => {
     }
   });
 
+  test("locally auto-fills the last editable centre with its remaining colour", () => {
+    const draft = solvedManualState(5);
+    // Index 106 is an editable interior centre on the Left face. It has no
+    // corner or wing slot, so its local constraint is the colour quota.
+    draft[106] = null;
+    expect(locallyAllowedManualStateColours(5, draft, 106)).toEqual(["L"]);
+    expect(fillLocallyForcedManualStateColours(5, draft)[106]).toBe("L");
+  });
   test("keeps only colour choices that retain a big-cube piece assignment", () => {
     for (const size of [4, 5] as const) {
       const empty = emptyManualState(size);

@@ -243,6 +243,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /store\.patch\(\{input: manualStateSpacedFacelets\(manualSize\)\}\)/);
   assert.match(client, /allowedManualStateColours\(manualSize, manualStateDraft, index\)/);
   assert.match(client, /fillForcedManualStateColours\(manualSize, source\)/);
+  assert.match(client, /fillLocallyForcedManualStateColours\(manualSize, source\)/);
   assert.match(client, /dot\.dataset\.available = String\(choices\.includes\(choice\)\)/);
   assert.match(client, /manualStateAutoIndices\.add\(index\)/);
   assert.match(client, /const manualStateExplicitIndices = new Set<number>\(\)/);
@@ -254,6 +255,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(manualState, /const candidateCache = new WeakMap<CubieKind, Candidate\[\]\[\]>\(\)/);
   assert.doesNotMatch(manualState, /candidatesFor\(kind\)\.at\(0\)!/);
   assert.match(manualState, /const kinds = size >= 4 \? highOrderPieceKindsBySize\[size\] : kindsForSize\(size\)/);
+  assert.match(manualState, /if \(size <= 3 && unplaced > 0 && unplaced <= 16\)/);
   assert.match(client, /manualStateOpen\.disabled = size < 2 \|\| size > 5/);
   assert.match(client, /singmaster"\]'\)!\.hidden = manualSize >= 4/);
   assert.match(page, /class="manual-state-main"[\s\S]*data-manual-state-net/);
