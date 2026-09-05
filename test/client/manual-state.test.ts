@@ -163,6 +163,15 @@ describe("4×4 and 5×5 manual state entry", () => {
     expect(locallyAllowedManualStateColours(5, draft, 106)).toEqual(["L"]);
     expect(fillLocallyForcedManualStateColours(5, draft)[106]).toBe("L");
   });
+
+  test("uses an exact endgame pass to fill the final ambiguous big-cube stickers", () => {
+    const draft = solvedManualState(4);
+    draft[0] = null;
+    draft[1] = null;
+    const filled = fillLocallyForcedManualStateColours(4, draft);
+    expect(filled[0]).toBe("U");
+    expect(filled[1]).toBe("U");
+  });
   test("keeps only colour choices that retain a big-cube piece assignment", () => {
     for (const size of [4, 5] as const) {
       const empty = emptyManualState(size);

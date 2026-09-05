@@ -408,7 +408,10 @@ export const fillLocallyForcedManualStateColours = (
   const unplaced = filled.filter(
     (colour, index) => colour === null && !isManualStateFixedCentre(size, index),
   ).length;
-  if (size <= 3 && unplaced > 0 && unplaced <= 16) {
+  // A two-sticker big-cube endgame can still contain duplicate-wing choices
+  // that local propagation cannot distinguish. The exact pass checks only
+  // those final blanks, avoiding the broad sweep during normal entry.
+  if ((size <= 3 && unplaced > 0 && unplaced <= 16) || (size >= 4 && unplaced > 0 && unplaced <= 2)) {
     filled = fillForcedManualStateColours(size, filled);
   }
   return filled;
