@@ -54,6 +54,21 @@ test("Academy targets reject a rotated centre frame", () => {
   const result = relativeAcademyState(solved, rotated);
   assert.equal(result.TAG, "Error");
   assert.match(result._0, /standard U\/R\/F centre orientation/);
+  assert.match(result._0, /expected U, R, F, D, L, B/);
+  assert.match(result._0, /received F, L, D, R, U, B/);
+});
+
+test("Academy setups reject a rotated centre frame", () => {
+  // A whole-cube rotation is a physically valid state (PieceReducer.reduce is
+  // centre-driven and accepts it), but face turns never relocate centres, so
+  // a rotated setup could never replay to a standard-frame target's exact
+  // facelets. This mirrors the existing target-side check.
+  const rotated = apply("x R2");
+  const result = relativeAcademyState(rotated, solved);
+  assert.equal(result.TAG, "Error");
+  assert.match(result._0, /Setup must use the standard U\/R\/F centre orientation/);
+  assert.match(result._0, /expected U, R, F, D, L, B/);
+  assert.match(result._0, /received F, L, D, R, U, B/);
 });
 
 test("a verified Academy solver route replays from setup to target", () => {
