@@ -71,7 +71,7 @@ test("emits four replay-verified full CFOP phases", () => {
   const serialized = MoveTransform.serialize(solution.alg);
   assert.equal((serialized.match(/CFOP [1-4]:/g) ?? []).length, 4);
   assert.match(MoveTransform.serialize(solution.phases[0].alg), /^\(x2\) @0\.5s/);
-  assert.equal((serialized.match(/@1\.2s/g) ?? []).length, 3);
+  assert.equal((serialized.match(/@1\.2s/g) ?? []).length, 2);
   assert.equal(MoveExecutor.expand(solution.alg)._0.filter(({move}) => move.TAG !== "Rotation").length, solution.moveCount);
   assert.ok(solution.moveCount <= 60, `expected the full CFOP benchmark, received ${solution.moveCount} moves`);
   assert.equal(solution.phases[1].sequences.length, 4);
@@ -80,6 +80,22 @@ test("emits four replay-verified full CFOP phases", () => {
     assert.match(description, /white sticker faces/);
     assert.match(description, /edge (oriented|flipped)/);
   });
+});
+
+test("Advanced CFOP never costs more than Full CFOP on the same state", () => {
+  // Regression: ranking F2L candidates on cross+F2L cost alone could pick a
+  // cheaper prefix that lands on a far costlier OLL/PLL case, so Advanced
+  // (which explores more F2L candidates) came out longer than Full despite
+  // exploring a superset of Full's options.
+  const initial = FaceletCodec.parse(3, "UDDDUUBURFFBRRRBFBLBULFBDLLLUULDDDUUFBDLLDRFFRRLFBBRRF")._0;
+  const full = solveWith(CfopSolver.solveFull, initial);
+  const advanced = solveWith(CfopSolver.solveAdvanced, initial);
+  assert.equal(FaceletCodec.render(MoveExecutor.applyAlg(initial, full.alg)._0), solvedCompact);
+  assert.equal(FaceletCodec.render(MoveExecutor.applyAlg(initial, advanced.alg)._0), solvedCompact);
+  assert.ok(
+    advanced.moveCount <= full.moveCount,
+    `expected Advanced (${advanced.moveCount}) <= Full (${full.moveCount})`,
+  );
 });
 
 test("exposes distinct replay-verified Beginner, Full, and Advanced CFOP strategies", () => {

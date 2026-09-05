@@ -436,9 +436,12 @@ function f2lPlanKey(state, completed) {
   }).join("");
 }
 
-function planF2l(state, completed, atomics, maxDepth, maxNodes, allSides, rootCandidates, failed) {
+function planF2lWithTail(state, completed, atomics, maxDepth, maxNodes, allSides, rootCandidates, failed, tailCost) {
   if (completed.length === 4) {
-    return [];
+    return [
+      [],
+      tailCost(state)
+    ];
   }
   let key = f2lPlanKey(state, completed);
   let match = failed[key];
@@ -462,13 +465,17 @@ function planF2l(state, completed, atomics, maxDepth, maxNodes, allSides, rootCa
     let candidate$1 = candidates[index];
     let nextState = applyPath(state, candidate$1.path);
     let nextCompleted = completed.concat([candidate$1.pair]);
-    let rest = planF2l(nextState, nextCompleted, atomics, maxDepth, maxNodes, allSides, rootCandidates, failed);
-    if (rest !== undefined) {
-      let plan = [candidate$1].concat(rest);
-      let score = f2lPlanScore(plan);
+    let match$1 = planF2lWithTail(nextState, nextCompleted, atomics, maxDepth, maxNodes, allSides, rootCandidates, failed, tailCost);
+    if (match$1 !== undefined) {
+      let restTailCost = match$1[1];
+      let plan = [candidate$1].concat(match$1[0]);
+      let score = f2lPlanScore(plan) + restTailCost | 0;
       if (score < bestScore) {
         bestScore = score;
-        result = plan;
+        result = [
+          plan,
+          restTailCost
+        ];
       }
     }
   }
@@ -1300,6 +1307,28 @@ function solveLevel(input, level) {
       contents: start
     };
     let match$1 = cachedCaseLibraries(solved);
+    let ollSignatures = match$1[0];
+    let tailCost = state => {
+      switch (level) {
+        case "Beginner" :
+          let ollSelection = selectBeginnerOll(state, solved);
+          let pllSelection = selectBeginnerPll(ollSelection.state, solved);
+          return physicalCost(ollSelection.alg).total + physicalCost(pllSelection.alg).total | 0;
+        case "Full" :
+        case "Advanced" :
+          break;
+      }
+      let ollSelection$1 = selectOll(state, solved, ollSignatures);
+      if (ollSelection$1 === undefined) {
+        return 1000000;
+      }
+      let pllSelection$1 = selectPll(ollSelection$1.state, solved);
+      if (pllSelection$1 !== undefined) {
+        return physicalCost(ollSelection$1.alg).total + physicalCost(pllSelection$1.alg).total | 0;
+      } else {
+        return 1000000;
+      }
+    };
     let crossCandidate;
     let exit = 0;
     switch (level) {
@@ -1350,19 +1379,19 @@ function solveLevel(input, level) {
         Error: new Error()
       };
     }
-    let fastF2lPlan = planF2l(current.contents, [], atomics, 11, 180000, false, level === "Advanced" ? 3 : 1, {});
-    let mediumF2lPlan = () => planF2l(current.contents, [], atomics, 12, 300000, true, 2, {});
+    let fastF2lPlan = planF2lWithTail(current.contents, [], atomics, 11, 180000, false, level === "Advanced" ? 3 : 1, {}, tailCost);
+    let mediumF2lPlan = () => planF2lWithTail(current.contents, [], atomics, 12, 300000, true, 2, {}, tailCost);
     let f2lPlan;
     if (fastF2lPlan !== undefined) {
-      f2lPlan = fastF2lPlan;
+      f2lPlan = fastF2lPlan[0];
     } else {
-      let plan = mediumF2lPlan();
-      if (plan !== undefined) {
-        f2lPlan = plan;
+      let match$2 = mediumF2lPlan();
+      if (match$2 !== undefined) {
+        f2lPlan = match$2[0];
       } else {
-        let plan$1 = planF2l(current.contents, [], atomics, 12, 600000, true, 4, {});
-        if (plan$1 !== undefined) {
-          f2lPlan = plan$1;
+        let match$3 = planF2lWithTail(current.contents, [], atomics, 12, 600000, true, 4, {}, tailCost);
+        if (match$3 !== undefined) {
+          f2lPlan = match$3[0];
         } else {
           throw {
             RE_EXN_ID: BuildFailure,
@@ -1418,7 +1447,7 @@ function solveLevel(input, level) {
         break;
     }
     if (exit$1 === 1) {
-      let selection = selectOll(current.contents, solved, match$1[0]);
+      let selection = selectOll(current.contents, solved, ollSignatures);
       if (selection !== undefined) {
         ollSelection = selection;
       } else {
@@ -1929,7 +1958,7 @@ export {
   comparePairs,
   f2lPlanScore,
   f2lPlanKey,
-  planF2l,
+  planF2lWithTail,
   lastLayerSlots,
   orientationKey,
   permutationKey,

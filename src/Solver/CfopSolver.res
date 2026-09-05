@@ -401,7 +401,7 @@ let f2lPlanKey = (state: PieceReducer.pieceState, completed: array<int>) =>
   )
   ->Array.join("")
 
-let rec planF2l = (
+let rec planF2lWithTail = (
   ~state: PieceReducer.pieceState,
   ~completed: array<int>,
   ~atomics: array<BeginnerSolver.action>,
@@ -410,9 +410,10 @@ let rec planF2l = (
   ~allSides: bool,
   ~rootCandidates: int,
   ~failed,
-): option<array<pairCandidate>> => {
+  ~tailCost: PieceReducer.pieceState => int,
+): option<(array<pairCandidate>, int)> => {
   if completed->Array.length == 4 {
-    Some([])
+    Some(([], tailCost(state)))
   } else {
     let key = f2lPlanKey(state, completed)
     switch Dict.get(failed, key) {
@@ -447,7 +448,7 @@ let rec planF2l = (
           let candidate = Belt.Array.getUnsafe(candidates, index)
           let nextState = applyPath(state, candidate.path)
           let nextCompleted = completed->Array.concat([candidate.pair])
-          switch planF2l(
+          switch planF2lWithTail(
             ~state=nextState,
             ~completed=nextCompleted,
             ~atomics,
@@ -456,13 +457,14 @@ let rec planF2l = (
             ~allSides,
             ~rootCandidates,
             ~failed,
+            ~tailCost,
           ) {
-          | Some(rest) => {
+          | Some(rest, restTailCost) => {
               let plan = [candidate]->Array.concat(rest)
-              let score = f2lPlanScore(plan)
+              let score = f2lPlanScore(plan) + restTailCost
               if score < bestScore.contents {
                 bestScore := score
-                result := Some(plan)
+                result := Some(plan, restTailCost)
               }
             }
           | None => ()
@@ -1265,6 +1267,27 @@ let solveLevel = (input: cubeState, level: level): result<solution, solverError>
     let atomics = BeginnerSolver.atomicActions(solved)
     let current = ref(start)
     let (ollSignatures, _pllSignatures) = cachedCaseLibraries(solved)
+    // Ranking F2L candidates on their own move cost alone can prefer a cheaper
+    // prefix that lands on a far costlier OLL/PLL case. Score the last-layer
+    // cost of the resulting state too, so a multi-candidate search (Advanced,
+    // and any level's deeper fallback tiers) optimizes the whole solve.
+    let tailCost = (state: PieceReducer.pieceState): int =>
+      switch level {
+      | Beginner => {
+          let ollSelection = selectBeginnerOll(~state, ~solved)
+          let pllSelection = selectBeginnerPll(~state=ollSelection.state, ~solved)
+          physicalScore(ollSelection.alg) + physicalScore(pllSelection.alg)
+        }
+      | Full | Advanced =>
+        switch selectOll(~state, ~solved, ~signatures=ollSignatures) {
+        | None => 1000000
+        | Some(ollSelection) =>
+          switch selectPll(~state=ollSelection.state, ~solved) {
+          | None => 1000000
+          | Some(pllSelection) => physicalScore(ollSelection.alg) + physicalScore(pllSelection.alg)
+          }
+        }
+      }
 
     let crossCandidate = switch level {
     | Advanced => selectCross(~state=current.contents, ~atomics)
@@ -1290,7 +1313,7 @@ let solveLevel = (input: cubeState, level: level): result<solution, solverError>
       throw(BuildFailure(BeginnerSolver.VerificationFailed))
     }
 
-    let fastF2lPlan = planF2l(
+    let fastF2lPlan = planF2lWithTail(
       ~state=current.contents,
       ~completed=[],
       ~atomics,
@@ -1303,9 +1326,10 @@ let solveLevel = (input: cubeState, level: level): result<solution, solverError>
         1
       },
       ~failed=Dict.make(),
+      ~tailCost,
     )
     let mediumF2lPlan = () =>
-      planF2l(
+      planF2lWithTail(
         ~state=current.contents,
         ~completed=[],
         ~atomics,
@@ -1314,14 +1338,15 @@ let solveLevel = (input: cubeState, level: level): result<solution, solverError>
         ~allSides=true,
         ~rootCandidates=2,
         ~failed=Dict.make(),
+        ~tailCost,
       )
     let f2lPlan = switch fastF2lPlan {
-    | Some(plan) => plan
+    | Some(plan, _) => plan
     | None =>
       switch mediumF2lPlan() {
-      | Some(plan) => plan
+      | Some(plan, _) => plan
       | None =>
-        switch planF2l(
+        switch planF2lWithTail(
           ~state=current.contents,
           ~completed=[],
           ~atomics,
@@ -1330,8 +1355,9 @@ let solveLevel = (input: cubeState, level: level): result<solution, solverError>
           ~allSides=true,
           ~rootCandidates=4,
           ~failed=Dict.make(),
+          ~tailCost,
         ) {
-        | Some(plan) => plan
+        | Some(plan, _) => plan
         | None =>
           throw(BuildFailure(BeginnerSolver.SearchFailed("four locked F2L corner-edge pairs")))
         }
