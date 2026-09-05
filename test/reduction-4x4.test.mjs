@@ -52,6 +52,7 @@ test("reports centre and wing milestones before attempting the 3×3 handoff", ()
   if (unresolved.TAG === "Ok") {
     expect(unresolved._0.stage).not.toBe("reduced");
     expect(unresolved._0.nextGoal).toMatch(/centre blocks|wing rows/);
+    expect(unresolved._0.wingRows.every((row) => row.edge && row.colours)).toBe(true);
   }
 });
 

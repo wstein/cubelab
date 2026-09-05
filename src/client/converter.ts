@@ -2374,6 +2374,9 @@ if (root) {
     academy.current.textContent = progress.nextGoal;
     const centresDone = progress.centreBlocksComplete === 6;
     const wingsDone = progress.wingRowsPaired === 24;
+    const outstandingWings = progress.wingRows
+      .filter((row) => !row.complete)
+      .map((row) => `${row.face} ${row.edge}: ${row.colours?.join("/") ?? "?"}`);
     academy.phases.append(
       reductionAcademyPhase(
         1,
@@ -2386,8 +2389,10 @@ if (root) {
       reductionAcademyPhase(
         2,
         "Pair 24 wing rows",
-        "Match each visible two-sticker wing row. A paired row becomes one dedge for the reduced 3×3.",
-        `${progress.wingRowsPaired}/24 wing rows`,
+        outstandingWings.length === 0
+          ? "Every visible two-sticker wing row agrees. The paired rows form the dedges for the reduced 3×3."
+          : `Match each visible two-sticker wing row. Next unmatched rows: ${outstandingWings.join(" · ")}.`,
+        `${progress.wingRowsPaired}/24 wing rows${outstandingWings.length === 0 ? "" : ` · ${outstandingWings.length} to pair`}`,
         wingsDone,
         progress.stage === "wings",
       ),

@@ -18,6 +18,8 @@ export type Reduced4x4 = {state: unknown; compact: string};
 export type Reduction4x4Error = {message: string};
 export type Reduction4x4Milestone = {
   face: typeof faces[number];
+  edge?: typeof edgeNames[number];
+  colours?: [string, string];
   complete: boolean;
 };
 export type Reduction4x4Inspection = {
@@ -55,6 +57,8 @@ export const inspectReduction4x4 = (state: unknown): ReScriptResult<Reduction4x4
       const pair = edgePairs[edgeIndex]!;
       wingRows.push({
         face: faces[faceIndex]!,
+        edge: edgeNames[edgeIndex]!,
+        colours: [face[pair[0]]!, face[pair[1]]!],
         complete: face[pair[0]] === face[pair[1]],
       });
     }
