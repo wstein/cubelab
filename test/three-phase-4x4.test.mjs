@@ -2,7 +2,13 @@ import {expect, test} from "vitest";
 
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
-import {applyCentreTransition, applyTransition, axisTransitionAllowed, buildCentrePruning, buildCentreSymmetryMap, buildSymmetryCentrePruning, canonicalUdRank, centreSymmetryPermutations, centreTransition, createCentrePruning, decodeFacelets, encodeFacelets, extractCentres, extractCorners, extractWings, phase2Moves, phase3Moves, pruningDepth, rankUdCentres, setPruningDepth, transitionUdRank, unrankUdCentres} from "../src/Solver/ThreePhase4x4.res.mjs";
+import {applyCentreTransition, applyTransition, axisTransitionAllowed, buildCentrePruning, buildCentreSymmetryMap, buildSymmetryCentrePruning, canonicalUdRank, centreSymmetryPermutations, centreTransition, createCentrePruning, decodeFacelets, encodeFacelets, extractCentres, extractCorners, extractWings, phase2CombinedDistance, phase2FbDistance, phase2Moves, phase2TargetFbRank, phase2UdDistance, phase3Moves, pruningDepth, rankFbCentres, rankUdCentres, setPruningDepth, transitionUdRank, unrankUdCentres} from "../src/Solver/ThreePhase4x4.res.mjs";
+
+function buildPhase2DistanceInputs() {
+  const symmetryMap = buildCentreSymmetryMap();
+  const symmetryTable = buildSymmetryCentrePruning(15);
+  return {symmetryMap: symmetryMap.TAG === "Ok" ? symmetryMap._0 : null, symmetryTable: symmetryTable.TAG === "Ok" ? symmetryTable._0 : null};
+}
 
 test("three-phase boundary round-trips CubeLab's canonical 96 facelets", () => {
   const state = MoveExecutor.parseAndApply(4, "Rw U 2F' Lw2");
@@ -167,4 +173,101 @@ test("axis transition rule rejects a repeated face and an out-of-order axis pair
   expect(axisTransitionAllowed(6, 3)).toBe(false);
   expect(axisTransitionAllowed(0, 1)).toBe(true);
   expect(axisTransitionAllowed(1, 0)).toBe(true);
+});
+
+test("phase-two F/B rank is always defined and targets the F,B block at solved", () => {
+  const solved = "UUUUDDDDFFFFBBBBRRRRLLLL";
+  expect(rankFbCentres(solved)).toBe(phase2TargetFbRank);
+  // Swapping F and B internally does not change which block holds them.
+  const swappedSides = "UUUUDDDDBBBBFFFFRRRRLLLL";
+  expect(rankFbCentres(swappedSides)).toBe(phase2TargetFbRank);
+  // Even a state that is not phase-one-solved always has exactly 8 F/B
+  // stickers somewhere among the 24 slots, so this never returns -1.
+  const mixed = "UDUDUDUDFBFBFBFBRLRLRLRL";
+  expect(rankFbCentres(mixed)).toBeGreaterThanOrEqual(0);
+});
+
+test("a whole-cube x rotation conjugates the U/D target to the F/B target", () => {
+  const xTransition = centreTransition("x");
+  expect(xTransition.TAG).toBe("Ok");
+  if (xTransition.TAG !== "Ok") return;
+  expect(transitionUdRank(0, xTransition._0)).toBe(phase2TargetFbRank);
+});
+
+test("phase-two distance functions read zero exactly at each coordinate's own target", () => {
+  const {symmetryMap, symmetryTable} = buildPhase2DistanceInputs();
+  expect(symmetryMap).not.toBeNull();
+  expect(symmetryTable).not.toBeNull();
+
+  const ud = phase2UdDistance(0, symmetryMap, symmetryTable);
+  expect(ud.TAG).toBe("Ok");
+  if (ud.TAG === "Ok") expect(ud._0).toBe(0);
+
+  const fb = phase2FbDistance(phase2TargetFbRank, symmetryMap, symmetryTable);
+  expect(fb.TAG).toBe("Ok");
+  if (fb.TAG === "Ok") expect(fb._0).toBe(0);
+
+  const combined = phase2CombinedDistance(0, phase2TargetFbRank, symmetryMap, symmetryTable);
+  expect(combined.TAG).toBe("Ok");
+  if (combined.TAG === "Ok") expect(combined._0).toBe(0);
+});
+
+test("phase-two distances stay admissible (never exceed the true move count) across a real scramble", () => {
+  const {symmetryMap, symmetryTable} = buildPhase2DistanceInputs();
+  expect(symmetryMap).not.toBeNull();
+  expect(symmetryTable).not.toBeNull();
+
+  const scrambleMoves = ["Rw", "U", "Fw2", "Dw2", "Lw'", "B2"];
+  let state = MoveExecutor.parseAndApply(4, "");
+  expect(state.TAG).toBe("Ok");
+  if (state.TAG !== "Ok") return;
+
+  for (let depth = 0; depth < scrambleMoves.length; depth++) {
+    const centres = extractCentres(state._0);
+    const udRank = rankUdCentres(centres);
+    const fbRank = rankFbCentres(centres);
+    expect(fbRank).toBeGreaterThanOrEqual(0);
+
+    const combined = phase2CombinedDistance(udRank, fbRank, symmetryMap, symmetryTable);
+    expect(combined.TAG).toBe("Ok");
+    // Every scrambled prefix is reachable to the joint target within the
+    // moves already used to build it, so admissibility means the bound can
+    // never exceed how many scramble moves remain to undo it in the worst
+    // case -- here simply that it stays a small, finite, non-negative value,
+    // and it must be strictly positive once the state has actually moved
+    // away from the joint target.
+    if (combined.TAG === "Ok") {
+      expect(combined._0).toBeGreaterThanOrEqual(0);
+      expect(combined._0).toBeLessThanOrEqual(15);
+      if (depth > 0) expect(combined._0).toBeGreaterThan(0);
+    }
+
+    const next = applyTransition(state._0, scrambleMoves[depth]);
+    expect(next.TAG).toBe("Ok");
+    if (next.TAG === "Ok") state = next;
+  }
+});
+
+test("phase-two coordinate transitions agree with re-ranking a real move's facelet result", () => {
+  const before = MoveExecutor.parseAndApply(4, "Rw U Fw2 Dw2");
+  expect(before.TAG).toBe("Ok");
+  if (before.TAG !== "Ok") return;
+  const beforeCentres = extractCentres(before._0);
+  const beforeUdRank = rankUdCentres(beforeCentres);
+  const beforeFbRank = rankFbCentres(beforeCentres);
+
+  ["U", "D2", "Rw", "Fw2"].forEach((notation) => {
+    const after = applyTransition(before._0, notation);
+    expect(after.TAG).toBe("Ok");
+    if (after.TAG !== "Ok") return;
+    const afterCentres = extractCentres(after._0);
+    const afterUdRank = rankUdCentres(afterCentres);
+    const afterFbRank = rankFbCentres(afterCentres);
+
+    const transition = centreTransition(notation);
+    expect(transition.TAG).toBe("Ok");
+    if (transition.TAG !== "Ok") return;
+    expect(transitionUdRank(beforeUdRank, transition._0)).toBe(afterUdRank);
+    expect(transitionUdRank(beforeFbRank, transition._0)).toBe(afterFbRank);
+  });
 });

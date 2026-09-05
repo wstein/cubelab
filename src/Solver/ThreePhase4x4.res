@@ -602,3 +602,115 @@ let buildCentrePruning = (maximumDepth: int): result<array<int>, inputError> => 
 }
 }
 
+/* Phase-two centre coordinate: an independent redesign of upstream's Center2,
+ * not a bit-compatible port. Reverse-engineering (and empirically running,
+ * via a compiled copy of the upstream Java) Center2's raw ct[]/rl[] arrays
+ * showed they rely on group-theoretic preconditions established by Center1's
+ * full 48-symmetry search plus a 3-case post-solve canonicalisation
+ * (`Center1.finish`) that increment 8 did not port; feeding Center2 a state
+ * that only satisfies our own phase-one rank-0 (reached by an arbitrary move
+ * path, not upstream's specific symmetry-reduced search) reproducibly throws
+ * inside upstream's own getct().
+ *
+ * A first attempt tracked "which 8 of slots 8–23 hold F or B", assuming that
+ * boundary was closed under phase-two's restricted moves the way slots 16–23
+ * are. It is not: applying the wide quarter turn Rw to a phase-one-solved
+ * state (verified with the canonical executor) moves a U/D-coloured sticker
+ * from slot 5 into slot 9, disturbing rankUdCentres away from 0. Phase-two's
+ * restricted moves keep slots 16–23 closed (confirmed the same way) but not
+ * a 0–7/8–23 split, so any coordinate assuming that split can go undefined
+ * mid-search.
+ *
+ * This is the corrected design: track two independent whole-24-slot ranks,
+ * exactly like phase-one's own rankUdCentres, which is always well-defined
+ * because there are always exactly 8 U/D and 8 F/B stickers somewhere among
+ * all 24 slots regardless of arrangement.
+ *   - udRank: rankUdCentres, target 0 (unchanged from phase one).
+ *   - fbRank: rankFbCentres below, target phase2TargetFbRank (F/B holds
+ *     slots 8–15).
+ * Both transition via the existing transitionUdRank, fed the same full
+ * 24-slot permutation from centreTransition — no new move derivation is
+ * needed. A whole-cube "x" rotation conjugates the U/D target {0..7} to the
+ * F/B target {8..15} (verified: transitionUdRank(0, x) equals
+ * rankUdSlots([8..15])), so fbRank's distance to its target can reuse the
+ * already-built phase-one symmetry pruning table by rotating fbRank back
+ * into the U/D frame first, instead of building a second table. This bound
+ * uses the full move set rather than phase-two's restricted 28, so it is
+ * still admissible (more available moves can only shorten the true
+ * distance) but looser; tightening it to a phase-two-specific table is a
+ * follow-up if search performance needs it.
+ *
+ * This does not track upstream's centre/wing parity-avoidance bit (used to
+ * bias which phase-one candidate to extend), so a search built on this may
+ * find that no phase-one endpoint it tries is reachable to (0, target) by
+ * phase-two's restricted moves alone. That is expected — the fix is trying
+ * more phase-one candidates, matching upstream's own multi-candidate retry
+ * — not a flaw in this coordinate, and is deferred to phase-one/two
+ * chaining. Separately, dropping parity-avoidance means a search built on
+ * this may land in a state whose reduction later needs the existing
+ * OLL/PLL-4×4 parity repair in Reduction4x4.res; that is a move-count
+ * quality tradeoff to revisit, not a correctness gap. */
+let rankFbCentres = (centres: string): int =>
+  if centres->String.length != 24 {
+    -1
+  } else {
+    let selected = ref([])
+    for slot in 0 to 23 {
+      let colour = centres->String.get(slot)->Belt.Option.getUnsafe->String.make
+      if colour == "F" || colour == "B" {
+        selected := selected.contents->Array.concat([slot])
+      }
+    }
+    rankUdSlots(selected.contents)
+  }
+
+let phase2TargetFbRank = rankUdSlots([8, 9, 10, 11, 12, 13, 14, 15])
+
+/* Cached once at module load, mirroring how centreCoordinateSize is a plain
+ * top-level computation: cheap, pure, and reused by every distance query. */
+let phase2FbRotation: result<array<int>, inputError> = centreTransition("x")
+let phase2FbRotationInverse: result<array<int>, inputError> = centreTransition("x'")
+
+/* buildSymmetryCentrePruning packs one distance per compact orbit index
+ * (0..15,581), not per raw rank (0..735,470) — canonicalUdRank's rawRank is
+ * the orbit's minimal raw member, a different integer from its compact
+ * index. rawToSymmetry already carries that raw→compact mapping (the
+ * comment on centreSymmetryMap: "compactRank * 64 + inverse symmetry"), so
+ * distance lookups go through it directly rather than through
+ * canonicalUdRank. */
+let phase2UdDistance = (
+  udRank: int,
+  symmetryMap: centreSymmetryMap,
+  symmetryTable: array<int>,
+): result<int, inputError> =>
+  if udRank < 0 || udRank >= centreCoordinateSize {
+    Error(InvalidTransition("Invalid phase-two U/D rank."))
+  } else {
+    let compactRank = Belt.Array.getUnsafe(symmetryMap.rawToSymmetry, udRank) / 64
+    Ok(pruningDepth(symmetryTable, compactRank))
+  }
+
+let phase2FbDistance = (
+  fbRank: int,
+  symmetryMap: centreSymmetryMap,
+  symmetryTable: array<int>,
+): result<int, inputError> =>
+  switch phase2FbRotationInverse {
+  | Error(reason) => Error(reason)
+  | Ok(permutation) => phase2UdDistance(transitionUdRank(fbRank, permutation), symmetryMap, symmetryTable)
+  }
+
+let phase2CombinedDistance = (
+  udRank: int,
+  fbRank: int,
+  symmetryMap: centreSymmetryMap,
+  symmetryTable: array<int>,
+): result<int, inputError> =>
+  switch (
+    phase2UdDistance(udRank, symmetryMap, symmetryTable),
+    phase2FbDistance(fbRank, symmetryMap, symmetryTable),
+  ) {
+  | (Error(reason), _) => Error(reason)
+  | (_, Error(reason)) => Error(reason)
+  | (Ok(udDistance), Ok(fbDistance)) => Ok(udDistance > fbDistance ? udDistance : fbDistance)
+  }

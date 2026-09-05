@@ -73,9 +73,42 @@ outer face and its adjacent inner slice together, confirmed by comparing
 same call as the inner-slice cycle. `centreMoveNotations` now uses `Uw`-style
 wide notation; `public/solver/three-phase-centre.v1.bin` has been
 regenerated (still 7,791 bytes — the fix changes stored distances, not the
-15,582-orbit count). Search coordinates beyond phase-one and the solver
-integration are not ported yet. The module is not connected to the
-Converter. The existing Academy guides remain independent and intact.
+15,582-orbit count).
+
+The tenth increment adds a phase-two centre coordinate — an independent
+redesign of upstream's `Center2`, not a bit-compatible port. Compiling and
+running upstream's actual Java showed `Center2.set` depends on
+preconditions established by `Center1`'s full 48-symmetry search plus a
+3-case post-solve canonicalisation (`Center1.finish`) that the eighth
+increment did not port: feeding it a state that only satisfies this port's
+own phase-one rank-0 (reached by an arbitrary move path) reproducibly threw
+inside upstream's own `getct()`. A first replacement attempt — ranking which
+8 of slots 8–23 hold an F/B-coloured sticker — assumed that boundary was
+closed under phase-two's restricted moves; it is not, confirmed by applying
+`Rw` to a phase-one-solved state with the canonical executor and watching a
+U/D-coloured sticker move from slot 5 into slot 9. The corrected design
+tracks two independent whole-24-slot ranks the same way phase-one's own
+`rankUdCentres` already does — always well-defined, since exactly 8 U/D and
+8 F/B stickers exist somewhere among all 24 slots regardless of arrangement:
+`rankUdCentres` (target 0, unchanged) and the new `rankFbCentres` (target
+`phase2TargetFbRank`, the rank with F/B holding slots 8–15). Both transition
+through the existing `transitionUdRank` fed the same `centreTransition`
+permutation, so no second move-table derivation was needed. A whole-cube `x`
+rotation conjugates the U/D target to the F/B target
+(`transitionUdRank(0, x) == phase2TargetFbRank`, verified), so
+`phase2FbDistance` reuses the already-committed phase-one symmetry pruning
+table by rotating into the U/D frame first rather than building a second
+table; `phase2UdDistance` and `phase2CombinedDistance` (their max) complete
+the admissible heuristic. This bound is looser than a phase-two-move-specific
+table would be (it reflects the full move set, not the 28-move restriction),
+which is a performance follow-up, not a correctness gap. It also does not
+track upstream's centre/wing parity-avoidance bit: a phase-one endpoint that
+isn't reachable to the joint target by phase-two's restricted moves alone is
+expected, and the fix is retrying other phase-one endpoints (matching
+upstream's own multi-candidate strategy) in the phase-one/two chaining
+increment, not a flaw in this coordinate. Search coordinates beyond phase-two
+and the solver integration are not ported yet. The module is not connected
+to the Converter. The existing Academy guides remain independent and intact.
 
 `Reduction4x4.reduce4x4` is the handoff gate for stage 3. It accepts only a
 4×4 with monochrome 2×2 centres and paired visible wings, converts it to the

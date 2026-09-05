@@ -1048,6 +1048,86 @@ function buildCentrePruning(maximumDepth) {
   };
 }
 
+function rankFbCentres(centres) {
+  if (centres.length !== 24) {
+    return -1;
+  }
+  let selected = [];
+  for (let slot = 0; slot <= 23; ++slot) {
+    let colour = String(centres[slot]);
+    if (colour === "F" || colour === "B") {
+      selected = selected.concat([slot]);
+    }
+  }
+  return rankUdSlots(selected);
+}
+
+let phase2TargetFbRank = rankUdSlots([
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15
+]);
+
+let phase2FbRotation = centreTransition("x");
+
+let phase2FbRotationInverse = centreTransition("x'");
+
+function phase2UdDistance(udRank, symmetryMap, symmetryTable) {
+  if (udRank < 0 || udRank >= centreCoordinateSize) {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidTransition",
+        _0: "Invalid phase-two U/D rank."
+      }
+    };
+  }
+  let compactRank = symmetryMap.rawToSymmetry[udRank] / 64 | 0;
+  return {
+    TAG: "Ok",
+    _0: pruningDepth(symmetryTable, compactRank)
+  };
+}
+
+function phase2FbDistance(fbRank, symmetryMap, symmetryTable) {
+  if (phase2FbRotationInverse.TAG === "Ok") {
+    return phase2UdDistance(transitionUdRank(fbRank, phase2FbRotationInverse._0), symmetryMap, symmetryTable);
+  } else {
+    return {
+      TAG: "Error",
+      _0: phase2FbRotationInverse._0
+    };
+  }
+}
+
+function phase2CombinedDistance(udRank, fbRank, symmetryMap, symmetryTable) {
+  let match = phase2UdDistance(udRank, symmetryMap, symmetryTable);
+  let match$1 = phase2FbDistance(fbRank, symmetryMap, symmetryTable);
+  if (match.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: match._0
+    };
+  }
+  let udDistance = match._0;
+  if (match$1.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: match$1._0
+    };
+  }
+  let fbDistance = match$1._0;
+  return {
+    TAG: "Ok",
+    _0: udDistance > fbDistance ? udDistance : fbDistance
+  };
+}
+
 export {
   encodeFacelets,
   decodeFacelets,
@@ -1086,5 +1166,12 @@ export {
   phase3Moves,
   axisTransitionAllowed,
   buildCentrePruning,
+  rankFbCentres,
+  phase2TargetFbRank,
+  phase2FbRotation,
+  phase2FbRotationInverse,
+  phase2UdDistance,
+  phase2FbDistance,
+  phase2CombinedDistance,
 }
 /* centreCoordinateSize Not a pure module */
