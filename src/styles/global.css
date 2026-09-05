@@ -913,27 +913,8 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   margin-top: var(--manual-state-3d-offset, -1.8rem);
   position: relative;
   transform-style: preserve-3d;
-  transform: rotateX(-35.264deg) rotateY(var(--manual-state-yaw, -35deg)) rotate3d(var(--manual-state-flip-x, 1), 0, var(--manual-state-flip-z, 0), var(--manual-state-flip, 0deg));
+  transform: rotateX(-35.264deg) rotateY(var(--manual-state-yaw, -35deg)) rotateX(var(--manual-state-flip, 0deg));
   transition: transform 380ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-/* Flip axes per orientation so flipping always rotates the current front face up */
-.manual-state-net[data-representation="isometric"][data-orientation="0"],
-.manual-state-net[data-representation="isometric"]:not([data-orientation]) {
-  --manual-state-flip-x: 1;
-  --manual-state-flip-z: 0;
-}
-.manual-state-net[data-representation="isometric"][data-orientation="1"] {
-  --manual-state-flip-x: 0;
-  --manual-state-flip-z: 1;
-}
-.manual-state-net[data-representation="isometric"][data-orientation="2"] {
-  --manual-state-flip-x: -1;
-  --manual-state-flip-z: 0;
-}
-.manual-state-net[data-representation="isometric"][data-orientation="3"] {
-  --manual-state-flip-x: 0;
-  --manual-state-flip-z: -1;
 }
 
 /* All 6 faces occupy the exact same 3D box with solid opaque background */
