@@ -107,10 +107,11 @@ wing-pairing, and parity stages remain separate work.
 For 2×2×2 through 5×5×5, **Enter state by hand** opens a draft-only sticker editor. It
 starts blank for an empty Setup, or from a valid existing Setup. On 2×2×2, each blank
 sticker shows only colours that have a complete reachable continuation, so every displayed
-dot is selectable. On 3×3×3, options are checked against full corner/edge permutation
-parity asynchronously and appear as they are verified; a displayed dot is likewise
-selectable. The dots never change position: they are fixed as **Up / Down**, **Right /
-Left**, and **Front / Back**; unavailable colours are dimmed. Clicking a specific dot
+dot is selectable. On 3×3×3 through 5×5×5, a cheap local corner/edge and colour-quota
+check paints dots immediately; full reachability verification corrects any optimistic dot
+asynchronously. A click is always gated by that full check, and auto-fill candidates are
+likewise verified before being written. The dots never change position: they are fixed as
+**Up / Down**, **Right / Left**, and **Front / Back**; unavailable colours are dimmed. Clicking a specific dot
 paints that colour directly, regardless of which palette swatch is currently selected.
 Double-clicking an already-filled sticker loads its colour into the palette without
 changing the sticker; a plain click on a filled sticker otherwise does nothing, so it

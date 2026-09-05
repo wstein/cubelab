@@ -306,7 +306,7 @@ export const allowedManualStateColours = (
 /**
  * Cheap per-cubie propagation used for every visible dot. It never offers a
  * colour that makes its corner or edge impossible. The global function above
- * remains the final gate for a click, including 3×3 parity coupling.
+ * remains the final gate for a click, including cross-cubie constraints.
  */
 export const locallyAllowedManualStateColours = (
   size: ManualStateSize,
@@ -316,13 +316,13 @@ export const locallyAllowedManualStateColours = (
   if (index < 0 || index >= draft.length) return [];
   const fixedCentre = fixedCentreFace(size, index);
   if (fixedCentre !== null) return [fixedCentre];
-  if (size >= 4) return allowedManualStateColours(size, draft, index);
   const perColour = size * size;
   const counts: Record<ManualStateFace, number> = {U: 0, D: 0, R: 0, L: 0, F: 0, B: 0};
   draft.forEach((face) => {
     if (face !== null) counts[face] += 1;
   });
-  for (const kind of kindsForSize(size)) {
+  const kinds = size >= 4 ? highOrderPieceKindsBySize[size] : kindsForSize(size);
+  for (const kind of kinds) {
     const slotIndex = kind.slots.findIndex((slot) => slot.includes(index));
     if (slotIndex < 0) continue;
     const localIndex = kind.slots[slotIndex].indexOf(index);
@@ -342,7 +342,10 @@ export const locallyAllowedManualStateColours = (
         values.indexOf(colour) === candidateIndex && (counts[colour] < perColour || draft[index] === colour),
       );
   }
-  return [];
+  // Interior big-cube centres do not belong to a corner or edge cubie. Their
+  // local constraint is the colour quota, which also lets the last remaining
+  // centre auto-fill when its colour is determined.
+  return manualStateFaces.filter((colour) => counts[colour] < perColour || draft[index] === colour);
 };
 
 /** Repeatedly fills stickers whose colour is uniquely implied by the draft. */

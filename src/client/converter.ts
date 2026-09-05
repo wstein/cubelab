@@ -1223,7 +1223,7 @@ if (root) {
             dots.className = "manual-state-dots";
             sticker.append(dots);
           }
-          if (manualSize === 2 || manualSize >= 4) {
+          if (manualSize === 2) {
             renderManualStateDots(dots, allowedManualStateColours(manualSize, manualStateDraft, index));
           } else {
             renderManualStateDots(dots, locallyAllowedManualStateColours(manualSize, manualStateDraft, index));
@@ -1232,7 +1232,7 @@ if (root) {
         }
       }
     });
-    if (manualSize === 3) verifyManualStateDots(manualSize, pendingDots);
+    if (manualSize >= 3) verifyManualStateDots(manualSize, pendingDots);
   };
 
   // Hover only re-rings the affected stickers rather than calling
