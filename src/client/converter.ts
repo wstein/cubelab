@@ -265,6 +265,7 @@ if (root) {
   const playbackPlay = root.querySelector<HTMLButtonElement>("[data-playback-play]")!;
   const playbackEnd = root.querySelector<HTMLButtonElement>("[data-playback-end]")!;
   const playbackLimit = root.querySelector<HTMLElement>("[data-playback-limit]")!;
+  const playbackRecord = root.querySelector<HTMLButtonElement>("[data-playback-record]")!;
   const shortcutsHelp = root.querySelector<HTMLButtonElement>("[data-shortcuts-help]")!;
   const shortcutsDialog = root.querySelector<HTMLDialogElement>("[data-shortcuts-dialog]")!;
   const shortcutsClose = root.querySelector<HTMLButtonElement>("[data-shortcuts-close]")!;
@@ -2170,6 +2171,7 @@ if (root) {
   let looping = false;
   let playbackDirection: -1 | 0 | 1 = 0;
   let playbackGeneration = 0;
+  let recordingTape = false;
   let widePrefixExpires = 0;
   let pendingDirectMove: {
     signature: string;
@@ -2971,6 +2973,9 @@ if (root) {
 
   const updatePlaybackUi = (rebuild = false) => {
     playback.hidden = activeTimeline === null && hamiltonStream === null;
+    playbackRecord.disabled = hamiltonStream !== null || macroDefinition.test(movesInput.value);
+    playbackRecord.classList.toggle("active", recordingTape);
+    playbackRecord.setAttribute("aria-pressed", String(recordingTape));
     if (hamiltonStream !== null && activeTimeline === null) {
       if (rebuild) {
         clearTutorialFocus();
@@ -6888,7 +6893,24 @@ if (root) {
     button.setAttribute("aria-pressed", String(looping));
   });
 
+  playbackRecord.addEventListener("click", () => {
+    if (playbackRecord.disabled) return;
+    flushPendingDirectMove();
+    stopPlayback();
+    recordingTape = !recordingTape;
+    playbackRecord.classList.toggle("active", recordingTape);
+    playbackRecord.setAttribute("aria-pressed", String(recordingTape));
+    status.textContent = recordingTape
+      ? "Recording direct turns into Moves. Press Record again to stop."
+      : "Tape recording stopped.";
+  });
+
   const appendDirectMove = (token: string) => {
+    if (recordingTape) {
+      const next = appendRecordedMove(movesInput.value, token);
+      if (next.length <= 20_000) store.patch({moves: next});
+      return;
+    }
     if (input.value.trim() !== "" && activeTimeline === null) return;
     const trimmed = input.value.trimEnd();
     const lastLine = trimmed.slice(trimmed.lastIndexOf("\n") + 1);

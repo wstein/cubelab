@@ -771,6 +771,8 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(viewportComponent, /\[0\.2, 0\.5, 1, 2, 5, 10\]/);
   assert.match(client, /const duration = 720/);
   assert.match(viewportComponent, /data-playback-loop/);
+  assert.match(viewportComponent, /data-playback-record/);
+  assert.match(viewportComponent, /Record direct turns into the Moves tape/);
   assert.match(client, /MAX_PLAYBACK_STEPS/);
   assert.match(client, /transitionTo/);
   assert.match(client, /case "ArrowLeft"/);
@@ -780,6 +782,9 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(viewportComponent, /data-shortcuts-help/);
   assert.match(client, /queueDirectMove/);
   assert.match(client, /pendingDirectMove/);
+  assert.match(client, /let recordingTape = false/);
+  assert.match(client, /appendRecordedMove\(movesInput\.value, token\)/);
+  assert.match(client, /Recording direct turns into Moves/);
   assert.match(viewportComponent, /data-coaching-mode="coached"/);
   assert.match(viewportComponent, /data-coaching-mode="continuous"/);
   assert.match(client, /phaseMilestonePositions/);
