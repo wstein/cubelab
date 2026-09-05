@@ -734,34 +734,6 @@ let expandRegripsToFaces = (alg: alg): alg =>
     }
   }
 
-/* Smart-cube recordings expose gyro regrips as x/y/z. Retain the physical
- * handling while spelling each regrip as a wide turn plus the opposite outer
- * face: x = Rw L', y = Uw D', z = Fw B'. */
-let regripAsWide = (axis, turns) =>
-  switch axis {
-  | X => [
-      moveUnit(FaceTurn(R, {from_: 1, to_: 2}), turns),
-      moveUnit(FaceTurn(L, {from_: 1, to_: 1}), -turns),
-    ]
-  | Y => [
-      moveUnit(FaceTurn(U, {from_: 1, to_: 2}), turns),
-      moveUnit(FaceTurn(D, {from_: 1, to_: 1}), -turns),
-    ]
-  | Z => [
-      moveUnit(FaceTurn(F, {from_: 1, to_: 2}), turns),
-      moveUnit(FaceTurn(B, {from_: 1, to_: 1}), -turns),
-    ]
-  }
-
-/** Replaces top-level x/y/z recording events with exact 3×3 wide-turn pairs. */
-let regripsToWide = (alg: alg): alg =>
-  alg->Array.reduce([], (output, unit) =>
-    switch unit.desc {
-    | Move(Rotation(axis), turns) => output->Array.concat(regripAsWide(axis, turns))
-    | _ => output->Array.concat([unit])
-    }
-  )
-
 /* Rewrites face turns through each preceding regrip into the original fixed
  * frame, then omits the regrips. A trailing regrip is deliberately discarded:
  * it changes only the reader's grip, not the fixed-frame turn tape. */

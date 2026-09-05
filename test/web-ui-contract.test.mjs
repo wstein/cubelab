@@ -791,9 +791,7 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(client, /Record · verified \+ gyro/);
   assert.match(viewportComponent, /data-coaching-mode="coached"/);
   assert.match(viewportComponent, /data-coaching-mode="continuous"/);
-  assert.match(page, /data-alg-transform="regrips-to-wide"/);
   assert.match(page, /data-alg-transform="filter-regrips"/);
-  assert.match(client, /MoveTransform\.regripsToWide\(alg\)/);
   assert.match(client, /MoveTransform\.filterRegrips\(alg\)/);
   assert.match(client, /phaseMilestonePositions/);
   assert.match(client, /Step \$\{completedPhase\.number\} complete/);

@@ -2950,7 +2950,6 @@ if (root) {
         ? !macroDefinition.test(movesInput.value)
         : button.dataset.algTransform === "optimize-regrips"
           || button.dataset.algTransform === "expand-regrips"
-          || button.dataset.algTransform === "regrips-to-wide"
           || button.dataset.algTransform === "filter-regrips"
           ? !available || size !== 3
         : !available;
@@ -5142,11 +5141,6 @@ if (root) {
         case "expand-regrips":
           if (size === 3) {
             commitTransformedMoves(MoveTransform.serialize(MoveTransform.expandRegripsToFaces(alg)));
-          }
-          break;
-        case "regrips-to-wide":
-          if (size === 3) {
-            commitTransformedMoves(MoveTransform.serialize(MoveTransform.regripsToWide(alg)));
           }
           break;
         case "filter-regrips":

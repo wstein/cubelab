@@ -1842,130 +1842,6 @@ function expandRegripsToFaces(alg) {
   return canonicalizeOuterPairs(pushRotationsRight(expanded), 0, []);
 }
 
-function regripAsWide(axis, turns) {
-  switch (axis) {
-    case "X" :
-      return [
-        {
-          desc: {
-            TAG: "Move",
-            _0: {
-              TAG: "FaceTurn",
-              _0: "R",
-              _1: {
-                from_: 1,
-                to_: 2
-              }
-            },
-            _1: turns
-          },
-          loc: generatedLoc
-        },
-        {
-          desc: {
-            TAG: "Move",
-            _0: {
-              TAG: "FaceTurn",
-              _0: "L",
-              _1: {
-                from_: 1,
-                to_: 1
-              }
-            },
-            _1: -turns | 0
-          },
-          loc: generatedLoc
-        }
-      ];
-    case "Y" :
-      return [
-        {
-          desc: {
-            TAG: "Move",
-            _0: {
-              TAG: "FaceTurn",
-              _0: "U",
-              _1: {
-                from_: 1,
-                to_: 2
-              }
-            },
-            _1: turns
-          },
-          loc: generatedLoc
-        },
-        {
-          desc: {
-            TAG: "Move",
-            _0: {
-              TAG: "FaceTurn",
-              _0: "D",
-              _1: {
-                from_: 1,
-                to_: 1
-              }
-            },
-            _1: -turns | 0
-          },
-          loc: generatedLoc
-        }
-      ];
-    case "Z" :
-      return [
-        {
-          desc: {
-            TAG: "Move",
-            _0: {
-              TAG: "FaceTurn",
-              _0: "F",
-              _1: {
-                from_: 1,
-                to_: 2
-              }
-            },
-            _1: turns
-          },
-          loc: generatedLoc
-        },
-        {
-          desc: {
-            TAG: "Move",
-            _0: {
-              TAG: "FaceTurn",
-              _0: "B",
-              _1: {
-                from_: 1,
-                to_: 1
-              }
-            },
-            _1: -turns | 0
-          },
-          loc: generatedLoc
-        }
-      ];
-  }
-}
-
-function regripsToWide(alg) {
-  return Stdlib_Array.reduce(alg, [], (output, unit) => {
-    let match = unit.desc;
-    if (typeof match !== "object") {
-      return output.concat([unit]);
-    }
-    if (match.TAG !== "Move") {
-      return output.concat([unit]);
-    }
-    let axis = match._0;
-    switch (axis.TAG) {
-      case "FaceTurn" :
-      case "SliceTurn" :
-        return output.concat([unit]);
-      case "Rotation" :
-        return output.concat(regripAsWide(axis._0, match._1));
-    }
-  });
-}
-
 function filterRegrips(alg) {
   let pending = {
     contents: []
@@ -2213,8 +2089,6 @@ export {
   expandSliceRegrip,
   canonicalizeOuterPairs,
   expandRegripsToFaces,
-  regripAsWide,
-  regripsToWide,
   filterRegrips,
   practiceLength,
   practiceFamilies,
