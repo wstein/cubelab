@@ -19,7 +19,9 @@ tokens are deliberately not treated as cube states.
 | 5×5×5 | 43 | corners, midges, wings, X-centres, plus-centres, frame |
 
 Coordinates are combined by mixed-radix Horner ranking. Corner twists and
-midge flips omit their forced final orientation. On odd cubes the midge
+midge flips omit their forced final orientation. For every size, those stored
+orientation digits are little-endian: the first digit is the units digit.
+On odd cubes the midge
 permutation is ranked in the parity class selected by the corners; the final
 factor is one of the 24 right-handed whole-cube frames. On even cubes the
 movable centre orbits already determine the pose, so no frame factor is
