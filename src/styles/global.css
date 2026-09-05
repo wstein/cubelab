@@ -855,22 +855,22 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform-origin: bottom right;
 }
 
-/* 2. Exploded Left face: parallel to R, exploded to the left along the F axis */
+/* 2. Exploded Left face: parallel to R, exploded along the -X isometric axis (up-left) */
 .manual-state-net[data-representation="isometric"] .manual-state-face[data-face="L"] {
-  transform: translate(calc(-1 * var(--manual-state-face-gap) - 25%), 0) skewY(-30deg) scaleX(0.866025);
-  transform-origin: center right;
-}
-
-/* 3. Exploded Down face: parallel to U, exploded downwards along the vertical Z axis */
-.manual-state-net[data-representation="isometric"] .manual-state-face[data-face="D"] {
-  transform: translateY(calc(var(--manual-state-face-gap) * 2 + 1.2rem)) matrix(0.866025, 0.5, -0.866025, 0.5, 0, 0);
+  transform: translate(calc(-12% - 0.5 * var(--manual-state-face-gap)), calc(-50% - 0.3 * var(--manual-state-face-gap))) skewY(-30deg) scaleX(0.866025);
   transform-origin: top right;
 }
 
-/* 4. Exploded Back face: parallel to F, exploded to the upper-right along the R axis */
+/* 3. Exploded Down face: parallel to U, exploded straight down along the vertical -Z axis */
+.manual-state-net[data-representation="isometric"] .manual-state-face[data-face="D"] {
+  transform: translate(calc(100% + 0.5 * var(--manual-state-face-gap)), calc(var(--manual-state-face-gap) + 0.6rem)) matrix(0.866025, 0.5, -0.866025, 0.5, 0, 0);
+  transform-origin: top left;
+}
+
+/* 4. Exploded Back face: parallel to F, exploded along the -Y isometric axis (up-right) */
 .manual-state-net[data-representation="isometric"] .manual-state-face[data-face="B"] {
-  transform: translate(calc(20% + var(--manual-state-face-gap)), calc(-100% - var(--manual-state-face-gap) * 2)) skewY(30deg) scaleX(0.866025);
-  transform-origin: center;
+  transform: translate(calc(12% + 0.5 * var(--manual-state-face-gap)), calc(-50% - 0.3 * var(--manual-state-face-gap))) skewY(30deg) scaleX(0.866025);
+  transform-origin: top left;
 }
 
 /* Each face has a stable view-transition name, allowing the browser to carry
