@@ -2956,8 +2956,7 @@ if (root) {
         ? !macroDefinition.test(movesInput.value)
         : button.dataset.algTransform === "optimize-regrips"
           || button.dataset.algTransform === "expand-regrips"
-          || button.dataset.algTransform === "filter-regrips"
-          ? !available || size !== 3
+          ? !available || size < 2 || size > 5
         : !available;
     });
   };
@@ -5177,19 +5176,13 @@ if (root) {
           commitTransformedMoves(MoveTransform.serialize(MoveTransform.factorStructure(alg)));
           break;
         case "optimize-regrips":
-          if (size === 3) {
-            commitTransformedMoves(MoveTransform.serialize(MoveTransform.optimizeRegrips(alg)));
-          }
+          commitTransformedMoves(MoveTransform.serialize(MoveTransform.optimizeRegrips(size, alg)));
           break;
         case "expand-regrips":
-          if (size === 3) {
-            commitTransformedMoves(MoveTransform.serialize(MoveTransform.expandRegripsToFaces(alg)));
-          }
+          commitTransformedMoves(MoveTransform.serialize(MoveTransform.expandRegripsToFaces(size, alg)));
           break;
         case "filter-regrips":
-          if (size === 3) {
-            commitTransformedMoves(MoveTransform.serialize(MoveTransform.filterRegrips(alg)));
-          }
+          commitTransformedMoves(MoveTransform.serialize(MoveTransform.filterRegrips(alg)));
           break;
         case "normalize":
           commitTransformedMoves(MoveTransform.serialize(alg));

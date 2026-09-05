@@ -1145,6 +1145,14 @@ test("applies algorithm workbench actions and generates size-aware practice scra
   await page.getByRole("button", {name: "Factor structure"}).click();
   await expect(moves).toHaveValue("[2L, 2D'] x y");
 
+  await page.locator('[data-size="4"]').click();
+  await moves.fill("L' R B' F D' U L' R");
+  await expect(page.getByRole("button", {name: "Optimize regrips"})).toBeEnabled();
+  await page.getByRole("button", {name: "Optimize regrips"}).click();
+  await expect(moves).toHaveValue("2-3Lw 2-3Dw' 2-3Rw 2-3Dw x y");
+  await expect(page.getByRole("button", {name: "Expand regrips"})).toBeEnabled();
+  await page.locator('[data-size="3"]').click();
+
   await moves.fill("R U R'");
   await page.getByRole("button", {name: "Mirror L/R"}).click();
   await expect(moves).toHaveValue("L' U' L");
@@ -1181,8 +1189,9 @@ test("applies algorithm workbench actions and generates size-aware practice scra
   await input.fill("");
 
   await page.locator('[data-size="2"]').click();
-  await expect(page.getByRole("button", {name: "Optimize regrips"})).toBeDisabled();
-  await expect(page.getByRole("button", {name: "Expand regrips"})).toBeDisabled();
+  await moves.fill("L' R");
+  await expect(page.getByRole("button", {name: "Optimize regrips"})).toBeEnabled();
+  await expect(page.getByRole("button", {name: "Expand regrips"})).toBeEnabled();
   await page.getByRole("button", {name: "Practice scramble"}).click();
   await expect(page.locator("[data-status]")).toHaveText("Algorithm · SiGN");
   const scramble = await input.inputValue();

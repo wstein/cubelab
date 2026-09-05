@@ -44,12 +44,12 @@ boundaries, so factoring cannot silently move a turn through an annotation.
 
 ### Optimize regrips
 
-**Optimize regrips** is an opt-in, 3×3-only notation transform. It preserves the exact
-final cube state while applying local identities that can exchange opposite face turns
-for `M`, `E`, or `S` plus visible `x/y/z` regrips, and can fold an outer face turn with
-its matching slice into a wide turn. It is deliberately separate from **Try to shorten**:
-it does not expand that bounded face-turn search and does not claim an HTM- or
-STM-minimal result.
+**Optimize regrips** is an opt-in notation transform for every supported cube size. It
+preserves the exact final cube state while applying local identities that exchange
+opposite face turns for their size-aware complementary inner-layer range plus visible
+`x/y/z` regrips. On a 3×3 that range is `M`, `E`, or `S`; on a 4×4 it is, for example,
+`2-3Lw`. It is deliberately separate from **Try to shorten**: it does not expand that
+bounded face-turn search and does not claim an HTM- or STM-minimal result.
 
 For example, CubeLab rewrites:
 
@@ -70,11 +70,11 @@ orientation. Pauses and comments remain boundaries.
 
 ### Expand regrips
 
-**Expand regrips** is the 3×3-only outer-face companion to **Optimize regrips**.
-It accepts `M/E/S` or CubeLab's canonical unfolded `2L/2D/2F` forms, plus visible
-whole-cube rotations, and rewrites them as an equivalent outer-face sequence. For
-example, `2L 2D' 2L' 2D x y` becomes `L' R B' F D' U L' R`. It is a deterministic
-notation expansion, not a general solver.
+**Expand regrips** is the outer-face companion to **Optimize regrips** for every
+supported cube size. It accepts `M/E/S` or CubeLab's canonical unfolded `2L/2D/2F`
+forms on 3×3, and the full `2…n−1` inner-layer ranges emitted for larger cubes, plus
+visible whole-cube rotations. It rewrites them as an equivalent outer-face sequence;
+it is a deterministic notation expansion, not a general solver.
 
 ### Mirror
 
@@ -130,7 +130,7 @@ visible, editable, and shareable. Its presentation then depends on smart-cube mo
 ## Browser integration
 
 The action ribbon below the input exposes **Invert**, **Simplify**, **Factor structure**,
-3×3-only **Optimize regrips** and **Expand regrips**, all three mirror
+size-aware **Optimize regrips** and **Expand regrips**, all three mirror
 planes (**L/R**, **F/B**, and **U/D**), all three coordinate rotations (**x**, **y**, and
 **z**), and **Practice scramble**. Algebraic actions are enabled only when the
 current input is a recognized algorithm; state codecs cannot accidentally be rewritten

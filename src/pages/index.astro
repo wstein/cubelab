@@ -416,14 +416,14 @@ const cards = [
                 type="button"
                 class="transform-btn"
                 data-alg-transform="optimize-regrips"
-                title="Rewrite an equivalent 3×3 algorithm using M/E/S slices, wide turns, and x/y/z regrips"
+                title="Rewrite equivalent NxN outer-face pairs using size-aware inner layers and x/y/z regrips"
                 disabled>⚙ Optimize regrips</button
               >
               <button
                 type="button"
                 class="transform-btn"
                 data-alg-transform="expand-regrips"
-                title="Rewrite 3×3 M/E/S slices and x/y/z regrips as outer face turns"
+                title="Rewrite size-aware inner layers and x/y/z regrips as outer face turns"
                 disabled>⇱ Expand regrips</button
               >
               <button
@@ -739,12 +739,12 @@ s100"></textarea>
               (<code>(U3')2'</code> → <code>U2</code>) as well as merging
               adjacent same-face turns. <strong>Normalize</strong> rewrites the same
               move sequence in CubeLab's canonical spelling without merging or expanding
-              anything. <strong>Optimize regrips</strong> is a separate 3×3 transform:
-              it can trade face turns for <code>M/E/S</code> slices, wide turns, and
-              visible <code>x/y/z</code> regrips while preserving the exact final state.
+              anything. <strong>Optimize regrips</strong> is a size-aware transform:
+              it can trade opposite face turns for inner-layer ranges and visible
+              <code>x/y/z</code> regrips while preserving the exact final state.
               It does not change the bounded face-turn search under <strong>Try to shorten</strong>.
               <strong>Expand regrips</strong> is its outer-face counterpart and also
-              accepts unfolded <code>2L/2D/2F</code> slice notation.
+              accepts the corresponding inner-layer notation on every supported size.
               <strong>Factor structure</strong> works on every supported size and finds
               repeated blocks, commutators, and conjugates without crossing comments or pauses.
             </p>

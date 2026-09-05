@@ -610,7 +610,46 @@ function outerFace(unit) {
   }
 }
 
-function sliceRegripPair(left, right) {
+function innerComplement(size, face) {
+  if (size !== 3) {
+    return {
+      TAG: "FaceTurn",
+      _0: face,
+      _1: {
+        from_: 2,
+        to_: size - 1 | 0
+      }
+    };
+  }
+  switch (face) {
+    case "L" :
+      return {
+        TAG: "SliceTurn",
+        _0: "M"
+      };
+    case "F" :
+      return {
+        TAG: "SliceTurn",
+        _0: "S"
+      };
+    case "D" :
+      return {
+        TAG: "SliceTurn",
+        _0: "E"
+      };
+    default:
+      return {
+        TAG: "FaceTurn",
+        _0: face,
+        _1: {
+          from_: 2,
+          to_: size - 1 | 0
+        }
+      };
+  }
+}
+
+function sliceRegripPair(size, left, right) {
   let match = outerFace(left);
   let match$1 = outerFace(right);
   let exit = 0;
@@ -693,15 +732,29 @@ function sliceRegripPair(left, right) {
   }
   switch (exit) {
     case 1 :
-      if (leftTurns === (-rightTurns | 0)) {
-        return [
-          {
+      if (leftTurns !== (-rightTurns | 0)) {
+        return;
+      }
+      let tmp;
+      if (size === 2) {
+        tmp = [{
             desc: {
               TAG: "Move",
               _0: {
-                TAG: "SliceTurn",
-                _0: "M"
+                TAG: "Rotation",
+                _0: "X"
               },
+              _1: rightTurns
+            },
+            loc: generatedLoc
+          }];
+      } else {
+        let move = innerComplement(size, "L");
+        tmp = [
+          {
+            desc: {
+              TAG: "Move",
+              _0: move,
               _1: rightTurns
             },
             loc: generatedLoc
@@ -718,19 +771,32 @@ function sliceRegripPair(left, right) {
             loc: generatedLoc
           }
         ];
-      } else {
+      }
+      return tmp;
+    case 2 :
+      if (downTurns !== (-upTurns | 0)) {
         return;
       }
-    case 2 :
-      if (downTurns === (-upTurns | 0)) {
-        return [
-          {
+      let tmp$1;
+      if (size === 2) {
+        tmp$1 = [{
             desc: {
               TAG: "Move",
               _0: {
-                TAG: "SliceTurn",
-                _0: "E"
+                TAG: "Rotation",
+                _0: "Y"
               },
+              _1: upTurns
+            },
+            loc: generatedLoc
+          }];
+      } else {
+        let move$1 = innerComplement(size, "D");
+        tmp$1 = [
+          {
+            desc: {
+              TAG: "Move",
+              _0: move$1,
               _1: upTurns
             },
             loc: generatedLoc
@@ -747,19 +813,32 @@ function sliceRegripPair(left, right) {
             loc: generatedLoc
           }
         ];
-      } else {
+      }
+      return tmp$1;
+    case 3 :
+      if (backTurns !== (-frontTurns | 0)) {
         return;
       }
-    case 3 :
-      if (backTurns === (-frontTurns | 0)) {
-        return [
-          {
+      let tmp$2;
+      if (size === 2) {
+        tmp$2 = [{
             desc: {
               TAG: "Move",
               _0: {
-                TAG: "SliceTurn",
-                _0: "S"
+                TAG: "Rotation",
+                _0: "Z"
               },
+              _1: frontTurns
+            },
+            loc: generatedLoc
+          }];
+      } else {
+        let move$2 = innerComplement(size, "F");
+        tmp$2 = [
+          {
+            desc: {
+              TAG: "Move",
+              _0: move$2,
               _1: -frontTurns | 0
             },
             loc: generatedLoc
@@ -776,9 +855,8 @@ function sliceRegripPair(left, right) {
             loc: generatedLoc
           }
         ];
-      } else {
-        return;
       }
+      return tmp$2;
   }
 }
 
@@ -1000,7 +1078,7 @@ function widePair(left, right) {
   }
 }
 
-function rewritePairs(units, _index, _output) {
+function rewritePairs(units, size, _index, _output) {
   while (true) {
     let output = _output;
     let index = _index;
@@ -1012,7 +1090,7 @@ function rewritePairs(units, _index, _output) {
     }
     let left = units[index];
     let right = units[index + 1 | 0];
-    let replacement = sliceRegripPair(left, right);
+    let replacement = sliceRegripPair(size, left, right);
     if (replacement !== undefined) {
       _output = output.concat(replacement);
       _index = index + 2 | 0;
@@ -1577,16 +1655,16 @@ function pushRotationsRight(units) {
   return output.contents;
 }
 
-function optimizeRegrips(alg) {
+function optimizeRegrips(size, alg) {
   let flat = simplify(alg);
   if (flat.TAG === "Ok") {
-    return pushRotationsRight(rewritePairs(flat._0, 0, []));
+    return pushRotationsRight(rewritePairs(flat._0, size, 0, []));
   } else {
     return alg;
   }
 }
 
-function sliceFromUnit(unit) {
+function sliceFromUnit(size, unit) {
   let match = unit.desc;
   if (typeof match !== "object") {
     return;
@@ -1600,7 +1678,7 @@ function sliceFromUnit(unit) {
       switch (slice._0) {
         case "L" :
           let match$1 = slice._1;
-          if (match$1.from_ !== 2 || match$1.to_ !== 2) {
+          if (match$1.from_ !== 2 || match$1.to_ !== (size - 1 | 0)) {
             return;
           } else {
             return [
@@ -1610,7 +1688,7 @@ function sliceFromUnit(unit) {
           }
         case "F" :
           let match$2 = slice._1;
-          if (match$2.from_ !== 2 || match$2.to_ !== 2) {
+          if (match$2.from_ !== 2 || match$2.to_ !== (size - 1 | 0)) {
             return;
           } else {
             return [
@@ -1620,7 +1698,7 @@ function sliceFromUnit(unit) {
           }
         case "D" :
           let match$3 = slice._1;
-          if (match$3.from_ !== 2 || match$3.to_ !== 2) {
+          if (match$3.from_ !== 2 || match$3.to_ !== (size - 1 | 0)) {
             return;
           } else {
             return [
@@ -1632,10 +1710,14 @@ function sliceFromUnit(unit) {
           return;
       }
     case "SliceTurn" :
-      return [
-        slice._0,
-        match._1
-      ];
+      if (size === 3) {
+        return [
+          slice._0,
+          match._1
+        ];
+      } else {
+        return;
+      }
     case "Rotation" :
       return;
   }
@@ -1826,13 +1908,13 @@ function canonicalizeOuterPairs(units, _index, _output) {
   };
 }
 
-function expandRegripsToFaces(alg) {
+function expandRegripsToFaces(size, alg) {
   let flat = simplify(alg);
   if (flat.TAG !== "Ok") {
     return alg;
   }
   let expanded = Stdlib_Array.reduce(flat._0, [], (output, unit) => {
-    let match = sliceFromUnit(unit);
+    let match = sliceFromUnit(size, unit);
     if (match !== undefined) {
       return output.concat(expandSliceRegrip(match[0], match[1]));
     } else {
@@ -2065,6 +2147,7 @@ export {
   factorStructure,
   moveUnit,
   outerFace,
+  innerComplement,
   sliceRegripPair,
   widePair,
   rewritePairs,

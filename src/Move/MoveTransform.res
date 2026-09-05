@@ -392,17 +392,41 @@ let outerFace = unit =>
 /* On a 3×3, a pair of opposite outer turns can be expressed as one slice
  * and one whole-cube regrip. The caller later moves those regrips rightward
  * through the sequence, changing subsequent move names by conjugation. */
-let sliceRegripPair = (left, right) =>
+let innerComplement = (size, face) =>
+  if size == 3 {
+    switch face {
+    | L => SliceTurn(M)
+    | D => SliceTurn(E)
+    | F => SliceTurn(S)
+    | _ => FaceTurn(face, {from_: 2, to_: size - 1})
+    }
+  } else {
+    FaceTurn(face, {from_: 2, to_: size - 1})
+  }
+
+let sliceRegripPair = (~size, left, right) =>
   switch (outerFace(left), outerFace(right)) {
   | (Some((L, leftTurns)), Some((R, rightTurns)))
   | (Some((R, rightTurns)), Some((L, leftTurns))) if leftTurns == -rightTurns =>
-    Some([moveUnit(SliceTurn(M), rightTurns), moveUnit(Rotation(X), rightTurns)])
+    Some(
+      size == 2
+        ? [moveUnit(Rotation(X), rightTurns)]
+        : [moveUnit(innerComplement(size, L), rightTurns), moveUnit(Rotation(X), rightTurns)],
+    )
   | (Some((D, downTurns)), Some((U, upTurns)))
   | (Some((U, upTurns)), Some((D, downTurns))) if downTurns == -upTurns =>
-    Some([moveUnit(SliceTurn(E), upTurns), moveUnit(Rotation(Y), upTurns)])
+    Some(
+      size == 2
+        ? [moveUnit(Rotation(Y), upTurns)]
+        : [moveUnit(innerComplement(size, D), upTurns), moveUnit(Rotation(Y), upTurns)],
+    )
   | (Some((B, backTurns)), Some((F, frontTurns)))
   | (Some((F, frontTurns)), Some((B, backTurns))) if backTurns == -frontTurns =>
-    Some([moveUnit(SliceTurn(S), -frontTurns), moveUnit(Rotation(Z), frontTurns)])
+    Some(
+      size == 2
+        ? [moveUnit(Rotation(Z), frontTurns)]
+        : [moveUnit(innerComplement(size, F), -frontTurns), moveUnit(Rotation(Z), frontTurns)],
+    )
   | _ => None
   }
 
@@ -432,18 +456,19 @@ let widePair = (left, right) => {
   }
 }
 
-let rec rewritePairs = (units, index, output) =>
+let rec rewritePairs = (units, ~size, index, output) =>
   if index >= units->Array.length {
     output
   } else if index + 1 < units->Array.length {
     let left = Belt.Array.getUnsafe(units, index)
     let right = Belt.Array.getUnsafe(units, index + 1)
-    switch sliceRegripPair(left, right) {
-    | Some(replacement) => rewritePairs(units, index + 2, output->Array.concat(replacement))
+    switch sliceRegripPair(~size, left, right) {
+    | Some(replacement) => rewritePairs(units, ~size, index + 2, output->Array.concat(replacement))
     | None =>
       switch widePair(left, right) {
-      | Some(replacement) => rewritePairs(units, index + 2, output->Array.concat([replacement]))
-      | None => rewritePairs(units, index + 1, output->Array.concat([left]))
+      | Some(replacement) =>
+        rewritePairs(units, ~size, index + 2, output->Array.concat([replacement]))
+      | None => rewritePairs(units, ~size, index + 1, output->Array.concat([left]))
       }
     }
   } else {
@@ -662,21 +687,21 @@ let pushRotationsRight = units => {
 /** A deterministic 3×3 notation compactor for M/E/S, wide turns, and regrips.
  * It only uses local exact identities; unlike AlgorithmOptimizer it makes no
  * claim to find a globally shortest algorithm. */
-let optimizeRegrips = (alg: alg): alg =>
+let optimizeRegrips = (~size, alg: alg): alg =>
   switch simplify(alg) {
   | Error(_) => alg
-  | Ok(flat) => flat->rewritePairs(0, [])->pushRotationsRight
+  | Ok(flat) => rewritePairs(flat, ~size, 0, [])->pushRotationsRight
   }
 
 /* The canonical 3×3 inner-layer spelling produced by unfoldSlices uses the
  * L/D/F faces. Accept it here as well as M/E/S so the two Workbench tools
  * compose without requiring the user to normalize the text first. */
-let sliceFromUnit = unit =>
+let sliceFromUnit = (~size, unit) =>
   switch unit.desc {
-  | Move(SliceTurn(slice), turns) => Some((slice, turns))
-  | Move(FaceTurn(L, {from_: 2, to_: 2}), turns) => Some((M, turns))
-  | Move(FaceTurn(D, {from_: 2, to_: 2}), turns) => Some((E, turns))
-  | Move(FaceTurn(F, {from_: 2, to_: 2}), turns) => Some((S, turns))
+  | Move(SliceTurn(slice), turns) if size == 3 => Some((slice, turns))
+  | Move(FaceTurn(L, {from_: 2, to_}), turns) if to_ == size - 1 => Some((M, turns))
+  | Move(FaceTurn(D, {from_: 2, to_}), turns) if to_ == size - 1 => Some((E, turns))
+  | Move(FaceTurn(F, {from_: 2, to_}), turns) if to_ == size - 1 => Some((S, turns))
   | _ => None
   }
 
@@ -720,12 +745,12 @@ let rec canonicalizeOuterPairs = (units, index, output) =>
 
 /** Expand 3×3 slices/regrips into an equivalent outer-face algorithm.
  * This is the inverse-oriented companion to optimizeRegrips, not a solver. */
-let expandRegripsToFaces = (alg: alg): alg =>
+let expandRegripsToFaces = (~size, alg: alg): alg =>
   switch simplify(alg) {
   | Error(_) => alg
   | Ok(flat) => {
       let expanded = flat->Array.reduce([], (output, unit) =>
-        switch sliceFromUnit(unit) {
+        switch sliceFromUnit(~size, unit) {
         | Some((slice, turns)) => output->Array.concat(expandSliceRegrip(slice, turns))
         | None => output->Array.concat([unit])
         }

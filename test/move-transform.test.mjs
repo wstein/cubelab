@@ -79,7 +79,7 @@ test("unfolds M, E, and S into exact size-aware inner layers without flattening 
 
 test("optimizes paired opposite 3x3 face turns into slices and trailing regrips", () => {
   const source = parse(3, "L' R B' F D' U L' R");
-  const optimized = MoveTransform.optimizeRegrips(source);
+  const optimized = MoveTransform.optimizeRegrips(3, source);
 
   assert.equal(serialize(optimized), "M E' M' E x y");
   assert.equal(compact(3, serialize(optimized)), compact(3, "L' R B' F D' U L' R"));
@@ -90,28 +90,41 @@ test("optimizes every face plus its matching slice into a wide turn", () => {
     ["R M'", "Rw"], ["L M", "Lw"], ["U E'", "Uw"],
     ["D E", "Dw"], ["F S", "Fw"], ["B S'", "Bw"],
   ]) {
-    const optimized = MoveTransform.optimizeRegrips(parse(3, source));
+    const optimized = MoveTransform.optimizeRegrips(3, parse(3, source));
     assert.equal(serialize(optimized), expected);
     assert.equal(compact(3, serialize(optimized)), compact(3, source));
   }
 });
 
 test("does not synthesize a slice from unmatched opposite face turns", () => {
-  assert.equal(serialize(MoveTransform.optimizeRegrips(parse(3, "L R U"))), "L R U");
+  assert.equal(serialize(MoveTransform.optimizeRegrips(3, parse(3, "L R U"))), "L R U");
 });
 
 test("does not move a regrip across a comment boundary", () => {
   const source = "L' R /* hold frame */ B' F";
-  const optimized = MoveTransform.optimizeRegrips(parse(3, source));
+  const optimized = MoveTransform.optimizeRegrips(3, parse(3, source));
   assert.equal(serialize(optimized), "M x /* hold frame */ S' z");
   assert.equal(compact(3, serialize(optimized)), compact(3, source));
 });
 
 test("expands unfolded slices and regrips back into outer face turns", () => {
   const source = "2L 2D' 2L' 2D x y";
-  const expanded = MoveTransform.expandRegripsToFaces(parse(3, source));
+  const expanded = MoveTransform.expandRegripsToFaces(3, parse(3, source));
   assert.equal(serialize(expanded), "L' R B' F D' U L' R");
   assert.equal(compact(3, serialize(expanded)), compact(3, source));
+});
+
+test("optimizes and expands regrips with exact size-aware layer ranges", () => {
+  const source = "L' R B' F D' U L' R";
+  for (const size of [2, 3, 4, 5]) {
+    const optimized = MoveTransform.optimizeRegrips(size, parse(size, source));
+    const rendered = serialize(optimized);
+    assert.equal(compact(size, rendered), compact(size, source), `${size}×${size} optimize`);
+    if (size === 4) assert.match(rendered, /2-3Lw/);
+    if (size === 5) assert.match(rendered, /2-4Lw/);
+    const expanded = MoveTransform.expandRegripsToFaces(size, optimized);
+    assert.equal(compact(size, serialize(expanded)), compact(size, source), `${size}×${size} expand`);
+  }
 });
 
 test("factors commutators, conjugates, and repeats for every supported size", () => {
