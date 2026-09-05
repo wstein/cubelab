@@ -784,6 +784,218 @@ function buildSymmetryCentrePruning(maximumDepth) {
   };
 }
 
+let phase2Moves = [
+  {
+    notation: "U",
+    faceId: 0
+  },
+  {
+    notation: "U2",
+    faceId: 0
+  },
+  {
+    notation: "U'",
+    faceId: 0
+  },
+  {
+    notation: "R",
+    faceId: 1
+  },
+  {
+    notation: "R2",
+    faceId: 1
+  },
+  {
+    notation: "R'",
+    faceId: 1
+  },
+  {
+    notation: "F",
+    faceId: 2
+  },
+  {
+    notation: "F2",
+    faceId: 2
+  },
+  {
+    notation: "F'",
+    faceId: 2
+  },
+  {
+    notation: "D",
+    faceId: 3
+  },
+  {
+    notation: "D2",
+    faceId: 3
+  },
+  {
+    notation: "D'",
+    faceId: 3
+  },
+  {
+    notation: "L",
+    faceId: 4
+  },
+  {
+    notation: "L2",
+    faceId: 4
+  },
+  {
+    notation: "L'",
+    faceId: 4
+  },
+  {
+    notation: "B",
+    faceId: 5
+  },
+  {
+    notation: "B2",
+    faceId: 5
+  },
+  {
+    notation: "B'",
+    faceId: 5
+  },
+  {
+    notation: "2U2",
+    faceId: 6
+  },
+  {
+    notation: "2R",
+    faceId: 7
+  },
+  {
+    notation: "2R2",
+    faceId: 7
+  },
+  {
+    notation: "2R'",
+    faceId: 7
+  },
+  {
+    notation: "2F2",
+    faceId: 8
+  },
+  {
+    notation: "2D2",
+    faceId: 9
+  },
+  {
+    notation: "2L",
+    faceId: 10
+  },
+  {
+    notation: "2L2",
+    faceId: 10
+  },
+  {
+    notation: "2L'",
+    faceId: 10
+  },
+  {
+    notation: "2B2",
+    faceId: 11
+  }
+];
+
+let phase3Moves = [
+  {
+    notation: "U",
+    faceId: 0
+  },
+  {
+    notation: "U2",
+    faceId: 0
+  },
+  {
+    notation: "U'",
+    faceId: 0
+  },
+  {
+    notation: "R2",
+    faceId: 1
+  },
+  {
+    notation: "F",
+    faceId: 2
+  },
+  {
+    notation: "F2",
+    faceId: 2
+  },
+  {
+    notation: "F'",
+    faceId: 2
+  },
+  {
+    notation: "D",
+    faceId: 3
+  },
+  {
+    notation: "D2",
+    faceId: 3
+  },
+  {
+    notation: "D'",
+    faceId: 3
+  },
+  {
+    notation: "L2",
+    faceId: 4
+  },
+  {
+    notation: "B",
+    faceId: 5
+  },
+  {
+    notation: "B2",
+    faceId: 5
+  },
+  {
+    notation: "B'",
+    faceId: 5
+  },
+  {
+    notation: "2U2",
+    faceId: 6
+  },
+  {
+    notation: "2R2",
+    faceId: 7
+  },
+  {
+    notation: "2F2",
+    faceId: 8
+  },
+  {
+    notation: "2D2",
+    faceId: 9
+  },
+  {
+    notation: "2L2",
+    faceId: 10
+  },
+  {
+    notation: "2B2",
+    faceId: 11
+  }
+];
+
+function axisTransitionAllowed(lastFaceId, nextFaceId) {
+  if (lastFaceId < 0) {
+    return true;
+  } else if (lastFaceId !== nextFaceId) {
+    if (lastFaceId % 3 !== nextFaceId % 3) {
+      return true;
+    } else {
+      return lastFaceId < nextFaceId;
+    }
+  } else {
+    return false;
+  }
+}
+
 function buildCentrePruning(maximumDepth) {
   let transitions = {
     contents: []
@@ -870,6 +1082,9 @@ export {
   buildCentreSymmetryMap,
   createPackedPruning,
   buildSymmetryCentrePruning,
+  phase2Moves,
+  phase3Moves,
+  axisTransitionAllowed,
   buildCentrePruning,
 }
 /* centreCoordinateSize Not a pure module */

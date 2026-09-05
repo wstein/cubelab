@@ -504,6 +504,56 @@ let buildSymmetryCentrePruning = (maximumDepth: int): result<array<int>, inputEr
   }
   }
 
+/* Port of Moves.move2std / move3std: the restricted move sets searched by
+ * phases two and three. Upstream numbers each of the twelve outer/wide faces
+ * 0..11 as U,R,F,D,L,B,u,r,f,d,l,b and derives both lists from that single
+ * numbering; this port keeps the same faceId so the ckmv rule below ports
+ * directly, while spelling each move in this codebase's own notation instead
+ * of transcribing Moves.java's byte tables. */
+type restrictedMove = {notation: string, faceId: int}
+
+let phase2Moves: array<restrictedMove> = [
+  {notation: "U", faceId: 0}, {notation: "U2", faceId: 0}, {notation: "U'", faceId: 0},
+  {notation: "R", faceId: 1}, {notation: "R2", faceId: 1}, {notation: "R'", faceId: 1},
+  {notation: "F", faceId: 2}, {notation: "F2", faceId: 2}, {notation: "F'", faceId: 2},
+  {notation: "D", faceId: 3}, {notation: "D2", faceId: 3}, {notation: "D'", faceId: 3},
+  {notation: "L", faceId: 4}, {notation: "L2", faceId: 4}, {notation: "L'", faceId: 4},
+  {notation: "B", faceId: 5}, {notation: "B2", faceId: 5}, {notation: "B'", faceId: 5},
+  {notation: "2U2", faceId: 6},
+  {notation: "2R", faceId: 7}, {notation: "2R2", faceId: 7}, {notation: "2R'", faceId: 7},
+  {notation: "2F2", faceId: 8},
+  {notation: "2D2", faceId: 9},
+  {notation: "2L", faceId: 10}, {notation: "2L2", faceId: 10}, {notation: "2L'", faceId: 10},
+  {notation: "2B2", faceId: 11},
+]
+
+let phase3Moves: array<restrictedMove> = [
+  {notation: "U", faceId: 0}, {notation: "U2", faceId: 0}, {notation: "U'", faceId: 0},
+  {notation: "R2", faceId: 1},
+  {notation: "F", faceId: 2}, {notation: "F2", faceId: 2}, {notation: "F'", faceId: 2},
+  {notation: "D", faceId: 3}, {notation: "D2", faceId: 3}, {notation: "D'", faceId: 3},
+  {notation: "L2", faceId: 4},
+  {notation: "B", faceId: 5}, {notation: "B2", faceId: 5}, {notation: "B'", faceId: 5},
+  {notation: "2U2", faceId: 6},
+  {notation: "2R2", faceId: 7},
+  {notation: "2F2", faceId: 8},
+  {notation: "2D2", faceId: 9},
+  {notation: "2L2", faceId: 10},
+  {notation: "2B2", faceId: 11},
+]
+
+/* Port of Moves.ckmv, specialised to face ids rather than raw move indices:
+ * `ckmv[i][j]` upstream is true exactly when a search node must reject move
+ * j after move i (same face repeated, or an axis pair — faceId mod 3 — taken
+ * out of ascending order). Because same-axis moves commute, rejecting the
+ * descending order never excludes an optimal solution; it only removes a
+ * redundant reordering, exactly like this codebase's existing
+ * TwoPhaseSolver.canonicalFaceTransition for the un-restricted 3×3 move set.
+ * lastFaceId of -1 marks the start of a search, where every move is legal. */
+let axisTransitionAllowed = (lastFaceId: int, nextFaceId: int): bool =>
+  lastFaceId < 0 ||
+    (lastFaceId != nextFaceId && (lastFaceId % 3 != nextFaceId % 3 || lastFaceId < nextFaceId))
+
 /* Breadth-first packed pruning build. maximumDepth permits deterministic,
  * small test builds; pass 15 for the complete raw-coordinate traversal. */
 let buildCentrePruning = (maximumDepth: int): result<array<int>, inputError> => {

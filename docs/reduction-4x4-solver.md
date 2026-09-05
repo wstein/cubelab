@@ -54,9 +54,17 @@ coordinate transform), validates the upstream 15,582-orbit reduction, and
 encodes each raw rank as a compact representative plus inverse symmetry. The
 centre-table generator now runs packed BFS on those representatives and writes
 the 7,791-byte artifact to `public/solver/three-phase-centre.v1.bin`; it
-rejects any unreached compact state. Search coordinates beyond phase-one and
-the solver integration are not ported yet. The module is not connected to the
-Converter. The existing Academy guides remain independent and intact.
+rejects any unreached compact state. The ninth increment ports
+`Moves.move2std` and `Moves.move3std`: the 28-move phase-two and 20-move
+phase-three restricted sets, each move tagged with the upstream face id
+(0–11, `U,R,F,D,L,B,u,r,f,d,l,b`) that its `ckmv` adjacency rule keys on.
+`axisTransitionAllowed` ports that rule directly — reject a repeated face,
+and within an axis pair (`faceId mod 3`) accept only ascending face-id
+order — the same commuting-move symmetry break already used by
+`TwoPhaseSolver.canonicalFaceTransition` for the 3×3 search. Search
+coordinates beyond phase-one and the solver integration are not ported yet.
+The module is not connected to the Converter. The existing Academy guides
+remain independent and intact.
 
 `Reduction4x4.reduce4x4` is the handoff gate for stage 3. It accepts only a
 4×4 with monochrome 2×2 centres and paired visible wings, converts it to the

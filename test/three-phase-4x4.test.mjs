@@ -2,7 +2,7 @@ import {expect, test} from "vitest";
 
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
-import {applyCentreTransition, applyTransition, buildCentrePruning, buildCentreSymmetryMap, buildSymmetryCentrePruning, canonicalUdRank, centreSymmetryPermutations, centreTransition, createCentrePruning, decodeFacelets, encodeFacelets, extractCentres, extractCorners, extractWings, pruningDepth, rankUdCentres, setPruningDepth, transitionUdRank, unrankUdCentres} from "../src/Solver/ThreePhase4x4.res.mjs";
+import {applyCentreTransition, applyTransition, axisTransitionAllowed, buildCentrePruning, buildCentreSymmetryMap, buildSymmetryCentrePruning, canonicalUdRank, centreSymmetryPermutations, centreTransition, createCentrePruning, decodeFacelets, encodeFacelets, extractCentres, extractCorners, extractWings, phase2Moves, phase3Moves, pruningDepth, rankUdCentres, setPruningDepth, transitionUdRank, unrankUdCentres} from "../src/Solver/ThreePhase4x4.res.mjs";
 
 test("three-phase boundary round-trips CubeLab's canonical 96 facelets", () => {
   const state = MoveExecutor.parseAndApply(4, "Rw U 2F' Lw2");
@@ -134,4 +134,37 @@ test("symmetry-reduced phase-one BFS stores only compact centre representatives"
   if (table.TAG !== "Ok") return;
   expect(table._0).toHaveLength(7791);
   expect(pruningDepth(table._0, 0)).toBe(0);
+});
+
+test("phase-two move set matches the upstream 28 allowed moves", () => {
+  expect(phase2Moves).toHaveLength(28);
+  expect(new Set(phase2Moves.map((move) => move.notation)).size).toBe(28);
+  expect(new Set(phase2Moves.map((move) => move.faceId)).size).toBe(12);
+});
+
+test("phase-three move set matches the upstream 20 allowed moves", () => {
+  expect(phase3Moves).toHaveLength(20);
+  expect(new Set(phase3Moves.map((move) => move.notation)).size).toBe(20);
+  expect(new Set(phase3Moves.map((move) => move.faceId)).size).toBe(12);
+});
+
+test("every phase-two and phase-three move notation is a legal 4×4 transition", () => {
+  const solved = FaceletCodec.parse(4, "U".repeat(16) + "R".repeat(16) + "F".repeat(16) + "D".repeat(16) + "L".repeat(16) + "B".repeat(16));
+  expect(solved.TAG).toBe("Ok");
+  if (solved.TAG !== "Ok") return;
+  [...phase2Moves, ...phase3Moves].forEach((move) => {
+    const applied = applyTransition(solved._0, move.notation);
+    expect(applied.TAG).toBe("Ok");
+  });
+});
+
+test("axis transition rule rejects a repeated face and an out-of-order axis pair", () => {
+  expect(axisTransitionAllowed(-1, 0)).toBe(true);
+  expect(axisTransitionAllowed(0, 0)).toBe(false);
+  expect(axisTransitionAllowed(0, 3)).toBe(true);
+  expect(axisTransitionAllowed(3, 0)).toBe(false);
+  expect(axisTransitionAllowed(3, 6)).toBe(true);
+  expect(axisTransitionAllowed(6, 3)).toBe(false);
+  expect(axisTransitionAllowed(0, 1)).toBe(true);
+  expect(axisTransitionAllowed(1, 0)).toBe(true);
 });
