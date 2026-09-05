@@ -827,41 +827,48 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform: translateY(calc(-100% - var(--manual-state-face-gap)));
 }
 
-/* 3D view: exploded isometric layout where all non-frontal faces
-   (Top, Down, Left, Right) project into their respective 3D planes. */
+/* 3D view: real 3D cube in center with exploded hidden faces (L, D, B). */
 .manual-state-net[data-representation="isometric"] {
   --attached-face-gap: var(--manual-state-face-gap);
   --attached-fold-gap: 0.2rem;
-  --attached-diagonal-shift: calc(var(--manual-state-face-gap) * 0.2929);
   overflow: visible;
+  padding: 0.8rem 1.2rem 2.2rem 1.2rem;
 }
 
 .manual-state-net[data-representation="isometric"] .manual-state-face {
   transition: transform 160ms ease;
 }
 
+/* 1. Core 3D cube: Front, Top, Right seamlessly assembled in the center */
+.manual-state-net[data-representation="isometric"] .manual-state-face[data-face="F"] {
+  transform: none;
+}
+
 .manual-state-net[data-representation="isometric"] .manual-state-face[data-face="U"] {
-  transform: translateX(var(--attached-diagonal-shift)) skewX(-45deg);
+  transform: translateY(var(--manual-state-face-gap)) skewX(-45deg);
   transform-origin: bottom left;
 }
 
 .manual-state-net[data-representation="isometric"] .manual-state-face[data-face="R"] {
-  transform: translateY(calc(-1 * var(--attached-diagonal-shift))) skewY(-45deg);
+  transform: translateX(calc(-1 * var(--manual-state-face-gap))) skewY(-45deg);
   transform-origin: top left;
 }
 
-.manual-state-net[data-representation="isometric"] .manual-state-face[data-face="B"] {
-  transform: translateY(calc(-100% - var(--manual-state-face-gap)));
-}
-
+/* 2. Exploded Left face: tilted into 3D perspective and clearly separated to the left */
 .manual-state-net[data-representation="isometric"] .manual-state-face[data-face="L"] {
-  transform: skewY(-45deg);
-  transform-origin: top right;
+  transform: translate(-30%, -15%) skewY(-45deg);
+  transform-origin: center;
 }
 
+/* 3. Exploded Down face: tilted flat on ground plane, centered beneath the 3D cube */
 .manual-state-net[data-representation="isometric"] .manual-state-face[data-face="D"] {
-  transform: skewX(-45deg);
-  transform-origin: top left;
+  transform: translate(calc(50% + var(--manual-state-face-gap) * 0.5), 35%) skewX(-45deg);
+  transform-origin: center;
+}
+
+/* 4. Exploded Back face: elevated and floated into the upper-right rear plane */
+.manual-state-net[data-representation="isometric"] .manual-state-face[data-face="B"] {
+  transform: translate(30%, calc(-100% - 30% - var(--manual-state-face-gap)));
 }
 
 /* Each face has a stable view-transition name, allowing the browser to carry
