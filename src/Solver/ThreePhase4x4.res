@@ -53,3 +53,25 @@ let extractCentres = (state: cubeState): string =>
     ->Array.map(index => facelets->String.get(index)->Belt.Option.getUnsafe->String.make)
     ->Array.join("")
   }
+
+/* Direct port of FullCube.edgeFacelet. Each pair identifies the two stickers
+ * belonging to one wing slot; ordering is significant to the edge phases. */
+let wingFaceletIndices = [
+  (13, 33), (4, 65), (2, 81), (11, 17),
+  (61, 94), (52, 78), (50, 46), (59, 30),
+  (75, 40), (68, 87), (27, 88), (20, 39),
+  (34, 14), (66, 8), (82, 1), (18, 7),
+  (93, 62), (77, 56), (45, 49), (29, 55),
+  (36, 71), (91, 72), (84, 23), (43, 24),
+]
+
+let extractWings = (state: cubeState): array<string> =>
+  switch encodeFacelets(state) {
+  | Error(_) => []
+  | Ok(facelets) =>
+    wingFaceletIndices
+    ->Array.map(((first, second)) =>
+      facelets->String.get(first)->Belt.Option.getUnsafe->String.make ++
+      facelets->String.get(second)->Belt.Option.getUnsafe->String.make
+    )
+  }

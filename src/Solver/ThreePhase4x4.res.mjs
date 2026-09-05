@@ -74,10 +74,120 @@ function extractCentres(state) {
   return centreFaceletIndices.map(index => String(facelets$1[index])).join("");
 }
 
+let wingFaceletIndices = [
+  [
+    13,
+    33
+  ],
+  [
+    4,
+    65
+  ],
+  [
+    2,
+    81
+  ],
+  [
+    11,
+    17
+  ],
+  [
+    61,
+    94
+  ],
+  [
+    52,
+    78
+  ],
+  [
+    50,
+    46
+  ],
+  [
+    59,
+    30
+  ],
+  [
+    75,
+    40
+  ],
+  [
+    68,
+    87
+  ],
+  [
+    27,
+    88
+  ],
+  [
+    20,
+    39
+  ],
+  [
+    34,
+    14
+  ],
+  [
+    66,
+    8
+  ],
+  [
+    82,
+    1
+  ],
+  [
+    18,
+    7
+  ],
+  [
+    93,
+    62
+  ],
+  [
+    77,
+    56
+  ],
+  [
+    45,
+    49
+  ],
+  [
+    29,
+    55
+  ],
+  [
+    36,
+    71
+  ],
+  [
+    91,
+    72
+  ],
+  [
+    84,
+    23
+  ],
+  [
+    43,
+    24
+  ]
+];
+
+function extractWings(state) {
+  let facelets = encodeFacelets(state);
+  if (facelets.TAG !== "Ok") {
+    return [];
+  }
+  let facelets$1 = facelets._0;
+  return wingFaceletIndices.map(param => String(facelets$1[param[0]]) + String(facelets$1[param[1]]));
+}
+
 export {
   encodeFacelets,
   decodeFacelets,
   centreFaceletIndices,
   extractCentres,
+  wingFaceletIndices,
+  extractWings,
 }
 /* No side effect */

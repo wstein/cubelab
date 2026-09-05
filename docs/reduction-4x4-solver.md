@@ -26,8 +26,11 @@ first completed increment is the strict 96-facelet U/R/F/D/L/B row-major
 boundary: a CubeLab 4×4 state round-trips exactly through the format consumed
 by the upstream three-phase search. The second increment ports
 `FullCube.centerFacelet`: its 24 centre slots are extracted in the upstream
-U/D/F/B/R/L coordinate order. Wing, pruning-table, and search coordinates are
-not ported yet; the module is not connected to the Converter.
+U/D/F/B/R/L coordinate order. The third increment ports
+`FullCube.edgeFacelet`: all 24 ordered wing pairs extract from CubeLab state in
+the upstream coordinate order. Corner, move-transition, pruning-table, and
+search coordinates are not ported yet; the module is not connected to the
+Converter.
 
 `Reduction4x4.reduce4x4` is the handoff gate for stage 3. It accepts only a
 4×4 with monochrome 2×2 centres and paired visible wings, converts it to the
