@@ -815,7 +815,12 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .manual-state-attached-net {
   display: block;
   width: 100%;
-  height: clamp(8.2rem, 15vw, 11.5rem);
+  /* This is an alternate editor, not a thumbnail. Let it occupy the same
+     generous panel scale as the Standard net while bounding it on short and
+     narrow viewports. */
+  height: min(70vh, 75vw);
+  min-height: 18rem;
+  max-height: 46rem;
   overflow: visible;
 }
 

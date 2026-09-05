@@ -274,6 +274,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /wireManualStateKeyboard\(manualStateAttachedNet\)/);
   assert.match(client, /manualStateNet\.hidden = manualStateRepresentation !== "standard"/);
   assert.match(styles, /\.manual-state-attached-net \{/);
+  assert.match(styles, /\.manual-state-attached-net \{[\s\S]*height: min\(70vh, 75vw\);/);
   assert.match(styles, /\.manual-state-sticker\[data-centre="true"\]:hover[\s\S]*box-shadow:\s*none/);
   assert.match(client, /paintRoot\.addEventListener\("dblclick",[\s\S]*manualStateRawStickerAt/);
   assert.match(client, /sticker\.title = "Double-click to select colour"/);
