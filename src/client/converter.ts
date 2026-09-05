@@ -2481,6 +2481,12 @@ if (root) {
     const ollParity = reduced?.TAG === "Error"
       && reduced._0.message.startsWith("4×4 OLL parity detected:");
     const finishReady = reduced?.TAG === "Ok";
+    const centreGuide = progress.stage === "centres"
+      ? planNextCentreBlock4x4(recognized.state)
+      : null;
+    const centreGuideStep = centreGuide?.TAG === "Ok"
+      ? `Next verified centre setup: ${centreGuide._0.algorithm}. This improves ${centreGuide._0.beforeBlocks}/6 to ${centreGuide._0.afterBlocks}/6 completed blocks${centreGuide._0.afterBlocks === centreGuide._0.beforeBlocks ? ` (centre grouping ${centreGuide._0.beforeScore}/24 → ${centreGuide._0.afterScore}/24)` : ""}.`
+      : null;
     const outstandingWings = progress.wingRows
       .filter((row) => !row.complete)
       .map((row) => `${row.face} ${row.edge}: ${row.colours?.join("/") ?? "?"}`);
@@ -2491,11 +2497,15 @@ if (root) {
         "Centres are free-moving pieces: make a 1×2 bar, make a second matching bar, then join them into a 2×2 face block.",
         `${progress.centreBlocksComplete}/6 centre blocks`,
         centresDone,
-        progress.stage === "centres",
+        progress.stage === "centres" && progress.centreBlocksComplete < 2,
         [
           "Choose one colour and make a 1×2 bar with an inner-slice turn; keep it out of the working layer.",
           "Make a second bar of the same colour, align the two bars, then join them to complete the 2×2 centre block.",
           "Use the completed block to establish the colour scheme: its opposite centre must be the opposite cube colour.",
+          ...(progress.centreBlocksComplete < 2 && centreGuideStep === null
+            ? [centreGuide?._0.message ?? "Request another centre guide after one setup move."]
+            : []),
+          ...(progress.centreBlocksComplete < 2 && centreGuideStep !== null ? [centreGuideStep] : []),
         ],
       ),
       reductionAcademyPhase(
@@ -2509,6 +2519,10 @@ if (root) {
           "Build the opposite 2×2 block with the first completed centre held on the bottom or back.",
           "For each side centre, form two 1×2 bars in the free layers, join them, then restore the inner slice you opened.",
           "Before moving on, verify four stickers of one colour occupy every completed centre block; do not treat a mixed 2×2 as solved.",
+          ...(progress.centreBlocksComplete >= 2 && centreGuideStep === null
+            ? [centreGuide?._0.message ?? "Request another centre guide after one setup move."]
+            : []),
+          ...(progress.centreBlocksComplete >= 2 && centreGuideStep !== null ? [centreGuideStep] : []),
         ],
       ),
       reductionAcademyPhase(
@@ -2560,7 +2574,7 @@ if (root) {
       ),
     );
     if (progress.stage === "centres") {
-      const guide = planNextCentreBlock4x4(recognized.state);
+      const guide = centreGuide!;
       academy.guide.hidden = false;
       if (guide.TAG === "Ok") {
         const result = guide._0.afterBlocks > guide._0.beforeBlocks
