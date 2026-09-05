@@ -429,6 +429,13 @@ export const manualStatePieceMates = (size: ManualStateSize, index: number): num
   return [];
 };
 
+/** Sticker dots whose local cubie constraint can change after editing index. */
+export const manualStateLocalConstraintIndices = (size: ManualStateSize, index: number): number[] => {
+  const kinds = size >= 4 ? highOrderPieceKindsBySize[size] : kindsForSize(size as 2 | 3);
+  const kind = kinds.find((candidate) => candidate.slots.some((slot) => slot.includes(index)));
+  return kind ? kind.slots.flat() : [index];
+};
+
 // Narrow aliases keep the initial 2×2 test contract readable.
 export const canCompleteManualState2 = (draft: ManualStateDraft): boolean => canCompleteManualState(2, draft);
 export const allowedManualStateColours2 = (draft: ManualStateDraft, index: number): ManualStateFace[] =>

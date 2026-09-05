@@ -14,6 +14,7 @@ import {
   manualStateEdgeSlots,
   manualStateEnteredCount,
   manualStatePieceMates,
+  manualStateLocalConstraintIndices,
   solvedManualState2,
   solvedManualState,
   type ManualStateDraft,
@@ -220,6 +221,11 @@ test("keeps FaceletCodec's URFDLB serialization independent from the editor pres
 });
 
 describe("manualStatePieceMates", () => {
+  test("invalidates a local hint's full cubie orbit, not unrelated centres", () => {
+    expect(manualStateLocalConstraintIndices(4, 7)).toContain(18);
+    expect(manualStateLocalConstraintIndices(4, 7)).not.toContain(5);
+    expect(manualStateLocalConstraintIndices(5, 106)).toEqual([106]);
+  });
   test("names the other two stickers of a 3×3 corner", () => {
     // Index 8 is UFR's U sticker; its slot is [8, 9, 20] (U, R, F).
     expect(manualStatePieceMates(3, 8).sort((a, b) => a - b)).toEqual([9, 20]);

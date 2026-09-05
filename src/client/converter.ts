@@ -45,6 +45,7 @@ import {
   manualStateEnteredCount,
   manualStateFaces,
   manualStatePieceMates,
+  manualStateLocalConstraintIndices,
   manualStateStickerCount,
   solvedManualState,
   type ManualStateDraft,
@@ -432,6 +433,7 @@ if (root) {
   let manualStateOrientation: 0 | 1 | 2 | 3 = 0;
   let manualStateIsRotating = false;
   let manualStateDotGeneration = 0;
+  let manualStateDirtyDots: Set<number> | null = null;
   // Built once per manual-state size and reused across renders: recreating
   // every sticker button on every single paint or erase click would force a
   // full style/layout recompute and flicker.
@@ -877,8 +879,10 @@ if (root) {
   };
 
   const refreshManualStateAutoFill = (manualSize: ManualStateSize, fill: boolean) => {
+    const before = [...manualStateDraft];
     const source = manualStateSourceDraft(manualSize);
     manualStateAutoIndices.clear();
+    manualStateDirtyDots = null;
     if (!fill) {
       manualStateDraft = source;
       return;
@@ -891,6 +895,19 @@ if (root) {
     manualStateDraft.forEach((colour, index) => {
       if (source[index] === null && colour !== null) manualStateAutoIndices.add(index);
     });
+    const dirty = manualStateDirtyDots ?? new Set<number>();
+    const beforeCounts = before.filter((colour): colour is ManualStateFace => colour !== null);
+    const afterCounts = manualStateDraft.filter((colour): colour is ManualStateFace => colour !== null);
+    const quotaChanged = manualStateFaces.some((face) =>
+      (beforeCounts.filter((colour) => colour === face).length === manualSize * manualSize)
+      !== (afterCounts.filter((colour) => colour === face).length === manualSize * manualSize),
+    );
+    manualStateDraft.forEach((colour, index) => {
+      if (before[index] === colour) return;
+      manualStateLocalConstraintIndices(manualSize, index).forEach((affected) => dirty.add(affected));
+    });
+    if (quotaChanged) manualStateDraft.forEach((colour, index) => { if (colour === null) dirty.add(index); });
+    manualStateDirtyDots = dirty;
   };
 
   // A face-centre never has a chosen colour; it is fixed by emptyManualState
@@ -1186,6 +1203,7 @@ if (root) {
     }
     syncManualStateInteraction();
     const pendingDots: Array<{index: number; element: HTMLElement}> = [];
+    const dirtyDots = manualStateDirtyDots;
     const hoverMates = manualStateHoverIndex === null
       ? []
       : manualStatePieceMates(manualSize, manualStateHoverIndex);
@@ -1226,6 +1244,7 @@ if (root) {
           sticker.textContent = "";
         } else {
           let dots = sticker.querySelector<HTMLElement>(".manual-state-dots");
+          const needsDots = dirtyDots === null || dirtyDots.has(index) || dots === null;
           if (!dots) {
             // Only reached right after a fill was erased: textContent above
             // wipes a sticker's children along with its text, so the dots
@@ -1236,6 +1255,7 @@ if (root) {
             dots.className = "manual-state-dots";
             sticker.append(dots);
           }
+          if (!needsDots) continue;
           if (manualSize === 2) {
             renderManualStateDots(dots, allowedManualStateColours(manualSize, manualStateDraft, index));
           } else {
@@ -1246,6 +1266,7 @@ if (root) {
       }
     });
     if (manualSize >= 3) verifyManualStateDots(manualSize, pendingDots);
+    manualStateDirtyDots = new Set();
   };
 
   // Hover only re-rings the affected stickers rather than calling
@@ -1312,8 +1333,8 @@ if (root) {
     }
     manualStateNet.style.setProperty("--manual-state-yaw", `${manualStateYaw}deg`);
     manualStateNet.style.setProperty("--manual-state-flip", `${manualStateFlip}deg`);
-    manualStateGrid.style.setProperty("--manual-state-yaw", `${manualStateYaw}deg`);
-    manualStateGrid.style.setProperty("--manual-state-flip", `${manualStateFlip}deg`);
+    manualStateGrid.style.removeProperty("--manual-state-yaw");
+    manualStateGrid.style.removeProperty("--manual-state-flip");
     if (immediate) {
       void manualStateNet.offsetHeight;
       void manualStateGrid.offsetHeight;
@@ -6199,6 +6220,7 @@ if (root) {
     manualStateDraft = emptyManualState(size as ManualStateSize);
     manualStateExplicitIndices.clear();
     manualStateAutoIndices.clear();
+    manualStateDirtyDots = null;
     renderManualStateEditor();
   });
   manualStateSolved.addEventListener("click", () => {
@@ -6206,6 +6228,7 @@ if (root) {
     manualStateExplicitIndices.clear();
     manualStateDraft.forEach((_, index) => manualStateExplicitIndices.add(index));
     manualStateAutoIndices.clear();
+    manualStateDirtyDots = null;
     renderManualStateEditor();
   });
   manualStateLoad.addEventListener("click", () => {
