@@ -752,6 +752,9 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   flex: 1 1 39rem;
   max-width: 39rem;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 /* High-order faces need room for individually legible stickers rather than
@@ -775,6 +778,80 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   gap: 0.6rem;
   width: 100%;
 }
+
+.manual-state-representation-switch {
+  display: flex;
+  gap: 0.4rem;
+  align-self: flex-start;
+}
+
+.manual-state-representation-switch .transform-btn.active {
+  border-color: #67e8f9;
+  background: rgba(103, 232, 249, 0.12);
+  color: #e8fbff;
+}
+
+/* A compact second representation of the same draft. It follows the attached
+   net convention: Front is square, Up and Right fold away, and the remaining
+   three faces stay visibly connected. It is an alternative editor selected
+   through the representation switch above. */
+.manual-state-representation {
+  padding: 0.5rem 0.65rem 0.55rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.manual-state-representation-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 0.25rem;
+  color: var(--text-muted);
+  font: 500 0.64rem var(--font-sans);
+}
+
+.manual-state-attached-net {
+  display: block;
+  width: 100%;
+  height: clamp(8.2rem, 15vw, 11.5rem);
+  overflow: visible;
+}
+
+.manual-state-attached-sticker {
+  fill: rgba(148, 163, 184, 0.1);
+  stroke: rgba(15, 23, 42, 0.95);
+  stroke-width: 1.45;
+  stroke-linejoin: round;
+  transition: fill 0.12s ease, filter 0.12s ease;
+}
+
+.manual-state-attached-sticker[data-face="U"] { fill: #f8fafc; }
+.manual-state-attached-sticker[data-face="R"] { fill: #ef4444; }
+.manual-state-attached-sticker[data-face="F"] { fill: #22c55e; }
+.manual-state-attached-sticker[data-face="D"] { fill: #facc15; }
+.manual-state-attached-sticker[data-face="L"] { fill: #f97316; }
+.manual-state-attached-sticker[data-face="B"] { fill: #3b82f6; }
+.manual-state-attached-sticker[data-piece-hover="self"] { filter: brightness(1.2) drop-shadow(0 0 1.5px #f4f7fc); }
+.manual-state-attached-sticker[data-piece-hover="mate"] { filter: brightness(1.14) drop-shadow(0 0 1.5px #ffc94a); }
+
+.manual-state-attached-net g[data-manual-state-index] { cursor: pointer; }
+.manual-state-attached-net g[data-manual-state-index]:focus { outline: none; }
+.manual-state-attached-net g[data-manual-state-index]:focus .manual-state-attached-sticker { stroke: #63b3ff; stroke-width: 2.1; }
+.manual-state-attached-dot {
+  pointer-events: all;
+  stroke: rgba(15, 23, 42, 0.9);
+  stroke-width: 0.7;
+}
+.manual-state-attached-dot[data-face="U"] { fill: #f8fafc; }
+.manual-state-attached-dot[data-face="R"] { fill: #ef4444; }
+.manual-state-attached-dot[data-face="F"] { fill: #22c55e; }
+.manual-state-attached-dot[data-face="D"] { fill: #facc15; }
+.manual-state-attached-dot[data-face="L"] { fill: #f97316; }
+.manual-state-attached-dot[data-face="B"] { fill: #3b82f6; }
+.manual-state-attached-dot[data-available="false"] { filter: grayscale(1); opacity: 0.16; }
+.manual-state-attached-dot[data-available="true"]:hover { filter: brightness(1.25); }
 
 /* An unfolded cube is a cross in a rectangle: columns 3-4 of rows 1 and 3
    hold no face at any size. display:contents keeps the six face groups direct

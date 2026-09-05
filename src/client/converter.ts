@@ -217,6 +217,9 @@ if (root) {
   const manualStateCancel = root.querySelector<HTMLButtonElement>("[data-manual-state-cancel]")!;
   const manualStateNet = root.querySelector<HTMLElement>("[data-manual-state-net]")!;
   const manualStateGrid = root.querySelector<HTMLElement>("[data-manual-state-grid]")!;
+  const manualStateAttachedPanel = root.querySelector<HTMLElement>("[data-manual-state-attached-panel]")!;
+  const manualStateAttachedNet = root.querySelector<SVGSVGElement>("[data-manual-state-attached-net]")!;
+  const manualStateRepresentationButtons = root.querySelectorAll<HTMLButtonElement>("[data-manual-state-representation]");
   const manualStatePalette = root.querySelector<HTMLElement>("[data-manual-state-palette]")!;
   const manualStateEraser = root.querySelector<HTMLButtonElement>("[data-manual-state-eraser]")!;
   const manualStateReset = root.querySelector<HTMLButtonElement>("[data-manual-state-reset]")!;
@@ -403,13 +406,15 @@ if (root) {
   const manualStateExplicitIndices = new Set<number>();
   const manualStateAutoIndices = new Set<number>();
   let manualStateHoverIndex: number | null = null;
+  let manualStateRepresentation: "standard" | "attached" = "standard";
   let manualStateDotGeneration = 0;
   // Built once per manual-state size and reused across renders: recreating
-  // ~160 sticker buttons (grid + both preview cubes) on every single paint
-  // or erase click forced a full style/layout recompute and visibly
-  // flickered, even though only a handful of stickers actually changed.
+  // the editable grid and attached reference net on every single paint or
+  // erase click would force a full style/layout recompute and flicker.
   let manualStateBuiltSize: ManualStateSize | null = null;
   const manualStateStickerElements: HTMLButtonElement[] = [];
+  const manualStateAttachedStickerElements: SVGPolygonElement[] = [];
+  const manualStateAttachedDotElements: SVGCircleElement[][] = [];
   let tutorialPhases: TutorialPhaseRange[] = [];
   let activeAcademy: AcademyElements | null = null;
   let commentedTutorialSolution = "";
@@ -905,6 +910,12 @@ if (root) {
       element.append(dot);
     });
   };
+  const renderManualStateAttachedDots = (index: number, choices: ManualStateFace[], blank: boolean) => {
+    manualStateAttachedDotElements[index]?.forEach((dot) => {
+      dot.hidden = !blank;
+      dot.dataset.available = String(choices.includes(dot.dataset.face as ManualStateFace));
+    });
+  };
 
   // The per-cubie check (locallyAllowedManualStateColours) paints every dot
   // synchronously in the render loop below — it is cheap enough, and a
@@ -929,10 +940,9 @@ if (root) {
       const next = pending[offset];
       window.setTimeout(() => {
         if (generation !== manualStateDotGeneration) return;
-        renderManualStateDots(
-          next.element,
-          allowedManualStateColours(manualSize, snapshot, next.index),
-        );
+        const choices = allowedManualStateColours(manualSize, snapshot, next.index);
+        renderManualStateDots(next.element, choices);
+        renderManualStateAttachedDots(next.index, choices, snapshot[next.index] === null);
         verifyNext(offset + 1);
       }, 0);
     };
@@ -1069,6 +1079,77 @@ if (root) {
     });
   };
 
+  type AttachedPoint = [number, number];
+  type AttachedQuad = [AttachedPoint, AttachedPoint, AttachedPoint, AttachedPoint];
+  const attachedNetQuads: Record<ManualStateFace, AttachedQuad> = {
+    // The front remains square. Up and Right fold away in perspective while
+    // Left, Down, and Back remain attached as readable net faces.
+    U: [[115, 82], [185, 82], [235, 32], [165, 32]],
+    L: [[45, 82], [115, 82], [115, 152], [45, 152]],
+    F: [[115, 82], [185, 82], [185, 152], [115, 152]],
+    R: [[185, 82], [235, 32], [235, 102], [185, 152]],
+    B: [[235, 32], [305, 32], [305, 102], [235, 102]],
+    D: [[115, 152], [185, 152], [185, 222], [115, 222]],
+  };
+  const attachedPoint = (quad: AttachedQuad, horizontal: number, vertical: number): AttachedPoint => {
+    const top: AttachedPoint = [
+      quad[0][0] + (quad[1][0] - quad[0][0]) * horizontal,
+      quad[0][1] + (quad[1][1] - quad[0][1]) * horizontal,
+    ];
+    const bottom: AttachedPoint = [
+      quad[3][0] + (quad[2][0] - quad[3][0]) * horizontal,
+      quad[3][1] + (quad[2][1] - quad[3][1]) * horizontal,
+    ];
+    return [top[0] + (bottom[0] - top[0]) * vertical, top[1] + (bottom[1] - top[1]) * vertical];
+  };
+  const attachedPolygonPoints = (quad: AttachedQuad, row: number, column: number, manualSize: ManualStateSize): string => {
+    const inset = 0.018;
+    const left = column / manualSize + inset;
+    const right = (column + 1) / manualSize - inset;
+    const top = row / manualSize + inset;
+    const bottom = (row + 1) / manualSize - inset;
+    return [[left, top], [right, top], [right, bottom], [left, bottom]]
+      .map(([horizontal, vertical]) => attachedPoint(quad, horizontal, vertical).join(","))
+      .join(" ");
+  };
+  const buildManualStateAttachedNet = (manualSize: ManualStateSize) => {
+    manualStateAttachedNet.replaceChildren();
+    manualStateAttachedStickerElements.length = 0;
+    manualStateAttachedDotElements.length = 0;
+    (['U', 'L', 'F', 'R', 'B', 'D'] as ManualStateFace[]).forEach((face) => {
+      const faceIndex = (['U', 'R', 'F', 'D', 'L', 'B'] as ManualStateFace[]).indexOf(face);
+      const quad = attachedNetQuads[face];
+      for (let row = 0; row < manualSize; row += 1) {
+        for (let column = 0; column < manualSize; column += 1) {
+          const index = faceIndex * manualSize * manualSize + row * manualSize + column;
+          const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+          group.dataset.manualStateIndex = String(index);
+          group.setAttribute("tabindex", isManualStateFixedCentre(manualSize, index) ? "-1" : "0");
+          const sticker = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+          sticker.classList.add("manual-state-attached-sticker");
+          sticker.setAttribute("points", attachedPolygonPoints(quad, row, column, manualSize));
+          group.append(sticker);
+          const dots = manualStateFaces.map((colour, dotIndex) => {
+            const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            const horizontal = dotIndex % 2 === 0 ? 0.32 : 0.68;
+            const vertical = 0.25 + Math.floor(dotIndex / 2) * 0.25;
+            const [x, y] = attachedPoint(quad, (column + horizontal) / manualSize, (row + vertical) / manualSize);
+            dot.classList.add("manual-state-attached-dot");
+            dot.dataset.face = colour;
+            dot.setAttribute("cx", String(x));
+            dot.setAttribute("cy", String(y));
+            dot.setAttribute("r", String(Math.max(1.15, 3.8 / manualSize)));
+            group.append(dot);
+            return dot;
+          });
+          manualStateAttachedNet.append(group);
+          manualStateAttachedStickerElements[index] = sticker;
+          manualStateAttachedDotElements[index] = dots;
+        }
+      }
+    });
+  };
+
   const renderManualStateEditor = () => {
     manualStateDotGeneration += 1;
     const manualSize = size as ManualStateSize;
@@ -1101,9 +1182,17 @@ if (root) {
       if (left) left.textContent = `${manualSize * manualSize - perColourPlaced[face]} left`;
     });
     manualStateEraser.setAttribute("aria-pressed", String(manualStateColour === null));
+    manualStateNet.hidden = manualStateRepresentation !== "standard";
+    manualStateAttachedPanel.hidden = manualStateRepresentation !== "attached";
+    manualStateRepresentationButtons.forEach((button) => {
+      const selected = button.dataset.manualStateRepresentation === manualStateRepresentation;
+      button.classList.toggle("active", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    });
     renderManualStateSummary(manualSize, displayEntered, displayTotal, perColourPlaced);
     if (manualStateBuiltSize !== manualSize) {
       buildManualStateGrid(manualSize);
+      buildManualStateAttachedNet(manualSize);
       manualStateBuiltSize = manualSize;
     }
     const pendingDots: Array<{index: number; element: HTMLElement}> = [];
@@ -1142,6 +1231,7 @@ if (root) {
         // Fixed centres are non-editable, non-selectable reference tiles;
         // isManualStateCentre guards every mutating and interaction path.
         sticker.setAttribute("aria-label", `${manualStateFaceName[face]} sticker ${localIndex + 1}${centre ? ", fixed centre" : value === null ? ", blank" : `, ${manualStateFaceName[value]}${manualStateAutoIndices.has(index) ? ", filled automatically" : ""}`}`);
+        let attachedChoices: ManualStateFace[] = [];
         if (value !== null) {
           sticker.textContent = value;
         } else {
@@ -1157,12 +1247,20 @@ if (root) {
             sticker.append(dots);
           }
           if (manualSize === 2 || manualSize >= 4) {
-            renderManualStateDots(dots, allowedManualStateColours(manualSize, manualStateDraft, index));
+            attachedChoices = allowedManualStateColours(manualSize, manualStateDraft, index);
+            renderManualStateDots(dots, attachedChoices);
           } else {
-            renderManualStateDots(dots, locallyAllowedManualStateColours(manualSize, manualStateDraft, index));
+            attachedChoices = locallyAllowedManualStateColours(manualSize, manualStateDraft, index);
+            renderManualStateDots(dots, attachedChoices);
             pendingDots.push({index, element: dots});
           }
         }
+        const attachedSticker = manualStateAttachedStickerElements[index];
+        attachedSticker.dataset.face = value ?? "unknown";
+        renderManualStateAttachedDots(index, attachedChoices, value === null);
+        if (index === manualStateHoverIndex) attachedSticker.dataset.pieceHover = "self";
+        else if (hoverMates.includes(index)) attachedSticker.dataset.pieceHover = "mate";
+        else delete attachedSticker.dataset.pieceHover;
       }
     });
     if (manualSize === 3) verifyManualStateDots(manualSize, pendingDots);
@@ -1174,26 +1272,30 @@ if (root) {
   // movement.
   const updateManualStatePieceHighlight = () => {
     const manualSize = size as ManualStateSize;
-    manualStateGrid.querySelectorAll<HTMLElement>("[data-piece-hover]").forEach((el) => {
+    [manualStateGrid, manualStateAttachedNet].forEach((representation) => representation.querySelectorAll<HTMLElement>("[data-piece-hover]").forEach((el) => {
       delete el.dataset.pieceHover;
-    });
+    }));
     if (manualStateHoverIndex === null || isManualStateCentre(manualStateHoverIndex)) return;
     const mates = manualStatePieceMates(manualSize, manualStateHoverIndex);
     const self = manualStateStickerElements[manualStateHoverIndex];
     if (self && self.dataset.centre !== "true") {
       self.dataset.pieceHover = "self";
     }
+    const attachedSelf = manualStateAttachedStickerElements[manualStateHoverIndex];
+    if (attachedSelf) attachedSelf.dataset.pieceHover = "self";
     mates.forEach((mate) => {
       const mateEl = manualStateStickerElements[mate];
       if (mateEl && mateEl.dataset.centre !== "true") {
         mateEl.dataset.pieceHover = "mate";
       }
+      const attachedMate = manualStateAttachedStickerElements[mate];
+      if (attachedMate) attachedMate.dataset.pieceHover = "mate";
     });
   };
-  // The flat net hover-highlight source of truth (manualStateHoverIndex).
-  const wireManualStateHover = (hoverRoot: HTMLElement) => {
+  // Both representations share this hover-highlight source of truth.
+  const wireManualStateHover = (hoverRoot: HTMLElement | SVGSVGElement) => {
     hoverRoot.addEventListener("mouseover", (event) => {
-      const sticker = (event.target as Element).closest<HTMLButtonElement>("[data-manual-state-index]");
+      const sticker = (event.target as Element).closest("[data-manual-state-index]");
       if (!sticker) return;
       const index = Number(sticker.dataset.manualStateIndex);
       if (isManualStateCentre(index)) {
@@ -1215,6 +1317,13 @@ if (root) {
     });
   };
   wireManualStateHover(manualStateGrid);
+  wireManualStateHover(manualStateAttachedNet);
+  manualStateRepresentationButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      manualStateRepresentation = button.dataset.manualStateRepresentation as "standard" | "attached";
+      renderManualStateEditor();
+    });
+  });
 
   const openManualStateEditor = () => {
     if (size < 2 || size > 5) return;
@@ -5457,7 +5566,7 @@ if (root) {
     renderManualStateEditor();
   });
   const manualStateRawStickerAt = (event: Event): number | null => {
-    const sticker = (event.target as Element).closest<HTMLElement>("[data-manual-state-index]");
+    const sticker = (event.target as Element).closest("[data-manual-state-index]");
     if (!sticker) return null;
     const index = Number(sticker.dataset.manualStateIndex);
     return Number.isInteger(index) ? index : null;
@@ -5466,10 +5575,9 @@ if (root) {
     const index = manualStateRawStickerAt(event);
     return index !== null && !isManualStateCentre(index) ? index : null;
   };
-  // Wired identically on the flat net and both preview cubes: whichever one
-  // the pointer is on paints, erases, or drags the same draft.
+  // Both selectable net representations paint, erase, and drag the same draft.
   let manualStateDragErase: boolean | null = null;
-  const wireManualStatePainting = (paintRoot: HTMLElement) => {
+  const wireManualStatePainting = (paintRoot: HTMLElement | SVGSVGElement) => {
     paintRoot.addEventListener("click", (event) => {
       const index = manualStateStickerAt(event);
       if (index === null) return;
@@ -5477,7 +5585,7 @@ if (root) {
       // actually clicked wins over the currently selected palette colour, so
       // a dot works as a direct shortcut rather than requiring the palette
       // to already match it first.
-      const dot = (event.target as Element).closest<HTMLElement>(".manual-state-dots i");
+      const dot = (event.target as Element).closest<HTMLElement>(".manual-state-dots i, .manual-state-attached-dot");
       if (dot?.dataset.face) {
         paintManualStateSticker(index, dot.dataset.face as ManualStateFace);
         return;
@@ -5533,20 +5641,13 @@ if (root) {
       else if (manualStateColour !== null) paintManualStateSticker(index, manualStateColour);
     });
   };
-  // The flat net only: a foreshortened corner sticker on the small preview
-  // cubes can project to a bounding box a few pixels wide, and at that
-  // scale document.elementFromPoint genuinely — verifiably, not a
-  // Playwright artifact — resolves to whichever adjacent face's sticker is
-  // nearer at that exact pixel. Painting has to be exact or it silently
-  // corrupts the draft, so the previews stay hover-reactive (wireManualStateHover,
-  // cosmetic, tolerant of an occasional wrong sticker ringed) without also
-  // being a paint surface.
   wireManualStatePainting(manualStateGrid);
+  wireManualStatePainting(manualStateAttachedNet);
   window.addEventListener("mouseup", () => {
     manualStateDragErase = null;
   });
-  // Keyboard entry on the flat net: arrow keys move DOM focus between
-  // stickers — wrapping across face boundaries on a 3×3, via the same
+  // Keyboard entry on either net: arrow keys move DOM focus between stickers
+  // — wrapping across face boundaries on a 3×3, via the same
   // topology the design mock verified — U/R/F/D/L/B paint the focused
   // sticker's colour, and E erases it. Scoped to 3×3: a 2×2's wrap isn't
   // specified there, and guessing the topology wrong would be worse than a
@@ -5577,9 +5678,13 @@ if (root) {
   const manualStateArrowKeys: Record<string, "left" | "right" | "top" | "bottom"> = {
     ArrowLeft: "left", ArrowRight: "right", ArrowUp: "top", ArrowDown: "bottom",
   };
-  manualStateNet.addEventListener("keydown", (event) => {
-    const focused = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>("[data-manual-state-index]");
-    if (!focused || !manualStateNet.contains(focused)) return;
+  const manualStateFocusableSticker = (index: number): HTMLElement | SVGGElement | null =>
+    manualStateRepresentation === "attached"
+      ? manualStateAttachedNet.querySelector<SVGGElement>(`[data-manual-state-index="${index}"]`)
+      : manualStateStickerElements[index] ?? null;
+  const wireManualStateKeyboard = (net: HTMLElement | SVGSVGElement) => net.addEventListener("keydown", (event) => {
+    const focused = (document.activeElement as Element | null)?.closest("[data-manual-state-index]");
+    if (!focused || !net.contains(focused)) return;
     const index = Number(focused.dataset.manualStateIndex);
     if (!Number.isInteger(index) || isManualStateCentre(index)) return;
     const manualSize = size as ManualStateSize;
@@ -5612,8 +5717,10 @@ if (root) {
     if (next !== null && isManualStateCentre(next)) {
       next = manualStateArrowTarget(manualSize, next, direction);
     }
-    if (next !== null) manualStateStickerElements[next]?.focus();
+    if (next !== null) manualStateFocusableSticker(next)?.focus();
   });
+  wireManualStateKeyboard(manualStateNet);
+  wireManualStateKeyboard(manualStateAttachedNet);
   manualStateReset.addEventListener("click", () => {
     manualStateDraft = emptyManualState(size as ManualStateSize);
     manualStateExplicitIndices.clear();

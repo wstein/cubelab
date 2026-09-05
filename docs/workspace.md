@@ -121,21 +121,19 @@ sticker is accepted, its colour dots preserve a feasible assignment of corner an
 identities (including the 5×5×5 wing and middle-edge orbits). The 5×5×5 editor additionally
 enforces complete exact colour quotas and its fixed core centres, but does not claim full
 big-cube reachability validation.
-Hovering an outer corner or edge-wing sticker on either big-cube net frames its
-matching stickers, while independent centre stickers deliberately have no false piece frame.
+Hovering an outer corner or edge-wing sticker frames its matching stickers across both
+representations, while independent centre stickers deliberately have no false piece frame.
 
 The net also accepts keyboard entry: arrow keys move a focus cursor between stickers,
 wrapping across a 3×3's face boundaries so the cursor keeps moving in the same visual
 direction rather than stopping at an edge (2×2 has no such wrap and stops there); U, R, F,
 D, L, or B paints the focused sticker directly; E erases it.
 
-In the net's own empty upper-right corner, two small CSS-rendered 3D cubes preview the
-draft from complementary angles (together showing all six faces) so the editor also reads
-as an actual cube rather than only an unfolded one. They are hover-reactive — pointing at
-either one rings that sticker and its other same-piece stickers everywhere they appear,
-including the flat net — but are not a paint surface: at their small rendered size a
-foreshortened corner sticker's hit-test can resolve to a neighbouring sticker, so clicks
-and drags only ever land on the flat net. A live summary card tracks Entered/Corner/Edge
+The **Standard net** and **Attached net** are selectable alternatives, so only one is shown
+at a time. Attached net keeps Front square, folds Up and Right away in perspective, and leaves
+Left, Down, and Back visibly attached. Both representations have the same colour dots,
+click/drag paint, erase, double-click colour pickup, keyboard entry, and piece-hover highlight.
+A live summary card tracks Entered/Corner/Edge
 progress; on 2×2×2 and 3×3×3 it also tracks completed corners and edges, and on 3×3×3 it
 distinguishes **Known** stickers by including the six fixed
 centres. It always includes a colour-by-colour remaining bar—including its final `0 left`
