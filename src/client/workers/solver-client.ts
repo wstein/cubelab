@@ -6,6 +6,7 @@ type TwoPhaseProgress = {id: number; type: "twoPhaseProgress"; stage: string};
 type TwoPhaseCandidate<T> = {id: number; type: "twoPhaseCandidate"; solution: T};
 type Optimal2x2Progress = {id: number; type: "optimal2x2Progress"; stage: string};
 type Reduction4x4Progress = {id: number; type: "reduction4x4Progress"; stage: string};
+type FullReduction4x4Progress = {id: number; type: "fullReduction4x4Progress"; stage: string};
 export type TwoPhaseSearchOptions = {refine?: boolean; maximumDepth?: number};
 
 /** Request/response boundary for expensive searches; the UI thread never waits for them. */
@@ -130,7 +131,7 @@ const createProgressSolverClient = <TState, TSolution, TRequest extends string, 
 ) => {
   let nextId = 0;
   const pending = new Map<number, {resolve: (value: TSolution) => void; reject: (reason: Error) => void}>();
-  worker.addEventListener("message", (event: MessageEvent<WorkerResponse<TSolution> | Optimal2x2Progress | Reduction4x4Progress>) => {
+  worker.addEventListener("message", (event: MessageEvent<WorkerResponse<TSolution> | Optimal2x2Progress | Reduction4x4Progress | FullReduction4x4Progress>) => {
     const response = event.data;
     if ("type" in response && response.type === progressType) {
       onProgress?.(response.stage);
@@ -185,5 +186,18 @@ export const createReduction4x4SolverClient = <TState, TSolution>(
   "reduction4x4Progress",
   "The 4×4 reduction solver worker could not start.",
   "The 4×4 reduction solver was stopped.",
+  onProgress,
+);
+
+/** Bounded full 4×4 reduction; success is always replay-verified in the worker. */
+export const createFullReduction4x4SolverClient = <TState, TSolution>(
+  worker: Worker,
+  onProgress?: (stage: string) => void,
+) => createProgressSolverClient<TState, TSolution>(
+  worker,
+  "solveFullReduction4x4",
+  "fullReduction4x4Progress",
+  "The full 4×4 reduction worker could not start.",
+  "The full 4×4 reduction worker was stopped.",
   onProgress,
 );

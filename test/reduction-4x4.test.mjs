@@ -14,6 +14,7 @@ import {
   reduce4x4,
 } from "../src/Solver/Reduction4x4.ts";
 import * as TwoPhaseSolver from "../src/Solver/TwoPhaseSolver.res.mjs";
+import {solveFullReduction4x4} from "../src/Solver/FullReduction4x4.ts";
 
 const apply = (size, algorithm) => {
   const result = MoveExecutor.parseAndApply(size, algorithm);
@@ -95,6 +96,16 @@ test("lifts a verified two-phase finish back onto the original reduced 4×4", ()
 
   TwoPhaseSolver.prepareTables();
   const solution = TwoPhaseSolver.solve(reduced._0.state);
+  expect(solution.TAG).toBe("Ok");
+  if (solution.TAG !== "Ok") return;
+  const replay = MoveExecutor.applyAlg(fourByFour, solution._0.alg);
+  expect(replay.TAG).toBe("Ok");
+  if (replay.TAG === "Ok") expect(isMonochromeSolved4x4(replay._0)).toBe(true);
+});
+
+test("the bounded full-reduction orchestrator solves an already reduced 4×4", () => {
+  const fourByFour = apply(4, "R U F2 L'");
+  const solution = solveFullReduction4x4(fourByFour);
   expect(solution.TAG).toBe("Ok");
   if (solution.TAG !== "Ok") return;
   const replay = MoveExecutor.applyAlg(fourByFour, solution._0.alg);
