@@ -1886,3 +1886,27 @@ test("copies the hand-entered state in the chosen format, only once it is comple
   // format's "blank means solved" convention.
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("");
 });
+
+test("4x4 manual state verification recovers across palette clicks and UI representation changes", async ({page}) => {
+  await page.goto("/");
+  await page.locator('[data-size="4"]').click();
+  await page.locator("[data-manual-state-open]").click();
+  const dialog = page.locator("[data-manual-state-dialog]");
+  await expect(dialog).toBeVisible();
+
+  // Switch representation and click palette colours (routine UI actions that used to kill verification)
+  const isometricBtn = dialog.locator('[data-manual-state-representation="isometric"]');
+  if (await isometricBtn.isVisible()) {
+    await isometricBtn.click();
+  }
+  await dialog.locator('[data-manual-state-colour="R"]').click();
+  await dialog.locator('[data-manual-state-colour="F"]').click();
+
+  // Check that dot verification completes without hanging
+  const firstDots = dialog.locator(".manual-state-dots").first();
+  await expect(firstDots.locator("i")).toHaveCount(6);
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+});
+

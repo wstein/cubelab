@@ -250,7 +250,10 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /dot\.dataset\.available = String\(choices\.includes\(choice\)\)/);
   assert.match(client, /manualStateAutoIndices\.add\(index\)/);
   assert.match(client, /const manualStateExplicitIndices = new Set<number>\(\)/);
+  assert.match(client, /const manualStateUnverifiedDots = new Set<number>\(\)/);
   assert.match(client, /refreshManualStateAutoFill\(manualSize, true\)/);
+  assert.match(client, /if \(manualStateDirtyDots === null \|\| manualStateDirtyDots\.size > 0\) \{\s*manualStateDotGeneration \+= 1;/);
+  assert.match(client, /if \(!needsDots\) \{\s*if \(manualStateUnverifiedDots\.has\(index\)\) pendingDots\.push\(\{index, element: dots\}\);/);
   assert.match(client, /if \(manualSize === 2\) \{[\s\S]{0,200}allowedManualStateColours[\s\S]{0,200}else \{[\s\S]{0,200}locallyAllowedManualStateColours[\s\S]{0,200}pendingDots\.push/);
   assert.match(client, /if \(manualSize >= 3\) verifyManualStateDots\(manualSize, pendingDots\)/);
   assert.match(client, /createManualStateVerifierClient/);

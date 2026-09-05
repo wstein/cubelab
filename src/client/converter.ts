@@ -464,6 +464,7 @@ if (root) {
     manualStateCursorSignal.set(index);
   };
   let manualStateDirtyDots: Set<number> | null = null;
+  const manualStateUnverifiedDots = new Set<number>();
   // Built once per manual-state size and reused across renders: recreating
   // every sticker button on every single paint or erase click would force a
   // full style/layout recompute and flicker.
@@ -1037,11 +1038,13 @@ if (root) {
             manualStateDraft[next.index] = choices[0] as ManualStateFace;
             touchManualStateDraft();
             manualStateAutoIndices.add(next.index);
+            manualStateUnverifiedDots.delete(next.index);
             manualStateDirtyDots = null;
             renderManualStateEditor();
             return;
           }
           renderManualStateDots(next.element, choices as ManualStateFace[]);
+          manualStateUnverifiedDots.delete(next.index);
           verifyNext(offset + 1);
         }).catch(() => {
           // Leave the conservative local result visible if a worker cannot start.
@@ -1217,8 +1220,10 @@ if (root) {
   };
 
   const renderManualStateEditor = () => {
-    manualStateDotGeneration += 1;
-    manualStateGenerationSignal.set(manualStateDotGeneration);
+    if (manualStateDirtyDots === null || manualStateDirtyDots.size > 0) {
+      manualStateDotGeneration += 1;
+      manualStateGenerationSignal.set(manualStateDotGeneration);
+    }
     const manualSize = size as ManualStateSize;
     const total = manualStateStickerCount(manualSize);
     const entered = manualStateEnteredCount(manualStateDraft);
@@ -1307,6 +1312,7 @@ if (root) {
         // isManualStateCentre guards every mutating and interaction path.
         sticker.setAttribute("aria-label", `${manualStateFaceName[face]} sticker ${localIndex + 1}${centre ? ", fixed centre" : value === null ? ", blank" : `, ${manualStateFaceName[value]}${manualStateAutoIndices.has(index) ? ", filled automatically" : ""}`}`);
         if (value !== null) {
+          manualStateUnverifiedDots.delete(index);
           sticker.textContent = "";
         } else {
           let dots = sticker.querySelector<HTMLElement>(".manual-state-dots");
@@ -1321,11 +1327,15 @@ if (root) {
             dots.className = "manual-state-dots";
             sticker.append(dots);
           }
-          if (!needsDots) continue;
+          if (!needsDots) {
+            if (manualStateUnverifiedDots.has(index)) pendingDots.push({index, element: dots});
+            continue;
+          }
           if (manualSize === 2) {
             renderManualStateDots(dots, allowedManualStateColours(manualSize, manualStateDraft, index));
           } else {
             renderManualStateDots(dots, locallyAllowedManualStateColours(manualSize, manualStateDraft, index));
+            manualStateUnverifiedDots.add(index);
             pendingDots.push({index, element: dots});
           }
         }
@@ -1587,6 +1597,7 @@ if (root) {
       if (colour !== null) manualStateExplicitIndices.add(index);
     });
     manualStateAutoIndices.clear();
+    manualStateUnverifiedDots.clear();
     setManualStateHoverIndex(null);
     setManualStateCursorIndex(null);
     manualStateIntro.textContent = manualSize <= 3
@@ -6471,6 +6482,7 @@ if (root) {
     setManualStateDraft(emptyManualState(size as ManualStateSize));
     manualStateExplicitIndices.clear();
     manualStateAutoIndices.clear();
+    manualStateUnverifiedDots.clear();
     manualStateDirtyDots = null;
     renderManualStateEditor();
   });
@@ -6479,6 +6491,7 @@ if (root) {
     manualStateExplicitIndices.clear();
     manualStateDraft.forEach((_, index) => manualStateExplicitIndices.add(index));
     manualStateAutoIndices.clear();
+    manualStateUnverifiedDots.clear();
     manualStateDirtyDots = null;
     renderManualStateEditor();
   });
