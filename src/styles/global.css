@@ -901,7 +901,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   margin-top: var(--manual-state-3d-offset, -1.8rem);
   position: relative;
   transform-style: preserve-3d;
-  transform: rotateX(-35.264deg) rotateY(var(--manual-state-yaw, -45deg)) rotate3d(var(--manual-state-flip-x, 1), 0, var(--manual-state-flip-z, 0), var(--manual-state-flip, 0deg));
+  transform: rotateX(-35.264deg) rotateY(var(--manual-state-yaw, -40deg)) rotate3d(var(--manual-state-flip-x, 1), 0, var(--manual-state-flip-z, 0), var(--manual-state-flip, 0deg));
   transition: transform 380ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -977,7 +977,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 /* Z-Index and Exploded states per orientation:
-   Orientation 0 (yaw = -45deg): Front faces F, R, U on top (z-index 5); Exploded L, B, D behind (z-index 2) */
+   Orientation 0 (yaw = -40deg): Front faces F, R, U on top (z-index 5); Exploded L, B, D behind (z-index 2) */
 .manual-state-net[data-representation="isometric"][data-orientation="0"] .manual-state-face[data-face="F"],
 .manual-state-net[data-representation="isometric"][data-orientation="0"] .manual-state-face[data-face="R"],
 .manual-state-net[data-representation="isometric"][data-orientation="0"] .manual-state-face[data-face="U"],
@@ -1079,7 +1079,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform: rotateX(-90deg) translateZ(var(--manual-state-half-size));
 }
 
-/* Flipped Orientation 0 (yaw = -45deg): Front faces B, R, D on top (z-index 5); Exploded L, F, U behind (z-index 2) */
+/* Flipped Orientation 0 (yaw = -40deg): Front faces B, R, D on top (z-index 5); Exploded L, F, U behind (z-index 2) */
 .manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="0"] .manual-state-face[data-face="B"],
 .manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="0"] .manual-state-face[data-face="R"],
 .manual-state-net[data-representation="isometric"][data-flipped="true"][data-orientation="0"] .manual-state-face[data-face="D"],
