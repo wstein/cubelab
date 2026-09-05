@@ -227,7 +227,6 @@ test("the editor separates a synchronized setup from optional replay moves", () 
 test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate from Setup", () => {
   assert.match(page, /data-manual-state-open/);
   assert.match(page, /data-manual-state-grid/);
-  assert.match(page, /data-manual-state-attached-net/);
   assert.match(page, /data-manual-state-representation="standard"/);
   assert.match(page, /data-manual-state-representation="attached"/);
   assert.match(page, /data-manual-state-load/);
@@ -269,12 +268,11 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /return index !== null && !isManualStateCentre\(index\) \? index : null;/);
   assert.doesNotMatch(page, /data-manual-state-previews/);
   assert.doesNotMatch(styles, /\.manual-state-preview/);
-  assert.match(client, /buildManualStateAttachedNet\(manualSize\)/);
-  assert.match(client, /wireManualStatePainting\(manualStateAttachedNet\)/);
-  assert.match(client, /wireManualStateKeyboard\(manualStateAttachedNet\)/);
-  assert.match(client, /manualStateNet\.hidden = manualStateRepresentation !== "standard"/);
-  assert.match(styles, /\.manual-state-attached-net \{/);
-  assert.match(styles, /\.manual-state-attached-net \{[\s\S]*height: min\(70vh, 75vw\);/);
+  assert.doesNotMatch(page, /data-manual-state-attached-net/);
+  assert.doesNotMatch(client, /buildManualStateAttachedNet/);
+  assert.match(client, /manualStateNet\.dataset\.representation = manualStateRepresentation/);
+  assert.match(styles, /\.manual-state-net\[data-representation="attached"\] \{/);
+  assert.match(styles, /\.manual-state-net\[data-representation="attached"\] \.manual-state-face/);
   assert.match(styles, /\.manual-state-sticker\[data-centre="true"\]:hover[\s\S]*box-shadow:\s*none/);
   assert.match(client, /paintRoot\.addEventListener\("dblclick",[\s\S]*manualStateRawStickerAt/);
   assert.match(client, /sticker\.title = "Double-click to select colour"/);

@@ -1708,31 +1708,29 @@ test("recovers full colour availability after erasing every sticker, including a
   }
 });
 
-test("switches between fully editable standard and attached nets", async ({page}) => {
+test("morphs one editable net between standard and attached layouts", async ({page}) => {
   await page.goto("/");
   await page.locator("[data-manual-state-open]").click();
   const dialog = page.locator("[data-manual-state-dialog]");
   await expect(dialog).toBeVisible();
 
   await expect(dialog.locator(".manual-state-preview")).toHaveCount(0);
-  const attached = dialog.locator("[data-manual-state-attached-net]");
-  await expect(attached).toBeHidden();
+  const net = dialog.locator("[data-manual-state-net]");
+  await expect(net).toHaveAttribute("data-representation", "standard");
+  await expect(net.locator("[data-manual-state-index]")).toHaveCount(54);
   await dialog.locator('[data-manual-state-representation="attached"]').click();
-  await expect(dialog.locator("[data-manual-state-net]")).toBeHidden();
-  await expect(attached).toBeVisible();
-  await expect(attached.locator(".manual-state-attached-sticker")).toHaveCount(54);
-  await expect(attached.locator('.manual-state-attached-sticker[data-face="unknown"]')).toHaveCount(48);
-  await expect(attached.locator('[data-manual-state-index="0"] .manual-state-attached-dot')).toHaveCount(6);
-  await attached.locator('[data-manual-state-index="0"] .manual-state-attached-dot[data-face="U"]').click();
-  await expect(attached.locator('[data-manual-state-index="0"] .manual-state-attached-sticker')).toHaveAttribute("data-face", "U");
+  await expect(net).toHaveAttribute("data-representation", "attached");
+  await expect(net.locator("[data-manual-state-index]")).toHaveCount(54);
+  await expect(net.locator('[data-manual-state-index="0"] .manual-state-dots i')).toHaveCount(6);
+  await net.locator('[data-manual-state-index="0"] .manual-state-dots i[data-face="U"]').click();
+  await expect(net.locator('[data-manual-state-index="0"]')).toHaveAttribute("data-face", "U");
 
   await dialog.locator("[data-manual-state-solved]").click();
-  await expect(attached.locator('.manual-state-attached-sticker[data-face="U"]')).toHaveCount(9);
-  await expect(attached.locator('.manual-state-attached-sticker[data-face="B"]')).toHaveCount(9);
+  await expect(net.locator('.manual-state-sticker[data-face="U"]')).toHaveCount(9);
+  await expect(net.locator('.manual-state-sticker[data-face="B"]')).toHaveCount(9);
 
   await dialog.locator('[data-manual-state-representation="standard"]').click();
-  await expect(attached).toBeHidden();
-  await expect(dialog.locator("[data-manual-state-net]")).toBeVisible();
+  await expect(net).toHaveAttribute("data-representation", "standard");
 
   const shortcuts = dialog.locator(".manual-state-shortcuts");
   await expect(shortcuts).toBeVisible();

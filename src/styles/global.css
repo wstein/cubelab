@@ -791,78 +791,73 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   color: #e8fbff;
 }
 
-/* A compact second representation of the same draft. It follows the attached
-   net convention: Front is square, Up and Right fold away, and the remaining
-   three faces stay visibly connected. It is an alternative editor selected
-   through the representation switch above. */
-.manual-state-representation {
-  padding: 0.5rem 0.65rem 0.55rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.025);
-}
-
-.manual-state-representation-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 0.6rem;
-  margin-bottom: 0.25rem;
-  color: var(--text-muted);
-  font: 500 0.64rem var(--font-sans);
-}
-
-.manual-state-attached-net {
-  display: block;
-  width: 100%;
-  /* This is an alternate editor, not a thumbnail. Let it occupy the same
-     generous panel scale as the Standard net while bounding it on short and
-     narrow viewports. */
-  height: min(70vh, 75vw);
-  min-height: 18rem;
-  max-height: 46rem;
-  overflow: visible;
-}
-
-.manual-state-attached-sticker {
-  fill: rgba(148, 163, 184, 0.1);
-  stroke: rgba(15, 23, 42, 0.95);
-  stroke-width: 1.45;
-  stroke-linejoin: round;
-  transition: fill 0.12s ease, filter 0.12s ease;
-}
-
-.manual-state-attached-sticker[data-face="U"] { fill: #f8fafc; }
-.manual-state-attached-sticker[data-face="R"] { fill: #ef4444; }
-.manual-state-attached-sticker[data-face="F"] { fill: #22c55e; }
-.manual-state-attached-sticker[data-face="D"] { fill: #facc15; }
-.manual-state-attached-sticker[data-face="L"] { fill: #f97316; }
-.manual-state-attached-sticker[data-face="B"] { fill: #3b82f6; }
-.manual-state-attached-sticker[data-piece-hover="self"] { filter: brightness(1.2) drop-shadow(0 0 1.5px #f4f7fc); }
-.manual-state-attached-sticker[data-piece-hover="mate"] { filter: brightness(1.14) drop-shadow(0 0 1.5px #ffc94a); }
-
-.manual-state-attached-net g[data-manual-state-index] { cursor: pointer; }
-.manual-state-attached-net g[data-manual-state-index]:focus { outline: none; }
-.manual-state-attached-net g[data-manual-state-index]:focus .manual-state-attached-sticker { stroke: #63b3ff; stroke-width: 2.1; }
-.manual-state-attached-dot {
-  pointer-events: all;
-  stroke: rgba(15, 23, 42, 0.9);
-  stroke-width: 0.7;
-}
-.manual-state-attached-dot[data-face="U"] { fill: #f8fafc; }
-.manual-state-attached-dot[data-face="R"] { fill: #ef4444; }
-.manual-state-attached-dot[data-face="F"] { fill: #22c55e; }
-.manual-state-attached-dot[data-face="D"] { fill: #facc15; }
-.manual-state-attached-dot[data-face="L"] { fill: #f97316; }
-.manual-state-attached-dot[data-face="B"] { fill: #3b82f6; }
-.manual-state-attached-dot[data-available="false"] { filter: grayscale(1); opacity: 0.16; }
-.manual-state-attached-dot[data-available="true"]:hover { filter: brightness(1.25); }
-
 /* An unfolded cube is a cross in a rectangle: columns 3-4 of rows 1 and 3
    hold no face at any size. display:contents keeps the six face groups direct
    grid items of .manual-state-net despite this wrapper, so the existing
    per-face grid-column/grid-row placement above needs no change. */
 .manual-state-net-faces { display: contents; }
+
+/* The attached net is the same six face sections and sticker buttons as the
+   standard cross. Switching representation changes only their layout, which
+   keeps colour dots, hover rings, keyboard focus, and pointer handling
+   identical in both views. */
+.manual-state-net[data-representation="attached"] {
+  --attached-face-size: min(22vw, 16rem);
+  position: relative;
+  display: block;
+  height: min(70vh, 75vw);
+  min-height: 22rem;
+  max-height: 46rem;
+  overflow: visible;
+  perspective: 70rem;
+}
+
+.manual-state-net[data-representation="attached"] .manual-state-net-faces {
+  display: block;
+}
+
+.manual-state-net[data-representation="attached"] .manual-state-face {
+  position: absolute;
+  width: var(--attached-face-size);
+  grid-column: auto;
+  grid-row: auto;
+  transform-origin: top left;
+  transition: transform 160ms ease, left 160ms ease, top 160ms ease;
+}
+
+.manual-state-net[data-representation="attached"] .manual-state-face[data-face="F"] {
+  left: 34%;
+  top: 40%;
+}
+
+.manual-state-net[data-representation="attached"] .manual-state-face[data-face="L"] {
+  left: 8%;
+  top: 40%;
+}
+
+.manual-state-net[data-representation="attached"] .manual-state-face[data-face="U"] {
+  left: 34%;
+  top: 16%;
+  transform: skewX(-32deg) scaleY(0.82);
+  transform-origin: bottom left;
+}
+
+.manual-state-net[data-representation="attached"] .manual-state-face[data-face="R"] {
+  left: 58%;
+  top: 40%;
+  transform: skewY(-32deg) scaleX(0.82);
+}
+
+.manual-state-net[data-representation="attached"] .manual-state-face[data-face="B"] {
+  left: 77%;
+  top: 24%;
+  transform: skewY(-32deg) scaleX(0.82);
+}
+
+.manual-state-net[data-representation="attached"] .manual-state-face[data-face="D"] {
+  left: 34%;
+  top: 66%;
+}
 
 .manual-state-shortcuts {
   display: flex;
