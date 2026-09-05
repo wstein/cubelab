@@ -38,8 +38,46 @@ function decodeFacelets(facelets) {
   }
 }
 
+let centreFaceletIndices = [
+  5,
+  6,
+  10,
+  9,
+  53,
+  54,
+  58,
+  57,
+  37,
+  38,
+  42,
+  41,
+  85,
+  86,
+  90,
+  89,
+  21,
+  22,
+  26,
+  25,
+  69,
+  70,
+  74,
+  73
+];
+
+function extractCentres(state) {
+  let facelets = encodeFacelets(state);
+  if (facelets.TAG !== "Ok") {
+    return "";
+  }
+  let facelets$1 = facelets._0;
+  return centreFaceletIndices.map(index => String(facelets$1[index])).join("");
+}
+
 export {
   encodeFacelets,
   decodeFacelets,
+  centreFaceletIndices,
+  extractCentres,
 }
 /* No side effect */
