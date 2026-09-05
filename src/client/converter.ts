@@ -1408,6 +1408,11 @@ if (root) {
     manualStateOrientation = 0;
     manualStateYaw = -45;
     manualStateNet.style.setProperty("--manual-state-yaw", `${manualStateYaw}deg`);
+    manualStateNet.dataset.orientation = "0";
+    manualStateFlip = 0;
+    manualStateFlipped = false;
+    manualStateNet.style.setProperty("--manual-state-flip", "0deg");
+    delete manualStateNet.dataset.flipped;
     manualStateIsRotating = false;
     delete manualStateNet.dataset.animState;
     const manualSize = size as ManualStateSize;
@@ -1422,7 +1427,6 @@ if (root) {
     manualStateAutoIndices.clear();
     manualStateHoverIndex = null;
     manualStateCursorIndex = null;
-    manualStateTitle.textContent = `Enter ${manualSize}×${manualSize}×${manualSize} state`;
     manualStateIntro.textContent = manualSize <= 3
       ? "Pick a face colour, then fill the net. Nothing changes in Setup until the complete, physically valid state is loaded."
       : manualSize === 5
