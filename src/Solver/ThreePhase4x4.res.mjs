@@ -4,6 +4,7 @@ import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as StateTypes from "../State/StateTypes.res.mjs";
 import * as FaceletCodec from "../State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
+import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 
 function encodeFacelets(state) {
   if (state.size !== 4) {
@@ -273,6 +274,94 @@ function applyTransition(state, notation) {
   }
 }
 
+function serialFace(index) {
+  switch (index) {
+    case 0 :
+      return "U";
+    case 1 :
+      return "R";
+    case 2 :
+      return "F";
+    case 3 :
+      return "D";
+    case 4 :
+      return "L";
+    default:
+      return "B";
+  }
+}
+
+function markerState() {
+  return {
+    size: 4,
+    facelets: StateTypes.storageOrder.map(param => Stdlib_Array.make(16, "U"))
+  };
+}
+
+function rawMarkerIndex(state) {
+  let found = -1;
+  for (let serialIndex = 0; serialIndex <= 5; ++serialIndex) {
+    let stickers = state.facelets[StateTypes.storageIndex(serialFace(serialIndex))];
+    for (let stickerIndex = 0; stickerIndex <= 15; ++stickerIndex) {
+      if (stickers[stickerIndex] === "D") {
+        found = (serialIndex << 4) + stickerIndex | 0;
+      }
+    }
+  }
+  return found;
+}
+
+function centreSlotForFacelet(rawIndex) {
+  let found = -1;
+  for (let slot = 0; slot <= 23; ++slot) {
+    if (centreFaceletIndices[slot] === rawIndex) {
+      found = slot;
+    }
+  }
+  return found;
+}
+
+function centreTransition(notation) {
+  let permutation = Stdlib_Array.make(24, 0);
+  let failure;
+  for (let sourceSlot = 0; sourceSlot <= 23; ++sourceSlot) {
+    let marker = markerState();
+    let sourceFacelet = centreFaceletIndices[sourceSlot];
+    let face = serialFace(sourceFacelet / 16 | 0);
+    marker.facelets[StateTypes.storageIndex(face)][sourceFacelet % 16] = "D";
+    let error = applyTransition(marker, notation);
+    if (error.TAG === "Ok") {
+      let targetSlot = centreSlotForFacelet(rawMarkerIndex(error._0));
+      if (targetSlot === -1) {
+        failure = {
+          TAG: "InvalidTransition",
+          _0: "Transition moves a centre marker outside the centre coordinate."
+        };
+      } else {
+        permutation[targetSlot] = sourceSlot;
+      }
+    } else {
+      failure = error._0;
+    }
+  }
+  let error$1 = failure;
+  if (error$1 !== undefined) {
+    return {
+      TAG: "Error",
+      _0: error$1
+    };
+  } else {
+    return {
+      TAG: "Ok",
+      _0: permutation
+    };
+  }
+}
+
+function applyCentreTransition(centres, permutation) {
+  return permutation.map(source => String(centres[source])).join("");
+}
+
 export {
   encodeFacelets,
   decodeFacelets,
@@ -283,5 +372,11 @@ export {
   cornerFaceletIndices,
   extractCorners,
   applyTransition,
+  serialFace,
+  markerState,
+  rawMarkerIndex,
+  centreSlotForFacelet,
+  centreTransition,
+  applyCentreTransition,
 }
 /* No side effect */

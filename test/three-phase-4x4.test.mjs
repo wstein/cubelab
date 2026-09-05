@@ -2,7 +2,7 @@ import {expect, test} from "vitest";
 
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
-import {applyTransition, decodeFacelets, encodeFacelets, extractCentres, extractCorners, extractWings} from "../src/Solver/ThreePhase4x4.res.mjs";
+import {applyCentreTransition, applyTransition, centreTransition, decodeFacelets, encodeFacelets, extractCentres, extractCorners, extractWings} from "../src/Solver/ThreePhase4x4.res.mjs";
 
 test("three-phase boundary round-trips CubeLab's canonical 96 facelets", () => {
   const state = MoveExecutor.parseAndApply(4, "Rw U 2F' Lw2");
@@ -52,5 +52,20 @@ test("three-phase transition seam agrees with the canonical 4×4 executor", () =
   expect(expected.TAG).toBe("Ok");
   if (transitioned.TAG === "Ok" && expected.TAG === "Ok") {
     expect(FaceletCodec.render(transitioned._0)).toBe(FaceletCodec.render(expected._0));
+  }
+});
+
+test("generated centre transition matches a physical inner-layer move", () => {
+  const state = MoveExecutor.parseAndApply(4, "2R U 2F L");
+  expect(state.TAG).toBe("Ok");
+  if (state.TAG !== "Ok") return;
+  const permutation = centreTransition("2R");
+  expect(permutation.TAG).toBe("Ok");
+  if (permutation.TAG !== "Ok") return;
+  expect([...permutation._0].sort((left, right) => left - right)).toEqual([...Array(24).keys()]);
+  const moved = applyTransition(state._0, "2R");
+  expect(moved.TAG).toBe("Ok");
+  if (moved.TAG === "Ok") {
+    expect(applyCentreTransition(extractCentres(state._0), permutation._0)).toBe(extractCentres(moved._0));
   }
 });

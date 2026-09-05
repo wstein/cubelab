@@ -115,3 +115,75 @@ let applyTransition = (
       }
     }
   }
+
+let serialFace = index =>
+  switch index {
+  | 0 => U
+  | 1 => R
+  | 2 => F
+  | 3 => D
+  | 4 => L
+  | _ => B
+  }
+
+let markerState = (): cubeState => {
+  size: 4,
+  facelets: storageOrder->Array.map(_ => Array.make(~length=16, U)),
+}
+
+let rawMarkerIndex = (state: cubeState): int => {
+  let found = ref(-1)
+  for serialIndex in 0 to 5 {
+    let stickers = Belt.Array.getUnsafe(state.facelets, storageIndex(serialFace(serialIndex)))
+    for stickerIndex in 0 to 15 {
+      if Belt.Array.getUnsafe(stickers, stickerIndex) == D {
+        found := serialIndex * 16 + stickerIndex
+      }
+    }
+  }
+  found.contents
+}
+
+let centreSlotForFacelet = rawIndex => {
+  let found = ref(-1)
+  for slot in 0 to 23 {
+    if Belt.Array.getUnsafe(centreFaceletIndices, slot) == rawIndex {
+      found := slot
+    }
+  }
+  found.contents
+}
+
+/* Generated table row in target->source form. A unique marker is moved through
+ * the canonical executor for each source slot, avoiding hand-maintained move
+ * permutations and making the coordinate table reproducible. */
+let centreTransition = (notation: string): result<array<int>, inputError> => {
+  let permutation = Array.make(~length=24, 0)
+  let failure = ref(None)
+  for sourceSlot in 0 to 23 {
+    let marker = markerState()
+    let sourceFacelet = Belt.Array.getUnsafe(centreFaceletIndices, sourceSlot)
+    let face = serialFace(sourceFacelet / 16)
+    Belt.Array.getUnsafe(marker.facelets, storageIndex(face))[sourceFacelet % 16] = D
+    switch applyTransition(marker, notation) {
+    | Error(error) => failure := Some(error)
+    | Ok(moved) => {
+      let targetSlot = rawMarkerIndex(moved)->centreSlotForFacelet
+      if targetSlot == -1 {
+        failure := Some(InvalidTransition("Transition moves a centre marker outside the centre coordinate."))
+      } else {
+        permutation[targetSlot] = sourceSlot
+      }
+    }
+    }
+  }
+  switch failure.contents {
+  | Some(error) => Error(error)
+  | None => Ok(permutation)
+  }
+}
+
+let applyCentreTransition = (centres: string, permutation: array<int>): string =>
+  permutation
+  ->Array.map(source => centres->String.get(source)->Belt.Option.getUnsafe->String.make)
+  ->Array.join("")

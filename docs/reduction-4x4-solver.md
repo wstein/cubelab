@@ -32,8 +32,11 @@ the upstream coordinate order. The fourth increment ports
 `FullCube.cornerFacelet`: all eight oriented corner triples now extract in
 upstream slot order. The fifth increment adds a validated move-transition seam
 for outer, inner, and wide 4×4 moves; coordinate tables will be generated and
-checked against this canonical executor. Pruning-table and search coordinates
-are not ported yet; the module is not connected to the Converter.
+checked against this canonical executor. The sixth increment generates compact
+centre transition permutations by moving a unique marker through that executor;
+the row is stored target-to-source for direct coordinate application.
+Pruning-table and search coordinates are not ported yet; the module is not
+connected to the Converter.
 
 `Reduction4x4.reduce4x4` is the handoff gate for stage 3. It accepts only a
 4×4 with monochrome 2×2 centres and paired visible wings, converts it to the
