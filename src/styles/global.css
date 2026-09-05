@@ -891,6 +891,14 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   direction: ltr;
 }
 
+.manual-state-net[data-representation="isometric"] .manual-state-face[data-face="D"] .manual-state-sticker {
+  transform: scaleY(-1);
+}
+
+.manual-state-net[data-representation="isometric"] .manual-state-face[data-face="D"] .manual-state-sticker[data-auto="true"] {
+  transform: scaleY(-1) scale(0.85);
+}
+
 /* Each face has a stable view-transition name, allowing the browser to carry
    it through the same flat-to-folded motion in reverse when Flat net is
    selected again. Users who request reduced motion receive the instant layout
