@@ -39,8 +39,8 @@ The move parser implements the SiGN/LGN structure used by the project: outer, in
 wide, slice, and rotation moves; arbitrary repetition suffixes; groups; commutators;
 and conjugates. Unicode aliases preserve token length and raw-input offsets for typed
 source-span diagnostics; Ruwix face subscripts such as `F₂'` map to portable
-outer-block form (`2Fw'`). Slice moves are deliberately limited to 3×3×3,
-while layer and wide-move ranges are validated against the selected size.
+outer-block form (`2Fw'`). M, E, and S are available on odd 3×3×3 and 5×5×5
+cubes; layer and wide-move ranges are validated against the selected size.
 
 ## Move notation compatibility
 

@@ -63,6 +63,20 @@ test("rotates notation by conjugating the selected coordinate frame", () => {
   assert.equal(serialize(MoveTransform.rotate(source, "Y", 4)), serialize(source));
 });
 
+test("unfolds M, E, and S into exact size-aware inner layers without flattening structure", () => {
+  const source = "((M' U)4 x y)2 (M' U)4";
+  const unfolded = MoveTransform.unfoldSlices(parse(5, source), 5);
+  assert.equal(serialize(unfolded), "((3L' U)4 x y)2 (3L' U)4");
+  assert.equal(compact(5, serialize(unfolded)), compact(5, source));
+
+  for (const size of [3, 5]) {
+    const transformed = serialize(MoveTransform.unfoldSlices(parse(size, "M E S"), size));
+    const depth = Math.floor(size / 2) + 1;
+    assert.equal(transformed, `${depth}L ${depth}D ${depth}F`);
+    assert.equal(compact(size, transformed), compact(size, "M E S"));
+  }
+});
+
 test("generates bounded size-aware practice scrambles without adjacent equal axes", () => {
   const expectedLengths = new Map([[2, 11], [3, 25], [4, 45], [5, 60]]);
   for (const [size, expectedLength] of expectedLengths) {

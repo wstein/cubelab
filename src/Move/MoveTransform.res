@@ -113,6 +113,42 @@ let invert = (alg: alg): alg => {
   output
 }
 
+/**
+ * Replace M/E/S by the exact single inner-layer turn used by this cube size.
+ *
+ * For example on 5×5, M is 3L: it turns only the middle layer, unlike an
+ * outer-turn plus whole-cube-rotation identity which also turns both adjacent
+ * inner layers. Structure and repeat counts stay intact.
+ */
+let sliceAsInnerFace = (size, slice) => {
+  let depth = size / 2 + 1
+  let face = switch slice {
+  | M => L
+  | E => D
+  | S => F
+  }
+  FaceTurn(face, {from_: depth, to_: depth})
+}
+
+let rec unfoldSlicesUnit = (unit, size) => {
+  let desc = switch unit.desc {
+  | Move(SliceTurn(slice), turns) => Move(sliceAsInnerFace(size, slice), turns)
+  | Move(move, turns) => Move(move, turns)
+  | Pause => Pause
+  | TimedPause(seconds) => TimedPause(seconds)
+  | BlockComment(text) => BlockComment(text)
+  | Group(units, repeat) => Group(unfoldSlices(units, size), repeat)
+  | Commutator(left, right, repeat) =>
+    Commutator(unfoldSlices(left, size), unfoldSlices(right, size), repeat)
+  | Conjugate(left, right, repeat) =>
+    Conjugate(unfoldSlices(left, size), unfoldSlices(right, size), repeat)
+  }
+  located(desc)
+}
+
+and unfoldSlices = (alg: alg, size: int): alg =>
+  alg->Array.map(unit => unfoldSlicesUnit(unit, size))
+
 let moveAxis = move =>
   switch move {
   | FaceTurn(face, _) =>

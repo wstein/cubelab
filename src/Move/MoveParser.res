@@ -249,8 +249,13 @@ let parseBaseMove = parser => {
       if first != None || rangeEnd != None {
         fail(parser, "Slice moves cannot have a layer prefix.", ~start, ~end_=parser.cursor)
       }
-      if parser.size != 3 {
-        fail(parser, "M, E, and S are supported only on 3×3×3.", ~start, ~end_=parser.cursor)
+      if parser.size != 3 && parser.size != 5 {
+        fail(
+          parser,
+          "M, E, and S are supported on odd 3×3×3 and 5×5×5 cubes.",
+          ~start,
+          ~end_=parser.cursor,
+        )
       }
       if parser.notationDialect == Acube && family >= "a" && family <= "z" {
         // ACube calls its whole-cube rotations e/s/m, in the directions of

@@ -4277,6 +4277,9 @@ if (root) {
         case "normalize":
           commitTransformedMoves(MoveTransform.serialize(alg));
           break;
+        case "unfold-slices":
+          commitTransformedMoves(MoveTransform.serialize(MoveTransform.unfoldSlices(alg, size)));
+          break;
         case "mirror-lr":
           commitTransformedMoves(MoveTransform.serialize(MoveTransform.mirror(alg, "LR")));
           break;

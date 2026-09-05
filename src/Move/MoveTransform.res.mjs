@@ -191,6 +191,104 @@ function invert(alg) {
   return output;
 }
 
+function sliceAsInnerFace(size, slice) {
+  let depth = (size / 2 | 0) + 1 | 0;
+  let face;
+  switch (slice) {
+    case "M" :
+      face = "L";
+      break;
+    case "E" :
+      face = "D";
+      break;
+    case "S" :
+      face = "F";
+      break;
+  }
+  return {
+    TAG: "FaceTurn",
+    _0: face,
+    _1: {
+      from_: depth,
+      to_: depth
+    }
+  };
+}
+
+function unfoldSlicesUnit(unit, size) {
+  let seconds = unit.desc;
+  let tmp;
+  if (typeof seconds !== "object") {
+    tmp = "Pause";
+  } else {
+    switch (seconds.TAG) {
+      case "Move" :
+        let slice = seconds._0;
+        switch (slice.TAG) {
+          case "SliceTurn" :
+            tmp = {
+              TAG: "Move",
+              _0: sliceAsInnerFace(size, slice._0),
+              _1: seconds._1
+            };
+            break;
+          case "FaceTurn" :
+          case "Rotation" :
+            tmp = {
+              TAG: "Move",
+              _0: slice,
+              _1: seconds._1
+            };
+            break;
+        }
+        break;
+      case "TimedPause" :
+        tmp = {
+          TAG: "TimedPause",
+          _0: seconds._0
+        };
+        break;
+      case "BlockComment" :
+        tmp = {
+          TAG: "BlockComment",
+          _0: seconds._0
+        };
+        break;
+      case "Group" :
+        tmp = {
+          TAG: "Group",
+          _0: unfoldSlices(seconds._0, size),
+          _1: seconds._1
+        };
+        break;
+      case "Commutator" :
+        tmp = {
+          TAG: "Commutator",
+          _0: unfoldSlices(seconds._0, size),
+          _1: unfoldSlices(seconds._1, size),
+          _2: seconds._2
+        };
+        break;
+      case "Conjugate" :
+        tmp = {
+          TAG: "Conjugate",
+          _0: unfoldSlices(seconds._0, size),
+          _1: unfoldSlices(seconds._1, size),
+          _2: seconds._2
+        };
+        break;
+    }
+  }
+  return {
+    desc: tmp,
+    loc: generatedLoc
+  };
+}
+
+function unfoldSlices(alg, size) {
+  return alg.map(unit => unfoldSlicesUnit(unit, size));
+}
+
 function moveAxis(move) {
   switch (move.TAG) {
     case "FaceTurn" :
@@ -870,6 +968,9 @@ export {
   serialize,
   invertUnit,
   invert,
+  sliceAsInnerFace,
+  unfoldSlicesUnit,
+  unfoldSlices,
   moveAxis,
   flushRun,
   addToRun,

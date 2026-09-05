@@ -229,7 +229,7 @@ test("strips only sentence punctuation at the end of complete input", () => {
 });
 
 test("rejects unsupported dimensions, invalid ranges, and malformed grammar with spans", () => {
-  rejects(4, "M", /only on 3×3×3/);
+  rejects(4, "M", /odd 3×3×3 and 5×5×5/);
   rejects(3, "3Rw", /between 2 and N-1/);
   rejects(4, "1-2Rw", /must start at layer 2/);
   rejects(2, "Rw", /between 2 and N-1/);
