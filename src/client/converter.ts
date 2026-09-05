@@ -1237,12 +1237,12 @@ if (root) {
     if (manualStateRepresentation !== "isometric" || manualStateIsRotating) return;
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const nextOrientation = (direction === "cw"
-      ? (manualStateOrientation + 1) % 4
-      : (manualStateOrientation + 3) % 4) as 0 | 1 | 2 | 3;
+      ? (manualStateOrientation + 3) % 4
+      : (manualStateOrientation + 1) % 4) as 0 | 1 | 2 | 3;
 
     if (prefersReducedMotion) {
       manualStateOrientation = nextOrientation;
-      manualStateYaw = -45 + nextOrientation * 90;
+      manualStateYaw += (direction === "cw" ? -90 : 90);
       manualStateNet.style.setProperty("--manual-state-yaw", `${manualStateYaw}deg`);
       manualStateNet.dataset.orientation = String(nextOrientation);
       return;
@@ -1255,7 +1255,7 @@ if (root) {
       await new Promise((resolve) => setTimeout(resolve, 220));
 
       // 2. Rotate closed cube cw or ccw in 3D
-      manualStateYaw += (direction === "cw" ? 90 : -90);
+      manualStateYaw += (direction === "cw" ? -90 : 90);
       manualStateNet.style.setProperty("--manual-state-yaw", `${manualStateYaw}deg`);
       await new Promise((resolve) => setTimeout(resolve, 380));
 
