@@ -1293,10 +1293,16 @@ if (root) {
       manualStateNet.dataset.animState = "unexploded";
       await new Promise((resolve) => setTimeout(resolve, 220));
 
-      // 2. Rotate closed cube 180° upside down around X axis (x2)
-      manualStateFlip += 180;
+      // 2. Rotate closed cube via two distinct x turns with a 200ms pause
+      manualStateFlip += 90;
       manualStateNet.style.setProperty("--manual-state-flip", `${manualStateFlip}deg`);
-      await new Promise((resolve) => setTimeout(resolve, 380));
+      await new Promise((resolve) => setTimeout(resolve, 360));
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      manualStateFlip += 90;
+      manualStateNet.style.setProperty("--manual-state-flip", `${manualStateFlip}deg`);
+      await new Promise((resolve) => setTimeout(resolve, 360));
 
       // 3. Explode newly hidden faces outward for the flipped orientation
       manualStateFlipped = nextFlipped;
