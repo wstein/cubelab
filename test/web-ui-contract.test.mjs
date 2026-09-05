@@ -241,7 +241,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(page, /data-manual-state-load/);
   assert.match(client, /store\.patch\(\{input: manualStateSpacedFacelets\(manualSize\)\}\)/);
   assert.match(client, /allowedManualStateColours\(manualSize, manualStateDraft, index\)/);
-  assert.match(client, /fillLocallyForcedManualStateColours\(manualSize, source\)/);
+  assert.match(client, /fillForcedManualStateColours\(manualSize, source\)/);
   assert.match(client, /dot\.dataset\.available = String\(choices\.includes\(choice\)\)/);
   assert.match(client, /manualStateAutoIndices\.add\(index\)/);
   assert.match(client, /const manualStateExplicitIndices = new Set<number>\(\)/);

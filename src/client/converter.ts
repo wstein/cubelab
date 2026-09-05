@@ -35,7 +35,6 @@ import {
   emptyManualState,
   faceletOrder,
   fillForcedManualStateColours,
-  fillLocallyForcedManualStateColours,
   isManualStateFixedCentre,
   locallyAllowedManualStateColours,
   manualStateCornerSlots,
@@ -860,11 +859,9 @@ if (root) {
       manualStateDraft = source;
       return;
     }
-    manualStateDraft = manualSize === 2
-      ? fillForcedManualStateColours(manualSize, source)
-      : manualSize === 3
-      ? fillLocallyForcedManualStateColours(manualSize, source)
-      : source;
+    // Auto-fill is always based on the full completion predicate. A rendered
+    // one-dot sticker must become a value on every supported cube size.
+    manualStateDraft = fillForcedManualStateColours(manualSize, source);
     manualStateDraft.forEach((colour, index) => {
       if (source[index] === null && colour !== null) manualStateAutoIndices.add(index);
     });

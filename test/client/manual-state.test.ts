@@ -6,6 +6,7 @@ import {
   canCompleteManualState2,
   emptyManualState,
   faceletOrder,
+  fillForcedManualStateColours,
   fillForcedManualStateColours2,
   fillLocallyForcedManualStateColours,
   locallyAllowedManualStateColours,
@@ -142,6 +143,17 @@ describe("3×3 manual state constraints", () => {
 });
 
 describe("4×4 and 5×5 manual state entry", () => {
+  test("auto-fills every uniquely implied big-cube sticker", () => {
+    for (const size of [4, 5] as const) {
+      const draft = solvedManualState(size);
+      const index = 0;
+      draft[index] = null;
+      const filled = fillForcedManualStateColours(size, draft);
+      expect(filled[index]).toBe("U");
+      expect(draft[index]).toBeNull();
+    }
+  });
+
   test("keeps only colour choices that retain a big-cube piece assignment", () => {
     for (const size of [4, 5] as const) {
       const empty = emptyManualState(size);
