@@ -275,6 +275,8 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /sticker\.dataset\.centre = String\(centre\)/);
   assert.match(client, /const manualStateVisibleFaces = \(\): readonly ManualStateFace\[\]/);
   assert.match(client, /manualStateRepresentation === "isometric"\s*\? manualStateScreenArrowTarget/);
+  assert.match(client, /const manualStateRenderedCentre = \(element: HTMLElement\)/);
+  assert.match(client, /getBoxQuads\?\.call\(element\)\[0\]/);
   assert.match(client, /wireManualStateKeyboard\(manualStateDialog\)/);
   assert.match(client, /paintRoot\.addEventListener\("pointerdown"/);
   assert.match(client, /paintRoot\.setPointerCapture\(event\.pointerId\)/);
@@ -291,6 +293,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /\.manual-state-net\[data-representation="isometric"\] \{/);
   assert.match(styles, /\.manual-state-net\[data-representation="isometric"\] \.manual-state-face/);
   assert.match(styles, /\.manual-state-face\[data-interactive="false"\]\s*\{[\s\S]*pointer-events:\s*none/);
+  assert.match(styles, /\.manual-state-sticker\[data-cursor="true"\]\s*\{[\s\S]*box-shadow:\s*inset 0 0 0 2px #63b3ff/);
   assert.match(styles, /--manual-state-face-gap: 0\.3rem;[\s\S]*gap: var\(--manual-state-face-gap\);/);
   assert.match(styles, /--attached-face-gap: var\(--manual-state-face-gap\);/);
   assert.match(styles, /--attached-fold-gap: 0\.2rem;/);

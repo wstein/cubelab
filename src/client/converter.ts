@@ -5884,23 +5884,39 @@ if (root) {
     ArrowLeft: "left", ArrowRight: "right", ArrowUp: "top", ArrowDown: "bottom",
   };
   const manualStateFocusableSticker = (index: number): HTMLElement | null => manualStateStickerElements[index] ?? null;
+  const manualStateRenderedCentre = (element: HTMLElement): {x: number; y: number} => {
+    // getBoundingClientRect() describes an axis-aligned envelope. At the
+    // deliberately non-isometric -35° yaw that envelope's centre is no
+    // longer the visual centre of a skewed sticker, especially at seams.
+    // A DOMQuad follows the transformed sticker plane exactly.
+    const getBoxQuads = (element as HTMLElement & {
+      getBoxQuads?: () => Array<{p1: DOMPoint; p2: DOMPoint; p3: DOMPoint; p4: DOMPoint}>;
+    }).getBoxQuads;
+    const quad = getBoxQuads?.call(element)[0];
+    if (quad) {
+      return {
+        x: (quad.p1.x + quad.p2.x + quad.p3.x + quad.p4.x) / 4,
+        y: (quad.p1.y + quad.p2.y + quad.p3.y + quad.p4.y) / 4,
+      };
+    }
+    const rect = element.getBoundingClientRect();
+    return {x: rect.left + rect.width / 2, y: rect.top + rect.height / 2};
+  };
   const manualStateScreenArrowTarget = (
     index: number,
     direction: "top" | "bottom" | "left" | "right",
   ): number | null => {
     const source = manualStateFocusableSticker(index);
     if (!source) return null;
-    const sourceRect = source.getBoundingClientRect();
-    const sourceX = sourceRect.left + sourceRect.width / 2;
-    const sourceY = sourceRect.top + sourceRect.height / 2;
+    const sourceCentre = manualStateRenderedCentre(source);
     const axis = direction === "left" || direction === "right" ? "x" : "y";
     const sign = direction === "left" || direction === "top" ? -1 : 1;
     let best: {index: number; score: number} | null = null;
     manualStateStickerElements.forEach((candidate, candidateIndex) => {
       if (candidateIndex === index || !isManualStateStickerInteractive(candidateIndex)) return;
-      const rect = candidate.getBoundingClientRect();
-      const dx = rect.left + rect.width / 2 - sourceX;
-      const dy = rect.top + rect.height / 2 - sourceY;
+      const centre = manualStateRenderedCentre(candidate);
+      const dx = centre.x - sourceCentre.x;
+      const dy = centre.y - sourceCentre.y;
       const primary = sign * (axis === "x" ? dx : dy);
       if (primary < 1) return;
       const lateral = Math.abs(axis === "x" ? dy : dx);
