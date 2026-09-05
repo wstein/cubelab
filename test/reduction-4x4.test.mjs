@@ -15,7 +15,7 @@ import {
   reduce4x4,
 } from "../src/Solver/Reduction4x4.ts";
 import * as TwoPhaseSolver from "../src/Solver/TwoPhaseSolver.res.mjs";
-import {normalizeFullReductionAlgorithm, solveFullReduction4x4} from "../src/Solver/FullReduction4x4.ts";
+import {measureReduction4x4Moves, normalizeFullReductionAlgorithm, solveFullReduction4x4} from "../src/Solver/FullReduction4x4.ts";
 
 const apply = (size, algorithm) => {
   const result = MoveExecutor.parseAndApply(size, algorithm);
@@ -38,6 +38,13 @@ test("normalizes adjacent reduction turns before reporting a solution", () => {
   if (before.TAG === "Ok" && after.TAG === "Ok") {
     expect(FaceletCodec.render(after._0)).toBe(FaceletCodec.render(before._0));
   }
+});
+
+test("reports 4×4 move metrics as STM and OBTM, never HTM", () => {
+  const parsed = MoveParser.parseWithOptions(4, "Wide", "Modern", "R 2R Rw x");
+  expect(parsed.TAG).toBe("Ok");
+  if (parsed.TAG !== "Ok") return;
+  expect(measureReduction4x4Moves(parsed._0)).toEqual({stm: 3, obtm: 4});
 });
 
 test("reduces a paired 4×4 outer-turn state to the equivalent 3×3", () => {

@@ -592,7 +592,7 @@ if (root) {
     },
   );
   let optimal2x2SolverClient = newOptimal2x2SolverClient();
-  const newReduction4x4SolverClient = () => createReduction4x4SolverClient<CubeState, {alg: unknown; moveCount: number}>(
+  const newReduction4x4SolverClient = () => createReduction4x4SolverClient<CubeState, {alg: unknown; stm: number; obtm: number}>(
     new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
     (stage) => {
       if (reduction4x4SolveBusy) reduction4x4Result.textContent = stage;
@@ -641,8 +641,8 @@ if (root) {
     reduction4x4Algorithm = "";
     reduction4x4SourceKey = "";
     reduction4x4Apply.disabled = true;
-    reduction4x4Solve.textContent = "Solve 4×4";
-    reduction4x4Result.textContent = "Attempts bounded centre and wing reduction, then finishes the reduced 3×3.";
+    reduction4x4Solve.textContent = "Attempt reduction";
+    reduction4x4Result.textContent = "Experimental bounded reduction; not a complete or move-optimized 4×4 solver.";
     reduction4x4Result.classList.remove("success", "failure");
   };
   const viewport = createCubeViewport(canvas, motionOverlay, (message) => {
@@ -5071,7 +5071,7 @@ if (root) {
       reduction4x4SolverClient.terminate();
       reduction4x4SolverClient = newReduction4x4SolverClient();
       reduction4x4SolveBusy = false;
-      reduction4x4Solve.textContent = "Solve 4×4";
+      reduction4x4Solve.textContent = "Attempt reduction";
       reduction4x4Result.textContent = "4×4 reduction search stopped immediately.";
       reduction4x4Result.classList.remove("success", "failure");
       return;
@@ -5103,7 +5103,7 @@ if (root) {
       if (request !== reduction4x4Request || sourceKey !== reduction4x4SourceKey) return;
       reduction4x4Algorithm = MoveTransform.serialize(solution.alg) as string;
       reduction4x4Apply.disabled = reduction4x4Algorithm === "";
-      reduction4x4Result.textContent = `${solution.moveCount} HTM 4×4 solution · ${reduction4x4Algorithm || "Solved"}`;
+      reduction4x4Result.textContent = `Experimental result: ${solution.stm} STM · ${solution.obtm} OBTM · ${reduction4x4Algorithm || "Solved"}`;
       reduction4x4Result.classList.add("success");
     } catch (reason) {
       if (request !== reduction4x4Request) return;
@@ -5112,7 +5112,7 @@ if (root) {
     } finally {
       if (request !== reduction4x4Request) return;
       reduction4x4SolveBusy = false;
-      reduction4x4Solve.textContent = "Solve 4×4";
+      reduction4x4Solve.textContent = "Attempt reduction";
       reduction4x4Solve.disabled = size !== 4;
     }
   });

@@ -1,8 +1,8 @@
 # 4×4 reduction solver
 
-CubeLab's planned 4×4×4 solver is a replay-verified **reduction solver**.
-It is not an optimal solver: it makes no shortest-solution or HTM-optimality
-claim.
+CubeLab's current 4×4×4 capability is a replay-verified **experimental
+reduction attempt**. It is neither complete nor move-optimized, and is not
+presented as a general 4×4 solver.
 
 ## Architecture
 
@@ -26,20 +26,22 @@ corresponding 3×3 facelet state, and validates that reduced state with
 `PieceReducer`. This prevents a 3×3 solution from being misrepresented as a
 4×4 solution before the centre and wing stages have completed.
 
-The Converter exposes **Solve 4×4**. For an already reduced Setup it runs the
-3×3 finish directly. Otherwise it first makes a bounded full-reduction attempt
-that composes the native centre and wing planners, repairs parity when needed,
-and then runs the 3×3 finish. Every proposed result is replay-verified against
-the original 4×4 and must leave every face monochrome.
+The Converter exposes **Attempt reduction**. For an already reduced Setup it
+runs the 3×3 finish directly. Otherwise it first makes a bounded
+full-reduction attempt that composes the native centre and wing planners,
+repairs parity when needed, and then runs the 3×3 finish. Every proposed result
+is replay-verified against the original 4×4 and must leave every face
+monochrome.
 
 The full-reduction attempt is a baseline, not a completeness or near-optimality
 claim. If its bounded local searches cannot make progress, it reports the
 specific stage that stopped; it never presents a partial reduction as a solve.
 Before reporting a candidate, CubeLab canonicalizes the joined reduction and
 3×3 segments. This removes exact cancellations and compatible same-axis turns
-at segment boundaries. The displayed HTM is then counted from the normalized
-expanded algorithm, excluding whole-cube rotations; it is not the raw number
-of planner AST nodes.
+at segment boundaries. A 4×4 result reports **STM** and **OBTM**, never HTM:
+STM prices every non-rotation slice or block turn at one; OBTM prices an outer
+block turn at one and an isolated inner slice at two. Both counts are derived
+from the normalized expanded algorithm, excluding whole-cube rotations.
 The regression suite covers both an already reduced state and a simple
 centre-complete wing-pairing state; each case replays the returned algorithm
 against the original facelets before asserting that the cube is solved.

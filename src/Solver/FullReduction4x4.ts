@@ -16,7 +16,8 @@ type ReScriptResult<T> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: unknown};
 export type FullReduction4x4Solution = {
   alg: unknown[];
   algorithm: string;
-  moveCount: number;
+  stm: number;
+  obtm: number;
   centreSteps: number;
   wingSteps: number;
 };
@@ -39,11 +40,23 @@ const apply = (state: unknown, alg: unknown[]): ReScriptResult<unknown> =>
 export const normalizeFullReductionAlgorithm = (alg: unknown[]): ReScriptResult<unknown[]> =>
   MoveTransform.simplify(alg) as ReScriptResult<unknown[]>;
 
-const physicalMoveCount = (alg: unknown[]): number | null => {
+export type Reduction4x4MoveMetrics = {stm: number; obtm: number};
+
+/**
+ * Slice Turn Metric prices every non-rotation turn at one. Outer Block Turn
+ * Metric prices an outer block at one and an isolated inner slice at two.
+ * These are the only metrics reported for a 4×4 solution; HTM is a 3×3 term.
+ */
+export const measureReduction4x4Moves = (alg: unknown[]): Reduction4x4MoveMetrics | null => {
   const expanded = MoveExecutor.expand(alg) as ReScriptResult<Array<{move?: {TAG?: string}}>>;
-  return expanded.TAG === "Ok"
-    ? expanded._0.filter((step) => step.move?.TAG !== "Rotation").length
-    : null;
+  if (expanded.TAG === "Error") return null;
+  return expanded._0.reduce<Reduction4x4MoveMetrics>((metrics, step) => {
+    const move = step.move as {TAG?: string; _1?: {from_?: number}} | undefined;
+    if (move?.TAG === "Rotation") return metrics;
+    metrics.stm += 1;
+    metrics.obtm += move?.TAG === "FaceTurn" && move._1?.from_ === 1 ? 1 : 2;
+    return metrics;
+  }, {stm: 0, obtm: 0});
 };
 
 /**
@@ -121,14 +134,14 @@ export const solveFullReduction4x4 = (input: unknown): ReScriptResult<FullReduct
   if (replay.TAG === "Error" || !isMonochromeSolved4x4(replay._0)) {
     return {TAG: "Error", _0: {stage: "finish", message: "The proposed full reduction did not replay to a solved 4×4."}};
   }
-  const moveCount = physicalMoveCount(solution);
-  if (moveCount === null) {
+  const metrics = measureReduction4x4Moves(solution);
+  if (metrics === null) {
     return {TAG: "Error", _0: {stage: "finish", message: "The normalized solution could not be expanded."}};
   }
   return {TAG: "Ok", _0: {
     alg: solution,
     algorithm: MoveTransform.serialize(solution) as string,
-    moveCount,
+    ...metrics,
     centreSteps,
     wingSteps,
   }};
