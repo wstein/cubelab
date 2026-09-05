@@ -252,7 +252,9 @@ export const planNextCentreBlock4x4 = (state: unknown): ReScriptResult<CentreGui
  * it tries each slice-pair-restore seed in all viewing frames, with an optional
  * outer-turn setup and exact restore. It returns only a move that preserves all
  * six completed centre blocks while increasing the observable paired-wing
- * score.
+ * score. Last-two-dedge cases can require a temporary score loss, so a bounded
+ * two-ply fallback accepts progress on the second move rather than rejecting a
+ * legal setup step outright.
  */
 export const planNextWingPair4x4 = (state: unknown): ReScriptResult<WingPairGuide4x4> => {
   const initial = inspectReduction4x4(state);
@@ -308,8 +310,52 @@ export const planNextWingPair4x4 = (state: unknown): ReScriptResult<WingPairGuid
       .filter((setup): setup is unknown[] => setup !== null);
     evaluate(secondTurns.flatMap((first) => secondTurns.map((second) => [...first, ...second])));
   }
+  if (best === null) {
+    // A last-two-dedge position may be a local maximum of visible paired rows:
+    // it needs one setup that breaks a completed row before a second pairing
+    // sequence can finish both. Search the guide's rotated seeds at depth two,
+    // but keep only modest first-step regressions so an Academy hint remains
+    // responsive and does not dismantle the reduction.
+    const firstSteps = [...rotatedSeeds.values()].flatMap((first) => {
+      const replay = MoveExecutor.applyAlg(state, first) as ReScriptResult<unknown>;
+      if (replay.TAG === "Error") return [];
+      const after = inspectReduction4x4(replay._0);
+      return after.TAG === "Ok"
+        && after._0.centreBlocksComplete === 6
+        && after._0.wingRowsPaired >= initial._0.wingRowsPaired - 4
+        ? [{alg: first, state: replay._0}]
+        : [];
+    });
+    const secondSteps = new Map<string, unknown[]>();
+    setups.forEach((setup) => {
+      rotatedSeeds.forEach((seed) => {
+        const alg = [...setup, ...seed, ...MoveTransform.invert(setup)];
+        secondSteps.set(MoveTransform.serialize(alg) as string, alg);
+      });
+    });
+    firstSteps.forEach((first) => {
+      secondSteps.forEach((second) => {
+        const replay = MoveExecutor.applyAlg(first.state, second) as ReScriptResult<unknown>;
+        if (replay.TAG === "Error") return;
+        const after = inspectReduction4x4(replay._0);
+        if (after.TAG === "Error"
+          || after._0.centreBlocksComplete !== 6
+          || after._0.wingRowsPaired <= initial._0.wingRowsPaired) return;
+        const alg = [...first.alg, ...second];
+        const guide = {
+          alg,
+          algorithm: MoveTransform.serialize(alg) as string,
+          before: initial._0.wingRowsPaired,
+          after: after._0.wingRowsPaired,
+        };
+        if (best === null
+          || guide.after > best.after
+          || (guide.after === best.after && guide.algorithm.length < best.algorithm.length)) best = guide;
+      });
+    });
+  }
   return best === null
-    ? {TAG: "Error", _0: {message: "No verified pairing move was found in the local setup search. Make one manual wing setup, then request the next guide."}}
+    ? {TAG: "Error", _0: {message: "No single improving wing-pair move was found; this position needs a setup or parity step before requesting the next guide."}}
     : {TAG: "Ok", _0: best};
 };
 

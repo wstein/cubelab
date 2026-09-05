@@ -49,3 +49,14 @@ milestones as it improves the position, and an Academy can teach the two
 
 The next implementation phase adds bounded centre and wing reduction search,
 followed by explicit parity detection and repair.
+
+## Wing-pair endgame
+
+The wing-pair guide normally chooses an immediately improving pairing move.
+For the legal last-two-dedge configuration, however, the required setup can
+temporarily reduce the visible matched-row count. When no one-ply improvement
+exists, the guide therefore tries a bounded two-ply fallback: its first move
+may lose up to four matched rows, while the final combined sequence is offered
+only when it restores all centre blocks and improves the original wing score.
+If no such sequence is verified, the guide reports that the position needs a
+setup or parity step; it does not describe the cube state as impossible.
