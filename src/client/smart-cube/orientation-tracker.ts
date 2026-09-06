@@ -166,8 +166,10 @@ export const observeThresholdOrientation = (
   minimumRotationDegrees = 65,
   timestampMs?: number,
   driftDegreesPerSecond = 2,
-): {tracker: StableOrientationTracker; tokens: RegripToken[]} => {
-  if (tracker.frame !== frame) return {tracker: createStableOrientationTracker(current, frame, tracker.deltaFrame), tokens: []};
+): {tracker: StableOrientationTracker; tokens: RegripToken[]; angleDegrees: number} => {
+  if (tracker.frame !== frame) {
+    return {tracker: createStableOrientationTracker(current, frame, tracker.deltaFrame), tokens: [], angleDegrees: 0};
+  }
   const baseline = timestampMs !== undefined && tracker.baselineUpdatedAt !== null
     ? followSmartCubeOrientationOffset(
       tracker.baseline,
@@ -180,10 +182,10 @@ export const observeThresholdOrientation = (
   const delta = deviceOrientationDelta(baseline, current, frame, tracker.deltaFrame);
   const angleDegrees = 2 * Math.acos(Math.min(1, Math.abs(delta.w))) * 180 / Math.PI;
   if (angleDegrees < minimumRotationDegrees) {
-    return {tracker: {...tracker, baseline, baselineUpdatedAt}, tokens: []};
+    return {tracker: {...tracker, baseline, baselineUpdatedAt}, tokens: [], angleDegrees};
   }
   const nearest = closestCardinalOrientation(delta);
-  if (nearest.index === 0) return {tracker: {...tracker, baseline, baselineUpdatedAt}, tokens: []};
+  if (nearest.index === 0) return {tracker: {...tracker, baseline, baselineUpdatedAt}, tokens: [], angleDegrees};
   const cardinal = orientations[nearest.index]!.quaternion;
   const orientation = normalize(tracker.deltaFrame === "world"
     ? multiplyQuaternions(cardinal, tracker.orientation)
@@ -191,6 +193,7 @@ export const observeThresholdOrientation = (
   return {
     tracker: {baseline: current, frame, deltaFrame: tracker.deltaFrame, orientation, candidate: null, baselineUpdatedAt},
     tokens: orientations[nearest.index]!.tokens,
+    angleDegrees,
   };
 };
 

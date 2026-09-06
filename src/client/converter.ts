@@ -2238,6 +2238,18 @@ if (root) {
   let smartCubeRecordingAnimationGeneration = 0;
   let smartCubeRecordingOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeDiscreteOrientationTracker: StableOrientationTracker | null = null;
+  // Diagnostics-gauge-only carryover, in degrees: how much of the next
+  // quarter-turn a continuous motion had already reached at the instant it
+  // confirmed. A scalar, not a quaternion — composing an exact 90° cardinal
+  // step directly onto the tracker's baseline was tried and reverted: that
+  // baseline lives in raw device coordinates (e.g. gocube-wire's own axis
+  // permutation), and a canonical-frame cardinal quaternion composed onto it
+  // directly is invalid outside the identity "viewport" frame, producing
+  // nonsense (verified against the real capture: readings up to ~176°
+  // instead of a modest carryover). Clamped to [0, 90 - threshold] so a fast
+  // continuous spin's overshoot can't blow this past a sane bound either —
+  // see the clamp at the write site below.
+  let smartCubeRegripCarryoverDegrees = 0;
   // The cube's 24 legal poses are all exactly 90° apart, with a 45° Voronoi
   // boundary between neighbours. 65° (the built-in default; see
   // public/smart-cube/regrip-profile.v1.json) gives a real hand regrip ~20°
@@ -2296,13 +2308,14 @@ if (root) {
       return;
     }
     const tracker = smartCubeDiscreteOrientationTracker;
+    // Raw progress since the tracker's own (drift-corrected) baseline, plus
+    // whatever carryover the last confirm left behind — see
+    // smartCubeRegripCarryoverDegrees for why this is a scalar add rather
+    // than a second baseline quaternion.
     const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
     const {axis, radians} = quaternionAxisAngle(delta);
-    // Same value observeThresholdOrientation compares to the confirm
-    // threshold: tracker.baseline is already drift-corrected internally, so
-    // this needs no separate smoothing or reset signal of its own.
     viewport.setRegripGauge({
-      degrees: radians * 180 / Math.PI,
+      degrees: smartCubeRegripCarryoverDegrees + radians * 180 / Math.PI,
       thresholdDegrees: smartCubeRegripProfile.regripThresholdDegrees,
       label: nearestRegripAxis(axis),
     });
@@ -4615,6 +4628,7 @@ if (root) {
       settingsAutoOrbit.disabled = true;
     } else {
       smartCubeDiscreteOrientationTracker = null;
+      smartCubeRegripCarryoverDegrees = 0;
       autoOrbitButton.disabled = !viewport;
       settingsAutoOrbit.disabled = !viewport;
       setAutoOrbitEnabled(autoOrbit, false);
@@ -4803,6 +4817,7 @@ if (root) {
             event.coordinateFrame,
             "world",
           );
+          smartCubeRegripCarryoverDegrees = 0;
         } else {
           const priorBaseline = smartCubeDiscreteOrientationTracker.baseline;
           const priorOrientation = smartCubeDiscreteOrientationTracker.orientation;
@@ -4820,6 +4835,19 @@ if (root) {
             event.timestamp,
           );
           smartCubeDiscreteOrientationTracker = observed.tracker;
+          if (observed.tokens.length > 0) {
+            // How far short of the exact 90° mark the triggering sample was,
+            // clamped to [0, 90 - threshold] so a fast continuous spin's
+            // overshoot can't inflate this — see the declaration above for
+            // why this is a plain degrees scalar, not a second baseline.
+            smartCubeRegripCarryoverDegrees = Math.max(
+              0,
+              Math.min(
+                90 - smartCubeRegripProfile.regripThresholdDegrees,
+                90 - observed.angleDegrees,
+              ),
+            );
+          }
           if (
             observed.tokens.length > 0
             && smartCubeOrientationTracking
@@ -6547,6 +6575,7 @@ if (root) {
       latestSmartCubeOrientation.coordinateFrame,
       "world",
     );
+    smartCubeRegripCarryoverDegrees = 0;
     viewport?.recenterDeviceOrientation(
       latestSmartCubeOrientation.quaternion,
       latestSmartCubeOrientation.coordinateFrame,

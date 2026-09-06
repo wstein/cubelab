@@ -148,6 +148,14 @@ describe("stable smart-cube orientation tracker", () => {
     expect(fastTurn.tokens).toEqual(["x"]);
   });
 
+  test("threshold: reports the raw angle that triggered (or fell short of) a confirm", () => {
+    const tracker = createStableOrientationTracker(identity, "viewport", "world");
+    const below = observeThresholdOrientation(tracker, x(40), "viewport", 65);
+    expect(below.angleDegrees).toBeCloseTo(40, 6);
+    const confirmed = observeThresholdOrientation(tracker, x(70), "viewport", 65);
+    expect(confirmed.angleDegrees).toBeCloseTo(70, 6);
+  });
+
   test("uses an independently settled anchor to accept a delayed half-turn regrip", () => {
     const tracker = createStableOrientationTracker(identity, "viewport");
     const x2 = {x: 1, y: 0, z: 0, w: 0};
