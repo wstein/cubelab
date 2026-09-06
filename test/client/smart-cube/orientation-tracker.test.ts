@@ -1,5 +1,6 @@
 import {describe, expect, test} from "vitest";
 
+import {multiplyQuaternions} from "../../../src/client/cube-gl";
 import {
   cardinalOrientationCount,
   createStableOrientationTracker,
@@ -11,6 +12,7 @@ import {
 
 const identity = {x: 0, y: 0, z: 0, w: 1};
 const x = (degrees: number) => ({x: Math.sin(degrees * Math.PI / 360), y: 0, z: 0, w: Math.cos(degrees * Math.PI / 360)});
+const y = (degrees: number) => ({x: 0, y: Math.sin(degrees * Math.PI / 360), z: 0, w: Math.cos(degrees * Math.PI / 360)});
 
 describe("stable smart-cube orientation tracker", () => {
   test("enumerates the cube's complete 24-pose cardinal rotation group", () => {
@@ -106,6 +108,38 @@ describe("stable smart-cube orientation tracker", () => {
     expect(Math.abs(tracker.orientation.w)).toBeCloseTo(1);
   });
 
+  test("threshold: \"local\" labels a physical x turn correctly even after a Y regrip", () => {
+    // Cube notation tokens are body-frame: "x" always means "rotate about
+    // the cube's OWN current R/L axis", wherever that axis now points in the
+    // room after earlier regrips. Confirm a y turn first (baseline becomes a
+    // pure Y rotation), then apply a further 90° rotation about the cube's
+    // OWN (now Y-rotated) local X axis — current = baseline * quarter(X) —
+    // and expect it to still resolve to "x", not some other axis.
+    let tracker = createStableOrientationTracker(identity, "viewport", "local");
+    const afterY = observeThresholdOrientation(tracker, y(90), "viewport", 65);
+    expect(afterY.tokens).toEqual(["y"]);
+    tracker = afterY.tracker;
+    const localXQuarter = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
+    const current = multiplyQuaternions(tracker.baseline, localXQuarter);
+    const afterX = observeThresholdOrientation(tracker, current, "viewport", 65);
+    expect(afterX.tokens).toEqual(["x"]);
+  });
+
+  test("threshold: \"world\" (the reverted default) mislabels that same physical x turn", () => {
+    // Same physical motion as above, replayed with "world" deltaFrame — this
+    // documents the bug the live tracker used to have, now fixed by using
+    // "local" instead: measuring against fixed room axes instead of the
+    // cube's own means the same physical turn no longer resolves to "x".
+    let tracker = createStableOrientationTracker(identity, "viewport", "world");
+    const afterY = observeThresholdOrientation(tracker, y(90), "viewport", 65);
+    expect(afterY.tokens).toEqual(["y"]);
+    tracker = afterY.tracker;
+    const localXQuarter = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
+    const current = multiplyQuaternions(tracker.baseline, localXQuarter);
+    const afterX = observeThresholdOrientation(tracker, current, "viewport", 65);
+    expect(afterX.tokens).not.toEqual(["x"]);
+  });
+
   test("nearest regrip axis: picks the closest of the six quarter-turn directions", () => {
     expect(nearestRegripAxis([1, 0, 0])).toBe("x");
     expect(nearestRegripAxis([-1, 0, 0])).toBe("x'");
@@ -146,6 +180,45 @@ describe("stable smart-cube orientation tracker", () => {
     }
     const fastTurn = observeThresholdOrientation(tracker, x(30 + 90), "viewport", 65, 30_000 + 200);
     expect(fastTurn.tokens).toEqual(["x"]);
+  });
+
+  test("threshold: catches up to a real 90°-spaced grid instead of resonating every 65°", () => {
+    // A perfectly smooth, continuous 360° sweep (1°/sample). No timestamps
+    // here deliberately, to isolate this from drift correction (covered by
+    // its own tests above) and test pendingCarryoverDegrees in isolation.
+    // Without it this fires every ~65° forever (5 times in 360°, verified as
+    // a real regression before this fix); with it, each confirm's shortfall
+    // carries into the next threshold check, so cumulative rotation between
+    // confirms averages back out to 90° and this fires exactly 4 times — the
+    // physically correct 360°/90°.
+    let tracker = createStableOrientationTracker(identity, "viewport", "world");
+    const firedAtDegrees: number[] = [];
+    for (let degrees = 1; degrees <= 360; degrees += 1) {
+      const observed = observeThresholdOrientation(tracker, x(degrees), "viewport", 65);
+      tracker = observed.tracker;
+      if (observed.tokens.length > 0) firedAtDegrees.push(degrees);
+    }
+    expect(firedAtDegrees).toEqual([65, 155, 245, 335]);
+  });
+
+  test("threshold: a genuine pause forgives stale carryover instead of hiding the next regrip", () => {
+    // A turn fires at 65° (worst-case carryover, -25°), then the hand truly
+    // rests — repeated samples with no rotation — for 30 seconds, plenty of
+    // time for the 2°/s decay to forgive that debt, before an entirely
+    // unrelated, independently imprecise 66° turn. That later turn must fire
+    // on its own merits (66 > 65), not get quietly swallowed because -25° of
+    // stale debt from the earlier, unrelated motion was still being carried.
+    let tracker = createStableOrientationTracker(identity, "viewport", "world");
+    const first = observeThresholdOrientation(tracker, x(65), "viewport", 65, 0);
+    expect(first.tokens).toEqual(["x"]);
+    expect(first.tracker.pendingCarryoverDegrees).toBeCloseTo(-25, 6);
+    tracker = first.tracker;
+    for (let second = 1; second <= 30; second += 1) {
+      tracker = observeThresholdOrientation(tracker, x(65), "viewport", 65, second * 1000).tracker;
+    }
+    expect(tracker.pendingCarryoverDegrees).toBeCloseTo(0, 6);
+    const second = observeThresholdOrientation(tracker, x(65 + 66), "viewport", 65, 30_100);
+    expect(second.tokens).toEqual(["x"]);
   });
 
   test("threshold: reports the raw angle that triggered (or fell short of) a confirm", () => {

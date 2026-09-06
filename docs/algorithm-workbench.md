@@ -235,6 +235,49 @@ drift correction is unrelated to, and independent of, the inert `deviceOrientati
 scaffolding in `cube-gl.ts` described above — same underlying rate-limited-slerp helper,
 two separate call sites with separate state.
 
+`pendingCarryoverDegrees` on the tracker fixes a subtler consequence of rebasing to the
+raw triggering sample: for a continuous, unbroken spin, every confirm after the first
+fired ~65° later than the one before it, not ~90° — literally 65°, 130°, 195°, 260°...
+instead of the physically correct 65°, 155°, 245°, 335° (verified directly: a clean
+synthetic 360° sweep fired 5 times, not the correct 4). The first confirm in a spin is
+genuinely allowed to land as early as the threshold, but each subsequent one within the
+same unbroken motion needs to make up whatever shortfall the previous one left — folding
+the *previous* confirm's undershoot into the *next* threshold check (`effectiveDegrees =
+angleDegrees + pendingCarryoverDegrees`) reproduces the correct 90°-spaced grid without
+touching the raw-sample rebase this depends on. Fixing this exposed a second, unrelated
+issue: firing less often lets the raw delta go stale enough, across a real gap between
+distinct actions (this capture's transition between spins, from an unrelated discrete
+face turn plus repositioning), to land numerically closer to some two-hop cardinal
+composite than to any single neighbour. `observeThresholdOrientation` therefore searches
+only identity plus the six direct quarter-turn neighbours
+(`closestSingleHopCardinal`), never the full 24-pose group `closestCardinalOrientation`
+searches for the (dwell-gated, and so less exposed to this) recording tracker: a single
+detected event can never legitimately represent two simultaneous turns. Because
+`pendingCarryoverDegrees` is only ever a debt (never a bonus — clamped to
+`[-(90 - regripThresholdDegrees), 0]`), and decays back toward 0 over elapsed time at the
+same `driftDegreesPerSecond`, a genuine pause between unrelated motions forgives it before
+a later, independently-imprecise regrip could be wrongly swallowed by stale debt from
+an earlier, unrelated one — verified directly alongside the resonance fix above.
+
+The live tracker's `deltaFrame` is `"local"`, not `"world"` — this matters for what the
+`x`/`y`/`z` tokens actually mean. Cube notation is inherently body-frame: "y" always means
+"rotate about the cube's own *current* U/D axis," whatever direction that axis now points
+in the room after earlier regrips. `"world"` measures every delta against fixed room axes
+instead, so after any Y regrip the cube's own R/L axis no longer points along world X, and
+a genuine physical "x" turn gets measured against the wrong fixed axis and mislabelled —
+reported live as chaotic `x`/`x'`/`z`/`z'` alternation immediately following a Y-axis
+phase. `observeThresholdOrientation`'s composition already branched on `deltaFrame` for
+`tracker.orientation` (`cardinal * orientation` for world, `orientation * cardinal` for
+local) — the bug was purely in which mode the live tracker was constructed with; the
+recording tracker already defaulted to `"local"` and never showed this. Verified directly:
+`test/client/smart-cube/orientation-tracker.test.ts` confirms a Y regrip followed by a
+further 90° turn about the cube's own (now-rotated) local X axis resolves to `"x"` under
+`"local"`, and explicitly does not under `"world"` — the same physical motion, two
+different labels. Replaying the real GoCube capture under both settled the choice further:
+neither mode introduces the two-hop-composite issue above (each still groups cleanly by
+axis, 7+8+8), so this is purely about which axis convention the labels use, not a
+detection-quality regression either way.
+
 The **recording** tracker (`observeStableOrientation`, used only while capturing a
 physical-mirror recording) keeps the original three-sample/5° confirm: a permanently
 saved move list benefits more from precision than from instant reaction, and a
@@ -280,40 +323,42 @@ confirm and rises toward 90 as the hand turns toward the next lock-in. Needle le
 `degrees / 90` of the radius, so the dashed ring sits at `regripThresholdDegrees / 90`
 (72% of the radius for the 65° default).
 
-The needle's colour is deliberately **not** derived from `degrees >= thresholdDegrees`.
-`degrees` includes `smartCubeRegripCarryoverDegrees` (below) so the needle can start a new
-cycle already partway out — but `observeThresholdOrientation` never sees that carryover; it
-only ever compares its own raw, uninflated delta to the threshold. Deriving the colour from
-`degrees` would let the needle turn green — visually announcing "a regrip is about to
-fire" — before the real trigger condition is anywhere close to true. `RegripGaugeState`
-therefore carries a separate `crossed` boolean, computed in `converter.ts` from the same
-raw (non-carryover) value the detector itself uses, and the needle only turns green when
-that is actually true — the same instant a regrip really fires.
+Both `degrees` and `crossed` are derived in `converter.ts` from
+`tracker.pendingCarryoverDegrees` — the same value `observeThresholdOrientation` folds
+into its own threshold check (see above) — read directly off the tracker rather than
+recomputed independently, so the gauge can never disagree with the real trigger about
+what counts. The two uses negate it oppositely, since the tracker stores it as a debt
+(always <= 0) but the needle's length wants a head-start (positive):
 
-`degrees` (the needle's length, not its colour) is `smartCubeRegripCarryoverDegrees +
-deviceOrientationDelta(tracker.baseline, current, ...)` — that delta is the same raw value
-`observeThresholdOrientation` compares to the threshold, from the same (already
-drift-corrected) `tracker.baseline`, plus one small correction: a fresh rebase snaps
-`tracker.baseline` to the raw *triggering* sample, not the exact 90° mark, so on its own
-the gauge would read 0° right after every confirm even though a continuous motion rarely
-stops dead the instant it crosses the threshold — it carries some momentum into the next
-quarter-turn. `smartCubeRegripCarryoverDegrees` captures that:
-`max(0, min(90 - regripThresholdDegrees, 90 - angleDegrees at confirm))`,
-set once per confirm from `observeThresholdOrientation`'s returned `angleDegrees` and reset
-to 0 on Recenter or a fresh tracker. Both bounds matter — clamped below at 0 so an
-already-past-90° triggering sample (a sparse-sampling edge case) doesn't go negative, and
-above at `90 - regripThresholdDegrees` (25° for the 65° default) so a *fast* continuous
-spin's overshoot can't inflate it.
+- `crossed` is `rawDegrees + tracker.pendingCarryoverDegrees >= thresholdDegrees` — the
+  exact same signed sum the detector itself compares, so the needle only turns green the
+  same instant a regrip really fires. Deriving it from `degrees >= thresholdDegrees`
+  instead was tried and reverted: since `degrees` (below) adds the carryover rather than
+  subtracting it, that let the needle turn green — visually announcing "a regrip is about
+  to fire" — before the real trigger condition was anywhere close to true.
+- `degrees` is `rawDegrees - tracker.pendingCarryoverDegrees` — the needle's length, not
+  its colour. A fresh rebase snaps `tracker.baseline` to the raw *triggering* sample, not
+  the exact 90° mark, so raw progress alone would read 0° right after every confirm even
+  though a continuous motion rarely stops dead the instant it crosses the threshold; it
+  carries some momentum into the next quarter-turn, and this is that momentum made visible.
 
-This is deliberately a scalar, not a second baseline quaternion. An earlier version
-tried `advanceExactCardinalBaseline`, composing an exact 90° cardinal step directly onto
-a copy of the tracker's baseline — but that baseline lives in raw device coordinates
-(e.g. GoCube's own axis permutation for the `gocube-wire` frame), and composing a
-canonical-frame cardinal quaternion onto it directly is only valid in the identity
-`"viewport"` frame. Replayed against the real GoCube capture it produced gauge readings
-up to ~176° right after a confirm instead of a modest carryover. The scalar approach
-reuses the tracker's own already-correct raw-space delta computation instead of composing
-quaternions across frames at all, so no frame-conversion bug is possible.
+An earlier version kept a second, gauge-only carryover scalar computed independently in
+`converter.ts` rather than reading the tracker's own. That duplicated the same idea in two
+places with two different update rules — it did not compound across multiple regrips in
+one continuous spin the way the tracker's own carryover-into-carryover math does, and had
+no path to decay after a pause. Reading the tracker's value directly instead means the
+gauge is automatically exactly as accurate as detection is, with no separate reasoning to
+keep in sync.
+
+Before landing on a plain degrees scalar at all, an even earlier version tried
+`advanceExactCardinalBaseline`, composing an exact 90° cardinal step directly onto a copy
+of the tracker's baseline — but that baseline lives in raw device coordinates (e.g.
+GoCube's own axis permutation for the `gocube-wire` frame), and composing a canonical-frame
+cardinal quaternion onto it directly is only valid in the identity `"viewport"` frame.
+Replayed against the real GoCube capture it produced gauge readings up to ~176° right
+after a confirm instead of a modest carryover. The scalar approach reuses the tracker's
+own already-correct raw-space delta computation instead of composing quaternions across
+frames at all, so no frame-conversion bug is possible.
 
 The first smart-cube event prints `trace enabled`. If it does not, reload after setting
 the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use

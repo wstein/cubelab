@@ -2238,18 +2238,6 @@ if (root) {
   let smartCubeRecordingAnimationGeneration = 0;
   let smartCubeRecordingOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeDiscreteOrientationTracker: StableOrientationTracker | null = null;
-  // Diagnostics-gauge-only carryover, in degrees: how much of the next
-  // quarter-turn a continuous motion had already reached at the instant it
-  // confirmed. A scalar, not a quaternion — composing an exact 90° cardinal
-  // step directly onto the tracker's baseline was tried and reverted: that
-  // baseline lives in raw device coordinates (e.g. gocube-wire's own axis
-  // permutation), and a canonical-frame cardinal quaternion composed onto it
-  // directly is invalid outside the identity "viewport" frame, producing
-  // nonsense (verified against the real capture: readings up to ~176°
-  // instead of a modest carryover). Clamped to [0, 90 - threshold] so a fast
-  // continuous spin's overshoot can't blow this past a sane bound either —
-  // see the clamp at the write site below.
-  let smartCubeRegripCarryoverDegrees = 0;
   // The cube's 24 legal poses are all exactly 90° apart, with a 45° Voronoi
   // boundary between neighbours. 65° (the built-in default; see
   // public/smart-cube/regrip-profile.v1.json) gives a real hand regrip ~20°
@@ -2308,17 +2296,23 @@ if (root) {
       return;
     }
     const tracker = smartCubeDiscreteOrientationTracker;
-    // Raw progress since the tracker's own (drift-corrected) baseline — this
-    // exact value, uninflated by carryover, is what observeThresholdOrientation
-    // itself compares to the threshold, so `crossed` below must be computed
-    // from it rather than from the carryover-inclusive displayed degrees.
+    // tracker.pendingCarryoverDegrees is the same carryover
+    // observeThresholdOrientation itself folds into its threshold check (see
+    // there) — always <= 0, a shortfall against the *next* 90° mark. Read
+    // directly off the tracker rather than duplicated here, so the gauge can
+    // never disagree with the real trigger about what counts as crossed.
+    // The needle's length wants the positive form of the same number (a
+    // head-start added on top of raw progress), so the two uses negate it
+    // oppositely: `crossed` matches the detector's own signed check exactly;
+    // `degrees` shows -pendingCarryoverDegrees as how far into the next
+    // cycle a continuous motion already carried.
     const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
     const {axis, radians} = quaternionAxisAngle(delta);
     const rawDegrees = radians * 180 / Math.PI;
     viewport.setRegripGauge({
-      degrees: smartCubeRegripCarryoverDegrees + rawDegrees,
+      degrees: rawDegrees - tracker.pendingCarryoverDegrees,
       thresholdDegrees: smartCubeRegripProfile.regripThresholdDegrees,
-      crossed: rawDegrees >= smartCubeRegripProfile.regripThresholdDegrees,
+      crossed: rawDegrees + tracker.pendingCarryoverDegrees >= smartCubeRegripProfile.regripThresholdDegrees,
       label: nearestRegripAxis(axis),
     });
   };
@@ -4630,7 +4624,6 @@ if (root) {
       settingsAutoOrbit.disabled = true;
     } else {
       smartCubeDiscreteOrientationTracker = null;
-      smartCubeRegripCarryoverDegrees = 0;
       autoOrbitButton.disabled = !viewport;
       settingsAutoOrbit.disabled = !viewport;
       setAutoOrbitEnabled(autoOrbit, false);
@@ -4814,12 +4807,19 @@ if (root) {
           viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
         }
         if (smartCubeDiscreteOrientationTracker === null) {
+          // "local" (not "world"): x/y/z tokens are body-frame notation — "y"
+          // always means "rotate about the cube's own current U/D axis",
+          // whatever that axis now points toward in the room after earlier
+          // regrips. "world" measured every delta against fixed room axes
+          // instead, so after any Y regrip the cube's own R/L axis no longer
+          // pointed along world X, and a real physical "x" turn got measured
+          // against the wrong fixed axis and mislabeled — reported live as
+          // chaotic x/x'/z/z' alternation immediately following a Y phase.
           smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
             event.quaternion,
             event.coordinateFrame,
-            "world",
+            "local",
           );
-          smartCubeRegripCarryoverDegrees = 0;
         } else {
           const priorBaseline = smartCubeDiscreteOrientationTracker.baseline;
           const priorOrientation = smartCubeDiscreteOrientationTracker.orientation;
@@ -4837,19 +4837,6 @@ if (root) {
             event.timestamp,
           );
           smartCubeDiscreteOrientationTracker = observed.tracker;
-          if (observed.tokens.length > 0) {
-            // How far short of the exact 90° mark the triggering sample was,
-            // clamped to [0, 90 - threshold] so a fast continuous spin's
-            // overshoot can't inflate this — see the declaration above for
-            // why this is a plain degrees scalar, not a second baseline.
-            smartCubeRegripCarryoverDegrees = Math.max(
-              0,
-              Math.min(
-                90 - smartCubeRegripProfile.regripThresholdDegrees,
-                90 - observed.angleDegrees,
-              ),
-            );
-          }
           if (
             observed.tokens.length > 0
             && smartCubeOrientationTracking
@@ -6575,9 +6562,8 @@ if (root) {
     smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
       latestSmartCubeOrientation.quaternion,
       latestSmartCubeOrientation.coordinateFrame,
-      "world",
+      "local",
     );
-    smartCubeRegripCarryoverDegrees = 0;
     viewport?.recenterDeviceOrientation(
       latestSmartCubeOrientation.quaternion,
       latestSmartCubeOrientation.coordinateFrame,

@@ -72,10 +72,10 @@ export type TurnGuide = {
 export type RegripGaugeState = {
   /**
    * Degrees travelled since the last confirmed pose, for the needle's
-   * length: 0 at rest, rising toward 90. This includes
-   * smartCubeRegripCarryoverDegrees on top of the tracker's own raw delta,
-   * so it is NOT the same value the detector compares to the threshold —
-   * see `crossed` for that.
+   * length: 0 at rest, rising toward 90. This includes the tracker's own
+   * pendingCarryoverDegrees (negated) on top of its raw delta, so it is NOT
+   * the same value the detector compares to the threshold — see `crossed`
+   * for that.
    */
   degrees: number;
   /** Where the confirm threshold sits on the same scale, e.g. 65, for the dashed ring. */
