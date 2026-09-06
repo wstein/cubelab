@@ -15,6 +15,7 @@ type CardinalOrientation = {
 export type StableOrientationTracker = {
   baseline: OrientationQuaternion;
   frame: OrientationCoordinateFrame;
+  deltaFrame: "local" | "world";
   orientation: OrientationQuaternion;
   candidate: {index: number; samples: number} | null;
 };
@@ -91,9 +92,11 @@ const closestCardinalOrientation = (quaternion: OrientationQuaternion): {index: 
 export const createStableOrientationTracker = (
   baseline: OrientationQuaternion,
   frame: OrientationCoordinateFrame,
+  deltaFrame: "local" | "world" = "local",
 ): StableOrientationTracker => ({
   baseline,
   frame,
+  deltaFrame,
   orientation: {x: 0, y: 0, z: 0, w: 1},
   candidate: null,
 });
@@ -110,8 +113,8 @@ export const observeStableOrientation = (
   minimumAlignment = Math.cos(10 * Math.PI / 360),
   dwellSamples = 3,
 ): {tracker: StableOrientationTracker; tokens: RegripToken[]} => {
-  if (tracker.frame !== frame) return {tracker: createStableOrientationTracker(current, frame), tokens: []};
-  const delta = deviceOrientationDelta(tracker.baseline, current, frame, "local");
+  if (tracker.frame !== frame) return {tracker: createStableOrientationTracker(current, frame, tracker.deltaFrame), tokens: []};
+  const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
   const nearest = closestCardinalOrientation(delta);
   if (nearest.alignment < minimumAlignment || nearest.index === 0) {
     return {tracker: {...tracker, candidate: null}, tokens: []};
@@ -120,7 +123,10 @@ export const observeStableOrientation = (
   if (samples < dwellSamples) {
     return {tracker: {...tracker, candidate: {index: nearest.index, samples}}, tokens: []};
   }
-  const orientation = normalize(multiplyQuaternions(tracker.orientation, orientations[nearest.index]!.quaternion));
+  const cardinal = orientations[nearest.index]!.quaternion;
+  const orientation = normalize(tracker.deltaFrame === "world"
+    ? multiplyQuaternions(cardinal, tracker.orientation)
+    : multiplyQuaternions(tracker.orientation, cardinal));
   return {
     tracker: {baseline: current, frame, orientation, candidate: null},
     tokens: orientations[nearest.index]!.tokens,
@@ -138,8 +144,8 @@ export const settleStableOrientation = (
   frame: OrientationCoordinateFrame,
   minimumAlignment = Math.cos(10 * Math.PI / 360),
 ): {tracker: StableOrientationTracker; tokens: RegripToken[]} => {
-  if (tracker.frame !== frame) return {tracker: createStableOrientationTracker(current, frame), tokens: []};
-  const delta = deviceOrientationDelta(tracker.baseline, current, frame, "local");
+  if (tracker.frame !== frame) return {tracker: createStableOrientationTracker(current, frame, tracker.deltaFrame), tokens: []};
+  const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
   const nearest = closestCardinalOrientation(delta);
   if (nearest.alignment < minimumAlignment || nearest.index === 0) {
     return {tracker, tokens: []};
@@ -148,7 +154,9 @@ export const settleStableOrientation = (
     tracker: {
       baseline: current,
       frame,
-      orientation: normalize(multiplyQuaternions(tracker.orientation, orientations[nearest.index]!.quaternion)),
+      orientation: normalize(tracker.deltaFrame === "world"
+        ? multiplyQuaternions(orientations[nearest.index]!.quaternion, tracker.orientation)
+        : multiplyQuaternions(tracker.orientation, orientations[nearest.index]!.quaternion)),
       candidate: null,
     },
     tokens: orientations[nearest.index]!.tokens,

@@ -4788,6 +4788,7 @@ if (root) {
           smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
             event.quaternion,
             event.coordinateFrame,
+            "world",
           );
         } else {
           const observed = observeStableOrientation(
@@ -6573,6 +6574,7 @@ if (root) {
     smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
       latestSmartCubeOrientation.quaternion,
       latestSmartCubeOrientation.coordinateFrame,
+      "world",
     );
     smartCubeTurnAnchor = null;
     viewport?.recenterDeviceOrientation(
