@@ -1,5 +1,5 @@
 {
-  "$schema": "/smart-cube/motion-profiles.v1.schema.json",
+  "$schema": "./motion-profiles.v1.schema.json",
   "version": 1,
   "default": {
     "label": "Default",
