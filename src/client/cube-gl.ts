@@ -775,10 +775,6 @@ export type CubeViewport = {
     targetErrorAxis: [number, number, number] | null;
     correctionStepRadians: number;
   };
-  currentRenderedOrientation: (
-    measured: OrientationQuaternion,
-    frame?: OrientationCoordinateFrame,
-  ) => OrientationQuaternion | null;
   setAutoOrbit: (enabled: boolean) => void;
   setDialogOpen: (open: boolean) => void;
   resetCamera: () => void;
@@ -1991,12 +1987,6 @@ export const createCubeViewport = (
         targetErrorAxis,
         correctionStepRadians: orientationDistanceRadians(priorCorrection, nextCorrection),
       };
-    },
-    currentRenderedOrientation(measured, coordinateFrame = "viewport") {
-      if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) {
-        return null;
-      }
-      return renderedDeviceOrientation(deviceOrientationBase, deviceOrientationCorrectionTarget, measured, coordinateFrame);
     },
     setAutoOrbit(enabled) {
       if (deviceOrientation && enabled) enabled = false;

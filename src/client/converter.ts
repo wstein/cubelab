@@ -129,7 +129,6 @@ import {
 import {assessGyroRotation, detectGyroQuarterRotation} from "./smart-cube/orientation-verifier";
 import {
   createStableOrientationTracker,
-  nearestCardinalOrientation,
   observeStableOrientation,
   type StableOrientationTracker,
 } from "./smart-cube/orientation-tracker";
@@ -4753,22 +4752,18 @@ if (root) {
             && result.targetErrorRadians !== null
             && result.targetErrorRadians > maximumTargetErrorRadians
           ) {
-            const rendered = viewport?.currentRenderedOrientation(measured, frame) ?? null;
-            const nearestTarget = rendered && nearestCardinalOrientation(rendered);
-            if (nearestTarget) {
+            // Measure from the discrete tracker's own baseline, which rebases on every
+            // confirmed regrip, rather than the viewport's rendered pose, which is
+            // downstream of the whole session's chain of past corrections. -1/1 accepts
+            // and confirms from a single sample: no alignment gate, no dwell.
+            const tracker = smartCubeDiscreteOrientationTracker
+              ?? createStableOrientationTracker(measured, frame, "world");
+            const resolved = observeStableOrientation(tracker, measured, frame, -1, 1);
+            if (resolved.tokens.length > 0) {
+              const nearestTarget = resolved.tracker.orientation;
               viewport?.reconcileDeviceOrientation(measured, nearestTarget, frame);
               smartCubeStabilizationTarget = nearestTarget;
-              // The discrete tracker composes each confirmed regrip onto its own
-              // running orientation. Without this, that running orientation would
-              // silently diverge from the pose we just snapped the viewport to, and
-              // the next confirmed regrip would compose onto stale, unrelated state.
-              smartCubeDiscreteOrientationTracker = {
-                baseline: measured,
-                frame,
-                deltaFrame: smartCubeDiscreteOrientationTracker?.deltaFrame ?? "world",
-                orientation: nearestTarget,
-                candidate: null,
-              };
+              smartCubeDiscreteOrientationTracker = resolved.tracker;
               traceSmartCubeStabilization("unconfirmed regrip snapped to nearest cardinal", {
                 move: event.move,
                 targetErrorDegrees: Number((result.targetErrorRadians * 180 / Math.PI).toFixed(2)),

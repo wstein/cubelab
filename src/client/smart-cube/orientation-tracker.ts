@@ -89,15 +89,6 @@ const closestCardinalOrientation = (quaternion: OrientationQuaternion): {index: 
   return result;
 };
 
-/**
- * Snaps any orientation to the nearest of the 24 legal cube poses, with no
- * alignment gate or dwell requirement. Every pose in the group is exactly 90°
- * from its neighbours, so this never moves an input by more than ~63°
- * (the group's worst-case covering radius) regardless of how far off it is.
- */
-export const nearestCardinalOrientation = (quaternion: OrientationQuaternion): OrientationQuaternion =>
-  orientations[closestCardinalOrientation(quaternion).index]!.quaternion;
-
 export const createStableOrientationTracker = (
   baseline: OrientationQuaternion,
   frame: OrientationCoordinateFrame,
