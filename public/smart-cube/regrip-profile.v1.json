@@ -1,0 +1,16 @@
+{
+  "$schema": "/smart-cube/regrip-profile.v1.schema.json",
+  "version": 1,
+  "default": {
+    "label": "Default",
+    "regripThresholdDegrees": 65,
+    "artificialDriftDegreesPerSecond": 120
+  },
+  "profiles": {
+    "gocube": {
+      "label": "GoCube",
+      "regripThresholdDegrees": 65,
+      "artificialDriftDegreesPerSecond": 120
+    }
+  }
+}

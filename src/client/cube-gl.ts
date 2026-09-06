@@ -71,6 +71,8 @@ export type RegripGaugeState = {
   angleDegrees: number;
   thresholdDegrees: number;
   label: string | null;
+  /** Cap, in degrees/second, on how fast the displayed needle may move — see RegripProfile. */
+  driftDegreesPerSecond: number;
 } | null;
 
 const DEFAULT_YAW = -0.62;
@@ -837,6 +839,13 @@ export const createCubeViewport = (
   let turnGuide: TurnGuide | null = null;
   let moveRibbon: TurnGuide | null = null;
   let regripGauge: RegripGaugeState = null;
+  // Artificially smoothed copy of regripGauge's angle/label, stepped toward
+  // the real target once per frame at driftDegreesPerSecond, so the needle
+  // reads as a continuous drift rather than jumping between raw samples —
+  // the underlying detector still reacts to each raw sample immediately.
+  let regripGaugeDisplayDegrees = 0;
+  let regripGaugeDisplayLabel: string | null = null;
+  let regripGaugeLastFrameAt = 0;
   let turnFrame: number | null = null;
   let turnGeneration = 0;
   let autoOrbit = false;
@@ -1498,7 +1507,7 @@ export const createCubeViewport = (
       overlay.moveTo(cx, cy);
       overlay.lineTo(cx + Math.cos(spoke.angle) * radius, cy + Math.sin(spoke.angle) * radius);
       overlay.stroke();
-      overlay.fillStyle = spoke.label === regripGauge!.label ? "#67e8f9" : "rgba(203, 213, 225, 0.85)";
+      overlay.fillStyle = spoke.label === regripGaugeDisplayLabel ? "#67e8f9" : "rgba(203, 213, 225, 0.85)";
       overlay.font = `600 ${10 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
       overlay.textAlign = "center";
       overlay.textBaseline = "middle";
@@ -1515,10 +1524,10 @@ export const createCubeViewport = (
     overlay.arc(cx, cy, radius * thresholdFraction, 0, Math.PI * 2);
     overlay.stroke();
     overlay.setLineDash([]);
-    const spoke = spokes.find((candidate) => candidate.label === regripGauge!.label);
+    const spoke = spokes.find((candidate) => candidate.label === regripGaugeDisplayLabel);
     if (spoke) {
-      const fraction = Math.min(1, regripGauge.angleDegrees / 90);
-      const crossed = regripGauge.angleDegrees >= regripGauge.thresholdDegrees;
+      const fraction = Math.min(1, regripGaugeDisplayDegrees / 90);
+      const crossed = regripGaugeDisplayDegrees >= regripGauge.thresholdDegrees;
       const needleColour = crossed ? "#4ade80" : "#67e8f9";
       overlay.strokeStyle = needleColour;
       overlay.fillStyle = needleColour;
@@ -1536,8 +1545,31 @@ export const createCubeViewport = (
     overlay.font = `600 ${9 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
     overlay.textAlign = "center";
     overlay.textBaseline = "middle";
-    overlay.fillText(`${Math.round(regripGauge.angleDegrees)}°`, cx, cy);
+    overlay.fillText(`${Math.round(regripGaugeDisplayDegrees)}°`, cx, cy);
     overlay.restore();
+  };
+
+  /**
+   * Steps the gauge's displayed needle toward its real target at a capped
+   * rate (see RegripGaugeState.driftDegreesPerSecond), and requests another
+   * frame while it hasn't caught up yet. The label switches immediately —
+   * only the travelled distance along whichever spoke is current is smoothed.
+   */
+  const stepRegripGaugeDisplay = () => {
+    if (!regripGauge) {
+      regripGaugeLastFrameAt = 0;
+      regripGaugeDisplayDegrees = 0;
+      regripGaugeDisplayLabel = null;
+      return;
+    }
+    const now = performance.now();
+    const dt = regripGaugeLastFrameAt ? Math.min(0.25, (now - regripGaugeLastFrameAt) / 1000) : 0;
+    regripGaugeLastFrameAt = now;
+    regripGaugeDisplayLabel = regripGauge.label;
+    const maxStep = regripGauge.driftDegreesPerSecond * dt;
+    const diff = regripGauge.angleDegrees - regripGaugeDisplayDegrees;
+    regripGaugeDisplayDegrees += Math.sign(diff) * Math.min(Math.abs(diff), maxStep);
+    if (Math.abs(regripGauge.angleDegrees - regripGaugeDisplayDegrees) > 0.01) requestRender();
   };
 
   const render = () => {
@@ -1604,6 +1636,7 @@ export const createCubeViewport = (
     gl.uniform2f(guideRange, guideTransform?.min ?? 0, guideTransform?.max ?? 0);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
     drawMotionOverlay(matrices, width, height);
+    stepRegripGaugeDisplay();
     drawRegripGauge(width, height);
     canvas.dataset.webgl = "ready";
     canvas.dataset.cameraYaw = yaw.toFixed(6);

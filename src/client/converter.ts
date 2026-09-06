@@ -137,6 +137,12 @@ import {
   type StableOrientationTracker,
 } from "./smart-cube/orientation-tracker";
 import {
+  defaultRegripProfile,
+  parseRegripProfileRegistry,
+  regripProfileFor,
+  type RegripProfile,
+} from "./smart-cube/regrip-profile";
+import {
   createSmartCubeAudioFeedback,
   readSmartCubeSoundPreference,
   writeSmartCubeSoundPreference,
@@ -2233,10 +2239,21 @@ if (root) {
   let smartCubeRecordingOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeDiscreteOrientationTracker: StableOrientationTracker | null = null;
   // The cube's 24 legal poses are all exactly 90° apart, with a 45° Voronoi
-  // boundary between neighbours. 65° gives a real hand regrip ~20° of slack
-  // past that boundary before it's mistaken for jostle, without needing to
-  // land anywhere near precisely — see observeThresholdOrientation.
-  const REGRIP_THRESHOLD_DEGREES = 65;
+  // boundary between neighbours. 65° (the built-in default; see
+  // public/smart-cube/regrip-profile.v1.json) gives a real hand regrip ~20°
+  // of slack past that boundary before it's mistaken for jostle, without
+  // needing to land anywhere near precisely — see observeThresholdOrientation.
+  let smartCubeRegripProfile: RegripProfile = defaultRegripProfile;
+  let smartCubeRegripProfileLoad: Promise<ReturnType<typeof parseRegripProfileRegistry>> | null = null;
+  const loadSmartCubeRegripProfiles = () => {
+    if (!smartCubeRegripProfileLoad) {
+      smartCubeRegripProfileLoad = fetch("/smart-cube/regrip-profile.v1.json")
+        .then((response) => (response.ok ? response.json() : null))
+        .then(parseRegripProfileRegistry)
+        .catch(() => null);
+    }
+    return smartCubeRegripProfileLoad;
+  };
   let smartCubeStabilizationTraceAnnounced = false;
   let smartCubeDiagnosticsEnabled = window.localStorage.getItem("cubelab.smartCube.diagnostics") === "1";
   const smartCubeDiagnosticTrace: Array<{
@@ -2283,8 +2300,9 @@ if (root) {
     const {axis, radians} = quaternionAxisAngle(delta);
     viewport.setRegripGauge({
       angleDegrees: radians * 180 / Math.PI,
-      thresholdDegrees: REGRIP_THRESHOLD_DEGREES,
+      thresholdDegrees: smartCubeRegripProfile.regripThresholdDegrees,
       label: nearestRegripAxis(axis),
+      driftDegreesPerSecond: smartCubeRegripProfile.artificialDriftDegreesPerSecond,
     });
   };
   // During a recording session the physical cube is an input device. Keep a
@@ -4630,6 +4648,15 @@ if (root) {
         clearSmartCubeRecovery();
       }
       smartCubeDeviceName = connectionState.device.name;
+      void loadSmartCubeRegripProfiles().then((registry) => {
+        if (!smartCubeConnected || smartCubeManager?.getState().device?.brand !== connectionState.device?.brand) return;
+        smartCubeRegripProfile = regripProfileFor(registry, connectionState.device!.brand);
+        traceSmartCubeStabilization("regrip profile loaded", {
+          label: smartCubeRegripProfile.label,
+          regripThresholdDegrees: smartCubeRegripProfile.regripThresholdDegrees,
+          artificialDriftDegreesPerSecond: smartCubeRegripProfile.artificialDriftDegreesPerSecond,
+        });
+      });
       smartCubeLedFeedback = connectionState.device.capabilities.led;
       const streamReadyMs = connectionState.device.timing?.streamReadyMs;
       const timing = streamReadyMs === undefined
@@ -4775,14 +4802,15 @@ if (root) {
           const priorOrientation = smartCubeDiscreteOrientationTracker.orientation;
           // Regrip detection is threshold-based, not dwell-based: it fires the
           // instant cumulative rotation from the last confirmed pose crosses
-          // REGRIP_THRESHOLD_DEGREES, however imprecisely the hand lands, rather
-          // than waiting for samples to settle within a tight alignment gate.
-          // See observeThresholdOrientation for why this is safe.
+          // smartCubeRegripProfile.regripThresholdDegrees, however imprecisely
+          // the hand lands, rather than waiting for samples to settle within a
+          // tight alignment gate. See observeThresholdOrientation for why this
+          // is safe.
           const observed = observeThresholdOrientation(
             smartCubeDiscreteOrientationTracker,
             event.quaternion,
             event.coordinateFrame,
-            REGRIP_THRESHOLD_DEGREES,
+            smartCubeRegripProfile.regripThresholdDegrees,
           );
           smartCubeDiscreteOrientationTracker = observed.tracker;
           if (

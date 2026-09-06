@@ -173,9 +173,10 @@ to fight that drift, and still couldn't make continuous mirroring feel solid. Th
 stream is used for exactly one thing: detecting when the whole cube has been regripped.
 
 Live regrip detection (`observeThresholdOrientation`) fires as soon as the cumulative
-rotation from the last confirmed pose crosses `REGRIP_THRESHOLD_DEGREES` (65°) — no
-dwell, no tight alignment gate. Every pair of the cube's 24 legal poses is exactly 90°
-apart with a 45° Voronoi boundary between neighbours, so once a delta is past 65° it is
+rotation from the last confirmed pose crosses `regripThresholdDegrees` (65° by default,
+see the profile below) — no dwell, no tight alignment gate. Every pair of the cube's 24
+legal poses is exactly 90° apart with a 45° Voronoi boundary between neighbours, so once
+a delta is past 65° it is
 already unambiguously closer to the correct neighbour than to any other pose, however
 imprecisely the hand actually lands — precision only has to be good enough to tell two
 90°-apart poses apart, not to hit one exactly. An earlier version required three
@@ -189,6 +190,25 @@ since it fires on the crossing sample rather than waiting for stillness, the loc
 pose can still be mid-settle if the hand keeps adjusting afterward, leaving a real
 (bounded) residual until the next regrip corrects it — bounded settle-in error instead
 of an unbounded chance of missing the regrip entirely.
+
+`regripThresholdDegrees` (and the diagnostics gauge's drift rate, below) live in
+`public/smart-cube/regrip-profile.v1.json`, keyed by brand the same way the removed
+motion-profile registry was, and validated by
+`src/client/smart-cube/regrip-profile.ts` (`parseRegripProfileRegistry`). It loads once
+per connection and falls back to the built-in default (65°) if the fetch fails or the
+file is malformed — a bad or missing profile degrades to the hardcoded value rather than
+breaking detection. This is deliberately **not** the same tuning knob as the old deleted
+ring-buffer motion profile: that one configured a continuous correction system that no
+longer exists; this one only configures the threshold detector described above.
+
+Important: the tracker's baseline rebases to the *raw triggering sample* on confirm, not
+to the mathematically exact 90° cardinal step. That was tried and reverted — rebasing to
+the exact step let leftover imprecision from an imprecise regrip get silently baked into
+the reference frame forever, and replaying it against the real GoCube capture produced
+spurious tokens on the wrong axis throughout both 720° spins. Snapping to the actual
+measured sample is what stops small heading bias from accumulating across regrips (the
+same reasoning the recording tracker already relied on), at the cost of the bounded
+residual described above.
 
 The **recording** tracker (`observeStableOrientation`, used only while capturing a
 physical-mirror recording) keeps the original three-sample/5° confirm: a permanently
@@ -225,15 +245,25 @@ value) to silence the trace.
 
 While **Diagnostics** is on, a fixed 2D gauge in the viewport's corner shows the
 threshold detector's live state: a hexagon with a spoke for each of the six quarter-turn
-directions (`x`, `x'`, `y`, `y'`, `z`, `z'`), a dashed ring at `REGRIP_THRESHOLD_DEGREES`
-(65°), and a needle from the centre toward whichever spoke the raw sample's rotation axis
-is currently closest to, with length proportional to how many degrees it has travelled
-from the tracker's baseline (capped visually at 90°). The needle turns green once it
-crosses the dashed ring — the same instant a regrip fires — and snaps back to the centre
-on confirm, since the tracker rebases to the triggering sample. This is deliberately a
-flat, screen-fixed HUD rather than a 3D arrow in the scene: once the cube itself is
-rotating, a 3D debug vector competing for the same space is hard to read at a glance,
-where a fixed gauge stays legible regardless of camera angle or cube motion.
+directions (`x`, `x'`, `y`, `y'`, `z`, `z'`), a dashed ring at `regripThresholdDegrees`,
+and a needle from the centre toward whichever spoke the raw sample's rotation axis is
+currently closest to, with length proportional to how many degrees it has travelled from
+the tracker's baseline (capped visually at 90°). The needle turns green once it crosses
+the dashed ring — the same instant a regrip fires. This is deliberately a flat,
+screen-fixed HUD rather than a 3D arrow in the scene: once the cube itself is rotating, a
+3D debug vector competing for the same space is hard to read at a glance, where a fixed
+gauge stays legible regardless of camera angle or cube motion.
+
+The needle's on-screen position is smoothed, not driven directly by raw samples: each
+frame it steps toward the real target at up to `artificialDriftDegreesPerSecond`
+(120°/s by default, from the same profile). This is a synthetic, display-only effect —
+the detector underneath always reacts to the actual raw sample immediately, with no
+smoothing at all — but without it the needle would visibly teleport between samples
+(GoCube orientation packets arrive in irregular bursts), including snapping straight to
+0° the instant a regrip's baseline rebases. With the drift cap, that same rebase instead
+reads as the needle sliding back toward centre (or wherever the real, still-unsettled
+raw sample now measures from the new baseline) over a fraction of a second — visually
+continuous, while the confirm decision itself remains instant and untouched.
 
 The first smart-cube event prints `trace enabled`. If it does not, reload after setting
 the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use

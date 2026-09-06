@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/smart-cube/regrip-profile.v1.schema.json",
+  "title": "CubeLab smart-cube regrip profiles v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "default", "profiles"],
+  "properties": {
+    "version": {
+      "const": 1,
+      "description": "Schema and registry format version."
+    },
+    "default": {"$ref": "#/$defs/profile"},
+    "profiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "gan": {"$ref": "#/$defs/profile"},
+        "giiker": {"$ref": "#/$defs/profile"},
+        "gocube": {"$ref": "#/$defs/profile"},
+        "moyu": {"$ref": "#/$defs/profile"}
+      }
+    }
+  },
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "regripThresholdDegrees", "artificialDriftDegreesPerSecond"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable profile name."
+        },
+        "regripThresholdDegrees": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 90,
+          "description": "Cumulative rotation, in degrees, from the tracker's last confirmed cardinal pose that fires the next regrip. Every pair of the cube's 24 legal poses is exactly 90° apart, so this must stay strictly between 0° and 90°."
+        },
+        "artificialDriftDegreesPerSecond": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Speed, in degrees per second, the diagnostics gauge's needle is allowed to move. Synthesized smoothing for the display only, so the needle reads as a continuous drift toward the next lock-in point rather than jumping between samples; the regrip detector itself always reacts to the raw sample immediately."
+        }
+      }
+    }
+  }
+}
