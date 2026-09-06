@@ -4807,17 +4807,14 @@ if (root) {
           viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
         }
         if (smartCubeDiscreteOrientationTracker === null) {
-          // "world": tried "local" (reasoning that x/y/z are body-frame cube
-          // notation) and reverted — live testing showed it wrong for every
-          // turn, not just ones after a prior regrip. What this tracker
-          // actually needs is "world": the camera is fixed in the room, so
-          // rendering the physical cube's true appearance means tracking how
-          // it has reoriented relative to that fixed viewpoint, not relative
-          // to the cube's own (constantly moving) body frame.
+          // "local": Whole-cube rotations (x, y, z) in cube notation are defined
+          // relative to the cube's own body frame (Red = X, Green = Z, White = Y).
+          // Using "local" ensures that after any prior rotation (such as Y 180°),
+          // rotations around the cube's faces retain their correct axis and direction.
           smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
             event.quaternion,
             event.coordinateFrame,
-            "world",
+            "local",
           );
         } else {
           const priorBaseline = smartCubeDiscreteOrientationTracker.baseline;
@@ -6561,7 +6558,7 @@ if (root) {
     smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
       latestSmartCubeOrientation.quaternion,
       latestSmartCubeOrientation.coordinateFrame,
-      "world",
+      "local",
     );
     viewport?.recenterDeviceOrientation(
       latestSmartCubeOrientation.quaternion,
