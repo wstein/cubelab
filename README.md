@@ -168,8 +168,8 @@ bun install
 During `bun run dev`, CubeLab serves Chrome's automatic-workspace manifest at
 `/.well-known/appspecific/com.chrome.devtools.json`. Open the local site in Chrome
 DevTools and approve its prompt to connect this checkout; edits in DevTools then save
-directly to the project files. The manifest is generated at runtime so it always reports
-the current absolute checkout path.
+directly to the project files. Astro generates the manifest at runtime so it always
+reports the current absolute checkout path.
 
 ## Quality checks
 
