@@ -262,11 +262,11 @@ arriving," not "how far travelled." The needle turns green once it crosses the r
 same instant a regrip fires.
 
 The gauge subtracts 90° from the raw accumulated rotation, so the 65° threshold is shown
-as −25° and the virtual needle then continues toward the 0° lock-in. It never snaps back
-when the raw detector rebases after recognizing a regrip. The rendered cube uses the same
-persistent lock target: its quaternion correction slowly follows the offset required to
-reach the new cardinal U/R/F/D/L/B orientation, capped at 2° per second. Raw packets still
-reach the detector immediately and unmodified.
+as −25°: −90° is outside, the threshold is the dashed ring, and 0° is the centre lock-in.
+It never snaps back when the raw detector rebases after recognizing a regrip. That trigger
+also eases the rendered cube into its new cardinal U/R/F/D/L/B orientation; afterward its
+quaternion offset slowly follows hardware drift at a maximum of 2° per second. Raw packets
+still reach the detector immediately and unmodified.
 
 The first smart-cube event prints `trace enabled`. If it does not, reload after setting
 the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use
