@@ -16,6 +16,7 @@ import {
   multiplyQuaternions,
   orientationInViewportFrame,
   orientationCorrectionForTarget,
+  orientationDistanceRadians,
   pngBlobFromDataUrl,
   relativeQuaternion,
   safeCameraDistance,
@@ -47,6 +48,13 @@ describe("cube viewport math", () => {
     const corrected = multiplyQuaternions(correction, displayed);
     expect(corrected.x).toBeGreaterThan(displayed.x);
     expect(corrected.x).toBeLessThan(target.x);
+  });
+
+  test("treats a cardinal regrip as too far away for face-turn stabilization", () => {
+    const identity = {x: 0, y: 0, z: 0, w: 1};
+    const x = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
+    expect(orientationDistanceRadians(identity, x)).toBeCloseTo(Math.PI / 2);
+    expect(orientationDistanceRadians(identity, x)).toBeGreaterThan(10 * Math.PI / 180);
   });
 
   test("keeps Standard stickers at a restrained mid-gloss finish", () => {

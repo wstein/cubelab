@@ -483,6 +483,17 @@ const inverseQuaternion = (quaternion: OrientationQuaternion): OrientationQuater
   return {x: -normalized.x, y: -normalized.y, z: -normalized.z, w: normalized.w};
 };
 
+/** Smallest SO(3) angle between two normalized orientation quaternions. */
+export const orientationDistanceRadians = (
+  left: OrientationQuaternion,
+  right: OrientationQuaternion,
+): number => {
+  const a = normalizedQuaternion(left);
+  const b = normalizedQuaternion(right);
+  const dot = Math.abs(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w);
+  return 2 * Math.acos(Math.min(1, dot));
+};
+
 /**
  * Produces the display-only adjustment that makes a raw IMU delta agree with
  * a settled cardinal cube pose. The raw sample remains untouched.
@@ -1866,6 +1877,18 @@ export const createCubeViewport = (
     },
     stabilizeDeviceOrientation(target, coordinateFrame = "viewport") {
       if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) return;
+      const raw = deviceOrientationDelta(
+        deviceOrientationBase,
+        deviceOrientation,
+        coordinateFrame,
+        "world",
+      );
+      const rendered = deviceOrientationCorrection
+        ? multiplyQuaternions(deviceOrientationCorrection, raw)
+        : raw;
+      // A confirmed face turn can refine a nearby pose, never erase a 90°
+      // cardinal regrip which has not yet reached this display channel.
+      if (orientationDistanceRadians(rendered, target) > 10 * Math.PI / 180) return;
       deviceOrientationCorrection = stabilizedOrientationCorrection(
         deviceOrientationCorrection,
         deviceOrientationBase,
