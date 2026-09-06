@@ -1960,3 +1960,34 @@ test("manual state editor undoes last painted sticker via keyboard shortcut", as
   await page.keyboard.press("Escape");
   await expect(dialog).not.toBeVisible();
 });
+
+test("manual state editor loads state notation and applies moves and transformations", async ({page}) => {
+  await page.goto("/");
+  const rState = algorithmFacelets("R");
+  const ruState = algorithmFacelets("R U");
+  const setup = page.locator("[data-input]");
+  const dialog = page.locator("[data-manual-state-dialog]");
+  const notation = dialog.locator("[data-manual-state-notation]");
+  const apply = dialog.locator("[data-manual-state-notation-apply]");
+
+  await page.locator("[data-manual-state-open]").click();
+  await notation.fill(rState);
+  await apply.click();
+  await expect(dialog.locator("[data-manual-state-notation-status]")).toHaveText("Compact facelets loaded.");
+
+  await notation.fill("U");
+  await apply.click();
+  await expect(dialog.locator("[data-manual-state-notation-status]")).toHaveText("Moves applied.");
+  await dialog.locator("[data-manual-state-load]").click();
+  await expect(setup).toHaveValue(
+    ruState.match(/.{9}/g).join(" "),
+  );
+  await expect(page.locator('[data-output="facelets"]')).toHaveText(ruState);
+
+  await page.locator("[data-manual-state-open]").click();
+  await notation.fill("x");
+  await apply.click();
+  await expect(dialog.locator("[data-manual-state-notation-status]")).toHaveText("Moves applied.");
+  await dialog.locator("[data-manual-state-load]").click();
+  await expect(page.locator('[data-output="facelets"]')).toHaveText(algorithmFacelets("R U x"));
+});
