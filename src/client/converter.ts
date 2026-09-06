@@ -6564,6 +6564,10 @@ if (root) {
       latestSmartCubeOrientation.quaternion,
       latestSmartCubeOrientation.coordinateFrame,
     );
+    traceSmartCubeStabilization("gyro view recentered", {
+      coordinates: latestSmartCubeOrientation.quaternion,
+      target: smartCubeStabilizationTarget,
+    });
     smartCubeStatus.textContent = `${smartCubeDeviceName} · Gyro view centered`;
   });
   smartCubeDiagnostics.addEventListener("click", () => {

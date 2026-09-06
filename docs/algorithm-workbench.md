@@ -199,7 +199,9 @@ on genuine tumbles, so the effective zero reference kept sliding and never settl
 
 For hardware diagnosis, set `localStorage.cubelab.smartCube.gyroTrace` to `"1"` in
 browser DevTools and reproduce a turn. The console records dropped ring probes, ring
-readiness, regrip settlement, and corrections. Dropped-probe entries include the
+readiness, regrip settlement, an explicit **Recenter gyro view** click, and
+corrections — so a trace can show whether a reported jump followed a recenter or
+happened independently of one. Dropped-probe entries include the
 sample-to-sample rotation and 5° threshold; corrections include target error and actual
 correction-step degrees. The correction uses the normalized average of the accepted ring
 quaternions and includes its signed target-error axis. Remove the key (or set it to
