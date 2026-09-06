@@ -12,6 +12,7 @@ import {
   transformTurnPointForCubie,
   transformTurnPoint,
   focusCameraTarget,
+  followSmartCubeOrientationOffset,
   matrixFromQuaternion,
   multiplyQuaternions,
   orientationInViewportFrame,
@@ -86,6 +87,15 @@ describe("cube viewport math", () => {
     expect(autoOrbitYawDelta(25)).toBeCloseTo(0.006);
     expect(autoOrbitYawDelta(1_000)).toBeCloseTo(0.012);
     expect(autoOrbitYawDelta(-10)).toBe(0);
+  });
+
+  test("limits the smart-cube drift offset to two degrees per second", () => {
+    const identity = {x: 0, y: 0, z: 0, w: 1};
+    const quarterTurn = {x: 0, y: Math.SQRT1_2, z: 0, w: Math.SQRT1_2};
+    const afterOneSecond = followSmartCubeOrientationOffset(identity, quarterTurn, 1_000);
+    expect(orientationDistanceRadians(identity, afterOneSecond)).toBeCloseTo(2 * Math.PI / 180, 8);
+    const afterOneMinute = followSmartCubeOrientationOffset(identity, quarterTurn, 60_000);
+    expect(orientationDistanceRadians(identity, afterOneMinute)).toBeCloseTo(Math.PI / 2, 8);
   });
 
   test("preallocates enough VBO space as cube sizes increase", () => {

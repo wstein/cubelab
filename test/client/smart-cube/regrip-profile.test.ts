@@ -10,16 +10,15 @@ describe("regrip profile registry", () => {
   test("parses a well-formed registry", () => {
     const registry = parseRegripProfileRegistry({
       version: 1,
-      default: {label: "Default", regripThresholdDegrees: 65, artificialDriftDegreesPerSecond: 120},
+      default: {label: "Default", regripThresholdDegrees: 65},
       profiles: {
-        gocube: {label: "GoCube", regripThresholdDegrees: 70, artificialDriftDegreesPerSecond: 90},
+        gocube: {label: "GoCube", regripThresholdDegrees: 70},
       },
     });
     expect(registry).not.toBeNull();
     expect(regripProfileFor(registry, "gocube")).toEqual({
       label: "GoCube",
       regripThresholdDegrees: 70,
-      artificialDriftDegreesPerSecond: 90,
     });
     expect(regripProfileFor(registry, "gan")).toEqual(registry!.default);
   });
@@ -27,7 +26,7 @@ describe("regrip profile registry", () => {
   test("rejects a threshold outside the 0-90 range a cardinal step allows", () => {
     expect(parseRegripProfileRegistry({
       version: 1,
-      default: {label: "Default", regripThresholdDegrees: 95, artificialDriftDegreesPerSecond: 120},
+      default: {label: "Default", regripThresholdDegrees: 95},
       profiles: {},
     })).toBeNull();
   });
@@ -35,9 +34,9 @@ describe("regrip profile registry", () => {
   test("drops an unknown brand key rather than failing the whole registry", () => {
     const registry = parseRegripProfileRegistry({
       version: 1,
-      default: {label: "Default", regripThresholdDegrees: 65, artificialDriftDegreesPerSecond: 120},
+      default: {label: "Default", regripThresholdDegrees: 65},
       profiles: {
-        atari: {label: "Atari", regripThresholdDegrees: 65, artificialDriftDegreesPerSecond: 120},
+        atari: {label: "Atari", regripThresholdDegrees: 65},
       },
     });
     expect(registry?.profiles).toEqual({});
