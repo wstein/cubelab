@@ -1,5 +1,6 @@
 import {
   deviceOrientationDelta,
+  followSmartCubeOrientationOffset,
   multiplyQuaternions,
   type OrientationCoordinateFrame,
   type OrientationQuaternion,
@@ -18,6 +19,8 @@ export type StableOrientationTracker = {
   deltaFrame: "local" | "world";
   orientation: OrientationQuaternion;
   candidate: {index: number; samples: number} | null;
+  /** Wall-clock time baseline was last touched, for the drift follow below. */
+  baselineUpdatedAt: number | null;
 };
 
 const normalize = (quaternion: OrientationQuaternion): OrientationQuaternion => {
@@ -99,6 +102,7 @@ export const createStableOrientationTracker = (
   deltaFrame,
   orientation: {x: 0, y: 0, z: 0, w: 1},
   candidate: null,
+  baselineUpdatedAt: null,
 });
 
 /**
@@ -128,7 +132,7 @@ export const observeStableOrientation = (
     ? multiplyQuaternions(cardinal, tracker.orientation)
     : multiplyQuaternions(tracker.orientation, cardinal));
   return {
-    tracker: {baseline: current, frame, deltaFrame: tracker.deltaFrame, orientation, candidate: null},
+    tracker: {baseline: current, frame, deltaFrame: tracker.deltaFrame, orientation, candidate: null, baselineUpdatedAt: tracker.baselineUpdatedAt},
     tokens: orientations[nearest.index]!.tokens,
   };
 };
@@ -143,25 +147,49 @@ export const observeStableOrientation = (
  * good enough to tell two 90°-apart poses apart, not to hit one exactly.
  * Ordinary handling jostle, which rarely accumulates past the threshold
  * before the cube settles back down, never triggers at all.
+ *
+ * When timestampMs is supplied, the baseline itself continuously drifts
+ * toward the raw sample at up to driftDegreesPerSecond (2°/s by default,
+ * matching cube-gl.ts's SMART_CUBE_OFFSET_RADIANS_PER_SECOND) between
+ * confirms. This damps out slow sensor heading bias — the cube sitting still
+ * for a while must not be able to accumulate enough apparent rotation to
+ * cross the threshold on its own — without touching real regrips, which turn
+ * far faster than 2°/s and so easily outrun this cap and register normally.
+ * Confirms still rebase to the exact raw triggering sample, not this drifted
+ * value: that discrete snap is what stops small heading bias from
+ * accumulating *across* regrips (see the docs for the case this broke on).
  */
 export const observeThresholdOrientation = (
   tracker: StableOrientationTracker,
   current: OrientationQuaternion,
   frame: OrientationCoordinateFrame,
   minimumRotationDegrees = 65,
+  timestampMs?: number,
+  driftDegreesPerSecond = 2,
 ): {tracker: StableOrientationTracker; tokens: RegripToken[]} => {
   if (tracker.frame !== frame) return {tracker: createStableOrientationTracker(current, frame, tracker.deltaFrame), tokens: []};
-  const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
+  const baseline = timestampMs !== undefined && tracker.baselineUpdatedAt !== null
+    ? followSmartCubeOrientationOffset(
+      tracker.baseline,
+      current,
+      Math.max(0, timestampMs - tracker.baselineUpdatedAt),
+      driftDegreesPerSecond * Math.PI / 180,
+    )
+    : tracker.baseline;
+  const baselineUpdatedAt = timestampMs ?? tracker.baselineUpdatedAt;
+  const delta = deviceOrientationDelta(baseline, current, frame, tracker.deltaFrame);
   const angleDegrees = 2 * Math.acos(Math.min(1, Math.abs(delta.w))) * 180 / Math.PI;
-  if (angleDegrees < minimumRotationDegrees) return {tracker, tokens: []};
+  if (angleDegrees < minimumRotationDegrees) {
+    return {tracker: {...tracker, baseline, baselineUpdatedAt}, tokens: []};
+  }
   const nearest = closestCardinalOrientation(delta);
-  if (nearest.index === 0) return {tracker, tokens: []};
+  if (nearest.index === 0) return {tracker: {...tracker, baseline, baselineUpdatedAt}, tokens: []};
   const cardinal = orientations[nearest.index]!.quaternion;
   const orientation = normalize(tracker.deltaFrame === "world"
     ? multiplyQuaternions(cardinal, tracker.orientation)
     : multiplyQuaternions(tracker.orientation, cardinal));
   return {
-    tracker: {baseline: current, frame, deltaFrame: tracker.deltaFrame, orientation, candidate: null},
+    tracker: {baseline: current, frame, deltaFrame: tracker.deltaFrame, orientation, candidate: null, baselineUpdatedAt},
     tokens: orientations[nearest.index]!.tokens,
   };
 };
@@ -215,10 +243,12 @@ export const settleStableOrientation = (
     tracker: {
       baseline: current,
       frame,
+      deltaFrame: tracker.deltaFrame,
       orientation: normalize(tracker.deltaFrame === "world"
         ? multiplyQuaternions(orientations[nearest.index]!.quaternion, tracker.orientation)
         : multiplyQuaternions(tracker.orientation, orientations[nearest.index]!.quaternion)),
       candidate: null,
+      baselineUpdatedAt: tracker.baselineUpdatedAt,
     },
     tokens: orientations[nearest.index]!.tokens,
   };

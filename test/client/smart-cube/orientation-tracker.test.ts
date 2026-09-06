@@ -121,6 +121,33 @@ describe("stable smart-cube orientation tracker", () => {
     expect(nearestRegripAxis([0, 0, 0])).toBeNull();
   });
 
+  test("threshold: damps out slow sensor drift instead of falsely triggering", () => {
+    // 1°/s of pure heading drift, sampled once a second, for 100 seconds:
+    // uncorrected this would accumulate 100° of apparent rotation from a
+    // fixed baseline, comfortably past the 65° threshold, despite the cube
+    // never actually moving. With the 2°/s drift follow keeping up (1°/s
+    // is well within its cap), it should never fire.
+    let tracker = createStableOrientationTracker(identity, "viewport", "world");
+    let tokens: string[] = [];
+    for (let second = 1; second <= 100; second += 1) {
+      const observed = observeThresholdOrientation(tracker, x(second), "viewport", 65, second * 1000);
+      tracker = observed.tracker;
+      tokens.push(...observed.tokens);
+    }
+    expect(tokens).toEqual([]);
+  });
+
+  test("threshold: a real fast turn still fires despite the drift follow being active", () => {
+    // Same slow-drift setup, but then a genuine 90° turn happens in 200ms —
+    // 450°/s, vastly outrunning the 2°/s drift cap, so it must still confirm.
+    let tracker = createStableOrientationTracker(identity, "viewport", "world");
+    for (let second = 1; second <= 30; second += 1) {
+      tracker = observeThresholdOrientation(tracker, x(second), "viewport", 65, second * 1000).tracker;
+    }
+    const fastTurn = observeThresholdOrientation(tracker, x(30 + 90), "viewport", 65, 30_000 + 200);
+    expect(fastTurn.tokens).toEqual(["x"]);
+  });
+
   test("uses an independently settled anchor to accept a delayed half-turn regrip", () => {
     const tracker = createStableOrientationTracker(identity, "viewport");
     const x2 = {x: 1, y: 0, z: 0, w: 0};

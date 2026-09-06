@@ -2298,7 +2298,9 @@ if (root) {
     const tracker = smartCubeDiscreteOrientationTracker;
     const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
     const {axis, radians} = quaternionAxisAngle(delta);
-    // Direct raw gyro progress since the tracker's last confirmed pose.
+    // Same value observeThresholdOrientation compares to the confirm
+    // threshold: tracker.baseline is already drift-corrected internally, so
+    // this needs no separate smoothing or reset signal of its own.
     viewport.setRegripGauge({
       degrees: radians * 180 / Math.PI,
       thresholdDegrees: smartCubeRegripProfile.regripThresholdDegrees,
@@ -4815,6 +4817,7 @@ if (root) {
             event.quaternion,
             event.coordinateFrame,
             smartCubeRegripProfile.regripThresholdDegrees,
+            event.timestamp,
           );
           smartCubeDiscreteOrientationTracker = observed.tracker;
           if (

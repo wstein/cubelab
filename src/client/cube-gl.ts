@@ -70,7 +70,13 @@ export type TurnGuide = {
  * camera.
  */
 export type RegripGaugeState = {
-  /** Degrees travelled since the last confirmed pose: 0 at rest, rising toward 90. */
+  /**
+   * Degrees travelled since the last confirmed pose: 0 at rest, rising
+   * toward 90. This is exactly deviceOrientationDelta(tracker.baseline,
+   * current, ...) — the same value observeThresholdOrientation compares to
+   * the confirm threshold, already drift-corrected by the tracker itself
+   * (see baselineUpdatedAt there), not a separately smoothed display copy.
+   */
   degrees: number;
   /** Where the confirm threshold sits on the same scale, e.g. 65. */
   thresholdDegrees: number;
@@ -577,10 +583,11 @@ export const followSmartCubeOrientationOffset = (
   offset: OrientationQuaternion,
   targetOffset: OrientationQuaternion,
   elapsedMs: number,
+  radiansPerSecond = SMART_CUBE_OFFSET_RADIANS_PER_SECOND,
 ): OrientationQuaternion => {
   const distance = orientationDistanceRadians(offset, targetOffset);
   if (distance < 1e-8) return normalizedQuaternion(targetOffset);
-  const maxStep = SMART_CUBE_OFFSET_RADIANS_PER_SECOND * Math.max(0, elapsedMs) / 1000;
+  const maxStep = radiansPerSecond * Math.max(0, elapsedMs) / 1000;
   return slerpQuaternion(offset, targetOffset, Math.min(1, maxStep / distance));
 };
 
@@ -863,9 +870,11 @@ export const createCubeViewport = (
   let turnGuide: TurnGuide | null = null;
   let moveRibbon: TurnGuide | null = null;
   let regripGauge: RegripGaugeState = null;
-  // Displayed virtual progress after applying the drift-correction offset.
+  // Displayed copy of regripGauge's degrees/label: direct, unsmoothed. The
+  // value itself is already drift-corrected inside the tracker (see
+  // RegripGaugeState.degrees), so there is no discontinuity left to smooth
+  // over here.
   let regripGaugeDisplayDegrees = 0;
-  let regripGaugeAdjustedDegrees: number | null = null;
   let regripGaugeDisplayLabel: string | null = null;
   let turnFrame: number | null = null;
   let turnGeneration = 0;
@@ -1587,10 +1596,7 @@ export const createCubeViewport = (
       return;
     }
     regripGaugeDisplayLabel = regripGauge.label ?? regripGaugeDisplayLabel;
-    regripGaugeDisplayDegrees = Math.max(
-      0,
-      Math.min(90, regripGaugeAdjustedDegrees ?? regripGauge.degrees),
-    );
+    regripGaugeDisplayDegrees = Math.max(0, Math.min(90, regripGauge.degrees));
   };
 
   const render = () => {
@@ -1640,15 +1646,6 @@ export const createCubeViewport = (
       }
       deviceOrientationOffsetUpdatedAt = now;
     }
-    // How far the drift-corrected (rendered) orientation currently sits from
-    // deviceOrientationLockTarget — not that orientation's own absolute
-    // rotation angle, which is whatever arbitrary pose a compound history of
-    // confirmed regrips has accumulated to and is not bounded to 0..90.
-    regripGaugeAdjustedDegrees = rawOrientation && deviceOrientationOffset
-      ? quaternionAxisAngle(
-        relativeQuaternion(deviceOrientationLockTarget, multiplyQuaternions(deviceOrientationOffset, rawOrientation)),
-      ).radians * 180 / Math.PI
-      : null;
     const relativeOrientation = deviceOrientation ? deviceOrientationRendered : undefined;
     const aspect = width / height;
     const matrices = cameraMatrices(
@@ -2028,7 +2025,6 @@ export const createCubeViewport = (
     },
     setRegripGauge(gauge) {
       regripGauge = gauge;
-      if (!gauge) regripGaugeAdjustedDegrees = null;
       requestRender();
     },
     smoothOrbitTo,
@@ -2095,6 +2091,15 @@ export const createCubeViewport = (
       const raw = deviceOrientationBase
         ? deviceOrientationDelta(deviceOrientationBase, normalized, coordinateFrame, "world")
         : { x: 0, y: 0, z: 0, w: 1 };
+      // Re-anchor the drift-following offset to the new lock target immediately,
+      // using the raw sample as it stands right now. Otherwise it only chases
+      // the new target at SMART_CUBE_OFFSET_RADIANS_PER_SECOND (2°/s) from
+      // wherever it happened to be for the old one — up to 45 seconds to
+      // converge on a fresh 90° regrip — which read as the gauge (driven by
+      // this offset) being stuck near 90° that whole time instead of
+      // resetting the moment the regrip actually confirmed.
+      deviceOrientationOffset = multiplyQuaternions(deviceOrientationLockTarget, inverseQuaternion(raw));
+      deviceOrientationOffsetUpdatedAt = performance.now();
       animateDeviceOrientationCorrectionTo(deviceOrientationLockTarget);
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();

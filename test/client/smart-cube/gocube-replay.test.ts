@@ -71,7 +71,7 @@ describe("real GoCube capture: U2, 720° spin, R2, 720° spin, F2, 720° spin, r
         continue;
       }
       const before = viewport.correction;
-      const observed = observeThresholdOrientation(tracker, event.quaternion, event.coordinateFrame, REGRIP_THRESHOLD_DEGREES);
+      const observed = observeThresholdOrientation(tracker, event.quaternion, event.coordinateFrame, REGRIP_THRESHOLD_DEGREES, event.t);
       tracker = observed.tracker;
       if (observed.tokens.length === 0) {
         // No regrip on this sample: the view must be untouched, not nudged.
