@@ -1,5 +1,5 @@
 {
-  "$schema": "/smart-cube/regrip-profile.v1.schema.json",
+  "$schema": "./smart-cube/regrip-profile.v1.schema.json",
   "version": 1,
   "default": {
     "label": "Default",
