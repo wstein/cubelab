@@ -2305,7 +2305,6 @@ if (root) {
       signedDegrees: (radians * 180 / Math.PI) - 90,
       signedThresholdDegrees: smartCubeRegripProfile.regripThresholdDegrees - 90,
       label: nearestRegripAxis(axis),
-      driftDegreesPerSecond: smartCubeRegripProfile.artificialDriftDegreesPerSecond,
     });
   };
   // During a recording session the physical cube is an input device. Keep a
@@ -4657,7 +4656,6 @@ if (root) {
         traceSmartCubeStabilization("regrip profile loaded", {
           label: smartCubeRegripProfile.label,
           regripThresholdDegrees: smartCubeRegripProfile.regripThresholdDegrees,
-          artificialDriftDegreesPerSecond: smartCubeRegripProfile.artificialDriftDegreesPerSecond,
         });
       });
       smartCubeLedFeedback = connectionState.device.capabilities.led;
@@ -4794,6 +4792,9 @@ if (root) {
           quaternion: event.quaternion,
           coordinateFrame: event.coordinateFrame,
         };
+        if (smartCubeOrientationTracking && !smartCubeRecording && !smartCubeRecordingTapePresented) {
+          viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
+        }
         if (smartCubeDiscreteOrientationTracker === null) {
           smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
             event.quaternion,

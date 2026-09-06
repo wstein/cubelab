@@ -26,7 +26,7 @@
     "profile": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["label", "regripThresholdDegrees", "artificialDriftDegreesPerSecond"],
+      "required": ["label", "regripThresholdDegrees"],
       "properties": {
         "label": {
           "type": "string",
@@ -38,11 +38,6 @@
           "exclusiveMinimum": 0,
           "exclusiveMaximum": 90,
           "description": "Cumulative rotation, in degrees, from the tracker's last confirmed cardinal pose that fires the next regrip. Every pair of the cube's 24 legal poses is exactly 90° apart, so this must stay strictly between 0° and 90°."
-        },
-        "artificialDriftDegreesPerSecond": {
-          "type": "number",
-          "exclusiveMinimum": 0,
-          "description": "Speed, in degrees per second, the diagnostics gauge's needle is allowed to move. Synthesized smoothing for the display only, so the needle reads as a continuous drift toward the next lock-in point rather than jumping between samples; the regrip detector itself always reacts to the raw sample immediately."
         }
       }
     }

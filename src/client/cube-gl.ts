@@ -75,8 +75,6 @@ export type RegripGaugeState = {
   /** Where the confirm threshold sits on the same scale, e.g. -25 for 65°. */
   signedThresholdDegrees: number;
   label: string | null;
-  /** Cap, in degrees/second, on how fast the displayed needle may approach 0 — see RegripProfile. */
-  driftDegreesPerSecond: number;
 } | null;
 
 const DEFAULT_YAW = -0.62;
@@ -564,6 +562,25 @@ export const slerpQuaternion = (
   });
 };
 
+/** The drift baseline may advance no faster than two degrees per second. */
+export const SMART_CUBE_OFFSET_RADIANS_PER_SECOND = 2 * Math.PI / 180;
+
+/**
+ * Advances a rendered-orientation offset toward the gyro pose at a bounded
+ * angular speed. Applying `inverse(offset) * gyro` is the quaternion-safe
+ * equivalent of subtracting the requested 3D gyro and offset vectors.
+ */
+export const followSmartCubeOrientationOffset = (
+  offset: OrientationQuaternion,
+  gyro: OrientationQuaternion,
+  elapsedMs: number,
+): OrientationQuaternion => {
+  const distance = orientationDistanceRadians(offset, gyro);
+  if (distance < 1e-8) return normalizedQuaternion(gyro);
+  const maxStep = SMART_CUBE_OFFSET_RADIANS_PER_SECOND * Math.max(0, elapsedMs) / 1000;
+  return slerpQuaternion(offset, gyro, Math.min(1, maxStep / distance));
+};
+
 /** Locks sub-threshold IMU jitter and softens larger moves along the shortest quaternion path. */
 export const smoothTrackedOrientation = (
   previous: OrientationQuaternion,
@@ -843,17 +860,6 @@ export const createCubeViewport = (
   let turnGuide: TurnGuide | null = null;
   let moveRibbon: TurnGuide | null = null;
   let regripGauge: RegripGaugeState = null;
-  // Artificially smoothed copy of regripGauge's signedDegrees/label. Every
-  // frame this only ever eases toward 0 (approaching the lock-in point) at
-  // up to driftDegreesPerSecond; a regrip rebasing the tracker's baseline
-  // makes the real value retreat further from 0 (a new cycle starting), and
-  // that retreat is never animated — it snaps instantly, since smoothing it
-  // would show the needle visibly moving backward away from the mark it just
-  // reached. The underlying detector still reacts to each raw sample
-  // immediately either way; only this display copy is synthetic.
-  let regripGaugeDisplaySignedDegrees = 0;
-  let regripGaugeDisplayLabel: string | null = null;
-  let regripGaugeLastFrameAt = 0;
   let turnFrame: number | null = null;
   let turnGeneration = 0;
   let autoOrbit = false;
@@ -863,6 +869,8 @@ export const createCubeViewport = (
   let cameraGeneration = 0;
   let deviceOrientationBase: OrientationQuaternion | null = null;
   let deviceOrientation: OrientationQuaternion | null = null;
+  let deviceOrientationOffset: OrientationQuaternion | null = null;
+  let deviceOrientationOffsetUpdatedAt: number | null = null;
   // The correction actually being drawn this frame; only animateDeviceOrientationCorrectionTo
   // may write it.
   let deviceOrientationCorrection: OrientationQuaternion | null = null;
@@ -1522,7 +1530,7 @@ export const createCubeViewport = (
       overlay.moveTo(cx, cy);
       overlay.lineTo(cx + Math.cos(spoke.angle) * radius, cy + Math.sin(spoke.angle) * radius);
       overlay.stroke();
-      overlay.fillStyle = spoke.label === regripGaugeDisplayLabel ? "#67e8f9" : "rgba(203, 213, 225, 0.85)";
+      overlay.fillStyle = spoke.label === regripGauge.label ? "#67e8f9" : "rgba(203, 213, 225, 0.85)";
       overlay.font = `600 ${10 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
       overlay.textAlign = "center";
       overlay.textBaseline = "middle";
@@ -1539,10 +1547,10 @@ export const createCubeViewport = (
     overlay.arc(cx, cy, radius * thresholdFraction, 0, Math.PI * 2);
     overlay.stroke();
     overlay.setLineDash([]);
-    const spoke = spokes.find((candidate) => candidate.label === regripGaugeDisplayLabel);
+    const spoke = spokes.find((candidate) => candidate.label === regripGauge.label);
     if (spoke) {
-      const fraction = toFraction(regripGaugeDisplaySignedDegrees);
-      const crossed = regripGaugeDisplaySignedDegrees >= regripGauge.signedThresholdDegrees;
+      const fraction = toFraction(regripGauge.signedDegrees);
+      const crossed = regripGauge.signedDegrees >= regripGauge.signedThresholdDegrees;
       const needleColour = crossed ? "#4ade80" : "#67e8f9";
       overlay.strokeStyle = needleColour;
       overlay.fillStyle = needleColour;
@@ -1560,42 +1568,8 @@ export const createCubeViewport = (
     overlay.font = `600 ${9 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
     overlay.textAlign = "center";
     overlay.textBaseline = "middle";
-    overlay.fillText(`${Math.round(regripGaugeDisplaySignedDegrees)}°`, cx, cy);
+    overlay.fillText(`${Math.round(regripGauge.signedDegrees)}°`, cx, cy);
     overlay.restore();
-  };
-
-  /**
-   * Steps the gauge's displayed needle toward 0 at a capped rate (see
-   * RegripGaugeState.driftDegreesPerSecond), and requests another frame while
-   * it hasn't caught up yet. A regrip rebasing the tracker's baseline makes
-   * the real signedDegrees retreat further from 0 (a new cycle starting) —
-   * that retreat is never eased, it snaps instantly, so the needle only ever
-   * animates forward toward the mark it's heading for, never backward away
-   * from one it just reached.
-   */
-  const stepRegripGaugeDisplay = () => {
-    if (!regripGauge) {
-      regripGaugeLastFrameAt = 0;
-      regripGaugeDisplaySignedDegrees = 0;
-      regripGaugeDisplayLabel = null;
-      return;
-    }
-    regripGaugeDisplayLabel = regripGauge.label;
-    if (regripGauge.signedDegrees < regripGaugeDisplaySignedDegrees) {
-      regripGaugeDisplaySignedDegrees = regripGauge.signedDegrees;
-      regripGaugeLastFrameAt = performance.now();
-      requestRender();
-      return;
-    }
-    const now = performance.now();
-    const dt = regripGaugeLastFrameAt ? Math.min(0.25, (now - regripGaugeLastFrameAt) / 1000) : 0;
-    regripGaugeLastFrameAt = now;
-    const maxStep = regripGauge.driftDegreesPerSecond * dt;
-    regripGaugeDisplaySignedDegrees = Math.min(
-      regripGauge.signedDegrees,
-      regripGaugeDisplaySignedDegrees + maxStep,
-    );
-    if (regripGauge.signedDegrees - regripGaugeDisplaySignedDegrees > 0.01) requestRender();
   };
 
   const render = () => {
@@ -1631,9 +1605,25 @@ export const createCubeViewport = (
     const rawOrientation = deviceOrientationBase && deviceOrientation
       ? deviceOrientationDelta(deviceOrientationBase, deviceOrientation, deviceOrientationFrame, "world")
       : undefined;
-    const relativeOrientation = rawOrientation && deviceOrientationCorrection
-      ? multiplyQuaternions(deviceOrientationCorrection, rawOrientation)
+    if (rawOrientation) {
+      const now = performance.now();
+      if (deviceOrientationOffset === null) {
+        deviceOrientationOffset = rawOrientation;
+      } else {
+        deviceOrientationOffset = followSmartCubeOrientationOffset(
+          deviceOrientationOffset,
+          rawOrientation,
+          Math.min(250, Math.max(0, now - (deviceOrientationOffsetUpdatedAt ?? now))),
+        );
+      }
+      deviceOrientationOffsetUpdatedAt = now;
+    }
+    const driftCorrectedOrientation = rawOrientation && deviceOrientationOffset
+      ? multiplyQuaternions(inverseQuaternion(deviceOrientationOffset), rawOrientation)
       : rawOrientation;
+    const relativeOrientation = driftCorrectedOrientation && deviceOrientationCorrection
+      ? multiplyQuaternions(deviceOrientationCorrection, driftCorrectedOrientation)
+      : driftCorrectedOrientation;
     const aspect = width / height;
     const matrices = cameraMatrices(
       aspect,
@@ -1662,7 +1652,6 @@ export const createCubeViewport = (
     gl.uniform2f(guideRange, guideTransform?.min ?? 0, guideTransform?.max ?? 0);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
     drawMotionOverlay(matrices, width, height);
-    stepRegripGaugeDisplay();
     drawRegripGauge(width, height);
     canvas.dataset.webgl = "ready";
     canvas.dataset.cameraYaw = yaw.toFixed(6);
@@ -2018,6 +2007,8 @@ export const createCubeViewport = (
       if (!orientation) {
         deviceOrientationBase = null;
         deviceOrientation = null;
+        deviceOrientationOffset = null;
+        deviceOrientationOffsetUpdatedAt = null;
         deviceOrientationCorrection = null;
         deviceOrientationCorrectionGeneration += 1;
         deviceOrientationFrame = "viewport";
@@ -2029,6 +2020,8 @@ export const createCubeViewport = (
       if (deviceOrientationFrame !== coordinateFrame) {
         deviceOrientationBase = null;
         deviceOrientation = null;
+        deviceOrientationOffset = null;
+        deviceOrientationOffsetUpdatedAt = null;
         deviceOrientationCorrection = null;
         deviceOrientationCorrectionGeneration += 1;
       }
@@ -2047,6 +2040,8 @@ export const createCubeViewport = (
       const normalized = normalizedQuaternion(orientation);
       deviceOrientationBase = normalized;
       deviceOrientation = normalized;
+      deviceOrientationOffset = null;
+      deviceOrientationOffsetUpdatedAt = null;
       deviceOrientationFrame = coordinateFrame;
       deviceOrientationCorrection = null;
       deviceOrientationCorrectionGeneration += 1;
@@ -2096,6 +2091,8 @@ export const createCubeViewport = (
     resetCamera() {
       deviceOrientationBase = null;
       deviceOrientation = null;
+      deviceOrientationOffset = null;
+      deviceOrientationOffsetUpdatedAt = null;
       deviceOrientationCorrection = null;
       deviceOrientationCorrectionGeneration += 1;
       deviceOrientationFrame = "viewport";

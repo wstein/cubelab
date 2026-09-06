@@ -4,14 +4,6 @@ export type RegripProfile = {
   label: string;
   /** Cumulative rotation from the last confirmed pose that fires a regrip. */
   regripThresholdDegrees: number;
-  /**
-   * Speed, in degrees per second, at which the diagnostics gauge's needle is
-   * allowed to move. This is an artificial (synthesized) smoothing rate for
-   * the display only — the underlying regrip detector always reacts to the
-   * raw sample immediately; this just keeps the needle from jumping so it
-   * reads as a continuous drift toward the next lock-in point.
-   */
-  artificialDriftDegreesPerSecond: number;
 };
 
 export type RegripProfileRegistry = {
@@ -23,7 +15,6 @@ export type RegripProfileRegistry = {
 export const defaultRegripProfile: RegripProfile = {
   label: "Default",
   regripThresholdDegrees: 65,
-  artificialDriftDegreesPerSecond: 120,
 };
 
 const KNOWN_BRANDS: SmartCubeBrand[] = ["gan", "giiker", "gocube", "moyu"];
@@ -31,7 +22,7 @@ const KNOWN_BRANDS: SmartCubeBrand[] = ["gan", "giiker", "gocube", "moyu"];
 const profile = (value: unknown): RegripProfile | null => {
   if (!value || typeof value !== "object") return null;
   const candidate = value as Record<string, unknown>;
-  const numbers = ["regripThresholdDegrees", "artificialDriftDegreesPerSecond"];
+  const numbers = ["regripThresholdDegrees"];
   if (
     typeof candidate.label !== "string"
     || !numbers.every((key) => typeof candidate[key] === "number" && Number.isFinite(candidate[key]))
@@ -39,17 +30,15 @@ const profile = (value: unknown): RegripProfile | null => {
     return null;
   }
   const regripThresholdDegrees = candidate.regripThresholdDegrees as number;
-  const artificialDriftDegreesPerSecond = candidate.artificialDriftDegreesPerSecond as number;
   // Every pair of the cube's 24 legal poses is exactly 90° apart, so a
   // threshold at or past 90° could never fire, and one at or below 0° would
   // fire on sensor noise alone.
-  if (regripThresholdDegrees <= 0 || regripThresholdDegrees >= 90 || artificialDriftDegreesPerSecond <= 0) {
+  if (regripThresholdDegrees <= 0 || regripThresholdDegrees >= 90) {
     return null;
   }
   return {
     label: candidate.label,
     regripThresholdDegrees,
-    artificialDriftDegreesPerSecond,
   };
 };
 
