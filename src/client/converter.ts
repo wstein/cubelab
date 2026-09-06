@@ -4790,6 +4790,11 @@ if (root) {
           quaternion: event.quaternion,
           coordinateFrame: event.coordinateFrame,
         };
+        // Raw samples feed the virtual offset state, but never directly orient
+        // the rendered cube; that changes only on the thresholded regrip below.
+        if (smartCubeOrientationTracking && !smartCubeRecording && !smartCubeRecordingTapePresented) {
+          viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
+        }
         if (smartCubeDiscreteOrientationTracker === null) {
           smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
             event.quaternion,

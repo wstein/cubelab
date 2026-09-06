@@ -484,6 +484,13 @@ export const cameraTween = (start: number, target: number, progress: number): nu
 
 export type OrientationQuaternion = { x: number; y: number; z: number; w: number };
 export type OrientationCoordinateFrame = "viewport" | "gocube-wire" | "gan-wire";
+export type VirtualLockInState = {
+  rawGyro: OrientationQuaternion | null;
+  rawBase: OrientationQuaternion | null;
+  lockTarget: OrientationQuaternion;
+  correctionOffset: OrientationQuaternion | null;
+  lastOffsetUpdateAt: number | null;
+};
 
 const normalizedQuaternion = (quaternion: OrientationQuaternion): OrientationQuaternion => {
   const length = Math.hypot(quaternion.x, quaternion.y, quaternion.z, quaternion.w) || 1;
@@ -871,6 +878,9 @@ export const createCubeViewport = (
   let deviceOrientationOffset: OrientationQuaternion | null = null;
   let deviceOrientationOffsetUpdatedAt: number | null = null;
   let deviceOrientationLockTarget: OrientationQuaternion = {x: 0, y: 0, z: 0, w: 1};
+  // This is intentionally separate from raw gyro input: it is the only
+  // orientation rendered to the cube, and changes only on a confirmed regrip.
+  let deviceOrientationRendered: OrientationQuaternion = {x: 0, y: 0, z: 0, w: 1};
   // The correction actually being drawn this frame; only animateDeviceOrientationCorrectionTo
   // may write it.
   let deviceOrientationCorrection: OrientationQuaternion | null = null;
@@ -1626,10 +1636,7 @@ export const createCubeViewport = (
       }
       deviceOrientationOffsetUpdatedAt = now;
     }
-    const driftCorrectedOrientation = rawOrientation && deviceOrientationOffset
-      ? multiplyQuaternions(deviceOrientationOffset, rawOrientation)
-      : rawOrientation;
-    const relativeOrientation = driftCorrectedOrientation;
+    const relativeOrientation = deviceOrientation ? deviceOrientationRendered : undefined;
     const aspect = width / height;
     const matrices = cameraMatrices(
       aspect,
@@ -1887,17 +1894,17 @@ export const createCubeViewport = (
     });
   };
 
-  /** Animate the initial 65° regrip lock-in, then resume the 2°/s drift follow. */
+  /** Animate a confirmed 65° regrip between cardinal orientations. */
   const animateDeviceOrientationCorrectionTo = (target: OrientationQuaternion, duration = 180) => {
     const generation = ++deviceOrientationCorrectionGeneration;
-    const start = deviceOrientationOffset ?? {x: 0, y: 0, z: 0, w: 1};
+    const start = deviceOrientationRendered;
     const started = performance.now();
     const safeDuration = Math.max(1, duration);
     const tick = (now: number) => {
       if (disposed || generation !== deviceOrientationCorrectionGeneration) return;
       const progress = Math.min(1, (now - started) / safeDuration);
       const eased = 1 - (1 - progress) ** 3;
-      deviceOrientationOffset = slerpQuaternion(start, target, eased);
+      deviceOrientationRendered = slerpQuaternion(start, target, eased);
       requestRender();
       deviceOrientationCorrectionFrame = progress < 1 ? window.requestAnimationFrame(tick) : null;
     };
@@ -2018,6 +2025,7 @@ export const createCubeViewport = (
         deviceOrientationOffset = null;
         deviceOrientationOffsetUpdatedAt = null;
         deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
+        deviceOrientationRendered = {x: 0, y: 0, z: 0, w: 1};
         deviceOrientationCorrection = null;
         deviceOrientationCorrectionGeneration += 1;
         deviceOrientationFrame = "viewport";
@@ -2032,6 +2040,7 @@ export const createCubeViewport = (
         deviceOrientationOffset = null;
         deviceOrientationOffsetUpdatedAt = null;
         deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
+        deviceOrientationRendered = {x: 0, y: 0, z: 0, w: 1};
         deviceOrientationCorrection = null;
         deviceOrientationCorrectionGeneration += 1;
       }
@@ -2053,6 +2062,7 @@ export const createCubeViewport = (
       deviceOrientationOffset = null;
       deviceOrientationOffsetUpdatedAt = null;
       deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
+      deviceOrientationRendered = {x: 0, y: 0, z: 0, w: 1};
       deviceOrientationFrame = coordinateFrame;
       deviceOrientationCorrection = null;
       deviceOrientationCorrectionGeneration += 1;
@@ -2071,9 +2081,7 @@ export const createCubeViewport = (
       const raw = deviceOrientationBase
         ? deviceOrientationDelta(deviceOrientationBase, normalized, coordinateFrame, "world")
         : {x: 0, y: 0, z: 0, w: 1};
-      animateDeviceOrientationCorrectionTo(
-        multiplyQuaternions(deviceOrientationLockTarget, inverseQuaternion(raw)),
-      );
+      animateDeviceOrientationCorrectionTo(deviceOrientationLockTarget);
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
     },
