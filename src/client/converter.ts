@@ -4905,6 +4905,13 @@ if (root) {
             event.coordinateFrame,
             "world",
           );
+          // A fresh tracker always starts at identity. Toggling orientation
+          // tracking off and back on recreates it here without going through
+          // Recenter, so the target has to be reset alongside it — otherwise
+          // the next confirmed regrip composes onto identity while the
+          // viewport is still displaying whatever the target was before.
+          smartCubeStabilizationTarget = {x: 0, y: 0, z: 0, w: 1};
+          updateSmartCubeOrientationDebugVectors();
         } else {
           const priorBaseline = smartCubeDiscreteOrientationTracker.baseline;
           const priorOrientation = smartCubeDiscreteOrientationTracker.orientation;
@@ -6650,6 +6657,7 @@ if (root) {
       latestSmartCubeOrientation.quaternion,
       latestSmartCubeOrientation.coordinateFrame,
     );
+    updateSmartCubeOrientationDebugVectors();
     traceSmartCubeStabilization("gyro view recentered", {
       coordinates: latestSmartCubeOrientation.quaternion,
       target: smartCubeStabilizationTarget,

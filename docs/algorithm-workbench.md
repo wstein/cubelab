@@ -199,7 +199,15 @@ own independent, unsynchronized account of "where is the cube now."
 **Recenter gyro view** resets only the displayed gyro baseline. It does not change the
 physical cube, its calibration, the current state, or the tape. At a settled cardinal
 pose, the display may apply a correction to reconcile accumulated IMU heading error;
-it never snaps while the cube is in motion.
+it never snaps while the cube is in motion. It resets the viewport's device-orientation
+base/correction, the discrete tracker (fresh at identity), the stabilization target
+(identity, to match), the probe ring, and — while Diagnostics is on — the debug
+vectors, so nothing keeps showing a pre-recenter value. Toggling orientation tracking
+off and back on recreates the discrete tracker the same way (fresh, at identity) the
+next time an orientation sample arrives, so the target and debug vectors reset there
+too, even without an explicit Recenter click — otherwise the next confirmed regrip
+would compose onto identity while the viewport kept displaying whatever the target was
+before tracking was paused.
 
 The stabilizer continuously keeps a ring of accepted IMU probes; it is not tied to a
 face-packet timing window. It tracks the single most recent probe purely to spot a
