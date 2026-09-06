@@ -20,6 +20,7 @@ import {
   quaternionAxisAngle,
   pngBlobFromDataUrl,
   relativeQuaternion,
+  renderedDeviceOrientation,
   safeCameraDistance,
   stabilizedOrientationCorrection,
   smoothTrackedOrientation,
@@ -93,6 +94,28 @@ describe("cube viewport math", () => {
     expect(correctionAt(4)).toBeCloseTo(0.8, 6);
     expect(correctionAt(9)).toBeCloseTo(1.8, 6);
     expect(correctionAt(44)).toBeCloseTo(8.8, 6);
+  });
+
+  test("reads the currently rendered pose without moving it", () => {
+    const base = {x: 0, y: 0, z: 0, w: 1};
+    const measured = {x: Math.sin(30 * Math.PI / 360), y: 0, z: 0, w: Math.cos(30 * Math.PI / 360)};
+    const correction = {x: 0, y: Math.sin(10 * Math.PI / 360), z: 0, w: Math.cos(10 * Math.PI / 360)};
+    const rendered = renderedDeviceOrientation(base, correction, measured);
+    const expected = multiplyQuaternions(correction, measured);
+    expect(rendered.x).toBeCloseTo(expected.x);
+    expect(rendered.y).toBeCloseTo(expected.y);
+    expect(rendered.z).toBeCloseTo(expected.z);
+    expect(rendered.w).toBeCloseTo(expected.w);
+  });
+
+  test("treats a missing correction as identity when reading the rendered pose", () => {
+    const base = {x: 0, y: 0, z: 0, w: 1};
+    const measured = {x: Math.sin(30 * Math.PI / 360), y: 0, z: 0, w: Math.cos(30 * Math.PI / 360)};
+    const rendered = renderedDeviceOrientation(base, null, measured);
+    expect(rendered.x).toBeCloseTo(measured.x);
+    expect(rendered.y).toBeCloseTo(measured.y);
+    expect(rendered.z).toBeCloseTo(measured.z);
+    expect(rendered.w).toBeCloseTo(measured.w);
   });
 
   test("keeps Standard stickers at a restrained mid-gloss finish", () => {

@@ -524,6 +524,17 @@ export const orientationCorrectionForTarget = (
   );
 };
 
+/** The pose currently on screen: the raw IMU delta with the active display correction applied. */
+export const renderedDeviceOrientation = (
+  base: OrientationQuaternion,
+  correction: OrientationQuaternion | null,
+  measured: OrientationQuaternion,
+  coordinateFrame: OrientationCoordinateFrame = "viewport",
+): OrientationQuaternion => {
+  const raw = deviceOrientationDelta(base, measured, coordinateFrame, "world");
+  return multiplyQuaternions(correction ?? {x: 0, y: 0, z: 0, w: 1}, raw);
+};
+
 /** Eases the actual rendered pose toward a settled cardinal orientation. */
 export const stabilizedOrientationCorrection = (
   previous: OrientationQuaternion | null,
@@ -755,6 +766,10 @@ export type CubeViewport = {
     targetErrorAxis: [number, number, number] | null;
     correctionStepRadians: number;
   };
+  adoptDeviceOrientationPose: (
+    measured: OrientationQuaternion,
+    frame?: OrientationCoordinateFrame,
+  ) => OrientationQuaternion | null;
   setAutoOrbit: (enabled: boolean) => void;
   setDialogOpen: (open: boolean) => void;
   resetCamera: () => void;
@@ -1918,9 +1933,8 @@ export const createCubeViewport = (
       if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) {
         return {applied: false, targetErrorRadians: null, targetErrorAxis: null, correctionStepRadians: 0};
       }
-      const raw = deviceOrientationDelta(deviceOrientationBase, measured, coordinateFrame, "world");
       const priorCorrection = deviceOrientationCorrection ?? {x: 0, y: 0, z: 0, w: 1};
-      const rendered = multiplyQuaternions(priorCorrection, raw);
+      const rendered = renderedDeviceOrientation(deviceOrientationBase, priorCorrection, measured, coordinateFrame);
       const targetErrorRadians = orientationDistanceRadians(rendered, target);
       const targetErrorAxis = quaternionAxisAngle(multiplyQuaternions(target, inverseQuaternion(rendered))).axis;
       const nextCorrection = stabilizedOrientationCorrection(
@@ -1939,6 +1953,17 @@ export const createCubeViewport = (
         targetErrorAxis,
         correctionStepRadians: orientationDistanceRadians(priorCorrection, nextCorrection),
       };
+    },
+    adoptDeviceOrientationPose(measured, coordinateFrame = "viewport") {
+      if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) {
+        return null;
+      }
+      return renderedDeviceOrientation(
+        deviceOrientationBase,
+        deviceOrientationCorrection,
+        measured,
+        coordinateFrame,
+      );
     },
     setAutoOrbit(enabled) {
       if (deviceOrientation && enabled) enabled = false;
