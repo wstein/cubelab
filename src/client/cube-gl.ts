@@ -388,7 +388,7 @@ export const pngBlobFromDataUrl = (dataUrl: string): Blob | null => {
   try {
     const binary = atob(match[1]);
     const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-    return new Blob([bytes], {type: "image/png"});
+    return new Blob([bytes], { type: "image/png" });
   } catch {
     return null;
   }
@@ -504,7 +504,7 @@ const normalizedQuaternion = (quaternion: OrientationQuaternion): OrientationQua
 
 const inverseQuaternion = (quaternion: OrientationQuaternion): OrientationQuaternion => {
   const normalized = normalizedQuaternion(quaternion);
-  return {x: -normalized.x, y: -normalized.y, z: -normalized.z, w: normalized.w};
+  return { x: -normalized.x, y: -normalized.y, z: -normalized.z, w: normalized.w };
 };
 
 /** Smallest SO(3) angle between two normalized orientation quaternions. */
@@ -520,12 +520,12 @@ export const orientationDistanceRadians = (
 
 export const quaternionAxisAngle = (
   quaternion: OrientationQuaternion,
-): {axis: [number, number, number]; radians: number} => {
+): { axis: [number, number, number]; radians: number } => {
   const normalized = normalizedQuaternion(quaternion);
   const sign = normalized.w < 0 ? -1 : 1;
   const w = normalized.w * sign;
   const sine = Math.hypot(normalized.x, normalized.y, normalized.z);
-  if (sine < 1e-8) return {axis: [0, 0, 0], radians: 0};
+  if (sine < 1e-8) return { axis: [0, 0, 0], radians: 0 };
   return {
     axis: [normalized.x * sign / sine, normalized.y * sign / sine, normalized.z * sign / sine],
     radians: 2 * Math.acos(Math.min(1, w)),
@@ -863,8 +863,9 @@ export const createCubeViewport = (
   let turnGuide: TurnGuide | null = null;
   let moveRibbon: TurnGuide | null = null;
   let regripGauge: RegripGaugeState = null;
-  // Displayed raw gyro progress; never offset, accumulated, or smoothed.
+  // Displayed virtual progress after applying the drift-correction offset.
   let regripGaugeDisplayDegrees = 0;
+  let regripGaugeAdjustedDegrees: number | null = null;
   let regripGaugeDisplayLabel: string | null = null;
   let turnFrame: number | null = null;
   let turnGeneration = 0;
@@ -877,10 +878,10 @@ export const createCubeViewport = (
   let deviceOrientation: OrientationQuaternion | null = null;
   let deviceOrientationOffset: OrientationQuaternion | null = null;
   let deviceOrientationOffsetUpdatedAt: number | null = null;
-  let deviceOrientationLockTarget: OrientationQuaternion = {x: 0, y: 0, z: 0, w: 1};
+  let deviceOrientationLockTarget: OrientationQuaternion = { x: 0, y: 0, z: 0, w: 1 };
   // This is intentionally separate from raw gyro input: it is the only
   // orientation rendered to the cube, and changes only on a confirmed regrip.
-  let deviceOrientationRendered: OrientationQuaternion = {x: 0, y: 0, z: 0, w: 1};
+  let deviceOrientationRendered: OrientationQuaternion = { x: 0, y: 0, z: 0, w: 1 };
   // The correction actually being drawn this frame; only animateDeviceOrientationCorrectionTo
   // may write it.
   let deviceOrientationCorrection: OrientationQuaternion | null = null;
@@ -1462,7 +1463,7 @@ export const createCubeViewport = (
             if (((turnGuide.step.turns % 4) + 4) % 4 === 2) {
               const points = bestFaces[0]!.points
                 .map((point) => projectPoint(point, matrices.modelView, matrices.projection, width, height))
-                .filter(({inFront}) => inFront);
+                .filter(({ inFront }) => inFront);
               if (points.length >= 3) {
                 const middle = Math.floor(points.length / 2);
                 const anchor = points[middle]!;
@@ -1515,13 +1516,13 @@ export const createCubeViewport = (
     const radius = 46 * dpr;
     const cx = width - radius - 24 * dpr;
     const cy = height - radius - 24 * dpr;
-    const spokes: Array<{label: string; angle: number}> = [
-      {label: "y", angle: -Math.PI / 2},
-      {label: "z", angle: -Math.PI / 6},
-      {label: "x'", angle: Math.PI / 6},
-      {label: "y'", angle: Math.PI / 2},
-      {label: "z'", angle: (5 * Math.PI) / 6},
-      {label: "x", angle: -(5 * Math.PI) / 6},
+    const spokes: Array<{ label: string; angle: number }> = [
+      { label: "y", angle: -Math.PI / 2 },
+      { label: "z", angle: -Math.PI / 6 },
+      { label: "x'", angle: Math.PI / 6 },
+      { label: "y'", angle: Math.PI / 2 },
+      { label: "z'", angle: (5 * Math.PI) / 6 },
+      { label: "x", angle: -(5 * Math.PI) / 6 },
     ];
     // 0° rests at the centre; 90° (the lock-in point) is the outer edge.
     const toFraction = (degrees: number) => Math.max(0, Math.min(1, degrees / 90));
@@ -1586,7 +1587,10 @@ export const createCubeViewport = (
       return;
     }
     regripGaugeDisplayLabel = regripGauge.label ?? regripGaugeDisplayLabel;
-    regripGaugeDisplayDegrees = Math.max(0, Math.min(90, regripGauge.degrees));
+    regripGaugeDisplayDegrees = Math.max(
+      0,
+      Math.min(90, regripGaugeAdjustedDegrees ?? regripGauge.degrees),
+    );
   };
 
   const render = () => {
@@ -1636,6 +1640,9 @@ export const createCubeViewport = (
       }
       deviceOrientationOffsetUpdatedAt = now;
     }
+    regripGaugeAdjustedDegrees = rawOrientation && deviceOrientationOffset
+      ? quaternionAxisAngle(multiplyQuaternions(deviceOrientationOffset, rawOrientation)).radians * 180 / Math.PI
+      : null;
     const relativeOrientation = deviceOrientation ? deviceOrientationRendered : undefined;
     const aspect = width / height;
     const matrices = cameraMatrices(
@@ -2015,6 +2022,7 @@ export const createCubeViewport = (
     },
     setRegripGauge(gauge) {
       regripGauge = gauge;
+      if (!gauge) regripGaugeAdjustedDegrees = null;
       requestRender();
     },
     smoothOrbitTo,
@@ -2024,8 +2032,8 @@ export const createCubeViewport = (
         deviceOrientation = null;
         deviceOrientationOffset = null;
         deviceOrientationOffsetUpdatedAt = null;
-        deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
-        deviceOrientationRendered = {x: 0, y: 0, z: 0, w: 1};
+        deviceOrientationLockTarget = { x: 0, y: 0, z: 0, w: 1 };
+        deviceOrientationRendered = { x: 0, y: 0, z: 0, w: 1 };
         deviceOrientationCorrection = null;
         deviceOrientationCorrectionGeneration += 1;
         deviceOrientationFrame = "viewport";
@@ -2039,8 +2047,8 @@ export const createCubeViewport = (
         deviceOrientation = null;
         deviceOrientationOffset = null;
         deviceOrientationOffsetUpdatedAt = null;
-        deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
-        deviceOrientationRendered = {x: 0, y: 0, z: 0, w: 1};
+        deviceOrientationLockTarget = { x: 0, y: 0, z: 0, w: 1 };
+        deviceOrientationRendered = { x: 0, y: 0, z: 0, w: 1 };
         deviceOrientationCorrection = null;
         deviceOrientationCorrectionGeneration += 1;
       }
@@ -2061,8 +2069,8 @@ export const createCubeViewport = (
       deviceOrientation = normalized;
       deviceOrientationOffset = null;
       deviceOrientationOffsetUpdatedAt = null;
-      deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
-      deviceOrientationRendered = {x: 0, y: 0, z: 0, w: 1};
+      deviceOrientationLockTarget = { x: 0, y: 0, z: 0, w: 1 };
+      deviceOrientationRendered = { x: 0, y: 0, z: 0, w: 1 };
       deviceOrientationFrame = coordinateFrame;
       deviceOrientationCorrection = null;
       deviceOrientationCorrectionGeneration += 1;
@@ -2080,7 +2088,7 @@ export const createCubeViewport = (
       deviceOrientationCorrection = null;
       const raw = deviceOrientationBase
         ? deviceOrientationDelta(deviceOrientationBase, normalized, coordinateFrame, "world")
-        : {x: 0, y: 0, z: 0, w: 1};
+        : { x: 0, y: 0, z: 0, w: 1 };
       animateDeviceOrientationCorrectionTo(deviceOrientationLockTarget);
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
