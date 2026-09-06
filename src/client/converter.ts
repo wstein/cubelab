@@ -2231,6 +2231,7 @@ if (root) {
   let smartCubeRecordingOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeDiscreteOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeTurnAnchor: TurnAnchor | null = null;
+  let smartCubeStabilizationTarget: OrientationQuaternion = {x: 0, y: 0, z: 0, w: 1};
   let smartCubeMotionProfile: SmartCubeMotionProfile = defaultMotionProfile;
   let smartCubeMotionProfileLoad: Promise<ReturnType<typeof parseMotionProfileRegistry>> | null = null;
   let smartCubeStabilizationTraceAnnounced = false;
@@ -4714,7 +4715,7 @@ if (root) {
         if (anchorEligible) {
           smartCubeTurnAnchor = createTurnAnchor(
             latestSmartCubeOrientation.quaternion,
-            smartCubeDiscreteOrientationTracker.orientation,
+            smartCubeStabilizationTarget,
             latestSmartCubeOrientation.coordinateFrame,
             event.timestamp,
             smartCubeMotionProfile.anchorWindowMs,
@@ -4802,11 +4803,10 @@ if (root) {
             && !smartCubeRecording
             && !smartCubeRecordingTapePresented
           ) {
-            viewport?.reconcileDeviceOrientation(
+            smartCubeStabilizationTarget = viewport?.lockDeviceOrientationTarget(
               event.quaternion,
-              observed.tracker.orientation,
               event.coordinateFrame,
-            );
+            ) ?? observed.tracker.orientation;
           }
           if (observed.tokens.length > 0) smartCubeTurnAnchor = null;
           if (observed.tokens.length > 0) {
@@ -4852,6 +4852,10 @@ if (root) {
                 delayedRegrip.tracker.orientation,
                 event.coordinateFrame,
               );
+              smartCubeStabilizationTarget = viewport?.lockDeviceOrientationTarget(
+                anchored.settledOrientation,
+                event.coordinateFrame,
+              ) ?? delayedRegrip.tracker.orientation;
               traceSmartCubeStabilization("regrip settled from face-turn anchor", {
                 tokens: delayedRegrip.tokens.join(" "),
               });
@@ -6574,6 +6578,7 @@ if (root) {
       latestSmartCubeOrientation.quaternion,
       latestSmartCubeOrientation.coordinateFrame,
     );
+    smartCubeStabilizationTarget = {x: 0, y: 0, z: 0, w: 1};
     smartCubeTurnAnchor = null;
     viewport?.recenterDeviceOrientation(
       latestSmartCubeOrientation.quaternion,

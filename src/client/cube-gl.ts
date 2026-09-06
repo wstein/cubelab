@@ -733,6 +733,10 @@ export type CubeViewport = {
     target: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
   ) => void;
+  lockDeviceOrientationTarget: (
+    orientation: OrientationQuaternion,
+    frame?: OrientationCoordinateFrame,
+  ) => OrientationQuaternion | null;
   stabilizeDeviceOrientation: (
     measured: OrientationQuaternion,
     target: OrientationQuaternion,
@@ -1897,6 +1901,18 @@ export const createCubeViewport = (
       );
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
+    },
+    lockDeviceOrientationTarget(orientation, coordinateFrame = "viewport") {
+      const normalized = normalizedQuaternion(orientation);
+      if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase) {
+        deviceOrientationBase = normalized;
+        deviceOrientationFrame = coordinateFrame;
+      }
+      deviceOrientation = normalized;
+      deviceOrientationCorrection = null;
+      canvas.dataset.deviceOrientation = "tracking";
+      requestRender();
+      return deviceOrientationDelta(deviceOrientationBase, normalized, coordinateFrame, "world");
     },
     stabilizeDeviceOrientation(measured, target, coordinateFrame = "viewport", maximumStepRadians = 2 * Math.PI / 180) {
       if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) {
