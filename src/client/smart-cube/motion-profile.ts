@@ -2,13 +2,12 @@ import type {SmartCubeBrand} from "./types";
 
 export type SmartCubeMotionProfile = {
   label: string;
-  anchorWindowMs: number;
-  anchorSamples: number;
-  maximumAnchorDeviationDegrees: number;
-  maximumPostTurnDeviationDegrees: number;
+  orientationRingSamples: number;
+  rotationDropThresholdDegrees: number;
+  rotationDropPreviousSamples: number;
+  rotationDropFollowingSamples: number;
   maximumCorrectionStepDegrees: number;
   correctionResponsiveness: number;
-  maximumTargetErrorDegrees: number;
 };
 
 export type SmartCubeMotionProfileRegistry = {
@@ -19,30 +18,28 @@ export type SmartCubeMotionProfileRegistry = {
 
 export const defaultMotionProfile: SmartCubeMotionProfile = {
   label: "Default",
-  anchorWindowMs: 200,
-  anchorSamples: 3,
-  maximumAnchorDeviationDegrees: 10,
-  maximumPostTurnDeviationDegrees: 10,
+  orientationRingSamples: 3,
+  rotationDropThresholdDegrees: 5,
+  rotationDropPreviousSamples: 2,
+  rotationDropFollowingSamples: 2,
   maximumCorrectionStepDegrees: 1,
   correctionResponsiveness: 0.18,
-  maximumTargetErrorDegrees: 30,
 };
 
 const profile = (value: unknown): SmartCubeMotionProfile | null => {
   if (!value || typeof value !== "object") return null;
   const candidate = value as Record<string, unknown>;
-  const numbers = ["anchorWindowMs", "anchorSamples", "maximumAnchorDeviationDegrees", "maximumPostTurnDeviationDegrees", "maximumCorrectionStepDegrees", "correctionResponsiveness", "maximumTargetErrorDegrees"];
+  const numbers = ["orientationRingSamples", "rotationDropThresholdDegrees", "rotationDropPreviousSamples", "rotationDropFollowingSamples", "maximumCorrectionStepDegrees", "correctionResponsiveness"];
   if (typeof candidate.label !== "string" || !numbers.every((key) => typeof candidate[key] === "number" && Number.isFinite(candidate[key]))) return null;
-  if (candidate.anchorWindowMs < 100 || candidate.anchorSamples < 1 || candidate.maximumAnchorDeviationDegrees <= 0 || candidate.maximumPostTurnDeviationDegrees <= 0 || candidate.maximumCorrectionStepDegrees <= 0 || candidate.correctionResponsiveness <= 0 || candidate.correctionResponsiveness > 1 || candidate.maximumTargetErrorDegrees <= 0) return null;
+  if (candidate.orientationRingSamples < 1 || candidate.rotationDropThresholdDegrees <= 0 || candidate.rotationDropPreviousSamples < 0 || candidate.rotationDropFollowingSamples < 0 || candidate.maximumCorrectionStepDegrees <= 0 || candidate.correctionResponsiveness <= 0 || candidate.correctionResponsiveness > 1) return null;
   return {
     label: candidate.label,
-    anchorWindowMs: candidate.anchorWindowMs,
-    anchorSamples: Math.floor(candidate.anchorSamples),
-    maximumAnchorDeviationDegrees: candidate.maximumAnchorDeviationDegrees,
-    maximumPostTurnDeviationDegrees: candidate.maximumPostTurnDeviationDegrees,
+    orientationRingSamples: Math.floor(candidate.orientationRingSamples),
+    rotationDropThresholdDegrees: candidate.rotationDropThresholdDegrees,
+    rotationDropPreviousSamples: Math.floor(candidate.rotationDropPreviousSamples),
+    rotationDropFollowingSamples: Math.floor(candidate.rotationDropFollowingSamples),
     maximumCorrectionStepDegrees: candidate.maximumCorrectionStepDegrees,
     correctionResponsiveness: candidate.correctionResponsiveness,
-    maximumTargetErrorDegrees: candidate.maximumTargetErrorDegrees,
   };
 };
 

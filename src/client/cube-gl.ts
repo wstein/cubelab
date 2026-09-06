@@ -742,7 +742,6 @@ export type CubeViewport = {
     target: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
     maximumStepRadians?: number,
-    maximumTargetErrorRadians?: number,
     responsiveness?: number,
   ) => {
     applied: boolean;
@@ -1921,7 +1920,6 @@ export const createCubeViewport = (
       target,
       coordinateFrame = "viewport",
       maximumStepRadians = 2 * Math.PI / 180,
-      maximumTargetErrorRadians = Infinity,
       responsiveness = 0.18,
     ) {
       if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) {
@@ -1932,14 +1930,6 @@ export const createCubeViewport = (
       const rendered = multiplyQuaternions(priorCorrection, raw);
       const targetErrorRadians = orientationDistanceRadians(rendered, target);
       const targetErrorAxis = quaternionAxisAngle(multiplyQuaternions(target, inverseQuaternion(rendered))).axis;
-      if (targetErrorRadians > maximumTargetErrorRadians) {
-        return {
-          applied: false,
-          targetErrorRadians,
-          targetErrorAxis,
-          correctionStepRadians: 0,
-        };
-      }
       const nextCorrection = stabilizedOrientationCorrection(
         priorCorrection,
         deviceOrientationBase,

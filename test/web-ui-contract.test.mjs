@@ -656,12 +656,11 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   );
   assert.match(client, /manager\.subscribeEvents\(handleSmartCubeEvent\)/);
   assert.match(client, /recenterDeviceOrientation/);
-  assert.match(client, /reconcileDeviceOrientation/);
   assert.match(client, /createStableOrientationTracker/);
-  assert.match(client, /createTurnAnchor/);
+  assert.match(client, /createOrientationProbeRing/);
   assert.match(client, /stabilizeDeviceOrientation/);
-  assert.match(client, /large physical pose adopted/);
-  assert.match(client, /200 ms before and after the face packet/);
+  assert.match(client, /ring probe dropped/);
+  assert.match(client, /rotationDropThresholdDegrees/);
   assert.match(client, /smartCubeDiscreteOrientationTracker\s*=\s*createStableOrientationTracker/);
   assert.match(client, /appendRecordedMove/);
   assert.match(client, /mirrorSmartCubeFaceletsToInput\(event\.facelets\)/);

@@ -165,51 +165,38 @@ addresses, or the device name. Turning Diagnostics off clears the captured trace
 immediately, providing an explicit opt-out.
 
 Gyro view has two deliberately separate layers. The viewport follows the continuous
-IMU pose so a regrip remains visually smooth. A recorder-side orientation tracker only
-accepts one of the cube's 24 cardinal poses after three consecutive samples within ten
-degrees, and emits `x`, `y`, or `z` from that settled transition. It rebases after each
-accepted pose rather than treating an early threshold crossing as a quarter turn.
-If a regrip ends immediately before a face turn, the independently settled three-sample
-face-turn window can provide the same proof. This prevents a stable `x2` pose from being
-misclassified as 180° of slow IMU drift. That delayed path uses the connected device's
-anchor tolerance (25° for GoCube), rather than the live tracker's stricter 10° tolerance.
+IMU pose so a regrip remains visually smooth. A recorder-side orientation tracker
+recognizes the cube's settled cardinal poses and emits `x`, `y`, or `z` for recording.
+It rebases after each accepted pose rather than treating an early threshold crossing as
+a quarter turn.
 
 **Recenter gyro view** resets only the displayed gyro baseline. It does not change the
 physical cube, its calibration, the current state, or the tape. At a settled cardinal
 pose, the display may apply a correction to reconcile accumulated IMU heading error;
 it never snaps while the cube is in motion.
 
-Each confirmed face turn retains IMU evidence from the preceding 200 ms and opens a
-200 ms post-turn stabilization window. Three following IMU samples may make a small
-correction toward the current settled cardinal viewport pose
-only when their whole-cube pose remains within the profile's post-turn motion limit
-(10° for GoCube) of the pose before the turn. This is a hard motion veto, independent
-of the connected profile's broader cardinal-pose tolerance (25° for GoCube).
-GoCube IMU packets can spike while an ordinary face is turned, so this post-turn window
-rather than a pre-turn motion threshold decides whether the cube was still. A sample
-outside the envelope, an expired window, recording, or a newly detected regrip discards
-it. An accepted GoCube window changes display correction by at most one degree, so even a
-large accumulated offset recovers across ordinary turns rather than snapping. As a
-fail-safe for a regrip that is not recognized before its next face packet, a verified
-still anchor whose rendered target error exceeds its profile limit (30° for GoCube)
-adopts its measured pose as the new display target; it does not apply a correction in
-that case.
+The stabilizer continuously keeps a ring of accepted IMU probes; it is not tied to a
+face-packet timing window. If consecutive probes differ by more than the profile's
+rotation threshold (5° for GoCube), CubeLab removes the preceding two probes, rejects
+the rotating probe, and rejects the next two probes. A face move can stabilize only from
+a full ring after that exclusion region has passed. There are no separate 10°, 25°, or
+30° stabilization acceptance gates. An accepted GoCube correction changes the display
+by at most one degree, so accumulated heading error recovers without a visible snap.
 
 For hardware diagnosis, set `localStorage.cubelab.smartCube.gyroTrace` to `"1"` in
-browser DevTools and reproduce a turn. The console records whether each move opened an
-anchor, regrip settlement, every anchor sample, and whether the renderer applied or
-rejected its correction. Anchor samples include raw baseline/current quaternions and
-their angular deviation; corrections include target error and actual correction-step
-degrees. The correction uses the normalized average of the three accepted quaternions,
-and includes its signed target-error axis. Remove the key (or set it to another value)
-to silence the trace.
+browser DevTools and reproduce a turn. The console records dropped ring probes, ring
+readiness, regrip settlement, and corrections. Dropped-probe entries include the
+sample-to-sample rotation and 5° threshold; corrections include target error and actual
+correction-step degrees. The correction uses the normalized average of the accepted ring
+quaternions and includes its signed target-error axis. Remove the key (or set it to
+another value) to silence the trace.
 
 Motion-profile settings are loaded from `/smart-cube/motion-profiles.v1.json` after a
 cube connects. The registry provides a conservative default for unknown hardware and a
-measured GoCube override: 200 ms turn context, 25° cardinal regrip envelope, 10°
-post-turn motion veto, 1° maximum correction step, full correction responsiveness, and
-30° target-error adoption limit. Invalid or unavailable server data falls back to the
-default profile; it never blocks a cube connection.
+GoCube override: three retained probes, a 5° rotation threshold, two discarded probes
+on each side of a rotation, a 1° maximum correction step, and full correction
+responsiveness. Invalid or unavailable server data falls back to the default profile;
+it never blocks a cube connection.
 
 The first smart-cube event prints `trace enabled`. If it does not, reload after setting
 the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use

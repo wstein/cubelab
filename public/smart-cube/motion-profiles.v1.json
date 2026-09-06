@@ -2,24 +2,22 @@
   "version": 1,
   "default": {
     "label": "Default",
-    "anchorWindowMs": 200,
-    "anchorSamples": 3,
-    "maximumAnchorDeviationDegrees": 10,
-    "maximumPostTurnDeviationDegrees": 10,
+    "orientationRingSamples": 3,
+    "rotationDropThresholdDegrees": 5,
+    "rotationDropPreviousSamples": 2,
+    "rotationDropFollowingSamples": 2,
     "maximumCorrectionStepDegrees": 1,
-    "correctionResponsiveness": 0.18,
-    "maximumTargetErrorDegrees": 30
+    "correctionResponsiveness": 0.18
   },
   "profiles": {
     "gocube": {
       "label": "GoCube",
-      "anchorWindowMs": 200,
-      "anchorSamples": 3,
-      "maximumAnchorDeviationDegrees": 25,
-      "maximumPostTurnDeviationDegrees": 10,
+      "orientationRingSamples": 3,
+      "rotationDropThresholdDegrees": 5,
+      "rotationDropPreviousSamples": 2,
+      "rotationDropFollowingSamples": 2,
       "maximumCorrectionStepDegrees": 1,
-      "correctionResponsiveness": 1,
-      "maximumTargetErrorDegrees": 30
+      "correctionResponsiveness": 1
     }
   }
 }
