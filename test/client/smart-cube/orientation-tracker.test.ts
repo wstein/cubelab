@@ -49,6 +49,14 @@ describe("stable smart-cube orientation tracker", () => {
     expect(settled.tokens).toEqual(["x"]);
   });
 
+  test("preserves the local delta frame across a confirmed turn", () => {
+    let tracker = createStableOrientationTracker(identity, "viewport", "local");
+    for (let sample = 0; sample < 3; sample += 1) {
+      tracker = observeStableOrientation(tracker, x(90), "viewport").tracker;
+    }
+    expect(tracker.deltaFrame).toBe("local");
+  });
+
   test("rebases each accepted turn so small heading bias cannot accumulate", () => {
     let tracker = createStableOrientationTracker(identity, "viewport");
     let currentDegrees = 0;

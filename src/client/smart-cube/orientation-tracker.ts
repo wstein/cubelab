@@ -137,7 +137,7 @@ export const observeStableOrientation = (
     ? multiplyQuaternions(cardinal, tracker.orientation)
     : multiplyQuaternions(tracker.orientation, cardinal));
   return {
-    tracker: {baseline: current, frame, orientation, candidate: null},
+    tracker: {baseline: current, frame, deltaFrame: tracker.deltaFrame, orientation, candidate: null},
     tokens: orientations[nearest.index]!.tokens,
   };
 };
