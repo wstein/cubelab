@@ -7,9 +7,9 @@ describe("smart-cube motion profiles", () => {
     const registry = parseMotionProfileRegistry({
       version: 1,
       default: defaultMotionProfile,
-      profiles: {gocube: {...defaultMotionProfile, label: "GoCube", maximumAnchorDeviationDegrees: 20}},
+      profiles: {gocube: {...defaultMotionProfile, label: "GoCube", maximumAnchorDeviationDegrees: 25}},
     });
-    expect(motionProfileFor(registry, "gocube").maximumAnchorDeviationDegrees).toBe(20);
+    expect(motionProfileFor(registry, "gocube").maximumAnchorDeviationDegrees).toBe(25);
     expect(motionProfileFor(registry, "gan")).toEqual(defaultMotionProfile);
   });
 

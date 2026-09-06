@@ -172,7 +172,7 @@ accepted pose rather than treating an early threshold crossing as a quarter turn
 If a regrip ends immediately before a face turn, the independently settled three-sample
 face-turn window can provide the same proof. This prevents a stable `x2` pose from being
 misclassified as 180° of slow IMU drift. That delayed path uses the connected device's
-anchor tolerance (20° for GoCube), rather than the live tracker's stricter 10° tolerance.
+anchor tolerance (25° for GoCube), rather than the live tracker's stricter 10° tolerance.
 
 **Recenter gyro view** resets only the displayed gyro baseline. It does not change the
 physical cube, its calibration, the current state, or the tape. At a settled cardinal
@@ -199,7 +199,7 @@ to silence the trace.
 
 Motion-profile settings are loaded from `/smart-cube/motion-profiles.v1.json` after a
 cube connects. The registry provides a conservative default for unknown hardware and a
-measured GoCube override (20° anchor envelope and 2° maximum correction step). Invalid
+measured GoCube override (25° anchor envelope and 2° maximum correction step). Invalid
 or unavailable server data falls back to the default profile; it never blocks a cube
 connection.
 

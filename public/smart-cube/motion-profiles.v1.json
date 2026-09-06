@@ -12,7 +12,7 @@
       "label": "GoCube",
       "anchorWindowMs": 700,
       "anchorSamples": 3,
-      "maximumAnchorDeviationDegrees": 20,
+      "maximumAnchorDeviationDegrees": 25,
       "maximumCorrectionStepDegrees": 2
     }
   }

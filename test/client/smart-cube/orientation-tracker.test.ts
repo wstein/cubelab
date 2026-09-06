@@ -52,7 +52,7 @@ describe("stable smart-cube orientation tracker", () => {
     expect(settled.tracker.baseline).toEqual(x2);
   });
 
-  test("can use a device anchor's wider verified-still tolerance for an imprecise half-turn", () => {
+  test("can use a device anchor's 25-degree verified-still tolerance for an imprecise half-turn", () => {
     const tracker = createStableOrientationTracker(identity, "viewport");
     const nearX2 = x(163);
     expect(settleStableOrientation(tracker, nearX2, "viewport").tokens).toEqual([]);
@@ -60,7 +60,7 @@ describe("stable smart-cube orientation tracker", () => {
       tracker,
       nearX2,
       "viewport",
-      Math.cos(20 * Math.PI / 360),
+      Math.cos(25 * Math.PI / 360),
     );
     expect(settled.tokens).toEqual(["x", "x"]);
   });
