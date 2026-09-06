@@ -133,6 +133,11 @@ import {
   type StableOrientationTracker,
 } from "./smart-cube/orientation-tracker";
 import {
+  createTurnAnchor,
+  observeTurnAnchor,
+  type TurnAnchor,
+} from "./smart-cube/turn-anchor";
+import {
   createSmartCubeAudioFeedback,
   readSmartCubeSoundPreference,
   writeSmartCubeSoundPreference,
@@ -2221,6 +2226,7 @@ if (root) {
   let smartCubeRecordingAnimationGeneration = 0;
   let smartCubeRecordingOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeDiscreteOrientationTracker: StableOrientationTracker | null = null;
+  let smartCubeTurnAnchor: TurnAnchor | null = null;
   // During a recording session the physical cube is an input device. Keep a
   // separate virtual state so incoming facelet packets cannot repaint the
   // tape's Setup + Moves state over the viewport.
@@ -4527,6 +4533,7 @@ if (root) {
       settingsAutoOrbit.disabled = true;
     } else {
       smartCubeDiscreteOrientationTracker = null;
+      smartCubeTurnAnchor = null;
       autoOrbitButton.disabled = !viewport;
       settingsAutoOrbit.disabled = !viewport;
       setAutoOrbitEnabled(autoOrbit, false);
@@ -4639,6 +4646,20 @@ if (root) {
   const handleSmartCubeEvent = (event: SmartCubeEvent) => {
     switch (event.type) {
       case "move": {
+        if (
+          smartCubeOrientationTracking
+          && !smartCubeRecording
+          && !smartCubeRecordingTapePresented
+          && latestSmartCubeOrientation
+          && smartCubeDiscreteOrientationTracker
+        ) {
+          smartCubeTurnAnchor = createTurnAnchor(
+            latestSmartCubeOrientation.quaternion,
+            smartCubeDiscreteOrientationTracker.orientation,
+            latestSmartCubeOrientation.coordinateFrame,
+            event.timestamp,
+          );
+        }
         const record: QueuedSmartCubeMove = {move: event.move, state: null};
         smartCubePendingMoves.push(record);
         smartCubeMovesInFlight += 1;
@@ -4711,6 +4732,28 @@ if (root) {
             viewport?.reconcileDeviceOrientation(
               event.quaternion,
               observed.tracker.orientation,
+              event.coordinateFrame,
+            );
+          }
+          if (observed.tokens.length > 0) smartCubeTurnAnchor = null;
+        }
+        if (
+          smartCubeTurnAnchor
+          && smartCubeOrientationTracking
+          && !smartCubeRecording
+          && !smartCubeRecordingTapePresented
+        ) {
+          const anchored = observeTurnAnchor(
+            smartCubeTurnAnchor,
+            event.quaternion,
+            event.coordinateFrame,
+            event.timestamp,
+          );
+          smartCubeTurnAnchor = anchored.anchor;
+          if (anchored.stable && anchored.target) {
+            viewport?.stabilizeDeviceOrientation(
+              event.quaternion,
+              anchored.target,
               event.coordinateFrame,
             );
           }
@@ -6415,6 +6458,7 @@ if (root) {
       latestSmartCubeOrientation.quaternion,
       latestSmartCubeOrientation.coordinateFrame,
     );
+    smartCubeTurnAnchor = null;
     viewport?.recenterDeviceOrientation(
       latestSmartCubeOrientation.quaternion,
       latestSmartCubeOrientation.coordinateFrame,

@@ -691,6 +691,11 @@ export type CubeViewport = {
     target: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
   ) => void;
+  stabilizeDeviceOrientation: (
+    orientation: OrientationQuaternion,
+    target: OrientationQuaternion,
+    frame?: OrientationCoordinateFrame,
+  ) => void;
   setAutoOrbit: (enabled: boolean) => void;
   setDialogOpen: (open: boolean) => void;
   resetCamera: () => void;
@@ -1843,6 +1848,22 @@ export const createCubeViewport = (
         coordinateFrame,
       );
       canvas.dataset.deviceOrientation = "tracking";
+      requestRender();
+    },
+    stabilizeDeviceOrientation(orientation, target, coordinateFrame = "viewport") {
+      if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase) return;
+      const desired = orientationCorrectionForTarget(
+        deviceOrientationBase,
+        normalizedQuaternion(orientation),
+        target,
+        coordinateFrame,
+      );
+      deviceOrientationCorrection = smoothTrackedOrientation(
+        deviceOrientationCorrection ?? {x: 0, y: 0, z: 0, w: 1},
+        desired,
+        0,
+        0.18,
+      );
       requestRender();
     },
     setAutoOrbit(enabled) {
