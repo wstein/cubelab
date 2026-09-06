@@ -71,15 +71,24 @@ export type TurnGuide = {
  */
 export type RegripGaugeState = {
   /**
-   * Degrees travelled since the last confirmed pose: 0 at rest, rising
-   * toward 90. This is exactly deviceOrientationDelta(tracker.baseline,
-   * current, ...) — the same value observeThresholdOrientation compares to
-   * the confirm threshold, already drift-corrected by the tracker itself
-   * (see baselineUpdatedAt there), not a separately smoothed display copy.
+   * Degrees travelled since the last confirmed pose, for the needle's
+   * length: 0 at rest, rising toward 90. This includes
+   * smartCubeRegripCarryoverDegrees on top of the tracker's own raw delta,
+   * so it is NOT the same value the detector compares to the threshold —
+   * see `crossed` for that.
    */
   degrees: number;
-  /** Where the confirm threshold sits on the same scale, e.g. 65. */
+  /** Where the confirm threshold sits on the same scale, e.g. 65, for the dashed ring. */
   thresholdDegrees: number;
+  /**
+   * Whether the detector's own raw value (no carryover) has actually
+   * crossed thresholdDegrees — i.e. whether a regrip is really about to
+   * fire. Deliberately separate from `degrees >= thresholdDegrees`: with
+   * carryover included, the needle can visually reach the ring before the
+   * real trigger condition is true, which would make the needle's colour
+   * lie about whether a regrip is actually about to confirm.
+   */
+  crossed: boolean;
   label: string | null;
 } | null;
 
@@ -876,6 +885,7 @@ export const createCubeViewport = (
   // over here.
   let regripGaugeDisplayDegrees = 0;
   let regripGaugeDisplayLabel: string | null = null;
+  let regripGaugeDisplayCrossed = false;
   let turnFrame: number | null = null;
   let turnGeneration = 0;
   let autoOrbit = false;
@@ -1567,7 +1577,7 @@ export const createCubeViewport = (
     const spoke = spokes.find((candidate) => candidate.label === regripGaugeDisplayLabel);
     if (spoke) {
       const fraction = toFraction(regripGaugeDisplayDegrees);
-      const crossed = regripGaugeDisplayDegrees >= regripGauge.thresholdDegrees;
+      const crossed = regripGaugeDisplayCrossed;
       const needleColour = crossed ? "#4ade80" : "#67e8f9";
       overlay.strokeStyle = needleColour;
       overlay.fillStyle = needleColour;
@@ -1593,10 +1603,12 @@ export const createCubeViewport = (
     if (!regripGauge) {
       regripGaugeDisplayDegrees = 0;
       regripGaugeDisplayLabel = null;
+      regripGaugeDisplayCrossed = false;
       return;
     }
     regripGaugeDisplayLabel = regripGauge.label ?? regripGaugeDisplayLabel;
     regripGaugeDisplayDegrees = Math.max(0, Math.min(90, regripGauge.degrees));
+    regripGaugeDisplayCrossed = regripGauge.crossed;
   };
 
   const render = () => {

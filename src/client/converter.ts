@@ -2308,15 +2308,17 @@ if (root) {
       return;
     }
     const tracker = smartCubeDiscreteOrientationTracker;
-    // Raw progress since the tracker's own (drift-corrected) baseline, plus
-    // whatever carryover the last confirm left behind — see
-    // smartCubeRegripCarryoverDegrees for why this is a scalar add rather
-    // than a second baseline quaternion.
+    // Raw progress since the tracker's own (drift-corrected) baseline — this
+    // exact value, uninflated by carryover, is what observeThresholdOrientation
+    // itself compares to the threshold, so `crossed` below must be computed
+    // from it rather than from the carryover-inclusive displayed degrees.
     const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
     const {axis, radians} = quaternionAxisAngle(delta);
+    const rawDegrees = radians * 180 / Math.PI;
     viewport.setRegripGauge({
-      degrees: smartCubeRegripCarryoverDegrees + radians * 180 / Math.PI,
+      degrees: smartCubeRegripCarryoverDegrees + rawDegrees,
       thresholdDegrees: smartCubeRegripProfile.regripThresholdDegrees,
+      crossed: rawDegrees >= smartCubeRegripProfile.regripThresholdDegrees,
       label: nearestRegripAxis(axis),
     });
   };

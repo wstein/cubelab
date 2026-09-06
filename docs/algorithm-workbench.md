@@ -278,17 +278,27 @@ or cube motion.
 The gauge counts up from the centre, not down to it: `degrees` starts low right after a
 confirm and rises toward 90 as the hand turns toward the next lock-in. Needle length is
 `degrees / 90` of the radius, so the dashed ring sits at `regripThresholdDegrees / 90`
-(72% of the radius for the 65° default), and the needle turns green the instant it crosses
-that ring — the same instant a regrip fires.
+(72% of the radius for the 65° default).
 
-`degrees` is `smartCubeRegripCarryoverDegrees + deviceOrientationDelta(tracker.baseline,
-current, ...)` — the same raw value `observeThresholdOrientation` compares to the
-threshold, from the same (already drift-corrected) `tracker.baseline`, plus one small
-correction: a fresh rebase snaps `tracker.baseline` to the raw *triggering* sample, not
-the exact 90° mark, so on its own the gauge would read 0° right after every confirm even
-though a continuous motion rarely stops dead the instant it crosses the threshold — it
-carries some momentum into the next quarter-turn. `smartCubeRegripCarryoverDegrees`
-captures that: `max(0, min(90 - regripThresholdDegrees, 90 - angleDegrees at confirm))`,
+The needle's colour is deliberately **not** derived from `degrees >= thresholdDegrees`.
+`degrees` includes `smartCubeRegripCarryoverDegrees` (below) so the needle can start a new
+cycle already partway out — but `observeThresholdOrientation` never sees that carryover; it
+only ever compares its own raw, uninflated delta to the threshold. Deriving the colour from
+`degrees` would let the needle turn green — visually announcing "a regrip is about to
+fire" — before the real trigger condition is anywhere close to true. `RegripGaugeState`
+therefore carries a separate `crossed` boolean, computed in `converter.ts` from the same
+raw (non-carryover) value the detector itself uses, and the needle only turns green when
+that is actually true — the same instant a regrip really fires.
+
+`degrees` (the needle's length, not its colour) is `smartCubeRegripCarryoverDegrees +
+deviceOrientationDelta(tracker.baseline, current, ...)` — that delta is the same raw value
+`observeThresholdOrientation` compares to the threshold, from the same (already
+drift-corrected) `tracker.baseline`, plus one small correction: a fresh rebase snaps
+`tracker.baseline` to the raw *triggering* sample, not the exact 90° mark, so on its own
+the gauge would read 0° right after every confirm even though a continuous motion rarely
+stops dead the instant it crosses the threshold — it carries some momentum into the next
+quarter-turn. `smartCubeRegripCarryoverDegrees` captures that:
+`max(0, min(90 - regripThresholdDegrees, 90 - angleDegrees at confirm))`,
 set once per confirm from `observeThresholdOrientation`'s returned `angleDegrees` and reset
 to 0 on Recenter or a fresh tracker. Both bounds matter — clamped below at 0 so an
 already-past-90° triggering sample (a sparse-sampling edge case) doesn't go negative, and
