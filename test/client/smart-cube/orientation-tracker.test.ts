@@ -4,6 +4,7 @@ import {
   cardinalOrientationCount,
   createStableOrientationTracker,
   observeStableOrientation,
+  observeThresholdOrientation,
   settleStableOrientation,
 } from "../../../src/client/smart-cube/orientation-tracker";
 
@@ -57,6 +58,51 @@ describe("stable smart-cube orientation tracker", () => {
       }
     }
     expect(tokens).toEqual(Array(10).fill("x"));
+  });
+
+  test("threshold: ignores rotation below the minimum, no dwell required", () => {
+    const tracker = createStableOrientationTracker(identity, "viewport", "world");
+    const below = observeThresholdOrientation(tracker, x(60), "viewport", 65);
+    expect(below.tokens).toEqual([]);
+    expect(below.tracker.baseline).toEqual(identity);
+  });
+
+  test("threshold: confirms from a single sample the instant the threshold is crossed", () => {
+    const tracker = createStableOrientationTracker(identity, "viewport", "world");
+    const resolved = observeThresholdOrientation(tracker, x(66), "viewport", 65);
+    expect(resolved.tokens).toEqual(["x"]);
+  });
+
+  test("threshold: resolves to the nearest cardinal without requiring precision", () => {
+    // 78° is 12° short of a clean 90° turn, well outside observeStableOrientation's
+    // 5° gate, but past the 65° threshold and still unambiguously closer to the
+    // 90° neighbour than to identity (45° would be the ambiguous midpoint).
+    const tracker = createStableOrientationTracker(identity, "viewport", "world");
+    const resolved = observeThresholdOrientation(tracker, x(78), "viewport", 65);
+    expect(resolved.tokens).toEqual(["x"]);
+  });
+
+  test("threshold: rebases to the triggering sample so it does not immediately refire", () => {
+    const tracker = createStableOrientationTracker(identity, "viewport", "world");
+    const first = observeThresholdOrientation(tracker, x(90), "viewport", 65);
+    expect(first.tokens).toEqual(["x"]);
+    const second = observeThresholdOrientation(first.tracker, x(91), "viewport", 65);
+    expect(second.tokens).toEqual([]);
+  });
+
+  test("threshold: composes each confirmed step onto the running orientation", () => {
+    let tracker = createStableOrientationTracker(identity, "viewport", "world");
+    let currentDegrees = 0;
+    const tokens: string[] = [];
+    for (let turn = 0; turn < 4; turn += 1) {
+      currentDegrees += 90;
+      const observed = observeThresholdOrientation(tracker, x(currentDegrees), "viewport", 65);
+      tracker = observed.tracker;
+      tokens.push(...observed.tokens);
+    }
+    expect(tokens).toEqual(["x", "x", "x", "x"]);
+    // A full 360° turn is identity up to quaternion double-cover (w may be -1).
+    expect(Math.abs(tracker.orientation.w)).toBeCloseTo(1);
   });
 
   test("uses an independently settled anchor to accept a delayed half-turn regrip", () => {

@@ -134,6 +134,39 @@ export const observeStableOrientation = (
 };
 
 /**
+ * Emits a regrip as soon as the cumulative rotation from the last accepted
+ * pose crosses a threshold, with no dwell and no tight alignment gate. Every
+ * pair of the 24 legal poses is exactly 90° apart, so a threshold comfortably
+ * past the 45° Voronoi boundary between neighbours (65° by default) already
+ * guarantees nearest-cardinal picks the correct neighbour over identity,
+ * however imprecisely the hand actually lands — precision only has to be
+ * good enough to tell two 90°-apart poses apart, not to hit one exactly.
+ * Ordinary handling jostle, which rarely accumulates past the threshold
+ * before the cube settles back down, never triggers at all.
+ */
+export const observeThresholdOrientation = (
+  tracker: StableOrientationTracker,
+  current: OrientationQuaternion,
+  frame: OrientationCoordinateFrame,
+  minimumRotationDegrees = 65,
+): {tracker: StableOrientationTracker; tokens: RegripToken[]} => {
+  if (tracker.frame !== frame) return {tracker: createStableOrientationTracker(current, frame, tracker.deltaFrame), tokens: []};
+  const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
+  const angleDegrees = 2 * Math.acos(Math.min(1, Math.abs(delta.w))) * 180 / Math.PI;
+  if (angleDegrees < minimumRotationDegrees) return {tracker, tokens: []};
+  const nearest = closestCardinalOrientation(delta);
+  if (nearest.index === 0) return {tracker, tokens: []};
+  const cardinal = orientations[nearest.index]!.quaternion;
+  const orientation = normalize(tracker.deltaFrame === "world"
+    ? multiplyQuaternions(cardinal, tracker.orientation)
+    : multiplyQuaternions(tracker.orientation, cardinal));
+  return {
+    tracker: {baseline: current, frame, deltaFrame: tracker.deltaFrame, orientation, candidate: null},
+    tokens: orientations[nearest.index]!.tokens,
+  };
+};
+
+/**
  * Commits a cardinal pose that another sensor window has already proven still.
  * Face-turn anchors supply that proof after their own three-sample dwell, so a
  * regrip immediately followed by a face turn is not mistaken for 180° drift.

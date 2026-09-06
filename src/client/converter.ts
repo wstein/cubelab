@@ -132,6 +132,7 @@ import {assessGyroRotation, detectGyroQuarterRotation} from "./smart-cube/orient
 import {
   createStableOrientationTracker,
   observeStableOrientation,
+  observeThresholdOrientation,
   type StableOrientationTracker,
 } from "./smart-cube/orientation-tracker";
 import {
@@ -2230,6 +2231,11 @@ if (root) {
   let smartCubeRecordingAnimationGeneration = 0;
   let smartCubeRecordingOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeDiscreteOrientationTracker: StableOrientationTracker | null = null;
+  // The cube's 24 legal poses are all exactly 90° apart, with a 45° Voronoi
+  // boundary between neighbours. 65° gives a real hand regrip ~20° of slack
+  // past that boundary before it's mistaken for jostle, without needing to
+  // land anywhere near precisely — see observeThresholdOrientation.
+  const REGRIP_THRESHOLD_DEGREES = 65;
   let smartCubeStabilizationTraceAnnounced = false;
   let smartCubeDiagnosticsEnabled = window.localStorage.getItem("cubelab.smartCube.diagnostics") === "1";
   const smartCubeDiagnosticTrace: Array<{
@@ -4758,11 +4764,16 @@ if (root) {
         } else {
           const priorBaseline = smartCubeDiscreteOrientationTracker.baseline;
           const priorOrientation = smartCubeDiscreteOrientationTracker.orientation;
-          const priorCandidate = smartCubeDiscreteOrientationTracker.candidate;
-          const observed = observeStableOrientation(
+          // Regrip detection is threshold-based, not dwell-based: it fires the
+          // instant cumulative rotation from the last confirmed pose crosses
+          // REGRIP_THRESHOLD_DEGREES, however imprecisely the hand lands, rather
+          // than waiting for samples to settle within a tight alignment gate.
+          // See observeThresholdOrientation for why this is safe.
+          const observed = observeThresholdOrientation(
             smartCubeDiscreteOrientationTracker,
             event.quaternion,
             event.coordinateFrame,
+            REGRIP_THRESHOLD_DEGREES,
           );
           smartCubeDiscreteOrientationTracker = observed.tracker;
           if (
@@ -4789,7 +4800,6 @@ if (root) {
               quaternion: event.quaternion,
               priorBaseline,
               priorOrientation,
-              priorCandidate,
               target: observed.tracker.orientation,
             });
             updateSmartCubeOrientationDebugVectors();

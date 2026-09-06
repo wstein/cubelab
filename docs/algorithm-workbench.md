@@ -171,10 +171,29 @@ the display feel drifty regardless of how aggressively later corrections tried t
 it down — an entire ring-buffer/nearest-cardinal-snap correction system existed solely
 to fight that drift, and still couldn't make continuous mirroring feel solid. The raw
 stream is used for exactly one thing: detecting when the whole cube has been regripped.
-A recorder-side orientation tracker (`observeStableOrientation`) recognizes the cube's
-settled cardinal poses and emits `x`, `y`, or `z` after three consecutive samples land
-within 5° of the same one of the 24 legal poses; it rebases to that sample every time,
-so small heading bias cannot accumulate across successive regrips. Between confirmed
+
+Live regrip detection (`observeThresholdOrientation`) fires as soon as the cumulative
+rotation from the last confirmed pose crosses `REGRIP_THRESHOLD_DEGREES` (65°) — no
+dwell, no tight alignment gate. Every pair of the cube's 24 legal poses is exactly 90°
+apart with a 45° Voronoi boundary between neighbours, so once a delta is past 65° it is
+already unambiguously closer to the correct neighbour than to any other pose, however
+imprecisely the hand actually lands — precision only has to be good enough to tell two
+90°-apart poses apart, not to hit one exactly. An earlier version required three
+consecutive samples within 5° of a pose before confirming, which made real (if merely
+imprecise) regrips go undetected or land only after a visible delay; a real GoCube
+capture of three deliberate 720° single-axis spins (`test/fixtures/gocube-yxz.json`)
+confirmed detection would silently miss or lag depending on exactly how the hand
+settled. The threshold detector catches every ~90° of real travel in that capture
+immediately, correctly grouped by axis in sequence, with no dwell latency. The trade:
+since it fires on the crossing sample rather than waiting for stillness, the locked
+pose can still be mid-settle if the hand keeps adjusting afterward, leaving a real
+(bounded) residual until the next regrip corrects it — bounded settle-in error instead
+of an unbounded chance of missing the regrip entirely.
+
+The **recording** tracker (`observeStableOrientation`, used only while capturing a
+physical-mirror recording) keeps the original three-sample/5° confirm: a permanently
+saved move list benefits more from precision than from instant reaction, and a
+deliberate recording regrip is usually held still on purpose. Between confirmed live
 regrips the displayed orientation does not move at all — this is the same model
 tutorial mode already used for coached rotations (detect the expected regrip, animate
 once, then hold), just generalized to whichever regrip actually happened rather than a
