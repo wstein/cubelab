@@ -4651,11 +4651,10 @@ if (root) {
           && !smartCubeRecording
           && !smartCubeRecordingTapePresented
           && latestSmartCubeOrientation
-          && smartCubeDiscreteOrientationTracker
+          && viewport?.canStartDeviceOrientationStabilization()
         ) {
           smartCubeTurnAnchor = createTurnAnchor(
             latestSmartCubeOrientation.quaternion,
-            smartCubeDiscreteOrientationTracker.orientation,
             latestSmartCubeOrientation.coordinateFrame,
             event.timestamp,
           );
@@ -4750,12 +4749,7 @@ if (root) {
             event.timestamp,
           );
           smartCubeTurnAnchor = anchored.anchor;
-          if (anchored.stable && anchored.target) {
-            viewport?.stabilizeDeviceOrientation(
-              anchored.target,
-              event.coordinateFrame,
-            );
-          }
+          if (anchored.stable) viewport?.stabilizeDeviceOrientation(event.coordinateFrame);
         }
         if (smartCubeRecording && smartCubeSyncMode === "PhysicalMirror") {
           if (smartCubeRecordingOrientationTracker === null) {

@@ -717,10 +717,8 @@ export type CubeViewport = {
     target: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
   ) => void;
-  stabilizeDeviceOrientation: (
-    target: OrientationQuaternion,
-    frame?: OrientationCoordinateFrame,
-  ) => void;
+  canStartDeviceOrientationStabilization: () => boolean;
+  stabilizeDeviceOrientation: (frame?: OrientationCoordinateFrame) => void;
   setAutoOrbit: (enabled: boolean) => void;
   setDialogOpen: (open: boolean) => void;
   resetCamera: () => void;
@@ -818,6 +816,15 @@ export const createCubeViewport = (
   let deviceOrientationCorrection: OrientationQuaternion | null = null;
   let deviceOrientationFrame: OrientationCoordinateFrame = "viewport";
   canvas.dataset.autoOrbitState = "off";
+  const renderedDeviceOrientation = (): OrientationQuaternion | null => {
+    if (!deviceOrientationBase || !deviceOrientation) return null;
+    const raw = deviceOrientationDelta(deviceOrientationBase, deviceOrientation, deviceOrientationFrame, "world");
+    return deviceOrientationCorrection ? multiplyQuaternions(deviceOrientationCorrection, raw) : raw;
+  };
+  const canStabilizeToViewportZero = (): boolean => {
+    const rendered = renderedDeviceOrientation();
+    return rendered !== null && orientationDistanceRadians(rendered, {x: 0, y: 0, z: 0, w: 1}) <= 10 * Math.PI / 180;
+  };
   const overlay = overlayCanvas.getContext("2d");
 
   const traceProjected = (
@@ -1875,25 +1882,19 @@ export const createCubeViewport = (
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
     },
-    stabilizeDeviceOrientation(target, coordinateFrame = "viewport") {
+    canStartDeviceOrientationStabilization() {
+      return canStabilizeToViewportZero();
+    },
+    stabilizeDeviceOrientation(coordinateFrame = "viewport") {
       if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) return;
-      const raw = deviceOrientationDelta(
-        deviceOrientationBase,
-        deviceOrientation,
-        coordinateFrame,
-        "world",
-      );
-      const rendered = deviceOrientationCorrection
-        ? multiplyQuaternions(deviceOrientationCorrection, raw)
-        : raw;
-      // A confirmed face turn can refine a nearby pose, never erase a 90°
-      // cardinal regrip which has not yet reached this display channel.
-      if (orientationDistanceRadians(rendered, target) > 10 * Math.PI / 180) return;
+      // Face turns are calibration evidence only while the cube is already
+      // near reset view. A cardinal x/y/z pose never gets pulled back.
+      if (!canStabilizeToViewportZero()) return;
       deviceOrientationCorrection = stabilizedOrientationCorrection(
         deviceOrientationCorrection,
         deviceOrientationBase,
         deviceOrientation,
-        target,
+        {x: 0, y: 0, z: 0, w: 1},
         coordinateFrame,
       );
       requestRender();

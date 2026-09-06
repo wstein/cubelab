@@ -6,7 +6,6 @@ import {
 
 export type TurnAnchor = {
   baseline: OrientationQuaternion;
-  target: OrientationQuaternion;
   frame: OrientationCoordinateFrame;
   expiresAt: number;
   samples: number;
@@ -14,11 +13,10 @@ export type TurnAnchor = {
 
 export const createTurnAnchor = (
   baseline: OrientationQuaternion,
-  target: OrientationQuaternion,
   frame: OrientationCoordinateFrame,
   now: number,
   durationMs = 700,
-): TurnAnchor => ({baseline, target, frame, expiresAt: now + durationMs, samples: 0});
+): TurnAnchor => ({baseline, frame, expiresAt: now + durationMs, samples: 0});
 
 const angularDistance = (quaternion: OrientationQuaternion): number =>
   2 * Math.acos(Math.min(1, Math.abs(quaternion.w)));
@@ -36,12 +34,12 @@ export const observeTurnAnchor = (
   now: number,
   maximumDeviationRadians = 10 * Math.PI / 180,
   dwellSamples = 3,
-): {anchor: TurnAnchor | null; target: OrientationQuaternion | null; stable: boolean} => {
-  if (anchor.frame !== frame || now > anchor.expiresAt) return {anchor: null, target: null, stable: false};
+): {anchor: TurnAnchor | null; stable: boolean} => {
+  if (anchor.frame !== frame || now > anchor.expiresAt) return {anchor: null, stable: false};
   const delta = deviceOrientationDelta(anchor.baseline, current, frame, "world");
-  if (angularDistance(delta) > maximumDeviationRadians) return {anchor: null, target: null, stable: false};
+  if (angularDistance(delta) > maximumDeviationRadians) return {anchor: null, stable: false};
   const samples = anchor.samples + 1;
   return samples < dwellSamples
-    ? {anchor: {...anchor, samples}, target: null, stable: false}
-    : {anchor: null, target: anchor.target, stable: true};
+    ? {anchor: {...anchor, samples}, stable: false}
+    : {anchor: null, stable: true};
 };

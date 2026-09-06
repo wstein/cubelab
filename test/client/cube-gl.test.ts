@@ -57,6 +57,15 @@ describe("cube viewport math", () => {
     expect(orientationDistanceRadians(identity, x)).toBeGreaterThan(10 * Math.PI / 180);
   });
 
+  test("draws a near-reset rendered pose incrementally back toward viewport zero", () => {
+    const identity = {x: 0, y: 0, z: 0, w: 1};
+    const displayed = {x: Math.sin(5 * Math.PI / 360), y: 0, z: 0, w: Math.cos(5 * Math.PI / 360)};
+    const correction = stabilizedOrientationCorrection(null, identity, displayed, identity);
+    const corrected = multiplyQuaternions(correction, displayed);
+    expect(Math.abs(corrected.x)).toBeLessThan(Math.abs(displayed.x));
+    expect(Math.abs(corrected.x)).toBeGreaterThan(0);
+  });
+
   test("keeps Standard stickers at a restrained mid-gloss finish", () => {
     expect(standardStickerFinish.keyPeak).toBeLessThan(0.5);
     expect(standardStickerFinish.fillPeak).toBeLessThan(0.25);
