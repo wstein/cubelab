@@ -171,7 +171,18 @@ For the live viewport it adopts the exact corresponding cardinal pose after thre
 settled samples, rather than preserving an imperfect raw regrip angle. It rebases after
 each accepted pose rather than treating an early threshold crossing as a quarter turn.
 At that instant the viewport reconciles to the new cardinal target, so no later face
-turn can unwind a correction retained from the preceding orientation.
+turn can unwind a correction retained from the preceding orientation. Reconciling
+animates the display correction to its new value over ~180ms rather than snapping
+instantly; a correctly identified target no longer feels like a jump cut.
+
+The recorder-side tracker composes each confirmed regrip onto its own running
+orientation, so whatever last touched that running value has to be consistent with
+what the viewport is actually displaying — otherwise the *next* confirmed regrip
+composes onto stale, unrelated state and produces a pose nowhere near a plausible
+result (a lone "y" resolving to a corner-axis target instead of a Y-axis one is the
+signature of this). The nearest-cardinal fallback below is the other place that moves
+the viewport's target, so it resyncs the recorder-side tracker's baseline and running
+orientation to match every time it fires.
 
 **Recenter gyro view** resets only the displayed gyro baseline. It does not change the
 physical cube, its calibration, the current state, or the tape. At a settled cardinal

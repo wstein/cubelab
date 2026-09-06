@@ -4758,6 +4758,17 @@ if (root) {
             if (nearestTarget) {
               viewport?.reconcileDeviceOrientation(measured, nearestTarget, frame);
               smartCubeStabilizationTarget = nearestTarget;
+              // The discrete tracker composes each confirmed regrip onto its own
+              // running orientation. Without this, that running orientation would
+              // silently diverge from the pose we just snapped the viewport to, and
+              // the next confirmed regrip would compose onto stale, unrelated state.
+              smartCubeDiscreteOrientationTracker = {
+                baseline: measured,
+                frame,
+                deltaFrame: smartCubeDiscreteOrientationTracker?.deltaFrame ?? "world",
+                orientation: nearestTarget,
+                candidate: null,
+              };
               traceSmartCubeStabilization("unconfirmed regrip snapped to nearest cardinal", {
                 move: event.move,
                 targetErrorDegrees: Number((result.targetErrorRadians * 180 / Math.PI).toFixed(2)),
