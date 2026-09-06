@@ -406,6 +406,8 @@ if (root) {
   const smartCubeResetState = root.querySelector<HTMLButtonElement>("[data-smart-cube-reset-state]")!;
   const smartCubeOrientation = root.querySelector<HTMLButtonElement>("[data-smart-cube-orientation]")!;
   const smartCubeRecenter = root.querySelector<HTMLButtonElement>("[data-smart-cube-recenter]")!;
+  const smartCubeDiagnostics = root.querySelector<HTMLButtonElement>("[data-smart-cube-diagnostics]")!;
+  const smartCubeCopyTrace = root.querySelector<HTMLButtonElement>("[data-smart-cube-copy-trace]")!;
   const smartCubeController = root.querySelector<HTMLButtonElement>("[data-smart-cube-controller]")!;
   const smartCubeMacRecovery = root.querySelector<HTMLButtonElement>("[data-smart-cube-mac-recovery]")!;
   const smartCubeDisconnect = root.querySelector<HTMLButtonElement>("[data-smart-cube-disconnect]")!;
@@ -2231,15 +2233,32 @@ if (root) {
   let smartCubeMotionProfile: SmartCubeMotionProfile = defaultMotionProfile;
   let smartCubeMotionProfileLoad: Promise<ReturnType<typeof parseMotionProfileRegistry>> | null = null;
   let smartCubeStabilizationTraceAnnounced = false;
+  let smartCubeDiagnosticsEnabled = window.localStorage.getItem("cubelab.smartCube.diagnostics") === "1";
+  const smartCubeDiagnosticTrace: Array<{
+    at: string;
+    event: string;
+    detail: Record<string, unknown>;
+  }> = [];
+  const updateSmartCubeDiagnosticsUi = () => {
+    smartCubeDiagnostics.textContent = smartCubeDiagnosticsEnabled ? "Diagnostics on" : "Diagnostics off";
+    smartCubeDiagnostics.setAttribute("aria-pressed", String(smartCubeDiagnosticsEnabled));
+    smartCubeCopyTrace.disabled = !smartCubeDiagnosticsEnabled || smartCubeDiagnosticTrace.length === 0;
+  };
   const traceSmartCubeStabilization = (event: string, detail: Record<string, unknown>) => {
-    if (window.localStorage.getItem("cubelab.smartCube.gyroTrace") !== "1") return;
-    if (!smartCubeStabilizationTraceAnnounced) {
+    const consoleTraceEnabled = window.localStorage.getItem("cubelab.smartCube.gyroTrace") === "1";
+    if (!consoleTraceEnabled && !smartCubeDiagnosticsEnabled) return;
+    if (consoleTraceEnabled && !smartCubeStabilizationTraceAnnounced) {
       smartCubeStabilizationTraceAnnounced = true;
       console.info("[SmartCube stabilization] trace enabled", {
         hint: "Set cubelab.smartCube.gyroTrace to any other value to disable.",
       });
     }
-    console.info(`[SmartCube stabilization] ${event}`, detail);
+    if (consoleTraceEnabled) console.info(`[SmartCube stabilization] ${event}`, detail);
+    if (smartCubeDiagnosticsEnabled) {
+      smartCubeDiagnosticTrace.push({at: new Date().toISOString(), event, detail});
+      if (smartCubeDiagnosticTrace.length > 500) smartCubeDiagnosticTrace.shift();
+      updateSmartCubeDiagnosticsUi();
+    }
   };
   const loadSmartCubeMotionProfiles = () => {
     if (!smartCubeMotionProfileLoad) {
@@ -4627,6 +4646,9 @@ if (root) {
       smartCubeOrientation.disabled = !supportsOrientation;
       smartCubeRecenter.hidden = !supportsOrientation;
       smartCubeRecenter.disabled = !supportsOrientation;
+      smartCubeDiagnostics.hidden = false;
+      smartCubeCopyTrace.hidden = false;
+      updateSmartCubeDiagnosticsUi();
       smartCubeController.hidden = false;
       smartCubeController.disabled = false;
       smartCubeMacRecoveryAvailable = false;
@@ -4650,6 +4672,8 @@ if (root) {
       smartCubeResetState.hidden = true;
       smartCubeOrientation.hidden = true;
       smartCubeRecenter.hidden = true;
+      smartCubeDiagnostics.hidden = true;
+      smartCubeCopyTrace.hidden = true;
       smartCubeController.hidden = true;
       smartCubeMacRecovery.hidden = !smartCubeMacRecoveryAvailable;
       smartCubeMacRecovery.disabled = connectionState.phase === "connecting";
@@ -6537,6 +6561,30 @@ if (root) {
       latestSmartCubeOrientation.coordinateFrame,
     );
     smartCubeStatus.textContent = `${smartCubeDeviceName} · Gyro view centered`;
+  });
+  smartCubeDiagnostics.addEventListener("click", () => {
+    smartCubeDiagnosticsEnabled = !smartCubeDiagnosticsEnabled;
+    window.localStorage.setItem("cubelab.smartCube.diagnostics", smartCubeDiagnosticsEnabled ? "1" : "0");
+    if (!smartCubeDiagnosticsEnabled) smartCubeDiagnosticTrace.length = 0;
+    updateSmartCubeDiagnosticsUi();
+    smartCubeStatus.textContent = smartCubeDiagnosticsEnabled
+      ? `${smartCubeDeviceName} · Diagnostics capture enabled locally; nothing is uploaded automatically.`
+      : `${smartCubeDeviceName} · Diagnostics capture disabled and local trace cleared.`;
+  });
+  smartCubeCopyTrace.addEventListener("click", async () => {
+    const report = {
+      schema: "cubelab-smart-cube-diagnostic-v1",
+      generatedAt: new Date().toISOString(),
+      device: {brand: smartCubeManager?.getState().device?.brand ?? "unknown"},
+      motionProfile: smartCubeMotionProfile,
+      events: smartCubeDiagnosticTrace,
+    };
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(report, null, 2));
+      smartCubeStatus.textContent = `${smartCubeDeviceName} · Copied ${smartCubeDiagnosticTrace.length} diagnostic events. Send this text with your issue report.`;
+    } catch {
+      smartCubeStatus.textContent = `${smartCubeDeviceName} · Could not copy the trace. Check browser clipboard permission and try again.`;
+    }
   });
   smartCubeController.addEventListener("click", () => {
     setSmartCubeControllerMode(smartCubeSyncMode !== "VirtualController");

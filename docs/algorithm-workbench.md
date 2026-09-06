@@ -154,6 +154,16 @@ Recorded face turns and gyro regrips use the normal 120 ms tape-turn animation i
 arrival order. Capturing still appends the token to **Moves** immediately; animation
 only controls the virtual presentation.
 
+## Smart-cube diagnostics
+
+The smart-cube dock has **Diagnostics off** by default. Turning it on records at most
+500 local gyro/stabilization decisions for the current browser session; CubeLab never
+uploads them. **Copy cube trace** produces a small JSON report that a customer can paste
+into an issue or support request. It contains the cube brand, active motion profile,
+and orientation measurements and decisions, but not facelets, cube state, Bluetooth
+addresses, or the device name. Turning Diagnostics off clears the captured trace
+immediately, providing an explicit opt-out.
+
 Gyro view has two deliberately separate layers. The viewport follows the continuous
 IMU pose so a regrip remains visually smooth. A recorder-side orientation tracker only
 accepts one of the cube's 24 cardinal poses after three consecutive samples within ten

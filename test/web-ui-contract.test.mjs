@@ -638,6 +638,11 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(viewportComponent, /data-smart-cube-reset-state/);
   assert.match(viewportComponent, /data-smart-cube-orientation/);
   assert.match(viewportComponent, /data-smart-cube-recenter/);
+  assert.match(viewportComponent, /data-smart-cube-diagnostics/);
+  assert.match(viewportComponent, /data-smart-cube-copy-trace/);
+  assert.match(client, /cubelab\.smartCube\.diagnostics/);
+  assert.match(client, /cubelab-smart-cube-diagnostic-v1/);
+  assert.match(client, /navigator\.clipboard\.writeText/);
   assert.match(viewportComponent, /data-smart-cube-disconnect/);
   assert.match(viewportComponent, /data-smart-cube-sound/);
   assert.match(viewportComponent, /data-smart-cube-mistakes/);
@@ -698,7 +703,7 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   );
   assert.match(
     client,
-    /smartCubeOrientation\.disabled = !supportsOrientation;[\s\S]{0,300}setSmartCubeOrientationTracking\(supportsOrientation\)/,
+    /smartCubeOrientation\.disabled = !supportsOrientation;[\s\S]{0,700}setSmartCubeOrientationTracking\(supportsOrientation\)/,
   );
   assert.match(viewport, /setDeviceOrientation\(orientation/);
 });
