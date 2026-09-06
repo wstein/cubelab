@@ -679,7 +679,7 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /dataset\.halfTurnProgress = "true"/);
   assert.match(orientationVerifier, /halfTurn[\s\S]*Math\.abs\(signedDegrees\) >= 135/);
   assert.match(client, /Next physical move:/);
-  assert.match(client, /if \(smartCubeConnected\) waitForSmartCubeMove\(\)/);
+  assert.match(client, /playbackGuide\.addEventListener\("click"[\s\S]*waitForSmartCubeMove\(\)/);
   assert.match(client, /applyWaitingTimelineMove/);
   assert.match(client, /applyPartialHalfTurn/);
   assert.match(client, /completedHalfTurn/);
@@ -766,7 +766,7 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(viewportComponent, /data-playback-play/);
   assert.match(viewportComponent, /data-playback-forward/);
   assert.match(viewportComponent, /data-playback-end/);
-  assert.equal(viewportComponent.match(/class="transport-btn/g)?.length, 8);
+  assert.equal(viewportComponent.match(/class="transport-btn/g)?.length, 9);
   assert.doesNotMatch(viewportComponent, /data-playback-(?:toggle|sequence-back|sequence-forward)/);
   assert.match(viewportComponent, /data-playback-scrubber/);
   assert.match(viewportComponent, /data-playback-speed/);
@@ -774,6 +774,8 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(client, /const duration = 720/);
   assert.match(viewportComponent, /data-playback-loop/);
   assert.match(viewportComponent, /data-playback-record/);
+  assert.match(viewportComponent, /data-playback-guide/);
+  assert.match(viewportComponent, /Guide turns with smart cube/);
   assert.match(viewportComponent, /Start smart-cube recording/);
   assert.match(viewportComponent, /data-smart-cube-record-capability/);
   assert.match(client, /MAX_PLAYBACK_STEPS/);
@@ -786,6 +788,10 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(client, /queueDirectMove/);
   assert.match(client, /pendingDirectMove/);
   assert.match(client, /let smartCubeRecording = false/);
+  assert.match(client, /let smartCubeGuidedTape = false/);
+  assert.match(client, /const canGuideSmartCube = \(\) =>/);
+  assert.match(client, /size === 2 \|\| size === 3/);
+  assert.match(client, /const updateSmartCubeGuideUi = \(\) =>/);
   assert.match(client, /let smartCubeRecordingTapeDirty = false/);
   assert.match(client, /let smartCubeRecordingState: CubeState \| null = null/);
   assert.match(client, /let smartCubeRecordingTapePresented = false/);
@@ -801,6 +807,17 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
     client.indexOf("advanceSmartCubeRecordingState(move);", recordingBranch) < recordingStopPlayback,
     "recording advances the tape-owned virtual state before leaving the physical-move path",
   );
+  const playHandler = client.indexOf("playbackPlay.addEventListener");
+  const playHandlerEnd = client.indexOf("root.querySelector<HTMLButtonElement>(\"[data-playback-forward]\")", playHandler);
+  const playForward = client.indexOf("else void play(1);", playHandler);
+  assert.ok(playHandler >= 0 && playHandlerEnd > playHandler && playForward < playHandlerEnd);
+  assert.equal(
+    client.slice(playHandler, playHandlerEnd).indexOf("waitForSmartCubeMove();"),
+    -1,
+    "ordinary Play never becomes smart-cube guidance merely because a cube is connected",
+  );
+  assert.match(client, /playbackGuide\.addEventListener\("click"/);
+  assert.match(client, /smartCubeGuidedTape = true;\s*waitForSmartCubeMove\(\)/);
   assert.match(viewportComponent, /data-coaching-mode="coached"/);
   assert.match(viewportComponent, /data-coaching-mode="continuous"/);
   assert.match(page, /data-alg-transform="filter-regrips"/);

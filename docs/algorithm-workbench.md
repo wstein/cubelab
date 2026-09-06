@@ -127,6 +127,19 @@ visible, editable, and shareable. Its presentation then depends on smart-cube mo
   virtual cube. The physical cube remains a turn and orientation controller, and its
   facelets cannot overwrite that virtual scramble.
 
+## Tape playback and smart cubes
+
+The Move tape's forward and reverse Play controls always animate the virtual tape; a
+connected smart cube never changes their meaning. **Guide turns with smart cube** is a
+separate, opt-in tape control. It pauses automatic playback, highlights the next tape
+turn, and advances only when the connected cube reports the expected turn. Pause,
+Escape, Record, disconnecting, or starting automatic playback exits guidance.
+
+Guidance accepts move-reporting 2×2 and 3×3 tapes. It intentionally does not require
+facelets: move-only devices are useful turn input, and the connected-device capability
+badge states what the driver can verify. Recording remains a distinct 3×3 capture
+feature that appends physical turns to **Moves**.
+
 ## Browser integration
 
 The action ribbon below the input exposes **Invert**, **Simplify**, **Factor structure**,
