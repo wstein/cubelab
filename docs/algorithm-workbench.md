@@ -178,9 +178,10 @@ it never snaps while the cube is in motion.
 The stabilizer continuously keeps a ring of accepted IMU probes; it is not tied to a
 face-packet timing window. If consecutive probes differ by more than the profile's
 rotation threshold (5° for GoCube), CubeLab removes the preceding two probes, rejects
-the rotating probe, and rejects the next two probes. A face move can stabilize only from
-a full ring after that exclusion region has passed. There are no separate 10°, 25°, or
-30° stabilization acceptance gates. An accepted GoCube correction changes the display
+the rotating probe, and rejects the next two probes. A face move may stabilize from any
+non-empty retained ring after that exclusion region has passed, then consumes the ring
+so no probe is reused for another face move. There are no separate 10°, 25°, or 30°
+stabilization acceptance gates. An accepted GoCube correction changes the display
 by at most one degree, so accumulated heading error recovers without a visible snap.
 
 For hardware diagnosis, set `localStorage.cubelab.smartCube.gyroTrace` to `"1"` in

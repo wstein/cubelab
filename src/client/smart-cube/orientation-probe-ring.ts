@@ -29,6 +29,12 @@ export const createOrientationProbeRing = (): OrientationProbeRing => ({
   discardFollowing: 0,
 });
 
+/** Consume retained samples without losing the raw predecessor used to spot rotation. */
+export const consumeOrientationProbeRing = (ring: OrientationProbeRing): OrientationProbeRing => ({
+  ...ring,
+  probes: [],
+});
+
 export const appendOrientationProbe = (
   ring: OrientationProbeRing,
   probe: OrientationProbe,

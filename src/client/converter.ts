@@ -135,6 +135,7 @@ import {
 import {
   appendOrientationProbe,
   averageOrientationProbes,
+  consumeOrientationProbeRing,
   createOrientationProbeRing,
   type OrientationProbeRing,
 } from "./smart-cube/orientation-probe-ring";
@@ -4717,10 +4718,11 @@ if (root) {
           && !smartCubeRecordingTapePresented
           && measured
           && frame
-          && smartCubeOrientationProbeRing.probes.length === smartCubeMotionProfile.orientationRingSamples
           && smartCubeOrientationProbeRing.discardFollowing === 0
         );
         if (ringReady && measured && frame) {
+          const probes = smartCubeOrientationProbeRing.probes.length;
+          smartCubeOrientationProbeRing = consumeOrientationProbeRing(smartCubeOrientationProbeRing);
           const result = viewport?.stabilizeDeviceOrientation(
             measured,
             smartCubeStabilizationTarget,
@@ -4730,7 +4732,7 @@ if (root) {
           ) ?? {applied: false, targetErrorRadians: null, targetErrorAxis: null, correctionStepRadians: 0};
           traceSmartCubeStabilization(result.applied ? "ring correction applied" : "ring correction skipped", {
             move: event.move,
-            probes: smartCubeOrientationProbeRing.probes.length,
+            probes,
             target: smartCubeStabilizationTarget,
             measured,
             targetErrorDegrees: result.targetErrorRadians === null
@@ -4746,7 +4748,6 @@ if (root) {
             recording: smartCubeRecording,
             tapePresented: smartCubeRecordingTapePresented,
             probes: smartCubeOrientationProbeRing.probes.length,
-            requiredProbes: smartCubeMotionProfile.orientationRingSamples,
             pendingPostRotationDrops: smartCubeOrientationProbeRing.discardFollowing,
           });
         }

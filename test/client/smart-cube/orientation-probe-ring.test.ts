@@ -2,6 +2,7 @@ import {describe, expect, test} from "vitest";
 
 import {
   appendOrientationProbe,
+  consumeOrientationProbeRing,
   createOrientationProbeRing,
 } from "../../../src/client/smart-cube/orientation-probe-ring";
 
@@ -40,4 +41,15 @@ describe("orientation probe ring", () => {
 
     expect(appendOrientationProbe(ring, probe(x(6), 6), policy).accepted).toBe(true);
   });
+});
+
+test("consuming the ring prevents probe reuse while preserving rotation detection", () => {
+  let ring = createOrientationProbeRing();
+  ring = appendOrientationProbe(ring, probe(identity, 0), policy).ring;
+  ring = consumeOrientationProbeRing(ring);
+  expect(ring.probes).toEqual([]);
+
+  const rotating = appendOrientationProbe(ring, probe(x(6), 1), policy);
+  expect(rotating.accepted).toBe(false);
+  expect(rotating.rotationDegrees).toBeCloseTo(6, 6);
 });
