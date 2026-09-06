@@ -2008,3 +2008,23 @@ test("manual state editor leaves notation-field keystrokes to the text control",
   await expect(notation).not.toHaveValue("R U R' x");
   await expect(dialog.locator('[data-manual-state-index="0"]')).toHaveAttribute("data-face", "U");
 });
+
+test("manual state editor applies a line-oriented notation script with comments", async ({page}) => {
+  await page.goto("/");
+  await page.locator("[data-manual-state-open]").click();
+  const dialog = page.locator("[data-manual-state-dialog]");
+  const notation = dialog.locator("[data-manual-state-notation]");
+
+  await notation.fill([
+    "Start from the solved Orbit64 state",
+    "AAAAAAAAAAAA",
+    "Then apply this algorithm and a regrip",
+    "R U",
+    "x",
+  ].join("\n"));
+  await dialog.locator("[data-manual-state-notation-apply]").click();
+  await expect(dialog.locator("[data-manual-state-notation-status]")).toContainText("1 state");
+  await expect(dialog.locator("[data-manual-state-notation-status]")).toContainText("2 notation lines");
+  await dialog.locator("[data-manual-state-load]").click();
+  await expect(page.locator('[data-output="facelets"]')).toHaveText(algorithmFacelets("R U x"));
+});
