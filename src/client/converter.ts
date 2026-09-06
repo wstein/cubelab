@@ -4814,7 +4814,7 @@ if (root) {
           smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
             event.quaternion,
             event.coordinateFrame,
-            "local",
+            "world",
           );
         } else {
           const priorBaseline = smartCubeDiscreteOrientationTracker.baseline;
@@ -6558,7 +6558,7 @@ if (root) {
     smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
       latestSmartCubeOrientation.quaternion,
       latestSmartCubeOrientation.coordinateFrame,
-      "local",
+      "world",
     );
     viewport?.recenterDeviceOrientation(
       latestSmartCubeOrientation.quaternion,
