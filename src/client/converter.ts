@@ -253,6 +253,9 @@ if (root) {
   const manualStateReset = root.querySelector<HTMLButtonElement>("[data-manual-state-reset]")!;
   const manualStateSolved = root.querySelector<HTMLButtonElement>("[data-manual-state-solved]")!;
   const manualStateSummary = root.querySelector<HTMLElement>("[data-manual-state-summary]")!;
+  const manualStateNotation = root.querySelector<HTMLTextAreaElement>("[data-manual-state-notation]")!;
+  const manualStateNotationApply = root.querySelector<HTMLButtonElement>("[data-manual-state-notation-apply]")!;
+  const manualStateNotationStatus = root.querySelector<HTMLOutputElement>("[data-manual-state-notation-status]")!;
   const manualStateLoad = root.querySelector<HTMLButtonElement>("[data-manual-state-load]")!;
   const manualStateCopyToggle = root.querySelector<HTMLButtonElement>("[data-manual-state-copy-toggle]")!;
   const manualStateCopyMenu = root.querySelector<HTMLElement>("[data-manual-state-copy-menu]")!;
@@ -1770,6 +1773,8 @@ if (root) {
     manualStateUnverifiedDots.clear();
     manualStateDeadIndices.clear();
     manualStatePaintHistory.length = 0;
+    manualStateNotation.value = "";
+    manualStateNotationStatus.textContent = "Paste a state to replace the draft, or moves to apply them.";
     setManualStateHoverIndex(null);
     setManualStateCursorIndex(null);
     manualStateIntro.textContent = manualSize <= 3
@@ -7118,6 +7123,54 @@ if (root) {
     manualStatePaintHistory.length = 0;
     manualStateDirtyDots = null;
     renderManualStateEditor();
+  });
+  const replaceManualStateDraft = (state: CubeState) => {
+    setManualStateDraft((FaceletCodec.render(state) as string).split("") as ManualStateDraft);
+    manualStateExplicitIndices.clear();
+    manualStateDraft.forEach((_, index) => manualStateExplicitIndices.add(index));
+    manualStateAutoIndices.clear();
+    manualStateUnverifiedDots.clear();
+    manualStateDeadIndices.clear();
+    manualStatePaintHistory.length = 0;
+    manualStateDirtyDots = null;
+    renderManualStateEditor();
+  };
+  manualStateNotationApply.addEventListener("click", () => {
+    const source = manualStateNotation.value.trim();
+    if (source === "") {
+      manualStateNotationStatus.textContent = "Enter a cube state, moves, or transformations first.";
+      return;
+    }
+    // parseState is deliberately shared with Setup so the editor recognizes
+    // every supported state encoding, notation dialect, and transformation.
+    const parsed = parseState(source);
+    if (parsed.TAG === "Error") {
+      manualStateNotationStatus.textContent = describeError(parsed._0);
+      return;
+    }
+    const recognized = parsed._0;
+    if (!recognized.timeline) {
+      replaceManualStateDraft(recognized.state);
+      manualStateNotationStatus.textContent = `${recognized.label} loaded.`;
+      return;
+    }
+    const diagnostic = manualStateCompleteDiagnostic();
+    if (diagnostic !== null) {
+      manualStateNotationStatus.textContent = `Complete a valid cube before applying moves: ${diagnostic}`;
+      return;
+    }
+    const current = FaceletCodec.parse(size, manualStateCompactFacelets()) as Result<CubeState>;
+    if (current.TAG === "Error") {
+      manualStateNotationStatus.textContent = describeError(current._0);
+      return;
+    }
+    const applied = MoveExecutor.applyAlg(current._0, recognized.timeline.alg) as Result<CubeState, unknown>;
+    if (applied.TAG === "Error") {
+      manualStateNotationStatus.textContent = "Could not apply that notation to the current cube.";
+      return;
+    }
+    replaceManualStateDraft(applied._0);
+    manualStateNotationStatus.textContent = "Moves applied.";
   });
   manualStateLoad.addEventListener("click", () => {
     const diagnostic = manualStateCompleteDiagnostic();
