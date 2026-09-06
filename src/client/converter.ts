@@ -2298,9 +2298,12 @@ if (root) {
     const tracker = smartCubeDiscreteOrientationTracker;
     const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
     const {axis, radians} = quaternionAxisAngle(delta);
+    // Signed degrees remaining until the exact 90° mark, not degrees
+    // travelled so far: a regrip at the 65°-threshold sample reads as -25°,
+    // counting up toward 0 as the hand finishes settling on the new pose.
     viewport.setRegripGauge({
-      angleDegrees: radians * 180 / Math.PI,
-      thresholdDegrees: smartCubeRegripProfile.regripThresholdDegrees,
+      signedDegrees: (radians * 180 / Math.PI) - 90,
+      signedThresholdDegrees: smartCubeRegripProfile.regripThresholdDegrees - 90,
       label: nearestRegripAxis(axis),
       driftDegreesPerSecond: smartCubeRegripProfile.artificialDriftDegreesPerSecond,
     });

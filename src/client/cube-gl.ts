@@ -61,17 +61,21 @@ export type TurnGuide = {
 };
 
 /**
- * Live readout for gyro regrip detection: how far the raw device orientation
- * has rotated from the tracker's last confirmed baseline, which of the six
- * quarter-turn directions it is closest to, and the confirm threshold. Drawn
- * as a fixed 2D HUD rather than a 3D arrow — a 3D vector gets hard to read
- * once the cube itself is rotating in front of the camera.
+ * Live readout for gyro regrip detection: how many degrees remain until the
+ * raw device orientation reaches the exact 90° lock-in point (signed, so 0 is
+ * "arrived" and it counts up from a negative starting value), which of the
+ * six quarter-turn directions it is heading toward, and the confirm
+ * threshold expressed the same way. Drawn as a fixed 2D HUD rather than a 3D
+ * arrow — a 3D vector gets hard to read once the cube itself is rotating in
+ * front of the camera.
  */
 export type RegripGaugeState = {
-  angleDegrees: number;
-  thresholdDegrees: number;
+  /** Degrees remaining until the 90° mark: negative, rising toward 0. */
+  signedDegrees: number;
+  /** Where the confirm threshold sits on the same scale, e.g. -25 for 65°. */
+  signedThresholdDegrees: number;
   label: string | null;
-  /** Cap, in degrees/second, on how fast the displayed needle may move — see RegripProfile. */
+  /** Cap, in degrees/second, on how fast the displayed needle may approach 0 — see RegripProfile. */
   driftDegreesPerSecond: number;
 } | null;
 
@@ -839,11 +843,15 @@ export const createCubeViewport = (
   let turnGuide: TurnGuide | null = null;
   let moveRibbon: TurnGuide | null = null;
   let regripGauge: RegripGaugeState = null;
-  // Artificially smoothed copy of regripGauge's angle/label, stepped toward
-  // the real target once per frame at driftDegreesPerSecond, so the needle
-  // reads as a continuous drift rather than jumping between raw samples —
-  // the underlying detector still reacts to each raw sample immediately.
-  let regripGaugeDisplayDegrees = 0;
+  // Artificially smoothed copy of regripGauge's signedDegrees/label. Every
+  // frame this only ever eases toward 0 (approaching the lock-in point) at
+  // up to driftDegreesPerSecond; a regrip rebasing the tracker's baseline
+  // makes the real value retreat further from 0 (a new cycle starting), and
+  // that retreat is never animated — it snaps instantly, since smoothing it
+  // would show the needle visibly moving backward away from the mark it just
+  // reached. The underlying detector still reacts to each raw sample
+  // immediately either way; only this display copy is synthetic.
+  let regripGaugeDisplaySignedDegrees = 0;
   let regripGaugeDisplayLabel: string | null = null;
   let regripGaugeLastFrameAt = 0;
   let turnFrame: number | null = null;
@@ -1475,10 +1483,11 @@ export const createCubeViewport = (
 
   /**
    * Fixed 2D HUD for gyro regrip detection: a hexagon of the six quarter-turn
-   * directions, a ring at the confirm threshold, and a needle showing how far
-   * the raw orientation has rotated from the tracker's baseline and toward
-   * which direction. Deliberately screen-fixed rather than a 3D arrow — once
-   * the cube itself is rotating, a 3D debug vector is hard to read against it.
+   * directions, a ring at the confirm threshold, and a needle counting down
+   * to 0 (the exact 90° lock-in point) as the raw orientation approaches it,
+   * toward whichever direction it's heading. Deliberately screen-fixed rather
+   * than a 3D arrow — once the cube itself is rotating, a 3D debug vector is
+   * hard to read against it.
    */
   const drawRegripGauge = (width: number, height: number) => {
     if (!overlay || !regripGauge) return;
@@ -1495,6 +1504,9 @@ export const createCubeViewport = (
       {label: "z'", angle: (5 * Math.PI) / 6},
       {label: "x", angle: -(5 * Math.PI) / 6},
     ];
+    // Both are signed degrees-remaining-until-0; +90 maps the -90..0 range
+    // onto the 0..1 radius fraction (-90 at the centre, 0 at full radius).
+    const toFraction = (signedDegrees: number) => Math.max(0, Math.min(1, (signedDegrees + 90) / 90));
     overlay.save();
     overlay.fillStyle = "rgba(8, 15, 30, 0.55)";
     overlay.beginPath();
@@ -1517,7 +1529,7 @@ export const createCubeViewport = (
         cy + Math.sin(spoke.angle) * (radius + 11 * dpr),
       );
     });
-    const thresholdFraction = Math.min(1, regripGauge.thresholdDegrees / 90);
+    const thresholdFraction = toFraction(regripGauge.signedThresholdDegrees);
     overlay.strokeStyle = "rgba(251, 191, 36, 0.75)";
     overlay.setLineDash([3 * dpr, 3 * dpr]);
     overlay.beginPath();
@@ -1526,8 +1538,8 @@ export const createCubeViewport = (
     overlay.setLineDash([]);
     const spoke = spokes.find((candidate) => candidate.label === regripGaugeDisplayLabel);
     if (spoke) {
-      const fraction = Math.min(1, regripGaugeDisplayDegrees / 90);
-      const crossed = regripGaugeDisplayDegrees >= regripGauge.thresholdDegrees;
+      const fraction = toFraction(regripGaugeDisplaySignedDegrees);
+      const crossed = regripGaugeDisplaySignedDegrees >= regripGauge.signedThresholdDegrees;
       const needleColour = crossed ? "#4ade80" : "#67e8f9";
       overlay.strokeStyle = needleColour;
       overlay.fillStyle = needleColour;
@@ -1545,31 +1557,42 @@ export const createCubeViewport = (
     overlay.font = `600 ${9 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
     overlay.textAlign = "center";
     overlay.textBaseline = "middle";
-    overlay.fillText(`${Math.round(regripGaugeDisplayDegrees)}°`, cx, cy);
+    overlay.fillText(`${Math.round(regripGaugeDisplaySignedDegrees)}°`, cx, cy);
     overlay.restore();
   };
 
   /**
-   * Steps the gauge's displayed needle toward its real target at a capped
-   * rate (see RegripGaugeState.driftDegreesPerSecond), and requests another
-   * frame while it hasn't caught up yet. The label switches immediately —
-   * only the travelled distance along whichever spoke is current is smoothed.
+   * Steps the gauge's displayed needle toward 0 at a capped rate (see
+   * RegripGaugeState.driftDegreesPerSecond), and requests another frame while
+   * it hasn't caught up yet. A regrip rebasing the tracker's baseline makes
+   * the real signedDegrees retreat further from 0 (a new cycle starting) —
+   * that retreat is never eased, it snaps instantly, so the needle only ever
+   * animates forward toward the mark it's heading for, never backward away
+   * from one it just reached.
    */
   const stepRegripGaugeDisplay = () => {
     if (!regripGauge) {
       regripGaugeLastFrameAt = 0;
-      regripGaugeDisplayDegrees = 0;
+      regripGaugeDisplaySignedDegrees = 0;
       regripGaugeDisplayLabel = null;
+      return;
+    }
+    regripGaugeDisplayLabel = regripGauge.label;
+    if (regripGauge.signedDegrees < regripGaugeDisplaySignedDegrees) {
+      regripGaugeDisplaySignedDegrees = regripGauge.signedDegrees;
+      regripGaugeLastFrameAt = performance.now();
+      requestRender();
       return;
     }
     const now = performance.now();
     const dt = regripGaugeLastFrameAt ? Math.min(0.25, (now - regripGaugeLastFrameAt) / 1000) : 0;
     regripGaugeLastFrameAt = now;
-    regripGaugeDisplayLabel = regripGauge.label;
     const maxStep = regripGauge.driftDegreesPerSecond * dt;
-    const diff = regripGauge.angleDegrees - regripGaugeDisplayDegrees;
-    regripGaugeDisplayDegrees += Math.sign(diff) * Math.min(Math.abs(diff), maxStep);
-    if (Math.abs(regripGauge.angleDegrees - regripGaugeDisplayDegrees) > 0.01) requestRender();
+    regripGaugeDisplaySignedDegrees = Math.min(
+      regripGauge.signedDegrees,
+      regripGaugeDisplaySignedDegrees + maxStep,
+    );
+    if (regripGauge.signedDegrees - regripGaugeDisplaySignedDegrees > 0.01) requestRender();
   };
 
   const render = () => {

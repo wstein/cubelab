@@ -245,25 +245,35 @@ value) to silence the trace.
 
 While **Diagnostics** is on, a fixed 2D gauge in the viewport's corner shows the
 threshold detector's live state: a hexagon with a spoke for each of the six quarter-turn
-directions (`x`, `x'`, `y`, `y'`, `z`, `z'`), a dashed ring at `regripThresholdDegrees`,
-and a needle from the centre toward whichever spoke the raw sample's rotation axis is
-currently closest to, with length proportional to how many degrees it has travelled from
-the tracker's baseline (capped visually at 90°). The needle turns green once it crosses
-the dashed ring — the same instant a regrip fires. This is deliberately a flat,
-screen-fixed HUD rather than a 3D arrow in the scene: once the cube itself is rotating, a
-3D debug vector competing for the same space is hard to read at a glance, where a fixed
-gauge stays legible regardless of camera angle or cube motion.
+directions (`x`, `x'`, `y`, `y'`, `z`, `z'`), a dashed ring at the confirm threshold, and a
+needle from the centre toward whichever spoke the raw sample's rotation axis is currently
+closest to. This is deliberately a flat, screen-fixed HUD rather than a 3D arrow in the
+scene: once the cube itself is rotating, a 3D debug vector competing for the same space
+is hard to read at a glance, where a fixed gauge stays legible regardless of camera angle
+or cube motion.
 
-The needle's on-screen position is smoothed, not driven directly by raw samples: each
-frame it steps toward the real target at up to `artificialDriftDegreesPerSecond`
-(120°/s by default, from the same profile). This is a synthetic, display-only effect —
-the detector underneath always reacts to the actual raw sample immediately, with no
-smoothing at all — but without it the needle would visibly teleport between samples
-(GoCube orientation packets arrive in irregular bursts), including snapping straight to
-0° the instant a regrip's baseline rebases. With the drift cap, that same rebase instead
-reads as the needle sliding back toward centre (or wherever the real, still-unsettled
-raw sample now measures from the new baseline) over a fraction of a second — visually
-continuous, while the confirm decision itself remains instant and untouched.
+The gauge is a countdown to 0, not a count-up from 0. Its core value,
+`signedDegrees = angleTravelled - 90`, is negative and rises toward 0 as the raw sample
+approaches the exact 90° lock-in point — at the 65°-threshold crossing it reads -25°, the
+same number `regripThresholdDegrees - 90` marks as the dashed ring. Needle length is
+`(signedDegrees + 90) / 90` of the radius, identical geometry to a plain 0-to-90 count-up,
+but the number at the centre and the mental model it invites are different: "how far from
+arriving," not "how far travelled." The needle turns green once it crosses the ring — the
+same instant a regrip fires.
+
+The displayed needle only ever eases toward 0, never away from it. Confirming a regrip
+rebases the tracker's baseline (see above), so the very next raw sample's real
+`signedDegrees` jumps back down near -90 — a big retreat from wherever the needle just
+was. That retreat is never animated: it snaps instantly, because easing it would show the
+needle sliding backward away from the mark it just reached, reading as "it changed its
+mind" rather than "a new lock-in cycle started." Ordinary forward progress (the raw
+sample approaching 0 as the hand keeps turning) is what actually gets smoothed, stepping
+toward the real value at up to `artificialDriftDegreesPerSecond` (120°/s by default, same
+profile) instead of jumping between samples — GoCube orientation packets arrive in
+irregular bursts, so without this the needle would visibly teleport frame to frame even
+mid-turn. Both behaviors are purely a display artifact: the detector underneath always
+reacts to the actual raw sample immediately, with no smoothing and no snap-detection of
+its own.
 
 The first smart-cube event prints `trace enabled`. If it does not, reload after setting
 the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use
