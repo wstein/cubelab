@@ -7,6 +7,7 @@ export type SmartCubeMotionProfile = {
   maximumAnchorDeviationDegrees: number;
   maximumPostTurnDeviationDegrees: number;
   maximumCorrectionStepDegrees: number;
+  correctionResponsiveness: number;
   maximumTargetErrorDegrees: number;
 };
 
@@ -23,15 +24,16 @@ export const defaultMotionProfile: SmartCubeMotionProfile = {
   maximumAnchorDeviationDegrees: 10,
   maximumPostTurnDeviationDegrees: 10,
   maximumCorrectionStepDegrees: 1,
+  correctionResponsiveness: 0.18,
   maximumTargetErrorDegrees: 30,
 };
 
 const profile = (value: unknown): SmartCubeMotionProfile | null => {
   if (!value || typeof value !== "object") return null;
   const candidate = value as Record<string, unknown>;
-  const numbers = ["anchorWindowMs", "anchorSamples", "maximumAnchorDeviationDegrees", "maximumPostTurnDeviationDegrees", "maximumCorrectionStepDegrees", "maximumTargetErrorDegrees"];
+  const numbers = ["anchorWindowMs", "anchorSamples", "maximumAnchorDeviationDegrees", "maximumPostTurnDeviationDegrees", "maximumCorrectionStepDegrees", "correctionResponsiveness", "maximumTargetErrorDegrees"];
   if (typeof candidate.label !== "string" || !numbers.every((key) => typeof candidate[key] === "number" && Number.isFinite(candidate[key]))) return null;
-  if (candidate.anchorWindowMs < 100 || candidate.anchorSamples < 1 || candidate.maximumAnchorDeviationDegrees <= 0 || candidate.maximumPostTurnDeviationDegrees <= 0 || candidate.maximumCorrectionStepDegrees <= 0 || candidate.maximumTargetErrorDegrees <= 0) return null;
+  if (candidate.anchorWindowMs < 100 || candidate.anchorSamples < 1 || candidate.maximumAnchorDeviationDegrees <= 0 || candidate.maximumPostTurnDeviationDegrees <= 0 || candidate.maximumCorrectionStepDegrees <= 0 || candidate.correctionResponsiveness <= 0 || candidate.correctionResponsiveness > 1 || candidate.maximumTargetErrorDegrees <= 0) return null;
   return {
     label: candidate.label,
     anchorWindowMs: candidate.anchorWindowMs,
@@ -39,6 +41,7 @@ const profile = (value: unknown): SmartCubeMotionProfile | null => {
     maximumAnchorDeviationDegrees: candidate.maximumAnchorDeviationDegrees,
     maximumPostTurnDeviationDegrees: candidate.maximumPostTurnDeviationDegrees,
     maximumCorrectionStepDegrees: candidate.maximumCorrectionStepDegrees,
+    correctionResponsiveness: candidate.correctionResponsiveness,
     maximumTargetErrorDegrees: candidate.maximumTargetErrorDegrees,
   };
 };

@@ -743,6 +743,7 @@ export type CubeViewport = {
     frame?: OrientationCoordinateFrame,
     maximumStepRadians?: number,
     maximumTargetErrorRadians?: number,
+    responsiveness?: number,
   ) => {
     applied: boolean;
     targetErrorRadians: number | null;
@@ -1921,6 +1922,7 @@ export const createCubeViewport = (
       coordinateFrame = "viewport",
       maximumStepRadians = 2 * Math.PI / 180,
       maximumTargetErrorRadians = Infinity,
+      responsiveness = 0.18,
     ) {
       if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) {
         return {applied: false, targetErrorRadians: null, targetErrorAxis: null, correctionStepRadians: 0};
@@ -1944,7 +1946,7 @@ export const createCubeViewport = (
         measured,
         target,
         coordinateFrame,
-        0.18,
+        responsiveness,
         maximumStepRadians,
       );
       deviceOrientationCorrection = nextCorrection;

@@ -207,9 +207,9 @@ to silence the trace.
 Motion-profile settings are loaded from `/smart-cube/motion-profiles.v1.json` after a
 cube connects. The registry provides a conservative default for unknown hardware and a
 measured GoCube override: 200 ms turn context, 25° cardinal regrip envelope, 10°
-post-turn motion veto, 1° maximum correction step, and 30° target-error adoption
-limit. Invalid or unavailable server data falls back to the default profile; it never
-blocks a cube connection.
+post-turn motion veto, 1° maximum correction step, full correction responsiveness, and
+30° target-error adoption limit. Invalid or unavailable server data falls back to the
+default profile; it never blocks a cube connection.
 
 The first smart-cube event prints `trace enabled`. If it does not, reload after setting
 the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use

@@ -4623,6 +4623,7 @@ if (root) {
           maximumAnchorDeviationDegrees: smartCubeMotionProfile.maximumAnchorDeviationDegrees,
           maximumPostTurnDeviationDegrees: smartCubeMotionProfile.maximumPostTurnDeviationDegrees,
           maximumCorrectionStepDegrees: smartCubeMotionProfile.maximumCorrectionStepDegrees,
+          correctionResponsiveness: smartCubeMotionProfile.correctionResponsiveness,
           maximumTargetErrorDegrees: smartCubeMotionProfile.maximumTargetErrorDegrees,
         });
       });
@@ -4886,6 +4887,7 @@ if (root) {
               event.coordinateFrame,
               smartCubeMotionProfile.maximumCorrectionStepDegrees * Math.PI / 180,
               smartCubeMotionProfile.maximumTargetErrorDegrees * Math.PI / 180,
+              smartCubeMotionProfile.correctionResponsiveness,
             ) ?? {applied: false, targetErrorRadians: null, targetErrorAxis: null, correctionStepRadians: 0};
             traceSmartCubeStabilization(result.applied ? "correction applied" : "correction rejected", {
               target: anchored.target,
