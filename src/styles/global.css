@@ -1800,6 +1800,15 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   gap: 0.75rem;
 }
 
+.playback-options {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.playback-options .segmented-control {
+  flex-wrap: wrap;
+}
+
 .playback-position {
   color: var(--text-muted);
   font: 500 0.72rem var(--font-mono);

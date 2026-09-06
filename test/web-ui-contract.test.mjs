@@ -713,6 +713,7 @@ test("the viewport compacts within a narrow studio column", () => {
   assert.match(styles, /\.smart-cube-dock[\s\S]*flex-wrap: wrap/);
   assert.match(styles, /@container \(max-width: 36rem\)[\s\S]*\.smart-cube-dock[\s\S]*flex-wrap: wrap/);
   assert.match(styles, /@container \(max-width: 36rem\)[\s\S]*\.playback-controls[\s\S]*flex-direction: column/);
+  assert.match(styles, /\.playback-options \.segmented-control[\s\S]*flex-wrap: wrap/);
 });
 
 test("the viewport exposes a persistent opt-out for single-move turn guides", () => {
