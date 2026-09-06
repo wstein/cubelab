@@ -273,20 +273,31 @@ would be right here too, and this session's live-tested result (mislabelling eve
 takes precedence over that unexamined default.
 
 `deviceOrientationDelta`'s `"gocube-wire"` branch maps GoCube's raw sensor axes onto the
-canonical viewport basis with a hardware-calibrated permutation — sensor axes `-y,-z,+x`
-correspond to display right/up/front, inverted — sourced from a physical three-turn
-RGB-triad calibration against real GoCube hardware (see the sibling `bluez-gatt-recorder`
-project's `AxisBasis`/`AxisCalibration`). It replaced an earlier "180° around Y" guess that
-did not match this calibration and produced the originally reported chaotic axis labelling
-after a Y regrip. The raw quaternion this branch receives is genuinely raw wire data, not
-`fast-gocube.ts`'s parse-time-swapped form: that parser's swap and `bluetooth.ts`'s
-`normalizeTransportEvent` "un-swap" for `protocolId === "gocube"` are the same permutation
-applied twice, which cancels exactly — and since GoCube only ever connects through
-`connectFastGoCube`, that cancellation applies unconditionally on the one path that exists.
-`test/client/cube-gl.test.ts`, `test/client/smart-cube/orientation-verifier.test.ts`, and
+canonical viewport basis by flipping X and Z and leaving Y unchanged — equivalent to
+conjugating the raw delta's vector part by a pure 180° rotation about Y, with no axis
+permutation. It replaced an earlier "180° around Y" guess with an extra full-vector
+negation folded in, which produced the originally reported chaotic axis labelling after a
+Y regrip. An intermediate attempt at this fix (sourced from the sibling
+`bluez-gatt-recorder` project's `AxisBasis`/`AxisCalibration`, a 3-cycle permutation:
+sensor axes `-y,-z,+x`, inverted) satisfied every synthetic test but failed live: a
+physical test on real hardware — 180° CW then CCW turns around each of the three
+BOY-corner axes (White/Red/Green) — produced tokens (`x x x' x'`, `z z'`, `y' y' y`) that
+only fit the simpler X/Z-flip formula, not the 3-cycle. Most likely cause: bluez-gatt-
+recorder's own raw-wire byte parsing assigns x/y/z to a different component order than
+`fast-gocube.ts`'s does, so its axis labels don't transfer component-for-component to this
+app's raw quaternion — a reminder that a foreign project's calibration constants aren't
+portable without also matching its parsing convention, and that synthetic quaternion tests
+alone cannot catch a wrong-but-self-consistent permutation. The raw quaternion this branch
+receives is genuinely raw wire data, not `fast-gocube.ts`'s parse-time-swapped form: that
+parser's swap and `bluetooth.ts`'s `normalizeTransportEvent` "un-swap" for
+`protocolId === "gocube"` are the same permutation applied twice, which cancels exactly —
+and since GoCube only ever connects through `connectFastGoCube`, that cancellation applies
+unconditionally on the one path that exists. `test/client/cube-gl.test.ts`,
+`test/client/smart-cube/orientation-verifier.test.ts`, and
 `test/client/smart-cube/bluetooth.test.ts` pin the resulting axis mapping directly; the
 real-capture replay in `test/client/smart-cube/gocube-replay.test.ts` still passes with the
-same fixture, confirming the fix doesn't merely satisfy synthetic values.
+same fixture (with a different, but still fully axis-consistent, token sequence), confirming
+the fix doesn't merely satisfy synthetic values.
 
 The **recording** tracker (`observeStableOrientation`, used only while capturing a
 physical-mirror recording) keeps the original three-sample/5° confirm: a permanently

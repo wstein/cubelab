@@ -690,24 +690,28 @@ export const deviceOrientationDelta = (
     ? relativeQuaternion(base, current)
     : relativeQuaternionLocal(base, current);
   if (frame === "gocube-wire") {
-    // Hardware-calibrated basis (right,up,front as signed sensor axes) plus a
-    // reversed rotation direction, measured with a physical three-turn/RGB-triad
-    // calibration against real GoCube hardware (see bluez-gatt-recorder's
-    // AxisCalibration/AxisBasis): sensor axes -y,-z,+x map to display right,up,
-    // front, inverted, giving (ry,rz,-rx) applied to a true-raw (rx,ry,rz) delta.
-    // rawDelta here already *is* true-raw, not fast-gocube.ts's parse-time
-    // swapped form: parseGoCubeOrientationPayload's swap and bluetooth.ts's
-    // normalizeTransportEvent "un-swap" for protocolId "gocube" are the same
-    // permutation applied twice, which cancels exactly (verified directly) —
-    // GoCube always connects through connectFastGoCube (fast-gocube.ts), never
-    // the vendor library's own GoCube parser the un-swap was written to undo,
-    // so the two swaps compose to nothing for the only path that exists. The
-    // previous "180° around Y" transform here did not match this calibration
-    // and was replaced.
+    // Sensor axes X and Z are mounted flipped relative to the display basis;
+    // Y is not. Equivalent to conjugating the raw delta's vector part by a
+    // pure 180° rotation about Y (which flips X and Z, leaves Y), with no
+    // axis permutation. This is the direct read of a live hardware test on a
+    // real GoCube: 180° CW then CCW turns around each of the three BOY-corner
+    // axes (White = display Y/U-axis, Red = display X/R-axis, Green =
+    // display Z/F-axis) were performed in sequence and the resulting
+    // x/x/x'/x', z/z', y'/y'/y token pattern only fits this formula — not a
+    // 3-cycle permutation. An earlier version of this comment cited a 3-cycle
+    // "sensor axes -y,-z,+x, inverted" basis transcribed from bluez-gatt-
+    // recorder's AxisCalibration; that turned out not to transfer directly,
+    // most likely because that project's own raw-wire byte parsing assigns
+    // x/y/z to a different component order than fast-gocube.ts's does, so its
+    // axis labels don't line up component-for-component with this app's
+    // true-raw quaternion. This formula is verified against the live test
+    // above, not against that reference, and should be re-derived from a
+    // fresh hardware test (not from bluez-gatt-recorder) if it's ever found
+    // wrong again.
     return normalizedQuaternion({
-      x: rawDelta.y,
-      y: rawDelta.z,
-      z: -rawDelta.x,
+      x: -rawDelta.x,
+      y: rawDelta.y,
+      z: -rawDelta.z,
       w: rawDelta.w,
     });
   }

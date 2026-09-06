@@ -76,17 +76,16 @@ describe("smart-cube gyro rotation feedback", () => {
 
   test("accurately verifies rotations in gocube-wire frame across all axes", () => {
     const half = Math.sqrt(0.5);
-    // gocube-wire's axis mapping is a hardware-calibrated permutation (see
-    // deviceOrientationDelta's "gocube-wire" branch: a physical
-    // three-turn/RGB-triad calibration against real GoCube hardware,
-    // documented in bluez-gatt-recorder's AxisBasis/AxisCalibration as
-    // "-y,-z,+x inverted"), not a same-axis sign flip. It is a genuine
-    // 3-cycle: wire X -> display Z, wire Y -> display X, wire Z -> display -Y.
-    expect(assessGyroRotation(identity, {x: -half, y: 0, z: 0, w: half}, "gocube-wire", "Z", -1).matched)
+    // gocube-wire's axis mapping (see deviceOrientationDelta's "gocube-wire"
+    // branch) is a same-axis sign flip on X and Z only, Y unchanged — not a
+    // permutation. Verified directly against a live hardware test: 180° CW
+    // then CCW turns around each of the three BOY-corner axes (White/Red/
+    // Green) on a real GoCube.
+    expect(assessGyroRotation(identity, {x: -half, y: 0, z: 0, w: half}, "gocube-wire", "X", -1).matched)
       .toBe(true);
-    expect(assessGyroRotation(identity, {x: 0, y: half, z: 0, w: half}, "gocube-wire", "X", -1).matched)
+    expect(assessGyroRotation(identity, {x: 0, y: half, z: 0, w: half}, "gocube-wire", "Y", -1).matched)
       .toBe(true);
-    expect(assessGyroRotation(identity, {x: 0, y: 0, z: -half, w: half}, "gocube-wire", "Y", 1).matched)
+    expect(assessGyroRotation(identity, {x: 0, y: 0, z: -half, w: half}, "gocube-wire", "Z", -1).matched)
       .toBe(true);
   });
 
