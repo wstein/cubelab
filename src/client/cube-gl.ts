@@ -742,6 +742,7 @@ export type CubeViewport = {
     target: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
     maximumStepRadians?: number,
+    maximumTargetErrorRadians?: number,
   ) => {
     applied: boolean;
     targetErrorRadians: number | null;
@@ -1914,13 +1915,29 @@ export const createCubeViewport = (
       requestRender();
       return deviceOrientationDelta(deviceOrientationBase, normalized, coordinateFrame, "world");
     },
-    stabilizeDeviceOrientation(measured, target, coordinateFrame = "viewport", maximumStepRadians = 2 * Math.PI / 180) {
+    stabilizeDeviceOrientation(
+      measured,
+      target,
+      coordinateFrame = "viewport",
+      maximumStepRadians = 2 * Math.PI / 180,
+      maximumTargetErrorRadians = Infinity,
+    ) {
       if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) {
         return {applied: false, targetErrorRadians: null, targetErrorAxis: null, correctionStepRadians: 0};
       }
       const raw = deviceOrientationDelta(deviceOrientationBase, measured, coordinateFrame, "world");
       const priorCorrection = deviceOrientationCorrection ?? {x: 0, y: 0, z: 0, w: 1};
       const rendered = multiplyQuaternions(priorCorrection, raw);
+      const targetErrorRadians = orientationDistanceRadians(rendered, target);
+      const targetErrorAxis = quaternionAxisAngle(multiplyQuaternions(target, inverseQuaternion(rendered))).axis;
+      if (targetErrorRadians > maximumTargetErrorRadians) {
+        return {
+          applied: false,
+          targetErrorRadians,
+          targetErrorAxis,
+          correctionStepRadians: 0,
+        };
+      }
       const nextCorrection = stabilizedOrientationCorrection(
         priorCorrection,
         deviceOrientationBase,
@@ -1934,8 +1951,8 @@ export const createCubeViewport = (
       requestRender();
       return {
         applied: true,
-        targetErrorRadians: orientationDistanceRadians(rendered, target),
-        targetErrorAxis: quaternionAxisAngle(multiplyQuaternions(target, inverseQuaternion(rendered))).axis,
+        targetErrorRadians,
+        targetErrorAxis,
         correctionStepRadians: orientationDistanceRadians(priorCorrection, nextCorrection),
       };
     },

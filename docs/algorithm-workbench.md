@@ -181,12 +181,16 @@ it never snaps while the cube is in motion.
 
 Each confirmed face turn can open a 700 ms stabilization window. Three following IMU
 samples may make a small correction toward the current settled cardinal viewport pose
-only when their whole-cube pose remains within twenty degrees of the pose before the turn.
+only when their whole-cube pose remains within the connected profile's anchor envelope
+of the pose before the turn (25° for GoCube).
 GoCube IMU packets can spike while an ordinary face is turned, so this post-turn window
 rather than a pre-turn motion threshold decides whether the cube was still. A sample
 outside the envelope, an expired window, recording, or a newly detected regrip discards
-it. An accepted window changes display correction by at most two degrees, so even a
-large accumulated offset recovers across ordinary turns rather than snapping.
+it. An accepted GoCube window changes display correction by at most one degree, so even a
+large accumulated offset recovers across ordinary turns rather than snapping. As a
+fail-safe for a regrip that is not recognized before its next face packet, a verified
+still anchor whose rendered target error exceeds 30° adopts its measured pose as the new
+display target; it does not apply a correction in that case.
 
 For hardware diagnosis, set `localStorage.cubelab.smartCube.gyroTrace` to `"1"` in
 browser DevTools and reproduce a turn. The console records whether each move opened an

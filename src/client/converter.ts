@@ -4868,6 +4868,7 @@ if (root) {
               anchored.target,
               event.coordinateFrame,
               smartCubeMotionProfile.maximumCorrectionStepDegrees * Math.PI / 180,
+              30 * Math.PI / 180,
             ) ?? {applied: false, targetErrorRadians: null, targetErrorAxis: null, correctionStepRadians: 0};
             traceSmartCubeStabilization(result.applied ? "correction applied" : "correction rejected", {
               target: anchored.target,
@@ -4878,6 +4879,15 @@ if (root) {
               targetErrorAxis: result.targetErrorAxis?.map((component) => Number(component.toFixed(3))) ?? null,
               correctionStepDegrees: Number((result.correctionStepRadians * 180 / Math.PI).toFixed(2)),
             });
+            if (result.targetErrorRadians !== null && result.targetErrorRadians > 30 * Math.PI / 180) {
+              smartCubeStabilizationTarget = viewport?.lockDeviceOrientationTarget(
+                anchored.settledOrientation,
+                event.coordinateFrame,
+              ) ?? smartCubeStabilizationTarget;
+              traceSmartCubeStabilization("large physical pose adopted", {
+                targetErrorDegrees: Number((result.targetErrorRadians * 180 / Math.PI).toFixed(2)),
+              });
+            }
           }
         }
         if (smartCubeRecording && smartCubeSyncMode === "PhysicalMirror") {
