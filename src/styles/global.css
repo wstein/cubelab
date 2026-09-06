@@ -1503,8 +1503,8 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   font: 600 0.72rem var(--font-sans);
 }
 
-.manual-state-notation-input {
-  min-height: 4.7rem;
+textarea.manual-state-notation-input {
+  min-height: 2.5rem;
   resize: vertical;
   font-size: 0.75rem;
 }
