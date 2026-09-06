@@ -19,6 +19,7 @@ import {
   pngBlobFromDataUrl,
   relativeQuaternion,
   safeCameraDistance,
+  stabilizedOrientationCorrection,
   smoothTrackedOrientation,
   standardStickerFinish,
   vboCapacityFloats,
@@ -36,6 +37,16 @@ describe("cube viewport math", () => {
     expect(corrected.y).toBeCloseTo(target.y);
     expect(corrected.z).toBeCloseTo(target.z);
     expect(corrected.w).toBeCloseTo(target.w);
+  });
+
+  test("moves the rendered pose toward its settled cardinal target without overshooting", () => {
+    const base = {x: 0, y: 0, z: 0, w: 1};
+    const displayed = {x: Math.sin(85 * Math.PI / 360), y: 0, z: 0, w: Math.cos(85 * Math.PI / 360)};
+    const target = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
+    const correction = stabilizedOrientationCorrection(null, base, displayed, target);
+    const corrected = multiplyQuaternions(correction, displayed);
+    expect(corrected.x).toBeGreaterThan(displayed.x);
+    expect(corrected.x).toBeLessThan(target.x);
   });
 
   test("keeps Standard stickers at a restrained mid-gloss finish", () => {

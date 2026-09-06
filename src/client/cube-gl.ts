@@ -499,6 +499,21 @@ export const orientationCorrectionForTarget = (
   );
 };
 
+/** Eases the actual rendered pose toward a settled cardinal orientation. */
+export const stabilizedOrientationCorrection = (
+  previous: OrientationQuaternion | null,
+  base: OrientationQuaternion,
+  displayed: OrientationQuaternion,
+  target: OrientationQuaternion,
+  coordinateFrame: OrientationCoordinateFrame = "viewport",
+  responsiveness = 0.18,
+): OrientationQuaternion => smoothTrackedOrientation(
+  previous ?? {x: 0, y: 0, z: 0, w: 1},
+  orientationCorrectionForTarget(base, displayed, target, coordinateFrame),
+  0,
+  responsiveness,
+);
+
 /** Locks sub-threshold IMU jitter and softens larger moves along the shortest quaternion path. */
 export const smoothTrackedOrientation = (
   previous: OrientationQuaternion,
@@ -692,7 +707,6 @@ export type CubeViewport = {
     frame?: OrientationCoordinateFrame,
   ) => void;
   stabilizeDeviceOrientation: (
-    orientation: OrientationQuaternion,
     target: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
   ) => void;
@@ -1850,19 +1864,14 @@ export const createCubeViewport = (
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
     },
-    stabilizeDeviceOrientation(orientation, target, coordinateFrame = "viewport") {
-      if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase) return;
-      const desired = orientationCorrectionForTarget(
+    stabilizeDeviceOrientation(target, coordinateFrame = "viewport") {
+      if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) return;
+      deviceOrientationCorrection = stabilizedOrientationCorrection(
+        deviceOrientationCorrection,
         deviceOrientationBase,
-        normalizedQuaternion(orientation),
+        deviceOrientation,
         target,
         coordinateFrame,
-      );
-      deviceOrientationCorrection = smoothTrackedOrientation(
-        deviceOrientationCorrection ?? {x: 0, y: 0, z: 0, w: 1},
-        desired,
-        0,
-        0.18,
       );
       requestRender();
     },

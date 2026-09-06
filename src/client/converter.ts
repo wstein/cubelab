@@ -4752,7 +4752,6 @@ if (root) {
           smartCubeTurnAnchor = anchored.anchor;
           if (anchored.stable && anchored.target) {
             viewport?.stabilizeDeviceOrientation(
-              event.quaternion,
               anchored.target,
               event.coordinateFrame,
             );
