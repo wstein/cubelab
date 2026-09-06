@@ -5,7 +5,9 @@
     "anchorWindowMs": 200,
     "anchorSamples": 3,
     "maximumAnchorDeviationDegrees": 10,
-    "maximumCorrectionStepDegrees": 1
+    "maximumPostTurnDeviationDegrees": 10,
+    "maximumCorrectionStepDegrees": 1,
+    "maximumTargetErrorDegrees": 30
   },
   "profiles": {
     "gocube": {
@@ -13,7 +15,9 @@
       "anchorWindowMs": 200,
       "anchorSamples": 3,
       "maximumAnchorDeviationDegrees": 25,
-      "maximumCorrectionStepDegrees": 1
+      "maximumPostTurnDeviationDegrees": 10,
+      "maximumCorrectionStepDegrees": 1,
+      "maximumTargetErrorDegrees": 30
     }
   }
 }

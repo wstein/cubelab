@@ -5,7 +5,9 @@ export type SmartCubeMotionProfile = {
   anchorWindowMs: number;
   anchorSamples: number;
   maximumAnchorDeviationDegrees: number;
+  maximumPostTurnDeviationDegrees: number;
   maximumCorrectionStepDegrees: number;
+  maximumTargetErrorDegrees: number;
 };
 
 export type SmartCubeMotionProfileRegistry = {
@@ -19,21 +21,25 @@ export const defaultMotionProfile: SmartCubeMotionProfile = {
   anchorWindowMs: 200,
   anchorSamples: 3,
   maximumAnchorDeviationDegrees: 10,
+  maximumPostTurnDeviationDegrees: 10,
   maximumCorrectionStepDegrees: 1,
+  maximumTargetErrorDegrees: 30,
 };
 
 const profile = (value: unknown): SmartCubeMotionProfile | null => {
   if (!value || typeof value !== "object") return null;
   const candidate = value as Record<string, unknown>;
-  const numbers = ["anchorWindowMs", "anchorSamples", "maximumAnchorDeviationDegrees", "maximumCorrectionStepDegrees"];
+  const numbers = ["anchorWindowMs", "anchorSamples", "maximumAnchorDeviationDegrees", "maximumPostTurnDeviationDegrees", "maximumCorrectionStepDegrees", "maximumTargetErrorDegrees"];
   if (typeof candidate.label !== "string" || !numbers.every((key) => typeof candidate[key] === "number" && Number.isFinite(candidate[key]))) return null;
-  if (candidate.anchorWindowMs < 100 || candidate.anchorSamples < 1 || candidate.maximumAnchorDeviationDegrees <= 0 || candidate.maximumCorrectionStepDegrees <= 0) return null;
+  if (candidate.anchorWindowMs < 100 || candidate.anchorSamples < 1 || candidate.maximumAnchorDeviationDegrees <= 0 || candidate.maximumPostTurnDeviationDegrees <= 0 || candidate.maximumCorrectionStepDegrees <= 0 || candidate.maximumTargetErrorDegrees <= 0) return null;
   return {
     label: candidate.label,
     anchorWindowMs: candidate.anchorWindowMs,
     anchorSamples: Math.floor(candidate.anchorSamples),
     maximumAnchorDeviationDegrees: candidate.maximumAnchorDeviationDegrees,
+    maximumPostTurnDeviationDegrees: candidate.maximumPostTurnDeviationDegrees,
     maximumCorrectionStepDegrees: candidate.maximumCorrectionStepDegrees,
+    maximumTargetErrorDegrees: candidate.maximumTargetErrorDegrees,
   };
 };
 

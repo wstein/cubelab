@@ -182,17 +182,18 @@ it never snaps while the cube is in motion.
 Each confirmed face turn retains IMU evidence from the preceding 200 ms and opens a
 200 ms post-turn stabilization window. Three following IMU samples may make a small
 correction toward the current settled cardinal viewport pose
-only when their whole-cube pose remains within 10° of the pose before the turn. This is
-a hard motion veto, independent of the connected profile's broader cardinal-pose
-tolerance (25° for GoCube).
+only when their whole-cube pose remains within the profile's post-turn motion limit
+(10° for GoCube) of the pose before the turn. This is a hard motion veto, independent
+of the connected profile's broader cardinal-pose tolerance (25° for GoCube).
 GoCube IMU packets can spike while an ordinary face is turned, so this post-turn window
 rather than a pre-turn motion threshold decides whether the cube was still. A sample
 outside the envelope, an expired window, recording, or a newly detected regrip discards
 it. An accepted GoCube window changes display correction by at most one degree, so even a
 large accumulated offset recovers across ordinary turns rather than snapping. As a
 fail-safe for a regrip that is not recognized before its next face packet, a verified
-still anchor whose rendered target error exceeds 30° adopts its measured pose as the new
-display target; it does not apply a correction in that case.
+still anchor whose rendered target error exceeds its profile limit (30° for GoCube)
+adopts its measured pose as the new display target; it does not apply a correction in
+that case.
 
 For hardware diagnosis, set `localStorage.cubelab.smartCube.gyroTrace` to `"1"` in
 browser DevTools and reproduce a turn. The console records whether each move opened an
@@ -205,9 +206,10 @@ to silence the trace.
 
 Motion-profile settings are loaded from `/smart-cube/motion-profiles.v1.json` after a
 cube connects. The registry provides a conservative default for unknown hardware and a
-measured GoCube override (25° anchor envelope and 1° maximum correction step). Invalid
-or unavailable server data falls back to the default profile; it never blocks a cube
-connection.
+measured GoCube override: 200 ms turn context, 25° cardinal regrip envelope, 10°
+post-turn motion veto, 1° maximum correction step, and 30° target-error adoption
+limit. Invalid or unavailable server data falls back to the default profile; it never
+blocks a cube connection.
 
 The first smart-cube event prints `trace enabled`. If it does not, reload after setting
 the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use

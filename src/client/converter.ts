@@ -4619,8 +4619,11 @@ if (root) {
         smartCubeMotionProfile = motionProfileFor(registry, connectionState.device!.brand);
         traceSmartCubeStabilization("motion profile loaded", {
           label: smartCubeMotionProfile.label,
+          anchorWindowMs: smartCubeMotionProfile.anchorWindowMs,
           maximumAnchorDeviationDegrees: smartCubeMotionProfile.maximumAnchorDeviationDegrees,
+          maximumPostTurnDeviationDegrees: smartCubeMotionProfile.maximumPostTurnDeviationDegrees,
           maximumCorrectionStepDegrees: smartCubeMotionProfile.maximumCorrectionStepDegrees,
+          maximumTargetErrorDegrees: smartCubeMotionProfile.maximumTargetErrorDegrees,
         });
       });
       smartCubeLedFeedback = connectionState.device.capabilities.led;
@@ -4841,7 +4844,7 @@ if (root) {
             event.quaternion,
             event.coordinateFrame,
             event.timestamp,
-            Math.min(10, smartCubeMotionProfile.maximumAnchorDeviationDegrees) * Math.PI / 180,
+            smartCubeMotionProfile.maximumPostTurnDeviationDegrees * Math.PI / 180,
             smartCubeMotionProfile.anchorSamples,
           );
           smartCubeTurnAnchor = anchored.anchor;
@@ -4882,7 +4885,7 @@ if (root) {
               anchored.target,
               event.coordinateFrame,
               smartCubeMotionProfile.maximumCorrectionStepDegrees * Math.PI / 180,
-              30 * Math.PI / 180,
+              smartCubeMotionProfile.maximumTargetErrorDegrees * Math.PI / 180,
             ) ?? {applied: false, targetErrorRadians: null, targetErrorAxis: null, correctionStepRadians: 0};
             traceSmartCubeStabilization(result.applied ? "correction applied" : "correction rejected", {
               target: anchored.target,
@@ -4893,7 +4896,7 @@ if (root) {
               targetErrorAxis: result.targetErrorAxis?.map((component) => Number(component.toFixed(3))) ?? null,
               correctionStepDegrees: Number((result.correctionStepRadians * 180 / Math.PI).toFixed(2)),
             });
-            if (result.targetErrorRadians !== null && result.targetErrorRadians > 30 * Math.PI / 180) {
+            if (result.targetErrorRadians !== null && result.targetErrorRadians > smartCubeMotionProfile.maximumTargetErrorDegrees * Math.PI / 180) {
               smartCubeStabilizationTarget = viewport?.lockDeviceOrientationTarget(
                 anchored.settledOrientation,
                 event.coordinateFrame,
