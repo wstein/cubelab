@@ -164,13 +164,19 @@ decisions, but not facelets, cube state, Bluetooth addresses, or the device name
 Turning Diagnostics off clears the captured trace immediately, providing an explicit
 opt-out.
 
-Gyro view does not mirror the cube's live orientation. Raw IMU orientation is noisy and
-loose enough (real handling routinely shows 10–30° of sample-to-sample sensor jitter,
-even mid-turn on a face that never left the hand) that continuously mirroring it made
-the display feel drifty regardless of how aggressively later corrections tried to chase
-it down — an entire ring-buffer/nearest-cardinal-snap correction system existed solely
-to fight that drift, and still couldn't make continuous mirroring feel solid. The raw
-stream is used for exactly one thing: detecting when the whole cube has been regripped.
+Gyro view mirrors the cube's live orientation continuously, through a drift-correcting
+offset rather than a raw pass-through. Raw IMU orientation is noisy enough (real handling
+routinely shows 10–30° of sample-to-sample sensor jitter, even mid-turn on a face that
+never left the hand) that mirroring it directly made the display feel drifty. Instead,
+`deviceOrientationOffset` continuously chases the offset that would put the *current* raw
+sample exactly at `deviceOrientationLockTarget` — the last confirmed cardinal pose — but
+only at up to `SMART_CUBE_OFFSET_RADIANS_PER_SECOND` (2°/s; see `followSmartCubeOrientationOffset`
+in `cube-gl.ts`). This is a complementary filter: any real rotation faster than 2°/s (i.e.
+essentially all deliberate hand motion) visibly passes through immediately, since the
+offset cannot keep up with it, while slow sensor drift gets absorbed almost entirely,
+since the offset has time to re-centre on it. The raw stream still reaches the regrip
+detector immediately and unmodified either way — this offset only affects what gets
+rendered.
 
 Live regrip detection (`observeThresholdOrientation`) fires as soon as the cumulative
 rotation from the last confirmed pose crosses `regripThresholdDegrees` (65° by default,
@@ -191,7 +197,7 @@ pose can still be mid-settle if the hand keeps adjusting afterward, leaving a re
 (bounded) residual until the next regrip corrects it — bounded settle-in error instead
 of an unbounded chance of missing the regrip entirely.
 
-`regripThresholdDegrees` (and the diagnostics gauge's drift rate, below) live in
+`regripThresholdDegrees` lives in
 `public/smart-cube/regrip-profile.v1.json`, keyed by brand the same way the removed
 motion-profile registry was, and validated by
 `src/client/smart-cube/regrip-profile.ts` (`parseRegripProfileRegistry`). It loads once
@@ -220,20 +226,22 @@ once, then hold), just generalized to whichever regrip actually happened rather 
 specific expected one.
 
 When a regrip confirms, the viewport reconciles to the new cardinal target in one call —
-`viewport.reconcileDeviceOrientation(quaternion, target, frame)` — which animates the
-display correction to its new value over ~180ms rather than snapping instantly, so a
-correctly identified regrip doesn't feel like a jump cut. Nothing else ever touches
-device orientation while tracking is active, so the display rests exactly where that
-call left it until the next confirmed regrip.
+`viewport.reconcileDeviceOrientation(quaternion, target, frame)`. This sets
+`deviceOrientationLockTarget` to the new target and calls
+`animateDeviceOrientationCorrectionTo`, which eases `deviceOrientationOffset` to the exact
+value that puts the *current* raw sample precisely at the new target over ~180ms, so a
+correctly identified regrip doesn't feel like a jump cut. Once that animation finishes,
+the offset falls back to the ordinary continuous 2°/s follow described above — it does not
+freeze, since the cube keeps physically moving after a regrip and the display should keep
+tracking it, just gently rather than instantly.
 
-**Recenter gyro view** resets the discrete tracker fresh (baseline at the current
-sample, running orientation at identity) and the viewport's device-orientation
-base/correction to match, so nothing keeps showing a pre-recenter value. Toggling
-orientation tracking off and back on recreates the discrete tracker the same way (fresh,
-at identity) the next time an orientation sample arrives, for the same reason: the
-tracker's running orientation and the viewport's displayed pose must never be able to
-disagree about "where is the cube now," since there is exactly one of each and only
-confirmed regrips ever change either one.
+**Recenter gyro view** resets the discrete tracker fresh (baseline at the current sample,
+running orientation at identity) and clears `deviceOrientationOffset` and
+`deviceOrientationLockTarget` back to identity, so nothing keeps showing a pre-recenter
+value. Toggling orientation tracking off and back on recreates the discrete tracker the
+same way (fresh, at identity) the next time an orientation sample arrives, for the same
+reason: the tracker's running orientation and the viewport's lock target must never be
+able to disagree about "where is the cube now."
 
 For hardware diagnosis, set `localStorage.cubelab.smartCube.gyroTrace` to `"1"` in
 browser DevTools and reproduce a turn. The console records regrip settlement and an
@@ -252,21 +260,22 @@ scene: once the cube itself is rotating, a 3D debug vector competing for the sam
 is hard to read at a glance, where a fixed gauge stays legible regardless of camera angle
 or cube motion.
 
-The gauge is a countdown to 0, not a count-up from 0. Its core value,
-`signedDegrees = angleTravelled - 90`, is negative and rises toward 0 as the raw sample
-approaches the exact 90° lock-in point — at the 65°-threshold crossing it reads -25°, the
-same number `regripThresholdDegrees - 90` marks as the dashed ring. Needle length is
-`(signedDegrees + 90) / 90` of the radius, identical geometry to a plain 0-to-90 count-up,
-but the number at the centre and the mental model it invites are different: "how far from
-arriving," not "how far travelled." The needle turns green once it crosses the ring — the
-same instant a regrip fires.
+The gauge counts up from the centre, not down to it: `degrees`, how far the raw sample has
+travelled since the tracker's last confirmed pose, is 0 right at rest — immediately after
+a rebase — and rises toward 90 as the hand turns toward the next lock-in. Needle length is
+`degrees / 90` of the radius, so the dashed ring sits at `regripThresholdDegrees / 90`
+(72% of the radius for the 65° default), and the needle turns green the instant it crosses
+that ring — the same instant a regrip fires.
 
-The gauge subtracts 90° from the raw accumulated rotation, so the 65° threshold is shown
-as −25°: −90° is outside, the threshold is the dashed ring, and 0° is the centre lock-in.
-It never snaps back when the raw detector rebases after recognizing a regrip. The raw gyro
-never directly orients the rendered cube: only a confirmed trigger eases it into the next
-cardinal U/R/F/D/L/B orientation. Raw packets still reach the detector immediately and
-unmodified.
+The displayed needle (`regripGaugeDisplayDegrees` in `cube-gl.ts`) only ever advances
+within a cycle: `Math.max(display, degrees)` ignores small sensor-jitter dips backward
+rather than visibly flickering on them. The one thing allowed to drop it back down is an
+explicit `resetDisplay` flag on the update, set exactly when a genuinely new cycle starts
+— a regrip just confirmed and rebased the tracker, or the view was recentered/reopened —
+so the display can return to 0 instead of ratcheting up to 90 once and then, since ordinary
+samples can never pull it below their own historical maximum, staying stuck there forever.
+Raw packets still reach the detector immediately and unmodified either way; this ratchet
+and reset are purely a display concern.
 
 The first smart-cube event prints `trace enabled`. If it does not, reload after setting
 the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use

@@ -2289,6 +2289,7 @@ if (root) {
   const updateSmartCubeRegripGauge = (
     current?: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
+    resetDisplay = false,
   ) => {
     if (!viewport) return;
     if (!smartCubeDiagnosticsEnabled || !smartCubeDiscreteOrientationTracker || !current || !frame) {
@@ -2298,13 +2299,18 @@ if (root) {
     const tracker = smartCubeDiscreteOrientationTracker;
     const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
     const {axis, radians} = quaternionAxisAngle(delta);
-    // Signed degrees remaining until the exact 90° mark, not degrees
-    // travelled so far: a regrip at the 65°-threshold sample reads as -25°,
-    // counting up toward 0 as the hand finishes settling on the new pose.
+    // Degrees travelled since the tracker's last confirmed pose: 0 right at
+    // rest (a fresh rebase), rising toward 90 as the hand turns toward the
+    // next lock-in. resetDisplay marks a genuinely new cycle (a regrip just
+    // confirmed and rebased the tracker, or the view was just
+    // recentered/reopened) so the display can drop back down instead of
+    // being stuck at its all-time-high value, which it otherwise never
+    // retreats from.
     viewport.setRegripGauge({
-      signedDegrees: (radians * 180 / Math.PI) - 90,
-      signedThresholdDegrees: smartCubeRegripProfile.regripThresholdDegrees - 90,
+      degrees: radians * 180 / Math.PI,
+      thresholdDegrees: smartCubeRegripProfile.regripThresholdDegrees,
       label: nearestRegripAxis(axis),
+      resetDisplay,
     });
   };
   // During a recording session the physical cube is an input device. Keep a
@@ -4792,12 +4798,14 @@ if (root) {
           quaternion: event.quaternion,
           coordinateFrame: event.coordinateFrame,
         };
+        let confirmedRegrip = false;
         if (smartCubeDiscreteOrientationTracker === null) {
           smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
             event.quaternion,
             event.coordinateFrame,
             "world",
           );
+          confirmedRegrip = true;
         } else {
           const priorBaseline = smartCubeDiscreteOrientationTracker.baseline;
           const priorOrientation = smartCubeDiscreteOrientationTracker.orientation;
@@ -4814,6 +4822,7 @@ if (root) {
             smartCubeRegripProfile.regripThresholdDegrees,
           );
           smartCubeDiscreteOrientationTracker = observed.tracker;
+          confirmedRegrip = observed.tokens.length > 0;
           if (
             observed.tokens.length > 0
             && smartCubeOrientationTracking
@@ -4842,7 +4851,7 @@ if (root) {
             });
           }
         }
-        updateSmartCubeRegripGauge(event.quaternion, event.coordinateFrame);
+        updateSmartCubeRegripGauge(event.quaternion, event.coordinateFrame, confirmedRegrip);
         if (smartCubeRecording && smartCubeSyncMode === "PhysicalMirror") {
           if (smartCubeRecordingOrientationTracker === null) {
             smartCubeRecordingOrientationTracker = createStableOrientationTracker(
@@ -6545,7 +6554,7 @@ if (root) {
       latestSmartCubeOrientation.quaternion,
       latestSmartCubeOrientation.coordinateFrame,
     );
-    updateSmartCubeRegripGauge(latestSmartCubeOrientation.quaternion, latestSmartCubeOrientation.coordinateFrame);
+    updateSmartCubeRegripGauge(latestSmartCubeOrientation.quaternion, latestSmartCubeOrientation.coordinateFrame, true);
     traceSmartCubeStabilization("gyro view recentered", {
       coordinates: latestSmartCubeOrientation.quaternion,
       target: smartCubeDiscreteOrientationTracker.orientation,
@@ -6556,7 +6565,7 @@ if (root) {
     smartCubeDiagnosticsEnabled = !smartCubeDiagnosticsEnabled;
     window.localStorage.setItem("cubelab.smartCube.diagnostics", smartCubeDiagnosticsEnabled ? "1" : "0");
     if (!smartCubeDiagnosticsEnabled) smartCubeDiagnosticTrace.length = 0;
-    updateSmartCubeRegripGauge(latestSmartCubeOrientation?.quaternion, latestSmartCubeOrientation?.coordinateFrame);
+    updateSmartCubeRegripGauge(latestSmartCubeOrientation?.quaternion, latestSmartCubeOrientation?.coordinateFrame, true);
     updateSmartCubeDiagnosticsUi();
     smartCubeStatus.textContent = smartCubeDiagnosticsEnabled
       ? `${smartCubeDeviceName} · Diagnostics capture enabled locally; nothing is uploaded automatically.`

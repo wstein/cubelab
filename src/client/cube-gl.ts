@@ -61,20 +61,28 @@ export type TurnGuide = {
 };
 
 /**
- * Live readout for gyro regrip detection: how many degrees remain until the
- * raw device orientation reaches the exact 90° lock-in point (signed, so 0 is
- * "arrived" and it counts up from a negative starting value), which of the
- * six quarter-turn directions it is heading toward, and the confirm
- * threshold expressed the same way. Drawn as a fixed 2D HUD rather than a 3D
- * arrow — a 3D vector gets hard to read once the cube itself is rotating in
- * front of the camera.
+ * Live readout for gyro regrip detection: how many degrees the raw device
+ * orientation has travelled from the tracker's last confirmed pose (0 at
+ * rest, rising toward 90 at the next lock-in), which of the six quarter-turn
+ * directions it is heading toward, and the confirm threshold on the same
+ * scale (e.g. 65). Drawn as a fixed 2D HUD rather than a 3D arrow — a 3D
+ * vector gets hard to read once the cube itself is rotating in front of the
+ * camera.
  */
 export type RegripGaugeState = {
-  /** Degrees remaining until the 90° mark: negative, rising toward 0. */
-  signedDegrees: number;
-  /** Where the confirm threshold sits on the same scale, e.g. -25 for 65°. */
-  signedThresholdDegrees: number;
+  /** Degrees travelled since the last confirmed pose: 0 at rest, rising toward 90. */
+  degrees: number;
+  /** Where the confirm threshold sits on the same scale, e.g. 65. */
+  thresholdDegrees: number;
   label: string | null;
+  /**
+   * True exactly when this update follows a genuinely new cycle starting (a
+   * regrip just confirmed and rebased the tracker, or the view was just
+   * recentered/reopened). The displayed needle otherwise only ever advances
+   * and never retreats — this is the one signal allowed to drop it back down
+   * to 0, so it does not permanently saturate at 90 after enough regrips.
+   */
+  resetDisplay: boolean;
 } | null;
 
 const DEFAULT_YAW = -0.62;
@@ -856,12 +864,11 @@ export const createCubeViewport = (
   let turnGuide: TurnGuide | null = null;
   let moveRibbon: TurnGuide | null = null;
   let regripGauge: RegripGaugeState = null;
-  // A persistent virtual progress value: after the 65° threshold it keeps
-  // floating toward the 90° lock-in rather than snapping back when the raw
-  // detector rebases for the next physical regrip.
-  let regripGaugeDisplaySignedDegrees = 0;
+  // Displayed copy of regripGauge's degrees/label: only ever advances within
+  // a cycle (see stepRegripGaugeDisplay), so ordinary sensor jitter can't
+  // make the needle flicker backward.
+  let regripGaugeDisplayDegrees = 0;
   let regripGaugeDisplayLabel: string | null = null;
-  let regripGaugeLastFrameAt = 0;
   let turnFrame: number | null = null;
   let turnGeneration = 0;
   let autoOrbit = false;
@@ -1494,11 +1501,12 @@ export const createCubeViewport = (
 
   /**
    * Fixed 2D HUD for gyro regrip detection: a hexagon of the six quarter-turn
-   * directions, a ring at the confirm threshold, and a needle counting down
-   * to 0 (the exact 90° lock-in point) as the raw orientation approaches it,
-   * toward whichever direction it's heading. Deliberately screen-fixed rather
-   * than a 3D arrow — once the cube itself is rotating, a 3D debug vector is
-   * hard to read against it.
+   * directions, a ring at the confirm threshold, and a needle counting up
+   * from the centre (0°, at rest right after a regrip) toward the outer edge
+   * (90°, the next lock-in point) as the raw orientation travels, toward
+   * whichever direction it's heading. Deliberately screen-fixed rather than a
+   * 3D arrow — once the cube itself is rotating, a 3D debug vector is hard to
+   * read against it.
    */
   const drawRegripGauge = (width: number, height: number) => {
     if (!overlay || !regripGauge) return;
@@ -1515,8 +1523,8 @@ export const createCubeViewport = (
       {label: "z'", angle: (5 * Math.PI) / 6},
       {label: "x", angle: -(5 * Math.PI) / 6},
     ];
-    // -90° starts at the outer edge; 0° is the lock-in point at the centre.
-    const toFraction = (signedDegrees: number) => Math.max(0, Math.min(1, -signedDegrees / 90));
+    // 0° rests at the centre; 90° (the lock-in point) is the outer edge.
+    const toFraction = (degrees: number) => Math.max(0, Math.min(1, degrees / 90));
     overlay.save();
     overlay.fillStyle = "rgba(8, 15, 30, 0.55)";
     overlay.beginPath();
@@ -1539,7 +1547,7 @@ export const createCubeViewport = (
         cy + Math.sin(spoke.angle) * (radius + 11 * dpr),
       );
     });
-    const thresholdFraction = toFraction(regripGauge.signedThresholdDegrees);
+    const thresholdFraction = toFraction(regripGauge.thresholdDegrees);
     overlay.strokeStyle = "rgba(251, 191, 36, 0.75)";
     overlay.setLineDash([3 * dpr, 3 * dpr]);
     overlay.beginPath();
@@ -1548,8 +1556,8 @@ export const createCubeViewport = (
     overlay.setLineDash([]);
     const spoke = spokes.find((candidate) => candidate.label === regripGaugeDisplayLabel);
     if (spoke) {
-      const fraction = toFraction(regripGaugeDisplaySignedDegrees);
-      const crossed = regripGaugeDisplaySignedDegrees >= regripGauge.signedThresholdDegrees;
+      const fraction = toFraction(regripGaugeDisplayDegrees);
+      const crossed = regripGaugeDisplayDegrees >= regripGauge.thresholdDegrees;
       const needleColour = crossed ? "#4ade80" : "#67e8f9";
       overlay.strokeStyle = needleColour;
       overlay.fillStyle = needleColour;
@@ -1567,29 +1575,27 @@ export const createCubeViewport = (
     overlay.font = `600 ${9 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
     overlay.textAlign = "center";
     overlay.textBaseline = "middle";
-    overlay.fillText(`${Math.round(regripGaugeDisplaySignedDegrees)}°`, cx, cy);
+    overlay.fillText(`${Math.round(regripGaugeDisplayDegrees)}°`, cx, cy);
     overlay.restore();
   };
 
+  /**
+   * Only ever advances the displayed needle within a cycle (ignores small
+   * sensor-jitter dips backward), except on resetDisplay, which drops it
+   * straight back to 0 — this is what happens exactly once per regrip, since
+   * a fresh rebase naturally puts the raw sample back at 0° travelled. No
+   * synthetic decay is needed here: 0 already is the natural resting value.
+   */
   const stepRegripGaugeDisplay = () => {
     if (!regripGauge) {
-      regripGaugeLastFrameAt = 0;
-      regripGaugeDisplaySignedDegrees = 0;
+      regripGaugeDisplayDegrees = 0;
       regripGaugeDisplayLabel = null;
       return;
     }
     regripGaugeDisplayLabel = regripGauge.label ?? regripGaugeDisplayLabel;
-    // New physical progress may move the gauge closer to the 90° lock. Never
-    // pull it backward when the detector rebases after recognizing that lock.
-    regripGaugeDisplaySignedDegrees = Math.max(regripGaugeDisplaySignedDegrees, regripGauge.signedDegrees);
-    const now = performance.now();
-    const elapsed = regripGaugeLastFrameAt === 0 ? 0 : Math.min(250, now - regripGaugeLastFrameAt);
-    regripGaugeLastFrameAt = now;
-    regripGaugeDisplaySignedDegrees = Math.min(
-      0,
-      regripGaugeDisplaySignedDegrees + SMART_CUBE_OFFSET_RADIANS_PER_SECOND * elapsed * 180 / (Math.PI * 1000),
-    );
-    if (regripGaugeDisplaySignedDegrees < -0.01) requestRender();
+    regripGaugeDisplayDegrees = regripGauge.resetDisplay
+      ? regripGauge.degrees
+      : Math.max(regripGaugeDisplayDegrees, regripGauge.degrees);
   };
 
   const render = () => {
