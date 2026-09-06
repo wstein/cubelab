@@ -717,8 +717,10 @@ export type CubeViewport = {
     target: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
   ) => void;
-  canStartDeviceOrientationStabilization: () => boolean;
-  stabilizeDeviceOrientation: (frame?: OrientationCoordinateFrame) => void;
+  stabilizeDeviceOrientation: (
+    target: OrientationQuaternion,
+    frame?: OrientationCoordinateFrame,
+  ) => void;
   setAutoOrbit: (enabled: boolean) => void;
   setDialogOpen: (open: boolean) => void;
   resetCamera: () => void;
@@ -820,10 +822,6 @@ export const createCubeViewport = (
     if (!deviceOrientationBase || !deviceOrientation) return null;
     const raw = deviceOrientationDelta(deviceOrientationBase, deviceOrientation, deviceOrientationFrame, "world");
     return deviceOrientationCorrection ? multiplyQuaternions(deviceOrientationCorrection, raw) : raw;
-  };
-  const canStabilizeToViewportZero = (): boolean => {
-    const rendered = renderedDeviceOrientation();
-    return rendered !== null && orientationDistanceRadians(rendered, {x: 0, y: 0, z: 0, w: 1}) <= 10 * Math.PI / 180;
   };
   const overlay = overlayCanvas.getContext("2d");
 
@@ -1882,19 +1880,17 @@ export const createCubeViewport = (
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
     },
-    canStartDeviceOrientationStabilization() {
-      return canStabilizeToViewportZero();
-    },
-    stabilizeDeviceOrientation(coordinateFrame = "viewport") {
+    stabilizeDeviceOrientation(target, coordinateFrame = "viewport") {
       if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) return;
-      // Face turns are calibration evidence only while the cube is already
-      // near reset view. A cardinal x/y/z pose never gets pulled back.
-      if (!canStabilizeToViewportZero()) return;
+      const rendered = renderedDeviceOrientation();
+      // The anchor is opened only at rest by the client. This final bound
+      // avoids correcting across an unexpectedly stale orientation frame.
+      if (!rendered || orientationDistanceRadians(rendered, target) > 15 * Math.PI / 180) return;
       deviceOrientationCorrection = stabilizedOrientationCorrection(
         deviceOrientationCorrection,
         deviceOrientationBase,
         deviceOrientation,
-        {x: 0, y: 0, z: 0, w: 1},
+        target,
         coordinateFrame,
       );
       requestRender();

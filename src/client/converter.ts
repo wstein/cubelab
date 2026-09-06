@@ -65,7 +65,9 @@ import {
 import {relativeAcademyState, type PieceState} from "./academy-target";
 import {
   createCubeViewport,
+  deviceOrientationDelta,
   focusCameraTarget,
+  orientationDistanceRadians,
   orientationInViewportFrame,
   turnTransform,
   type CubieFocus,
@@ -2227,6 +2229,7 @@ if (root) {
   let smartCubeRecordingOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeDiscreteOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeTurnAnchor: TurnAnchor | null = null;
+  let smartCubeOrientationLastMovedAt = 0;
   // During a recording session the physical cube is an input device. Keep a
   // separate virtual state so incoming facelet packets cannot repaint the
   // tape's Setup + Moves state over the viewport.
@@ -4651,10 +4654,12 @@ if (root) {
           && !smartCubeRecording
           && !smartCubeRecordingTapePresented
           && latestSmartCubeOrientation
-          && viewport?.canStartDeviceOrientationStabilization()
+          && smartCubeDiscreteOrientationTracker
+          && event.timestamp - smartCubeOrientationLastMovedAt >= 250
         ) {
           smartCubeTurnAnchor = createTurnAnchor(
             latestSmartCubeOrientation.quaternion,
+            smartCubeDiscreteOrientationTracker.orientation,
             latestSmartCubeOrientation.coordinateFrame,
             event.timestamp,
           );
@@ -4716,6 +4721,15 @@ if (root) {
             event.coordinateFrame,
           );
         } else {
+          const fromAnchor = deviceOrientationDelta(
+            smartCubeDiscreteOrientationTracker.baseline,
+            event.quaternion,
+            event.coordinateFrame,
+            "local",
+          );
+          if (orientationDistanceRadians(fromAnchor, {x: 0, y: 0, z: 0, w: 1}) > 10 * Math.PI / 180) {
+            smartCubeOrientationLastMovedAt = event.timestamp;
+          }
           const observed = observeStableOrientation(
             smartCubeDiscreteOrientationTracker,
             event.quaternion,
@@ -4749,7 +4763,9 @@ if (root) {
             event.timestamp,
           );
           smartCubeTurnAnchor = anchored.anchor;
-          if (anchored.stable) viewport?.stabilizeDeviceOrientation(event.coordinateFrame);
+          if (anchored.stable && anchored.target) {
+            viewport?.stabilizeDeviceOrientation(anchored.target, event.coordinateFrame);
+          }
         }
         if (smartCubeRecording && smartCubeSyncMode === "PhysicalMirror") {
           if (smartCubeRecordingOrientationTracker === null) {
