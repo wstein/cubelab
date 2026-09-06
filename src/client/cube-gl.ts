@@ -775,6 +775,13 @@ export type CubeViewport = {
     targetErrorAxis: [number, number, number] | null;
     correctionStepRadians: number;
   };
+  /** Diagnostic-only snapshot of internal device-orientation bookkeeping. */
+  deviceOrientationDebugState: () => {
+    base: OrientationQuaternion | null;
+    correction: OrientationQuaternion | null;
+    correctionTarget: OrientationQuaternion | null;
+    frame: OrientationCoordinateFrame;
+  };
   setAutoOrbit: (enabled: boolean) => void;
   setDialogOpen: (open: boolean) => void;
   resetCamera: () => void;
@@ -2010,6 +2017,14 @@ export const createCubeViewport = (
         requestRender();
         startAutoOrbitFrame();
       }
+    },
+    deviceOrientationDebugState() {
+      return {
+        base: deviceOrientationBase,
+        correction: deviceOrientationCorrection,
+        correctionTarget: deviceOrientationCorrectionTarget,
+        frame: deviceOrientationFrame,
+      };
     },
     resetCamera() {
       deviceOrientationBase = null;

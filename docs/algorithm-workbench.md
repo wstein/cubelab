@@ -243,11 +243,16 @@ For hardware diagnosis, set `localStorage.cubelab.smartCube.gyroTrace` to `"1"` 
 browser DevTools and reproduce a turn. The console records dropped ring probes, ring
 readiness, regrip settlement, an explicit **Recenter gyro view** click, nearest-cardinal
 snaps, and corrections — so a trace can show whether a reported jump followed a
-recenter, a confirmed regrip, or an unconfirmed one. Dropped-probe entries include the
-sample-to-sample rotation and 5° threshold; corrections include target error and actual
-correction-step degrees. The correction uses the normalized average of the accepted ring
-quaternions and includes its signed target-error axis. Remove the key (or set it to
-another value) to silence the trace.
+recenter, a confirmed regrip, or an unconfirmed one. Every entry carries enough state to
+diagnose it without re-deriving anything by hand: dropped-probe entries include the raw
+quaternion alongside the sample-to-sample rotation and 5° threshold; ring-correction
+entries include the raw (pre-average) `ringProbes`, the viewport's internal base and
+settled correction target (`viewport`), and the recorder-side tracker's own baseline,
+running orientation, and dwell candidate (`discreteTracker`) as they stood at that
+instant; regrip-settled and nearest-cardinal-snap entries include the tracker's prior
+baseline and orientation *before* the update they report, so a wrong result can be
+verified by hand from the log alone rather than requiring a repro. Remove the key (or
+set it to another value) to silence the trace.
 
 Motion-profile settings are loaded from `/smart-cube/motion-profiles.v1.json` after a
 cube connects. The registry provides a conservative default for unknown hardware and a

@@ -4726,6 +4726,7 @@ if (root) {
         );
         if (ringReady && measured && frame) {
           const probes = smartCubeOrientationProbeRing.probes.length;
+          const ringProbes = smartCubeOrientationProbeRing.probes.map((probe) => probe.quaternion);
           const rotationDropped = smartCubeOrientationProbeRing.rotationDropped;
           smartCubeOrientationProbeRing = consumeOrientationProbeRing(smartCubeOrientationProbeRing);
           const result = viewport?.stabilizeDeviceOrientation(
@@ -4737,6 +4738,8 @@ if (root) {
           traceSmartCubeStabilization(result.applied ? "ring correction applied" : "ring correction skipped", {
             move: event.move,
             probes,
+            ringProbes,
+            rotationDropped,
             target: smartCubeStabilizationTarget,
             measured,
             targetErrorDegrees: result.targetErrorRadians === null
@@ -4744,6 +4747,12 @@ if (root) {
               : Number((result.targetErrorRadians * 180 / Math.PI).toFixed(2)),
             targetErrorAxis: result.targetErrorAxis?.map((component) => Number(component.toFixed(3))) ?? null,
             correctionStepDegrees: Number((result.correctionStepRadians * 180 / Math.PI).toFixed(2)),
+            viewport: viewport?.deviceOrientationDebugState() ?? null,
+            discreteTracker: smartCubeDiscreteOrientationTracker && {
+              baseline: smartCubeDiscreteOrientationTracker.baseline,
+              orientation: smartCubeDiscreteOrientationTracker.orientation,
+              candidate: smartCubeDiscreteOrientationTracker.candidate,
+            },
           });
           const maximumTargetErrorRadians = smartCubeMotionProfile.maximumTargetErrorDegrees * Math.PI / 180;
           if (
@@ -4758,6 +4767,8 @@ if (root) {
             // and confirms from a single sample: no alignment gate, no dwell.
             const tracker = smartCubeDiscreteOrientationTracker
               ?? createStableOrientationTracker(measured, frame, "world");
+            const priorBaseline = tracker.baseline;
+            const priorOrientation = tracker.orientation;
             const resolved = observeStableOrientation(tracker, measured, frame, -1, 1);
             if (resolved.tokens.length > 0) {
               const nearestTarget = resolved.tracker.orientation;
@@ -4766,6 +4777,9 @@ if (root) {
               smartCubeDiscreteOrientationTracker = resolved.tracker;
               traceSmartCubeStabilization("unconfirmed regrip snapped to nearest cardinal", {
                 move: event.move,
+                measured,
+                priorBaseline,
+                priorOrientation,
                 targetErrorDegrees: Number((result.targetErrorRadians * 180 / Math.PI).toFixed(2)),
                 target: nearestTarget,
               });
@@ -4839,6 +4853,7 @@ if (root) {
             reason: probe.rotationDegrees !== null ? "rotation" : "post-rotation",
             rotationDegrees: probe.rotationDegrees === null ? null : Number(probe.rotationDegrees.toFixed(2)),
             thresholdDegrees: smartCubeMotionProfile.rotationDropThresholdDegrees,
+            quaternion: event.quaternion,
             probes: probe.ring.probes.length,
             pendingPostRotationDrops: probe.ring.discardFollowing,
           });
@@ -4854,6 +4869,9 @@ if (root) {
             "world",
           );
         } else {
+          const priorBaseline = smartCubeDiscreteOrientationTracker.baseline;
+          const priorOrientation = smartCubeDiscreteOrientationTracker.orientation;
+          const priorCandidate = smartCubeDiscreteOrientationTracker.candidate;
           const observed = observeStableOrientation(
             smartCubeDiscreteOrientationTracker,
             event.quaternion,
@@ -4879,6 +4897,10 @@ if (root) {
           if (observed.tokens.length > 0) {
             traceSmartCubeStabilization("regrip settled", {
               tokens: observed.tokens.join(" "),
+              quaternion: event.quaternion,
+              priorBaseline,
+              priorOrientation,
+              priorCandidate,
               target: observed.tracker.orientation,
             });
           }
