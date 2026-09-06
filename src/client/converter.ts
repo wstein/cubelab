@@ -7039,6 +7039,11 @@ if (root) {
     const handleKeyDown = (rawEvent: Event) => {
       if (!manualStateDialog.open) return;
       const event = rawEvent as KeyboardEvent;
+      // The dialog also listens on window so cursor navigation remains useful
+      // after toolbar clicks. Never let that convenience consume notation
+      // typing, selection, undo, or other native textarea shortcuts.
+      const target = event.target;
+      if (target instanceof Element && target.closest("[data-manual-state-notation]")) return;
       if ((event.key === "z" || event.key === "Z" || event.code === "KeyZ") && (event.ctrlKey || event.metaKey)) {
         event.preventDefault();
         event.stopPropagation();
