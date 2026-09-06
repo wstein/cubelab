@@ -254,6 +254,16 @@ baseline and orientation *before* the update they report, so a wrong result can 
 verified by hand from the log alone rather than requiring a repro. Remove the key (or
 set it to another value) to silence the trace.
 
+While **Diagnostics** is on, the same values are also drawn live as coloured arrows
+from the cube's centre: green for the current cardinal target, blue for the settled
+display correction, and — on each accepted face move — orange for the corrective
+rotation still remaining, labelled with its magnitude and lengthening with it. The
+arrows use a modelView that excludes the live device-orientation rotation, so they
+stay fixed in "room" space while the cube itself visibly turns against them; watching
+the cube's actual orientation converge onto the green arrow is a direct visual read of
+whether stabilization is working, and a snap that picks the wrong target shows up as
+the cube jumping to face away from where the arrows say it should.
+
 Motion-profile settings are loaded from `/smart-cube/motion-profiles.v1.json` after a
 cube connects. The registry provides a conservative default for unknown hardware and a
 GoCube override: three retained probes, a 5° rotation threshold, two rejected probes

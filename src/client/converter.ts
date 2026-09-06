@@ -67,12 +67,14 @@ import {
   createCubeViewport,
   focusCameraTarget,
   orientationInViewportFrame,
+  quaternionAxisAngle,
   turnTransform,
   type CubieFocus,
   type CubePalette,
   type CubeStyle,
   type MoveStep,
   type OrientationCoordinateFrame,
+  type OrientationDebugVector,
   type OrientationQuaternion,
 } from "./cube-gl";
 import {
@@ -2267,6 +2269,29 @@ if (root) {
       if (smartCubeDiagnosticTrace.length > 500) smartCubeDiagnosticTrace.shift();
       updateSmartCubeDiagnosticsUi();
     }
+  };
+  // Debug-only 3D arrows for gyro stabilization: green is the current cardinal
+  // target, blue is the settled display correction, orange (when passed) is the
+  // corrective rotation still remaining. Only drawn while Diagnostics is on.
+  const updateSmartCubeOrientationDebugVectors = (extra: OrientationDebugVector[] = []) => {
+    if (!viewport) return;
+    if (!smartCubeDiagnosticsEnabled) {
+      viewport.setOrientationDebugVectors([]);
+      return;
+    }
+    const vectors: OrientationDebugVector[] = [
+      {label: "target", colour: "#4ade80", axis: quaternionAxisAngle(smartCubeStabilizationTarget).axis, length: 1.9},
+    ];
+    const debugState = viewport.deviceOrientationDebugState();
+    if (debugState.correctionTarget) {
+      vectors.push({
+        label: "correction",
+        colour: "#60a5fa",
+        axis: quaternionAxisAngle(debugState.correctionTarget).axis,
+        length: 1.6,
+      });
+    }
+    viewport.setOrientationDebugVectors([...vectors, ...extra]);
   };
   const loadSmartCubeMotionProfiles = () => {
     if (!smartCubeMotionProfileLoad) {
@@ -4588,6 +4613,7 @@ if (root) {
       autoOrbitButton.disabled = !viewport;
       settingsAutoOrbit.disabled = !viewport;
       setAutoOrbitEnabled(autoOrbit, false);
+      viewport?.setOrientationDebugVectors([]);
     }
     syncSmartCubeTrackedOrientation();
     if (wasTracking && !smartCubeOrientationTracking && smartCubeRotationWait?.baseline) {
@@ -4754,6 +4780,16 @@ if (root) {
               candidate: smartCubeDiscreteOrientationTracker.candidate,
             },
           });
+          updateSmartCubeOrientationDebugVectors(
+            result.applied && result.targetErrorAxis && result.targetErrorRadians !== null
+              ? [{
+                label: `error ${(result.targetErrorRadians * 180 / Math.PI).toFixed(0)}°`,
+                colour: "#fb923c",
+                axis: result.targetErrorAxis,
+                length: Math.min(4, 0.6 + (result.targetErrorRadians * 180 / Math.PI) / 20),
+              }]
+              : [],
+          );
           const maximumTargetErrorRadians = smartCubeMotionProfile.maximumTargetErrorDegrees * Math.PI / 180;
           if (
             result.applied
@@ -4783,6 +4819,7 @@ if (root) {
                 targetErrorDegrees: Number((result.targetErrorRadians * 180 / Math.PI).toFixed(2)),
                 target: nearestTarget,
               });
+              updateSmartCubeOrientationDebugVectors();
             }
           }
         } else {
@@ -4903,6 +4940,7 @@ if (root) {
               priorCandidate,
               target: observed.tracker.orientation,
             });
+            updateSmartCubeOrientationDebugVectors();
           }
         }
         if (smartCubeRecording && smartCubeSyncMode === "PhysicalMirror") {
@@ -6622,6 +6660,7 @@ if (root) {
     smartCubeDiagnosticsEnabled = !smartCubeDiagnosticsEnabled;
     window.localStorage.setItem("cubelab.smartCube.diagnostics", smartCubeDiagnosticsEnabled ? "1" : "0");
     if (!smartCubeDiagnosticsEnabled) smartCubeDiagnosticTrace.length = 0;
+    updateSmartCubeOrientationDebugVectors();
     updateSmartCubeDiagnosticsUi();
     smartCubeStatus.textContent = smartCubeDiagnosticsEnabled
       ? `${smartCubeDeviceName} · Diagnostics capture enabled locally; nothing is uploaded automatically.`

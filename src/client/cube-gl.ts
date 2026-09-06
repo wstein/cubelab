@@ -60,6 +60,14 @@ export type TurnGuide = {
   upcoming?: string[];
 };
 
+/** A labelled, coloured arrow drawn from the cube's centre for gyro-stabilization debugging. */
+export type OrientationDebugVector = {
+  label: string;
+  colour: string;
+  axis: [number, number, number];
+  length: number;
+};
+
 const DEFAULT_YAW = -0.62;
 const DEFAULT_PITCH = 0.48;
 const DEFAULT_DISTANCE = 8.4;
@@ -750,6 +758,7 @@ export type CubeViewport = {
   setMilestone: (milestone: MilestoneFocus | null) => void;
   setTurnGuide: (guide: TurnGuide | null) => void;
   setMoveRibbon: (ribbon: TurnGuide | null) => void;
+  setOrientationDebugVectors: (vectors: OrientationDebugVector[]) => void;
   smoothOrbitTo: (yaw: number, pitch: number, duration?: number) => Promise<void>;
   setDeviceOrientation: (
     orientation: OrientationQuaternion | null,
@@ -867,6 +876,7 @@ export const createCubeViewport = (
   let milestone: MilestoneFocus | null = null;
   let turnGuide: TurnGuide | null = null;
   let moveRibbon: TurnGuide | null = null;
+  let orientationDebugVectors: OrientationDebugVector[] = [];
   let turnFrame: number | null = null;
   let turnGeneration = 0;
   let autoOrbit = false;
@@ -1496,6 +1506,66 @@ export const createCubeViewport = (
     }
   };
 
+  /**
+   * Debug-only arrows from the cube's centre for gyro-stabilization internals
+   * (target/measured/error axes). Drawn with a modelView that excludes the live
+   * device-orientation rotation, so the arrows stay fixed in "room" space while
+   * the cube itself visibly rotates against them.
+   */
+  const drawOrientationDebugVectors = (
+    matrices: { modelView: Mat4; projection: Mat4 },
+    width: number,
+    height: number,
+  ) => {
+    if (!overlay || orientationDebugVectors.length === 0) return;
+    const bounds = canvas.getBoundingClientRect();
+    const dpr = width / Math.max(1, bounds.width);
+    const origin = projectPoint([0, 0, 0], matrices.modelView, matrices.projection, width, height);
+    if (!origin.inFront) return;
+    orientationDebugVectors.forEach((vector) => {
+      const magnitude = Math.hypot(...vector.axis) || 1;
+      const tip = projectPoint(
+        [
+          (vector.axis[0] / magnitude) * vector.length,
+          (vector.axis[1] / magnitude) * vector.length,
+          (vector.axis[2] / magnitude) * vector.length,
+        ],
+        matrices.modelView,
+        matrices.projection,
+        width,
+        height,
+      );
+      if (!tip.inFront) return;
+      overlay.save();
+      overlay.strokeStyle = vector.colour;
+      overlay.fillStyle = vector.colour;
+      overlay.lineWidth = 2.5 * dpr;
+      overlay.lineCap = "round";
+      overlay.shadowColor = vector.colour;
+      overlay.shadowBlur = 6 * dpr;
+      overlay.beginPath();
+      overlay.moveTo(origin.x, origin.y);
+      overlay.lineTo(tip.x, tip.y);
+      overlay.stroke();
+      const angle = Math.atan2(tip.y - origin.y, tip.x - origin.x);
+      const headLength = 9 * dpr;
+      overlay.beginPath();
+      overlay.moveTo(tip.x, tip.y);
+      overlay.lineTo(
+        tip.x - headLength * Math.cos(angle - Math.PI / 7),
+        tip.y - headLength * Math.sin(angle - Math.PI / 7),
+      );
+      overlay.lineTo(
+        tip.x - headLength * Math.cos(angle + Math.PI / 7),
+        tip.y - headLength * Math.sin(angle + Math.PI / 7),
+      );
+      overlay.closePath();
+      overlay.fill();
+      overlay.restore();
+      drawBadge(overlay, vector.label, tip.x, tip.y - 16 * dpr, dpr, true);
+    });
+  };
+
   const render = () => {
     frame = null;
     if (disposed || !visible || vertexCount === 0) return;
@@ -1560,6 +1630,10 @@ export const createCubeViewport = (
     gl.uniform2f(guideRange, guideTransform?.min ?? 0, guideTransform?.max ?? 0);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
     drawMotionOverlay(matrices, width, height);
+    if (orientationDebugVectors.length > 0) {
+      const debugMatrices = cameraMatrices(aspect, yaw, pitch, safeCameraDistance(distance, aspect));
+      drawOrientationDebugVectors(debugMatrices, width, height);
+    }
     canvas.dataset.webgl = "ready";
     canvas.dataset.cameraYaw = yaw.toFixed(6);
     canvas.dataset.cameraPitch = pitch.toFixed(6);
@@ -1904,6 +1978,10 @@ export const createCubeViewport = (
     },
     setMoveRibbon(nextRibbon) {
       moveRibbon = nextRibbon;
+      requestRender();
+    },
+    setOrientationDebugVectors(vectors) {
+      orientationDebugVectors = vectors;
       requestRender();
     },
     smoothOrbitTo,
