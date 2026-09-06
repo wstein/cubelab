@@ -873,7 +873,11 @@ export const createCubeViewport = (
   let cameraGeneration = 0;
   let deviceOrientationBase: OrientationQuaternion | null = null;
   let deviceOrientation: OrientationQuaternion | null = null;
+  // The correction actually being drawn this frame; only animateDeviceOrientationCorrectionTo
+  // may write it. Everything else reads/writes deviceOrientationCorrectionTarget, the settled
+  // value the animation is easing toward, so math never depends on a mid-animation snapshot.
   let deviceOrientationCorrection: OrientationQuaternion | null = null;
+  let deviceOrientationCorrectionTarget: OrientationQuaternion | null = null;
   let deviceOrientationFrame: OrientationCoordinateFrame = "viewport";
   let deviceOrientationCorrectionFrame: number | null = null;
   let deviceOrientationCorrectionGeneration = 0;
@@ -1783,6 +1787,7 @@ export const createCubeViewport = (
   const animateDeviceOrientationCorrectionTo = (target: OrientationQuaternion, duration = 180) => {
     const generation = ++deviceOrientationCorrectionGeneration;
     const start = deviceOrientationCorrection ?? {x: 0, y: 0, z: 0, w: 1};
+    deviceOrientationCorrectionTarget = target;
     const started = performance.now();
     const safeDuration = Math.max(1, duration);
     const tick = (now: number) => {
@@ -1904,6 +1909,8 @@ export const createCubeViewport = (
         deviceOrientationBase = null;
         deviceOrientation = null;
         deviceOrientationCorrection = null;
+        deviceOrientationCorrectionTarget = null;
+        deviceOrientationCorrectionGeneration += 1;
         deviceOrientationFrame = "viewport";
         delete canvas.dataset.deviceOrientation;
         requestRender();
@@ -1914,6 +1921,8 @@ export const createCubeViewport = (
         deviceOrientationBase = null;
         deviceOrientation = null;
         deviceOrientationCorrection = null;
+        deviceOrientationCorrectionTarget = null;
+        deviceOrientationCorrectionGeneration += 1;
       }
       deviceOrientationFrame = coordinateFrame;
       if (!deviceOrientationBase) deviceOrientationBase = normalized;
@@ -1932,6 +1941,8 @@ export const createCubeViewport = (
       deviceOrientation = normalized;
       deviceOrientationFrame = coordinateFrame;
       deviceOrientationCorrection = null;
+      deviceOrientationCorrectionTarget = null;
+      deviceOrientationCorrectionGeneration += 1;
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
     },
@@ -1961,7 +1972,7 @@ export const createCubeViewport = (
       if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) {
         return {applied: false, targetErrorRadians: null, targetErrorAxis: null, correctionStepRadians: 0};
       }
-      const priorCorrection = deviceOrientationCorrection ?? {x: 0, y: 0, z: 0, w: 1};
+      const priorCorrection = deviceOrientationCorrectionTarget ?? {x: 0, y: 0, z: 0, w: 1};
       const rendered = renderedDeviceOrientation(deviceOrientationBase, priorCorrection, measured, coordinateFrame);
       const targetErrorRadians = orientationDistanceRadians(rendered, target);
       const targetErrorAxis = quaternionAxisAngle(multiplyQuaternions(target, inverseQuaternion(rendered))).axis;
@@ -1973,8 +1984,7 @@ export const createCubeViewport = (
         coordinateFrame,
         correctionErrorDivisor,
       );
-      deviceOrientationCorrection = nextCorrection;
-      requestRender();
+      animateDeviceOrientationCorrectionTo(nextCorrection, 120);
       return {
         applied: true,
         targetErrorRadians,
@@ -1986,7 +1996,7 @@ export const createCubeViewport = (
       if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) {
         return null;
       }
-      return renderedDeviceOrientation(deviceOrientationBase, deviceOrientationCorrection, measured, coordinateFrame);
+      return renderedDeviceOrientation(deviceOrientationBase, deviceOrientationCorrectionTarget, measured, coordinateFrame);
     },
     setAutoOrbit(enabled) {
       if (deviceOrientation && enabled) enabled = false;
@@ -2015,6 +2025,8 @@ export const createCubeViewport = (
       deviceOrientationBase = null;
       deviceOrientation = null;
       deviceOrientationCorrection = null;
+      deviceOrientationCorrectionTarget = null;
+      deviceOrientationCorrectionGeneration += 1;
       deviceOrientationFrame = "viewport";
       delete canvas.dataset.deviceOrientation;
       cancelCamera();

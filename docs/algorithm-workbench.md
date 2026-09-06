@@ -175,6 +175,17 @@ turn can unwind a correction retained from the preceding orientation. Reconcilin
 animates the display correction to its new value over ~180ms rather than snapping
 instantly; a correctly identified target no longer feels like a jump cut.
 
+The viewport keeps the correction actually being drawn separate from the settled
+correction any math is based on: only the animation loop writes the drawn value, and
+every calculation — the per-move divisor step, the nearest-cardinal snap's read of
+"where are we now" — reads the settled one. Earlier, the per-move stabilizer read and
+wrote the same live, animating value that a reconcile could be mid-flight on, so its
+"how far have we already corrected" baseline was whatever the animation happened to be
+at that instant rather than the actual last-settled state, and the two writers fought
+over the same field. That is also why animating reconciliation alone hadn't been
+enough to stop the jumps: the very next per-move correction could still stomp an
+in-progress animation with an instant jump computed from its mid-flight snapshot.
+
 The recorder-side tracker composes each confirmed regrip onto its own running
 orientation, so whatever last touched that running value has to be consistent with
 what the viewport is actually displaying — otherwise the *next* confirmed regrip
