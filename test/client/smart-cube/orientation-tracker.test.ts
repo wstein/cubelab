@@ -28,6 +28,15 @@ describe("stable smart-cube orientation tracker", () => {
     expect(settled.tokens).toEqual(["x"]);
   });
 
+  test("can settle on the nearest non-identity pose without an angular gate", () => {
+    let tracker = createStableOrientationTracker(identity, "viewport");
+    const nearX = x(72);
+    for (let sample = 0; sample < 2; sample += 1) {
+      tracker = observeStableOrientation(tracker, nearX, "viewport", -1).tracker;
+    }
+    expect(observeStableOrientation(tracker, nearX, "viewport", -1).tokens).toEqual(["x"]);
+  });
+
   test("rebases each accepted turn so small heading bias cannot accumulate", () => {
     let tracker = createStableOrientationTracker(identity, "viewport");
     let currentDegrees = 0;

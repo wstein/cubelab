@@ -4828,6 +4828,7 @@ if (root) {
             smartCubeDiscreteOrientationTracker,
             event.quaternion,
             event.coordinateFrame,
+            -1,
           );
           smartCubeDiscreteOrientationTracker = observed.tracker;
           if (
