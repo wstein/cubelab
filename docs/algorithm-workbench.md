@@ -140,6 +140,12 @@ facelets: move-only devices are useful turn input, and the connected-device capa
 badge states what the driver can verify. Recording remains a distinct 3×3 capture
 feature that appends physical turns to **Moves**.
 
+When gyro regrips are recorded, CubeLab retains the visible `x`, `y`, or `z` token and
+projects later hardware face packets through the accumulated regrip frame before
+appending them. Device face labels remain fixed to the hardware; tape face labels must
+follow the virtual cube, so this projection keeps the recording and virtual state in
+the same frame.
+
 ## Browser integration
 
 The action ribbon below the input exposes **Invert**, **Simplify**, **Factor structure**,

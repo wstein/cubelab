@@ -128,6 +128,17 @@ describe("smart cube live synchronization", () => {
     expect(controllerMoveInViewportFrame("Rw")).toBe("Rw");
   });
 
+  test("keeps recorded face turns in the tape frame after cumulative regrips", () => {
+    const frame: Array<{axis: "X" | "Y" | "Z"; turns: number}> = [];
+    const recordRotation = (axis: "X" | "Y" | "Z", turns: number) => frame.push({axis, turns});
+
+    expect(controllerMoveInViewportFrame("B", frame)).toBe("B");
+    recordRotation("X", 1);
+    expect(controllerMoveInViewportFrame("U", frame)).toBe("B");
+    recordRotation("X", 1);
+    expect(controllerMoveInViewportFrame("F", frame)).toBe("B");
+  });
+
   test("replaying fixed-frame hints reaches the same state as the rotated timeline", () => {
     const solved = StateTypes.solved(3)._0;
     const parsed = MoveParser.parse(3, "x2 B U' R2 x2");

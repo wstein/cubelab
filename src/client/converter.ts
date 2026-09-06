@@ -2208,6 +2208,9 @@ if (root) {
   let smartCubeRecordingTapeDirty = false;
   let smartCubeRecordingTapePresented = false;
   let smartCubeGuidedTape = false;
+  // Hardware faces stay fixed to the device. This is the accumulated tape
+  // frame used to project later packets after visible x/y/z regrips.
+  let smartCubeRecordingFrame: Array<{axis: "X" | "Y" | "Z"; turns: number}> = [];
   // During a recording session the physical cube is an input device. Keep a
   // separate virtual state so incoming facelet packets cannot repaint the
   // tape's Setup + Moves state over the viewport.
@@ -3269,6 +3272,7 @@ if (root) {
       smartCubeRecording = false;
       smartCubeRecordingState = null;
       smartCubeRecordingTapePresented = false;
+      smartCubeRecordingFrame = [];
       smartCubeRecordingOrientation = null;
       smartCubeRecordingTapeDirty = false;
     }
@@ -3294,6 +3298,7 @@ if (root) {
       smartCubeRecording = false;
       smartCubeRecordingState = null;
       smartCubeRecordingTapePresented = false;
+      smartCubeRecordingFrame = [];
       smartCubeRecordingOrientation = null;
       smartCubeStatus.textContent = "Smart-cube recording stopped: Moves reached the 20,000-character limit.";
       updateSmartCubeRecordingUi();
@@ -4180,6 +4185,7 @@ if (root) {
       smartCubeRecording = false;
       smartCubeRecordingState = null;
       smartCubeRecordingTapePresented = false;
+      smartCubeRecordingFrame = [];
       smartCubeRecordingOrientation = null;
       smartCubeRecordingTapeDirty = false;
     }
@@ -4338,8 +4344,9 @@ if (root) {
       return;
     }
     if (smartCubeRecording) {
-      appendSmartCubeRecordingToken(move);
-      advanceSmartCubeRecordingState(move);
+      const tapeMove = controllerMoveInViewportFrame(move, smartCubeRecordingFrame);
+      appendSmartCubeRecordingToken(tapeMove);
+      advanceSmartCubeRecordingState(tapeMove);
       return;
     }
     // A fresh physical turn resumes the normal mirror after a recording
@@ -4552,6 +4559,7 @@ if (root) {
         smartCubeRecording = false;
         smartCubeRecordingState = null;
         smartCubeRecordingTapePresented = false;
+        smartCubeRecordingFrame = [];
         smartCubeRecordingOrientation = null;
         smartCubeRecordingTapeDirty = false;
       }
@@ -4656,6 +4664,7 @@ if (root) {
               const token = `${regrip.axis.toLowerCase()}${regrip.turns < 0 ? "'" : ""}`;
               appendSmartCubeRecordingToken(token);
               advanceSmartCubeRecordingState(token);
+              smartCubeRecordingFrame.push({axis: regrip.axis, turns: regrip.turns});
               smartCubeRecordingOrientation = latestSmartCubeOrientation;
               smartCubeStatus.textContent = `${smartCubeDeviceName} · Recorded regrip ${token}`;
             }
@@ -7094,6 +7103,7 @@ if (root) {
       // Let the scheduled workspace update render the final Setup + Moves
       // state. Do not immediately replace it with the physical mirror.
       smartCubeRecordingTapePresented = true;
+      smartCubeRecordingFrame = [];
       smartCubeRecordingOrientation = null;
       smartCubeRecordingTapeDirty = false;
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Recording stopped; captured turns were appended to Moves.`;
@@ -7113,6 +7123,7 @@ if (root) {
       smartCubeRecording = true;
       smartCubeRecordingTapeDirty = false;
       smartCubeRecordingTapePresented = false;
+      smartCubeRecordingFrame = [];
       smartCubeRecordingOrientation = latestSmartCubeOrientation;
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Recording physical turns into Moves.`;
       renderSmartCubeRecordingState();
