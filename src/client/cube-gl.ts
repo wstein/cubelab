@@ -535,6 +535,25 @@ export const renderedDeviceOrientation = (
   return multiplyQuaternions(correction ?? {x: 0, y: 0, z: 0, w: 1}, raw);
 };
 
+/**
+ * Rebases the zero reference to the current raw coordinates while holding the
+ * rendered pose still: the new correction absorbs whatever the old base and
+ * correction used to contribute, so nothing visibly jumps at the instant of
+ * adoption even though future drift is now measured from here.
+ */
+export const adoptedDeviceOrientation = (
+  base: OrientationQuaternion,
+  correction: OrientationQuaternion | null,
+  measured: OrientationQuaternion,
+  coordinateFrame: OrientationCoordinateFrame = "viewport",
+): {base: OrientationQuaternion; correction: OrientationQuaternion} => {
+  const normalized = normalizedQuaternion(measured);
+  return {
+    base: normalized,
+    correction: renderedDeviceOrientation(base, correction, normalized, coordinateFrame),
+  };
+};
+
 /** Eases the actual rendered pose toward a settled cardinal orientation. */
 export const stabilizedOrientationCorrection = (
   previous: OrientationQuaternion | null,
@@ -1958,12 +1977,17 @@ export const createCubeViewport = (
       if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) {
         return null;
       }
-      return renderedDeviceOrientation(
+      const adopted = adoptedDeviceOrientation(
         deviceOrientationBase,
         deviceOrientationCorrection,
         measured,
         coordinateFrame,
       );
+      deviceOrientationBase = adopted.base;
+      deviceOrientation = adopted.base;
+      deviceOrientationCorrection = adopted.correction;
+      requestRender();
+      return adopted.correction;
     },
     setAutoOrbit(enabled) {
       if (deviceOrientation && enabled) enabled = false;

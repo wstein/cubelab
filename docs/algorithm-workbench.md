@@ -192,10 +192,13 @@ recorder-side tracker above to confirm it, especially mid-grip-adjustment. When 
 happens the ring still notices the rotation (that is what opened the exclusion window),
 so the first face move whose ring recovers from a rotation-drop window is treated
 differently: if its target error is still above the profile's `maximumTargetErrorDegrees`,
-CubeLab gives up chasing the old target at one-fifth per move and instead adopts
-whatever pose is currently on screen as the new target, with no visible jump. Ordinary
-drift (no rotation-drop involved) is never affected by this — it always uses the
-divisor correction above. This is logged as `large physical pose adopted`.
+CubeLab gives up chasing the old target at one-fifth per move and instead rebases its
+zero reference to the cube's current raw coordinates, the same way **Recenter gyro
+view** does. The new correction absorbs whatever the old base and correction used to
+contribute, so the display does not jump at the instant of adoption — only the point
+future drift is measured from moves. Ordinary drift (no rotation-drop involved) is
+never affected by this — it always uses the divisor correction above. This is logged
+as `large physical pose adopted`.
 
 For hardware diagnosis, set `localStorage.cubelab.smartCube.gyroTrace` to `"1"` in
 browser DevTools and reproduce a turn. The console records dropped ring probes, ring
