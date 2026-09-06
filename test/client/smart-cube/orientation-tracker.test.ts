@@ -2,6 +2,7 @@ import {describe, expect, test} from "vitest";
 
 import {
   cardinalOrientationCount,
+  cardinalOrientationFaces,
   createStableOrientationTracker,
   nearestRegripAxis,
   observeStableOrientation,
@@ -143,4 +144,16 @@ describe("stable smart-cube orientation tracker", () => {
     expect(settled.tokens).toEqual(["x", "x"]);
   });
 
+  test("maps cardinal orientations to URFDLB face orders", () => {
+    expect(cardinalOrientationFaces(identity)).toBe("URFDLB");
+    // Quarter turn around Y (y)
+    const yQuarter = {x: 0, y: Math.SQRT1_2, z: 0, w: Math.SQRT1_2};
+    expect(cardinalOrientationFaces(yQuarter)).toBe("UFLDBR");
+    // Quarter turn around X (x)
+    const xQuarter = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
+    expect(cardinalOrientationFaces(xQuarter)).toBe("BRUFLD");
+    // Quarter turn around Z (z)
+    const zQuarter = {x: 0, y: 0, z: Math.SQRT1_2, w: Math.SQRT1_2};
+    expect(cardinalOrientationFaces(zQuarter)).toBe("RDFLUB");
+  });
 });

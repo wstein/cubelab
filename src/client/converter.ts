@@ -130,6 +130,7 @@ import {
 } from "./smart-cube/live-sync";
 import {assessGyroRotation, detectGyroQuarterRotation} from "./smart-cube/orientation-verifier";
 import {
+  cardinalOrientationFaces,
   createStableOrientationTracker,
   nearestRegripAxis,
   observeStableOrientation,
@@ -2282,10 +2283,9 @@ if (root) {
       updateSmartCubeDiagnosticsUi();
     }
   };
-  // Debug-only 2D HUD for gyro regrip detection: how far the raw sample has
-  // rotated from the live tracker's baseline, and toward which of the six
-  // quarter-turn directions. Only drawn while Diagnostics is on; needs the raw
-  // sample (not just the confirmed target) so it visibly grows between regrips.
+  // Debug-only 2D HUD for gyro regrip detection: shows the distance in
+  // degrees from the current active lock-in position (URFDLB cardinal pose)
+  // toward the next regrip position (threshold at 65°, confirm at 90°).
   const updateSmartCubeRegripGauge = (
     current?: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
@@ -2298,13 +2298,11 @@ if (root) {
     const tracker = smartCubeDiscreteOrientationTracker;
     const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
     const {axis, radians} = quaternionAxisAngle(delta);
-    // Signed degrees remaining until the exact 90° mark, not degrees
-    // travelled so far: a regrip at the 65°-threshold sample reads as -25°,
-    // counting up toward 0 as the hand finishes settling on the new pose.
     viewport.setRegripGauge({
-      signedDegrees: (radians * 180 / Math.PI) - 90,
-      signedThresholdDegrees: smartCubeRegripProfile.regripThresholdDegrees - 90,
+      degrees: radians * 180 / Math.PI,
+      thresholdDegrees: smartCubeRegripProfile.regripThresholdDegrees,
       label: nearestRegripAxis(axis),
+      activeLockin: cardinalOrientationFaces(tracker.orientation),
     });
   };
   // During a recording session the physical cube is an input device. Keep a

@@ -223,3 +223,65 @@ export const settleStableOrientation = (
     tokens: orientations[nearest.index]!.tokens,
   };
 };
+
+const BODY_FACES: Array<{face: string; normal: [number, number, number]}> = [
+  {face: "U", normal: [0, 1, 0]},
+  {face: "R", normal: [1, 0, 0]},
+  {face: "F", normal: [0, 0, 1]},
+  {face: "D", normal: [0, -1, 0]},
+  {face: "L", normal: [-1, 0, 0]},
+  {face: "B", normal: [0, 0, -1]},
+];
+
+const WORLD_AXES: Array<[number, number, number]> = [
+  [0, 1, 0],   // Up (U)
+  [1, 0, 0],   // Right (R)
+  [0, 0, 1],   // Front (F)
+  [0, -1, 0],  // Down (D)
+  [-1, 0, 0],  // Left (L)
+  [0, 0, -1],  // Back (B)
+];
+
+const rotateVectorByQuaternion = (
+  quaternion: OrientationQuaternion,
+  vector: [number, number, number],
+): [number, number, number] => {
+  const length = Math.hypot(quaternion.x, quaternion.y, quaternion.z, quaternion.w) || 1;
+  const qx = quaternion.x / length;
+  const qy = quaternion.y / length;
+  const qz = quaternion.z / length;
+  const qw = quaternion.w / length;
+  const [vx, vy, vz] = vector;
+  const tx = 2 * (qy * vz - qz * vy);
+  const ty = 2 * (qz * vx - qx * vz);
+  const tz = 2 * (qx * vy - qy * vx);
+  return [
+    vx + qw * tx + (qy * tz - qz * ty),
+    vy + qw * ty + (qz * tx - qx * tz),
+    vz + qw * tz + (qx * ty - qy * tx),
+  ];
+};
+
+/**
+ * Expresses a cardinal orientation quaternion in URFDLB face notation,
+ * indicating which body face occupies each world position (Up, Right, Front, Down, Left, Back).
+ * Identity is "URFDLB".
+ */
+export const cardinalOrientationFaces = (orientation: OrientationQuaternion): string => {
+  const inv: OrientationQuaternion = {
+    x: -orientation.x,
+    y: -orientation.y,
+    z: -orientation.z,
+    w: orientation.w,
+  };
+  return WORLD_AXES.map((worldAxis) => {
+    const body = rotateVectorByQuaternion(inv, worldAxis);
+    let best = {face: "U", dot: -Infinity};
+    for (const candidate of BODY_FACES) {
+      const dot = body[0] * candidate.normal[0] + body[1] * candidate.normal[1] + body[2] * candidate.normal[2];
+      if (dot > best.dot) best = {face: candidate.face, dot};
+    }
+    return best.face;
+  }).join("");
+};
+

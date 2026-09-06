@@ -61,20 +61,20 @@ export type TurnGuide = {
 };
 
 /**
- * Live readout for gyro regrip detection: how many degrees remain until the
- * raw device orientation reaches the exact 90° lock-in point (signed, so 0 is
- * "arrived" and it counts up from a negative starting value), which of the
- * six quarter-turn directions it is heading toward, and the confirm
- * threshold expressed the same way. Drawn as a fixed 2D HUD rather than a 3D
- * arrow — a 3D vector gets hard to read once the cube itself is rotating in
- * front of the camera.
+ * Fixed 2D HUD gauge for gyro regrip detection: shows the distance in degrees
+ * from the current active lock-in position (URFDLB cardinal pose) to the
+ * smartcube's relative orientation, indicating progress toward the next
+ * 90° regrip position along the nearest quarter-turn direction.
  */
 export type RegripGaugeState = {
-  /** Degrees remaining until the 90° mark: negative, rising toward 0. */
-  signedDegrees: number;
-  /** Where the confirm threshold sits on the same scale, e.g. -25 for 65°. */
-  signedThresholdDegrees: number;
+  /** Rotation distance in degrees from current active lock-in position: 0 at rest, rising toward 90. */
+  degrees: number;
+  /** Regrip trigger threshold in degrees (e.g. 65). */
+  thresholdDegrees: number;
+  /** Nearest quarter-turn axis direction ("x" | "x'" | "y" | "y'" | "z" | "z'"). */
   label: string | null;
+  /** Active lock-in orientation in URFDLB face notation (e.g. "URFDLB"). */
+  activeLockin?: string | null;
 } | null;
 
 const DEFAULT_YAW = -0.62;
@@ -856,11 +856,9 @@ export const createCubeViewport = (
   let turnGuide: TurnGuide | null = null;
   let moveRibbon: TurnGuide | null = null;
   let regripGauge: RegripGaugeState = null;
-  // A persistent virtual progress value: after the 65° threshold it keeps
-  // floating toward the 90° lock-in rather than snapping back when the raw
-  // detector rebases for the next physical regrip.
-  let regripGaugeDisplaySignedDegrees = 0;
+  let regripGaugeDisplayDegrees = 0;
   let regripGaugeDisplayLabel: string | null = null;
+  let regripGaugeDisplayActiveLockin: string | null = null;
   let regripGaugeLastFrameAt = 0;
   let turnFrame: number | null = null;
   let turnGeneration = 0;
@@ -1493,12 +1491,10 @@ export const createCubeViewport = (
   };
 
   /**
-   * Fixed 2D HUD for gyro regrip detection: a hexagon of the six quarter-turn
-   * directions, a ring at the confirm threshold, and a needle counting down
-   * to 0 (the exact 90° lock-in point) as the raw orientation approaches it,
-   * toward whichever direction it's heading. Deliberately screen-fixed rather
-   * than a 3D arrow — once the cube itself is rotating, a 3D debug vector is
-   * hard to read against it.
+   * Fixed 2D HUD for gyro regrip detection: shows the rotation distance in
+   * degrees from the current active lock-in position (URFDLB cardinal pose)
+   * toward the next 90° regrip position, with a dashed ring at the confirm
+   * threshold (65°) and the active lock-in pose displayed above.
    */
   const drawRegripGauge = (width: number, height: number) => {
     if (!overlay || !regripGauge) return;
@@ -1515,14 +1511,27 @@ export const createCubeViewport = (
       {label: "z'", angle: (5 * Math.PI) / 6},
       {label: "x", angle: -(5 * Math.PI) / 6},
     ];
-    // Both are signed degrees-remaining-until-0; +90 maps the -90..0 range
-    // onto the 0..1 radius fraction (-90 at the centre, 0 at full radius).
-    const toFraction = (signedDegrees: number) => Math.max(0, Math.min(1, (signedDegrees + 90) / 90));
+    // 0° at rest at the centre, 90° at full radius.
+    const toFraction = (degrees: number) => Math.max(0, Math.min(1, degrees / 90));
     overlay.save();
-    overlay.fillStyle = "rgba(8, 15, 30, 0.55)";
+
+    // Dark translucent background disc
+    overlay.fillStyle = "rgba(8, 15, 30, 0.65)";
     overlay.beginPath();
-    overlay.arc(cx, cy, radius + 14 * dpr, 0, Math.PI * 2);
+    overlay.arc(cx, cy, radius + 15 * dpr, 0, Math.PI * 2);
     overlay.fill();
+
+    // Active lock-in pose header above gauge (e.g. "Lock: URFDLB")
+    const activeLockin = regripGaugeDisplayActiveLockin ?? regripGauge.activeLockin;
+    if (activeLockin) {
+      overlay.fillStyle = "rgba(148, 163, 184, 0.9)";
+      overlay.font = `600 ${8.5 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+      overlay.textAlign = "center";
+      overlay.textBaseline = "bottom";
+      overlay.fillText(`Lock: ${activeLockin}`, cx, cy - radius - 18 * dpr);
+    }
+
+    // Spokes and labels
     overlay.strokeStyle = "rgba(148, 163, 184, 0.45)";
     overlay.lineWidth = 1 * dpr;
     spokes.forEach((spoke) => {
@@ -1540,17 +1549,21 @@ export const createCubeViewport = (
         cy + Math.sin(spoke.angle) * (radius + 11 * dpr),
       );
     });
-    const thresholdFraction = toFraction(regripGauge.signedThresholdDegrees);
+
+    // Yellow dashed confirm threshold ring (at 65° / 90° ≈ 72% radius)
+    const thresholdFraction = toFraction(regripGauge.thresholdDegrees);
     overlay.strokeStyle = "rgba(251, 191, 36, 0.75)";
     overlay.setLineDash([3 * dpr, 3 * dpr]);
     overlay.beginPath();
     overlay.arc(cx, cy, radius * thresholdFraction, 0, Math.PI * 2);
     overlay.stroke();
     overlay.setLineDash([]);
+
+    // Live distance needle: extends outward from center as cube moves toward next regrip
     const spoke = spokes.find((candidate) => candidate.label === regripGaugeDisplayLabel);
-    if (spoke) {
-      const fraction = toFraction(regripGaugeDisplaySignedDegrees);
-      const crossed = regripGaugeDisplaySignedDegrees >= regripGauge.signedThresholdDegrees;
+    const crossed = regripGaugeDisplayDegrees >= regripGauge.thresholdDegrees;
+    if (spoke && regripGaugeDisplayDegrees > 0.5) {
+      const fraction = toFraction(regripGaugeDisplayDegrees);
       const needleColour = crossed ? "#4ade80" : "#67e8f9";
       overlay.strokeStyle = needleColour;
       overlay.fillStyle = needleColour;
@@ -1563,34 +1576,43 @@ export const createCubeViewport = (
       overlay.beginPath();
       overlay.arc(cx + Math.cos(spoke.angle) * radius * fraction, cy + Math.sin(spoke.angle) * radius * fraction, 3 * dpr, 0, Math.PI * 2);
       overlay.fill();
+    } else {
+      // Small center anchor dot when at rest
+      overlay.fillStyle = "rgba(148, 163, 184, 0.6)";
+      overlay.beginPath();
+      overlay.arc(cx, cy, 2 * dpr, 0, Math.PI * 2);
+      overlay.fill();
     }
-    overlay.fillStyle = "rgba(203, 213, 225, 0.85)";
+
+    // Distance in degrees at the centre
+    overlay.fillStyle = crossed ? "#4ade80" : "rgba(203, 213, 225, 0.9)";
     overlay.font = `600 ${9 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
     overlay.textAlign = "center";
     overlay.textBaseline = "middle";
-    overlay.fillText(`${Math.round(regripGaugeDisplaySignedDegrees)}°`, cx, cy);
+    overlay.fillText(`${Math.round(regripGaugeDisplayDegrees)}°`, cx, cy);
     overlay.restore();
   };
 
   const stepRegripGaugeDisplay = () => {
     if (!regripGauge) {
       regripGaugeLastFrameAt = 0;
-      regripGaugeDisplaySignedDegrees = 0;
+      regripGaugeDisplayDegrees = 0;
       regripGaugeDisplayLabel = null;
+      regripGaugeDisplayActiveLockin = null;
       return;
     }
     regripGaugeDisplayLabel = regripGauge.label ?? regripGaugeDisplayLabel;
-    // New physical progress may move the gauge closer to the 90° lock. Never
-    // pull it backward when the detector rebases after recognizing that lock.
-    regripGaugeDisplaySignedDegrees = Math.max(regripGaugeDisplaySignedDegrees, regripGauge.signedDegrees);
+    regripGaugeDisplayActiveLockin = regripGauge.activeLockin ?? regripGaugeDisplayActiveLockin;
     const now = performance.now();
     const elapsed = regripGaugeLastFrameAt === 0 ? 0 : Math.min(250, now - regripGaugeLastFrameAt);
     regripGaugeLastFrameAt = now;
-    regripGaugeDisplaySignedDegrees = Math.min(
-      0,
-      regripGaugeDisplaySignedDegrees + SMART_CUBE_OFFSET_RADIANS_PER_SECOND * elapsed * 180 / (Math.PI * 1000),
-    );
-    if (regripGaugeDisplaySignedDegrees < -0.01) requestRender();
+    const targetDegrees = Math.max(0, regripGauge.degrees);
+    // Smoothly follow the live gyro sample distance with high responsiveness (tau ~ 60ms)
+    const alpha = elapsed === 0 ? 1 : 1 - Math.exp(-elapsed / 60);
+    regripGaugeDisplayDegrees += (targetDegrees - regripGaugeDisplayDegrees) * alpha;
+    if (Math.abs(regripGaugeDisplayDegrees - targetDegrees) > 0.1) {
+      requestRender();
+    }
   };
 
   const render = () => {

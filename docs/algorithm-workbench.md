@@ -252,21 +252,14 @@ scene: once the cube itself is rotating, a 3D debug vector competing for the sam
 is hard to read at a glance, where a fixed gauge stays legible regardless of camera angle
 or cube motion.
 
-The gauge is a countdown to 0, not a count-up from 0. Its core value,
-`signedDegrees = angleTravelled - 90`, is negative and rises toward 0 as the raw sample
-approaches the exact 90° lock-in point — at the 65°-threshold crossing it reads -25°, the
-same number `regripThresholdDegrees - 90` marks as the dashed ring. Needle length is
-`(signedDegrees + 90) / 90` of the radius, identical geometry to a plain 0-to-90 count-up,
-but the number at the centre and the mental model it invites are different: "how far from
-arriving," not "how far travelled." The needle turns green once it crosses the ring — the
-same instant a regrip fires.
-
-The gauge subtracts 90° from the raw accumulated rotation, so the 65° threshold is shown
-as −25° and the virtual needle then continues toward the 0° lock-in. It never snaps back
-when the raw detector rebases after recognizing a regrip. The rendered cube uses the same
-persistent lock target: its quaternion correction slowly follows the offset required to
-reach the new cardinal U/R/F/D/L/B orientation, capped at 2° per second. Raw packets still
-reach the detector immediately and unmodified.
+The gauge shows the live rotation distance in degrees between the cube's current active
+lock-in position (the settled URFDLB cardinal pose) and the smartcube's relative orientation.
+At rest, the distance is 0° with the needle at the centre. As the cube rotates toward a new
+regrip, the needle extends outward along the direction spoke (`x`, `x'`, `y`, `y'`, `z`, `z'`),
+with the centre text displaying the degrees travelled toward the next 90° pose. The dashed
+ring marks the confirm threshold (65°). Once the needle reaches or crosses the 65° ring,
+it turns green, indicating a regrip has fired. Upon confirming the new cardinal pose, the
+active lock-in position updates and the distance smoothly resets back to 0°.
 
 The first smart-cube event prints `trace enabled`. If it does not, reload after setting
 the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use
