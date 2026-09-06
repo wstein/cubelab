@@ -199,7 +199,7 @@ to silence the trace.
 
 Motion-profile settings are loaded from `/smart-cube/motion-profiles.v1.json` after a
 cube connects. The registry provides a conservative default for unknown hardware and a
-measured GoCube override (25° anchor envelope and 2° maximum correction step). Invalid
+measured GoCube override (25° anchor envelope and 1° maximum correction step). Invalid
 or unavailable server data falls back to the default profile; it never blocks a cube
 connection.
 

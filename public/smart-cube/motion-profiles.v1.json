@@ -13,7 +13,7 @@
       "anchorWindowMs": 700,
       "anchorSamples": 3,
       "maximumAnchorDeviationDegrees": 25,
-      "maximumCorrectionStepDegrees": 2
+      "maximumCorrectionStepDegrees": 1
     }
   }
 }
