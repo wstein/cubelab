@@ -157,11 +157,13 @@ big-cube reachability validation.
 Hovering an outer corner or edge-wing sticker frames its matching stickers across both
 representations, while independent centre stickers deliberately have no false piece frame.
 
-The editor's **Edit with notation** field uses the same parser as **Setup**. Pasting any
-supported state notation replaces the private draft; entering an algorithm, move sequence, or
-cube transformation applies it to the current complete, physically valid draft. This combines
-sticker editing with facelets, colour notation, nets, cubie-state formats, and the configured
-move dialect without changing shareable Setup until **Load** is selected.
+The editor's **Edit with notation** field uses the same parser as **Setup**, one non-empty line
+at a time. A supported state-notation line replaces the private draft; an algorithm, move
+sequence, or cube-transformation line applies to the current complete, physically valid draft.
+Unrecognized prose is treated as a comment, so an annotated script can put an Orbit64 or other
+state on one line and later moves or transformations on subsequent lines. This combines sticker
+editing with facelets, colour notation, nets, cubie-state formats, and the configured move dialect
+without changing shareable Setup until **Load** is selected.
 
 The net also accepts keyboard entry: arrow keys move a focus cursor between stickers,
 wrapping across a 3×3's face boundaries so the cursor keeps moving in the same visual
