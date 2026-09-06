@@ -41,13 +41,15 @@ export const observeTurnAnchor = (
   target: OrientationQuaternion | null;
   stable: boolean;
   reason: "pending" | "settled" | "frame" | "expired" | "moved";
+  deviationRadians: number | null;
 } => {
-  if (anchor.frame !== frame) return {anchor: null, target: null, stable: false, reason: "frame"};
-  if (now > anchor.expiresAt) return {anchor: null, target: null, stable: false, reason: "expired"};
+  if (anchor.frame !== frame) return {anchor: null, target: null, stable: false, reason: "frame", deviationRadians: null};
+  if (now > anchor.expiresAt) return {anchor: null, target: null, stable: false, reason: "expired", deviationRadians: null};
   const delta = deviceOrientationDelta(anchor.baseline, current, frame, "world");
-  if (angularDistance(delta) > maximumDeviationRadians) return {anchor: null, target: null, stable: false, reason: "moved"};
+  const deviationRadians = angularDistance(delta);
+  if (deviationRadians > maximumDeviationRadians) return {anchor: null, target: null, stable: false, reason: "moved", deviationRadians};
   const samples = anchor.samples + 1;
   return samples < dwellSamples
-    ? {anchor: {...anchor, samples}, target: null, stable: false, reason: "pending"}
-    : {anchor: null, target: anchor.target, stable: true, reason: "settled"};
+    ? {anchor: {...anchor, samples}, target: null, stable: false, reason: "pending", deviationRadians}
+    : {anchor: null, target: anchor.target, stable: true, reason: "settled", deviationRadians};
 };

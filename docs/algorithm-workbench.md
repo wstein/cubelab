@@ -176,9 +176,10 @@ large accumulated offset recovers across ordinary turns rather than snapping.
 
 For hardware diagnosis, set `localStorage.cubelab.smartCube.gyroTrace` to `"1"` in
 browser DevTools and reproduce a turn. The console records whether each move opened an
-anchor, the quiet interval, whole-cube motion, regrip settlement, every anchor sample,
-and whether the renderer applied or rejected its correction. Remove the key (or set it
-to another value) to silence the trace.
+anchor, regrip settlement, every anchor sample, and whether the renderer applied or
+rejected its correction. Anchor samples include raw baseline/current quaternions and
+their angular deviation; corrections include target error and actual correction-step
+degrees. Remove the key (or set it to another value) to silence the trace.
 
 The first smart-cube event prints `trace enabled`. If it does not, reload after setting
 the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use

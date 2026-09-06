@@ -722,7 +722,7 @@ export type CubeViewport = {
   stabilizeDeviceOrientation: (
     target: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
-  ) => boolean;
+  ) => {applied: boolean; targetErrorRadians: number | null; correctionStepRadians: number};
   setAutoOrbit: (enabled: boolean) => void;
   setDialogOpen: (open: boolean) => void;
   resetCamera: () => void;
@@ -1878,16 +1878,26 @@ export const createCubeViewport = (
       requestRender();
     },
     stabilizeDeviceOrientation(target, coordinateFrame = "viewport") {
-      if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) return false;
-      deviceOrientationCorrection = stabilizedOrientationCorrection(
-        deviceOrientationCorrection,
+      if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) {
+        return {applied: false, targetErrorRadians: null, correctionStepRadians: 0};
+      }
+      const raw = deviceOrientationDelta(deviceOrientationBase, deviceOrientation, coordinateFrame, "world");
+      const priorCorrection = deviceOrientationCorrection ?? {x: 0, y: 0, z: 0, w: 1};
+      const rendered = multiplyQuaternions(priorCorrection, raw);
+      const nextCorrection = stabilizedOrientationCorrection(
+        priorCorrection,
         deviceOrientationBase,
         deviceOrientation,
         target,
         coordinateFrame,
       );
+      deviceOrientationCorrection = nextCorrection;
       requestRender();
-      return true;
+      return {
+        applied: true,
+        targetErrorRadians: orientationDistanceRadians(rendered, target),
+        correctionStepRadians: orientationDistanceRadians(priorCorrection, nextCorrection),
+      };
     },
     setAutoOrbit(enabled) {
       if (deviceOrientation && enabled) enabled = false;

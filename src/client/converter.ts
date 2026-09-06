@@ -4772,6 +4772,7 @@ if (root) {
           && !smartCubeRecording
           && !smartCubeRecordingTapePresented
         ) {
+          const anchorBaseline = smartCubeTurnAnchor.baseline;
           const anchored = observeTurnAnchor(
             smartCubeTurnAnchor,
             event.quaternion,
@@ -4782,11 +4783,21 @@ if (root) {
           traceSmartCubeStabilization("anchor sample", {
             reason: anchored.reason,
             samples: anchored.anchor?.samples ?? 3,
+            deviationDegrees: anchored.deviationRadians === null
+              ? null
+              : Number((anchored.deviationRadians * 180 / Math.PI).toFixed(2)),
+            baseline: anchorBaseline,
+            current: event.quaternion,
           });
           if (anchored.stable && anchored.target) {
-            const applied = viewport?.stabilizeDeviceOrientation(anchored.target, event.coordinateFrame) ?? false;
-            traceSmartCubeStabilization(applied ? "correction applied" : "correction rejected", {
+            const result = viewport?.stabilizeDeviceOrientation(anchored.target, event.coordinateFrame)
+              ?? {applied: false, targetErrorRadians: null, correctionStepRadians: 0};
+            traceSmartCubeStabilization(result.applied ? "correction applied" : "correction rejected", {
               target: anchored.target,
+              targetErrorDegrees: result.targetErrorRadians === null
+                ? null
+                : Number((result.targetErrorRadians * 180 / Math.PI).toFixed(2)),
+              correctionStepDegrees: Number((result.correctionStepRadians * 180 / Math.PI).toFixed(2)),
             });
           }
         }
