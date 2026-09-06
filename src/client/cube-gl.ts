@@ -1515,9 +1515,8 @@ export const createCubeViewport = (
       {label: "z'", angle: (5 * Math.PI) / 6},
       {label: "x", angle: -(5 * Math.PI) / 6},
     ];
-    // Both are signed degrees-remaining-until-0; +90 maps the -90..0 range
-    // onto the 0..1 radius fraction (-90 at the centre, 0 at full radius).
-    const toFraction = (signedDegrees: number) => Math.max(0, Math.min(1, (signedDegrees + 90) / 90));
+    // -90° starts at the outer edge; 0° is the lock-in point at the centre.
+    const toFraction = (signedDegrees: number) => Math.max(0, Math.min(1, -signedDegrees / 90));
     overlay.save();
     overlay.fillStyle = "rgba(8, 15, 30, 0.55)";
     overlay.beginPath();
@@ -1631,7 +1630,7 @@ export const createCubeViewport = (
       const targetOffset = multiplyQuaternions(deviceOrientationLockTarget, inverseQuaternion(rawOrientation));
       if (deviceOrientationOffset === null) {
         deviceOrientationOffset = targetOffset;
-      } else {
+      } else if (deviceOrientationCorrectionFrame === null) {
         deviceOrientationOffset = followSmartCubeOrientationOffset(
           deviceOrientationOffset,
           targetOffset,
@@ -1643,9 +1642,7 @@ export const createCubeViewport = (
     const driftCorrectedOrientation = rawOrientation && deviceOrientationOffset
       ? multiplyQuaternions(deviceOrientationOffset, rawOrientation)
       : rawOrientation;
-    const relativeOrientation = driftCorrectedOrientation && deviceOrientationCorrection
-      ? multiplyQuaternions(deviceOrientationCorrection, driftCorrectedOrientation)
-      : driftCorrectedOrientation;
+    const relativeOrientation = driftCorrectedOrientation;
     const aspect = width / height;
     const matrices = cameraMatrices(
       aspect,
@@ -1903,16 +1900,17 @@ export const createCubeViewport = (
     });
   };
 
+  /** Animate the initial 65° regrip lock-in, then resume the 2°/s drift follow. */
   const animateDeviceOrientationCorrectionTo = (target: OrientationQuaternion, duration = 180) => {
     const generation = ++deviceOrientationCorrectionGeneration;
-    const start = deviceOrientationCorrection ?? {x: 0, y: 0, z: 0, w: 1};
+    const start = deviceOrientationOffset ?? {x: 0, y: 0, z: 0, w: 1};
     const started = performance.now();
     const safeDuration = Math.max(1, duration);
     const tick = (now: number) => {
       if (disposed || generation !== deviceOrientationCorrectionGeneration) return;
       const progress = Math.min(1, (now - started) / safeDuration);
       const eased = 1 - (1 - progress) ** 3;
-      deviceOrientationCorrection = slerpQuaternion(start, target, eased);
+      deviceOrientationOffset = slerpQuaternion(start, target, eased);
       requestRender();
       deviceOrientationCorrectionFrame = progress < 1 ? window.requestAnimationFrame(tick) : null;
     };
@@ -2083,7 +2081,12 @@ export const createCubeViewport = (
       deviceOrientation = normalized;
       deviceOrientationLockTarget = normalizedQuaternion(target);
       deviceOrientationCorrection = null;
-      deviceOrientationCorrectionGeneration += 1;
+      const raw = deviceOrientationBase
+        ? deviceOrientationDelta(deviceOrientationBase, normalized, coordinateFrame, "world")
+        : {x: 0, y: 0, z: 0, w: 1};
+      animateDeviceOrientationCorrectionTo(
+        multiplyQuaternions(deviceOrientationLockTarget, inverseQuaternion(raw)),
+      );
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
     },
