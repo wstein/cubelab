@@ -178,6 +178,10 @@ anchor, the quiet interval, whole-cube motion, regrip settlement, every anchor s
 and whether the renderer applied or rejected its correction. Remove the key (or set it
 to another value) to silence the trace.
 
+The first smart-cube event prints `trace enabled`. If it does not, reload after setting
+the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use
+a hard reload or restart the development server before reproducing the issue.
+
 ## Browser integration
 
 The action ribbon below the input exposes **Invert**, **Simplify**, **Factor structure**,

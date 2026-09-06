@@ -2230,9 +2230,16 @@ if (root) {
   let smartCubeDiscreteOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeTurnAnchor: TurnAnchor | null = null;
   let smartCubeOrientationLastMovedAt = 0;
+  let smartCubeStabilizationTraceAnnounced = false;
   const traceSmartCubeStabilization = (event: string, detail: Record<string, unknown>) => {
     if (window.localStorage.getItem("cubelab.smartCube.gyroTrace") !== "1") return;
-    console.debug(`[SmartCube stabilization] ${event}`, detail);
+    if (!smartCubeStabilizationTraceAnnounced) {
+      smartCubeStabilizationTraceAnnounced = true;
+      console.info("[SmartCube stabilization] trace enabled", {
+        hint: "Set cubelab.smartCube.gyroTrace to any other value to disable.",
+      });
+    }
+    console.info(`[SmartCube stabilization] ${event}`, detail);
   };
   // During a recording session the physical cube is an input device. Keep a
   // separate virtual state so incoming facelet packets cannot repaint the
