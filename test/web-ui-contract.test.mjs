@@ -710,6 +710,7 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
 
 test("the viewport compacts within a narrow studio column", () => {
   assert.match(styles, /\.viewport-panel[\s\S]*container-type: inline-size/);
+  assert.match(styles, /\.smart-cube-dock[\s\S]*flex-wrap: wrap/);
   assert.match(styles, /@container \(max-width: 36rem\)[\s\S]*\.smart-cube-dock[\s\S]*flex-wrap: wrap/);
   assert.match(styles, /@container \(max-width: 36rem\)[\s\S]*\.playback-controls[\s\S]*flex-direction: column/);
 });

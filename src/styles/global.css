@@ -365,6 +365,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .smart-cube-dock {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.55rem;
   min-height: 2.75rem;
   padding: 0.5rem 1rem;
@@ -414,6 +415,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .smart-cube-status {
+  flex: 1 1 14rem;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
