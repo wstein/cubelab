@@ -4711,6 +4711,7 @@ if (root) {
           && !smartCubeRecordingTapePresented
           && latestSmartCubeOrientation
           && smartCubeDiscreteOrientationTracker
+          && smartCubeDiscreteOrientationTracker.candidate === null
         );
         if (anchorEligible) {
           smartCubeTurnAnchor = createTurnAnchor(
@@ -4732,6 +4733,7 @@ if (root) {
             tapePresented: smartCubeRecordingTapePresented,
             hasOrientation: latestSmartCubeOrientation !== null,
             hasDiscretePose: smartCubeDiscreteOrientationTracker !== null,
+            pendingRegrip: smartCubeDiscreteOrientationTracker?.candidate !== null,
           });
         }
         const record: QueuedSmartCubeMove = {move: event.move, state: null};
