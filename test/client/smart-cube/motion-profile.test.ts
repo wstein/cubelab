@@ -14,10 +14,19 @@ describe("smart-cube motion profiles", () => {
     expect(motionProfileFor(registry, "gocube").orientationRingSamples).toBe(3);
     expect(motionProfileFor(registry, "gocube").rotationDropPreviousSamples).toBe(2);
     expect(motionProfileFor(registry, "gocube").rotationDropFollowingSamples).toBe(2);
+    expect(motionProfileFor(registry, "gocube").maximumTargetErrorDegrees).toBe(defaultMotionProfile.maximumTargetErrorDegrees);
     expect(motionProfileFor(registry, "gan")).toEqual(defaultMotionProfile);
   });
 
   test("rejects malformed server data", () => {
     expect(parseMotionProfileRegistry({version: 1, default: {label: "bad"}, profiles: {}})).toBeNull();
+  });
+
+  test("rejects a non-positive maximum target error", () => {
+    expect(parseMotionProfileRegistry({
+      version: 1,
+      default: {...defaultMotionProfile, maximumTargetErrorDegrees: 0},
+      profiles: {},
+    })).toBeNull();
   });
 });

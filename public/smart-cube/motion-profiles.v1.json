@@ -7,7 +7,8 @@
     "rotationDropThresholdDegrees": 5,
     "rotationDropPreviousSamples": 2,
     "rotationDropFollowingSamples": 2,
-    "correctionErrorDivisor": 5
+    "correctionErrorDivisor": 5,
+    "maximumTargetErrorDegrees": 20
   },
   "profiles": {
     "gocube": {
@@ -16,7 +17,8 @@
       "rotationDropThresholdDegrees": 5,
       "rotationDropPreviousSamples": 2,
       "rotationDropFollowingSamples": 2,
-      "correctionErrorDivisor": 5
+      "correctionErrorDivisor": 5,
+      "maximumTargetErrorDegrees": 20
     }
   }
 }
