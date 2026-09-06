@@ -4792,9 +4792,6 @@ if (root) {
           quaternion: event.quaternion,
           coordinateFrame: event.coordinateFrame,
         };
-        if (smartCubeOrientationTracking && !smartCubeRecording && !smartCubeRecordingTapePresented) {
-          viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
-        }
         if (smartCubeDiscreteOrientationTracker === null) {
           smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
             event.quaternion,
