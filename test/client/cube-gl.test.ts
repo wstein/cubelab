@@ -271,19 +271,20 @@ describe("cube viewport math", () => {
       {x: 0, y: 0, z: half, w: half},
       "gocube-wire",
     );
-    // See deviceOrientationDelta's "gocube-wire" branch: X and Z are mounted
-    // flipped relative to the display basis, Y is not — no axis permutation.
-    expect(aroundSensorX.x).toBeCloseTo(-half);
+    // See deviceOrientationDelta's "gocube-wire" branch: 180° around Y
+    // combined with inverted sensor rotation direction maps raw (rx, ry, rz)
+    // to (rx, -ry, rz).
+    expect(aroundSensorX.x).toBeCloseTo(half);
     expect(aroundSensorX.y).toBeCloseTo(0);
     expect(aroundSensorX.z).toBeCloseTo(0);
 
     expect(aroundSensorY.x).toBeCloseTo(0);
-    expect(aroundSensorY.y).toBeCloseTo(-half);
+    expect(aroundSensorY.y).toBeCloseTo(half);
     expect(aroundSensorY.z).toBeCloseTo(0);
 
     expect(aroundSensorZ.x).toBeCloseTo(0);
     expect(aroundSensorZ.y).toBeCloseTo(0);
-    expect(aroundSensorZ.z).toBeCloseTo(-half);
+    expect(aroundSensorZ.z).toBeCloseTo(half);
   });
 
   test("maps GAN wire sensor axes (X: Red, Y: Blue, Z: White) to canonical viewport axes", () => {

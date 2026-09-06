@@ -708,10 +708,14 @@ export const deviceOrientationDelta = (
     // above, not against that reference, and should be re-derived from a
     // fresh hardware test (not from bluez-gatt-recorder) if it's ever found
     // wrong again.
+    // All three rotation directions are negated relative to the physical hand
+    // turn direction (producing y instead of y', etc.). Flipping the overall
+    // rotation sign inverts the vector part, giving (rx, -ry, rz) from the
+    // previous (-rx, ry, -rz).
     return normalizedQuaternion({
-      x: -rawDelta.x,
-      y: rawDelta.y,
-      z: -rawDelta.z,
+      x: rawDelta.x,
+      y: -rawDelta.y,
+      z: rawDelta.z,
       w: rawDelta.w,
     });
   }
