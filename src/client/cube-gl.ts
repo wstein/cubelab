@@ -16,12 +16,12 @@ export type CubeStyle = "Standard" | "Speed";
 export type CubePalette = "Western" | "Japanese";
 export type CubeState = { size: number; facelets: string[][] };
 export const standardStickerFinish = {
-  keyPeak: 0.26,
-  keyFill: 0.04,
-  fillPeak: 0.12,
-  fillFill: 0.02,
-  bounce: 0.03,
-  rim: 0.08,
+  keyPeak: 0.34,
+  keyFill: 0.12,
+  fillPeak: 0.18,
+  fillFill: 0.07,
+  bounce: 0.07,
+  rim: 0.14,
 } as const;
 export type CubieFocus = {
   piece: string;
@@ -61,34 +61,19 @@ export type TurnGuide = {
 };
 
 /**
- * Live readout for gyro regrip detection: how many degrees the raw device
- * orientation has travelled from the tracker's last confirmed pose (0 at
- * rest, rising toward 90 at the next lock-in), which of the six quarter-turn
- * directions it is heading toward, and the confirm threshold on the same
- * scale (e.g. 65). Drawn as a fixed 2D HUD rather than a 3D arrow — a 3D
- * vector gets hard to read once the cube itself is rotating in front of the
- * camera.
+ * Live readout for gyro regrip detection: how many degrees remain until the
+ * raw device orientation reaches the exact 90° lock-in point (signed, so 0 is
+ * "arrived" and it counts up from a negative starting value), which of the
+ * six quarter-turn directions it is heading toward, and the confirm
+ * threshold expressed the same way. Drawn as a fixed 2D HUD rather than a 3D
+ * arrow — a 3D vector gets hard to read once the cube itself is rotating in
+ * front of the camera.
  */
 export type RegripGaugeState = {
-  /**
-   * Degrees travelled since the last confirmed pose, for the needle's
-   * length: 0 at rest, rising toward 90. This includes the tracker's own
-   * pendingCarryoverDegrees (negated) on top of its raw delta, so it is NOT
-   * the same value the detector compares to the threshold — see `crossed`
-   * for that.
-   */
-  degrees: number;
-  /** Where the confirm threshold sits on the same scale, e.g. 65, for the dashed ring. */
-  thresholdDegrees: number;
-  /**
-   * Whether the detector's own raw value (no carryover) has actually
-   * crossed thresholdDegrees — i.e. whether a regrip is really about to
-   * fire. Deliberately separate from `degrees >= thresholdDegrees`: with
-   * carryover included, the needle can visually reach the ring before the
-   * real trigger condition is true, which would make the needle's colour
-   * lie about whether a regrip is actually about to confirm.
-   */
-  crossed: boolean;
+  /** Degrees remaining until the 90° mark: negative, rising toward 0. */
+  signedDegrees: number;
+  /** Where the confirm threshold sits on the same scale, e.g. -25 for 65°. */
+  signedThresholdDegrees: number;
   label: string | null;
 } | null;
 
@@ -178,34 +163,34 @@ const fragmentShaderSource = `
     vec3 normal = normalize(vNormal);
     vec3 view = normalize(-vPosition);
 
-    // Studio product lighting in camera view space: balanced, high-CRI
-    // neutral illumination so every sticker color (including red, orange,
-    // and yellow) stays true, vibrant, and clean from any viewing angle.
-    vec3 keyDir = normalize(vec3(-0.48, 0.72, 0.52));
-    vec3 fillDir = normalize(vec3(0.64, 0.38, 0.62));
-    vec3 bounceDir = normalize(vec3(0.0, -0.78, 0.62));
-    vec3 rimDir = normalize(vec3(-0.32, 0.54, -0.78));
+    // Three-point product-studio lighting in camera view space. The key gives
+    // the cube shape, the cooler fill protects dark-facing sticker colours,
+    // and the rim separates the silhouette from the dark application canvas.
+    vec3 keyDir = normalize(vec3(-0.46, 0.76, 0.64));
+    vec3 fillDir = normalize(vec3(0.68, 0.36, 0.56));
+    vec3 rimDir = normalize(vec3(-0.28, 0.58, -0.76));
+    vec3 bounceDir = normalize(vec3(0.14, -0.32, 0.46));
 
-    vec3 keyCol = vec3(1.0, 0.99, 0.97);
-    vec3 fillCol = vec3(0.96, 0.98, 1.0);
-    vec3 bounceCol = vec3(0.98, 0.96, 0.94);
-    vec3 rimCol = vec3(0.90, 0.94, 1.0);
+    vec3 keyCol = vec3(1.0, 0.96, 0.90);
+    vec3 fillCol = vec3(0.72, 0.84, 1.0);
+    vec3 rimCol = vec3(0.60, 0.72, 1.0);
+    vec3 bounceCol = vec3(0.42, 0.48, 0.60);
 
     float keyDiff = max(dot(normal, keyDir), 0.0);
     float fillDiff = max(dot(normal, fillDir), 0.0);
-    float bounceDiff = max(dot(normal, bounceDir), 0.0);
     float rimDiff = max(dot(normal, rimDir), 0.0);
+    float bounceDiff = max(dot(normal, bounceDir), 0.0);
 
-    // Neutral studio ambient keeps shadow-facing stickers legible without color casts.
-    vec3 lowerAmbient = vec3(0.26, 0.25, 0.25);
-    vec3 upperAmbient = vec3(0.30, 0.31, 0.32);
+    // A cool, subdued hemisphere retains form without washing out colours.
+    vec3 lowerAmbient = vec3(0.10, 0.12, 0.16);
+    vec3 upperAmbient = vec3(0.20, 0.22, 0.28);
     vec3 ambient = mix(lowerAmbient, upperAmbient, normal.y * 0.5 + 0.5);
 
     vec3 diffuseLight = ambient
-      + keyCol * (0.44 * keyDiff)
-      + fillCol * (0.28 * fillDiff)
-      + bounceCol * (0.22 * bounceDiff)
-      + rimCol * (0.14 * rimDiff);
+      + keyCol * (0.54 * keyDiff)
+      + fillCol * (0.25 * fillDiff)
+      + rimCol * (0.14 * rimDiff)
+      + bounceCol * (0.06 * bounceDiff);
 
     vec3 halfKey = normalize(keyDir + view);
     vec3 halfFill = normalize(fillDir + view);
@@ -220,27 +205,26 @@ const fragmentShaderSource = `
     float body = charcoalBody;
     float isStandardSticker = (1.0 - body) * (1.0 - uSpeedStyle);
 
-    // Mid-gloss vinyl: focused studio softbox reflection without bleaching sticker pigment.
-    vec3 specKeySticker = keyCol * (${standardStickerFinish.keyPeak} * pow(dotKey, 84.0) + ${standardStickerFinish.keyFill} * pow(dotKey, 36.0));
-    vec3 specFillSticker = fillCol * (${standardStickerFinish.fillPeak} * pow(dotFill, 54.0) + ${standardStickerFinish.fillFill} * pow(dotFill, 24.0));
-    vec3 specBounceSticker = bounceCol * (${standardStickerFinish.bounce} * pow(dotRim, 36.0));
-    // Soft dielectric Fresnel edge reflection.
-    float vinylFresnel = pow(1.0 - max(dot(normal, view), 0.0), 3.0);
-    vec3 specRimSticker = rimCol * (${standardStickerFinish.rim} * vinylFresnel);
+    // Mid-gloss vinyl: a broad key softbox and smaller cool fill reflection.
+    vec3 specKeySticker = keyCol * (${standardStickerFinish.keyPeak} * pow(dotKey, 68.0) + ${standardStickerFinish.keyFill} * pow(dotKey, 22.0));
+    vec3 specFillSticker = fillCol * (${standardStickerFinish.fillPeak} * pow(dotFill, 42.0) + ${standardStickerFinish.fillFill} * pow(dotFill, 15.0));
+    vec3 specBounceSticker = bounceCol * (${standardStickerFinish.bounce} * pow(dotRim, 28.0));
+    // A soft dielectric edge rather than a mirror-like rim reflection.
+    float vinylFresnel = pow(1.0 - max(dot(normal, view), 0.0), 2.5);
+    vec3 specRimSticker = mix(rimCol, fillCol, 0.4) * (${standardStickerFinish.rim} * vinylFresnel);
     vec3 stickerSpecular = specKeySticker + specFillSticker + specBounceSticker + specRimSticker;
-
     // --- Matte Charcoal Body Plastic Specular ---
-    vec3 bodySpecular = keyCol * (0.15 * pow(dotKey, 24.0)) + fillCol * (0.08 * pow(dotFill, 16.0));
+    vec3 bodySpecular = keyCol * (0.12 * pow(dotKey, 16.0)) + fillCol * (0.06 * pow(dotFill, 12.0));
 
     // --- Speed Cube (Stickerless Semi-Matte Plastic) Specular ---
-    vec3 speedSpecular = keyCol * (0.10 * pow(dotKey, 36.0)) + fillCol * (0.05 * pow(dotFill, 24.0));
+    vec3 speedSpecular = keyCol * (0.20 * pow(dotKey, 28.0)) + fillCol * (0.11 * pow(dotFill, 20.0));
 
     // Blend specular based on surface type
     vec3 baseSpec = mix(speedSpecular, bodySpecular, body);
     vec3 specular = mix(baseSpec, stickerSpecular, isStandardSticker);
 
-    // Speed cube rolled edge sheen: natural edge light catch without radioactive glow in shadow.
-    vec3 rolledSheen = vColour.rgb * vSheen * (0.08 + 0.32 * rimDiff + 0.18 * fillDiff);
+    // Speed cube rolled edge sheen
+    vec3 rolledSheen = vColour.rgb * vSheen * (0.42 + 0.58 * rimDiff);
 
     // Combine diffuse and specular with soft highlight compression
     vec3 lit = vColour.rgb * diffuseLight + rolledSheen + specular;
@@ -404,7 +388,7 @@ export const pngBlobFromDataUrl = (dataUrl: string): Blob | null => {
   try {
     const binary = atob(match[1]);
     const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-    return new Blob([bytes], { type: "image/png" });
+    return new Blob([bytes], {type: "image/png"});
   } catch {
     return null;
   }
@@ -500,13 +484,6 @@ export const cameraTween = (start: number, target: number, progress: number): nu
 
 export type OrientationQuaternion = { x: number; y: number; z: number; w: number };
 export type OrientationCoordinateFrame = "viewport" | "gocube-wire" | "gan-wire";
-export type VirtualLockInState = {
-  rawGyro: OrientationQuaternion | null;
-  rawBase: OrientationQuaternion | null;
-  lockTarget: OrientationQuaternion;
-  correctionOffset: OrientationQuaternion | null;
-  lastOffsetUpdateAt: number | null;
-};
 
 const normalizedQuaternion = (quaternion: OrientationQuaternion): OrientationQuaternion => {
   const length = Math.hypot(quaternion.x, quaternion.y, quaternion.z, quaternion.w) || 1;
@@ -520,7 +497,7 @@ const normalizedQuaternion = (quaternion: OrientationQuaternion): OrientationQua
 
 const inverseQuaternion = (quaternion: OrientationQuaternion): OrientationQuaternion => {
   const normalized = normalizedQuaternion(quaternion);
-  return { x: -normalized.x, y: -normalized.y, z: -normalized.z, w: normalized.w };
+  return {x: -normalized.x, y: -normalized.y, z: -normalized.z, w: normalized.w};
 };
 
 /** Smallest SO(3) angle between two normalized orientation quaternions. */
@@ -536,12 +513,12 @@ export const orientationDistanceRadians = (
 
 export const quaternionAxisAngle = (
   quaternion: OrientationQuaternion,
-): { axis: [number, number, number]; radians: number } => {
+): {axis: [number, number, number]; radians: number} => {
   const normalized = normalizedQuaternion(quaternion);
   const sign = normalized.w < 0 ? -1 : 1;
   const w = normalized.w * sign;
   const sine = Math.hypot(normalized.x, normalized.y, normalized.z);
-  if (sine < 1e-8) return { axis: [0, 0, 0], radians: 0 };
+  if (sine < 1e-8) return {axis: [0, 0, 0], radians: 0};
   return {
     axis: [normalized.x * sign / sine, normalized.y * sign / sine, normalized.z * sign / sine],
     radians: 2 * Math.acos(Math.min(1, w)),
@@ -593,11 +570,10 @@ export const followSmartCubeOrientationOffset = (
   offset: OrientationQuaternion,
   targetOffset: OrientationQuaternion,
   elapsedMs: number,
-  radiansPerSecond = SMART_CUBE_OFFSET_RADIANS_PER_SECOND,
 ): OrientationQuaternion => {
   const distance = orientationDistanceRadians(offset, targetOffset);
   if (distance < 1e-8) return normalizedQuaternion(targetOffset);
-  const maxStep = radiansPerSecond * Math.max(0, elapsedMs) / 1000;
+  const maxStep = SMART_CUBE_OFFSET_RADIANS_PER_SECOND * Math.max(0, elapsedMs) / 1000;
   return slerpQuaternion(offset, targetOffset, Math.min(1, maxStep / distance));
 };
 
@@ -690,34 +666,13 @@ export const deviceOrientationDelta = (
     ? relativeQuaternion(base, current)
     : relativeQuaternionLocal(base, current);
   if (frame === "gocube-wire") {
-    // Sensor axes X and Z are mounted flipped relative to the display basis;
-    // Y is not. Equivalent to conjugating the raw delta's vector part by a
-    // pure 180° rotation about Y (which flips X and Z, leaves Y), with no
-    // axis permutation. This is the direct read of a live hardware test on a
-    // real GoCube: 180° CW then CCW turns around each of the three BOY-corner
-    // axes (White = display Y/U-axis, Red = display X/R-axis, Green =
-    // display Z/F-axis) were performed in sequence and the resulting
-    // x/x/x'/x', z/z', y'/y'/y token pattern only fits this formula — not a
-    // 3-cycle permutation. An earlier version of this comment cited a 3-cycle
-    // "sensor axes -y,-z,+x, inverted" basis transcribed from bluez-gatt-
-    // recorder's AxisCalibration; that turned out not to transfer directly,
-    // most likely because that project's own raw-wire byte parsing assigns
-    // x/y/z to a different component order than fast-gocube.ts's does, so its
-    // axis labels don't line up component-for-component with this app's
-    // true-raw quaternion. This formula is verified against the live test
-    // above, not against that reference, and should be re-derived from a
-    // fresh hardware test (not from bluez-gatt-recorder) if it's ever found
-    // wrong again.
-    // All three rotation directions are negated relative to the physical hand
-    // turn direction (producing y instead of y', etc.). Flipping the overall
-    // rotation sign inverts the vector part, giving (rx, -ry, rz) from the
-    // previous (-rx, ry, -rz).
-    return normalizedQuaternion({
-      x: rawDelta.x,
-      y: -rawDelta.y,
-      z: rawDelta.z,
-      w: rawDelta.w,
-    });
+    // 1. Invert rotation direction
+    const directed = { x: -rawDelta.x, y: -rawDelta.y, z: -rawDelta.z, w: rawDelta.w };
+    // 2. Basis transformation: 180° around Y (Q_basis = { x: 0, y: 1, z: 0, w: 0 })
+    const qBasis = { x: 0, y: 1, z: 0, w: 0 };
+    return normalizedQuaternion(
+      multiplyQuaternions(multiplyQuaternions(qBasis, directed), { x: 0, y: -1, z: 0, w: 0 }),
+    );
   }
   if (frame === "gan-wire") {
     return normalizedQuaternion({
@@ -901,13 +856,12 @@ export const createCubeViewport = (
   let turnGuide: TurnGuide | null = null;
   let moveRibbon: TurnGuide | null = null;
   let regripGauge: RegripGaugeState = null;
-  // Displayed copy of regripGauge's degrees/label: direct, unsmoothed. The
-  // value itself is already drift-corrected inside the tracker (see
-  // RegripGaugeState.degrees), so there is no discontinuity left to smooth
-  // over here.
-  let regripGaugeDisplayDegrees = 0;
+  // A persistent virtual progress value: after the 65° threshold it keeps
+  // floating toward the 90° lock-in rather than snapping back when the raw
+  // detector rebases for the next physical regrip.
+  let regripGaugeDisplaySignedDegrees = 0;
   let regripGaugeDisplayLabel: string | null = null;
-  let regripGaugeDisplayCrossed = false;
+  let regripGaugeLastFrameAt = 0;
   let turnFrame: number | null = null;
   let turnGeneration = 0;
   let autoOrbit = false;
@@ -919,10 +873,7 @@ export const createCubeViewport = (
   let deviceOrientation: OrientationQuaternion | null = null;
   let deviceOrientationOffset: OrientationQuaternion | null = null;
   let deviceOrientationOffsetUpdatedAt: number | null = null;
-  let deviceOrientationLockTarget: OrientationQuaternion = { x: 0, y: 0, z: 0, w: 1 };
-  // This is intentionally separate from raw gyro input: it is the only
-  // orientation rendered to the cube, and changes only on a confirmed regrip.
-  let deviceOrientationRendered: OrientationQuaternion = { x: 0, y: 0, z: 0, w: 1 };
+  let deviceOrientationLockTarget: OrientationQuaternion = {x: 0, y: 0, z: 0, w: 1};
   // The correction actually being drawn this frame; only animateDeviceOrientationCorrectionTo
   // may write it.
   let deviceOrientationCorrection: OrientationQuaternion | null = null;
@@ -1504,7 +1455,7 @@ export const createCubeViewport = (
             if (((turnGuide.step.turns % 4) + 4) % 4 === 2) {
               const points = bestFaces[0]!.points
                 .map((point) => projectPoint(point, matrices.modelView, matrices.projection, width, height))
-                .filter(({ inFront }) => inFront);
+                .filter(({inFront}) => inFront);
               if (points.length >= 3) {
                 const middle = Math.floor(points.length / 2);
                 const anchor = points[middle]!;
@@ -1543,12 +1494,11 @@ export const createCubeViewport = (
 
   /**
    * Fixed 2D HUD for gyro regrip detection: a hexagon of the six quarter-turn
-   * directions, a ring at the confirm threshold, and a needle counting up
-   * from the centre (0°, at rest right after a regrip) toward the outer edge
-   * (90°, the next lock-in point) as the raw orientation travels, toward
-   * whichever direction it's heading. Deliberately screen-fixed rather than a
-   * 3D arrow — once the cube itself is rotating, a 3D debug vector is hard to
-   * read against it.
+   * directions, a ring at the confirm threshold, and a needle counting down
+   * to 0 (the exact 90° lock-in point) as the raw orientation approaches it,
+   * toward whichever direction it's heading. Deliberately screen-fixed rather
+   * than a 3D arrow — once the cube itself is rotating, a 3D debug vector is
+   * hard to read against it.
    */
   const drawRegripGauge = (width: number, height: number) => {
     if (!overlay || !regripGauge) return;
@@ -1557,16 +1507,17 @@ export const createCubeViewport = (
     const radius = 46 * dpr;
     const cx = width - radius - 24 * dpr;
     const cy = height - radius - 24 * dpr;
-    const spokes: Array<{ label: string; angle: number }> = [
-      { label: "y", angle: -Math.PI / 2 },
-      { label: "z", angle: -Math.PI / 6 },
-      { label: "x'", angle: Math.PI / 6 },
-      { label: "y'", angle: Math.PI / 2 },
-      { label: "z'", angle: (5 * Math.PI) / 6 },
-      { label: "x", angle: -(5 * Math.PI) / 6 },
+    const spokes: Array<{label: string; angle: number}> = [
+      {label: "y", angle: -Math.PI / 2},
+      {label: "z", angle: -Math.PI / 6},
+      {label: "x'", angle: Math.PI / 6},
+      {label: "y'", angle: Math.PI / 2},
+      {label: "z'", angle: (5 * Math.PI) / 6},
+      {label: "x", angle: -(5 * Math.PI) / 6},
     ];
-    // 0° rests at the centre; 90° (the lock-in point) is the outer edge.
-    const toFraction = (degrees: number) => Math.max(0, Math.min(1, degrees / 90));
+    // Both are signed degrees-remaining-until-0; +90 maps the -90..0 range
+    // onto the 0..1 radius fraction (-90 at the centre, 0 at full radius).
+    const toFraction = (signedDegrees: number) => Math.max(0, Math.min(1, (signedDegrees + 90) / 90));
     overlay.save();
     overlay.fillStyle = "rgba(8, 15, 30, 0.55)";
     overlay.beginPath();
@@ -1589,7 +1540,7 @@ export const createCubeViewport = (
         cy + Math.sin(spoke.angle) * (radius + 11 * dpr),
       );
     });
-    const thresholdFraction = toFraction(regripGauge.thresholdDegrees);
+    const thresholdFraction = toFraction(regripGauge.signedThresholdDegrees);
     overlay.strokeStyle = "rgba(251, 191, 36, 0.75)";
     overlay.setLineDash([3 * dpr, 3 * dpr]);
     overlay.beginPath();
@@ -1598,8 +1549,8 @@ export const createCubeViewport = (
     overlay.setLineDash([]);
     const spoke = spokes.find((candidate) => candidate.label === regripGaugeDisplayLabel);
     if (spoke) {
-      const fraction = toFraction(regripGaugeDisplayDegrees);
-      const crossed = regripGaugeDisplayCrossed;
+      const fraction = toFraction(regripGaugeDisplaySignedDegrees);
+      const crossed = regripGaugeDisplaySignedDegrees >= regripGauge.signedThresholdDegrees;
       const needleColour = crossed ? "#4ade80" : "#67e8f9";
       overlay.strokeStyle = needleColour;
       overlay.fillStyle = needleColour;
@@ -1617,20 +1568,29 @@ export const createCubeViewport = (
     overlay.font = `600 ${9 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
     overlay.textAlign = "center";
     overlay.textBaseline = "middle";
-    overlay.fillText(`${Math.round(regripGaugeDisplayDegrees)}°`, cx, cy);
+    overlay.fillText(`${Math.round(regripGaugeDisplaySignedDegrees)}°`, cx, cy);
     overlay.restore();
   };
 
   const stepRegripGaugeDisplay = () => {
     if (!regripGauge) {
-      regripGaugeDisplayDegrees = 0;
+      regripGaugeLastFrameAt = 0;
+      regripGaugeDisplaySignedDegrees = 0;
       regripGaugeDisplayLabel = null;
-      regripGaugeDisplayCrossed = false;
       return;
     }
     regripGaugeDisplayLabel = regripGauge.label ?? regripGaugeDisplayLabel;
-    regripGaugeDisplayDegrees = Math.max(0, Math.min(90, regripGauge.degrees));
-    regripGaugeDisplayCrossed = regripGauge.crossed;
+    // New physical progress may move the gauge closer to the 90° lock. Never
+    // pull it backward when the detector rebases after recognizing that lock.
+    regripGaugeDisplaySignedDegrees = Math.max(regripGaugeDisplaySignedDegrees, regripGauge.signedDegrees);
+    const now = performance.now();
+    const elapsed = regripGaugeLastFrameAt === 0 ? 0 : Math.min(250, now - regripGaugeLastFrameAt);
+    regripGaugeLastFrameAt = now;
+    regripGaugeDisplaySignedDegrees = Math.min(
+      0,
+      regripGaugeDisplaySignedDegrees + SMART_CUBE_OFFSET_RADIANS_PER_SECOND * elapsed * 180 / (Math.PI * 1000),
+    );
+    if (regripGaugeDisplaySignedDegrees < -0.01) requestRender();
   };
 
   const render = () => {
@@ -1671,7 +1631,7 @@ export const createCubeViewport = (
       const targetOffset = multiplyQuaternions(deviceOrientationLockTarget, inverseQuaternion(rawOrientation));
       if (deviceOrientationOffset === null) {
         deviceOrientationOffset = targetOffset;
-      } else if (deviceOrientationCorrectionFrame === null) {
+      } else {
         deviceOrientationOffset = followSmartCubeOrientationOffset(
           deviceOrientationOffset,
           targetOffset,
@@ -1680,7 +1640,12 @@ export const createCubeViewport = (
       }
       deviceOrientationOffsetUpdatedAt = now;
     }
-    const relativeOrientation = deviceOrientation ? deviceOrientationRendered : undefined;
+    const driftCorrectedOrientation = rawOrientation && deviceOrientationOffset
+      ? multiplyQuaternions(deviceOrientationOffset, rawOrientation)
+      : rawOrientation;
+    const relativeOrientation = driftCorrectedOrientation && deviceOrientationCorrection
+      ? multiplyQuaternions(deviceOrientationCorrection, driftCorrectedOrientation)
+      : driftCorrectedOrientation;
     const aspect = width / height;
     const matrices = cameraMatrices(
       aspect,
@@ -1938,17 +1903,16 @@ export const createCubeViewport = (
     });
   };
 
-  /** Animate a confirmed 65° regrip between cardinal orientations. */
   const animateDeviceOrientationCorrectionTo = (target: OrientationQuaternion, duration = 180) => {
     const generation = ++deviceOrientationCorrectionGeneration;
-    const start = deviceOrientationRendered;
+    const start = deviceOrientationCorrection ?? {x: 0, y: 0, z: 0, w: 1};
     const started = performance.now();
     const safeDuration = Math.max(1, duration);
     const tick = (now: number) => {
       if (disposed || generation !== deviceOrientationCorrectionGeneration) return;
       const progress = Math.min(1, (now - started) / safeDuration);
       const eased = 1 - (1 - progress) ** 3;
-      deviceOrientationRendered = slerpQuaternion(start, target, eased);
+      deviceOrientationCorrection = slerpQuaternion(start, target, eased);
       requestRender();
       deviceOrientationCorrectionFrame = progress < 1 ? window.requestAnimationFrame(tick) : null;
     };
@@ -2068,8 +2032,7 @@ export const createCubeViewport = (
         deviceOrientation = null;
         deviceOrientationOffset = null;
         deviceOrientationOffsetUpdatedAt = null;
-        deviceOrientationLockTarget = { x: 0, y: 0, z: 0, w: 1 };
-        deviceOrientationRendered = { x: 0, y: 0, z: 0, w: 1 };
+        deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
         deviceOrientationCorrection = null;
         deviceOrientationCorrectionGeneration += 1;
         deviceOrientationFrame = "viewport";
@@ -2083,8 +2046,7 @@ export const createCubeViewport = (
         deviceOrientation = null;
         deviceOrientationOffset = null;
         deviceOrientationOffsetUpdatedAt = null;
-        deviceOrientationLockTarget = { x: 0, y: 0, z: 0, w: 1 };
-        deviceOrientationRendered = { x: 0, y: 0, z: 0, w: 1 };
+        deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
         deviceOrientationCorrection = null;
         deviceOrientationCorrectionGeneration += 1;
       }
@@ -2105,8 +2067,7 @@ export const createCubeViewport = (
       deviceOrientation = normalized;
       deviceOrientationOffset = null;
       deviceOrientationOffsetUpdatedAt = null;
-      deviceOrientationLockTarget = { x: 0, y: 0, z: 0, w: 1 };
-      deviceOrientationRendered = { x: 0, y: 0, z: 0, w: 1 };
+      deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
       deviceOrientationFrame = coordinateFrame;
       deviceOrientationCorrection = null;
       deviceOrientationCorrectionGeneration += 1;
@@ -2122,19 +2083,7 @@ export const createCubeViewport = (
       deviceOrientation = normalized;
       deviceOrientationLockTarget = normalizedQuaternion(target);
       deviceOrientationCorrection = null;
-      const raw = deviceOrientationBase
-        ? deviceOrientationDelta(deviceOrientationBase, normalized, coordinateFrame, "world")
-        : { x: 0, y: 0, z: 0, w: 1 };
-      // Re-anchor the drift-following offset to the new lock target immediately,
-      // using the raw sample as it stands right now. Otherwise it only chases
-      // the new target at SMART_CUBE_OFFSET_RADIANS_PER_SECOND (2°/s) from
-      // wherever it happened to be for the old one — up to 45 seconds to
-      // converge on a fresh 90° regrip — which read as the gauge (driven by
-      // this offset) being stuck near 90° that whole time instead of
-      // resetting the moment the regrip actually confirmed.
-      deviceOrientationOffset = multiplyQuaternions(deviceOrientationLockTarget, inverseQuaternion(raw));
-      deviceOrientationOffsetUpdatedAt = performance.now();
-      animateDeviceOrientationCorrectionTo(deviceOrientationLockTarget);
+      deviceOrientationCorrectionGeneration += 1;
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
     },

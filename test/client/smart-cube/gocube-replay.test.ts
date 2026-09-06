@@ -71,7 +71,7 @@ describe("real GoCube capture: U2, 720° spin, R2, 720° spin, F2, 720° spin, r
         continue;
       }
       const before = viewport.correction;
-      const observed = observeThresholdOrientation(tracker, event.quaternion, event.coordinateFrame, REGRIP_THRESHOLD_DEGREES, event.t);
+      const observed = observeThresholdOrientation(tracker, event.quaternion, event.coordinateFrame, REGRIP_THRESHOLD_DEGREES);
       tracker = observed.tracker;
       if (observed.tokens.length === 0) {
         // No regrip on this sample: the view must be untouched, not nudged.
@@ -91,38 +91,16 @@ describe("real GoCube capture: U2, 720° spin, R2, 720° spin, F2, 720° spin, r
 
     // Unlike the old dwell-based confirm (which waited for each spin to fully
     // stop before emitting one token for the whole thing), the threshold
-    // detector fires on every real ~90° of travel: 7 steps through the first
-    // spin, 8 through the second, 8 through the third (23 total, close to the
-    // physically ideal 3×720°/90°=24) — cleanly grouped by axis, with no
+    // detector fires on every real ~90° of travel: 9 steps through the first
+    // spin, 10 through the second, 10 through the third — cleanly grouped by
+    // axis, in the same y/x/z order the capture's filename describes, with no
     // direction reversals or cross-axis noise despite never requiring the
-    // hand to land precisely on any of them. The token order here (y', z', x)
-    // reflects the 180° around Y basis flip and inverted sensor rotation direction
-    // on gocube-wire (see deviceOrientationDelta).
-    //
-    // The tracker uses "world" deltaFrame. "local" was tried (reasoning that
-    // x/y/z are body-frame cube notation, so a token should always mean
-    // "rotate about the cube's own current axis") and reverted: live testing
-    // showed it mislabelling every turn, not just ones after a prior regrip.
-    // What this tracker needs instead is "world": the camera is fixed in the
-    // room, so tracking how the cube has reoriented relative to that fixed
-    // viewpoint — not relative to the cube's own constantly-moving body
-    // frame — is what determines how to re-render its true appearance.
-    //
-    // This token count is fewer than an earlier version of this test
-    // expected (29): rebasing to the raw triggering sample means the very
-    // first confirm in a continuous spin is genuinely allowed to land as
-    // early as the threshold (65°), but every subsequent one within the same
-    // unbroken motion must make up the shortfall — pendingCarryoverDegrees on
-    // the tracker folds each confirm's undershoot into the next threshold
-    // check, so the *cumulative* rotation between confirms averages back out
-    // to a real 90°, not 65°. Without that, this fired every ~65° indefinitely
-    // instead of catching up to the true 90°-spaced grid (verified directly: a
-    // clean synthetic 360° sweep fired 5 times, not the correct 4).
+    // hand to land precisely on any of them.
     const tokens = regrips.flatMap((regrip) => regrip.tokens.split(" "));
     expect(tokens).toEqual([
-      ...Array(7).fill("y'"),
-      ...Array(8).fill("z'"),
-      ...Array(8).fill("x"),
+      ...Array(9).fill("y'"),
+      ...Array(10).fill("z'"),
+      ...Array(10).fill("x"),
     ]);
 
     // The capture ends several seconds into "rest" after the last spin. This

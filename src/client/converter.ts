@@ -2296,23 +2296,14 @@ if (root) {
       return;
     }
     const tracker = smartCubeDiscreteOrientationTracker;
-    // tracker.pendingCarryoverDegrees is the same carryover
-    // observeThresholdOrientation itself folds into its threshold check (see
-    // there) — always <= 0, a shortfall against the *next* 90° mark. Read
-    // directly off the tracker rather than duplicated here, so the gauge can
-    // never disagree with the real trigger about what counts as crossed.
-    // The needle's length wants the positive form of the same number (a
-    // head-start added on top of raw progress), so the two uses negate it
-    // oppositely: `crossed` matches the detector's own signed check exactly;
-    // `degrees` shows -pendingCarryoverDegrees as how far into the next
-    // cycle a continuous motion already carried.
     const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
     const {axis, radians} = quaternionAxisAngle(delta);
-    const rawDegrees = radians * 180 / Math.PI;
+    // Signed degrees remaining until the exact 90° mark, not degrees
+    // travelled so far: a regrip at the 65°-threshold sample reads as -25°,
+    // counting up toward 0 as the hand finishes settling on the new pose.
     viewport.setRegripGauge({
-      degrees: rawDegrees - tracker.pendingCarryoverDegrees,
-      thresholdDegrees: smartCubeRegripProfile.regripThresholdDegrees,
-      crossed: rawDegrees + tracker.pendingCarryoverDegrees >= smartCubeRegripProfile.regripThresholdDegrees,
+      signedDegrees: (radians * 180 / Math.PI) - 90,
+      signedThresholdDegrees: smartCubeRegripProfile.regripThresholdDegrees - 90,
       label: nearestRegripAxis(axis),
     });
   };
@@ -4801,16 +4792,10 @@ if (root) {
           quaternion: event.quaternion,
           coordinateFrame: event.coordinateFrame,
         };
-        // Raw samples feed the virtual offset state, but never directly orient
-        // the rendered cube; that changes only on the thresholded regrip below.
         if (smartCubeOrientationTracking && !smartCubeRecording && !smartCubeRecordingTapePresented) {
           viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
         }
         if (smartCubeDiscreteOrientationTracker === null) {
-          // "local": Whole-cube rotations (x, y, z) in cube notation are defined
-          // relative to the cube's own body frame (Red = X, Green = Z, White = Y).
-          // Using "local" ensures that after any prior rotation (such as Y 180°),
-          // rotations around the cube's faces retain their correct axis and direction.
           smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
             event.quaternion,
             event.coordinateFrame,
@@ -4830,7 +4815,6 @@ if (root) {
             event.quaternion,
             event.coordinateFrame,
             smartCubeRegripProfile.regripThresholdDegrees,
-            event.timestamp,
           );
           smartCubeDiscreteOrientationTracker = observed.tracker;
           if (

@@ -1,6 +1,5 @@
 import {
   deviceOrientationDelta,
-  followSmartCubeOrientationOffset,
   multiplyQuaternions,
   type OrientationCoordinateFrame,
   type OrientationQuaternion,
@@ -19,14 +18,6 @@ export type StableOrientationTracker = {
   deltaFrame: "local" | "world";
   orientation: OrientationQuaternion;
   candidate: {index: number; samples: number} | null;
-  /** Wall-clock time baseline was last touched, for the drift follow below. */
-  baselineUpdatedAt: number | null;
-  /**
-   * How many degrees short of the exact 90° mark the last confirm's raw
-   * triggering sample was (always <= 0). Only observeThresholdOrientation
-   * uses this — see there for why it exists.
-   */
-  pendingCarryoverDegrees: number;
 };
 
 const normalize = (quaternion: OrientationQuaternion): OrientationQuaternion => {
@@ -98,34 +89,6 @@ const closestCardinalOrientation = (quaternion: OrientationQuaternion): {index: 
   return result;
 };
 
-/**
- * Same nearest search, restricted to identity plus the six direct
- * quarter-turn neighbours (orientations[1..6], guaranteed by
- * cardinalOrientations' BFS construction to be exactly those six, in
- * `candidates` order). A single detected event can never legitimately
- * represent two simultaneous turns, so unlike closestCardinalOrientation this
- * never returns a multi-token pose — needed because staying quiet for longer
- * between confirms (baseline drift correction, threshold carryover) means
- * the raw delta occasionally goes stale enough, across a real gap between
- * unrelated actions, to land numerically closer to some 2-hop composite than
- * to any single neighbour, which is essentially always spurious.
- */
-const closestSingleHopCardinal = (quaternion: OrientationQuaternion): {index: number; alignment: number} => {
-  const normalized = normalize(quaternion);
-  let result = {index: 0, alignment: -1};
-  for (let index = 0; index <= candidates.length; index += 1) {
-    const candidate = orientations[index]!;
-    const alignment = Math.abs(
-      normalized.x * candidate.quaternion.x
-      + normalized.y * candidate.quaternion.y
-      + normalized.z * candidate.quaternion.z
-      + normalized.w * candidate.quaternion.w,
-    );
-    if (alignment > result.alignment) result = {index, alignment};
-  }
-  return result;
-};
-
 export const createStableOrientationTracker = (
   baseline: OrientationQuaternion,
   frame: OrientationCoordinateFrame,
@@ -136,8 +99,6 @@ export const createStableOrientationTracker = (
   deltaFrame,
   orientation: {x: 0, y: 0, z: 0, w: 1},
   candidate: null,
-  baselineUpdatedAt: null,
-  pendingCarryoverDegrees: 0,
 });
 
 /**
@@ -167,15 +128,7 @@ export const observeStableOrientation = (
     ? multiplyQuaternions(cardinal, tracker.orientation)
     : multiplyQuaternions(tracker.orientation, cardinal));
   return {
-    tracker: {
-      baseline: current,
-      frame,
-      deltaFrame: tracker.deltaFrame,
-      orientation,
-      candidate: null,
-      baselineUpdatedAt: tracker.baselineUpdatedAt,
-      pendingCarryoverDegrees: 0,
-    },
+    tracker: {baseline: current, frame, deltaFrame: tracker.deltaFrame, orientation, candidate: null},
     tokens: orientations[nearest.index]!.tokens,
   };
 };
@@ -190,94 +143,26 @@ export const observeStableOrientation = (
  * good enough to tell two 90°-apart poses apart, not to hit one exactly.
  * Ordinary handling jostle, which rarely accumulates past the threshold
  * before the cube settles back down, never triggers at all.
- *
- * When timestampMs is supplied, the baseline itself continuously drifts
- * toward the raw sample at up to driftDegreesPerSecond (2°/s by default,
- * matching cube-gl.ts's SMART_CUBE_OFFSET_RADIANS_PER_SECOND) between
- * confirms. This damps out slow sensor heading bias — the cube sitting still
- * for a while must not be able to accumulate enough apparent rotation to
- * cross the threshold on its own — without touching real regrips, which turn
- * far faster than 2°/s and so easily outrun this cap and register normally.
- * Confirms still rebase to the exact raw triggering sample, not this drifted
- * value: that discrete snap is what stops small heading bias from
- * accumulating *across* regrips (see the docs for the case this broke on).
- *
- * pendingCarryoverDegrees fixes a subtler issue: rebasing to the raw sample
- * (needed above) means each confirm's baseline sits wherever it happened to
- * cross the threshold, not the exact 90° mark — for a continuous, unbroken
- * spin this makes every *subsequent* confirm fire ~65° later instead of
- * ~90° later, since the leftover shortfall from firing early never gets paid
- * back (verified against the real capture and a clean synthetic sweep: this
- * literally fired every 65° — 65°, 130°, 195°, 260°... instead of the
- * physically correct 65°, 155°, 245°, 335°...). Folding the *previous*
- * confirm's shortfall into the *next* threshold check reproduces the correct
- * spacing: effectiveDegrees crossing minimumRotationDegrees is equivalent to
- * rawCumulative crossing 90×n − (90 − minimumRotationDegrees) for every n,
- * not just n=1. The nearest-cardinal search still uses the raw (uncarried)
- * delta — carryover only ever shifts *when* a confirm fires, never *which
- * axis* it resolves to. Between confirms this same shortfall also decays
- * back toward 0 at driftDegreesPerSecond (reusing the drift-follow's own
- * rate and elapsed time), so a genuine pause — a fresh, unrelated regrip
- * after the spin stops — is not left carrying stale debt that could push an
- * otherwise-valid detection below threshold.
  */
 export const observeThresholdOrientation = (
   tracker: StableOrientationTracker,
   current: OrientationQuaternion,
   frame: OrientationCoordinateFrame,
   minimumRotationDegrees = 65,
-  timestampMs?: number,
-  driftDegreesPerSecond = 2,
-): {tracker: StableOrientationTracker; tokens: RegripToken[]; angleDegrees: number; effectiveDegrees: number} => {
-  if (tracker.frame !== frame) {
-    return {
-      tracker: createStableOrientationTracker(current, frame, tracker.deltaFrame),
-      tokens: [],
-      angleDegrees: 0,
-      effectiveDegrees: 0,
-    };
-  }
-  const elapsedMs = timestampMs !== undefined && tracker.baselineUpdatedAt !== null
-    ? Math.max(0, timestampMs - tracker.baselineUpdatedAt)
-    : 0;
-  const baseline = elapsedMs > 0
-    ? followSmartCubeOrientationOffset(tracker.baseline, current, elapsedMs, driftDegreesPerSecond * Math.PI / 180)
-    : tracker.baseline;
-  const baselineUpdatedAt = timestampMs ?? tracker.baselineUpdatedAt;
-  // pendingCarryoverDegrees is always <= 0 (a shortfall); recovering it
-  // toward 0 over elapsed time is what lets a genuine pause forgive it.
-  const pendingCarryoverDegrees = Math.min(0, tracker.pendingCarryoverDegrees + driftDegreesPerSecond * elapsedMs / 1000);
-  const delta = deviceOrientationDelta(baseline, current, frame, tracker.deltaFrame);
+): {tracker: StableOrientationTracker; tokens: RegripToken[]} => {
+  if (tracker.frame !== frame) return {tracker: createStableOrientationTracker(current, frame, tracker.deltaFrame), tokens: []};
+  const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
   const angleDegrees = 2 * Math.acos(Math.min(1, Math.abs(delta.w))) * 180 / Math.PI;
-  const effectiveDegrees = angleDegrees + pendingCarryoverDegrees;
-  if (effectiveDegrees < minimumRotationDegrees) {
-    return {tracker: {...tracker, baseline, baselineUpdatedAt, pendingCarryoverDegrees}, tokens: [], angleDegrees, effectiveDegrees};
-  }
-  const nearest = closestSingleHopCardinal(delta);
-  if (nearest.index === 0) {
-    return {tracker: {...tracker, baseline, baselineUpdatedAt, pendingCarryoverDegrees}, tokens: [], angleDegrees, effectiveDegrees};
-  }
+  if (angleDegrees < minimumRotationDegrees) return {tracker, tokens: []};
+  const nearest = closestCardinalOrientation(delta);
+  if (nearest.index === 0) return {tracker, tokens: []};
   const cardinal = orientations[nearest.index]!.quaternion;
   const orientation = normalize(tracker.deltaFrame === "world"
     ? multiplyQuaternions(cardinal, tracker.orientation)
     : multiplyQuaternions(tracker.orientation, cardinal));
-  const nextCarryoverDegrees = Math.max(
-    -(90 - minimumRotationDegrees),
-    Math.min(0, effectiveDegrees - 90),
-  );
   return {
-    tracker: {
-      baseline: current,
-      frame,
-      deltaFrame: tracker.deltaFrame,
-      orientation,
-      candidate: null,
-      baselineUpdatedAt,
-      pendingCarryoverDegrees: nextCarryoverDegrees,
-    },
+    tracker: {baseline: current, frame, deltaFrame: tracker.deltaFrame, orientation, candidate: null},
     tokens: orientations[nearest.index]!.tokens,
-    angleDegrees,
-    effectiveDegrees,
   };
 };
 
@@ -330,13 +215,10 @@ export const settleStableOrientation = (
     tracker: {
       baseline: current,
       frame,
-      deltaFrame: tracker.deltaFrame,
       orientation: normalize(tracker.deltaFrame === "world"
         ? multiplyQuaternions(orientations[nearest.index]!.quaternion, tracker.orientation)
         : multiplyQuaternions(tracker.orientation, orientations[nearest.index]!.quaternion)),
       candidate: null,
-      baselineUpdatedAt: tracker.baselineUpdatedAt,
-      pendingCarryoverDegrees: 0,
     },
     tokens: orientations[nearest.index]!.tokens,
   };

@@ -76,14 +76,14 @@ describe("smart-cube gyro rotation feedback", () => {
 
   test("accurately verifies rotations in gocube-wire frame across all axes", () => {
     const half = Math.sqrt(0.5);
-    // gocube-wire's axis mapping (see deviceOrientationDelta's "gocube-wire"
-    // branch): 180° around Y plus inverted sensor rotation direction maps
-    // raw (rx, ry, rz) to (rx, -ry, rz).
-    expect(assessGyroRotation(identity, {x: half, y: 0, z: 0, w: half}, "gocube-wire", "X", -1).matched)
+    // GoCube wire X rotation: x is negative on wire (mapped to -X / clockwise in viewport)
+    expect(assessGyroRotation(identity, {x: -half, y: 0, z: 0, w: half}, "gocube-wire", "X", 1).matched)
       .toBe(true);
-    expect(assessGyroRotation(identity, {x: 0, y: -half, z: 0, w: half}, "gocube-wire", "Y", -1).matched)
+    // GoCube wire Y rotation: y is positive on wire (mapped to -Y / clockwise in viewport)
+    expect(assessGyroRotation(identity, {x: 0, y: half, z: 0, w: half}, "gocube-wire", "Y", 1).matched)
       .toBe(true);
-    expect(assessGyroRotation(identity, {x: 0, y: 0, z: half, w: half}, "gocube-wire", "Z", -1).matched)
+    // GoCube wire Z rotation: z is negative on wire (mapped to -Z / clockwise in viewport)
+    expect(assessGyroRotation(identity, {x: 0, y: 0, z: -half, w: half}, "gocube-wire", "Z", 1).matched)
       .toBe(true);
   });
 

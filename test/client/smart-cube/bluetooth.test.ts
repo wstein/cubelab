@@ -117,94 +117,87 @@ describe("live cube orientation tracking and wire coordinate regression tests", 
   };
 
   test("verifies GoCube physical rotations correctly identify X, Y, and Z axes", () => {
-    // gocube-wire's axis mapping (see deviceOrientationDelta's "gocube-wire"
-    // branch): 180° around Y plus inverted sensor rotation direction maps
-    // raw (rx, ry, rz) to (rx, -ry, rz). Applied to the true raw values this
-    // pipeline's un-swap restores, wire X/Y/Z each map straight onto viewport X/Y/Z.
-
     // 1. Identity base
     const idTransport = simulateGoCubeVendorPayload(0, 0, 0, 1);
     const baseEvent = normalizeTransportEvent({type: "GYRO", timestamp: 0, quaternion: idTransport}, "gocube");
     expect(baseEvent).not.toBeNull();
     const base = baseEvent!.quaternion;
 
-    // 2. Physical pitch forward (raw wire X-component):
-    const xTransport = simulateGoCubeVendorPayload(half, 0, 0, half);
+    // 2. Physical pitch forward (x rotation, -X wire axis):
+    const xTransport = simulateGoCubeVendorPayload(-half, 0, 0, half);
     const xEvent = normalizeTransportEvent({type: "GYRO", timestamp: 10, quaternion: xTransport}, "gocube")!;
     expect(xEvent.coordinateFrame).toBe("gocube-wire");
-    const xAssessment = assessGyroRotation(base, xEvent.quaternion, xEvent.coordinateFrame, "X", -1);
+    const xAssessment = assessGyroRotation(base, xEvent.quaternion, xEvent.coordinateFrame, "X", 1);
     expect(xAssessment.matched).toBe(true);
     expect(xAssessment.axisAlignment).toBeGreaterThanOrEqual(0.99);
 
-    // Viewport mapping for a raw wire X-component: pure rotation around viewport X
+    // Viewport mapping for physical X: pure rotation around viewport X
     const xViewport = orientationInViewportFrame(xEvent.quaternion, xEvent.coordinateFrame);
-    expect(xViewport.x).toBeCloseTo(half);
+    expect(xViewport.x).toBeCloseTo(-half);
     expect(xViewport.y).toBeCloseTo(0);
     expect(xViewport.z).toBeCloseTo(0);
 
-    // 3. Physical yaw left (raw wire Y-component):
-    // Note: vendor gocube.ts maps (0, -half, 0, half) to (0, 0, half, half)
-    const yTransport = simulateGoCubeVendorPayload(0, -half, 0, half);
+    // 3. Physical yaw left (y rotation, +Y wire axis):
+    // Note: vendor gocube.ts maps (0, half, 0, half) to (0, 0, -half, half)
+    const yTransport = simulateGoCubeVendorPayload(0, half, 0, half);
     expect(yTransport.x).toBeCloseTo(0);
     expect(yTransport.y).toBeCloseTo(0);
-    expect(yTransport.z).toBeCloseTo(half);
+    expect(yTransport.z).toBeCloseTo(-half);
     expect(yTransport.w).toBeCloseTo(half);
     const yEvent = normalizeTransportEvent({type: "GYRO", timestamp: 20, quaternion: yTransport}, "gocube")!;
     expect(yEvent.coordinateFrame).toBe("gocube-wire");
-    // Wire un-swap must restore y: -half, z: 0
-    expect(yEvent.quaternion.y).toBeCloseTo(-half);
+    // Wire un-swap must restore y: half, z: 0
+    expect(yEvent.quaternion.y).toBeCloseTo(half);
     expect(yEvent.quaternion.z).toBeCloseTo(0);
-    const yAssessment = assessGyroRotation(base, yEvent.quaternion, yEvent.coordinateFrame, "Y", -1);
+    const yAssessment = assessGyroRotation(base, yEvent.quaternion, yEvent.coordinateFrame, "Y", 1);
     expect(yAssessment.matched).toBe(true);
     expect(yAssessment.axisAlignment).toBeGreaterThanOrEqual(0.99);
 
-    // Viewport mapping for a raw wire Y-component: pure rotation around viewport Y
+    // Viewport mapping for physical Y: pure rotation around viewport Y
     const yViewport = orientationInViewportFrame(yEvent.quaternion, yEvent.coordinateFrame);
     expect(yViewport.x).toBeCloseTo(0);
-    expect(yViewport.y).toBeCloseTo(half);
+    expect(yViewport.y).toBeCloseTo(-half);
     expect(yViewport.z).toBeCloseTo(0);
 
-    // 4. Physical roll clockwise (raw wire Z-component):
-    // Note: vendor gocube.ts maps (0, 0, half, half) to (0, -half, 0, half)
-    const zTransport = simulateGoCubeVendorPayload(0, 0, half, half);
+    // 4. Physical roll clockwise (z rotation, -Z wire axis):
+    // Note: vendor gocube.ts maps (0, 0, -half, half) to (0, half, 0, half)
+    const zTransport = simulateGoCubeVendorPayload(0, 0, -half, half);
     expect(zTransport.x).toBeCloseTo(0);
-    expect(zTransport.y).toBeCloseTo(-half);
+    expect(zTransport.y).toBeCloseTo(half);
     expect(zTransport.z).toBeCloseTo(0);
     expect(zTransport.w).toBeCloseTo(half);
     const zEvent = normalizeTransportEvent({type: "GYRO", timestamp: 30, quaternion: zTransport}, "gocube")!;
     expect(zEvent.coordinateFrame).toBe("gocube-wire");
-    // Wire un-swap must restore y: 0, z: half
+    // Wire un-swap must restore y: 0, z: -half
     expect(zEvent.quaternion.y).toBeCloseTo(0);
-    expect(zEvent.quaternion.z).toBeCloseTo(half);
-    const zAssessment = assessGyroRotation(base, zEvent.quaternion, zEvent.coordinateFrame, "Z", -1);
+    expect(zEvent.quaternion.z).toBeCloseTo(-half);
+    const zAssessment = assessGyroRotation(base, zEvent.quaternion, zEvent.coordinateFrame, "Z", 1);
     expect(zAssessment.matched).toBe(true);
     expect(zAssessment.axisAlignment).toBeGreaterThanOrEqual(0.99);
 
-    // Viewport mapping for a raw wire Z-component: pure rotation around viewport Z
+    // Viewport mapping for physical Z: pure rotation around viewport Z
     const zViewport = orientationInViewportFrame(zEvent.quaternion, zEvent.coordinateFrame);
     expect(zViewport.x).toBeCloseTo(0);
     expect(zViewport.y).toBeCloseTo(0);
-    expect(zViewport.z).toBeCloseTo(half);
+    expect(zViewport.z).toBeCloseTo(-half);
   });
 
-  test("regression: verifies that omitting the GoCube un-swap gives the wrong axis", () => {
+  test("regression: verifies that omitting the GoCube un-swap collapses Y and Z axes", () => {
     // If the un-swap was omitted, the raw vendor transport quaternion would be used directly:
-    const rawYTransport = simulateGoCubeVendorPayload(0, -half, 0, half);
-    // The correct, full-pipeline answer for this physical input is Y (see the
-    // test above) — omitting the un-swap must not also give Y.
-    const brokenYAssessment = assessGyroRotation(identity, rawYTransport, "gocube-wire", "Y", -1);
+    const rawYTransport = simulateGoCubeVendorPayload(0, half, 0, half);
+    // Passing the raw vendor output without un-swap:
+    const brokenYAssessment = assessGyroRotation(identity, rawYTransport, "gocube-wire", "Y", 1);
+    // Must fail to match Y:
     expect(brokenYAssessment.matched).toBe(false);
-    // Instead, it erroneously detects as a Z rotation — the vendor swap
-    // exchanges wire Y and Z (with a sign flip), so skipping the un-swap
-    // feeds gocube-wire's Y-input straight into its Z-slot.
+    // Instead, it erroneously detects as Z rotation!
     const detectedFromRawY = detectGyroQuarterRotation(identity, rawYTransport, "gocube-wire");
     expect(detectedFromRawY?.axis).toBe("Z");
 
-    const rawZTransport = simulateGoCubeVendorPayload(0, 0, half, half);
-    // The correct, full-pipeline answer for this physical input is Z.
-    const brokenZAssessment = assessGyroRotation(identity, rawZTransport, "gocube-wire", "Z", -1);
+    const rawZTransport = simulateGoCubeVendorPayload(0, 0, -half, half);
+    const brokenZAssessment = assessGyroRotation(identity, rawZTransport, "gocube-wire", "Z", 1);
+    // Must fail to match Z:
     expect(brokenZAssessment.matched).toBe(false);
-    // Instead, it erroneously detects as a Y rotation (the same Y/Z exchange, reversed).
+    // Instead, it erroneously detects as Y rotation!
     const detectedFromRawZ = detectGyroQuarterRotation(identity, rawZTransport, "gocube-wire");
     expect(detectedFromRawZ?.axis).toBe("Y");
   });
@@ -217,33 +210,30 @@ describe("live cube orientation tracking and wire coordinate regression tests", 
       quaternion: simulateGoCubeVendorPayload(0, 0, 0, 1),
     }, "gocube")!.quaternion;
 
-    // First physical turn: raw wire Y-component, which the gocube-wire
-    // mapping resolves straight onto a viewport Y rotation (no permutation
-    // — see the test above).
+    // First physical turn: 90 deg yaw left (Y)
     const q1 = normalizeTransportEvent({
       type: "GYRO",
       timestamp: 10,
-      quaternion: simulateGoCubeVendorPayload(0, -half, 0, half),
+      quaternion: simulateGoCubeVendorPayload(0, half, 0, half),
     }, "gocube")!.quaternion;
 
-    const deltaFirst = deviceOrientationDelta(q0, q1, "gocube-wire", "world");
-    const firstCheck = assessGyroRotation(q0, q1, "gocube-wire", "Y", -1, "world");
-    expect(firstCheck.matched).toBe(true);
-    expect(deltaFirst.y).toBeCloseTo(half);
+    const deltaY = deviceOrientationDelta(q0, q1, "gocube-wire", "world");
+    const yCheck = assessGyroRotation(q0, q1, "gocube-wire", "Y", 1, "world");
+    expect(yCheck.matched).toBe(true);
+    expect(deltaY.y).toBeCloseTo(-half);
 
-    // Second physical turn from that state: raw wire X-component, which
-    // resolves straight onto a viewport X rotation.
+    // Second physical turn from that state: 90 deg pitch forward (X)
     // In wire frame, combined quaternion: wireX * wireY
-    // wireX = {half, 0, 0, half}, wireY = {0, -half, 0, half}
-    // Result = {0.5, -0.5, -0.5, 0.5}
+    // wireX = {-half, 0, 0, half}, wireY = {0, half, 0, half}
+    // Result = {-0.5, 0.5, -0.5, 0.5}
     const q2 = normalizeTransportEvent({
       type: "GYRO",
       timestamp: 20,
-      quaternion: simulateGoCubeVendorPayload(0.5, -0.5, -0.5, 0.5),
+      quaternion: simulateGoCubeVendorPayload(-0.5, 0.5, -0.5, 0.5),
     }, "gocube")!.quaternion;
 
-    const secondCheck = assessGyroRotation(q1, q2, "gocube-wire", "X", -1, "world");
-    expect(secondCheck.matched).toBe(true);
+    const xCheck = assessGyroRotation(q1, q2, "gocube-wire", "X", 1, "world");
+    expect(xCheck.matched).toBe(true);
   });
 });
 

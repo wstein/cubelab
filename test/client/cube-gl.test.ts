@@ -271,9 +271,6 @@ describe("cube viewport math", () => {
       {x: 0, y: 0, z: half, w: half},
       "gocube-wire",
     );
-    // See deviceOrientationDelta's "gocube-wire" branch: 180° around Y
-    // combined with inverted sensor rotation direction maps raw (rx, ry, rz)
-    // to (rx, -ry, rz).
     expect(aroundSensorX.x).toBeCloseTo(half);
     expect(aroundSensorX.y).toBeCloseTo(0);
     expect(aroundSensorX.z).toBeCloseTo(0);
