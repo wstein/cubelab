@@ -4721,6 +4721,7 @@ if (root) {
         );
         if (ringReady && measured && frame) {
           const probes = smartCubeOrientationProbeRing.probes.length;
+          const rotationDropped = smartCubeOrientationProbeRing.rotationDropped;
           smartCubeOrientationProbeRing = consumeOrientationProbeRing(smartCubeOrientationProbeRing);
           const result = viewport?.stabilizeDeviceOrientation(
             measured,
@@ -4739,6 +4740,23 @@ if (root) {
             targetErrorAxis: result.targetErrorAxis?.map((component) => Number(component.toFixed(3))) ?? null,
             correctionStepDegrees: Number((result.correctionStepRadians * 180 / Math.PI).toFixed(2)),
           });
+          const maximumTargetErrorRadians = smartCubeMotionProfile.maximumTargetErrorDegrees * Math.PI / 180;
+          if (
+            result.applied
+            && rotationDropped
+            && result.targetErrorRadians !== null
+            && result.targetErrorRadians > maximumTargetErrorRadians
+          ) {
+            const adopted = viewport?.adoptDeviceOrientationPose(measured, frame) ?? null;
+            if (adopted) {
+              smartCubeStabilizationTarget = adopted;
+              traceSmartCubeStabilization("large physical pose adopted", {
+                move: event.move,
+                targetErrorDegrees: Number((result.targetErrorRadians * 180 / Math.PI).toFixed(2)),
+                target: adopted,
+              });
+            }
+          }
         } else {
           traceSmartCubeStabilization("ring correction skipped", {
             move: event.move,
