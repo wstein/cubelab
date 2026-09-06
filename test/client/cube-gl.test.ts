@@ -22,6 +22,7 @@ import {
   relativeQuaternion,
   renderedDeviceOrientation,
   safeCameraDistance,
+  slerpQuaternion,
   stabilizedOrientationCorrection,
   smoothTrackedOrientation,
   standardStickerFinish,
@@ -94,6 +95,19 @@ describe("cube viewport math", () => {
     expect(correctionAt(4)).toBeCloseTo(0.8, 6);
     expect(correctionAt(9)).toBeCloseTo(1.8, 6);
     expect(correctionAt(44)).toBeCloseTo(8.8, 6);
+  });
+
+  test("interpolates along the shortest arc between two orientations", () => {
+    const identity = {x: 0, y: 0, z: 0, w: 1};
+    const quarterX = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
+    const half = slerpQuaternion(identity, quarterX, 0.5);
+    expect(orientationDistanceRadians(identity, half)).toBeCloseTo(45 * Math.PI / 180, 6);
+    const start = slerpQuaternion(identity, quarterX, 0);
+    expect(start.x).toBeCloseTo(identity.x);
+    expect(start.w).toBeCloseTo(identity.w);
+    const full = slerpQuaternion(identity, quarterX, 1);
+    expect(full.x).toBeCloseTo(quarterX.x);
+    expect(full.w).toBeCloseTo(quarterX.w);
   });
 
   test("reads the currently rendered pose without moving it", () => {

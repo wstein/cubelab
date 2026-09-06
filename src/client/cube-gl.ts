@@ -535,6 +535,27 @@ export const renderedDeviceOrientation = (
   return multiplyQuaternions(correction ?? {x: 0, y: 0, z: 0, w: 1}, raw);
 };
 
+/** Interpolates along the shortest arc from one orientation to another. */
+export const slerpQuaternion = (
+  from: OrientationQuaternion,
+  to: OrientationQuaternion,
+  amount: number,
+): OrientationQuaternion => {
+  const dot = from.x * to.x + from.y * to.y + from.z * to.z + from.w * to.w;
+  const sign = dot < 0 ? -1 : 1;
+  const angle = Math.acos(Math.min(1, Math.abs(dot)));
+  const sine = Math.sin(angle);
+  if (sine < 1e-8) return normalizedQuaternion(to);
+  const fromWeight = Math.sin((1 - amount) * angle) / sine;
+  const toWeight = Math.sin(amount * angle) / sine * sign;
+  return normalizedQuaternion({
+    x: from.x * fromWeight + to.x * toWeight,
+    y: from.y * fromWeight + to.y * toWeight,
+    z: from.z * fromWeight + to.z * toWeight,
+    w: from.w * fromWeight + to.w * toWeight,
+  });
+};
+
 /** Eases the actual rendered pose toward a settled cardinal orientation. */
 export const stabilizedOrientationCorrection = (
   previous: OrientationQuaternion | null,
@@ -547,20 +568,8 @@ export const stabilizedOrientationCorrection = (
   const current = previous ?? {x: 0, y: 0, z: 0, w: 1};
   const desired = orientationCorrectionForTarget(base, displayed, target, coordinateFrame);
   const distance = orientationDistanceRadians(current, desired);
-  const amount = distance === 0 ? 0 : Math.min(1, 1 / correctionErrorDivisor);
-  const dot = current.x * desired.x + current.y * desired.y + current.z * desired.z + current.w * desired.w;
-  const sign = dot < 0 ? -1 : 1;
-  const angle = Math.acos(Math.min(1, Math.abs(dot)));
-  const sine = Math.sin(angle);
-  if (sine < 1e-8) return current;
-  const currentWeight = Math.sin((1 - amount) * angle) / sine;
-  const desiredWeight = Math.sin(amount * angle) / sine * sign;
-  return normalizedQuaternion({
-    x: current.x * currentWeight + desired.x * desiredWeight,
-    y: current.y * currentWeight + desired.y * desiredWeight,
-    z: current.z * currentWeight + desired.z * desiredWeight,
-    w: current.w * currentWeight + desired.w * desiredWeight,
-  });
+  if (distance === 0) return current;
+  return slerpQuaternion(current, desired, Math.min(1, 1 / correctionErrorDivisor));
 };
 
 /** Locks sub-threshold IMU jitter and softens larger moves along the shortest quaternion path. */
@@ -866,6 +875,8 @@ export const createCubeViewport = (
   let deviceOrientation: OrientationQuaternion | null = null;
   let deviceOrientationCorrection: OrientationQuaternion | null = null;
   let deviceOrientationFrame: OrientationCoordinateFrame = "viewport";
+  let deviceOrientationCorrectionFrame: number | null = null;
+  let deviceOrientationCorrectionGeneration = 0;
   canvas.dataset.autoOrbitState = "off";
   const overlay = overlayCanvas.getContext("2d");
 
@@ -1769,6 +1780,22 @@ export const createCubeViewport = (
     });
   };
 
+  const animateDeviceOrientationCorrectionTo = (target: OrientationQuaternion, duration = 180) => {
+    const generation = ++deviceOrientationCorrectionGeneration;
+    const start = deviceOrientationCorrection ?? {x: 0, y: 0, z: 0, w: 1};
+    const started = performance.now();
+    const safeDuration = Math.max(1, duration);
+    const tick = (now: number) => {
+      if (disposed || generation !== deviceOrientationCorrectionGeneration) return;
+      const progress = Math.min(1, (now - started) / safeDuration);
+      const eased = 1 - (1 - progress) ** 3;
+      deviceOrientationCorrection = slerpQuaternion(start, target, eased);
+      requestRender();
+      deviceOrientationCorrectionFrame = progress < 1 ? window.requestAnimationFrame(tick) : null;
+    };
+    deviceOrientationCorrectionFrame = window.requestAnimationFrame(tick);
+  };
+
   canvas.addEventListener("pointerdown", pointerDown);
   canvas.addEventListener("pointermove", pointerMove);
   canvas.addEventListener("pointerup", pointerUp);
@@ -1915,12 +1942,13 @@ export const createCubeViewport = (
         deviceOrientationFrame = coordinateFrame;
       }
       deviceOrientation = normalized;
-      deviceOrientationCorrection = orientationCorrectionForTarget(
+      const nextCorrection = orientationCorrectionForTarget(
         deviceOrientationBase,
         normalized,
         target,
         coordinateFrame,
       );
+      animateDeviceOrientationCorrectionTo(nextCorrection);
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
     },
@@ -2012,6 +2040,7 @@ export const createCubeViewport = (
       stopInertia();
       stopAutoOrbitFrame();
       cancelTurn();
+      if (deviceOrientationCorrectionFrame !== null) window.cancelAnimationFrame(deviceOrientationCorrectionFrame);
       if (frame !== null) window.cancelAnimationFrame(frame);
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
