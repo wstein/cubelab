@@ -4,6 +4,7 @@ import {
   cardinalOrientationCount,
   createStableOrientationTracker,
   observeStableOrientation,
+  settleStableOrientation,
 } from "../../../src/client/smart-cube/orientation-tracker";
 
 const identity = {x: 0, y: 0, z: 0, w: 1};
@@ -40,5 +41,14 @@ describe("stable smart-cube orientation tracker", () => {
       }
     }
     expect(tokens).toEqual(Array(10).fill("x"));
+  });
+
+  test("uses an independently settled anchor to accept a delayed half-turn regrip", () => {
+    const tracker = createStableOrientationTracker(identity, "viewport");
+    const x2 = {x: 1, y: 0, z: 0, w: 0};
+    const settled = settleStableOrientation(tracker, x2, "viewport");
+    expect(settled.tokens).toEqual(["x", "x"]);
+    expect(settled.tracker.orientation).toEqual(x2);
+    expect(settled.tracker.baseline).toEqual(x2);
   });
 });

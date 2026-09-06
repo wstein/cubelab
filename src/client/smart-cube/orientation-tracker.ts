@@ -126,3 +126,31 @@ export const observeStableOrientation = (
     tokens: orientations[nearest.index]!.tokens,
   };
 };
+
+/**
+ * Commits a cardinal pose that another sensor window has already proven still.
+ * Face-turn anchors supply that proof after their own three-sample dwell, so a
+ * regrip immediately followed by a face turn is not mistaken for 180° drift.
+ */
+export const settleStableOrientation = (
+  tracker: StableOrientationTracker,
+  current: OrientationQuaternion,
+  frame: OrientationCoordinateFrame,
+  minimumAlignment = Math.cos(10 * Math.PI / 360),
+): {tracker: StableOrientationTracker; tokens: RegripToken[]} => {
+  if (tracker.frame !== frame) return {tracker: createStableOrientationTracker(current, frame), tokens: []};
+  const delta = deviceOrientationDelta(tracker.baseline, current, frame, "local");
+  const nearest = closestCardinalOrientation(delta);
+  if (nearest.alignment < minimumAlignment || nearest.index === 0) {
+    return {tracker, tokens: []};
+  }
+  return {
+    tracker: {
+      baseline: current,
+      frame,
+      orientation: normalize(multiplyQuaternions(tracker.orientation, orientations[nearest.index]!.quaternion)),
+      candidate: null,
+    },
+    tokens: orientations[nearest.index]!.tokens,
+  };
+};

@@ -169,6 +169,9 @@ IMU pose so a regrip remains visually smooth. A recorder-side orientation tracke
 accepts one of the cube's 24 cardinal poses after three consecutive samples within ten
 degrees, and emits `x`, `y`, or `z` from that settled transition. It rebases after each
 accepted pose rather than treating an early threshold crossing as a quarter turn.
+If a regrip ends immediately before a face turn, the independently settled three-sample
+face-turn window can provide the same proof. This prevents a stable `x2` pose from being
+misclassified as 180° of slow IMU drift.
 
 **Recenter gyro view** resets only the displayed gyro baseline. It does not change the
 physical cube, its calibration, the current state, or the tape. At a settled cardinal

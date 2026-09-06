@@ -130,6 +130,7 @@ import {assessGyroRotation, detectGyroQuarterRotation} from "./smart-cube/orient
 import {
   createStableOrientationTracker,
   observeStableOrientation,
+  settleStableOrientation,
   type StableOrientationTracker,
 } from "./smart-cube/orientation-tracker";
 import {
@@ -4838,6 +4839,23 @@ if (root) {
             current: event.quaternion,
           });
           if (anchored.stable && anchored.target && anchored.settledOrientation) {
+            const delayedRegrip = settleStableOrientation(
+              smartCubeDiscreteOrientationTracker!,
+              anchored.settledOrientation,
+              event.coordinateFrame,
+            );
+            if (delayedRegrip.tokens.length > 0) {
+              smartCubeDiscreteOrientationTracker = delayedRegrip.tracker;
+              viewport?.reconcileDeviceOrientation(
+                anchored.settledOrientation,
+                delayedRegrip.tracker.orientation,
+                event.coordinateFrame,
+              );
+              traceSmartCubeStabilization("regrip settled from face-turn anchor", {
+                tokens: delayedRegrip.tokens.join(" "),
+              });
+              break;
+            }
             const result = viewport?.stabilizeDeviceOrientation(
               anchored.settledOrientation,
               anchored.target,
