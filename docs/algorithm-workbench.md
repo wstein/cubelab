@@ -267,13 +267,9 @@ a rebase — and rises toward 90 as the hand turns toward the next lock-in. Need
 (72% of the radius for the 65° default), and the needle turns green the instant it crosses
 that ring — the same instant a regrip fires.
 
-The displayed needle (`regripGaugeDisplayDegrees` in `cube-gl.ts`) only ever advances
-within a cycle: `Math.max(display, degrees)` ignores small sensor-jitter dips backward
-rather than visibly flickering on them. The one thing allowed to drop it back down is an
-explicit `resetDisplay` flag on the update, set exactly when a genuinely new cycle starts
-— a regrip just confirmed and rebased the tracker, or the view was recentered/reopened —
-so the display can return to 0 instead of ratcheting up to 90 once and then, since ordinary
-samples can never pull it below their own historical maximum, staying stuck there forever.
+The displayed needle (`regripGaugeDisplayDegrees` in `cube-gl.ts`) is the current raw
+sample, clamped only to the physical 0°–90° gauge range. It is neither offset nor retained
+with `Math.max`, so it cannot become stuck at a prior peak.
 Raw packets still reach the detector immediately and unmodified either way; this ratchet
 and reset are purely a display concern.
 

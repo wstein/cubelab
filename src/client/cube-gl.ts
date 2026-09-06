@@ -75,14 +75,6 @@ export type RegripGaugeState = {
   /** Where the confirm threshold sits on the same scale, e.g. 65. */
   thresholdDegrees: number;
   label: string | null;
-  /**
-   * True exactly when this update follows a genuinely new cycle starting (a
-   * regrip just confirmed and rebased the tracker, or the view was just
-   * recentered/reopened). The displayed needle otherwise only ever advances
-   * and never retreats — this is the one signal allowed to drop it back down
-   * to 0, so it does not permanently saturate at 90 after enough regrips.
-   */
-  resetDisplay: boolean;
 } | null;
 
 const DEFAULT_YAW = -0.62;
@@ -864,9 +856,7 @@ export const createCubeViewport = (
   let turnGuide: TurnGuide | null = null;
   let moveRibbon: TurnGuide | null = null;
   let regripGauge: RegripGaugeState = null;
-  // Displayed copy of regripGauge's degrees/label: only ever advances within
-  // a cycle (see stepRegripGaugeDisplay), so ordinary sensor jitter can't
-  // make the needle flicker backward.
+  // Displayed raw gyro progress; never offset, accumulated, or smoothed.
   let regripGaugeDisplayDegrees = 0;
   let regripGaugeDisplayLabel: string | null = null;
   let turnFrame: number | null = null;
@@ -1579,13 +1569,6 @@ export const createCubeViewport = (
     overlay.restore();
   };
 
-  /**
-   * Only ever advances the displayed needle within a cycle (ignores small
-   * sensor-jitter dips backward), except on resetDisplay, which drops it
-   * straight back to 0 — this is what happens exactly once per regrip, since
-   * a fresh rebase naturally puts the raw sample back at 0° travelled. No
-   * synthetic decay is needed here: 0 already is the natural resting value.
-   */
   const stepRegripGaugeDisplay = () => {
     if (!regripGauge) {
       regripGaugeDisplayDegrees = 0;
@@ -1593,9 +1576,7 @@ export const createCubeViewport = (
       return;
     }
     regripGaugeDisplayLabel = regripGauge.label ?? regripGaugeDisplayLabel;
-    regripGaugeDisplayDegrees = regripGauge.resetDisplay
-      ? regripGauge.degrees
-      : Math.max(regripGaugeDisplayDegrees, regripGauge.degrees);
+    regripGaugeDisplayDegrees = Math.max(0, Math.min(90, regripGauge.degrees));
   };
 
   const render = () => {
