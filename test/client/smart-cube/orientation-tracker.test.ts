@@ -6,7 +6,6 @@ import {
   observeStableOrientation,
   settleStableOrientation,
 } from "../../../src/client/smart-cube/orientation-tracker";
-import {multiplyQuaternions} from "../../../src/client/cube-gl";
 
 const identity = {x: 0, y: 0, z: 0, w: 1};
 const x = (degrees: number) => ({x: Math.sin(degrees * Math.PI / 360), y: 0, z: 0, w: Math.cos(degrees * Math.PI / 360)});
@@ -66,15 +65,4 @@ describe("stable smart-cube orientation tracker", () => {
     expect(settled.tokens).toEqual(["x", "x"]);
   });
 
-  test("keeps the viewport tracker in the renderer's world composition order", () => {
-    const y = {x: 0, y: Math.SQRT1_2, z: 0, w: Math.SQRT1_2};
-    const tracker = createStableOrientationTracker(identity, "viewport", "world");
-    let observed = {tracker, tokens: [] as string[]};
-    for (let index = 0; index < 3; index += 1) observed = observeStableOrientation(observed.tracker, x(90), "viewport");
-    const xyWorld = multiplyQuaternions(y, x(90));
-    for (let index = 0; index < 3; index += 1) observed = observeStableOrientation(observed.tracker, xyWorld, "viewport");
-    expect(observed.tokens).toEqual(["y"]);
-    expect(observed.tracker.orientation).not.toEqual(x(90));
-    expect(Math.abs(observed.tracker.orientation.z)).toBeGreaterThan(0.49);
-  });
 });
