@@ -154,6 +154,17 @@ Recorded face turns and gyro regrips use the normal 120 ms tape-turn animation i
 arrival order. Capturing still appends the token to **Moves** immediately; animation
 only controls the virtual presentation.
 
+Gyro view has two deliberately separate layers. The viewport follows the continuous
+IMU pose so a regrip remains visually smooth. A recorder-side orientation tracker only
+accepts one of the cube's 24 cardinal poses after three consecutive samples within ten
+degrees, and emits `x`, `y`, or `z` from that settled transition. It rebases after each
+accepted pose rather than treating an early threshold crossing as a quarter turn.
+
+**Recenter gyro view** resets only the displayed gyro baseline. It does not change the
+physical cube, its calibration, the current state, or the tape. At a settled cardinal
+pose, the display may apply a correction to reconcile accumulated IMU heading error;
+it never snaps while the cube is in motion.
+
 ## Browser integration
 
 The action ribbon below the input exposes **Invert**, **Simplify**, **Factor structure**,

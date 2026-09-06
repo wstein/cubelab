@@ -15,6 +15,7 @@ import {
   matrixFromQuaternion,
   multiplyQuaternions,
   orientationInViewportFrame,
+  orientationCorrectionForTarget,
   pngBlobFromDataUrl,
   relativeQuaternion,
   safeCameraDistance,
@@ -25,6 +26,18 @@ import {
 import {cubieIsFrontFacing} from "../../src/client/motion-overlay";
 
 describe("cube viewport math", () => {
+  test("derives a display correction without changing the raw IMU pose", () => {
+    const base = {x: 0, y: 0, z: 0, w: 1};
+    const raw = {x: Math.sin(47 * Math.PI / 180), y: 0, z: 0, w: Math.cos(47 * Math.PI / 180)};
+    const target = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
+    const correction = orientationCorrectionForTarget(base, raw, target);
+    const corrected = multiplyQuaternions(correction, raw);
+    expect(corrected.x).toBeCloseTo(target.x);
+    expect(corrected.y).toBeCloseTo(target.y);
+    expect(corrected.z).toBeCloseTo(target.z);
+    expect(corrected.w).toBeCloseTo(target.w);
+  });
+
   test("keeps Standard stickers at a restrained mid-gloss finish", () => {
     expect(standardStickerFinish.keyPeak).toBeLessThan(0.5);
     expect(standardStickerFinish.fillPeak).toBeLessThan(0.25);

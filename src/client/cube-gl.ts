@@ -478,6 +478,27 @@ const normalizedQuaternion = (quaternion: OrientationQuaternion): OrientationQua
   };
 };
 
+const inverseQuaternion = (quaternion: OrientationQuaternion): OrientationQuaternion => {
+  const normalized = normalizedQuaternion(quaternion);
+  return {x: -normalized.x, y: -normalized.y, z: -normalized.z, w: normalized.w};
+};
+
+/**
+ * Produces the display-only adjustment that makes a raw IMU delta agree with
+ * a settled cardinal cube pose. The raw sample remains untouched.
+ */
+export const orientationCorrectionForTarget = (
+  base: OrientationQuaternion,
+  current: OrientationQuaternion,
+  target: OrientationQuaternion,
+  coordinateFrame: OrientationCoordinateFrame = "viewport",
+): OrientationQuaternion => {
+  const raw = deviceOrientationDelta(base, current, coordinateFrame, "world");
+  return normalizedQuaternion(
+    multiplyQuaternions(normalizedQuaternion(target), inverseQuaternion(raw)),
+  );
+};
+
 /** Locks sub-threshold IMU jitter and softens larger moves along the shortest quaternion path. */
 export const smoothTrackedOrientation = (
   previous: OrientationQuaternion,
@@ -661,6 +682,15 @@ export type CubeViewport = {
     orientation: OrientationQuaternion | null,
     frame?: OrientationCoordinateFrame,
   ) => void;
+  recenterDeviceOrientation: (
+    orientation: OrientationQuaternion,
+    frame?: OrientationCoordinateFrame,
+  ) => void;
+  reconcileDeviceOrientation: (
+    orientation: OrientationQuaternion,
+    target: OrientationQuaternion,
+    frame?: OrientationCoordinateFrame,
+  ) => void;
   setAutoOrbit: (enabled: boolean) => void;
   setDialogOpen: (open: boolean) => void;
   resetCamera: () => void;
@@ -755,6 +785,7 @@ export const createCubeViewport = (
   let cameraGeneration = 0;
   let deviceOrientationBase: OrientationQuaternion | null = null;
   let deviceOrientation: OrientationQuaternion | null = null;
+  let deviceOrientationCorrection: OrientationQuaternion | null = null;
   let deviceOrientationFrame: OrientationCoordinateFrame = "viewport";
   canvas.dataset.autoOrbitState = "off";
   const overlay = overlayCanvas.getContext("2d");
@@ -1398,9 +1429,12 @@ export const createCubeViewport = (
     gl.vertexAttribPointer(cubie, 3, gl.FLOAT, false, byteStride, 10 * 4);
     gl.enableVertexAttribArray(sheen);
     gl.vertexAttribPointer(sheen, 1, gl.FLOAT, false, byteStride, 13 * 4);
-    const relativeOrientation = deviceOrientationBase && deviceOrientation
+    const rawOrientation = deviceOrientationBase && deviceOrientation
       ? deviceOrientationDelta(deviceOrientationBase, deviceOrientation, deviceOrientationFrame, "world")
       : undefined;
+    const relativeOrientation = rawOrientation && deviceOrientationCorrection
+      ? multiplyQuaternions(deviceOrientationCorrection, rawOrientation)
+      : rawOrientation;
     const aspect = width / height;
     const matrices = cameraMatrices(
       aspect,
@@ -1763,6 +1797,7 @@ export const createCubeViewport = (
       if (!orientation) {
         deviceOrientationBase = null;
         deviceOrientation = null;
+        deviceOrientationCorrection = null;
         deviceOrientationFrame = "viewport";
         delete canvas.dataset.deviceOrientation;
         requestRender();
@@ -1772,6 +1807,7 @@ export const createCubeViewport = (
       if (deviceOrientationFrame !== coordinateFrame) {
         deviceOrientationBase = null;
         deviceOrientation = null;
+        deviceOrientationCorrection = null;
       }
       deviceOrientationFrame = coordinateFrame;
       if (!deviceOrientationBase) deviceOrientationBase = normalized;
@@ -1781,6 +1817,31 @@ export const createCubeViewport = (
       cancelCamera();
       stopInertia();
       stopAutoOrbitFrame();
+      canvas.dataset.deviceOrientation = "tracking";
+      requestRender();
+    },
+    recenterDeviceOrientation(orientation, coordinateFrame = "viewport") {
+      const normalized = normalizedQuaternion(orientation);
+      deviceOrientationBase = normalized;
+      deviceOrientation = normalized;
+      deviceOrientationFrame = coordinateFrame;
+      deviceOrientationCorrection = null;
+      canvas.dataset.deviceOrientation = "tracking";
+      requestRender();
+    },
+    reconcileDeviceOrientation(orientation, target, coordinateFrame = "viewport") {
+      const normalized = normalizedQuaternion(orientation);
+      if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase) {
+        deviceOrientationBase = normalized;
+        deviceOrientationFrame = coordinateFrame;
+      }
+      deviceOrientation = normalized;
+      deviceOrientationCorrection = orientationCorrectionForTarget(
+        deviceOrientationBase,
+        normalized,
+        target,
+        coordinateFrame,
+      );
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
     },
@@ -1810,6 +1871,7 @@ export const createCubeViewport = (
     resetCamera() {
       deviceOrientationBase = null;
       deviceOrientation = null;
+      deviceOrientationCorrection = null;
       deviceOrientationFrame = "viewport";
       delete canvas.dataset.deviceOrientation;
       cancelCamera();

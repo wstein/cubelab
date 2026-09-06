@@ -637,6 +637,7 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(viewportComponent, /data-smart-cube-sync/);
   assert.match(viewportComponent, /data-smart-cube-reset-state/);
   assert.match(viewportComponent, /data-smart-cube-orientation/);
+  assert.match(viewportComponent, /data-smart-cube-recenter/);
   assert.match(viewportComponent, /data-smart-cube-disconnect/);
   assert.match(viewportComponent, /data-smart-cube-sound/);
   assert.match(viewportComponent, /data-smart-cube-mistakes/);
@@ -649,6 +650,10 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
     "Bluetooth must only be probed inside the explicit Connect gesture",
   );
   assert.match(client, /manager\.subscribeEvents\(handleSmartCubeEvent\)/);
+  assert.match(client, /recenterDeviceOrientation/);
+  assert.match(client, /reconcileDeviceOrientation/);
+  assert.match(client, /createStableOrientationTracker/);
+  assert.match(client, /smartCubeDiscreteOrientationTracker\s*=\s*createStableOrientationTracker/);
   assert.match(client, /appendRecordedMove/);
   assert.match(client, /mirrorSmartCubeFaceletsToInput\(event\.facelets\)/);
   assert.match(client, /const facelets = toSpacedFacelets\(rawFacelets, 3\)/);
