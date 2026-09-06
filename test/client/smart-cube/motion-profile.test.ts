@@ -11,6 +11,7 @@ describe("smart-cube motion profiles", () => {
     });
     expect(motionProfileFor(registry, "gocube").maximumAnchorDeviationDegrees).toBe(25);
     expect(motionProfileFor(registry, "gocube").maximumCorrectionStepDegrees).toBe(1);
+    expect(motionProfileFor(registry, "gocube").anchorWindowMs).toBe(200);
     expect(motionProfileFor(registry, "gan")).toEqual(defaultMotionProfile);
   });
 

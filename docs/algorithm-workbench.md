@@ -179,10 +179,12 @@ physical cube, its calibration, the current state, or the tape. At a settled car
 pose, the display may apply a correction to reconcile accumulated IMU heading error;
 it never snaps while the cube is in motion.
 
-Each confirmed face turn can open a 700 ms stabilization window. Three following IMU
-samples may make a small correction toward the current settled cardinal viewport pose
-only when their whole-cube pose remains within the connected profile's anchor envelope
-of the pose before the turn (25° for GoCube).
+Each confirmed face turn retains IMU evidence from the preceding 200 ms and opens a
+200 ms post-turn stabilization window. Three following IMU samples may make a small
+correction toward the current settled cardinal viewport pose
+only when their whole-cube pose remains within 10° of the pose before the turn. This is
+a hard motion veto, independent of the connected profile's broader cardinal-pose
+tolerance (25° for GoCube).
 GoCube IMU packets can spike while an ordinary face is turned, so this post-turn window
 rather than a pre-turn motion threshold decides whether the cube was still. A sample
 outside the envelope, an expired window, recording, or a newly detected regrip discards

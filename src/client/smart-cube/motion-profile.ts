@@ -16,7 +16,7 @@ export type SmartCubeMotionProfileRegistry = {
 
 export const defaultMotionProfile: SmartCubeMotionProfile = {
   label: "Default",
-  anchorWindowMs: 700,
+  anchorWindowMs: 200,
   anchorSamples: 3,
   maximumAnchorDeviationDegrees: 10,
   maximumCorrectionStepDegrees: 1,

@@ -2280,6 +2280,7 @@ if (root) {
     SmartCubeOrientationEvent,
     "quaternion" | "coordinateFrame"
   > | null = null;
+  const smartCubeRecentOrientations: Array<SmartCubeOrientationEvent> = [];
   let smartCubeMovesInFlight = 0;
   let smartCubeMoveQueue = Promise.resolve();
   type QueuedSmartCubeMove = {move: string; state: CubeState | null};
@@ -4705,25 +4706,32 @@ if (root) {
   const handleSmartCubeEvent = (event: SmartCubeEvent) => {
     switch (event.type) {
       case "move": {
+        const preTurnOrientations = smartCubeRecentOrientations.filter((orientation) =>
+          orientation.timestamp >= event.timestamp - smartCubeMotionProfile.anchorWindowMs
+          && orientation.timestamp <= event.timestamp,
+        );
+        const preTurnBaseline = preTurnOrientations.at(-1) ?? null;
         const anchorEligible = Boolean(
           smartCubeOrientationTracking
           && !smartCubeRecording
           && !smartCubeRecordingTapePresented
-          && latestSmartCubeOrientation
+          && preTurnBaseline
           && smartCubeDiscreteOrientationTracker
           && smartCubeDiscreteOrientationTracker.candidate === null
         );
         if (anchorEligible) {
           smartCubeTurnAnchor = createTurnAnchor(
-            latestSmartCubeOrientation.quaternion,
+            preTurnBaseline.quaternion,
             smartCubeStabilizationTarget,
-            latestSmartCubeOrientation.coordinateFrame,
+            preTurnBaseline.coordinateFrame,
             event.timestamp,
             smartCubeMotionProfile.anchorWindowMs,
           );
           traceSmartCubeStabilization("anchor opened", {
             move: event.move,
-            policy: "post-turn samples decide whether the cube was still",
+            policy: "200 ms before and after the face packet decide whether the cube was still",
+            preTurnSamples: preTurnOrientations.length,
+            baselineAgeMs: event.timestamp - preTurnBaseline.timestamp,
           });
         } else {
           traceSmartCubeStabilization("anchor skipped", {
@@ -4732,6 +4740,7 @@ if (root) {
             recording: smartCubeRecording,
             tapePresented: smartCubeRecordingTapePresented,
             hasOrientation: latestSmartCubeOrientation !== null,
+            preTurnSamples: preTurnOrientations.length,
             hasDiscretePose: smartCubeDiscreteOrientationTracker !== null,
             pendingRegrip: smartCubeDiscreteOrientationTracker?.candidate !== null,
           });
@@ -4783,6 +4792,11 @@ if (root) {
         smartCubeBattery.textContent = `🔋 ${Math.round(event.level)}%`;
         break;
       case "orientation": {
+        smartCubeRecentOrientations.push(event);
+        const oldestRelevantTimestamp = event.timestamp - smartCubeMotionProfile.anchorWindowMs;
+        while (smartCubeRecentOrientations[0]?.timestamp < oldestRelevantTimestamp) {
+          smartCubeRecentOrientations.shift();
+        }
         latestSmartCubeOrientation = {
           quaternion: event.quaternion,
           coordinateFrame: event.coordinateFrame,
@@ -4827,7 +4841,7 @@ if (root) {
             event.quaternion,
             event.coordinateFrame,
             event.timestamp,
-            smartCubeMotionProfile.maximumAnchorDeviationDegrees * Math.PI / 180,
+            Math.min(10, smartCubeMotionProfile.maximumAnchorDeviationDegrees) * Math.PI / 180,
             smartCubeMotionProfile.anchorSamples,
           );
           smartCubeTurnAnchor = anchored.anchor;

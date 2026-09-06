@@ -31,4 +31,16 @@ describe("smart-cube turn anchors", () => {
     expect(observeTurnAnchor(anchor, x(25), "viewport", 1_020)).toMatchObject({anchor: null, target: null, stable: false, reason: "moved"});
     expect(observeTurnAnchor(anchor, identity, "viewport", 1_800)).toMatchObject({anchor: null, target: null, stable: false, reason: "expired"});
   });
+
+  test("expires at the 200 ms post-turn boundary", () => {
+    const anchor = createTurnAnchor(identity, identity, "viewport", 1_000, 200);
+    expect(observeTurnAnchor(anchor, identity, "viewport", 1_200)).toMatchObject({stable: false, reason: "pending"});
+    expect(observeTurnAnchor(anchor, identity, "viewport", 1_201)).toMatchObject({anchor: null, reason: "expired"});
+  });
+
+  test("uses ten degrees as a hard motion veto for a post-turn window", () => {
+    const anchor = createTurnAnchor(identity, identity, "viewport", 1_000, 200);
+    expect(observeTurnAnchor(anchor, x(10), "viewport", 1_030, 10 * Math.PI / 180)).toMatchObject({reason: "pending"});
+    expect(observeTurnAnchor(anchor, x(10.1), "viewport", 1_030, 10 * Math.PI / 180)).toMatchObject({anchor: null, reason: "moved"});
+  });
 });
