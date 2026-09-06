@@ -3803,6 +3803,8 @@ if (root) {
   const syncSmartCubeTrackedOrientation = () => {
     if (
       smartCubeOrientationTracking
+      && !smartCubeRecording
+      && !smartCubeRecordingTapePresented
       && (!smartCubeCoachingWaiting || smartCubeSyncMode === "VirtualController")
       && latestSmartCubeOrientation
     ) {
@@ -4693,7 +4695,7 @@ if (root) {
           //   `tracking=${smartCubeOrientationTracking} waitingForRegrip=${Boolean(smartCubeRotationWait)}`
           // );
         }
-        if (smartCubeOrientationTracking) {
+        if (smartCubeOrientationTracking && !smartCubeRecording && !smartCubeRecordingTapePresented) {
           if (!smartCubeCoachingWaiting || smartCubeSyncMode === "VirtualController") {
             viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
           }
@@ -7107,6 +7109,7 @@ if (root) {
       smartCubeRecordingOrientation = null;
       smartCubeRecordingTapeDirty = false;
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Recording stopped; captured turns were appended to Moves.`;
+      syncSmartCubeTrackedOrientation();
       scheduleUpdate();
     } else {
       if (smartCubeGuidedTape) {
@@ -7126,6 +7129,7 @@ if (root) {
       smartCubeRecordingFrame = [];
       smartCubeRecordingOrientation = latestSmartCubeOrientation;
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Recording physical turns into Moves.`;
+      syncSmartCubeTrackedOrientation();
       renderSmartCubeRecordingState();
     }
     updateSmartCubeRecordingUi();

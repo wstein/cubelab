@@ -146,6 +146,10 @@ appending them. Device face labels remain fixed to the hardware; tape face label
 follow the virtual cube, so this projection keeps the recording and virtual state in
 the same frame.
 
+While a recording (or its final tape view) owns presentation, device-orientation camera
+tracking is suspended. The tape rotation is therefore rendered once, rather than once
+in cube state and again as a camera pose.
+
 ## Browser integration
 
 The action ribbon below the input exposes **Invert**, **Simplify**, **Factor structure**,
