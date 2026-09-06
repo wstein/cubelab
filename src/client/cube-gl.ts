@@ -16,12 +16,12 @@ export type CubeStyle = "Standard" | "Speed";
 export type CubePalette = "Western" | "Japanese";
 export type CubeState = { size: number; facelets: string[][] };
 export const standardStickerFinish = {
-  keyPeak: 0.34,
-  keyFill: 0.12,
-  fillPeak: 0.18,
-  fillFill: 0.07,
-  bounce: 0.07,
-  rim: 0.14,
+  keyPeak: 0.26,
+  keyFill: 0.04,
+  fillPeak: 0.12,
+  fillFill: 0.02,
+  bounce: 0.03,
+  rim: 0.08,
 } as const;
 export type CubieFocus = {
   piece: string;
@@ -178,34 +178,34 @@ const fragmentShaderSource = `
     vec3 normal = normalize(vNormal);
     vec3 view = normalize(-vPosition);
 
-    // Three-point product-studio lighting in camera view space. The key gives
-    // the cube shape, the cooler fill protects dark-facing sticker colours,
-    // and the rim separates the silhouette from the dark application canvas.
-    vec3 keyDir = normalize(vec3(-0.46, 0.76, 0.64));
-    vec3 fillDir = normalize(vec3(0.68, 0.36, 0.56));
-    vec3 rimDir = normalize(vec3(-0.28, 0.58, -0.76));
-    vec3 bounceDir = normalize(vec3(0.14, -0.32, 0.46));
+    // Studio product lighting in camera view space: balanced, high-CRI
+    // neutral illumination so every sticker color (including red, orange,
+    // and yellow) stays true, vibrant, and clean from any viewing angle.
+    vec3 keyDir = normalize(vec3(-0.48, 0.72, 0.52));
+    vec3 fillDir = normalize(vec3(0.64, 0.38, 0.62));
+    vec3 bounceDir = normalize(vec3(0.0, -0.78, 0.62));
+    vec3 rimDir = normalize(vec3(-0.32, 0.54, -0.78));
 
-    vec3 keyCol = vec3(1.0, 0.96, 0.90);
-    vec3 fillCol = vec3(0.72, 0.84, 1.0);
-    vec3 rimCol = vec3(0.60, 0.72, 1.0);
-    vec3 bounceCol = vec3(0.42, 0.48, 0.60);
+    vec3 keyCol = vec3(1.0, 0.99, 0.97);
+    vec3 fillCol = vec3(0.96, 0.98, 1.0);
+    vec3 bounceCol = vec3(0.98, 0.96, 0.94);
+    vec3 rimCol = vec3(0.90, 0.94, 1.0);
 
     float keyDiff = max(dot(normal, keyDir), 0.0);
     float fillDiff = max(dot(normal, fillDir), 0.0);
-    float rimDiff = max(dot(normal, rimDir), 0.0);
     float bounceDiff = max(dot(normal, bounceDir), 0.0);
+    float rimDiff = max(dot(normal, rimDir), 0.0);
 
-    // A cool, subdued hemisphere retains form without washing out colours.
-    vec3 lowerAmbient = vec3(0.10, 0.12, 0.16);
-    vec3 upperAmbient = vec3(0.20, 0.22, 0.28);
+    // Neutral studio ambient keeps shadow-facing stickers legible without color casts.
+    vec3 lowerAmbient = vec3(0.26, 0.25, 0.25);
+    vec3 upperAmbient = vec3(0.30, 0.31, 0.32);
     vec3 ambient = mix(lowerAmbient, upperAmbient, normal.y * 0.5 + 0.5);
 
     vec3 diffuseLight = ambient
-      + keyCol * (0.54 * keyDiff)
-      + fillCol * (0.25 * fillDiff)
-      + rimCol * (0.14 * rimDiff)
-      + bounceCol * (0.06 * bounceDiff);
+      + keyCol * (0.44 * keyDiff)
+      + fillCol * (0.28 * fillDiff)
+      + bounceCol * (0.22 * bounceDiff)
+      + rimCol * (0.14 * rimDiff);
 
     vec3 halfKey = normalize(keyDir + view);
     vec3 halfFill = normalize(fillDir + view);
@@ -220,26 +220,27 @@ const fragmentShaderSource = `
     float body = charcoalBody;
     float isStandardSticker = (1.0 - body) * (1.0 - uSpeedStyle);
 
-    // Mid-gloss vinyl: a broad key softbox and smaller cool fill reflection.
-    vec3 specKeySticker = keyCol * (${standardStickerFinish.keyPeak} * pow(dotKey, 68.0) + ${standardStickerFinish.keyFill} * pow(dotKey, 22.0));
-    vec3 specFillSticker = fillCol * (${standardStickerFinish.fillPeak} * pow(dotFill, 42.0) + ${standardStickerFinish.fillFill} * pow(dotFill, 15.0));
-    vec3 specBounceSticker = bounceCol * (${standardStickerFinish.bounce} * pow(dotRim, 28.0));
-    // A soft dielectric edge rather than a mirror-like rim reflection.
-    float vinylFresnel = pow(1.0 - max(dot(normal, view), 0.0), 2.5);
-    vec3 specRimSticker = mix(rimCol, fillCol, 0.4) * (${standardStickerFinish.rim} * vinylFresnel);
+    // Mid-gloss vinyl: focused studio softbox reflection without bleaching sticker pigment.
+    vec3 specKeySticker = keyCol * (${standardStickerFinish.keyPeak} * pow(dotKey, 84.0) + ${standardStickerFinish.keyFill} * pow(dotKey, 36.0));
+    vec3 specFillSticker = fillCol * (${standardStickerFinish.fillPeak} * pow(dotFill, 54.0) + ${standardStickerFinish.fillFill} * pow(dotFill, 24.0));
+    vec3 specBounceSticker = bounceCol * (${standardStickerFinish.bounce} * pow(dotRim, 36.0));
+    // Soft dielectric Fresnel edge reflection.
+    float vinylFresnel = pow(1.0 - max(dot(normal, view), 0.0), 3.0);
+    vec3 specRimSticker = rimCol * (${standardStickerFinish.rim} * vinylFresnel);
     vec3 stickerSpecular = specKeySticker + specFillSticker + specBounceSticker + specRimSticker;
+
     // --- Matte Charcoal Body Plastic Specular ---
-    vec3 bodySpecular = keyCol * (0.12 * pow(dotKey, 16.0)) + fillCol * (0.06 * pow(dotFill, 12.0));
+    vec3 bodySpecular = keyCol * (0.15 * pow(dotKey, 24.0)) + fillCol * (0.08 * pow(dotFill, 16.0));
 
     // --- Speed Cube (Stickerless Semi-Matte Plastic) Specular ---
-    vec3 speedSpecular = keyCol * (0.20 * pow(dotKey, 28.0)) + fillCol * (0.11 * pow(dotFill, 20.0));
+    vec3 speedSpecular = keyCol * (0.10 * pow(dotKey, 36.0)) + fillCol * (0.05 * pow(dotFill, 24.0));
 
     // Blend specular based on surface type
     vec3 baseSpec = mix(speedSpecular, bodySpecular, body);
     vec3 specular = mix(baseSpec, stickerSpecular, isStandardSticker);
 
-    // Speed cube rolled edge sheen
-    vec3 rolledSheen = vColour.rgb * vSheen * (0.42 + 0.58 * rimDiff);
+    // Speed cube rolled edge sheen: natural edge light catch without radioactive glow in shadow.
+    vec3 rolledSheen = vColour.rgb * vSheen * (0.08 + 0.32 * rimDiff + 0.18 * fillDiff);
 
     // Combine diffuse and specular with soft highlight compression
     vec3 lit = vColour.rgb * diffuseLight + rolledSheen + specular;
