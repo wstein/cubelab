@@ -4843,6 +4843,7 @@ if (root) {
               smartCubeDiscreteOrientationTracker!,
               anchored.settledOrientation,
               event.coordinateFrame,
+              Math.cos(smartCubeMotionProfile.maximumAnchorDeviationDegrees * Math.PI / 360),
             );
             if (delayedRegrip.tokens.length > 0) {
               smartCubeDiscreteOrientationTracker = delayedRegrip.tracker;
