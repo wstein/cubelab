@@ -20,10 +20,8 @@ import {
   quaternionAxisAngle,
   pngBlobFromDataUrl,
   relativeQuaternion,
-  renderedDeviceOrientation,
   safeCameraDistance,
   slerpQuaternion,
-  stabilizedOrientationCorrection,
   smoothTrackedOrientation,
   standardStickerFinish,
   vboCapacityFloats,
@@ -43,16 +41,6 @@ describe("cube viewport math", () => {
     expect(corrected.w).toBeCloseTo(target.w);
   });
 
-  test("moves the rendered pose toward its settled cardinal target without overshooting", () => {
-    const base = {x: 0, y: 0, z: 0, w: 1};
-    const displayed = {x: Math.sin(85 * Math.PI / 360), y: 0, z: 0, w: Math.cos(85 * Math.PI / 360)};
-    const target = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
-    const correction = stabilizedOrientationCorrection(null, base, displayed, target);
-    const corrected = multiplyQuaternions(correction, displayed);
-    expect(corrected.x).toBeGreaterThan(displayed.x);
-    expect(corrected.x).toBeLessThan(target.x);
-  });
-
   test("treats a cardinal regrip as too far away for face-turn stabilization", () => {
     const identity = {x: 0, y: 0, z: 0, w: 1};
     const x = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
@@ -67,36 +55,6 @@ describe("cube viewport math", () => {
     expect(axisAngle.axis).toEqual([1, 0, 0]);
   });
 
-  test("draws a near-reset rendered pose incrementally back toward viewport zero", () => {
-    const identity = {x: 0, y: 0, z: 0, w: 1};
-    const displayed = {x: Math.sin(5 * Math.PI / 360), y: 0, z: 0, w: Math.cos(5 * Math.PI / 360)};
-    const correction = stabilizedOrientationCorrection(null, identity, displayed, identity);
-    const corrected = multiplyQuaternions(correction, displayed);
-    expect(Math.abs(corrected.x)).toBeLessThan(Math.abs(displayed.x));
-    expect(Math.abs(corrected.x)).toBeGreaterThan(0);
-  });
-
-  test("applies one fifth of a large stabilization error per accepted turn", () => {
-    const identity = {x: 0, y: 0, z: 0, w: 1};
-    const displayed = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
-    const correction = stabilizedOrientationCorrection(null, identity, displayed, identity);
-    const corrected = multiplyQuaternions(correction, displayed);
-    const moved = orientationDistanceRadians(displayed, corrected);
-    expect(moved).toBeCloseTo(18 * Math.PI / 180, 6);
-  });
-
-  test("uses error divided by five as the correction step", () => {
-    const identity = {x: 0, y: 0, z: 0, w: 1};
-    const correctionAt = (errorDegrees: number) => {
-      const displayed = {x: Math.sin(errorDegrees * Math.PI / 360), y: 0, z: 0, w: Math.cos(errorDegrees * Math.PI / 360)};
-      const correction = stabilizedOrientationCorrection(null, identity, displayed, identity, "viewport", 5);
-      return orientationDistanceRadians(displayed, multiplyQuaternions(correction, displayed)) * 180 / Math.PI;
-    };
-    expect(correctionAt(4)).toBeCloseTo(0.8, 6);
-    expect(correctionAt(9)).toBeCloseTo(1.8, 6);
-    expect(correctionAt(44)).toBeCloseTo(8.8, 6);
-  });
-
   test("interpolates along the shortest arc between two orientations", () => {
     const identity = {x: 0, y: 0, z: 0, w: 1};
     const quarterX = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
@@ -108,28 +66,6 @@ describe("cube viewport math", () => {
     const full = slerpQuaternion(identity, quarterX, 1);
     expect(full.x).toBeCloseTo(quarterX.x);
     expect(full.w).toBeCloseTo(quarterX.w);
-  });
-
-  test("reads the currently rendered pose without moving it", () => {
-    const base = {x: 0, y: 0, z: 0, w: 1};
-    const measured = {x: Math.sin(30 * Math.PI / 360), y: 0, z: 0, w: Math.cos(30 * Math.PI / 360)};
-    const correction = {x: 0, y: Math.sin(10 * Math.PI / 360), z: 0, w: Math.cos(10 * Math.PI / 360)};
-    const rendered = renderedDeviceOrientation(base, correction, measured);
-    const expected = multiplyQuaternions(correction, measured);
-    expect(rendered.x).toBeCloseTo(expected.x);
-    expect(rendered.y).toBeCloseTo(expected.y);
-    expect(rendered.z).toBeCloseTo(expected.z);
-    expect(rendered.w).toBeCloseTo(expected.w);
-  });
-
-  test("treats a missing correction as identity when reading the rendered pose", () => {
-    const base = {x: 0, y: 0, z: 0, w: 1};
-    const measured = {x: Math.sin(30 * Math.PI / 360), y: 0, z: 0, w: Math.cos(30 * Math.PI / 360)};
-    const rendered = renderedDeviceOrientation(base, null, measured);
-    expect(rendered.x).toBeCloseTo(measured.x);
-    expect(rendered.y).toBeCloseTo(measured.y);
-    expect(rendered.z).toBeCloseTo(measured.z);
-    expect(rendered.w).toBeCloseTo(measured.w);
   });
 
   test("keeps Standard stickers at a restrained mid-gloss finish", () => {

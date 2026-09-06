@@ -532,17 +532,6 @@ export const orientationCorrectionForTarget = (
   );
 };
 
-/** The pose currently on screen: the raw IMU delta with the active display correction applied. */
-export const renderedDeviceOrientation = (
-  base: OrientationQuaternion,
-  correction: OrientationQuaternion | null,
-  measured: OrientationQuaternion,
-  coordinateFrame: OrientationCoordinateFrame = "viewport",
-): OrientationQuaternion => {
-  const raw = deviceOrientationDelta(base, measured, coordinateFrame, "world");
-  return multiplyQuaternions(correction ?? {x: 0, y: 0, z: 0, w: 1}, raw);
-};
-
 /** Interpolates along the shortest arc from one orientation to another. */
 export const slerpQuaternion = (
   from: OrientationQuaternion,
@@ -562,22 +551,6 @@ export const slerpQuaternion = (
     z: from.z * fromWeight + to.z * toWeight,
     w: from.w * fromWeight + to.w * toWeight,
   });
-};
-
-/** Eases the actual rendered pose toward a settled cardinal orientation. */
-export const stabilizedOrientationCorrection = (
-  previous: OrientationQuaternion | null,
-  base: OrientationQuaternion,
-  displayed: OrientationQuaternion,
-  target: OrientationQuaternion,
-  coordinateFrame: OrientationCoordinateFrame = "viewport",
-  correctionErrorDivisor = 5,
-): OrientationQuaternion => {
-  const current = previous ?? {x: 0, y: 0, z: 0, w: 1};
-  const desired = orientationCorrectionForTarget(base, displayed, target, coordinateFrame);
-  const distance = orientationDistanceRadians(current, desired);
-  if (distance === 0) return current;
-  return slerpQuaternion(current, desired, Math.min(1, 1 / correctionErrorDivisor));
 };
 
 /** Locks sub-threshold IMU jitter and softens larger moves along the shortest quaternion path. */
@@ -773,24 +746,6 @@ export type CubeViewport = {
     target: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
   ) => void;
-  stabilizeDeviceOrientation: (
-    measured: OrientationQuaternion,
-    target: OrientationQuaternion,
-    frame?: OrientationCoordinateFrame,
-    correctionErrorDivisor?: number,
-  ) => {
-    applied: boolean;
-    targetErrorRadians: number | null;
-    targetErrorAxis: [number, number, number] | null;
-    correctionStepRadians: number;
-  };
-  /** Diagnostic-only snapshot of internal device-orientation bookkeeping. */
-  deviceOrientationDebugState: () => {
-    base: OrientationQuaternion | null;
-    correction: OrientationQuaternion | null;
-    correctionTarget: OrientationQuaternion | null;
-    frame: OrientationCoordinateFrame;
-  };
   setAutoOrbit: (enabled: boolean) => void;
   setDialogOpen: (open: boolean) => void;
   resetCamera: () => void;
@@ -887,10 +842,8 @@ export const createCubeViewport = (
   let deviceOrientationBase: OrientationQuaternion | null = null;
   let deviceOrientation: OrientationQuaternion | null = null;
   // The correction actually being drawn this frame; only animateDeviceOrientationCorrectionTo
-  // may write it. Everything else reads/writes deviceOrientationCorrectionTarget, the settled
-  // value the animation is easing toward, so math never depends on a mid-animation snapshot.
+  // may write it.
   let deviceOrientationCorrection: OrientationQuaternion | null = null;
-  let deviceOrientationCorrectionTarget: OrientationQuaternion | null = null;
   let deviceOrientationFrame: OrientationCoordinateFrame = "viewport";
   let deviceOrientationCorrectionFrame: number | null = null;
   let deviceOrientationCorrectionGeneration = 0;
@@ -1864,7 +1817,6 @@ export const createCubeViewport = (
   const animateDeviceOrientationCorrectionTo = (target: OrientationQuaternion, duration = 180) => {
     const generation = ++deviceOrientationCorrectionGeneration;
     const start = deviceOrientationCorrection ?? {x: 0, y: 0, z: 0, w: 1};
-    deviceOrientationCorrectionTarget = target;
     const started = performance.now();
     const safeDuration = Math.max(1, duration);
     const tick = (now: number) => {
@@ -1990,7 +1942,6 @@ export const createCubeViewport = (
         deviceOrientationBase = null;
         deviceOrientation = null;
         deviceOrientationCorrection = null;
-        deviceOrientationCorrectionTarget = null;
         deviceOrientationCorrectionGeneration += 1;
         deviceOrientationFrame = "viewport";
         delete canvas.dataset.deviceOrientation;
@@ -2002,7 +1953,6 @@ export const createCubeViewport = (
         deviceOrientationBase = null;
         deviceOrientation = null;
         deviceOrientationCorrection = null;
-        deviceOrientationCorrectionTarget = null;
         deviceOrientationCorrectionGeneration += 1;
       }
       deviceOrientationFrame = coordinateFrame;
@@ -2022,7 +1972,6 @@ export const createCubeViewport = (
       deviceOrientation = normalized;
       deviceOrientationFrame = coordinateFrame;
       deviceOrientationCorrection = null;
-      deviceOrientationCorrectionTarget = null;
       deviceOrientationCorrectionGeneration += 1;
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
@@ -2043,35 +1992,6 @@ export const createCubeViewport = (
       animateDeviceOrientationCorrectionTo(nextCorrection);
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
-    },
-    stabilizeDeviceOrientation(
-      measured,
-      target,
-      coordinateFrame = "viewport",
-      correctionErrorDivisor = 5,
-    ) {
-      if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) {
-        return {applied: false, targetErrorRadians: null, targetErrorAxis: null, correctionStepRadians: 0};
-      }
-      const priorCorrection = deviceOrientationCorrectionTarget ?? {x: 0, y: 0, z: 0, w: 1};
-      const rendered = renderedDeviceOrientation(deviceOrientationBase, priorCorrection, measured, coordinateFrame);
-      const targetErrorRadians = orientationDistanceRadians(rendered, target);
-      const targetErrorAxis = quaternionAxisAngle(multiplyQuaternions(target, inverseQuaternion(rendered))).axis;
-      const nextCorrection = stabilizedOrientationCorrection(
-        priorCorrection,
-        deviceOrientationBase,
-        measured,
-        target,
-        coordinateFrame,
-        correctionErrorDivisor,
-      );
-      animateDeviceOrientationCorrectionTo(nextCorrection, 120);
-      return {
-        applied: true,
-        targetErrorRadians,
-        targetErrorAxis,
-        correctionStepRadians: orientationDistanceRadians(priorCorrection, nextCorrection),
-      };
     },
     setAutoOrbit(enabled) {
       if (deviceOrientation && enabled) enabled = false;
@@ -2096,19 +2016,10 @@ export const createCubeViewport = (
         startAutoOrbitFrame();
       }
     },
-    deviceOrientationDebugState() {
-      return {
-        base: deviceOrientationBase,
-        correction: deviceOrientationCorrection,
-        correctionTarget: deviceOrientationCorrectionTarget,
-        frame: deviceOrientationFrame,
-      };
-    },
     resetCamera() {
       deviceOrientationBase = null;
       deviceOrientation = null;
       deviceOrientationCorrection = null;
-      deviceOrientationCorrectionTarget = null;
       deviceOrientationCorrectionGeneration += 1;
       deviceOrientationFrame = "viewport";
       delete canvas.dataset.deviceOrientation;

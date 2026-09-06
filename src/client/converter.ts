@@ -135,14 +135,6 @@ import {
   type StableOrientationTracker,
 } from "./smart-cube/orientation-tracker";
 import {
-  appendOrientationProbe,
-  averageOrientationProbes,
-  consumeOrientationProbeRing,
-  createOrientationProbeRing,
-  type OrientationProbeRing,
-} from "./smart-cube/orientation-probe-ring";
-import {defaultMotionProfile, motionProfileFor, parseMotionProfileRegistry, type SmartCubeMotionProfile} from "./smart-cube/motion-profile";
-import {
   createSmartCubeAudioFeedback,
   readSmartCubeSoundPreference,
   writeSmartCubeSoundPreference,
@@ -2238,10 +2230,6 @@ if (root) {
   let smartCubeRecordingAnimationGeneration = 0;
   let smartCubeRecordingOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeDiscreteOrientationTracker: StableOrientationTracker | null = null;
-  let smartCubeOrientationProbeRing: OrientationProbeRing = createOrientationProbeRing();
-  let smartCubeStabilizationTarget: OrientationQuaternion = {x: 0, y: 0, z: 0, w: 1};
-  let smartCubeMotionProfile: SmartCubeMotionProfile = defaultMotionProfile;
-  let smartCubeMotionProfileLoad: Promise<ReturnType<typeof parseMotionProfileRegistry>> | null = null;
   let smartCubeStabilizationTraceAnnounced = false;
   let smartCubeDiagnosticsEnabled = window.localStorage.getItem("cubelab.smartCube.diagnostics") === "1";
   const smartCubeDiagnosticTrace: Array<{
@@ -2270,37 +2258,18 @@ if (root) {
       updateSmartCubeDiagnosticsUi();
     }
   };
-  // Debug-only 3D arrows for gyro stabilization: green is the current cardinal
-  // target, blue is the settled display correction, orange (when passed) is the
-  // corrective rotation still remaining. Only drawn while Diagnostics is on.
-  const updateSmartCubeOrientationDebugVectors = (extra: OrientationDebugVector[] = []) => {
+  // Debug-only 3D arrow for gyro regrip detection: the recorder-side tracker's
+  // current confirmed cardinal orientation. Only drawn while Diagnostics is on.
+  const updateSmartCubeOrientationDebugVectors = () => {
     if (!viewport) return;
     if (!smartCubeDiagnosticsEnabled) {
       viewport.setOrientationDebugVectors([]);
       return;
     }
-    const vectors: OrientationDebugVector[] = [
-      {label: "target", colour: "#4ade80", axis: quaternionAxisAngle(smartCubeStabilizationTarget).axis, length: 1.9},
-    ];
-    const debugState = viewport.deviceOrientationDebugState();
-    if (debugState.correctionTarget) {
-      vectors.push({
-        label: "correction",
-        colour: "#60a5fa",
-        axis: quaternionAxisAngle(debugState.correctionTarget).axis,
-        length: 1.6,
-      });
-    }
-    viewport.setOrientationDebugVectors([...vectors, ...extra]);
-  };
-  const loadSmartCubeMotionProfiles = () => {
-    if (!smartCubeMotionProfileLoad) {
-      smartCubeMotionProfileLoad = fetch("/smart-cube/motion-profiles.v1.json")
-        .then((response) => response.ok ? response.json() : null)
-        .then(parseMotionProfileRegistry)
-        .catch(() => null);
-    }
-    return smartCubeMotionProfileLoad;
+    const target = smartCubeDiscreteOrientationTracker?.orientation ?? {x: 0, y: 0, z: 0, w: 1};
+    viewport.setOrientationDebugVectors([
+      {label: "target", colour: "#4ade80", axis: quaternionAxisAngle(target).axis, length: 1.9},
+    ]);
   };
   // During a recording session the physical cube is an input device. Keep a
   // separate virtual state so incoming facelet packets cannot repaint the
@@ -3915,17 +3884,18 @@ if (root) {
   };
 
   const syncSmartCubeTrackedOrientation = () => {
+    // The gyro view never mirrors raw orientation directly (see handleSmartCubeEvent's
+    // "orientation" case): it only moves in response to a confirmed regrip, via
+    // reconcileDeviceOrientation. While tracking is active there is nothing to sync
+    // here — the camera stays wherever the last confirmed regrip (or manual orbit)
+    // left it. This still clears device tracking outright when it shouldn't apply
+    // at all (tracking off, recording, or a still-guided coaching wait).
     if (
       smartCubeOrientationTracking
       && !smartCubeRecording
       && !smartCubeRecordingTapePresented
       && (!smartCubeCoachingWaiting || smartCubeSyncMode === "VirtualController")
-      && latestSmartCubeOrientation
     ) {
-      viewport?.setDeviceOrientation(
-        latestSmartCubeOrientation.quaternion,
-        latestSmartCubeOrientation.coordinateFrame,
-      );
       return;
     }
     viewport?.setDeviceOrientation(null);
@@ -4609,7 +4579,6 @@ if (root) {
       settingsAutoOrbit.disabled = true;
     } else {
       smartCubeDiscreteOrientationTracker = null;
-      smartCubeOrientationProbeRing = createOrientationProbeRing();
       autoOrbitButton.disabled = !viewport;
       settingsAutoOrbit.disabled = !viewport;
       setAutoOrbitEnabled(autoOrbit, false);
@@ -4645,18 +4614,6 @@ if (root) {
         clearSmartCubeRecovery();
       }
       smartCubeDeviceName = connectionState.device.name;
-      void loadSmartCubeMotionProfiles().then((registry) => {
-        if (!smartCubeConnected || smartCubeManager?.getState().device?.brand !== connectionState.device?.brand) return;
-        smartCubeMotionProfile = motionProfileFor(registry, connectionState.device!.brand);
-        traceSmartCubeStabilization("motion profile loaded", {
-          label: smartCubeMotionProfile.label,
-          orientationRingSamples: smartCubeMotionProfile.orientationRingSamples,
-          rotationDropThresholdDegrees: smartCubeMotionProfile.rotationDropThresholdDegrees,
-          rotationDropFollowingSamples: smartCubeMotionProfile.rotationDropFollowingSamples,
-          correctionErrorDivisor: smartCubeMotionProfile.correctionErrorDivisor,
-          maximumTargetErrorDegrees: smartCubeMotionProfile.maximumTargetErrorDegrees,
-        });
-      });
       smartCubeLedFeedback = connectionState.device.capabilities.led;
       const streamReadyMs = connectionState.device.timing?.streamReadyMs;
       const timing = streamReadyMs === undefined
@@ -4740,98 +4697,6 @@ if (root) {
   const handleSmartCubeEvent = (event: SmartCubeEvent) => {
     switch (event.type) {
       case "move": {
-        const measured = averageOrientationProbes(smartCubeOrientationProbeRing.probes);
-        const frame = smartCubeOrientationProbeRing.probes.at(-1)?.coordinateFrame;
-        const ringReady = Boolean(
-          smartCubeOrientationTracking
-          && !smartCubeRecording
-          && !smartCubeRecordingTapePresented
-          && measured
-          && frame
-          && smartCubeOrientationProbeRing.discardFollowing === 0
-        );
-        if (ringReady && measured && frame) {
-          const probes = smartCubeOrientationProbeRing.probes.length;
-          const ringProbes = smartCubeOrientationProbeRing.probes.map((probe) => probe.quaternion);
-          const rotationDropped = smartCubeOrientationProbeRing.rotationDropped;
-          smartCubeOrientationProbeRing = consumeOrientationProbeRing(smartCubeOrientationProbeRing);
-          const result = viewport?.stabilizeDeviceOrientation(
-            measured,
-            smartCubeStabilizationTarget,
-            frame,
-            smartCubeMotionProfile.correctionErrorDivisor,
-          ) ?? {applied: false, targetErrorRadians: null, targetErrorAxis: null, correctionStepRadians: 0};
-          traceSmartCubeStabilization(result.applied ? "ring correction applied" : "ring correction skipped", {
-            move: event.move,
-            probes,
-            ringProbes,
-            rotationDropped,
-            target: smartCubeStabilizationTarget,
-            measured,
-            targetErrorDegrees: result.targetErrorRadians === null
-              ? null
-              : Number((result.targetErrorRadians * 180 / Math.PI).toFixed(2)),
-            targetErrorAxis: result.targetErrorAxis?.map((component) => Number(component.toFixed(3))) ?? null,
-            correctionStepDegrees: Number((result.correctionStepRadians * 180 / Math.PI).toFixed(2)),
-            viewport: viewport?.deviceOrientationDebugState() ?? null,
-            discreteTracker: smartCubeDiscreteOrientationTracker && {
-              baseline: smartCubeDiscreteOrientationTracker.baseline,
-              orientation: smartCubeDiscreteOrientationTracker.orientation,
-              candidate: smartCubeDiscreteOrientationTracker.candidate,
-            },
-          });
-          updateSmartCubeOrientationDebugVectors(
-            result.applied && result.targetErrorAxis && result.targetErrorRadians !== null
-              ? [{
-                label: `error ${(result.targetErrorRadians * 180 / Math.PI).toFixed(0)}°`,
-                colour: "#fb923c",
-                axis: result.targetErrorAxis,
-                length: Math.min(4, 0.6 + (result.targetErrorRadians * 180 / Math.PI) / 20),
-              }]
-              : [],
-          );
-          const maximumTargetErrorRadians = smartCubeMotionProfile.maximumTargetErrorDegrees * Math.PI / 180;
-          if (
-            result.applied
-            && rotationDropped
-            && result.targetErrorRadians !== null
-            && result.targetErrorRadians > maximumTargetErrorRadians
-          ) {
-            // Measure from the discrete tracker's own baseline, which rebases on every
-            // confirmed regrip, rather than the viewport's rendered pose, which is
-            // downstream of the whole session's chain of past corrections. -1/1 accepts
-            // and confirms from a single sample: no alignment gate, no dwell.
-            const tracker = smartCubeDiscreteOrientationTracker
-              ?? createStableOrientationTracker(measured, frame, "world");
-            const priorBaseline = tracker.baseline;
-            const priorOrientation = tracker.orientation;
-            const resolved = observeStableOrientation(tracker, measured, frame, -1, 1);
-            if (resolved.tokens.length > 0) {
-              const nearestTarget = resolved.tracker.orientation;
-              viewport?.reconcileDeviceOrientation(measured, nearestTarget, frame);
-              smartCubeStabilizationTarget = nearestTarget;
-              smartCubeDiscreteOrientationTracker = resolved.tracker;
-              traceSmartCubeStabilization("unconfirmed regrip snapped to nearest cardinal", {
-                move: event.move,
-                measured,
-                priorBaseline,
-                priorOrientation,
-                targetErrorDegrees: Number((result.targetErrorRadians * 180 / Math.PI).toFixed(2)),
-                target: nearestTarget,
-              });
-              updateSmartCubeOrientationDebugVectors();
-            }
-          }
-        } else {
-          traceSmartCubeStabilization("ring correction skipped", {
-            move: event.move,
-            tracking: smartCubeOrientationTracking,
-            recording: smartCubeRecording,
-            tapePresented: smartCubeRecordingTapePresented,
-            probes: smartCubeOrientationProbeRing.probes.length,
-            pendingPostRotationDrops: smartCubeOrientationProbeRing.discardFollowing,
-          });
-        }
         const record: QueuedSmartCubeMove = {move: event.move, state: null};
         smartCubePendingMoves.push(record);
         smartCubeMovesInFlight += 1;
@@ -4879,22 +4744,6 @@ if (root) {
         smartCubeBattery.textContent = `🔋 ${Math.round(event.level)}%`;
         break;
       case "orientation": {
-        const probe = appendOrientationProbe(smartCubeOrientationProbeRing, event, {
-          capacity: smartCubeMotionProfile.orientationRingSamples,
-          rotationDropThresholdDegrees: smartCubeMotionProfile.rotationDropThresholdDegrees,
-          dropFollowingSamples: smartCubeMotionProfile.rotationDropFollowingSamples,
-        });
-        smartCubeOrientationProbeRing = probe.ring;
-        if (!probe.accepted) {
-          traceSmartCubeStabilization("ring probe dropped", {
-            reason: probe.rotationDegrees !== null ? "rotation" : "post-rotation",
-            rotationDegrees: probe.rotationDegrees === null ? null : Number(probe.rotationDegrees.toFixed(2)),
-            thresholdDegrees: smartCubeMotionProfile.rotationDropThresholdDegrees,
-            quaternion: event.quaternion,
-            probes: probe.ring.probes.length,
-            pendingPostRotationDrops: probe.ring.discardFollowing,
-          });
-        }
         latestSmartCubeOrientation = {
           quaternion: event.quaternion,
           coordinateFrame: event.coordinateFrame,
@@ -4905,12 +4754,6 @@ if (root) {
             event.coordinateFrame,
             "world",
           );
-          // A fresh tracker always starts at identity. Toggling orientation
-          // tracking off and back on recreates it here without going through
-          // Recenter, so the target has to be reset alongside it — otherwise
-          // the next confirmed regrip composes onto identity while the
-          // viewport is still displaying whatever the target was before.
-          smartCubeStabilizationTarget = {x: 0, y: 0, z: 0, w: 1};
           updateSmartCubeOrientationDebugVectors();
         } else {
           const priorBaseline = smartCubeDiscreteOrientationTracker.baseline;
@@ -4928,13 +4771,15 @@ if (root) {
             && !smartCubeRecording
             && !smartCubeRecordingTapePresented
           ) {
-            smartCubeStabilizationTarget = observed.tracker.orientation;
-            // A regrip changes the intended cardinal display pose. Reconcile it
-            // immediately so a correction retained from the prior pose cannot
-            // pull a later face turn back toward the old white-up target.
+            // The gyro view never mirrors live orientation continuously (it drifts
+            // and is loose to read). It only ever moves in response to a confirmed
+            // regrip, animating once to the new cardinal pose and then resting
+            // there — the same model tutorial mode already uses for coached
+            // rotations, just for whichever regrip actually happened rather than
+            // a specific expected one.
             viewport?.reconcileDeviceOrientation(
               event.quaternion,
-              smartCubeStabilizationTarget,
+              observed.tracker.orientation,
               event.coordinateFrame,
             );
           }
@@ -4999,9 +4844,6 @@ if (root) {
           // );
         }
         if (smartCubeOrientationTracking && !smartCubeRecording && !smartCubeRecordingTapePresented) {
-          if (!smartCubeCoachingWaiting || smartCubeSyncMode === "VirtualController") {
-            viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
-          }
           void applySmartCubeGyroRotation(event).catch((reason) => {
             smartCubeStatus.textContent = reason instanceof Error ? reason.message : String(reason);
           });
@@ -6651,8 +6493,6 @@ if (root) {
       latestSmartCubeOrientation.coordinateFrame,
       "world",
     );
-    smartCubeStabilizationTarget = {x: 0, y: 0, z: 0, w: 1};
-    smartCubeOrientationProbeRing = createOrientationProbeRing();
     viewport?.recenterDeviceOrientation(
       latestSmartCubeOrientation.quaternion,
       latestSmartCubeOrientation.coordinateFrame,
@@ -6660,7 +6500,7 @@ if (root) {
     updateSmartCubeOrientationDebugVectors();
     traceSmartCubeStabilization("gyro view recentered", {
       coordinates: latestSmartCubeOrientation.quaternion,
-      target: smartCubeStabilizationTarget,
+      target: smartCubeDiscreteOrientationTracker.orientation,
     });
     smartCubeStatus.textContent = `${smartCubeDeviceName} · Gyro view centered`;
   });
@@ -6679,7 +6519,6 @@ if (root) {
       schema: "cubelab-smart-cube-diagnostic-v1",
       generatedAt: new Date().toISOString(),
       device: {brand: smartCubeManager?.getState().device?.brand ?? "unknown"},
-      motionProfile: smartCubeMotionProfile,
       events: smartCubeDiagnosticTrace,
     };
     try {
