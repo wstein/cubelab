@@ -565,20 +565,16 @@ export const slerpQuaternion = (
 /** The drift baseline may advance no faster than two degrees per second. */
 export const SMART_CUBE_OFFSET_RADIANS_PER_SECOND = 2 * Math.PI / 180;
 
-/**
- * Advances a rendered-orientation offset toward the gyro pose at a bounded
- * angular speed. Applying `inverse(offset) * gyro` is the quaternion-safe
- * equivalent of subtracting the requested 3D gyro and offset vectors.
- */
+/** Advances a rendered-orientation correction toward a cardinal lock-in target. */
 export const followSmartCubeOrientationOffset = (
   offset: OrientationQuaternion,
-  gyro: OrientationQuaternion,
+  targetOffset: OrientationQuaternion,
   elapsedMs: number,
 ): OrientationQuaternion => {
-  const distance = orientationDistanceRadians(offset, gyro);
-  if (distance < 1e-8) return normalizedQuaternion(gyro);
+  const distance = orientationDistanceRadians(offset, targetOffset);
+  if (distance < 1e-8) return normalizedQuaternion(targetOffset);
   const maxStep = SMART_CUBE_OFFSET_RADIANS_PER_SECOND * Math.max(0, elapsedMs) / 1000;
-  return slerpQuaternion(offset, gyro, Math.min(1, maxStep / distance));
+  return slerpQuaternion(offset, targetOffset, Math.min(1, maxStep / distance));
 };
 
 /** Locks sub-threshold IMU jitter and softens larger moves along the shortest quaternion path. */
@@ -860,6 +856,12 @@ export const createCubeViewport = (
   let turnGuide: TurnGuide | null = null;
   let moveRibbon: TurnGuide | null = null;
   let regripGauge: RegripGaugeState = null;
+  // A persistent virtual progress value: after the 65° threshold it keeps
+  // floating toward the 90° lock-in rather than snapping back when the raw
+  // detector rebases for the next physical regrip.
+  let regripGaugeDisplaySignedDegrees = 0;
+  let regripGaugeDisplayLabel: string | null = null;
+  let regripGaugeLastFrameAt = 0;
   let turnFrame: number | null = null;
   let turnGeneration = 0;
   let autoOrbit = false;
@@ -871,6 +873,7 @@ export const createCubeViewport = (
   let deviceOrientation: OrientationQuaternion | null = null;
   let deviceOrientationOffset: OrientationQuaternion | null = null;
   let deviceOrientationOffsetUpdatedAt: number | null = null;
+  let deviceOrientationLockTarget: OrientationQuaternion = {x: 0, y: 0, z: 0, w: 1};
   // The correction actually being drawn this frame; only animateDeviceOrientationCorrectionTo
   // may write it.
   let deviceOrientationCorrection: OrientationQuaternion | null = null;
@@ -1527,7 +1530,7 @@ export const createCubeViewport = (
       overlay.moveTo(cx, cy);
       overlay.lineTo(cx + Math.cos(spoke.angle) * radius, cy + Math.sin(spoke.angle) * radius);
       overlay.stroke();
-      overlay.fillStyle = spoke.label === regripGauge.label ? "#67e8f9" : "rgba(203, 213, 225, 0.85)";
+      overlay.fillStyle = spoke.label === regripGaugeDisplayLabel ? "#67e8f9" : "rgba(203, 213, 225, 0.85)";
       overlay.font = `600 ${10 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
       overlay.textAlign = "center";
       overlay.textBaseline = "middle";
@@ -1544,10 +1547,10 @@ export const createCubeViewport = (
     overlay.arc(cx, cy, radius * thresholdFraction, 0, Math.PI * 2);
     overlay.stroke();
     overlay.setLineDash([]);
-    const spoke = spokes.find((candidate) => candidate.label === regripGauge.label);
+    const spoke = spokes.find((candidate) => candidate.label === regripGaugeDisplayLabel);
     if (spoke) {
-      const fraction = toFraction(regripGauge.signedDegrees);
-      const crossed = regripGauge.signedDegrees >= regripGauge.signedThresholdDegrees;
+      const fraction = toFraction(regripGaugeDisplaySignedDegrees);
+      const crossed = regripGaugeDisplaySignedDegrees >= regripGauge.signedThresholdDegrees;
       const needleColour = crossed ? "#4ade80" : "#67e8f9";
       overlay.strokeStyle = needleColour;
       overlay.fillStyle = needleColour;
@@ -1565,8 +1568,29 @@ export const createCubeViewport = (
     overlay.font = `600 ${9 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
     overlay.textAlign = "center";
     overlay.textBaseline = "middle";
-    overlay.fillText(`${Math.round(regripGauge.signedDegrees)}°`, cx, cy);
+    overlay.fillText(`${Math.round(regripGaugeDisplaySignedDegrees)}°`, cx, cy);
     overlay.restore();
+  };
+
+  const stepRegripGaugeDisplay = () => {
+    if (!regripGauge) {
+      regripGaugeLastFrameAt = 0;
+      regripGaugeDisplaySignedDegrees = 0;
+      regripGaugeDisplayLabel = null;
+      return;
+    }
+    regripGaugeDisplayLabel = regripGauge.label ?? regripGaugeDisplayLabel;
+    // New physical progress may move the gauge closer to the 90° lock. Never
+    // pull it backward when the detector rebases after recognizing that lock.
+    regripGaugeDisplaySignedDegrees = Math.max(regripGaugeDisplaySignedDegrees, regripGauge.signedDegrees);
+    const now = performance.now();
+    const elapsed = regripGaugeLastFrameAt === 0 ? 0 : Math.min(250, now - regripGaugeLastFrameAt);
+    regripGaugeLastFrameAt = now;
+    regripGaugeDisplaySignedDegrees = Math.min(
+      0,
+      regripGaugeDisplaySignedDegrees + SMART_CUBE_OFFSET_RADIANS_PER_SECOND * elapsed * 180 / (Math.PI * 1000),
+    );
+    if (regripGaugeDisplaySignedDegrees < -0.01) requestRender();
   };
 
   const render = () => {
@@ -1604,19 +1628,20 @@ export const createCubeViewport = (
       : undefined;
     if (rawOrientation) {
       const now = performance.now();
+      const targetOffset = multiplyQuaternions(deviceOrientationLockTarget, inverseQuaternion(rawOrientation));
       if (deviceOrientationOffset === null) {
-        deviceOrientationOffset = rawOrientation;
+        deviceOrientationOffset = targetOffset;
       } else {
         deviceOrientationOffset = followSmartCubeOrientationOffset(
           deviceOrientationOffset,
-          rawOrientation,
+          targetOffset,
           Math.min(250, Math.max(0, now - (deviceOrientationOffsetUpdatedAt ?? now))),
         );
       }
       deviceOrientationOffsetUpdatedAt = now;
     }
     const driftCorrectedOrientation = rawOrientation && deviceOrientationOffset
-      ? multiplyQuaternions(inverseQuaternion(deviceOrientationOffset), rawOrientation)
+      ? multiplyQuaternions(deviceOrientationOffset, rawOrientation)
       : rawOrientation;
     const relativeOrientation = driftCorrectedOrientation && deviceOrientationCorrection
       ? multiplyQuaternions(deviceOrientationCorrection, driftCorrectedOrientation)
@@ -1649,6 +1674,7 @@ export const createCubeViewport = (
     gl.uniform2f(guideRange, guideTransform?.min ?? 0, guideTransform?.max ?? 0);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
     drawMotionOverlay(matrices, width, height);
+    stepRegripGaugeDisplay();
     drawRegripGauge(width, height);
     canvas.dataset.webgl = "ready";
     canvas.dataset.cameraYaw = yaw.toFixed(6);
@@ -2006,6 +2032,7 @@ export const createCubeViewport = (
         deviceOrientation = null;
         deviceOrientationOffset = null;
         deviceOrientationOffsetUpdatedAt = null;
+        deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
         deviceOrientationCorrection = null;
         deviceOrientationCorrectionGeneration += 1;
         deviceOrientationFrame = "viewport";
@@ -2019,6 +2046,7 @@ export const createCubeViewport = (
         deviceOrientation = null;
         deviceOrientationOffset = null;
         deviceOrientationOffsetUpdatedAt = null;
+        deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
         deviceOrientationCorrection = null;
         deviceOrientationCorrectionGeneration += 1;
       }
@@ -2039,6 +2067,7 @@ export const createCubeViewport = (
       deviceOrientation = normalized;
       deviceOrientationOffset = null;
       deviceOrientationOffsetUpdatedAt = null;
+      deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
       deviceOrientationFrame = coordinateFrame;
       deviceOrientationCorrection = null;
       deviceOrientationCorrectionGeneration += 1;
@@ -2052,13 +2081,9 @@ export const createCubeViewport = (
         deviceOrientationFrame = coordinateFrame;
       }
       deviceOrientation = normalized;
-      const nextCorrection = orientationCorrectionForTarget(
-        deviceOrientationBase,
-        normalized,
-        target,
-        coordinateFrame,
-      );
-      animateDeviceOrientationCorrectionTo(nextCorrection);
+      deviceOrientationLockTarget = normalizedQuaternion(target);
+      deviceOrientationCorrection = null;
+      deviceOrientationCorrectionGeneration += 1;
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
     },
