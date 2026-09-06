@@ -26,7 +26,7 @@ describe("smart-cube turn anchors", () => {
 
   test("rejects a regrip or a stale move window rather than correcting through it", () => {
     const anchor = createTurnAnchor(identity, identity, "viewport", 1_000);
-    expect(observeTurnAnchor(anchor, x(12), "viewport", 1_020)).toEqual({anchor: null, target: null, stable: false});
-    expect(observeTurnAnchor(anchor, identity, "viewport", 1_800)).toEqual({anchor: null, target: null, stable: false});
+    expect(observeTurnAnchor(anchor, x(12), "viewport", 1_020)).toEqual({anchor: null, target: null, stable: false, reason: "moved"});
+    expect(observeTurnAnchor(anchor, identity, "viewport", 1_800)).toEqual({anchor: null, target: null, stable: false, reason: "expired"});
   });
 });

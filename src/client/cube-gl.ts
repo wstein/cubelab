@@ -720,7 +720,7 @@ export type CubeViewport = {
   stabilizeDeviceOrientation: (
     target: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
-  ) => void;
+  ) => boolean;
   setAutoOrbit: (enabled: boolean) => void;
   setDialogOpen: (open: boolean) => void;
   resetCamera: () => void;
@@ -1881,11 +1881,11 @@ export const createCubeViewport = (
       requestRender();
     },
     stabilizeDeviceOrientation(target, coordinateFrame = "viewport") {
-      if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) return;
+      if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) return false;
       const rendered = renderedDeviceOrientation();
       // The anchor is opened only at rest by the client. This final bound
       // avoids correcting across an unexpectedly stale orientation frame.
-      if (!rendered || orientationDistanceRadians(rendered, target) > 15 * Math.PI / 180) return;
+      if (!rendered || orientationDistanceRadians(rendered, target) > 15 * Math.PI / 180) return false;
       deviceOrientationCorrection = stabilizedOrientationCorrection(
         deviceOrientationCorrection,
         deviceOrientationBase,
@@ -1894,6 +1894,7 @@ export const createCubeViewport = (
         coordinateFrame,
       );
       requestRender();
+      return true;
     },
     setAutoOrbit(enabled) {
       if (deviceOrientation && enabled) enabled = false;

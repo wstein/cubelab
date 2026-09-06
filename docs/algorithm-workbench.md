@@ -172,6 +172,12 @@ remains within ten degrees of the pose before the turn. A heavy rotation or a re
 still settling blocks the window; a sample outside an envelope, an expired window,
 recording, or a newly detected regrip discards it.
 
+For hardware diagnosis, set `localStorage.cubelab.smartCube.gyroTrace` to `"1"` in
+browser DevTools and reproduce a turn. The console records whether each move opened an
+anchor, the quiet interval, whole-cube motion, regrip settlement, every anchor sample,
+and whether the renderer applied or rejected its correction. Remove the key (or set it
+to another value) to silence the trace.
+
 ## Browser integration
 
 The action ribbon below the input exposes **Invert**, **Simplify**, **Factor structure**,

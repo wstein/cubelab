@@ -2230,6 +2230,10 @@ if (root) {
   let smartCubeDiscreteOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeTurnAnchor: TurnAnchor | null = null;
   let smartCubeOrientationLastMovedAt = 0;
+  const traceSmartCubeStabilization = (event: string, detail: Record<string, unknown>) => {
+    if (window.localStorage.getItem("cubelab.smartCube.gyroTrace") !== "1") return;
+    console.debug(`[SmartCube stabilization] ${event}`, detail);
+  };
   // During a recording session the physical cube is an input device. Keep a
   // separate virtual state so incoming facelet packets cannot repaint the
   // tape's Setup + Moves state over the viewport.
@@ -4649,20 +4653,35 @@ if (root) {
   const handleSmartCubeEvent = (event: SmartCubeEvent) => {
     switch (event.type) {
       case "move": {
-        if (
+        const anchorEligible = Boolean(
           smartCubeOrientationTracking
           && !smartCubeRecording
           && !smartCubeRecordingTapePresented
           && latestSmartCubeOrientation
           && smartCubeDiscreteOrientationTracker
           && event.timestamp - smartCubeOrientationLastMovedAt >= 250
-        ) {
+        );
+        if (anchorEligible) {
           smartCubeTurnAnchor = createTurnAnchor(
             latestSmartCubeOrientation.quaternion,
             smartCubeDiscreteOrientationTracker.orientation,
             latestSmartCubeOrientation.coordinateFrame,
             event.timestamp,
           );
+          traceSmartCubeStabilization("anchor opened", {
+            move: event.move,
+            quietForMs: event.timestamp - smartCubeOrientationLastMovedAt,
+          });
+        } else {
+          traceSmartCubeStabilization("anchor skipped", {
+            move: event.move,
+            tracking: smartCubeOrientationTracking,
+            recording: smartCubeRecording,
+            tapePresented: smartCubeRecordingTapePresented,
+            hasOrientation: latestSmartCubeOrientation !== null,
+            hasDiscretePose: smartCubeDiscreteOrientationTracker !== null,
+            quietForMs: event.timestamp - smartCubeOrientationLastMovedAt,
+          });
         }
         const record: QueuedSmartCubeMove = {move: event.move, state: null};
         smartCubePendingMoves.push(record);
@@ -4727,7 +4746,11 @@ if (root) {
             event.coordinateFrame,
             "local",
           );
-          if (orientationDistanceRadians(fromAnchor, {x: 0, y: 0, z: 0, w: 1}) > 10 * Math.PI / 180) {
+          const motionDegrees = orientationDistanceRadians(fromAnchor, {x: 0, y: 0, z: 0, w: 1}) * 180 / Math.PI;
+          if (motionDegrees > 10) {
+            if (event.timestamp - smartCubeOrientationLastMovedAt >= 100) {
+              traceSmartCubeStabilization("whole-cube motion", {degrees: Number(motionDegrees.toFixed(1))});
+            }
             smartCubeOrientationLastMovedAt = event.timestamp;
           }
           const observed = observeStableOrientation(
@@ -4749,6 +4772,9 @@ if (root) {
             );
           }
           if (observed.tokens.length > 0) smartCubeTurnAnchor = null;
+          if (observed.tokens.length > 0) {
+            traceSmartCubeStabilization("regrip settled", {tokens: observed.tokens.join(" ")});
+          }
         }
         if (
           smartCubeTurnAnchor
@@ -4763,8 +4789,15 @@ if (root) {
             event.timestamp,
           );
           smartCubeTurnAnchor = anchored.anchor;
+          traceSmartCubeStabilization("anchor sample", {
+            reason: anchored.reason,
+            samples: anchored.anchor?.samples ?? 3,
+          });
           if (anchored.stable && anchored.target) {
-            viewport?.stabilizeDeviceOrientation(anchored.target, event.coordinateFrame);
+            const applied = viewport?.stabilizeDeviceOrientation(anchored.target, event.coordinateFrame) ?? false;
+            traceSmartCubeStabilization(applied ? "correction applied" : "correction rejected", {
+              target: anchored.target,
+            });
           }
         }
         if (smartCubeRecording && smartCubeSyncMode === "PhysicalMirror") {
