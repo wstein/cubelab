@@ -166,6 +166,34 @@ export const observeThresholdOrientation = (
   };
 };
 
+const AXIS_TOKENS: Array<{axis: [number, number, number]; token: RegripToken}> = [
+  {axis: [1, 0, 0], token: "x"},
+  {axis: [-1, 0, 0], token: "x'"},
+  {axis: [0, 1, 0], token: "y"},
+  {axis: [0, -1, 0], token: "y'"},
+  {axis: [0, 0, 1], token: "z"},
+  {axis: [0, 0, -1], token: "z'"},
+];
+
+/**
+ * Nearest of the six quarter-turn directions to a raw rotation axis (as from
+ * quaternionAxisAngle). Unlike closestCardinalOrientation, this only looks at
+ * direction, not the full 24-pose group, so it stays meaningful mid-rotation
+ * for a live progress readout rather than just at confirm time.
+ */
+export const nearestRegripAxis = (axis: [number, number, number]): RegripToken | null => {
+  const magnitude = Math.hypot(...axis);
+  if (magnitude < 1e-6) return null;
+  let best: {token: RegripToken; dot: number} | null = null;
+  for (const candidate of AXIS_TOKENS) {
+    const dot = (
+      axis[0] * candidate.axis[0] + axis[1] * candidate.axis[1] + axis[2] * candidate.axis[2]
+    ) / magnitude;
+    if (!best || dot > best.dot) best = {token: candidate.token, dot};
+  }
+  return best!.token;
+};
+
 /**
  * Commits a cardinal pose that another sensor window has already proven still.
  * Face-turn anchors supply that proof after their own three-sample dwell, so a

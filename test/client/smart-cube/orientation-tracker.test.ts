@@ -3,6 +3,7 @@ import {describe, expect, test} from "vitest";
 import {
   cardinalOrientationCount,
   createStableOrientationTracker,
+  nearestRegripAxis,
   observeStableOrientation,
   observeThresholdOrientation,
   settleStableOrientation,
@@ -103,6 +104,21 @@ describe("stable smart-cube orientation tracker", () => {
     expect(tokens).toEqual(["x", "x", "x", "x"]);
     // A full 360° turn is identity up to quaternion double-cover (w may be -1).
     expect(Math.abs(tracker.orientation.w)).toBeCloseTo(1);
+  });
+
+  test("nearest regrip axis: picks the closest of the six quarter-turn directions", () => {
+    expect(nearestRegripAxis([1, 0, 0])).toBe("x");
+    expect(nearestRegripAxis([-1, 0, 0])).toBe("x'");
+    expect(nearestRegripAxis([0, 1, 0])).toBe("y");
+    expect(nearestRegripAxis([0, -1, 0])).toBe("y'");
+    expect(nearestRegripAxis([0, 0, 1])).toBe("z");
+    expect(nearestRegripAxis([0, 0, -1])).toBe("z'");
+    // Off-axis but still closer to +Y than any other candidate.
+    expect(nearestRegripAxis([0.3, 0.9, 0.2])).toBe("y");
+  });
+
+  test("nearest regrip axis: undefined for a near-zero axis (no real rotation)", () => {
+    expect(nearestRegripAxis([0, 0, 0])).toBeNull();
   });
 
   test("uses an independently settled anchor to accept a delayed half-turn regrip", () => {

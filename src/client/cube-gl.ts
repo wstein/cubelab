@@ -60,13 +60,18 @@ export type TurnGuide = {
   upcoming?: string[];
 };
 
-/** A labelled, coloured arrow drawn from the cube's centre for gyro-stabilization debugging. */
-export type OrientationDebugVector = {
-  label: string;
-  colour: string;
-  axis: [number, number, number];
-  length: number;
-};
+/**
+ * Live readout for gyro regrip detection: how far the raw device orientation
+ * has rotated from the tracker's last confirmed baseline, which of the six
+ * quarter-turn directions it is closest to, and the confirm threshold. Drawn
+ * as a fixed 2D HUD rather than a 3D arrow — a 3D vector gets hard to read
+ * once the cube itself is rotating in front of the camera.
+ */
+export type RegripGaugeState = {
+  angleDegrees: number;
+  thresholdDegrees: number;
+  label: string | null;
+} | null;
 
 const DEFAULT_YAW = -0.62;
 const DEFAULT_PITCH = 0.48;
@@ -731,7 +736,7 @@ export type CubeViewport = {
   setMilestone: (milestone: MilestoneFocus | null) => void;
   setTurnGuide: (guide: TurnGuide | null) => void;
   setMoveRibbon: (ribbon: TurnGuide | null) => void;
-  setOrientationDebugVectors: (vectors: OrientationDebugVector[]) => void;
+  setRegripGauge: (gauge: RegripGaugeState) => void;
   smoothOrbitTo: (yaw: number, pitch: number, duration?: number) => Promise<void>;
   setDeviceOrientation: (
     orientation: OrientationQuaternion | null,
@@ -831,7 +836,7 @@ export const createCubeViewport = (
   let milestone: MilestoneFocus | null = null;
   let turnGuide: TurnGuide | null = null;
   let moveRibbon: TurnGuide | null = null;
-  let orientationDebugVectors: OrientationDebugVector[] = [];
+  let regripGauge: RegripGaugeState = null;
   let turnFrame: number | null = null;
   let turnGeneration = 0;
   let autoOrbit = false;
@@ -1460,63 +1465,79 @@ export const createCubeViewport = (
   };
 
   /**
-   * Debug-only arrows from the cube's centre for gyro-stabilization internals
-   * (target/measured/error axes). Drawn with a modelView that excludes the live
-   * device-orientation rotation, so the arrows stay fixed in "room" space while
-   * the cube itself visibly rotates against them.
+   * Fixed 2D HUD for gyro regrip detection: a hexagon of the six quarter-turn
+   * directions, a ring at the confirm threshold, and a needle showing how far
+   * the raw orientation has rotated from the tracker's baseline and toward
+   * which direction. Deliberately screen-fixed rather than a 3D arrow — once
+   * the cube itself is rotating, a 3D debug vector is hard to read against it.
    */
-  const drawOrientationDebugVectors = (
-    matrices: { modelView: Mat4; projection: Mat4 },
-    width: number,
-    height: number,
-  ) => {
-    if (!overlay || orientationDebugVectors.length === 0) return;
+  const drawRegripGauge = (width: number, height: number) => {
+    if (!overlay || !regripGauge) return;
     const bounds = canvas.getBoundingClientRect();
     const dpr = width / Math.max(1, bounds.width);
-    const origin = projectPoint([0, 0, 0], matrices.modelView, matrices.projection, width, height);
-    if (!origin.inFront) return;
-    orientationDebugVectors.forEach((vector) => {
-      const magnitude = Math.hypot(...vector.axis) || 1;
-      const tip = projectPoint(
-        [
-          (vector.axis[0] / magnitude) * vector.length,
-          (vector.axis[1] / magnitude) * vector.length,
-          (vector.axis[2] / magnitude) * vector.length,
-        ],
-        matrices.modelView,
-        matrices.projection,
-        width,
-        height,
+    const radius = 46 * dpr;
+    const cx = width - radius - 24 * dpr;
+    const cy = height - radius - 24 * dpr;
+    const spokes: Array<{label: string; angle: number}> = [
+      {label: "y", angle: -Math.PI / 2},
+      {label: "z", angle: -Math.PI / 6},
+      {label: "x'", angle: Math.PI / 6},
+      {label: "y'", angle: Math.PI / 2},
+      {label: "z'", angle: (5 * Math.PI) / 6},
+      {label: "x", angle: -(5 * Math.PI) / 6},
+    ];
+    overlay.save();
+    overlay.fillStyle = "rgba(8, 15, 30, 0.55)";
+    overlay.beginPath();
+    overlay.arc(cx, cy, radius + 14 * dpr, 0, Math.PI * 2);
+    overlay.fill();
+    overlay.strokeStyle = "rgba(148, 163, 184, 0.45)";
+    overlay.lineWidth = 1 * dpr;
+    spokes.forEach((spoke) => {
+      overlay.beginPath();
+      overlay.moveTo(cx, cy);
+      overlay.lineTo(cx + Math.cos(spoke.angle) * radius, cy + Math.sin(spoke.angle) * radius);
+      overlay.stroke();
+      overlay.fillStyle = spoke.label === regripGauge!.label ? "#67e8f9" : "rgba(203, 213, 225, 0.85)";
+      overlay.font = `600 ${10 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+      overlay.textAlign = "center";
+      overlay.textBaseline = "middle";
+      overlay.fillText(
+        spoke.label,
+        cx + Math.cos(spoke.angle) * (radius + 11 * dpr),
+        cy + Math.sin(spoke.angle) * (radius + 11 * dpr),
       );
-      if (!tip.inFront) return;
-      overlay.save();
-      overlay.strokeStyle = vector.colour;
-      overlay.fillStyle = vector.colour;
+    });
+    const thresholdFraction = Math.min(1, regripGauge.thresholdDegrees / 90);
+    overlay.strokeStyle = "rgba(251, 191, 36, 0.75)";
+    overlay.setLineDash([3 * dpr, 3 * dpr]);
+    overlay.beginPath();
+    overlay.arc(cx, cy, radius * thresholdFraction, 0, Math.PI * 2);
+    overlay.stroke();
+    overlay.setLineDash([]);
+    const spoke = spokes.find((candidate) => candidate.label === regripGauge!.label);
+    if (spoke) {
+      const fraction = Math.min(1, regripGauge.angleDegrees / 90);
+      const crossed = regripGauge.angleDegrees >= regripGauge.thresholdDegrees;
+      const needleColour = crossed ? "#4ade80" : "#67e8f9";
+      overlay.strokeStyle = needleColour;
+      overlay.fillStyle = needleColour;
       overlay.lineWidth = 2.5 * dpr;
       overlay.lineCap = "round";
-      overlay.shadowColor = vector.colour;
-      overlay.shadowBlur = 6 * dpr;
       overlay.beginPath();
-      overlay.moveTo(origin.x, origin.y);
-      overlay.lineTo(tip.x, tip.y);
+      overlay.moveTo(cx, cy);
+      overlay.lineTo(cx + Math.cos(spoke.angle) * radius * fraction, cy + Math.sin(spoke.angle) * radius * fraction);
       overlay.stroke();
-      const angle = Math.atan2(tip.y - origin.y, tip.x - origin.x);
-      const headLength = 9 * dpr;
       overlay.beginPath();
-      overlay.moveTo(tip.x, tip.y);
-      overlay.lineTo(
-        tip.x - headLength * Math.cos(angle - Math.PI / 7),
-        tip.y - headLength * Math.sin(angle - Math.PI / 7),
-      );
-      overlay.lineTo(
-        tip.x - headLength * Math.cos(angle + Math.PI / 7),
-        tip.y - headLength * Math.sin(angle + Math.PI / 7),
-      );
-      overlay.closePath();
+      overlay.arc(cx + Math.cos(spoke.angle) * radius * fraction, cy + Math.sin(spoke.angle) * radius * fraction, 3 * dpr, 0, Math.PI * 2);
       overlay.fill();
-      overlay.restore();
-      drawBadge(overlay, vector.label, tip.x, tip.y - 16 * dpr, dpr, true);
-    });
+    }
+    overlay.fillStyle = "rgba(203, 213, 225, 0.85)";
+    overlay.font = `600 ${9 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+    overlay.textAlign = "center";
+    overlay.textBaseline = "middle";
+    overlay.fillText(`${Math.round(regripGauge.angleDegrees)}°`, cx, cy);
+    overlay.restore();
   };
 
   const render = () => {
@@ -1583,10 +1604,7 @@ export const createCubeViewport = (
     gl.uniform2f(guideRange, guideTransform?.min ?? 0, guideTransform?.max ?? 0);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
     drawMotionOverlay(matrices, width, height);
-    if (orientationDebugVectors.length > 0) {
-      const debugMatrices = cameraMatrices(aspect, yaw, pitch, safeCameraDistance(distance, aspect));
-      drawOrientationDebugVectors(debugMatrices, width, height);
-    }
+    drawRegripGauge(width, height);
     canvas.dataset.webgl = "ready";
     canvas.dataset.cameraYaw = yaw.toFixed(6);
     canvas.dataset.cameraPitch = pitch.toFixed(6);
@@ -1932,8 +1950,8 @@ export const createCubeViewport = (
       moveRibbon = nextRibbon;
       requestRender();
     },
-    setOrientationDebugVectors(vectors) {
-      orientationDebugVectors = vectors;
+    setRegripGauge(gauge) {
+      regripGauge = gauge;
       requestRender();
     },
     smoothOrbitTo,

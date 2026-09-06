@@ -223,11 +223,17 @@ sample and the resulting tokens/target, so a wrong result can be verified by han
 the log alone rather than requiring a repro. Remove the key (or set it to another
 value) to silence the trace.
 
-While **Diagnostics** is on, the tracker's current confirmed orientation is also drawn
-live as a green arrow from the cube's centre. The arrow uses a modelView that excludes
-the live device-orientation rotation, so it stays fixed in "room" space while the cube
-itself visibly turns against it; watching the cube's actual orientation match the green
-arrow after a regrip is a direct visual read of whether detection is working.
+While **Diagnostics** is on, a fixed 2D gauge in the viewport's corner shows the
+threshold detector's live state: a hexagon with a spoke for each of the six quarter-turn
+directions (`x`, `x'`, `y`, `y'`, `z`, `z'`), a dashed ring at `REGRIP_THRESHOLD_DEGREES`
+(65°), and a needle from the centre toward whichever spoke the raw sample's rotation axis
+is currently closest to, with length proportional to how many degrees it has travelled
+from the tracker's baseline (capped visually at 90°). The needle turns green once it
+crosses the dashed ring — the same instant a regrip fires — and snaps back to the centre
+on confirm, since the tracker rebases to the triggering sample. This is deliberately a
+flat, screen-fixed HUD rather than a 3D arrow in the scene: once the cube itself is
+rotating, a 3D debug vector competing for the same space is hard to read at a glance,
+where a fixed gauge stays legible regardless of camera angle or cube motion.
 
 The first smart-cube event prints `trace enabled`. If it does not, reload after setting
 the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use

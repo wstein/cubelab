@@ -65,6 +65,7 @@ import {
 import {relativeAcademyState, type PieceState} from "./academy-target";
 import {
   createCubeViewport,
+  deviceOrientationDelta,
   focusCameraTarget,
   orientationInViewportFrame,
   quaternionAxisAngle,
@@ -74,7 +75,6 @@ import {
   type CubeStyle,
   type MoveStep,
   type OrientationCoordinateFrame,
-  type OrientationDebugVector,
   type OrientationQuaternion,
 } from "./cube-gl";
 import {
@@ -131,6 +131,7 @@ import {
 import {assessGyroRotation, detectGyroQuarterRotation} from "./smart-cube/orientation-verifier";
 import {
   createStableOrientationTracker,
+  nearestRegripAxis,
   observeStableOrientation,
   observeThresholdOrientation,
   type StableOrientationTracker,
@@ -2264,18 +2265,27 @@ if (root) {
       updateSmartCubeDiagnosticsUi();
     }
   };
-  // Debug-only 3D arrow for gyro regrip detection: the recorder-side tracker's
-  // current confirmed cardinal orientation. Only drawn while Diagnostics is on.
-  const updateSmartCubeOrientationDebugVectors = () => {
+  // Debug-only 2D HUD for gyro regrip detection: how far the raw sample has
+  // rotated from the live tracker's baseline, and toward which of the six
+  // quarter-turn directions. Only drawn while Diagnostics is on; needs the raw
+  // sample (not just the confirmed target) so it visibly grows between regrips.
+  const updateSmartCubeRegripGauge = (
+    current?: OrientationQuaternion,
+    frame?: OrientationCoordinateFrame,
+  ) => {
     if (!viewport) return;
-    if (!smartCubeDiagnosticsEnabled) {
-      viewport.setOrientationDebugVectors([]);
+    if (!smartCubeDiagnosticsEnabled || !smartCubeDiscreteOrientationTracker || !current || !frame) {
+      viewport.setRegripGauge(null);
       return;
     }
-    const target = smartCubeDiscreteOrientationTracker?.orientation ?? {x: 0, y: 0, z: 0, w: 1};
-    viewport.setOrientationDebugVectors([
-      {label: "target", colour: "#4ade80", axis: quaternionAxisAngle(target).axis, length: 1.9},
-    ]);
+    const tracker = smartCubeDiscreteOrientationTracker;
+    const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
+    const {axis, radians} = quaternionAxisAngle(delta);
+    viewport.setRegripGauge({
+      angleDegrees: radians * 180 / Math.PI,
+      thresholdDegrees: REGRIP_THRESHOLD_DEGREES,
+      label: nearestRegripAxis(axis),
+    });
   };
   // During a recording session the physical cube is an input device. Keep a
   // separate virtual state so incoming facelet packets cannot repaint the
@@ -4588,7 +4598,7 @@ if (root) {
       autoOrbitButton.disabled = !viewport;
       settingsAutoOrbit.disabled = !viewport;
       setAutoOrbitEnabled(autoOrbit, false);
-      viewport?.setOrientationDebugVectors([]);
+      viewport?.setRegripGauge(null);
     }
     syncSmartCubeTrackedOrientation();
     if (wasTracking && !smartCubeOrientationTracking && smartCubeRotationWait?.baseline) {
@@ -4760,7 +4770,6 @@ if (root) {
             event.coordinateFrame,
             "world",
           );
-          updateSmartCubeOrientationDebugVectors();
         } else {
           const priorBaseline = smartCubeDiscreteOrientationTracker.baseline;
           const priorOrientation = smartCubeDiscreteOrientationTracker.orientation;
@@ -4802,9 +4811,9 @@ if (root) {
               priorOrientation,
               target: observed.tracker.orientation,
             });
-            updateSmartCubeOrientationDebugVectors();
           }
         }
+        updateSmartCubeRegripGauge(event.quaternion, event.coordinateFrame);
         if (smartCubeRecording && smartCubeSyncMode === "PhysicalMirror") {
           if (smartCubeRecordingOrientationTracker === null) {
             smartCubeRecordingOrientationTracker = createStableOrientationTracker(
@@ -6507,7 +6516,7 @@ if (root) {
       latestSmartCubeOrientation.quaternion,
       latestSmartCubeOrientation.coordinateFrame,
     );
-    updateSmartCubeOrientationDebugVectors();
+    updateSmartCubeRegripGauge(latestSmartCubeOrientation.quaternion, latestSmartCubeOrientation.coordinateFrame);
     traceSmartCubeStabilization("gyro view recentered", {
       coordinates: latestSmartCubeOrientation.quaternion,
       target: smartCubeDiscreteOrientationTracker.orientation,
@@ -6518,7 +6527,7 @@ if (root) {
     smartCubeDiagnosticsEnabled = !smartCubeDiagnosticsEnabled;
     window.localStorage.setItem("cubelab.smartCube.diagnostics", smartCubeDiagnosticsEnabled ? "1" : "0");
     if (!smartCubeDiagnosticsEnabled) smartCubeDiagnosticTrace.length = 0;
-    updateSmartCubeOrientationDebugVectors();
+    updateSmartCubeRegripGauge(latestSmartCubeOrientation?.quaternion, latestSmartCubeOrientation?.coordinateFrame);
     updateSmartCubeDiagnosticsUi();
     smartCubeStatus.textContent = smartCubeDiagnosticsEnabled
       ? `${smartCubeDeviceName} · Diagnostics capture enabled locally; nothing is uploaded automatically.`
