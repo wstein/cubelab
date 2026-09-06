@@ -339,6 +339,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .viewport-panel {
   position: sticky;
   top: 1.5rem;
+  container-type: inline-size;
   overflow: hidden;
   background: linear-gradient(180deg, rgba(17, 24, 39, 0.88), rgba(10, 15, 27, 0.84));
   border: 1px solid rgba(148, 163, 184, 0.14);
@@ -579,9 +580,62 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 
 .viewport-header-actions {
   display: flex;
+  min-width: 0;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.45rem;
+}
+
+/* The studio can put the preview in a narrow right-hand column while the
+   browser itself is wide. Container queries keep that panel usable instead
+   of relying only on the viewport-width mobile breakpoint. */
+@container (max-width: 36rem) {
+  .viewport-header {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .viewport-header > :first-child,
+  .viewport-header-actions {
+    flex: 1 1 100%;
+  }
+
+  .viewport-header-actions {
+    justify-content: flex-start;
+  }
+
+  .smart-cube-dock {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .smart-cube-status {
+    flex: 1 1 calc(100% - 1.2rem);
+  }
+
+  .smart-cube-battery {
+    margin-left: 1.05rem;
+  }
+
+  .playback-heading,
+  .playback-controls {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .playback-controls {
+    flex-direction: column;
+  }
+
+  .playback-transport {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .playback-options {
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
 }
 
 .viewport-control {
