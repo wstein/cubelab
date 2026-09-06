@@ -261,19 +261,10 @@ but the number at the centre and the mental model it invites are different: "how
 arriving," not "how far travelled." The needle turns green once it crosses the ring — the
 same instant a regrip fires.
 
-The displayed needle only ever eases toward 0, never away from it. Confirming a regrip
-rebases the tracker's baseline (see above), so the very next raw sample's real
-`signedDegrees` jumps back down near -90 — a big retreat from wherever the needle just
-was. That retreat is never animated: it snaps instantly, because easing it would show the
-needle sliding backward away from the mark it just reached, reading as "it changed its
-mind" rather than "a new lock-in cycle started." Ordinary forward progress (the raw
-sample approaching 0 as the hand keeps turning) is what actually gets smoothed, stepping
-toward the real value at up to `artificialDriftDegreesPerSecond` (120°/s by default, same
-profile) instead of jumping between samples — GoCube orientation packets arrive in
-irregular bursts, so without this the needle would visibly teleport frame to frame even
-mid-turn. Both behaviors are purely a display artifact: the detector underneath always
-reacts to the actual raw sample immediately, with no smoothing and no snap-detection of
-its own.
+The gauge draws the current raw sample directly; it has no artificial display drift or
+synthetic smoothing. Confirming a regrip rebases the tracker's baseline (see above), so
+the next raw sample naturally starts the next cycle near -90°. The detector always reacts
+to that raw sample immediately.
 
 The first smart-cube event prints `trace enabled`. If it does not, reload after setting
 the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use
