@@ -4,7 +4,6 @@ export type SmartCubeMotionProfile = {
   label: string;
   orientationRingSamples: number;
   rotationDropThresholdDegrees: number;
-  rotationDropPreviousSamples: number;
   rotationDropFollowingSamples: number;
   correctionErrorDivisor: number;
   maximumTargetErrorDegrees: number;
@@ -20,7 +19,6 @@ export const defaultMotionProfile: SmartCubeMotionProfile = {
   label: "Default",
   orientationRingSamples: 3,
   rotationDropThresholdDegrees: 5,
-  rotationDropPreviousSamples: 2,
   rotationDropFollowingSamples: 2,
   correctionErrorDivisor: 5,
   maximumTargetErrorDegrees: 50,
@@ -29,14 +27,13 @@ export const defaultMotionProfile: SmartCubeMotionProfile = {
 const profile = (value: unknown): SmartCubeMotionProfile | null => {
   if (!value || typeof value !== "object") return null;
   const candidate = value as Record<string, unknown>;
-  const numbers = ["orientationRingSamples", "rotationDropThresholdDegrees", "rotationDropPreviousSamples", "rotationDropFollowingSamples", "correctionErrorDivisor", "maximumTargetErrorDegrees"];
+  const numbers = ["orientationRingSamples", "rotationDropThresholdDegrees", "rotationDropFollowingSamples", "correctionErrorDivisor", "maximumTargetErrorDegrees"];
   if (typeof candidate.label !== "string" || !numbers.every((key) => typeof candidate[key] === "number" && Number.isFinite(candidate[key]))) return null;
-  if (candidate.orientationRingSamples < 1 || candidate.rotationDropThresholdDegrees <= 0 || candidate.rotationDropPreviousSamples < 0 || candidate.rotationDropFollowingSamples < 0 || candidate.correctionErrorDivisor <= 0 || candidate.maximumTargetErrorDegrees <= 0) return null;
+  if (candidate.orientationRingSamples < 1 || candidate.rotationDropThresholdDegrees <= 0 || candidate.rotationDropFollowingSamples < 0 || candidate.correctionErrorDivisor <= 0 || candidate.maximumTargetErrorDegrees <= 0) return null;
   return {
     label: candidate.label,
     orientationRingSamples: Math.floor(candidate.orientationRingSamples),
     rotationDropThresholdDegrees: candidate.rotationDropThresholdDegrees,
-    rotationDropPreviousSamples: Math.floor(candidate.rotationDropPreviousSamples),
     rotationDropFollowingSamples: Math.floor(candidate.rotationDropFollowingSamples),
     correctionErrorDivisor: candidate.correctionErrorDivisor,
     maximumTargetErrorDegrees: candidate.maximumTargetErrorDegrees,

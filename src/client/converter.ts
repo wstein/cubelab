@@ -4627,9 +4627,9 @@ if (root) {
           label: smartCubeMotionProfile.label,
           orientationRingSamples: smartCubeMotionProfile.orientationRingSamples,
           rotationDropThresholdDegrees: smartCubeMotionProfile.rotationDropThresholdDegrees,
-          rotationDropPreviousSamples: smartCubeMotionProfile.rotationDropPreviousSamples,
           rotationDropFollowingSamples: smartCubeMotionProfile.rotationDropFollowingSamples,
           correctionErrorDivisor: smartCubeMotionProfile.correctionErrorDivisor,
+          maximumTargetErrorDegrees: smartCubeMotionProfile.maximumTargetErrorDegrees,
         });
       });
       smartCubeLedFeedback = connectionState.device.capabilities.led;
@@ -4825,7 +4825,6 @@ if (root) {
         const probe = appendOrientationProbe(smartCubeOrientationProbeRing, event, {
           capacity: smartCubeMotionProfile.orientationRingSamples,
           rotationDropThresholdDegrees: smartCubeMotionProfile.rotationDropThresholdDegrees,
-          dropPreviousSamples: smartCubeMotionProfile.rotationDropPreviousSamples,
           dropFollowingSamples: smartCubeMotionProfile.rotationDropFollowingSamples,
         });
         smartCubeOrientationProbeRing = probe.ring;

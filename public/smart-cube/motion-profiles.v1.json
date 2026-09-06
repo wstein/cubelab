@@ -5,7 +5,6 @@
     "label": "Default",
     "orientationRingSamples": 3,
     "rotationDropThresholdDegrees": 5,
-    "rotationDropPreviousSamples": 2,
     "rotationDropFollowingSamples": 2,
     "correctionErrorDivisor": 5,
     "maximumTargetErrorDegrees": 50
@@ -15,7 +14,6 @@
       "label": "GoCube",
       "orientationRingSamples": 3,
       "rotationDropThresholdDegrees": 5,
-      "rotationDropPreviousSamples": 2,
       "rotationDropFollowingSamples": 2,
       "correctionErrorDivisor": 5,
       "maximumTargetErrorDegrees": 50

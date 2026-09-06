@@ -20,7 +20,6 @@ export type OrientationProbeRing = {
 export type OrientationProbeRingPolicy = {
   capacity: number;
   rotationDropThresholdDegrees: number;
-  dropPreviousSamples: number;
   dropFollowingSamples: number;
 };
 
@@ -50,7 +49,7 @@ export const appendOrientationProbe = (
   if (rotationDegrees !== null && rotationDegrees > policy.rotationDropThresholdDegrees) {
     return {
       ring: {
-        probes: ring.probes.slice(0, Math.max(0, ring.probes.length - policy.dropPreviousSamples)),
+        probes: [],
         previous,
         discardFollowing: policy.dropFollowingSamples,
         rotationDropped: true,

@@ -179,13 +179,19 @@ pose, the display may apply a correction to reconcile accumulated IMU heading er
 it never snaps while the cube is in motion.
 
 The stabilizer continuously keeps a ring of accepted IMU probes; it is not tied to a
-face-packet timing window. If consecutive probes differ by more than the profile's
-rotation threshold (5° for GoCube), CubeLab removes the preceding two probes, rejects
-the rotating probe, and rejects the next two probes. A face move may stabilize from any
-non-empty retained ring after that exclusion region has passed, then consumes the ring
-so no probe is reused for another face move. There are no separate 10°, 25°, or 30°
-stabilization acceptance gates. An accepted GoCube correction changes the display
-by at most one degree, so accumulated heading error recovers without a visible snap.
+face-packet timing window. It tracks the single most recent probe purely to spot a
+rotation, independent of the ring's own contents. If consecutive probes differ by more
+than the profile's rotation threshold (5° for GoCube), CubeLab empties the ring
+entirely — not just its most recent members — rejects the rotating probe without
+pushing it, and rejects the next two probes. Emptying the whole ring rather than
+trimming a fixed count matters: with a 3-probe ring, trimming only the most recent two
+could leave one stale pre-rotation probe behind, which then got blended with fresh
+post-rotation probes into the same average once the ring refilled. A face move may
+stabilize from any non-empty retained ring after the exclusion region has passed, then
+consumes the ring so no probe is reused for another face move. There are no separate
+10°, 25°, or 30° stabilization acceptance gates. An accepted GoCube correction changes
+the display by at most one degree, so accumulated heading error recovers without a
+visible snap.
 
 A real regrip does not always land close enough to one of the 24 cardinal poses for the
 recorder-side tracker above to confirm it, especially mid-grip-adjustment — and without
@@ -217,8 +223,8 @@ another value) to silence the trace.
 
 Motion-profile settings are loaded from `/smart-cube/motion-profiles.v1.json` after a
 cube connects. The registry provides a conservative default for unknown hardware and a
-GoCube override: three retained probes, a 5° rotation threshold, two discarded probes
-on each side of a rotation, correction equal to remaining error divided by 5, and a 50°
+GoCube override: three retained probes, a 5° rotation threshold, two rejected probes
+following a rotation, correction equal to remaining error divided by 5, and a 50°
 ceiling before an unresolved post-regrip error gets snapped to the nearest legal pose.
 Invalid or unavailable server data falls back to the default profile; it never blocks a
 cube connection.

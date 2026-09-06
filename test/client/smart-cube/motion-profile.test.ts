@@ -12,7 +12,6 @@ describe("smart-cube motion profiles", () => {
     expect(motionProfileFor(registry, "gocube").rotationDropThresholdDegrees).toBe(5);
     expect(motionProfileFor(registry, "gocube").correctionErrorDivisor).toBe(5);
     expect(motionProfileFor(registry, "gocube").orientationRingSamples).toBe(3);
-    expect(motionProfileFor(registry, "gocube").rotationDropPreviousSamples).toBe(2);
     expect(motionProfileFor(registry, "gocube").rotationDropFollowingSamples).toBe(2);
     expect(motionProfileFor(registry, "gocube").maximumTargetErrorDegrees).toBe(defaultMotionProfile.maximumTargetErrorDegrees);
     expect(motionProfileFor(registry, "gan")).toEqual(defaultMotionProfile);

@@ -30,7 +30,6 @@
         "label",
         "orientationRingSamples",
         "rotationDropThresholdDegrees",
-        "rotationDropPreviousSamples",
         "rotationDropFollowingSamples",
         "correctionErrorDivisor",
         "maximumTargetErrorDegrees"
@@ -50,11 +49,6 @@
           "type": "number",
           "exclusiveMinimum": 0,
           "description": "Sample-to-sample angular rotation, in degrees, that starts an exclusion region."
-        },
-        "rotationDropPreviousSamples": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Accepted probes removed immediately before a threshold-crossing sample."
         },
         "rotationDropFollowingSamples": {
           "type": "integer",
