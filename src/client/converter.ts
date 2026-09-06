@@ -2211,6 +2211,8 @@ if (root) {
   // Hardware faces stay fixed to the device. This is the accumulated tape
   // frame used to project later packets after visible x/y/z regrips.
   let smartCubeRecordingFrame: Array<{axis: "X" | "Y" | "Z"; turns: number}> = [];
+  let smartCubeRecordingAnimation = Promise.resolve();
+  let smartCubeRecordingAnimationGeneration = 0;
   // During a recording session the physical cube is an input device. Keep a
   // separate virtual state so incoming facelet packets cannot repaint the
   // tape's Setup + Moves state over the viewport.
@@ -3273,6 +3275,7 @@ if (root) {
       smartCubeRecordingState = null;
       smartCubeRecordingTapePresented = false;
       smartCubeRecordingFrame = [];
+      cancelSmartCubeRecordingAnimation();
       smartCubeRecordingOrientation = null;
       smartCubeRecordingTapeDirty = false;
     }
@@ -3299,6 +3302,7 @@ if (root) {
       smartCubeRecordingState = null;
       smartCubeRecordingTapePresented = false;
       smartCubeRecordingFrame = [];
+      cancelSmartCubeRecordingAnimation();
       smartCubeRecordingOrientation = null;
       smartCubeStatus.textContent = "Smart-cube recording stopped: Moves reached the 20,000-character limit.";
       updateSmartCubeRecordingUi();
@@ -3323,6 +3327,27 @@ if (root) {
     if (!step || !smartCubeRecordingState) return;
     smartCubeRecordingState = MoveExecutor.applyStep(smartCubeRecordingState, step) as CubeState;
     renderSmartCubeRecordingState();
+  };
+
+  const animateSmartCubeRecordingToken = (token: string): Promise<void> => {
+    const generation = smartCubeRecordingAnimationGeneration;
+    smartCubeRecordingAnimation = smartCubeRecordingAnimation
+      .then(async () => {
+        const step = smartCubeStep(token);
+        const transform = step ? turnTransform(size, step) : null;
+        if (transform && viewport) await viewport.animateTurn(transform, 120);
+        if (generation !== smartCubeRecordingAnimationGeneration || !smartCubeRecording) return;
+        advanceSmartCubeRecordingState(token);
+      })
+      .catch((reason) => {
+        smartCubeStatus.textContent = reason instanceof Error ? reason.message : String(reason);
+      });
+    return smartCubeRecordingAnimation;
+  };
+
+  const cancelSmartCubeRecordingAnimation = () => {
+    smartCubeRecordingAnimationGeneration += 1;
+    smartCubeRecordingAnimation = Promise.resolve();
   };
 
   const renderTimelineIndex = (index: number) => {
@@ -4188,6 +4213,7 @@ if (root) {
       smartCubeRecordingState = null;
       smartCubeRecordingTapePresented = false;
       smartCubeRecordingFrame = [];
+      cancelSmartCubeRecordingAnimation();
       smartCubeRecordingOrientation = null;
       smartCubeRecordingTapeDirty = false;
     }
@@ -4348,7 +4374,7 @@ if (root) {
     if (smartCubeRecording) {
       const tapeMove = controllerMoveInViewportFrame(move, smartCubeRecordingFrame);
       appendSmartCubeRecordingToken(tapeMove);
-      advanceSmartCubeRecordingState(tapeMove);
+      await animateSmartCubeRecordingToken(tapeMove);
       return;
     }
     // A fresh physical turn resumes the normal mirror after a recording
@@ -4562,6 +4588,7 @@ if (root) {
         smartCubeRecordingState = null;
         smartCubeRecordingTapePresented = false;
         smartCubeRecordingFrame = [];
+        cancelSmartCubeRecordingAnimation();
         smartCubeRecordingOrientation = null;
         smartCubeRecordingTapeDirty = false;
       }
@@ -4665,7 +4692,7 @@ if (root) {
             if (regrip) {
               const token = `${regrip.axis.toLowerCase()}${regrip.turns < 0 ? "'" : ""}`;
               appendSmartCubeRecordingToken(token);
-              advanceSmartCubeRecordingState(token);
+              void animateSmartCubeRecordingToken(token);
               smartCubeRecordingFrame.push({axis: regrip.axis, turns: regrip.turns});
               smartCubeRecordingOrientation = latestSmartCubeOrientation;
               smartCubeStatus.textContent = `${smartCubeDeviceName} · Recorded regrip ${token}`;
@@ -7106,6 +7133,7 @@ if (root) {
       // state. Do not immediately replace it with the physical mirror.
       smartCubeRecordingTapePresented = true;
       smartCubeRecordingFrame = [];
+      cancelSmartCubeRecordingAnimation();
       smartCubeRecordingOrientation = null;
       smartCubeRecordingTapeDirty = false;
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Recording stopped; captured turns were appended to Moves.`;
@@ -7127,6 +7155,7 @@ if (root) {
       smartCubeRecordingTapeDirty = false;
       smartCubeRecordingTapePresented = false;
       smartCubeRecordingFrame = [];
+      cancelSmartCubeRecordingAnimation();
       smartCubeRecordingOrientation = latestSmartCubeOrientation;
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Recording physical turns into Moves.`;
       syncSmartCubeTrackedOrientation();

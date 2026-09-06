@@ -802,6 +802,9 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(client, /const tapeMove = controllerMoveInViewportFrame\(move, smartCubeRecordingFrame\)/);
   assert.match(client, /appendSmartCubeRecordingToken\(tapeMove\)/);
   assert.match(client, /const advanceSmartCubeRecordingState = \(token: string\)/);
+  assert.match(client, /const animateSmartCubeRecordingToken = \(token: string\): Promise<void>/);
+  assert.match(client, /await animateSmartCubeRecordingToken\(tapeMove\)/);
+  assert.match(client, /void animateSmartCubeRecordingToken\(token\)/);
   assert.match(client, /MoveExecutor\.applyStep\(smartCubeRecordingState, step\)/);
   assert.match(client, /Recorded regrip/);
   assert.match(client, /Record · verified \+ gyro/);

@@ -150,6 +150,10 @@ While a recording (or its final tape view) owns presentation, device-orientation
 tracking is suspended. The tape rotation is therefore rendered once, rather than once
 in cube state and again as a camera pose.
 
+Recorded face turns and gyro regrips use the normal 120 ms tape-turn animation in their
+arrival order. Capturing still appends the token to **Moves** immediately; animation
+only controls the virtual presentation.
+
 ## Browser integration
 
 The action ribbon below the input exposes **Invert**, **Simplify**, **Factor structure**,
