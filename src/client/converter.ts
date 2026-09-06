@@ -65,9 +65,7 @@ import {
 import {relativeAcademyState, type PieceState} from "./academy-target";
 import {
   createCubeViewport,
-  deviceOrientationDelta,
   focusCameraTarget,
-  orientationDistanceRadians,
   orientationInViewportFrame,
   turnTransform,
   type CubieFocus,
@@ -2229,7 +2227,6 @@ if (root) {
   let smartCubeRecordingOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeDiscreteOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeTurnAnchor: TurnAnchor | null = null;
-  let smartCubeOrientationLastMovedAt = 0;
   let smartCubeStabilizationTraceAnnounced = false;
   const traceSmartCubeStabilization = (event: string, detail: Record<string, unknown>) => {
     if (window.localStorage.getItem("cubelab.smartCube.gyroTrace") !== "1") return;
@@ -3275,7 +3272,8 @@ if (root) {
     && !smartCubeRecording
     && !smartCubeRecovery
     && hamiltonStream === null
-    && activeTimeline?.states !== null
+    && activeTimeline !== null
+    && activeTimeline.states !== null
     && activeIndex < activeTimeline.steps.length;
 
   const updateSmartCubeGuideUi = () => {
@@ -4666,7 +4664,6 @@ if (root) {
           && !smartCubeRecordingTapePresented
           && latestSmartCubeOrientation
           && smartCubeDiscreteOrientationTracker
-          && event.timestamp - smartCubeOrientationLastMovedAt >= 250
         );
         if (anchorEligible) {
           smartCubeTurnAnchor = createTurnAnchor(
@@ -4677,7 +4674,7 @@ if (root) {
           );
           traceSmartCubeStabilization("anchor opened", {
             move: event.move,
-            quietForMs: event.timestamp - smartCubeOrientationLastMovedAt,
+            policy: "post-turn samples decide whether the cube was still",
           });
         } else {
           traceSmartCubeStabilization("anchor skipped", {
@@ -4687,7 +4684,6 @@ if (root) {
             tapePresented: smartCubeRecordingTapePresented,
             hasOrientation: latestSmartCubeOrientation !== null,
             hasDiscretePose: smartCubeDiscreteOrientationTracker !== null,
-            quietForMs: event.timestamp - smartCubeOrientationLastMovedAt,
           });
         }
         const record: QueuedSmartCubeMove = {move: event.move, state: null};
@@ -4747,19 +4743,6 @@ if (root) {
             event.coordinateFrame,
           );
         } else {
-          const fromAnchor = deviceOrientationDelta(
-            smartCubeDiscreteOrientationTracker.baseline,
-            event.quaternion,
-            event.coordinateFrame,
-            "local",
-          );
-          const motionDegrees = orientationDistanceRadians(fromAnchor, {x: 0, y: 0, z: 0, w: 1}) * 180 / Math.PI;
-          if (motionDegrees > 10) {
-            if (event.timestamp - smartCubeOrientationLastMovedAt >= 100) {
-              traceSmartCubeStabilization("whole-cube motion", {degrees: Number(motionDegrees.toFixed(1))});
-            }
-            smartCubeOrientationLastMovedAt = event.timestamp;
-          }
           const observed = observeStableOrientation(
             smartCubeDiscreteOrientationTracker,
             event.quaternion,

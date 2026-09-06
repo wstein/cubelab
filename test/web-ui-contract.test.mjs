@@ -797,6 +797,7 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(client, /let smartCubeRecording = false/);
   assert.match(client, /let smartCubeGuidedTape = false/);
   assert.match(client, /const canGuideSmartCube = \(\) =>/);
+  assert.match(client, /activeTimeline !== null\s*&&\s*activeTimeline\.states !== null/);
   assert.match(client, /size === 2 \|\| size === 3/);
   assert.match(client, /const updateSmartCubeGuideUi = \(\) =>/);
   assert.match(client, /let smartCubeRecordingTapeDirty = false/);

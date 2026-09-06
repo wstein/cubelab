@@ -165,12 +165,13 @@ physical cube, its calibration, the current state, or the tape. At a settled car
 pose, the display may apply a correction to reconcile accumulated IMU heading error;
 it never snaps while the cube is in motion.
 
-Each confirmed face turn can open a 700 ms stabilization window after orientation has
-been quiet for 250 ms. Three following IMU samples may then make a small correction
-toward the current settled cardinal viewport pose, provided their whole-cube pose
-remains within ten degrees of the pose before the turn. A heavy rotation or a regrip
-still settling blocks the window; a sample outside an envelope, an expired window,
-recording, or a newly detected regrip discards it.
+Each confirmed face turn can open a 700 ms stabilization window. Three following IMU
+samples may make a small correction toward the current settled cardinal viewport pose
+only when their whole-cube pose remains within ten degrees of the pose before the turn.
+GoCube IMU packets can spike while an ordinary face is turned, so this post-turn window
+rather than a pre-turn motion threshold decides whether the cube was still. A sample
+outside the envelope, an expired window, recording, or a newly detected regrip discards
+it.
 
 For hardware diagnosis, set `localStorage.cubelab.smartCube.gyroTrace` to `"1"` in
 browser DevTools and reproduce a turn. The console records whether each move opened an
