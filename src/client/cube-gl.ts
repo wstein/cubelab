@@ -1640,8 +1640,14 @@ export const createCubeViewport = (
       }
       deviceOrientationOffsetUpdatedAt = now;
     }
+    // How far the drift-corrected (rendered) orientation currently sits from
+    // deviceOrientationLockTarget — not that orientation's own absolute
+    // rotation angle, which is whatever arbitrary pose a compound history of
+    // confirmed regrips has accumulated to and is not bounded to 0..90.
     regripGaugeAdjustedDegrees = rawOrientation && deviceOrientationOffset
-      ? quaternionAxisAngle(multiplyQuaternions(deviceOrientationOffset, rawOrientation)).radians * 180 / Math.PI
+      ? quaternionAxisAngle(
+        relativeQuaternion(deviceOrientationLockTarget, multiplyQuaternions(deviceOrientationOffset, rawOrientation)),
+      ).radians * 180 / Math.PI
       : null;
     const relativeOrientation = deviceOrientation ? deviceOrientationRendered : undefined;
     const aspect = width / height;
