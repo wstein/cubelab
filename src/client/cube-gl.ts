@@ -1512,12 +1512,9 @@ export const createCubeViewport = (
       {label: "z'", angle: (5 * Math.PI) / 6},
       {label: "x", angle: -(5 * Math.PI) / 6},
     ];
-    // Both are signed degrees-remaining-until-0; negated maps the -90..0
-    // range onto the 1..0 radius fraction — full radius at the start of a
-    // cycle (-90°), shrinking to the centre exactly on arrival (0°), so
-    // "drifting toward 0" and "drifting toward the centre" are the same
-    // motion instead of opposite ones.
-    const toFraction = (signedDegrees: number) => Math.max(0, Math.min(1, -signedDegrees / 90));
+    // Both are signed degrees-remaining-until-0; +90 maps the -90..0 range
+    // onto the 0..1 radius fraction (-90 at the centre, 0 at full radius).
+    const toFraction = (signedDegrees: number) => Math.max(0, Math.min(1, (signedDegrees + 90) / 90));
     overlay.save();
     overlay.fillStyle = "rgba(8, 15, 30, 0.55)";
     overlay.beginPath();
