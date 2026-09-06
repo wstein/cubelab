@@ -494,6 +494,20 @@ export const orientationDistanceRadians = (
   return 2 * Math.acos(Math.min(1, dot));
 };
 
+export const quaternionAxisAngle = (
+  quaternion: OrientationQuaternion,
+): {axis: [number, number, number]; radians: number} => {
+  const normalized = normalizedQuaternion(quaternion);
+  const sign = normalized.w < 0 ? -1 : 1;
+  const w = normalized.w * sign;
+  const sine = Math.hypot(normalized.x, normalized.y, normalized.z);
+  if (sine < 1e-8) return {axis: [0, 0, 0], radians: 0};
+  return {
+    axis: [normalized.x * sign / sine, normalized.y * sign / sine, normalized.z * sign / sine],
+    radians: 2 * Math.acos(Math.min(1, w)),
+  };
+};
+
 /**
  * Produces the display-only adjustment that makes a raw IMU delta agree with
  * a settled cardinal cube pose. The raw sample remains untouched.
@@ -720,9 +734,15 @@ export type CubeViewport = {
     frame?: OrientationCoordinateFrame,
   ) => void;
   stabilizeDeviceOrientation: (
+    measured: OrientationQuaternion,
     target: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
-  ) => {applied: boolean; targetErrorRadians: number | null; correctionStepRadians: number};
+  ) => {
+    applied: boolean;
+    targetErrorRadians: number | null;
+    targetErrorAxis: [number, number, number] | null;
+    correctionStepRadians: number;
+  };
   setAutoOrbit: (enabled: boolean) => void;
   setDialogOpen: (open: boolean) => void;
   resetCamera: () => void;
@@ -1877,17 +1897,17 @@ export const createCubeViewport = (
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
     },
-    stabilizeDeviceOrientation(target, coordinateFrame = "viewport") {
+    stabilizeDeviceOrientation(measured, target, coordinateFrame = "viewport") {
       if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) {
-        return {applied: false, targetErrorRadians: null, correctionStepRadians: 0};
+        return {applied: false, targetErrorRadians: null, targetErrorAxis: null, correctionStepRadians: 0};
       }
-      const raw = deviceOrientationDelta(deviceOrientationBase, deviceOrientation, coordinateFrame, "world");
+      const raw = deviceOrientationDelta(deviceOrientationBase, measured, coordinateFrame, "world");
       const priorCorrection = deviceOrientationCorrection ?? {x: 0, y: 0, z: 0, w: 1};
       const rendered = multiplyQuaternions(priorCorrection, raw);
       const nextCorrection = stabilizedOrientationCorrection(
         priorCorrection,
         deviceOrientationBase,
-        deviceOrientation,
+        measured,
         target,
         coordinateFrame,
       );
@@ -1896,6 +1916,7 @@ export const createCubeViewport = (
       return {
         applied: true,
         targetErrorRadians: orientationDistanceRadians(rendered, target),
+        targetErrorAxis: quaternionAxisAngle(multiplyQuaternions(target, inverseQuaternion(rendered))).axis,
         correctionStepRadians: orientationDistanceRadians(priorCorrection, nextCorrection),
       };
     },

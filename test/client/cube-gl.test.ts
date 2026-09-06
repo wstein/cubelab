@@ -17,6 +17,7 @@ import {
   orientationInViewportFrame,
   orientationCorrectionForTarget,
   orientationDistanceRadians,
+  quaternionAxisAngle,
   pngBlobFromDataUrl,
   relativeQuaternion,
   safeCameraDistance,
@@ -55,6 +56,13 @@ describe("cube viewport math", () => {
     const x = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
     expect(orientationDistanceRadians(identity, x)).toBeCloseTo(Math.PI / 2);
     expect(orientationDistanceRadians(identity, x)).toBeGreaterThan(10 * Math.PI / 180);
+  });
+
+  test("reports signed axis-angle error for gyro trace calibration", () => {
+    const rotation = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
+    const axisAngle = quaternionAxisAngle(rotation);
+    expect(axisAngle.radians).toBeCloseTo(Math.PI / 2);
+    expect(axisAngle.axis).toEqual([1, 0, 0]);
   });
 
   test("draws a near-reset rendered pose incrementally back toward viewport zero", () => {

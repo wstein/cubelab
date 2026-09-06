@@ -167,7 +167,7 @@ it never snaps while the cube is in motion.
 
 Each confirmed face turn can open a 700 ms stabilization window. Three following IMU
 samples may make a small correction toward the current settled cardinal viewport pose
-only when their whole-cube pose remains within ten degrees of the pose before the turn.
+only when their whole-cube pose remains within twenty degrees of the pose before the turn.
 GoCube IMU packets can spike while an ordinary face is turned, so this post-turn window
 rather than a pre-turn motion threshold decides whether the cube was still. A sample
 outside the envelope, an expired window, recording, or a newly detected regrip discards
@@ -179,7 +179,9 @@ browser DevTools and reproduce a turn. The console records whether each move ope
 anchor, regrip settlement, every anchor sample, and whether the renderer applied or
 rejected its correction. Anchor samples include raw baseline/current quaternions and
 their angular deviation; corrections include target error and actual correction-step
-degrees. Remove the key (or set it to another value) to silence the trace.
+degrees. The correction uses the normalized average of the three accepted quaternions,
+and includes its signed target-error axis. Remove the key (or set it to another value)
+to silence the trace.
 
 The first smart-cube event prints `trace enabled`. If it does not, reload after setting
 the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use

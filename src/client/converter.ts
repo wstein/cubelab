@@ -4789,14 +4789,19 @@ if (root) {
             baseline: anchorBaseline,
             current: event.quaternion,
           });
-          if (anchored.stable && anchored.target) {
-            const result = viewport?.stabilizeDeviceOrientation(anchored.target, event.coordinateFrame)
-              ?? {applied: false, targetErrorRadians: null, correctionStepRadians: 0};
+          if (anchored.stable && anchored.target && anchored.settledOrientation) {
+            const result = viewport?.stabilizeDeviceOrientation(
+              anchored.settledOrientation,
+              anchored.target,
+              event.coordinateFrame,
+            ) ?? {applied: false, targetErrorRadians: null, targetErrorAxis: null, correctionStepRadians: 0};
             traceSmartCubeStabilization(result.applied ? "correction applied" : "correction rejected", {
               target: anchored.target,
+              measured: anchored.settledOrientation,
               targetErrorDegrees: result.targetErrorRadians === null
                 ? null
                 : Number((result.targetErrorRadians * 180 / Math.PI).toFixed(2)),
+              targetErrorAxis: result.targetErrorAxis?.map((component) => Number(component.toFixed(3))) ?? null,
               correctionStepDegrees: Number((result.correctionStepRadians * 180 / Math.PI).toFixed(2)),
             });
           }
