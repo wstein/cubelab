@@ -271,17 +271,20 @@ describe("cube viewport math", () => {
       {x: 0, y: 0, z: half, w: half},
       "gocube-wire",
     );
-    expect(aroundSensorX.x).toBeCloseTo(half);
+    // Hardware-calibrated basis (see deviceOrientationDelta's "gocube-wire"
+    // branch): a genuine 3-cycle, not a same-axis sign flip — sensor X, -Y,
+    // Z map to viewport -Z, X, Y respectively.
+    expect(aroundSensorX.x).toBeCloseTo(0);
     expect(aroundSensorX.y).toBeCloseTo(0);
-    expect(aroundSensorX.z).toBeCloseTo(0);
+    expect(aroundSensorX.z).toBeCloseTo(-half);
 
-    expect(aroundSensorY.x).toBeCloseTo(0);
-    expect(aroundSensorY.y).toBeCloseTo(half);
+    expect(aroundSensorY.x).toBeCloseTo(-half);
+    expect(aroundSensorY.y).toBeCloseTo(0);
     expect(aroundSensorY.z).toBeCloseTo(0);
 
     expect(aroundSensorZ.x).toBeCloseTo(0);
-    expect(aroundSensorZ.y).toBeCloseTo(0);
-    expect(aroundSensorZ.z).toBeCloseTo(half);
+    expect(aroundSensorZ.y).toBeCloseTo(half);
+    expect(aroundSensorZ.z).toBeCloseTo(0);
   });
 
   test("maps GAN wire sensor axes (X: Red, Y: Blue, Z: White) to canonical viewport axes", () => {

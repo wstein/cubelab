@@ -93,10 +93,12 @@ describe("real GoCube capture: U2, 720° spin, R2, 720° spin, F2, 720° spin, r
     // stop before emitting one token for the whole thing), the threshold
     // detector fires on every real ~90° of travel: 7 steps through the first
     // spin, 8 through the second, 8 through the third (23 total, close to the
-    // physically ideal 3×720°/90°=24) — cleanly grouped by axis, in the same
-    // y/x/z order the capture's filename describes, with no direction
-    // reversals or cross-axis noise despite never requiring the hand to land
-    // precisely on any of them.
+    // physically ideal 3×720°/90°=24) — cleanly grouped by axis, with no
+    // direction reversals or cross-axis noise despite never requiring the
+    // hand to land precisely on any of them. The token order here (x, y', z')
+    // does not literally spell the "yxz" filename — that name was never a
+    // claim about deviceOrientationDelta's gocube-wire axis convention, which
+    // is a hardware-calibrated permutation (see there), not an identity map.
     //
     // The tracker uses "world" deltaFrame. "local" was tried (reasoning that
     // x/y/z are body-frame cube notation, so a token should always mean
@@ -119,9 +121,9 @@ describe("real GoCube capture: U2, 720° spin, R2, 720° spin, F2, 720° spin, r
     // clean synthetic 360° sweep fired 5 times, not the correct 4).
     const tokens = regrips.flatMap((regrip) => regrip.tokens.split(" "));
     expect(tokens).toEqual([
-      ...Array(7).fill("y'"),
+      ...Array(7).fill("x"),
+      ...Array(8).fill("y'"),
       ...Array(8).fill("z'"),
-      ...Array(8).fill("x"),
     ]);
 
     // The capture ends several seconds into "rest" after the last spin. This

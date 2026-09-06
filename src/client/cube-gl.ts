@@ -689,13 +689,26 @@ export const deviceOrientationDelta = (
     ? relativeQuaternion(base, current)
     : relativeQuaternionLocal(base, current);
   if (frame === "gocube-wire") {
-    // 1. Invert rotation direction
-    const directed = { x: -rawDelta.x, y: -rawDelta.y, z: -rawDelta.z, w: rawDelta.w };
-    // 2. Basis transformation: 180° around Y (Q_basis = { x: 0, y: 1, z: 0, w: 0 })
-    const qBasis = { x: 0, y: 1, z: 0, w: 0 };
-    return normalizedQuaternion(
-      multiplyQuaternions(multiplyQuaternions(qBasis, directed), { x: 0, y: -1, z: 0, w: 0 }),
-    );
+    // Hardware-calibrated basis (right,up,front as signed sensor axes) plus a
+    // reversed rotation direction, measured with a physical three-turn/RGB-triad
+    // calibration against real GoCube hardware (see bluez-gatt-recorder's
+    // AxisCalibration/AxisBasis): sensor axes -y,-z,+x map to display right,up,
+    // front, inverted, giving (ry,rz,-rx) applied to a true-raw (rx,ry,rz) delta.
+    // rawDelta here already *is* true-raw, not fast-gocube.ts's parse-time
+    // swapped form: parseGoCubeOrientationPayload's swap and bluetooth.ts's
+    // normalizeTransportEvent "un-swap" for protocolId "gocube" are the same
+    // permutation applied twice, which cancels exactly (verified directly) —
+    // GoCube always connects through connectFastGoCube (fast-gocube.ts), never
+    // the vendor library's own GoCube parser the un-swap was written to undo,
+    // so the two swaps compose to nothing for the only path that exists. The
+    // previous "180° around Y" transform here did not match this calibration
+    // and was replaced.
+    return normalizedQuaternion({
+      x: rawDelta.y,
+      y: rawDelta.z,
+      z: -rawDelta.x,
+      w: rawDelta.w,
+    });
   }
   if (frame === "gan-wire") {
     return normalizedQuaternion({

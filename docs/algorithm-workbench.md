@@ -272,6 +272,22 @@ never validated as intentional for this same reasoning — it is not evidence th
 would be right here too, and this session's live-tested result (mislabelling every turn)
 takes precedence over that unexamined default.
 
+`deviceOrientationDelta`'s `"gocube-wire"` branch maps GoCube's raw sensor axes onto the
+canonical viewport basis with a hardware-calibrated permutation — sensor axes `-y,-z,+x`
+correspond to display right/up/front, inverted — sourced from a physical three-turn
+RGB-triad calibration against real GoCube hardware (see the sibling `bluez-gatt-recorder`
+project's `AxisBasis`/`AxisCalibration`). It replaced an earlier "180° around Y" guess that
+did not match this calibration and produced the originally reported chaotic axis labelling
+after a Y regrip. The raw quaternion this branch receives is genuinely raw wire data, not
+`fast-gocube.ts`'s parse-time-swapped form: that parser's swap and `bluetooth.ts`'s
+`normalizeTransportEvent` "un-swap" for `protocolId === "gocube"` are the same permutation
+applied twice, which cancels exactly — and since GoCube only ever connects through
+`connectFastGoCube`, that cancellation applies unconditionally on the one path that exists.
+`test/client/cube-gl.test.ts`, `test/client/smart-cube/orientation-verifier.test.ts`, and
+`test/client/smart-cube/bluetooth.test.ts` pin the resulting axis mapping directly; the
+real-capture replay in `test/client/smart-cube/gocube-replay.test.ts` still passes with the
+same fixture, confirming the fix doesn't merely satisfy synthetic values.
+
 The **recording** tracker (`observeStableOrientation`, used only while capturing a
 physical-mirror recording) keeps the original three-sample/5° confirm: a permanently
 saved move list benefits more from precision than from instant reaction, and a
