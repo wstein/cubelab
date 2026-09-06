@@ -74,14 +74,25 @@ describe("cube viewport math", () => {
     expect(Math.abs(corrected.x)).toBeGreaterThan(0);
   });
 
-  test("caps a large stabilization error to a small per-turn correction", () => {
+  test("applies one fifth of a large stabilization error per accepted turn", () => {
     const identity = {x: 0, y: 0, z: 0, w: 1};
     const displayed = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
     const correction = stabilizedOrientationCorrection(null, identity, displayed, identity);
     const corrected = multiplyQuaternions(correction, displayed);
     const moved = orientationDistanceRadians(displayed, corrected);
-    expect(moved).toBeLessThanOrEqual(2 * Math.PI / 180 + 1e-8);
-    expect(moved).toBeGreaterThan(0);
+    expect(moved).toBeCloseTo(18 * Math.PI / 180, 6);
+  });
+
+  test("uses error divided by five as the correction step", () => {
+    const identity = {x: 0, y: 0, z: 0, w: 1};
+    const correctionAt = (errorDegrees: number) => {
+      const displayed = {x: Math.sin(errorDegrees * Math.PI / 360), y: 0, z: 0, w: Math.cos(errorDegrees * Math.PI / 360)};
+      const correction = stabilizedOrientationCorrection(null, identity, displayed, identity, "viewport", 5);
+      return orientationDistanceRadians(displayed, multiplyQuaternions(correction, displayed)) * 180 / Math.PI;
+    };
+    expect(correctionAt(4)).toBeCloseTo(0.8, 6);
+    expect(correctionAt(9)).toBeCloseTo(1.8, 6);
+    expect(correctionAt(44)).toBeCloseTo(8.8, 6);
   });
 
   test("keeps Standard stickers at a restrained mid-gloss finish", () => {

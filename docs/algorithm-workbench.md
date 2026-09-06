@@ -196,9 +196,14 @@ another value) to silence the trace.
 Motion-profile settings are loaded from `/smart-cube/motion-profiles.v1.json` after a
 cube connects. The registry provides a conservative default for unknown hardware and a
 GoCube override: three retained probes, a 5° rotation threshold, two discarded probes
-on each side of a rotation, a 1° maximum correction step, and full correction
-responsiveness. Invalid or unavailable server data falls back to the default profile;
-it never blocks a cube connection.
+on each side of a rotation, and correction equal to remaining error divided by 5.
+Invalid or unavailable server data falls back to the default profile; it never blocks a
+cube connection.
+
+The companion [motion-profile JSON Schema](/smart-cube/motion-profiles.v1.schema.json)
+defines the fields, constraints, and units. `correctionErrorDivisor: 5` means each
+accepted face move corrects one fifth of the remaining display error: 5° corrects by
+1°, 10° by 2°, and 45° by 9°.
 
 The first smart-cube event prints `trace enabled`. If it does not, reload after setting
 the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use

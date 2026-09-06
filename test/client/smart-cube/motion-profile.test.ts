@@ -7,14 +7,13 @@ describe("smart-cube motion profiles", () => {
     const registry = parseMotionProfileRegistry({
       version: 1,
       default: defaultMotionProfile,
-      profiles: {gocube: {...defaultMotionProfile, label: "GoCube", rotationDropThresholdDegrees: 5, maximumCorrectionStepDegrees: 1, correctionResponsiveness: 1}},
+      profiles: {gocube: {...defaultMotionProfile, label: "GoCube", rotationDropThresholdDegrees: 5, correctionErrorDivisor: 5}},
     });
     expect(motionProfileFor(registry, "gocube").rotationDropThresholdDegrees).toBe(5);
-    expect(motionProfileFor(registry, "gocube").maximumCorrectionStepDegrees).toBe(1);
+    expect(motionProfileFor(registry, "gocube").correctionErrorDivisor).toBe(5);
     expect(motionProfileFor(registry, "gocube").orientationRingSamples).toBe(3);
     expect(motionProfileFor(registry, "gocube").rotationDropPreviousSamples).toBe(2);
     expect(motionProfileFor(registry, "gocube").rotationDropFollowingSamples).toBe(2);
-    expect(motionProfileFor(registry, "gocube").correctionResponsiveness).toBe(1);
     expect(motionProfileFor(registry, "gan")).toEqual(defaultMotionProfile);
   });
 

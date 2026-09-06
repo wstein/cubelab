@@ -1,4 +1,5 @@
 {
+  "$schema": "/smart-cube/motion-profiles.v1.schema.json",
   "version": 1,
   "default": {
     "label": "Default",
@@ -6,8 +7,7 @@
     "rotationDropThresholdDegrees": 5,
     "rotationDropPreviousSamples": 2,
     "rotationDropFollowingSamples": 2,
-    "maximumCorrectionStepDegrees": 1,
-    "correctionResponsiveness": 0.18
+    "correctionErrorDivisor": 5
   },
   "profiles": {
     "gocube": {
@@ -16,8 +16,7 @@
       "rotationDropThresholdDegrees": 5,
       "rotationDropPreviousSamples": 2,
       "rotationDropFollowingSamples": 2,
-      "maximumCorrectionStepDegrees": 1,
-      "correctionResponsiveness": 1
+      "correctionErrorDivisor": 5
     }
   }
 }

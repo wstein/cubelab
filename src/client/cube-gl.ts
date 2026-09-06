@@ -531,14 +531,25 @@ export const stabilizedOrientationCorrection = (
   displayed: OrientationQuaternion,
   target: OrientationQuaternion,
   coordinateFrame: OrientationCoordinateFrame = "viewport",
-  responsiveness = 0.18,
-  maximumStepRadians = 2 * Math.PI / 180,
+  correctionErrorDivisor = 5,
 ): OrientationQuaternion => {
   const current = previous ?? {x: 0, y: 0, z: 0, w: 1};
   const desired = orientationCorrectionForTarget(base, displayed, target, coordinateFrame);
   const distance = orientationDistanceRadians(current, desired);
-  const amount = distance === 0 ? 0 : Math.min(responsiveness, maximumStepRadians / distance);
-  return smoothTrackedOrientation(current, desired, 0, amount);
+  const amount = distance === 0 ? 0 : Math.min(1, 1 / correctionErrorDivisor);
+  const dot = current.x * desired.x + current.y * desired.y + current.z * desired.z + current.w * desired.w;
+  const sign = dot < 0 ? -1 : 1;
+  const angle = Math.acos(Math.min(1, Math.abs(dot)));
+  const sine = Math.sin(angle);
+  if (sine < 1e-8) return current;
+  const currentWeight = Math.sin((1 - amount) * angle) / sine;
+  const desiredWeight = Math.sin(amount * angle) / sine * sign;
+  return normalizedQuaternion({
+    x: current.x * currentWeight + desired.x * desiredWeight,
+    y: current.y * currentWeight + desired.y * desiredWeight,
+    z: current.z * currentWeight + desired.z * desiredWeight,
+    w: current.w * currentWeight + desired.w * desiredWeight,
+  });
 };
 
 /** Locks sub-threshold IMU jitter and softens larger moves along the shortest quaternion path. */
@@ -741,8 +752,7 @@ export type CubeViewport = {
     measured: OrientationQuaternion,
     target: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
-    maximumStepRadians?: number,
-    responsiveness?: number,
+    correctionErrorDivisor?: number,
   ) => {
     applied: boolean;
     targetErrorRadians: number | null;
@@ -1919,8 +1929,7 @@ export const createCubeViewport = (
       measured,
       target,
       coordinateFrame = "viewport",
-      maximumStepRadians = 2 * Math.PI / 180,
-      responsiveness = 0.18,
+      correctionErrorDivisor = 5,
     ) {
       if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) {
         return {applied: false, targetErrorRadians: null, targetErrorAxis: null, correctionStepRadians: 0};
@@ -1936,8 +1945,7 @@ export const createCubeViewport = (
         measured,
         target,
         coordinateFrame,
-        responsiveness,
-        maximumStepRadians,
+        correctionErrorDivisor,
       );
       deviceOrientationCorrection = nextCorrection;
       requestRender();

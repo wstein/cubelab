@@ -4623,8 +4623,7 @@ if (root) {
           rotationDropThresholdDegrees: smartCubeMotionProfile.rotationDropThresholdDegrees,
           rotationDropPreviousSamples: smartCubeMotionProfile.rotationDropPreviousSamples,
           rotationDropFollowingSamples: smartCubeMotionProfile.rotationDropFollowingSamples,
-          maximumCorrectionStepDegrees: smartCubeMotionProfile.maximumCorrectionStepDegrees,
-          correctionResponsiveness: smartCubeMotionProfile.correctionResponsiveness,
+          correctionErrorDivisor: smartCubeMotionProfile.correctionErrorDivisor,
         });
       });
       smartCubeLedFeedback = connectionState.device.capabilities.led;
@@ -4727,8 +4726,7 @@ if (root) {
             measured,
             smartCubeStabilizationTarget,
             frame,
-            smartCubeMotionProfile.maximumCorrectionStepDegrees * Math.PI / 180,
-            smartCubeMotionProfile.correctionResponsiveness,
+            smartCubeMotionProfile.correctionErrorDivisor,
           ) ?? {applied: false, targetErrorRadians: null, targetErrorAxis: null, correctionStepRadians: 0};
           traceSmartCubeStabilization(result.applied ? "ring correction applied" : "ring correction skipped", {
             move: event.move,

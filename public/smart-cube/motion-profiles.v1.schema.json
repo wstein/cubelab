@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/smart-cube/motion-profiles.v1.schema.json",
+  "title": "CubeLab smart-cube motion profiles v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "default", "profiles"],
+  "properties": {
+    "version": {
+      "const": 1,
+      "description": "Schema and registry format version."
+    },
+    "default": {"$ref": "#/$defs/profile"},
+    "profiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "gan": {"$ref": "#/$defs/profile"},
+        "giiker": {"$ref": "#/$defs/profile"},
+        "gocube": {"$ref": "#/$defs/profile"},
+        "moyu": {"$ref": "#/$defs/profile"}
+      }
+    }
+  },
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "orientationRingSamples",
+        "rotationDropThresholdDegrees",
+        "rotationDropPreviousSamples",
+        "rotationDropFollowingSamples",
+        "correctionErrorDivisor"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable profile name."
+        },
+        "orientationRingSamples": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum accepted IMU probes retained before a face move consumes the ring."
+        },
+        "rotationDropThresholdDegrees": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Sample-to-sample angular rotation, in degrees, that starts an exclusion region."
+        },
+        "rotationDropPreviousSamples": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Accepted probes removed immediately before a threshold-crossing sample."
+        },
+        "rotationDropFollowingSamples": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Subsequent IMU probes rejected after a threshold-crossing sample."
+        },
+        "correctionErrorDivisor": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Remaining orientation error is divided by this value to obtain the display-only correction for each accepted face move. A value of 5 turns a 5° error into a 1° correction."
+        }
+      }
+    }
+  }
+}
