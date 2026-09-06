@@ -7141,41 +7141,67 @@ if (root) {
     renderManualStateEditor();
   };
   manualStateNotationApply.addEventListener("click", () => {
-    const source = manualStateNotation.value.trim();
-    if (source === "") {
+    const lines = manualStateNotation.value
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line !== "");
+    if (lines.length === 0) {
       manualStateNotationStatus.textContent = "Enter a cube state, moves, or transformations first.";
       return;
     }
-    // parseState is deliberately shared with Setup so the editor recognizes
-    // every supported state encoding, notation dialect, and transformation.
-    const parsed = parseState(source);
-    if (parsed.TAG === "Error") {
-      manualStateNotationStatus.textContent = describeError(parsed._0);
+    let workingState: CubeState | null = null;
+    if (manualStateCompleteDiagnostic() === null) {
+      const current = FaceletCodec.parse(size, manualStateCompactFacelets()) as Result<CubeState>;
+      if (current.TAG === "Ok") workingState = current._0;
+    }
+    let stateLines = 0;
+    let notationLines = 0;
+    let commentLines = 0;
+    let singleStateLabel: string | null = null;
+    for (const line of lines) {
+      // Parse each line exactly as Setup would. Prose that Setup cannot
+      // recognize is a comment, allowing annotated state-edit scripts.
+      const parsed = parseState(line);
+      if (parsed.TAG === "Error") {
+        commentLines += 1;
+        continue;
+      }
+      const recognized = parsed._0;
+      if (!recognized.timeline) {
+        workingState = recognized.state;
+        stateLines += 1;
+        singleStateLabel = recognized.label;
+        continue;
+      }
+      if (workingState === null) {
+        manualStateNotationStatus.textContent = "Put a valid state before moves, or complete the draft first.";
+        return;
+      }
+      const applied = MoveExecutor.applyAlg(workingState, recognized.timeline.alg) as Result<CubeState, unknown>;
+      if (applied.TAG === "Error") {
+        manualStateNotationStatus.textContent = "Could not apply that notation to the current cube.";
+        return;
+      }
+      workingState = applied._0;
+      notationLines += 1;
+    }
+    if (stateLines + notationLines === 0 || workingState === null) {
+      manualStateNotationStatus.textContent = "No cube state, moves, or transformations found.";
       return;
     }
-    const recognized = parsed._0;
-    if (!recognized.timeline) {
-      replaceManualStateDraft(recognized.state);
-      manualStateNotationStatus.textContent = `${recognized.label} loaded.`;
-      return;
+    replaceManualStateDraft(workingState);
+    if (lines.length === 1 && stateLines === 1) {
+      manualStateNotationStatus.textContent = `${singleStateLabel} loaded.`;
+    } else if (lines.length === 1 && notationLines === 1) {
+      manualStateNotationStatus.textContent = "Moves applied.";
+    } else {
+      const stateSummary = `${stateLines} state${stateLines === 1 ? "" : "s"}`;
+      const notationSummary = `${notationLines} notation line${notationLines === 1 ? "" : "s"}`;
+      const commentSummary = commentLines === 0
+        ? ""
+        : `; ignored ${commentLines} comment${commentLines === 1 ? "" : "s"}`;
+      manualStateNotationStatus.textContent = `Applied ${stateSummary} and ${notationSummary}${commentSummary}.`;
     }
-    const diagnostic = manualStateCompleteDiagnostic();
-    if (diagnostic !== null) {
-      manualStateNotationStatus.textContent = `Complete a valid cube before applying moves: ${diagnostic}`;
-      return;
-    }
-    const current = FaceletCodec.parse(size, manualStateCompactFacelets()) as Result<CubeState>;
-    if (current.TAG === "Error") {
-      manualStateNotationStatus.textContent = describeError(current._0);
-      return;
-    }
-    const applied = MoveExecutor.applyAlg(current._0, recognized.timeline.alg) as Result<CubeState, unknown>;
-    if (applied.TAG === "Error") {
-      manualStateNotationStatus.textContent = "Could not apply that notation to the current cube.";
-      return;
-    }
-    replaceManualStateDraft(applied._0);
-    manualStateNotationStatus.textContent = "Moves applied.";
   });
   manualStateLoad.addEventListener("click", () => {
     const diagnostic = manualStateCompleteDiagnostic();
