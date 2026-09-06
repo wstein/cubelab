@@ -157,135 +157,58 @@ only controls the virtual presentation.
 ## Smart-cube diagnostics
 
 The smart-cube dock has **Diagnostics off** by default. Turning it on records at most
-500 local gyro/stabilization decisions for the current browser session; CubeLab never
-uploads them. **Copy cube trace** produces a small JSON report that a customer can paste
-into an issue or support request. It contains the cube brand, active motion profile,
-and orientation measurements and decisions, but not facelets, cube state, Bluetooth
-addresses, or the device name. Turning Diagnostics off clears the captured trace
-immediately, providing an explicit opt-out.
+500 local gyro decisions for the current browser session; CubeLab never uploads them.
+**Copy cube trace** produces a small JSON report that a customer can paste into an issue
+or support request. It contains the cube brand and orientation measurements and
+decisions, but not facelets, cube state, Bluetooth addresses, or the device name.
+Turning Diagnostics off clears the captured trace immediately, providing an explicit
+opt-out.
 
-Gyro view has two deliberately separate layers. The viewport follows the continuous
-IMU pose so a regrip remains visually smooth. A recorder-side orientation tracker
-recognizes the cube's settled cardinal poses and emits `x`, `y`, or `z` for recording.
-For the live viewport it adopts the exact corresponding cardinal pose after three
-settled samples, rather than preserving an imperfect raw regrip angle. It rebases after
-each accepted pose rather than treating an early threshold crossing as a quarter turn.
-At that instant the viewport reconciles to the new cardinal target, so no later face
-turn can unwind a correction retained from the preceding orientation. Reconciling
-animates the display correction to its new value over ~180ms rather than snapping
-instantly; a correctly identified target no longer feels like a jump cut.
+Gyro view does not mirror the cube's live orientation. Raw IMU orientation is noisy and
+loose enough (real handling routinely shows 10–30° of sample-to-sample sensor jitter,
+even mid-turn on a face that never left the hand) that continuously mirroring it made
+the display feel drifty regardless of how aggressively later corrections tried to chase
+it down — an entire ring-buffer/nearest-cardinal-snap correction system existed solely
+to fight that drift, and still couldn't make continuous mirroring feel solid. The raw
+stream is used for exactly one thing: detecting when the whole cube has been regripped.
+A recorder-side orientation tracker (`observeStableOrientation`) recognizes the cube's
+settled cardinal poses and emits `x`, `y`, or `z` after three consecutive samples land
+within 5° of the same one of the 24 legal poses; it rebases to that sample every time,
+so small heading bias cannot accumulate across successive regrips. Between confirmed
+regrips the displayed orientation does not move at all — this is the same model
+tutorial mode already used for coached rotations (detect the expected regrip, animate
+once, then hold), just generalized to whichever regrip actually happened rather than a
+specific expected one.
 
-The viewport keeps the correction actually being drawn separate from the settled
-correction any math is based on: only the animation loop writes the drawn value, and
-every calculation — the per-move divisor step, the nearest-cardinal snap's read of
-"where are we now" — reads the settled one. Earlier, the per-move stabilizer read and
-wrote the same live, animating value that a reconcile could be mid-flight on, so its
-"how far have we already corrected" baseline was whatever the animation happened to be
-at that instant rather than the actual last-settled state, and the two writers fought
-over the same field. That is also why animating reconciliation alone hadn't been
-enough to stop the jumps: the very next per-move correction could still stomp an
-in-progress animation with an instant jump computed from its mid-flight snapshot.
+When a regrip confirms, the viewport reconciles to the new cardinal target in one call —
+`viewport.reconcileDeviceOrientation(quaternion, target, frame)` — which animates the
+display correction to its new value over ~180ms rather than snapping instantly, so a
+correctly identified regrip doesn't feel like a jump cut. Nothing else ever touches
+device orientation while tracking is active, so the display rests exactly where that
+call left it until the next confirmed regrip.
 
-The recorder-side tracker composes each confirmed regrip onto its own running
-orientation, rebasing to the current sample every time it does. That running
-orientation, not the viewport's rendered pose, is the fallback's source of truth
-below: the viewport's rendered pose is downstream of the *entire session's* chain of
-past corrections, while the tracker's baseline is only ever as old as the last
-confirmed (or fallback-resolved) regrip. Reading from the viewport's chain instead of
-the tracker's own baseline is what produced a lone "y" resolving to a corner-axis
-target instead of a Y-axis one: the fallback and the tracker were each keeping their
-own independent, unsynchronized account of "where is the cube now."
-
-**Recenter gyro view** resets only the displayed gyro baseline. It does not change the
-physical cube, its calibration, the current state, or the tape. At a settled cardinal
-pose, the display may apply a correction to reconcile accumulated IMU heading error;
-it never snaps while the cube is in motion. It resets the viewport's device-orientation
-base/correction, the discrete tracker (fresh at identity), the stabilization target
-(identity, to match), the probe ring, and — while Diagnostics is on — the debug
-vectors, so nothing keeps showing a pre-recenter value. Toggling orientation tracking
-off and back on recreates the discrete tracker the same way (fresh, at identity) the
-next time an orientation sample arrives, so the target and debug vectors reset there
-too, even without an explicit Recenter click — otherwise the next confirmed regrip
-would compose onto identity while the viewport kept displaying whatever the target was
-before tracking was paused.
-
-The stabilizer continuously keeps a ring of accepted IMU probes; it is not tied to a
-face-packet timing window. It tracks the single most recent probe purely to spot a
-rotation, independent of the ring's own contents. If consecutive probes differ by more
-than the profile's rotation threshold (5° for GoCube), CubeLab empties the ring
-entirely — not just its most recent members — rejects the rotating probe without
-pushing it, and rejects the next two probes. Emptying the whole ring rather than
-trimming a fixed count matters: with a 3-probe ring, trimming only the most recent two
-could leave one stale pre-rotation probe behind, which then got blended with fresh
-post-rotation probes into the same average once the ring refilled. A face move may
-stabilize from any non-empty retained ring after the exclusion region has passed, then
-consumes the ring so no probe is reused for another face move. There are no separate
-10°, 25°, or 30° stabilization acceptance gates. An accepted GoCube correction changes
-the display by at most one degree, so accumulated heading error recovers without a
-visible snap.
-
-A real regrip does not always land close enough to one of the 24 cardinal poses for the
-recorder-side tracker above to confirm it, especially mid-grip-adjustment — and without
-a fallback, an unconfirmed regrip's error is corrected the same slow way ordinary drift
-is, one fifth per accepted face move, which can take a dozen or more turns to recover
-from a 100°+ excursion. Two earlier fallback designs were tried and rejected: adopting
-whatever raw pose the hand held at that instant produced an arbitrary, non-cardinal
-"zero," and firing on any sample-to-sample rotation above 5° meant it fired on ordinary
-handling jostle as often as on genuine tumbles — both let the effective zero reference
-slide indefinitely instead of settling. The current fallback fixes both: every one of
-the cube's 24 legal poses is exactly 90° from its neighbours, so the first face move
-whose ring recovers from a rotation-drop window, if its error is still above the
-profile's `maximumTargetErrorDegrees`, resolves against the recorder-side tracker's own
-baseline — the same `observeStableOrientation` the confirm path uses, just called with
-no alignment gate and a one-sample dwell, so it accepts and confirms immediately instead
-of waiting three settled samples within 5°. The result is still always one of the 24
-legal poses, bounded to at most the group's ~63° worst-case covering radius regardless
-of how large the original error was — but it comes from the tracker's own frequently-
-rebased baseline rather than the viewport's rendered pose, so it can no longer diverge
-from what the tracker itself will compose the next confirmed regrip onto. Ordinary
-drift, whose error rarely crosses a 90°-spaced pose boundary, resolves to the same pose
-it already had and is unaffected. This is logged as
-`unconfirmed regrip snapped to nearest cardinal`.
+**Recenter gyro view** resets the discrete tracker fresh (baseline at the current
+sample, running orientation at identity) and the viewport's device-orientation
+base/correction to match, so nothing keeps showing a pre-recenter value. Toggling
+orientation tracking off and back on recreates the discrete tracker the same way (fresh,
+at identity) the next time an orientation sample arrives, for the same reason: the
+tracker's running orientation and the viewport's displayed pose must never be able to
+disagree about "where is the cube now," since there is exactly one of each and only
+confirmed regrips ever change either one.
 
 For hardware diagnosis, set `localStorage.cubelab.smartCube.gyroTrace` to `"1"` in
-browser DevTools and reproduce a turn. The console records dropped ring probes, ring
-readiness, regrip settlement, an explicit **Recenter gyro view** click, nearest-cardinal
-snaps, and corrections — so a trace can show whether a reported jump followed a
-recenter, a confirmed regrip, or an unconfirmed one. Every entry carries enough state to
-diagnose it without re-deriving anything by hand: dropped-probe entries include the raw
-quaternion alongside the sample-to-sample rotation and 5° threshold; ring-correction
-entries include the raw (pre-average) `ringProbes`, the viewport's internal base and
-settled correction target (`viewport`), and the recorder-side tracker's own baseline,
-running orientation, and dwell candidate (`discreteTracker`) as they stood at that
-instant; regrip-settled and nearest-cardinal-snap entries include the tracker's prior
-baseline and orientation *before* the update they report, so a wrong result can be
-verified by hand from the log alone rather than requiring a repro. Remove the key (or
-set it to another value) to silence the trace.
+browser DevTools and reproduce a turn. The console records regrip settlement and an
+explicit **Recenter gyro view** click. `regrip settled` entries include the tracker's
+prior baseline and orientation *before* the update they report, alongside the raw
+sample and the resulting tokens/target, so a wrong result can be verified by hand from
+the log alone rather than requiring a repro. Remove the key (or set it to another
+value) to silence the trace.
 
-While **Diagnostics** is on, the same values are also drawn live as coloured arrows
-from the cube's centre: green for the current cardinal target, blue for the settled
-display correction, and — on each accepted face move — orange for the corrective
-rotation still remaining, labelled with its magnitude and lengthening with it. The
-arrows use a modelView that excludes the live device-orientation rotation, so they
-stay fixed in "room" space while the cube itself visibly turns against them; watching
-the cube's actual orientation converge onto the green arrow is a direct visual read of
-whether stabilization is working, and a snap that picks the wrong target shows up as
-the cube jumping to face away from where the arrows say it should.
-
-Motion-profile settings are loaded from `/smart-cube/motion-profiles.v1.json` after a
-cube connects. The registry provides a conservative default for unknown hardware and a
-GoCube override: three retained probes, a 5° rotation threshold, two rejected probes
-following a rotation, correction equal to remaining error divided by 5, and a 50°
-ceiling before an unresolved post-regrip error gets snapped to the nearest legal pose.
-Invalid or unavailable server data falls back to the default profile; it never blocks a
-cube connection.
-
-The companion [motion-profile JSON Schema](/smart-cube/motion-profiles.v1.schema.json)
-defines the fields, constraints, and units. `correctionErrorDivisor: 5` means each
-accepted face move corrects one fifth of the remaining display error: 5° corrects by
-1°, 10° by 2°, and 45° by 9°. `maximumTargetErrorDegrees: 50` sits comfortably between
-ordinary post-jostle residuals (seen around 20–40°) and genuine tumbles (seen at 70°+),
-so it separates the two cleanly.
+While **Diagnostics** is on, the tracker's current confirmed orientation is also drawn
+live as a green arrow from the cube's centre. The arrow uses a modelView that excludes
+the live device-orientation rotation, so it stays fixed in "room" space while the cube
+itself visibly turns against it; watching the cube's actual orientation match the green
+arrow after a regrip is a direct visual read of whether detection is working.
 
 The first smart-cube event prints `trace enabled`. If it does not, reload after setting
 the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use
