@@ -163,6 +163,14 @@ bun install
 - ReScript watch mode: `bun run res:dev`
 - Production preview: `bun run preview`
 
+## Chrome DevTools workspace
+
+During `bun run dev`, CubeLab serves Chrome's automatic-workspace manifest at
+`/.well-known/appspecific/com.chrome.devtools.json`. Open the local site in Chrome
+DevTools and approve its prompt to connect this checkout; edits in DevTools then save
+directly to the project files. The manifest is generated at runtime so it always reports
+the current absolute checkout path.
+
 ## Quality checks
 
 ```sh
