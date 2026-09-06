@@ -4807,18 +4807,17 @@ if (root) {
           viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
         }
         if (smartCubeDiscreteOrientationTracker === null) {
-          // "local" (not "world"): x/y/z tokens are body-frame notation — "y"
-          // always means "rotate about the cube's own current U/D axis",
-          // whatever that axis now points toward in the room after earlier
-          // regrips. "world" measured every delta against fixed room axes
-          // instead, so after any Y regrip the cube's own R/L axis no longer
-          // pointed along world X, and a real physical "x" turn got measured
-          // against the wrong fixed axis and mislabeled — reported live as
-          // chaotic x/x'/z/z' alternation immediately following a Y phase.
+          // "world": tried "local" (reasoning that x/y/z are body-frame cube
+          // notation) and reverted — live testing showed it wrong for every
+          // turn, not just ones after a prior regrip. What this tracker
+          // actually needs is "world": the camera is fixed in the room, so
+          // rendering the physical cube's true appearance means tracking how
+          // it has reoriented relative to that fixed viewpoint, not relative
+          // to the cube's own (constantly moving) body frame.
           smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
             event.quaternion,
             event.coordinateFrame,
-            "local",
+            "world",
           );
         } else {
           const priorBaseline = smartCubeDiscreteOrientationTracker.baseline;
@@ -6562,7 +6561,7 @@ if (root) {
     smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
       latestSmartCubeOrientation.quaternion,
       latestSmartCubeOrientation.coordinateFrame,
-      "local",
+      "world",
     );
     viewport?.recenterDeviceOrientation(
       latestSmartCubeOrientation.quaternion,

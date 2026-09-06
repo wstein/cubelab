@@ -1,6 +1,5 @@
 import {describe, expect, test} from "vitest";
 
-import {multiplyQuaternions} from "../../../src/client/cube-gl";
 import {
   cardinalOrientationCount,
   createStableOrientationTracker,
@@ -12,7 +11,6 @@ import {
 
 const identity = {x: 0, y: 0, z: 0, w: 1};
 const x = (degrees: number) => ({x: Math.sin(degrees * Math.PI / 360), y: 0, z: 0, w: Math.cos(degrees * Math.PI / 360)});
-const y = (degrees: number) => ({x: 0, y: Math.sin(degrees * Math.PI / 360), z: 0, w: Math.cos(degrees * Math.PI / 360)});
 
 describe("stable smart-cube orientation tracker", () => {
   test("enumerates the cube's complete 24-pose cardinal rotation group", () => {
@@ -106,38 +104,6 @@ describe("stable smart-cube orientation tracker", () => {
     expect(tokens).toEqual(["x", "x", "x", "x"]);
     // A full 360° turn is identity up to quaternion double-cover (w may be -1).
     expect(Math.abs(tracker.orientation.w)).toBeCloseTo(1);
-  });
-
-  test("threshold: \"local\" labels a physical x turn correctly even after a Y regrip", () => {
-    // Cube notation tokens are body-frame: "x" always means "rotate about
-    // the cube's OWN current R/L axis", wherever that axis now points in the
-    // room after earlier regrips. Confirm a y turn first (baseline becomes a
-    // pure Y rotation), then apply a further 90° rotation about the cube's
-    // OWN (now Y-rotated) local X axis — current = baseline * quarter(X) —
-    // and expect it to still resolve to "x", not some other axis.
-    let tracker = createStableOrientationTracker(identity, "viewport", "local");
-    const afterY = observeThresholdOrientation(tracker, y(90), "viewport", 65);
-    expect(afterY.tokens).toEqual(["y"]);
-    tracker = afterY.tracker;
-    const localXQuarter = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
-    const current = multiplyQuaternions(tracker.baseline, localXQuarter);
-    const afterX = observeThresholdOrientation(tracker, current, "viewport", 65);
-    expect(afterX.tokens).toEqual(["x"]);
-  });
-
-  test("threshold: \"world\" (the reverted default) mislabels that same physical x turn", () => {
-    // Same physical motion as above, replayed with "world" deltaFrame — this
-    // documents the bug the live tracker used to have, now fixed by using
-    // "local" instead: measuring against fixed room axes instead of the
-    // cube's own means the same physical turn no longer resolves to "x".
-    let tracker = createStableOrientationTracker(identity, "viewport", "world");
-    const afterY = observeThresholdOrientation(tracker, y(90), "viewport", 65);
-    expect(afterY.tokens).toEqual(["y"]);
-    tracker = afterY.tracker;
-    const localXQuarter = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
-    const current = multiplyQuaternions(tracker.baseline, localXQuarter);
-    const afterX = observeThresholdOrientation(tracker, current, "viewport", 65);
-    expect(afterX.tokens).not.toEqual(["x"]);
   });
 
   test("nearest regrip axis: picks the closest of the six quarter-turn directions", () => {

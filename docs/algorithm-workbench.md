@@ -259,24 +259,18 @@ same `driftDegreesPerSecond`, a genuine pause between unrelated motions forgives
 a later, independently-imprecise regrip could be wrongly swallowed by stale debt from
 an earlier, unrelated one — verified directly alongside the resonance fix above.
 
-The live tracker's `deltaFrame` is `"local"`, not `"world"` — this matters for what the
-`x`/`y`/`z` tokens actually mean. Cube notation is inherently body-frame: "y" always means
-"rotate about the cube's own *current* U/D axis," whatever direction that axis now points
-in the room after earlier regrips. `"world"` measures every delta against fixed room axes
-instead, so after any Y regrip the cube's own R/L axis no longer points along world X, and
-a genuine physical "x" turn gets measured against the wrong fixed axis and mislabelled —
-reported live as chaotic `x`/`x'`/`z`/`z'` alternation immediately following a Y-axis
-phase. `observeThresholdOrientation`'s composition already branched on `deltaFrame` for
-`tracker.orientation` (`cardinal * orientation` for world, `orientation * cardinal` for
-local) — the bug was purely in which mode the live tracker was constructed with; the
-recording tracker already defaulted to `"local"` and never showed this. Verified directly:
-`test/client/smart-cube/orientation-tracker.test.ts` confirms a Y regrip followed by a
-further 90° turn about the cube's own (now-rotated) local X axis resolves to `"x"` under
-`"local"`, and explicitly does not under `"world"` — the same physical motion, two
-different labels. Replaying the real GoCube capture under both settled the choice further:
-neither mode introduces the two-hop-composite issue above (each still groups cleanly by
-axis, 7+8+8), so this is purely about which axis convention the labels use, not a
-detection-quality regression either way.
+The live tracker's `deltaFrame` is `"world"`. `"local"` was tried — reasoning that `x`/`y`/`z`
+tokens are cube notation, which reads as inherently body-frame ("y" always means "rotate
+about the cube's own current U/D axis") — and reverted after live testing showed it
+mislabelling *every* turn, not just ones following a prior regrip. What this tracker
+actually needs is different from cube-notation semantics: the camera is fixed in the room,
+so correctly re-rendering the physical cube's true appearance means tracking how it has
+reoriented relative to that fixed viewpoint, not relative to the cube's own constantly
+moving body frame — which is exactly what `"world"` measures. The recording tracker
+happens to default to `"local"`, but that default predates this investigation and was
+never validated as intentional for this same reasoning — it is not evidence that `"local"`
+would be right here too, and this session's live-tested result (mislabelling every turn)
+takes precedence over that unexamined default.
 
 The **recording** tracker (`observeStableOrientation`, used only while capturing a
 physical-mirror recording) keeps the original three-sample/5° confirm: a permanently

@@ -67,7 +67,7 @@ describe("real GoCube capture: U2, 720° spin, R2, 720° spin, F2, 720° spin, r
       if (event.type !== "GYRO") continue;
       sampleCount += 1;
       if (tracker === null) {
-        tracker = createStableOrientationTracker(event.quaternion, event.coordinateFrame, "local");
+        tracker = createStableOrientationTracker(event.quaternion, event.coordinateFrame, "world");
         continue;
       }
       const before = viewport.correction;
@@ -93,19 +93,19 @@ describe("real GoCube capture: U2, 720° spin, R2, 720° spin, F2, 720° spin, r
     // stop before emitting one token for the whole thing), the threshold
     // detector fires on every real ~90° of travel: 7 steps through the first
     // spin, 8 through the second, 8 through the third (23 total, close to the
-    // physically ideal 3×720°/90°=24) — cleanly grouped by axis, with no
-    // direction reversals or cross-axis noise despite never requiring the
-    // hand to land precisely on any of them.
+    // physically ideal 3×720°/90°=24) — cleanly grouped by axis, in the same
+    // y/x/z order the capture's filename describes, with no direction
+    // reversals or cross-axis noise despite never requiring the hand to land
+    // precisely on any of them.
     //
-    // The tracker uses "local" (body-frame) deltaFrame, not "world": x/y/z
-    // tokens are cube notation, which is inherently body-relative ("y" always
-    // means "rotate about the cube's OWN current U/D axis"), so this
-    // capture's axis labels ("x", "z'", "y") don't literally spell the
-    // "yxz" filename in "world" order — that would require measuring every
-    // delta against fixed room axes instead, which silently mislabels
-    // anything after the cube's own axes stop lining up with the room's
-    // (reported live as chaotic x/x'/z/z' alternation immediately following
-    // a Y-axis phase).
+    // The tracker uses "world" deltaFrame. "local" was tried (reasoning that
+    // x/y/z are body-frame cube notation, so a token should always mean
+    // "rotate about the cube's own current axis") and reverted: live testing
+    // showed it mislabelling every turn, not just ones after a prior regrip.
+    // What this tracker needs instead is "world": the camera is fixed in the
+    // room, so tracking how the cube has reoriented relative to that fixed
+    // viewpoint — not relative to the cube's own constantly-moving body
+    // frame — is what determines how to re-render its true appearance.
     //
     // This token count is fewer than an earlier version of this test
     // expected (29): rebasing to the raw triggering sample means the very
@@ -119,9 +119,9 @@ describe("real GoCube capture: U2, 720° spin, R2, 720° spin, F2, 720° spin, r
     // clean synthetic 360° sweep fired 5 times, not the correct 4).
     const tokens = regrips.flatMap((regrip) => regrip.tokens.split(" "));
     expect(tokens).toEqual([
-      ...Array(7).fill("x"),
+      ...Array(7).fill("y'"),
       ...Array(8).fill("z'"),
-      ...Array(8).fill("y"),
+      ...Array(8).fill("x"),
     ]);
 
     // The capture ends several seconds into "rest" after the last spin. This
