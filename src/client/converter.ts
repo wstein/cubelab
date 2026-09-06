@@ -4836,9 +4836,20 @@ if (root) {
             && !smartCubeRecordingTapePresented
           ) {
             smartCubeStabilizationTarget = observed.tracker.orientation;
+            // A regrip changes the intended cardinal display pose. Reconcile it
+            // immediately so a correction retained from the prior pose cannot
+            // pull a later face turn back toward the old white-up target.
+            viewport?.reconcileDeviceOrientation(
+              event.quaternion,
+              smartCubeStabilizationTarget,
+              event.coordinateFrame,
+            );
           }
           if (observed.tokens.length > 0) {
-            traceSmartCubeStabilization("regrip settled", {tokens: observed.tokens.join(" ")});
+            traceSmartCubeStabilization("regrip settled", {
+              tokens: observed.tokens.join(" "),
+              target: observed.tracker.orientation,
+            });
           }
         }
         if (smartCubeRecording && smartCubeSyncMode === "PhysicalMirror") {

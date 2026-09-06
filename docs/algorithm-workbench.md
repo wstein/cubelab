@@ -170,6 +170,8 @@ recognizes the cube's settled cardinal poses and emits `x`, `y`, or `z` for reco
 For the live viewport it adopts the exact corresponding cardinal pose after three
 settled samples, rather than preserving an imperfect raw regrip angle. It rebases after
 each accepted pose rather than treating an early threshold crossing as a quarter turn.
+At that instant the viewport reconciles to the new cardinal target, so no later face
+turn can unwind a correction retained from the preceding orientation.
 
 **Recenter gyro view** resets only the displayed gyro baseline. It does not change the
 physical cube, its calibration, the current state, or the tape. At a settled cardinal
