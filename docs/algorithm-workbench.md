@@ -189,39 +189,33 @@ by at most one degree, so accumulated heading error recovers without a visible s
 
 A real regrip does not always land close enough to one of the 24 cardinal poses for the
 recorder-side tracker above to confirm it, especially mid-grip-adjustment. When that
-happens the ring still notices the rotation (that is what opened the exclusion window),
-so the first face move whose ring recovers from a rotation-drop window is treated
-differently: if its target error is still above the profile's `maximumTargetErrorDegrees`,
-CubeLab gives up chasing the old target at one-fifth per move and instead rebases its
-zero reference to the cube's current raw coordinates, the same way **Recenter gyro
-view** does. The new correction absorbs whatever the old base and correction used to
-contribute, so the display does not jump at the instant of adoption — only the point
-future drift is measured from moves. Ordinary drift (no rotation-drop involved) is
-never affected by this — it always uses the divisor correction above. This is logged
-as `large physical pose adopted`.
+happens CubeLab does not guess a replacement target: the zero reference only ever
+changes at an explicit **Recenter gyro view** or a confirmed regrip, so an unconfirmed
+regrip's error, however large, is corrected the same way ordinary drift is — one fifth
+of it per accepted face move — rather than snapping to whatever pose the hand happens
+to be holding at that instant. An earlier attempt at an "adopt the current pose after a
+big enough error" fallback was removed: it fired on ordinary handling jostle as often as
+on genuine tumbles, so the effective zero reference kept sliding and never settled.
 
 For hardware diagnosis, set `localStorage.cubelab.smartCube.gyroTrace` to `"1"` in
 browser DevTools and reproduce a turn. The console records dropped ring probes, ring
-readiness, regrip settlement, adopted physical poses, and corrections. Dropped-probe
-entries include the sample-to-sample rotation and 5° threshold; corrections include
-target error and actual correction-step degrees. The correction uses the normalized
-average of the accepted ring quaternions and includes its signed target-error axis.
-Remove the key (or set it to another value) to silence the trace.
+readiness, regrip settlement, and corrections. Dropped-probe entries include the
+sample-to-sample rotation and 5° threshold; corrections include target error and actual
+correction-step degrees. The correction uses the normalized average of the accepted ring
+quaternions and includes its signed target-error axis. Remove the key (or set it to
+another value) to silence the trace.
 
 Motion-profile settings are loaded from `/smart-cube/motion-profiles.v1.json` after a
 cube connects. The registry provides a conservative default for unknown hardware and a
 GoCube override: three retained probes, a 5° rotation threshold, two discarded probes
-on each side of a rotation, correction equal to remaining error divided by 5, and a 20°
-ceiling before an unresolved post-regrip error gets adopted instead of chased. Invalid
-or unavailable server data falls back to the default profile; it never blocks a cube
-connection.
+on each side of a rotation, and correction equal to remaining error divided by 5.
+Invalid or unavailable server data falls back to the default profile; it never blocks a
+cube connection.
 
 The companion [motion-profile JSON Schema](/smart-cube/motion-profiles.v1.schema.json)
 defines the fields, constraints, and units. `correctionErrorDivisor: 5` means each
 accepted face move corrects one fifth of the remaining display error: 5° corrects by
-1°, 10° by 2°, and 45° by 9°. `maximumTargetErrorDegrees: 20` bounds how far that
-divisor correction is trusted to go after a rotation-drop window: past it, CubeLab
-assumes the cube was physically repositioned rather than merely drifting.
+1°, 10° by 2°, and 45° by 9°.
 
 The first smart-cube event prints `trace enabled`. If it does not, reload after setting
 the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use

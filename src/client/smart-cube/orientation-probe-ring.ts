@@ -14,7 +14,6 @@ export type OrientationProbeRing = {
   probes: OrientationProbe[];
   previous: OrientationProbe | null;
   discardFollowing: number;
-  rotationDropped: boolean;
 };
 
 export type OrientationProbeRingPolicy = {
@@ -28,14 +27,12 @@ export const createOrientationProbeRing = (): OrientationProbeRing => ({
   probes: [],
   previous: null,
   discardFollowing: 0,
-  rotationDropped: false,
 });
 
 /** Consume retained samples without losing the raw predecessor used to spot rotation. */
 export const consumeOrientationProbeRing = (ring: OrientationProbeRing): OrientationProbeRing => ({
   ...ring,
   probes: [],
-  rotationDropped: false,
 });
 
 export const appendOrientationProbe = (
@@ -53,7 +50,6 @@ export const appendOrientationProbe = (
         probes: ring.probes.slice(0, Math.max(0, ring.probes.length - policy.dropPreviousSamples)),
         previous,
         discardFollowing: policy.dropFollowingSamples,
-        rotationDropped: true,
       },
       accepted: false,
       rotationDegrees,

@@ -32,8 +32,7 @@
         "rotationDropThresholdDegrees",
         "rotationDropPreviousSamples",
         "rotationDropFollowingSamples",
-        "correctionErrorDivisor",
-        "maximumTargetErrorDegrees"
+        "correctionErrorDivisor"
       ],
       "properties": {
         "label": {
@@ -65,11 +64,6 @@
           "type": "number",
           "exclusiveMinimum": 0,
           "description": "Remaining orientation error is divided by this value to obtain the display-only correction for each accepted face move. A value of 5 turns a 5° error into a 1° correction."
-        },
-        "maximumTargetErrorDegrees": {
-          "type": "number",
-          "exclusiveMinimum": 0,
-          "description": "When a face move's ring just recovered from a rotation-drop exclusion window and the display is still off by more than this many degrees, CubeLab adopts the currently rendered pose as the new target instead of grinding toward the old one over many moves."
         }
       }
     }

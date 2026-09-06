@@ -17,7 +17,6 @@ import {
   orientationInViewportFrame,
   orientationCorrectionForTarget,
   orientationDistanceRadians,
-  adoptedDeviceOrientation,
   quaternionAxisAngle,
   pngBlobFromDataUrl,
   relativeQuaternion,
@@ -117,25 +116,6 @@ describe("cube viewport math", () => {
     expect(rendered.y).toBeCloseTo(measured.y);
     expect(rendered.z).toBeCloseTo(measured.z);
     expect(rendered.w).toBeCloseTo(measured.w);
-  });
-
-  test("rebases the zero reference to the current coordinates without moving the render", () => {
-    const base = {x: 0, y: 0, z: 0, w: 1};
-    const measured = {x: Math.sin(53 * Math.PI / 360), y: 0, z: 0, w: Math.cos(53 * Math.PI / 360)};
-    const correction = {x: 0, y: Math.sin(17 * Math.PI / 360), z: 0, w: Math.cos(17 * Math.PI / 360)};
-    const beforeRendered = renderedDeviceOrientation(base, correction, measured);
-
-    const adopted = adoptedDeviceOrientation(base, correction, measured);
-    expect(adopted.base.x).toBeCloseTo(measured.x);
-    expect(adopted.base.y).toBeCloseTo(measured.y);
-    expect(adopted.base.z).toBeCloseTo(measured.z);
-    expect(adopted.base.w).toBeCloseTo(measured.w);
-
-    const afterRendered = renderedDeviceOrientation(adopted.base, adopted.correction, measured);
-    expect(afterRendered.x).toBeCloseTo(beforeRendered.x);
-    expect(afterRendered.y).toBeCloseTo(beforeRendered.y);
-    expect(afterRendered.z).toBeCloseTo(beforeRendered.z);
-    expect(afterRendered.w).toBeCloseTo(beforeRendered.w);
   });
 
   test("keeps Standard stickers at a restrained mid-gloss finish", () => {

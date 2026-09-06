@@ -41,27 +41,6 @@ describe("orientation probe ring", () => {
 
     expect(appendOrientationProbe(ring, probe(x(6), 6), policy).accepted).toBe(true);
   });
-
-  test("remembers a rotation drop across its exclusion window until the ring is consumed", () => {
-    let ring = createOrientationProbeRing();
-    expect(ring.rotationDropped).toBe(false);
-
-    ring = appendOrientationProbe(ring, probe(identity, 0), policy).ring;
-    ring = appendOrientationProbe(ring, probe(x(6), 1), policy).ring;
-    expect(ring.rotationDropped).toBe(true);
-
-    for (const timestamp of [2, 3]) {
-      ring = appendOrientationProbe(ring, probe(x(6), timestamp), policy).ring;
-      expect(ring.rotationDropped).toBe(true);
-    }
-
-    const accepted = appendOrientationProbe(ring, probe(x(6), 4), policy);
-    expect(accepted.accepted).toBe(true);
-    expect(accepted.ring.rotationDropped).toBe(true);
-
-    ring = consumeOrientationProbeRing(accepted.ring);
-    expect(ring.rotationDropped).toBe(false);
-  });
 });
 
 test("consuming the ring prevents probe reuse while preserving rotation detection", () => {
