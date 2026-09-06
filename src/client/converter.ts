@@ -137,6 +137,7 @@ import {
   observeTurnAnchor,
   type TurnAnchor,
 } from "./smart-cube/turn-anchor";
+import {defaultMotionProfile, motionProfileFor, parseMotionProfileRegistry, type SmartCubeMotionProfile} from "./smart-cube/motion-profile";
 import {
   createSmartCubeAudioFeedback,
   readSmartCubeSoundPreference,
@@ -2227,6 +2228,8 @@ if (root) {
   let smartCubeRecordingOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeDiscreteOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeTurnAnchor: TurnAnchor | null = null;
+  let smartCubeMotionProfile: SmartCubeMotionProfile = defaultMotionProfile;
+  let smartCubeMotionProfileLoad: Promise<ReturnType<typeof parseMotionProfileRegistry>> | null = null;
   let smartCubeStabilizationTraceAnnounced = false;
   const traceSmartCubeStabilization = (event: string, detail: Record<string, unknown>) => {
     if (window.localStorage.getItem("cubelab.smartCube.gyroTrace") !== "1") return;
@@ -2237,6 +2240,15 @@ if (root) {
       });
     }
     console.info(`[SmartCube stabilization] ${event}`, detail);
+  };
+  const loadSmartCubeMotionProfiles = () => {
+    if (!smartCubeMotionProfileLoad) {
+      smartCubeMotionProfileLoad = fetch("/smart-cube/motion-profiles.v1.json")
+        .then((response) => response.ok ? response.json() : null)
+        .then(parseMotionProfileRegistry)
+        .catch(() => null);
+    }
+    return smartCubeMotionProfileLoad;
   };
   // During a recording session the physical cube is an input device. Keep a
   // separate virtual state so incoming facelet packets cannot repaint the
@@ -4580,6 +4592,15 @@ if (root) {
         clearSmartCubeRecovery();
       }
       smartCubeDeviceName = connectionState.device.name;
+      void loadSmartCubeMotionProfiles().then((registry) => {
+        if (!smartCubeConnected || smartCubeManager?.getState().device?.brand !== connectionState.device?.brand) return;
+        smartCubeMotionProfile = motionProfileFor(registry, connectionState.device!.brand);
+        traceSmartCubeStabilization("motion profile loaded", {
+          label: smartCubeMotionProfile.label,
+          maximumAnchorDeviationDegrees: smartCubeMotionProfile.maximumAnchorDeviationDegrees,
+          maximumCorrectionStepDegrees: smartCubeMotionProfile.maximumCorrectionStepDegrees,
+        });
+      });
       smartCubeLedFeedback = connectionState.device.capabilities.led;
       const streamReadyMs = connectionState.device.timing?.streamReadyMs;
       const timing = streamReadyMs === undefined
@@ -4671,6 +4692,7 @@ if (root) {
             smartCubeDiscreteOrientationTracker.orientation,
             latestSmartCubeOrientation.coordinateFrame,
             event.timestamp,
+            smartCubeMotionProfile.anchorWindowMs,
           );
           traceSmartCubeStabilization("anchor opened", {
             move: event.move,
@@ -4778,6 +4800,8 @@ if (root) {
             event.quaternion,
             event.coordinateFrame,
             event.timestamp,
+            smartCubeMotionProfile.maximumAnchorDeviationDegrees * Math.PI / 180,
+            smartCubeMotionProfile.anchorSamples,
           );
           smartCubeTurnAnchor = anchored.anchor;
           traceSmartCubeStabilization("anchor sample", {
@@ -4794,6 +4818,7 @@ if (root) {
               anchored.settledOrientation,
               anchored.target,
               event.coordinateFrame,
+              smartCubeMotionProfile.maximumCorrectionStepDegrees * Math.PI / 180,
             ) ?? {applied: false, targetErrorRadians: null, targetErrorAxis: null, correctionStepRadians: 0};
             traceSmartCubeStabilization(result.applied ? "correction applied" : "correction rejected", {
               target: anchored.target,

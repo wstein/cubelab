@@ -183,6 +183,12 @@ degrees. The correction uses the normalized average of the three accepted quater
 and includes its signed target-error axis. Remove the key (or set it to another value)
 to silence the trace.
 
+Motion-profile settings are loaded from `/smart-cube/motion-profiles.v1.json` after a
+cube connects. The registry provides a conservative default for unknown hardware and a
+measured GoCube override (20° anchor envelope and 2° maximum correction step). Invalid
+or unavailable server data falls back to the default profile; it never blocks a cube
+connection.
+
 The first smart-cube event prints `trace enabled`. If it does not, reload after setting
 the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use
 a hard reload or restart the development server before reproducing the issue.

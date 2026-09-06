@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "default": {
+    "label": "Default",
+    "anchorWindowMs": 700,
+    "anchorSamples": 3,
+    "maximumAnchorDeviationDegrees": 10,
+    "maximumCorrectionStepDegrees": 1
+  },
+  "profiles": {
+    "gocube": {
+      "label": "GoCube",
+      "anchorWindowMs": 700,
+      "anchorSamples": 3,
+      "maximumAnchorDeviationDegrees": 20,
+      "maximumCorrectionStepDegrees": 2
+    }
+  }
+}

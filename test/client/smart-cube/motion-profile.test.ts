@@ -1,0 +1,19 @@
+import {describe, expect, test} from "vitest";
+
+import {defaultMotionProfile, motionProfileFor, parseMotionProfileRegistry} from "../../../src/client/smart-cube/motion-profile";
+
+describe("smart-cube motion profiles", () => {
+  test("selects a validated device override and keeps a conservative fallback", () => {
+    const registry = parseMotionProfileRegistry({
+      version: 1,
+      default: defaultMotionProfile,
+      profiles: {gocube: {...defaultMotionProfile, label: "GoCube", maximumAnchorDeviationDegrees: 20}},
+    });
+    expect(motionProfileFor(registry, "gocube").maximumAnchorDeviationDegrees).toBe(20);
+    expect(motionProfileFor(registry, "gan")).toEqual(defaultMotionProfile);
+  });
+
+  test("rejects malformed server data", () => {
+    expect(parseMotionProfileRegistry({version: 1, default: {label: "bad"}, profiles: {}})).toBeNull();
+  });
+});

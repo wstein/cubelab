@@ -737,6 +737,7 @@ export type CubeViewport = {
     measured: OrientationQuaternion,
     target: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
+    maximumStepRadians?: number,
   ) => {
     applied: boolean;
     targetErrorRadians: number | null;
@@ -1897,7 +1898,7 @@ export const createCubeViewport = (
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
     },
-    stabilizeDeviceOrientation(measured, target, coordinateFrame = "viewport") {
+    stabilizeDeviceOrientation(measured, target, coordinateFrame = "viewport", maximumStepRadians = 2 * Math.PI / 180) {
       if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) {
         return {applied: false, targetErrorRadians: null, targetErrorAxis: null, correctionStepRadians: 0};
       }
@@ -1910,6 +1911,8 @@ export const createCubeViewport = (
         measured,
         target,
         coordinateFrame,
+        0.18,
+        maximumStepRadians,
       );
       deviceOrientationCorrection = nextCorrection;
       requestRender();
