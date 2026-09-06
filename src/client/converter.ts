@@ -129,6 +129,7 @@ import {
 import {assessGyroRotation, detectGyroQuarterRotation} from "./smart-cube/orientation-verifier";
 import {
   createStableOrientationTracker,
+  nearestCardinalOrientation,
   observeStableOrientation,
   type StableOrientationTracker,
 } from "./smart-cube/orientation-tracker";
@@ -4726,6 +4727,7 @@ if (root) {
         );
         if (ringReady && measured && frame) {
           const probes = smartCubeOrientationProbeRing.probes.length;
+          const rotationDropped = smartCubeOrientationProbeRing.rotationDropped;
           smartCubeOrientationProbeRing = consumeOrientationProbeRing(smartCubeOrientationProbeRing);
           const result = viewport?.stabilizeDeviceOrientation(
             measured,
@@ -4744,6 +4746,25 @@ if (root) {
             targetErrorAxis: result.targetErrorAxis?.map((component) => Number(component.toFixed(3))) ?? null,
             correctionStepDegrees: Number((result.correctionStepRadians * 180 / Math.PI).toFixed(2)),
           });
+          const maximumTargetErrorRadians = smartCubeMotionProfile.maximumTargetErrorDegrees * Math.PI / 180;
+          if (
+            result.applied
+            && rotationDropped
+            && result.targetErrorRadians !== null
+            && result.targetErrorRadians > maximumTargetErrorRadians
+          ) {
+            const rendered = viewport?.currentRenderedOrientation(measured, frame) ?? null;
+            const nearestTarget = rendered && nearestCardinalOrientation(rendered);
+            if (nearestTarget) {
+              viewport?.reconcileDeviceOrientation(measured, nearestTarget, frame);
+              smartCubeStabilizationTarget = nearestTarget;
+              traceSmartCubeStabilization("unconfirmed regrip snapped to nearest cardinal", {
+                move: event.move,
+                targetErrorDegrees: Number((result.targetErrorRadians * 180 / Math.PI).toFixed(2)),
+                target: nearestTarget,
+              });
+            }
+          }
         } else {
           traceSmartCubeStabilization("ring correction skipped", {
             move: event.move,
