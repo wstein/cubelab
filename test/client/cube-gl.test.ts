@@ -66,6 +66,16 @@ describe("cube viewport math", () => {
     expect(Math.abs(corrected.x)).toBeGreaterThan(0);
   });
 
+  test("caps a large stabilization error to a small per-turn correction", () => {
+    const identity = {x: 0, y: 0, z: 0, w: 1};
+    const displayed = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
+    const correction = stabilizedOrientationCorrection(null, identity, displayed, identity);
+    const corrected = multiplyQuaternions(correction, displayed);
+    const moved = orientationDistanceRadians(displayed, corrected);
+    expect(moved).toBeLessThanOrEqual(2 * Math.PI / 180 + 1e-8);
+    expect(moved).toBeGreaterThan(0);
+  });
+
   test("keeps Standard stickers at a restrained mid-gloss finish", () => {
     expect(standardStickerFinish.keyPeak).toBeLessThan(0.5);
     expect(standardStickerFinish.fillPeak).toBeLessThan(0.25);

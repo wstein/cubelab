@@ -171,7 +171,8 @@ only when their whole-cube pose remains within ten degrees of the pose before th
 GoCube IMU packets can spike while an ordinary face is turned, so this post-turn window
 rather than a pre-turn motion threshold decides whether the cube was still. A sample
 outside the envelope, an expired window, recording, or a newly detected regrip discards
-it.
+it. An accepted window changes display correction by at most two degrees, so even a
+large accumulated offset recovers across ordinary turns rather than snapping.
 
 For hardware diagnosis, set `localStorage.cubelab.smartCube.gyroTrace` to `"1"` in
 browser DevTools and reproduce a turn. The console records whether each move opened an

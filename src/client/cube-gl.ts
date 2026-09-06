@@ -518,12 +518,14 @@ export const stabilizedOrientationCorrection = (
   target: OrientationQuaternion,
   coordinateFrame: OrientationCoordinateFrame = "viewport",
   responsiveness = 0.18,
-): OrientationQuaternion => smoothTrackedOrientation(
-  previous ?? {x: 0, y: 0, z: 0, w: 1},
-  orientationCorrectionForTarget(base, displayed, target, coordinateFrame),
-  0,
-  responsiveness,
-);
+  maximumStepRadians = 2 * Math.PI / 180,
+): OrientationQuaternion => {
+  const current = previous ?? {x: 0, y: 0, z: 0, w: 1};
+  const desired = orientationCorrectionForTarget(base, displayed, target, coordinateFrame);
+  const distance = orientationDistanceRadians(current, desired);
+  const amount = distance === 0 ? 0 : Math.min(responsiveness, maximumStepRadians / distance);
+  return smoothTrackedOrientation(current, desired, 0, amount);
+};
 
 /** Locks sub-threshold IMU jitter and softens larger moves along the shortest quaternion path. */
 export const smoothTrackedOrientation = (
@@ -818,11 +820,6 @@ export const createCubeViewport = (
   let deviceOrientationCorrection: OrientationQuaternion | null = null;
   let deviceOrientationFrame: OrientationCoordinateFrame = "viewport";
   canvas.dataset.autoOrbitState = "off";
-  const renderedDeviceOrientation = (): OrientationQuaternion | null => {
-    if (!deviceOrientationBase || !deviceOrientation) return null;
-    const raw = deviceOrientationDelta(deviceOrientationBase, deviceOrientation, deviceOrientationFrame, "world");
-    return deviceOrientationCorrection ? multiplyQuaternions(deviceOrientationCorrection, raw) : raw;
-  };
   const overlay = overlayCanvas.getContext("2d");
 
   const traceProjected = (
@@ -1882,10 +1879,6 @@ export const createCubeViewport = (
     },
     stabilizeDeviceOrientation(target, coordinateFrame = "viewport") {
       if (deviceOrientationFrame !== coordinateFrame || !deviceOrientationBase || !deviceOrientation) return false;
-      const rendered = renderedDeviceOrientation();
-      // The anchor is opened only at rest by the client. This final bound
-      // avoids correcting across an unexpectedly stale orientation frame.
-      if (!rendered || orientationDistanceRadians(rendered, target) > 15 * Math.PI / 180) return false;
       deviceOrientationCorrection = stabilizedOrientationCorrection(
         deviceOrientationCorrection,
         deviceOrientationBase,
