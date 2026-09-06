@@ -4820,13 +4820,13 @@ if (root) {
           smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
             event.quaternion,
             event.coordinateFrame,
+            "world",
           );
         } else {
           const observed = observeStableOrientation(
             smartCubeDiscreteOrientationTracker,
             event.quaternion,
             event.coordinateFrame,
-            -1,
           );
           smartCubeDiscreteOrientationTracker = observed.tracker;
           if (
@@ -4835,10 +4835,7 @@ if (root) {
             && !smartCubeRecording
             && !smartCubeRecordingTapePresented
           ) {
-            smartCubeStabilizationTarget = viewport?.adoptDeviceOrientationTarget(
-              event.quaternion,
-              event.coordinateFrame,
-            ) ?? observed.tracker.orientation;
+            smartCubeStabilizationTarget = observed.tracker.orientation;
           }
           if (observed.tokens.length > 0) {
             traceSmartCubeStabilization("regrip settled", {tokens: observed.tokens.join(" ")});
@@ -6543,6 +6540,7 @@ if (root) {
     smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
       latestSmartCubeOrientation.quaternion,
       latestSmartCubeOrientation.coordinateFrame,
+      "world",
     );
     smartCubeStabilizationTarget = {x: 0, y: 0, z: 0, w: 1};
     smartCubeOrientationProbeRing = createOrientationProbeRing();
