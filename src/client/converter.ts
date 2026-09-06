@@ -4836,7 +4836,7 @@ if (root) {
             && !smartCubeRecording
             && !smartCubeRecordingTapePresented
           ) {
-            smartCubeStabilizationTarget = viewport?.lockDeviceOrientationTarget(
+            smartCubeStabilizationTarget = viewport?.adoptDeviceOrientationTarget(
               event.quaternion,
               event.coordinateFrame,
             ) ?? observed.tracker.orientation;
