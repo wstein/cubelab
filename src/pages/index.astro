@@ -1755,23 +1755,25 @@ s100"></textarea>
             >
               <div class="manual-state-net-faces" data-manual-state-grid></div>
             </section>
+            <section class="manual-state-notation" aria-label="Edit cube with notation">
+              <label class="manual-state-notation-label" for="manual-state-notation">
+                Edit with notation
+                <textarea
+                  id="manual-state-notation"
+                  class="cube-textarea manual-state-notation-input"
+                  data-manual-state-notation
+                  rows="3"
+                  placeholder="Paste a state, moves, or transformations (for example R U R', x y')"
+                  spellcheck="false"></textarea>
+              </label>
+              <div class="manual-state-notation-actions">
+                <button type="button" class="transform-btn" data-manual-state-notation-apply>Apply</button>
+                <output class="manual-state-notation-status" data-manual-state-notation-status aria-live="polite"></output>
+              </div>
+            </section>
           </div>
           <section class="manual-state-tools" aria-label="State editor tools">
             <div class="manual-state-summary" data-manual-state-summary aria-live="polite"></div>
-            <label class="manual-state-notation-label" for="manual-state-notation">
-              Edit with notation
-              <textarea
-                id="manual-state-notation"
-                class="cube-textarea manual-state-notation-input"
-                data-manual-state-notation
-                rows="3"
-                placeholder="Paste a state, moves, or transformations (for example R U R', x y')"
-                spellcheck="false"></textarea>
-            </label>
-            <div class="manual-state-notation-actions">
-              <button type="button" class="transform-btn" data-manual-state-notation-apply>Apply</button>
-              <output class="manual-state-notation-status" data-manual-state-notation-status aria-live="polite"></output>
-            </div>
             <span class="panel-label">Sticker colour</span>
             <div class="manual-state-palette" data-manual-state-palette>
               <button type="button" class="manual-state-colour" data-manual-state-colour="U" aria-label="Up">
