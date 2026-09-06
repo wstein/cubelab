@@ -1991,3 +1991,20 @@ test("manual state editor loads state notation and applies moves and transformat
   await dialog.locator("[data-manual-state-load]").click();
   await expect(page.locator('[data-output="facelets"]')).toHaveText(algorithmFacelets("R U x"));
 });
+
+test("manual state editor leaves notation-field keystrokes to the text control", async ({page}) => {
+  await page.goto("/");
+  await page.locator("[data-manual-state-open]").click();
+  const dialog = page.locator("[data-manual-state-dialog]");
+  const notation = dialog.locator("[data-manual-state-notation]");
+
+  // Give the editor a cursor target: its global shortcuts must still not
+  // intercept typing or native undo while the notation field has focus.
+  await dialog.locator('[data-manual-state-index="0"]').click();
+  await notation.focus();
+  await page.keyboard.type("R U R' x");
+  await expect(notation).toHaveValue("R U R' x");
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(notation).not.toHaveValue("R U R' x");
+  await expect(dialog.locator('[data-manual-state-index="0"]')).toHaveAttribute("data-face", "U");
+});
