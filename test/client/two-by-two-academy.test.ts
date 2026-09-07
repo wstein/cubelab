@@ -3,6 +3,7 @@ import {describe, expect, test} from "vitest";
 import * as MoveExecutor from "../../src/Move/MoveExecutor.res.mjs";
 import * as MoveParser from "../../src/Move/MoveParser.res.mjs";
 import * as StateTypes from "../../src/State/StateTypes.res.mjs";
+import * as FaceletCodec from "../../src/State/FaceletCodec.res.mjs";
 import {
   twoByTwoPhaseStatus,
   isMonochromeSolved2x2,
@@ -78,6 +79,18 @@ describe("2×2 Beginner Academy phase contract", () => {
       expect(after.TAG).toBe("Ok");
       if (after.TAG === "Ok") expect(twoByTwoPhaseStatus(after._0).firstLayer).toBe(true);
     });
+  });
+
+  test("finds the white first layer for the reported 24-facelet setup", () => {
+    const parsed = FaceletCodec.parse(2, "DURRDBLFUFRDFFRUBBDULLLB");
+    expect(parsed.TAG).toBe("Ok");
+    if (parsed.TAG !== "Ok") return;
+    const plan = planTwoByTwoFirstLayer(parsed._0);
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    const after = MoveExecutor.applyAlg(parsed._0, plan.algorithm);
+    expect(after.TAG).toBe("Ok");
+    if (after.TAG === "Ok") expect(twoByTwoPhaseStatus(after._0).firstLayer).toBe(true);
   });
 
   test("composes first layer, OLL, and PBL into one verified route", async () => {

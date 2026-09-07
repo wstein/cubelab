@@ -21,8 +21,9 @@ the Academy may present it.
 
 OLL uses a bounded D/R/F corner-state search. It accepts only candidates that
 restore the four fixed first-layer corners and orient all four last-layer corners.
-The preceding first-layer planner uses the same bounded move set but accepts only
-states with all four white U-layer corners both placed and oriented.
+The preceding first-layer planner uses every non-U face turn to reach every legal
+white-layer arrangement, while accepting only states with all four white U-layer
+corners both placed and oriented.
 
 The complete planner composes First layer → OLL → PBL only by replaying each
 generated algorithm into the next stage, then performs one final three-boundary

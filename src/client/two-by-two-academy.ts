@@ -122,7 +122,8 @@ export const planTwoByTwoPblFinish = async (
 };
 
 type TwoByTwoOllPlan = {ok: true; algorithm: unknown; moveCount: number} | {ok: false; message: string};
-const whiteLayerMoveIndices = [3, 4, 5, 6, 7, 8, 12, 13, 14]; // D, R, F and inverses/halves
+const whiteOllMoveIndices = [3, 4, 5, 6, 7, 8, 12, 13, 14]; // D, R, F and inverses/halves
+const whiteFirstLayerMoveIndices = Array.from({length: 15}, (_, offset) => offset + 3); // every non-U face turn
 const faceForMove = (move: number): number => Math.floor(move / 3);
 const firstLayerGoal = (state: Cubies): boolean =>
   [0, 1, 2, 3].every((slot) => state.cp[slot] === slot && state.co[slot] === 0);
@@ -135,7 +136,7 @@ const searchStage = (
   initial: Cubies,
   goal: (state: Cubies) => boolean,
   maximumDepth: number,
-  allowedMoves = whiteLayerMoveIndices,
+  allowedMoves = whiteOllMoveIndices,
 ): number[] | null => {
   if (goal(initial)) return [];
   const transforms = transformations();
@@ -163,11 +164,66 @@ const encodeStage = (moves: number[]): TwoByTwoStagePlan => {
     : {ok: false, message: "The staged 2×2 route could not be encoded."};
 };
 
-/** Finds a bounded D/R/F route to four correctly placed and oriented white-layer corners. */
-export const planTwoByTwoFirstLayer = (state: unknown, maximumDepth = 8): TwoByTwoStagePlan => {
+type WhiteFirstLayerParent = {next: string | null; move: number | null};
+let whiteFirstLayerParents: Map<string, WhiteFirstLayerParent> | null = null;
+
+/**
+ * The stage only cares about the four white-layer corner cubies. Searching
+ * their projection backwards from the 648 legal completed-layer states avoids
+ * spending the UI worker's time distinguishing irrelevant yellow-layer
+ * permutations. The resulting table is shared by all Academy requests.
+ */
+const whiteFirstLayerKey = (state: Cubies): string => [0, 1, 2, 3].map((piece) => {
+  const slot = state.cp.indexOf(piece);
+  return `${slot}:${state.co[slot]}`;
+}).join(",");
+
+const inverseMoveIndex = (move: number): number => {
+  const offset = move % 3;
+  return move - offset + (offset === 0 ? 2 : offset === 2 ? 0 : 1);
+};
+
+const prepareWhiteFirstLayerParents = (): Map<string, WhiteFirstLayerParent> => {
+  if (whiteFirstLayerParents !== null) return whiteFirstLayerParents;
+  const solved: Cubies = {cp: Array.from({length: 8}, (_, index) => index), co: Array<number>(8).fill(0)};
+  const key = whiteFirstLayerKey(solved);
+  const parents = new Map<string, WhiteFirstLayerParent>([[key, {next: null, move: null}]]);
+  const queue: Array<{state: Cubies; key: string; depth: number}> = [{state: solved, key, depth: 0}];
+  const transforms = transformations();
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    const current = queue[cursor]!;
+    if (current.depth === 11) continue;
+    for (const move of whiteFirstLayerMoveIndices) {
+      const predecessor = applyTransform(current.state, transforms[inverseMoveIndex(move)]!);
+      const predecessorKey = whiteFirstLayerKey(predecessor);
+      if (parents.has(predecessorKey)) continue;
+      parents.set(predecessorKey, {next: current.key, move});
+      queue.push({state: predecessor, key: predecessorKey, depth: current.depth + 1});
+    }
+  }
+  whiteFirstLayerParents = parents;
+  return parents;
+};
+
+const planWhiteFirstLayer = (state: Cubies, maximumDepth: number): number[] | null => {
+  const parents = prepareWhiteFirstLayerParents();
+  let key = whiteFirstLayerKey(state);
+  const moves: number[] = [];
+  while (true) {
+    const step = parents.get(key);
+    if (step === undefined) return null;
+    if (step.move === null || step.next === null) break;
+    moves.push(step.move);
+    key = step.next;
+  }
+  return moves.length <= maximumDepth ? moves : null;
+};
+
+/** Finds a table-backed non-U route to four correctly placed and oriented white-layer corners. */
+export const planTwoByTwoFirstLayer = (state: unknown, maximumDepth = 11): TwoByTwoStagePlan => {
   const reduced = PieceReducer.reduce(state);
   if (reduced.TAG !== "Ok") return {ok: false, message: "The 2×2 state could not be reduced to corners."};
-  const moves = searchStage(reduced._0 as Cubies, firstLayerGoal, maximumDepth);
+  const moves = planWhiteFirstLayer(reduced._0 as Cubies, maximumDepth);
   return moves === null
     ? {ok: false, message: `No first-layer route was found within ${maximumDepth} moves.`}
     : encodeStage(moves);
@@ -352,7 +408,7 @@ export const planTwoByTwoPetrusRoute = async (
   if (reduced.TAG !== "Ok") return {ok: false, message: "The 2×2 state could not be reduced to corners."};
   const frame = selectTwoByTwoPetrusFrame(initialState);
   const slots = petrusFrameSlots(frame);
-  const firstMoves = searchStage(reduced._0 as Cubies, (state) => correctlySolvedSlots(state, slots.firstSquare), 8, whiteLayerMoveIndices);
+  const firstMoves = searchStage(reduced._0 as Cubies, (state) => correctlySolvedSlots(state, slots.firstSquare), 8, whiteOllMoveIndices);
   if (firstMoves === null) return {ok: false, message: "No first-square route was found within 8 moves."};
   const firstSquare = encodeStage(firstMoves);
   if (!firstSquare.ok) return firstSquare;
@@ -362,7 +418,7 @@ export const planTwoByTwoPetrusRoute = async (
   const afterFirstReduced = PieceReducer.reduce(afterFirstSquare.state);
   if (afterFirstReduced.TAG !== "Ok") return {ok: false, message: "The first-square state could not be reduced to corners."};
   const allBackSlots = [...new Set([...slots.firstSquare, ...slots.backPair])];
-  const backMoves = searchStage(afterFirstReduced._0 as Cubies, (state) => correctlySolvedSlots(state, allBackSlots), 8, whiteLayerMoveIndices);
+  const backMoves = searchStage(afterFirstReduced._0 as Cubies, (state) => correctlySolvedSlots(state, allBackSlots), 8, whiteOllMoveIndices);
   if (backMoves === null) return {ok: false, message: "No first-square-preserving back-pair route was found within 8 moves."};
   const backPair = encodeStage(backMoves);
   if (!backPair.ok) return backPair;
