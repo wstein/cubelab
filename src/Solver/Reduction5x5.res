@@ -11,11 +11,14 @@ type inspection = {
   nextGoal: string,
 }
 type guide = {alg: alg, algorithm: string, before: int, after: int}
+type reduced = {state: cubeState, compact: string}
 type progress = {x: int, plus: int, faces: int, wings: int, score: int}
 
 let xCentres = [6, 8, 16, 18]
 let plusCentres = [7, 11, 13, 17]
 let wingPairs = [(1, 3), (9, 19), (21, 23), (5, 15)]
+let middleEdges = [2, 14, 22, 10]
+let reducedIndices = [0, 2, 4, 10, 12, 14, 20, 22, 24]
 let centreMoves = ["2U", "2U'", "2U2", "2R", "2R'", "2R2", "2F", "2F'", "2F2", "2D", "2D'", "2D2", "2L", "2L'", "2L2", "2B", "2B'", "2B2"]
 let wingCycleNotations = ["2R U R' U' 2R'", "2R U2 2R'"]
 
@@ -109,7 +112,20 @@ let planNextWingPair5x5 = (state: cubeState): result<guide, reductionError> =>
     wingCycleNotations->Array.forEach(notation => {
       switch parse(notation) {
       | None => ()
-      | Some(seed) => [seed, MoveTransform.invert(seed)]->Array.forEach(alg => {
+      | Some(seed) => {
+        let variants = ref([])
+        for xTurns in 0 to 3 {
+          for yTurns in 0 to 3 {
+            for zTurns in 0 to 3 {
+              let rotated = seed
+                ->MoveTransform.rotate(~axis=X, ~turns=xTurns)
+                ->MoveTransform.rotate(~axis=Y, ~turns=yTurns)
+                ->MoveTransform.rotate(~axis=Z, ~turns=zTurns)
+              variants := [rotated, MoveTransform.invert(rotated), ...variants.contents]
+            }
+          }
+        }
+        variants.contents->Array.forEach(alg => {
         switch MoveExecutor.applyAlg(state, alg) {
         | Ok(replay) => switch progressFor(replay) {
           | Some(after) if after.faces == 6 && after.wings > initial.wings =>
@@ -119,9 +135,55 @@ let planNextWingPair5x5 = (state: cubeState): result<guide, reductionError> =>
           }
         | Error(_) => ()
         }
-      })
+        })
+      }
       }
     })
     switch best.contents { | Some(guide) => Ok(guide) | None => Error({message: "No centre-preserving wing improvement is available. Make a pairing setup, then request the next guide."}) }
   }
+  }
+
+/**
+ * Projects only a genuinely reduced 5×5. The fixed middle edges supply the
+ * reduced 3×3 edge stickers, but both surrounding wings must agree with that
+ * middle-edge colour first. PieceReducer then supplies the parity/physical
+ * reachability diagnostic for the projected odd-cube state.
+ */
+let reduce5x5 = (state: cubeState): result<reduced, reductionError> =>
+  switch compactFacelets(state) {
+  | None => Error({message: "The 5×5 reduction handoff requires a complete 5×5 state."})
+  | Some(compact) => switch progressFor(state) {
+    | None => Error({message: "The 5×5 reduction handoff could not inspect this state."})
+    | Some(progress) if progress.faces != 6 => Error({message: "Complete all six fixed-core 3×3 centres before the 3×3 handoff."})
+    | Some(progress) if progress.wings != 24 => Error({message: `Pair all 24 wing rows before the 3×3 handoff (${progress.wings->Int.toString}/24 matched).`})
+    | Some(_) => {
+      let valid = ref(true)
+      for faceIndex in 0 to 5 {
+        let face = faceAt(compact, faceIndex)
+        let core = charAt(face, 12)
+        if centreScore(face, xCentres, core) + centreScore(face, plusCentres, core) != 8 {valid := false}
+        for edgeIndex in 0 to 3 {
+          let (left, right) = Belt.Array.getUnsafe(wingPairs, edgeIndex)
+          let middle = Belt.Array.getUnsafe(middleEdges, edgeIndex)
+          if charAt(face, left) != charAt(face, middle) || charAt(face, right) != charAt(face, middle) {valid := false}
+        }
+      }
+      if !valid.contents {
+        Error({message: "The wing rows are matched but do not yet agree with their fixed middle edges; continue pairing before handoff."})
+      } else {
+        let reducedCompact = ref("")
+        for faceIndex in 0 to 5 {
+          let face = faceAt(compact, faceIndex)
+          reducedCompact := reducedCompact.contents ++ reducedIndices->Array.map(index => charAt(face, index))->Array.join("")
+        }
+        switch FaceletCodec.parse(~size=3, reducedCompact.contents) {
+        | Error(_) => Error({message: "The projected 3×3 does not have the required colour inventory."})
+        | Ok(reduced) => switch PieceReducer.reduce(reduced) {
+          | Ok(_) => Ok({state: reduced, compact: reducedCompact.contents})
+          | Error(error) => Error({message: `5×5 reduced-state parity/solvability diagnostic: ${PieceReducer.describeError(error)}`})
+          }
+        }
+      }
+    }
+    }
   }

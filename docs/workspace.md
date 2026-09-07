@@ -115,8 +115,10 @@ The 5×5×5 Reduction Academy currently begins before that handoff: its inspecto
 the six fixed-core 3×3 centres (with X- and +-centre orbits separately), then the 24
 two-wing pairs around fixed middle edges. During the centre stage it may offer one bounded,
 replay-verified inner-slice improvement. Its wing stage likewise offers only bounded,
-centre-preserving slice–setup–restore cycles; the reduced 3×3 finish remains explicitly
-locked until a dedicated 5×5 physical-state handoff is available.
+centre-preserving slice–setup–restore cycles. Once its milestones are complete it projects
+the fixed middle edges to a 3×3 only after both wings agree with each middle edge and the
+projected state passes the 3×3 physical/parity check. The reduced 3×3 finish remains
+explicitly locked until its dedicated 5×5 replay lifter is available.
 
 ## Manual state entry
 

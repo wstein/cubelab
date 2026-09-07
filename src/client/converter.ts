@@ -13,7 +13,7 @@ import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as HamiltonMacro from "../Move/HamiltonMacro";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
 import {inspectReduction4x4, planNextCentreBlock4x4, planNextWingPair4x4, planOLLParityRepair4x4, planPLLParityRepair4x4, reduce4x4} from "../Solver/Reduction4x4";
-import {inspectReduction5x5, planNextCentre5x5, planNextWingPair5x5} from "../Solver/Reduction5x5.res.mjs";
+import {inspectReduction5x5, planNextCentre5x5, planNextWingPair5x5, reduce5x5} from "../Solver/Reduction5x5.res.mjs";
 import {
   createOptimal2x2SolverClient,
   createRandom2x2ScrambleClient,
@@ -3070,7 +3070,7 @@ if (root) {
     academy.phases.append(
       reductionAcademyPhase(1, "Build six 3×3 centres", "Each fixed core defines its face colour. Complete the diagonal X-centres and orthogonal +-centres around it before calling a centre solved.", `${progress.centreFacesComplete}/6 faces · X ${progress.xCentresComplete}/6 · + ${progress.plusCentresComplete}/6`, progress.centreFacesComplete === 6, progress.stage === "centres", ["Make matching 1×3 bars with inner slices, store them, then join them around the fixed core.", "Keep completed centres on protected faces; verify all eight movable centres match their core."]),
       reductionAcademyPhase(2, "Pair wings around fixed middle edges", "Each edge has a fixed middle edge and two movable wings. Pair both wings to form one reduced dedge.", `${progress.wingPairsMatched}/24 wing pairs`, progress.wingPairsMatched === 24, progress.stage === "wings", ["Use the fixed middle edge as the colour reference; do not pair wings by surface colour alone.", "The bounded guide tries only centre-preserving slice–setup–restore cycles."]),
-      reductionAcademyPhase(3, "Verify the 3×3 handoff", "The final 3×3 finish stays locked until centre and wing reduction has a dedicated 5×5 physical-state handoff.", progress.stage === "handoff" ? "Milestones reached · finisher pending" : "Locked", false, progress.stage === "handoff", ["The inspector never labels a partly reduced 5×5 as a solved 3×3."]),
+      reductionAcademyPhase(3, "Verify the 3×3 handoff", "Validate every wing against its fixed middle edge, then reduce and check the projected 3×3 for physical parity before a future finisher is unlocked.", progress.stage === "handoff" ? "Milestones reached · validating projection" : "Locked", false, progress.stage === "handoff", ["The inspector never labels a partly reduced 5×5 as a solved 3×3."]),
     );
     if (progress.stage === "centres") {
       const guide = planNextCentre5x5(recognized.state);
@@ -3095,6 +3095,14 @@ if (root) {
         academy.guide.textContent = guide._0.message;
         academy.guide.classList.add("error");
       }
+    }
+    if (progress.stage === "handoff") {
+      const reduced = reduce5x5(recognized.state);
+      academy.guide.hidden = false;
+      academy.guide.textContent = reduced.TAG === "Ok"
+        ? "Reduced 3×3 projection is physically valid. The replay-verified 5×5 finisher is the next increment."
+        : reduced._0.message;
+      academy.guide.classList.toggle("error", reduced.TAG === "Error");
     }
   };
 
