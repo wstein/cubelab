@@ -1,4 +1,4 @@
-export type SmartCubeAudioCue = "correct" | "deviation" | "realigned" | "milestone";
+export type SmartCubeAudioCue = "correct" | "deviation" | "realigned" | "milestone" | "recenter";
 
 export const SMART_CUBE_SOUND_PREFERENCE = "cube-rosetta:smart-cube-sound";
 
@@ -82,6 +82,10 @@ export const createSmartCubeAudioFeedback = (
     } else if (cue === "realigned") {
       voice(523.25, now, 0.08, "sine", 0.045, 659.25);
       voice(659.25, now + 0.07, 0.1, "sine", 0.04, 783.99);
+    } else if (cue === "recenter") {
+      // Subtle haptic snap: two crisp micro-blips evoking precision lens snap
+      voice(987.77, now, 0.022, "sine", 0.035, 1050);
+      voice(1318.51, now + 0.024, 0.028, "sine", 0.04, 1400);
     } else {
       [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
         voice(frequency, now + index * 0.075, 0.18, "sine", 0.04, frequency * 1.01);
