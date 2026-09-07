@@ -6,6 +6,7 @@ import * as StateTypes from "../../src/State/StateTypes.res.mjs";
 import {
   twoByTwoPhaseStatus,
   planTwoByTwoPblFinish,
+  planTwoByTwoOll,
   verifyTwoByTwoBeginnerRoute,
 } from "../../src/client/two-by-two-academy";
 
@@ -47,5 +48,16 @@ describe("2×2 Beginner Academy phase contract", () => {
 
     const premature = await planTwoByTwoPblFinish(apply("R"), async () => ({alg: parse("R'"), moveCount: 1}));
     expect(premature).toMatchObject({ok: false, message: expect.stringMatching(/first layer and OLL/i)});
+  });
+
+  test("finds an OLL route that restores the first layer", () => {
+    const ollCase = apply("R U2 R' U' R U' R'");
+    expect(twoByTwoPhaseStatus(ollCase)).toMatchObject({firstLayer: true, orientLastLayer: false});
+    const plan = planTwoByTwoOll(ollCase);
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    const after = MoveExecutor.applyAlg(ollCase, plan.algorithm);
+    expect(after.TAG).toBe("Ok");
+    if (after.TAG === "Ok") expect(twoByTwoPhaseStatus(after._0)).toMatchObject({firstLayer: true, orientLastLayer: true});
   });
 });

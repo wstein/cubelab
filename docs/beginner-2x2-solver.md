@@ -18,3 +18,6 @@ corners while preserving that layer, or phase 3 does not leave every face monoch
 The PBL planner can use the exact 2×2 table only after the first two goals are
 already true. Its returned finish is replayed through all three boundaries before
 the Academy may present it.
+
+OLL uses a bounded U/R/F corner-state search. It accepts only candidates that
+restore the four fixed first-layer corners and orient all four last-layer corners.

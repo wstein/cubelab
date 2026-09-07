@@ -1,6 +1,8 @@
 import * as FaceletCodec from "../State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
+import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
+import {applyTransform, moveTokens, transformations, type Cubies} from "../Solver/Canonical2x2";
 
 /**
  * A 2×2 has no fixed centres. The final Academy goal therefore accepts every
@@ -117,4 +119,45 @@ export const planTwoByTwoPblFinish = async (
   const verification = verifyTwoByTwoBeginnerRoute(state, [[], [], solution.alg]);
   if (!verification.ok) return {ok: false, message: verification.message};
   return {ok: true, phaseAlgorithms: [[], [], solution.alg], moveCount: solution.moveCount};
+};
+
+type TwoByTwoOllPlan = {ok: true; algorithm: unknown; moveCount: number} | {ok: false; message: string};
+const ollMoveIndices = [0, 1, 2, 6, 7, 8, 12, 13, 14]; // U, R, F and inverses/halves
+const faceForMove = (move: number): number => Math.floor(move / 3);
+const ollGoal = (state: Cubies): boolean =>
+  [4, 5, 6, 7].every((slot) => state.cp[slot] === slot && state.co[slot] === 0)
+  && [0, 1, 2, 3].every((slot) => state.co[slot] === 0);
+
+/**
+ * Searches the small first-layer-preserving OLL space with U/R/F turns. The
+ * search is deliberately bounded: it is a phase planner, not a fallback full
+ * 2×2 solver (PBL remains delegated to the verified exact table).
+ */
+export const planTwoByTwoOll = (state: unknown, maximumDepth = 8): TwoByTwoOllPlan => {
+  const reduced = PieceReducer.reduce(state);
+  if (reduced.TAG !== "Ok") return {ok: false, message: "The 2×2 state could not be reduced to corners."};
+  const initial = reduced._0 as Cubies;
+  if (!twoByTwoPhaseStatus(state).firstLayer) {
+    return {ok: false, message: "OLL planning requires the first layer to be complete."};
+  }
+  if (ollGoal(initial)) return {ok: true, algorithm: [], moveCount: 0};
+  const transforms = transformations();
+  const search = (current: Cubies, remaining: number, previousFace: number | null, path: number[]): number[] | null => {
+    if (ollGoal(current)) return path;
+    if (remaining === 0) return null;
+    for (const move of ollMoveIndices) {
+      const face = faceForMove(move);
+      if (face === previousFace) continue;
+      const found = search(applyTransform(current, transforms[move]!), remaining - 1, face, [...path, move]);
+      if (found !== null) return found;
+    }
+    return null;
+  };
+  for (let depth = 1; depth <= maximumDepth; depth += 1) {
+    const moves = search(initial, depth, null, []);
+    if (moves === null) continue;
+    const parsed = MoveParser.parse(2, moves.map((move) => moveTokens[move]).join(" "));
+    if (parsed.TAG === "Ok") return {ok: true, algorithm: parsed._0, moveCount: moves.length};
+  }
+  return {ok: false, message: `No first-layer-preserving OLL route was found within ${maximumDepth} moves.`};
 };
