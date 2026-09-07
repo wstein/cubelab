@@ -111,6 +111,35 @@ const buildOuterPieceSlots = (size: 4 | 5): number[][] => {
   return slots;
 };
 
+const buildCenterSlots4 = (): number[][] => {
+  const at = (face: number, row: number, column: number) => faceletIndex(4, face, row, column);
+  const slots: number[][] = [];
+  for (let face = 0; face < 6; face += 1) {
+    slots.push([at(face, 1, 1)], [at(face, 1, 2)], [at(face, 2, 1)], [at(face, 2, 2)]);
+  }
+  return slots;
+};
+
+const buildXCenterSlots5 = (): number[][] => {
+  const at = (face: number, row: number, column: number) => faceletIndex(5, face, row, column);
+  const slots: number[][] = [];
+  for (let face = 0; face < 6; face += 1) {
+    slots.push([at(face, 1, 1)], [at(face, 1, 3)], [at(face, 3, 1)], [at(face, 3, 3)]);
+  }
+  return slots;
+};
+
+const buildPlusCenterSlots5 = (): number[][] => {
+  const at = (face: number, row: number, column: number) => faceletIndex(5, face, row, column);
+  const slots: number[][] = [];
+  for (let face = 0; face < 6; face += 1) {
+    slots.push([at(face, 1, 2)], [at(face, 2, 1)], [at(face, 2, 3)], [at(face, 3, 2)]);
+  }
+  return slots;
+};
+
+const centerPieces = manualStateFaces.flatMap((face) => [face, face, face, face].map((f) => [f]));
+
 /** Piece families whose copies may be permuted independently on big cubes. */
 const buildHighOrderPieceKinds = (size: 4 | 5, slots: number[][]): CubieKind[] => {
   const cornerKind: CubieKind = {...corners, slots: slots.slice(0, 8)};
@@ -132,6 +161,14 @@ const buildHighOrderPieceKinds = (size: 4 | 5, slots: number[][]): CubieKind[] =
     slots: edgeSlots.slice(12, 24),
     pieces: edges.pieces,
     orientations: 2,
+  }, {
+    slots: buildXCenterSlots5(),
+    pieces: centerPieces,
+    orientations: 1,
+  }, {
+    slots: buildPlusCenterSlots5(),
+    pieces: centerPieces,
+    orientations: 1,
   }];
 };
 
@@ -145,6 +182,92 @@ const highOrderPieceKindsBySize = {
   4: buildHighOrderPieceKinds(4, outerPieceSlotsBySize[4]),
   5: buildHighOrderPieceKinds(5, outerPieceSlotsBySize[5]),
 } as const;
+
+export type ManualStateOrbit = {
+  name: string;
+  slots: number[][];
+  quotaPerColour: number;
+};
+
+const orbitsBySize: Record<ManualStateSize, ManualStateOrbit[]> = {
+  2: [{name: "corners", slots: cornerSlots2, quotaPerColour: 4}],
+  3: [
+    {name: "corners", slots: cornerSlots3, quotaPerColour: 4},
+    {name: "edges", slots: edges.slots, quotaPerColour: 4},
+    {name: "fixedCentres", slots: fixedCentreIndices(3).map((i) => [i]), quotaPerColour: 1},
+  ],
+  4: [
+    {name: "corners", slots: outerPieceSlotsBySize[4].slice(0, 8), quotaPerColour: 4},
+    {name: "wings", slots: outerPieceSlotsBySize[4].slice(8), quotaPerColour: 8},
+    {name: "centres", slots: buildCenterSlots4(), quotaPerColour: 4},
+  ],
+  5: [
+    {name: "corners", slots: outerPieceSlotsBySize[5].slice(0, 8), quotaPerColour: 4},
+    {name: "wings", slots: [...outerPieceSlotsBySize[5].slice(8, 20), ...outerPieceSlotsBySize[5].slice(32, 44)], quotaPerColour: 8},
+    {name: "midges", slots: outerPieceSlotsBySize[5].slice(20, 32), quotaPerColour: 4},
+    {name: "xCentres", slots: buildXCenterSlots5(), quotaPerColour: 4},
+    {name: "plusCentres", slots: buildPlusCenterSlots5(), quotaPerColour: 4},
+    {name: "fixedCentres", slots: fixedCentreIndices(5).map((i) => [i]), quotaPerColour: 1},
+  ],
+};
+
+export const manualStateOrbits = (size: ManualStateSize): ManualStateOrbit[] => orbitsBySize[size];
+
+/**
+ * Synchronous scarcity check: checks if this sticker's orbit can accept
+ * `colour` without violating the orbit's quota or starving other orbits that
+ * have a mandatory remaining requirement for `colour`.
+ */
+export const isManualStateColourAllowedByScarcity = (
+  size: ManualStateSize,
+  draft: ManualStateDraft,
+  index: number,
+  colour: ManualStateFace,
+): boolean => {
+  const orbits = manualStateOrbits(size);
+  const orbitIdx = orbits.findIndex((o) => o.slots.some((sl) => sl.includes(index)));
+  if (orbitIdx < 0) return true;
+  const currentOrbit = orbits[orbitIdx];
+
+  const placed = orbits.map((o) => {
+    let count = 0;
+    for (const slot of o.slots) {
+      let hasCol = false;
+      for (const idx of slot) {
+        if (idx === index) continue;
+        if (draft[idx] === colour) {
+          hasCol = true;
+          break;
+        }
+      }
+      if (hasCol) count += 1;
+    }
+    return count;
+  });
+
+  let totalPlacedColour = 0;
+  draft.forEach((val, idx) => {
+    if (idx !== index && val === colour) totalPlacedColour += 1;
+  });
+
+  const totalQuota = size * size;
+  if (totalPlacedColour >= totalQuota) return false;
+  if (placed[orbitIdx] >= currentOrbit.quotaPerColour) return false;
+
+  let mandatoryOthers = 0;
+  orbits.forEach((o, i) => {
+    if (i !== orbitIdx) {
+      mandatoryOthers += Math.max(0, o.quotaPerColour - placed[i]);
+    }
+  });
+
+  const freeBudget = totalQuota - totalPlacedColour;
+  if (freeBudget - 1 < mandatoryOthers) {
+    return false;
+  }
+
+  return true;
+};
 
 const popcountParity = (value: number): number => {
   let bits = value;
@@ -245,6 +368,25 @@ const canAssignKind = (
   counts?: Record<ManualStateFace, number>,
   quota?: number,
 ): boolean => {
+  if (kind.orientations === 1 && kind.slots[0]?.length === 1) {
+    const orbitCounts: Record<ManualStateFace, number> = {U: 0, D: 0, R: 0, L: 0, F: 0, B: 0};
+    for (const slot of kind.slots) {
+      const val = draft[slot[0]!];
+      if (val !== null) {
+        orbitCounts[val] += 1;
+        if (orbitCounts[val] > 4) return false;
+      }
+    }
+    if (counts !== undefined && quota !== undefined) {
+      for (const face of manualStateFaces) {
+        const free = quota - counts[face];
+        const needed = 4 - orbitCounts[face];
+        if (free < needed) return false;
+      }
+    }
+    return true;
+  }
+
   const uniquePieces = uniquePiecesFor(kind);
   const slotCandidates = kind.slots.map((slot) => {
     const matching: Array<{typeId: number; stickers: ManualStateFace[]}> = [];
@@ -280,6 +422,28 @@ const canAssignKind = (
       B: quota - counts.B,
     }
     : null;
+
+  if (quotaLeft !== null) {
+    const totalByColour: Record<ManualStateFace, number> = {U: 0, D: 0, R: 0, L: 0, F: 0, B: 0};
+    for (const piece of uniquePieces) {
+      for (const col of piece.rotations[0]!) {
+        totalByColour[col] += piece.capacity;
+      }
+    }
+    const placedByColour: Record<ManualStateFace, number> = {U: 0, D: 0, R: 0, L: 0, F: 0, B: 0};
+    for (const slot of kind.slots) {
+      const seen = new Set<ManualStateFace>();
+      for (const idx of slot) {
+        const val = draft[idx];
+        if (val !== null) seen.add(val);
+      }
+      for (const col of seen) placedByColour[col] += 1;
+    }
+    for (const face of manualStateFaces) {
+      const needed = totalByColour[face] - placedByColour[face];
+      if (needed > quotaLeft[face]) return false;
+    }
+  }
 
   const search = (orderIdx: number): boolean => {
     if (orderIdx === slotOrder.length) return true;
@@ -447,13 +611,18 @@ export const locallyAllowedManualStateColours = (
       .filter((candidate) => !claimed.has(candidate.piece) && matches(draft, kind.slots[slotIndex], candidate))
       .map((candidate) => candidate.stickers[localIndex])
       .filter((colour, candidateIndex, values) =>
-        values.indexOf(colour) === candidateIndex && (counts[colour] < perColour || draft[index] === colour),
+        values.indexOf(colour) === candidateIndex &&
+        (counts[colour] < perColour || draft[index] === colour) &&
+        isManualStateColourAllowedByScarcity(size, draft, index, colour),
       );
   }
   // Interior big-cube centres do not belong to a corner or edge cubie. Their
   // local constraint is the colour quota, which also lets the last remaining
   // centre auto-fill when its colour is determined.
-  return manualStateFaces.filter((colour) => counts[colour] < perColour || draft[index] === colour);
+  return manualStateFaces.filter((colour) =>
+    (counts[colour] < perColour || draft[index] === colour) &&
+    isManualStateColourAllowedByScarcity(size, draft, index, colour),
+  );
 };
 
 /** Repeatedly fills stickers whose colour is uniquely implied by the draft. */

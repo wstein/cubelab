@@ -19,6 +19,7 @@ import {
   manualStateEnteredCount,
   manualStatePieceMates,
   manualStateLocalConstraintIndices,
+  manualStateOrbits,
   solvedManualState2,
   solvedManualState,
   type ManualStateDraft,
@@ -238,7 +239,10 @@ describe("manualStatePieceMates", () => {
   test("invalidates a local hint's full cubie orbit, not unrelated centres", () => {
     expect(manualStateLocalConstraintIndices(4, 7)).toContain(18);
     expect(manualStateLocalConstraintIndices(4, 7)).not.toContain(5);
-    expect(manualStateLocalConstraintIndices(5, 106)).toEqual([106]);
+    expect(manualStateLocalConstraintIndices(4, 5)).toEqual([5]);
+    expect(manualStateLocalConstraintIndices(5, 106)).toContain(108);
+    expect(manualStateLocalConstraintIndices(5, 106)).not.toContain(107);
+    expect(manualStateLocalConstraintIndices(5, 106)).toHaveLength(24);
   });
   test("names the other two stickers of a 3×3 corner", () => {
     // Index 8 is UFR's U sticker; its slot is [8, 9, 20] (U, R, F).
@@ -406,6 +410,162 @@ describe("dot diagnostics explain an unreachable draft", () => {
     expect(canCompleteManualState(4, replayDraft)).toBe(false);
     expect(allowedManualStateColours(4, replayDraft, 18)).toEqual([]);
     expect(allowedManualStateColours(4, replayDraft, 27)).toEqual([]);
+  });
+
+  test("24 Whites placed on 5×5: only middle-edge slots allow remaining White", () => {
+    // Exact fixture from user screenshot:
+    // U face has fixed White center at index 12.
+    // B face (indices 125..149) has:
+    //   - Blue fixed center at (2,2) = 137
+    //   - Red on middle edge at (2,4) = 139
+    //   - All other 23 stickers are White!
+    // Total White count is 24 (quota 25, 1 remaining).
+    // The 24 Whites exhaust:
+    //   - 4 corners (all 4 on B)
+    //   - 8 wings (all 8 on B)
+    //   - 4 X-centers (all 4 on B)
+    //   - 4 +-centers (all 4 on B)
+    //   - 1 fixed center (on U)
+    //   - 3 middle edges (on B at (0,2)=127, (2,0)=135, (4,2)=147)
+    // The sole remaining White piece MUST be the 4th middle edge.
+    const draft = emptyManualState(5);
+    for (let r = 0; r < 5; r += 1) {
+      for (let c = 0; c < 5; c += 1) {
+        const idx = 125 + r * 5 + c;
+        if (r === 2 && c === 2) continue; // Blue fixed centre
+        if (r === 2 && c === 4) draft[idx] = "R"; // Red middle edge
+        else draft[idx] = "U";
+      }
+    }
+
+    expect(draft.filter((c) => c === "U")).toHaveLength(24);
+
+    // Corners must NOT allow White
+    expect(locallyAllowedManualStateColours(5, draft, 0)).not.toContain("U"); // UBL corner
+    expect(locallyAllowedManualStateColours(5, draft, 20)).not.toContain("U"); // UFL corner
+    expect(allowedManualStateColours(5, draft, 20)).not.toContain("U");
+
+    // Wings must NOT allow White
+    expect(locallyAllowedManualStateColours(5, draft, 1)).not.toContain("U"); // UB wing
+    expect(locallyAllowedManualStateColours(5, draft, 21)).not.toContain("U"); // UF wing
+    expect(allowedManualStateColours(5, draft, 21)).not.toContain("U");
+
+    // Centers (X-center and +-center) must NOT allow White
+    expect(locallyAllowedManualStateColours(5, draft, 6)).not.toContain("U"); // U X-center
+    expect(locallyAllowedManualStateColours(5, draft, 7)).not.toContain("U"); // U +-center
+    expect(locallyAllowedManualStateColours(5, draft, 56)).not.toContain("U"); // F X-center
+    expect(locallyAllowedManualStateColours(5, draft, 57)).not.toContain("U"); // F +-center
+    expect(allowedManualStateColours(5, draft, 56)).not.toContain("U");
+    expect(allowedManualStateColours(5, draft, 57)).not.toContain("U");
+
+    // Middle edge whose mate on B is already White must NOT allow White
+    // UB middle edge at index 2 has mate 127 which is already White on B
+    expect(locallyAllowedManualStateColours(5, draft, 2)).not.toContain("U");
+    expect(allowedManualStateColours(5, draft, 2)).not.toContain("U");
+
+    // Remaining valid middle edge slots MUST allow White
+    // UL middle edge index 10 (mate 110)
+    expect(locallyAllowedManualStateColours(5, draft, 10)).toContain("U");
+    expect(allowedManualStateColours(5, draft, 10)).toContain("U");
+
+    // UR middle edge index 14 (mate 35)
+    expect(locallyAllowedManualStateColours(5, draft, 14)).toContain("U");
+    expect(allowedManualStateColours(5, draft, 14)).toContain("U");
+
+    // UF middle edge index 22 (mate 52)
+    expect(locallyAllowedManualStateColours(5, draft, 22)).toContain("U");
+    expect(allowedManualStateColours(5, draft, 22)).toContain("U");
+  });
+
+  test("24 Whites placed on 5×5: only X-centre slots allow remaining White", () => {
+    const orbits = manualStateOrbits(5);
+    const draft = emptyManualState(5);
+    orbits.find((o) => o.name === "corners")!.slots.slice(0, 4).forEach((s) => (draft[s[0]] = "U"));
+    orbits.find((o) => o.name === "wings")!.slots.slice(0, 8).forEach((s) => (draft[s[0]] = "U"));
+    orbits.find((o) => o.name === "midges")!.slots.slice(0, 4).forEach((s) => (draft[s[0]] = "U"));
+    orbits.find((o) => o.name === "plusCentres")!.slots.slice(0, 4).forEach((s) => (draft[s[0]] = "U"));
+    orbits.find((o) => o.name === "xCentres")!.slots.slice(0, 3).forEach((s) => (draft[s[0]] = "U"));
+    draft[orbits.find((o) => o.name === "fixedCentres")!.slots[0][0]] = "U";
+
+    expect(draft.filter((c) => c === "U")).toHaveLength(24);
+
+    const freeX = orbits.find((o) => o.name === "xCentres")!.slots[3][0];
+    const freePlus = orbits.find((o) => o.name === "plusCentres")!.slots[4][0];
+    const freeMidge = orbits.find((o) => o.name === "midges")!.slots[4][0];
+    const freeWing = orbits.find((o) => o.name === "wings")!.slots[8][0];
+    const freeCorner = orbits.find((o) => o.name === "corners")!.slots[4][0];
+
+    expect(locallyAllowedManualStateColours(5, draft, freeX)).toContain("U");
+    expect(allowedManualStateColours(5, draft, freeX)).toContain("U");
+
+    expect(locallyAllowedManualStateColours(5, draft, freePlus)).not.toContain("U");
+    expect(allowedManualStateColours(5, draft, freePlus)).not.toContain("U");
+
+    expect(locallyAllowedManualStateColours(5, draft, freeMidge)).not.toContain("U");
+    expect(allowedManualStateColours(5, draft, freeMidge)).not.toContain("U");
+
+    expect(locallyAllowedManualStateColours(5, draft, freeWing)).not.toContain("U");
+    expect(allowedManualStateColours(5, draft, freeWing)).not.toContain("U");
+
+    expect(locallyAllowedManualStateColours(5, draft, freeCorner)).not.toContain("U");
+    expect(allowedManualStateColours(5, draft, freeCorner)).not.toContain("U");
+  });
+
+  test("24 Whites placed on 5×5: only +-centre slots allow remaining White", () => {
+    const orbits = manualStateOrbits(5);
+    const draft = emptyManualState(5);
+    orbits.find((o) => o.name === "corners")!.slots.slice(0, 4).forEach((s) => (draft[s[0]] = "U"));
+    orbits.find((o) => o.name === "wings")!.slots.slice(0, 8).forEach((s) => (draft[s[0]] = "U"));
+    orbits.find((o) => o.name === "midges")!.slots.slice(0, 4).forEach((s) => (draft[s[0]] = "U"));
+    orbits.find((o) => o.name === "xCentres")!.slots.slice(0, 4).forEach((s) => (draft[s[0]] = "U"));
+    orbits.find((o) => o.name === "plusCentres")!.slots.slice(0, 3).forEach((s) => (draft[s[0]] = "U"));
+    draft[orbits.find((o) => o.name === "fixedCentres")!.slots[0][0]] = "U";
+
+    expect(draft.filter((c) => c === "U")).toHaveLength(24);
+
+    const freePlus = orbits.find((o) => o.name === "plusCentres")!.slots[3][0];
+    const freeX = orbits.find((o) => o.name === "xCentres")!.slots[4][0];
+    const freeMidge = orbits.find((o) => o.name === "midges")!.slots[4][0];
+    const freeWing = orbits.find((o) => o.name === "wings")!.slots[8][0];
+    const freeCorner = orbits.find((o) => o.name === "corners")!.slots[4][0];
+
+    expect(locallyAllowedManualStateColours(5, draft, freePlus)).toContain("U");
+    expect(allowedManualStateColours(5, draft, freePlus)).toContain("U");
+
+    expect(locallyAllowedManualStateColours(5, draft, freeX)).not.toContain("U");
+    expect(allowedManualStateColours(5, draft, freeX)).not.toContain("U");
+
+    expect(locallyAllowedManualStateColours(5, draft, freeMidge)).not.toContain("U");
+    expect(allowedManualStateColours(5, draft, freeMidge)).not.toContain("U");
+
+    expect(locallyAllowedManualStateColours(5, draft, freeWing)).not.toContain("U");
+    expect(allowedManualStateColours(5, draft, freeWing)).not.toContain("U");
+
+    expect(locallyAllowedManualStateColours(5, draft, freeCorner)).not.toContain("U");
+    expect(allowedManualStateColours(5, draft, freeCorner)).not.toContain("U");
+  });
+
+  test("15 Whites placed on 4×4: only centre slots allow remaining White", () => {
+    const orbits = manualStateOrbits(4);
+    const draft = emptyManualState(4);
+    orbits.find((o) => o.name === "corners")!.slots.slice(0, 4).forEach((s) => (draft[s[0]] = "U"));
+    orbits.find((o) => o.name === "wings")!.slots.slice(0, 8).forEach((s) => (draft[s[0]] = "U"));
+    orbits.find((o) => o.name === "centres")!.slots.slice(0, 3).forEach((s) => (draft[s[0]] = "U"));
+
+    expect(draft.filter((c) => c === "U")).toHaveLength(15);
+
+    const freeCenter = orbits.find((o) => o.name === "centres")!.slots[3][0];
+    const freeCorner = orbits.find((o) => o.name === "corners")!.slots[4][0];
+    const freeWing = orbits.find((o) => o.name === "wings")!.slots[8][0];
+
+    expect(locallyAllowedManualStateColours(4, draft, freeCenter)).toContain("U");
+    expect(allowedManualStateColours(4, draft, freeCenter)).toContain("U");
+
+    expect(locallyAllowedManualStateColours(4, draft, freeCorner)).not.toContain("U");
+    expect(allowedManualStateColours(4, draft, freeCorner)).not.toContain("U");
+
+    expect(locallyAllowedManualStateColours(4, draft, freeWing)).not.toContain("U");
+    expect(allowedManualStateColours(4, draft, freeWing)).not.toContain("U");
   });
 });
 
