@@ -147,6 +147,26 @@ const cornerState = (compact: string): ReScriptResult<unknown> => {
   return PieceReducer.reduce(parsed._0) as ReScriptResult<unknown>;
 };
 
+const staticWingSourceColours = allWingSlots.map(({indices}) => [
+  faces[Math.floor(indices[0] / 16)]!,
+  faces[Math.floor(indices[1] / 16)]!,
+] as const);
+
+type StaticWingDest = {
+  first: number;
+  second: number;
+  slot: number;
+};
+
+const staticWingDestinations: StaticWingDest[][] = allWingDestinations.map((destinations) => {
+  const result: StaticWingDest[] = [];
+  destinations.forEach(([first, second]) => {
+    const slot = allWingSlots.findIndex(({indices}) => indices.includes(first) && indices.includes(second));
+    if (slot >= 0) result.push({first, second, slot});
+  });
+  return result;
+});
+
 /**
  * Whether the supplied (possibly partial) wing stickers admit one distinct
  * physical wing for every slot. Null means that sticker has not been entered
@@ -155,32 +175,44 @@ const cornerState = (compact: string): ReScriptResult<unknown> => {
  */
 export const canComplete4x4Wings = (compact: ReadonlyArray<string | null>): boolean => {
   if (compact.length !== 96) return false;
-  const sourceColours = allWingSlots.map(({indices}) => [
-    faces[Math.floor(indices[0] / 16)]!,
-    faces[Math.floor(indices[1] / 16)]!,
-  ] as const);
-  const edges = allWingDestinations.map((destinations, source) => {
-    const [firstColour, secondColour] = sourceColours[source]!;
-    const slots = new Set<number>();
-    destinations.forEach(([first, second]) => {
-      if (compact[first] !== null && compact[first] !== firstColour) return;
-      if (compact[second] !== null && compact[second] !== secondColour) return;
-      const slot = allWingSlots.findIndex(({indices}) => indices.includes(first) && indices.includes(second));
-      if (slot >= 0) slots.add(slot);
-    });
-    return [...slots];
-  });
-  const matchedSourceForSlot = Array<number>(24).fill(-1);
-  const assign = (source: number, visited: Set<number>): boolean => edges[source]!.some((slot) => {
-    if (visited.has(slot)) return false;
-    visited.add(slot);
-    if (matchedSourceForSlot[slot] === -1 || assign(matchedSourceForSlot[slot]!, visited)) {
-      matchedSourceForSlot[slot] = source;
-      return true;
+  const edgeMasks = new Int32Array(24);
+  for (let source = 0; source < 24; source += 1) {
+    const [firstColour, secondColour] = staticWingSourceColours[source]!;
+    const destinations = staticWingDestinations[source]!;
+    let mask = 0;
+    for (let d = 0; d < destinations.length; d += 1) {
+      const dest = destinations[d]!;
+      if (compact[dest.first] !== null && compact[dest.first] !== firstColour) continue;
+      if (compact[dest.second] !== null && compact[dest.second] !== secondColour) continue;
+      mask |= 1 << dest.slot;
+    }
+    if (mask === 0) return false;
+    edgeMasks[source] = mask;
+  }
+
+  const matchedSourceForSlot = new Int8Array(24).fill(-1);
+  let visitedMask = 0;
+
+  const assign = (source: number): boolean => {
+    const mask = edgeMasks[source];
+    for (let slot = 0; slot < 24; slot += 1) {
+      const bit = 1 << slot;
+      if ((mask & bit) === 0 || (visitedMask & bit) !== 0) continue;
+      visitedMask |= bit;
+      const prevSource = matchedSourceForSlot[slot];
+      if (prevSource === -1 || assign(prevSource)) {
+        matchedSourceForSlot[slot] = source;
+        return true;
+      }
     }
     return false;
-  });
-  return edges.every((_, source) => assign(source, new Set<number>()));
+  };
+
+  for (let source = 0; source < 24; source += 1) {
+    visitedMask = 0;
+    if (!assign(source)) return false;
+  }
+  return true;
 };
 
 /**
