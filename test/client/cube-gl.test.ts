@@ -127,9 +127,9 @@ describe("cube viewport math", () => {
     expect(viewportSource).not.toMatch(/deviceOrientation = deviceOrientation\s*\? smoothTrackedOrientation/);
   });
 
-  test("labels the virtual 45-degree locks and 30-degree event circles in the gauge", () => {
-    expect(viewportSource).toMatch(/45° virtual lock/);
-    expect(viewportSource).toMatch(/30° event circle/);
+  test("keeps the gauge to a residual readout and current raw gyro values", () => {
+    expect(viewportSource).toMatch(/residual to virtual lock/);
+    expect(viewportSource).toMatch(/gyro \$\{raw\.x\.toFixed\(2\)\}/);
   });
 
   test("starts virtual drift at the raw pose instead of snapping its gauge to a lock", () => {

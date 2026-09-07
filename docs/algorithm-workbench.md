@@ -192,11 +192,14 @@ event and advances its hardware-to-viewport frame. The event tracker keeps its o
 gyro calibration sample and advances its virtual target by an exact 90° after each
 entry; it must not rebase to the 60° circle boundary. Thus consecutive quarter turns
 remain detectable even when packets arrive only at the edge of each capture circle.
-Recenter and recording-mode changes create a fresh event tracker. This does not alter
-the continuous three-ring lock target.
+After an accepted event, the raw residual is recalibrated to that exact virtual target;
+a near-quarter-turn separation rejects the duplicate circle entry that can occur when
+the quaternion wraps after a full revolution. Recenter and recording-mode changes
+create a fresh event tracker. This does not alter the continuous three-ring lock target.
 
-Diagnostics renders these two mechanisms separately: cyan marks the 45° virtual-lock
-ring and its eight longitude points; amber circles mark the six 30° event-capture areas.
+Diagnostics shows only the residual direction and angle to the selected virtual lock,
+plus the current raw gyro quaternion (`x y z w`). It intentionally does not project the
+3D lock sphere and event circles into a misleading 2D diagram.
 
 Live regrip detection (`observeThresholdOrientation`) fires as soon as the cumulative
 rotation from the last confirmed pose crosses `regripThresholdDegrees` (65° by default,

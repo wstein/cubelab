@@ -15,6 +15,10 @@ type CardinalOrientation = {
 
 export type StableOrientationTracker = {
   baseline: OrientationQuaternion;
+  /** Maps the raw baseline delta into the virtual cardinal orientation frame. */
+  calibrationCorrection: OrientationQuaternion;
+  /** Raw sample at the last virtual event, used to reject a duplicate circle entry. */
+  lastVirtualFixpointSample?: OrientationQuaternion | null;
   frame: OrientationCoordinateFrame;
   deltaFrame: "local" | "world";
   orientation: OrientationQuaternion;
@@ -29,6 +33,11 @@ const normalize = (quaternion: OrientationQuaternion): OrientationQuaternion => 
     z: quaternion.z / length,
     w: quaternion.w / length,
   };
+};
+
+const inverse = (quaternion: OrientationQuaternion): OrientationQuaternion => {
+  const normalized = normalize(quaternion);
+  return {x: -normalized.x, y: -normalized.y, z: -normalized.z, w: normalized.w};
 };
 
 const quarter = (axis: "X" | "Y" | "Z", turns: 1 | -1): OrientationQuaternion => {
@@ -129,6 +138,8 @@ export const createStableOrientationTracker = (
   deltaFrame: "local" | "world" = "local",
 ): StableOrientationTracker => ({
   baseline,
+  calibrationCorrection: {x: 0, y: 0, z: 0, w: 1},
+  lastVirtualFixpointSample: null,
   frame,
   deltaFrame,
   orientation: {x: 0, y: 0, z: 0, w: 1},
@@ -162,7 +173,7 @@ export const observeStableOrientation = (
     ? multiplyQuaternions(cardinal, tracker.orientation)
     : multiplyQuaternions(tracker.orientation, cardinal));
   return {
-    tracker: {baseline: current, frame, deltaFrame: tracker.deltaFrame, orientation, candidate: null},
+    tracker: {...tracker, baseline: current, frame, orientation, candidate: null},
     tokens: orientations[nearest.index]!.tokens,
   };
 };
@@ -195,7 +206,7 @@ export const observeThresholdOrientation = (
     ? multiplyQuaternions(cardinal, tracker.orientation)
     : multiplyQuaternions(tracker.orientation, cardinal));
   return {
-    tracker: {baseline: current, frame, deltaFrame: tracker.deltaFrame, orientation, candidate: null},
+    tracker: {...tracker, baseline: current, frame, orientation, candidate: null},
     tokens: orientations[nearest.index]!.tokens,
   };
 };
@@ -231,12 +242,11 @@ export const nearestRegripAxis = (axis: [number, number, number]): RegripToken |
 /**
  * Emits on entry into a 30° circle around the next six quarter-turn targets.
  *
- * `baseline` deliberately remains the calibration sample. Advancing it to the
- * sample that entered a circle makes the next target only ~60° away, which
- * eventually loses the x/y/z sequence during repeated regrips. Instead the
- * accepted *virtual* orientation advances exactly 90°; the next capture
- * circle is therefore always the next quarter turn, while the raw gyro can
- * still enter it anywhere in its 30° radius.
+ * The accepted *virtual* orientation advances exactly 90°; the next capture
+ * circle is therefore always the next quarter turn. At each capture the raw
+ * gyro delta is corrected onto that exact virtual target. This absorbs gyro
+ * bias without rebasing to the 60° circle boundary, which otherwise makes
+ * the next target only ~60° away and loses a long x/y/z sequence.
  */
 export const observeVirtualFixpoint = (
   tracker: StableOrientationTracker,
@@ -245,7 +255,14 @@ export const observeVirtualFixpoint = (
   radiusDegrees = 30,
 ): {tracker: StableOrientationTracker; tokens: RegripToken[]} => {
   if (tracker.frame !== frame) return {tracker: createStableOrientationTracker(current, frame, tracker.deltaFrame), tokens: []};
-  const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
+  // A quaternion repeats after a full revolution. Do not let the following
+  // cycle re-enter the just-accepted circle only 60° later; a real regrip is
+  // a quarter turn, so retain an 89° separation between events.
+  if (tracker.lastVirtualFixpointSample && orientationDistanceRadians(tracker.lastVirtualFixpointSample, current) < 89 * Math.PI / 180) {
+    return {tracker, tokens: []};
+  }
+  const rawDelta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
+  const delta = normalize(multiplyQuaternions(tracker.calibrationCorrection, rawDelta));
   const targets = candidates.map((candidate) => ({
     ...candidate,
     orientation: normalize(tracker.deltaFrame === "world"
@@ -261,7 +278,16 @@ export const observeVirtualFixpoint = (
     return {tracker, tokens: []};
   }
   return {
-    tracker: {...tracker, orientation: fixpoint.orientation, candidate: null},
+    tracker: {
+      ...tracker,
+      // Do not make `current` the next baseline: it is normally at the 60°
+      // edge of a capture circle. Preserve the raw baseline and instead make
+      // this sample exactly match the accepted 90° virtual pose.
+      calibrationCorrection: normalize(multiplyQuaternions(fixpoint.orientation, inverse(rawDelta))),
+      lastVirtualFixpointSample: current,
+      orientation: fixpoint.orientation,
+      candidate: null,
+    },
     tokens: [fixpoint.token],
   };
 };
@@ -285,6 +311,7 @@ export const settleStableOrientation = (
   }
   return {
     tracker: {
+      ...tracker,
       baseline: current,
       frame,
       orientation: normalize(tracker.deltaFrame === "world"

@@ -2280,6 +2280,7 @@ if (root) {
       degrees: 0,
       label: null,
       activeLockin: cardinalOrientationFaces(lock),
+      rawOrientation: current,
     });
     viewport.setVirtualOrientationLock(lock);
   };
