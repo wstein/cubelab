@@ -100,6 +100,39 @@ let parse = notation =>
   | Error(_) => None
   }
 
+/** Runs only in the solver worker. The diagonal X-centres are isomorphic to
+ * the 24 centres of a 4×4, so the exact three-phase coordinate can supply a
+ * replay-verified 5×5 centre cycle. */
+let solveXCentreCycle5x5 = (state: cubeState): result<guide, reductionError> =>
+  switch progressFor(state) {
+  | None => Error({message: "The 5×5 centre-cycle solver requires a complete state."})
+  | Some(initial) => {
+    let compact = FaceletCodec.render(state)
+    let output = ref([])
+    [0, 3, 2, 5, 1, 4]->Array.forEach(faceIndex => {
+      let face = faceAt(compact, faceIndex)
+      [6, 8, 18, 16]->Array.forEach(index => output := Array.concat(output.contents, [charAt(face, index)]))
+    })
+    let centres = output.contents->Array.join("")
+    switch ThreePhase4x4.solveCentreReduction(centres, 10, 14, 48) {
+    | Error(_) => Error({message: "The exact X-centre cycle search did not find a bounded reduction."})
+    | Ok(solution) => {
+      let notation = Array.concat(solution.phase1Notations, solution.phase2Notations)->Array.join(" ")
+      switch parse(notation) {
+      | None => Error({message: "The X-centre solver generated invalid 5×5 notation."})
+      | Some(alg) => switch MoveExecutor.applyAlg(state, alg) {
+        | Error(_) => Error({message: "The X-centre cycle could not be replayed on the 5×5 state."})
+        | Ok(replay) => switch progressFor(replay) {
+          | Some(after) if after.x > initial.x => Ok({alg, algorithm: MoveTransform.serialize(alg), before: initial.score, after: after.score, kind: "cycle", barsBefore: 0, barsAfter: 0, completedBefore: initial.x + initial.plus, completedAfter: after.x + after.plus})
+          | _ => Error({message: "The mapped X-centre cycle did not improve the 5×5 X-centre orbit."})
+          }
+        }
+      }
+    }
+    }
+  }
+  }
+
 /** When individual sticker placement is locally flat, prefer completing one
  * whole X- or +-centre orbit. This keeps the tutorial moving through its
  * actual milestone, instead of requiring an arbitrary manual setup. */

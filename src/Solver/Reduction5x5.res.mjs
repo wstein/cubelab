@@ -8,6 +8,7 @@ import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as Primitive_int from "@rescript/runtime/lib/es6/Primitive_int.js";
+import * as ThreePhase4x4 from "./ThreePhase4x4.res.mjs";
 import * as Belt_SortArray from "@rescript/runtime/lib/es6/Belt_SortArray.js";
 
 let xCentres = [
@@ -261,6 +262,94 @@ function parse(notation) {
   let alg = MoveParser.parseWithOptions(5, "Wide", "Modern", notation);
   if (alg.TAG === "Ok") {
     return alg._0;
+  }
+}
+
+function solveXCentreCycle5x5(state) {
+  let initial = progressFor(state);
+  if (initial === undefined) {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The 5×5 centre-cycle solver requires a complete state."
+      }
+    };
+  }
+  let compact = FaceletCodec.render(state);
+  let output = {
+    contents: []
+  };
+  [
+    0,
+    3,
+    2,
+    5,
+    1,
+    4
+  ].forEach(faceIndex => {
+    let face = faceAt(compact, faceIndex);
+    [
+      6,
+      8,
+      18,
+      16
+    ].forEach(index => {
+      output.contents = output.contents.concat([charAt(face, index)]);
+    });
+  });
+  let centres = output.contents.join("");
+  let solution = ThreePhase4x4.solveCentreReduction(centres, 10, 14, 48);
+  if (solution.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The exact X-centre cycle search did not find a bounded reduction."
+      }
+    };
+  }
+  let solution$1 = solution._0;
+  let notation = solution$1.phase1Notations.concat(solution$1.phase2Notations).join(" ");
+  let alg = parse(notation);
+  if (alg === undefined) {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The X-centre solver generated invalid 5×5 notation."
+      }
+    };
+  }
+  let replay = MoveExecutor.applyAlg(state, alg);
+  if (replay.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The X-centre cycle could not be replayed on the 5×5 state."
+      }
+    };
+  }
+  let after = progressFor(replay._0);
+  if (after !== undefined && after.x > initial.x) {
+    return {
+      TAG: "Ok",
+      _0: {
+        alg: alg,
+        algorithm: MoveTransform.serialize(alg),
+        before: initial.score,
+        after: after.score,
+        kind: "cycle",
+        barsBefore: 0,
+        barsAfter: 0,
+        completedBefore: initial.x + initial.plus | 0,
+        completedAfter: after.x + after.plus | 0
+      }
+    };
+  } else {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The mapped X-centre cycle did not improve the 5×5 X-centre orbit."
+      }
+    };
   }
 }
 
@@ -715,6 +804,7 @@ export {
   progressFor,
   inspectReduction5x5,
   parse,
+  solveXCentreCycle5x5,
   planNextCentreOrbit,
   planNextCentre5x5,
   planNextWingPair5x5,

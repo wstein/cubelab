@@ -13,6 +13,7 @@ import {
 } from "../two-by-two-academy";
 import {inspectReduction4x4, isMonochromeSolved4x4, reduce4x4} from "../../Solver/Reduction4x4.res.mjs";
 import {measureReduction4x4Moves, solveFullReduction4x4} from "../../Solver/FullReduction4x4.res.mjs";
+import {solveXCentreCycle5x5} from "../../Solver/Reduction5x5.res.mjs";
 
 type TutorialMethod = "beginner" | "advancedLbl" | "beginnerCfop" | "fullCfop" | "advancedCfop" | "petrus" | "enhancedPetrus";
 type WorkerRequest =
@@ -23,6 +24,7 @@ type WorkerRequest =
   | {id: number; type: "solveTwoByTwoPetrus"; state: unknown}
   | {id: number; type: "solveReduced4x4"; state: unknown}
   | {id: number; type: "solveFullReduction4x4"; state: unknown}
+  | {id: number; type: "solve5x5CentreCycle"; state: unknown}
   | {id: number; type: "solveTwoPhase"; state: unknown; refine?: boolean; maximumDepth?: number}
   | {id: number; type: "cancelTwoPhase"};
 type ReScriptResult = {TAG: "Ok"; _0: unknown} | {TAG: "Error"; _0: unknown};
@@ -267,6 +269,16 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
         return;
       }
       self.postMessage({id: request.id, ok: true, solution: solution._0});
+      return;
+    }
+    if (request.type === "solve5x5CentreCycle") {
+      self.postMessage({id: request.id, type: "reduction5x5CycleProgress", stage: "Preparing exact 24-piece X-centre tables…"});
+      const guide = solveXCentreCycle5x5(request.state);
+      if (guide.TAG === "Error") {
+        self.postMessage({id: request.id, ok: false, error: guide._0.message});
+        return;
+      }
+      self.postMessage({id: request.id, ok: true, solution: guide._0});
       return;
     }
     if (request.type !== "solveTutorial") return;

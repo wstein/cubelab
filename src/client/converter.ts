@@ -20,6 +20,7 @@ import {
   createTwoByTwoAcademySolverClient,
   createTwoByTwoPetrusSolverClient,
   createReduction4x4SolverClient,
+  createReduction5x5CycleSolverClient,
   createManualStateVerifierClient,
   createSolverClient,
   createTwoPhaseSolverClient,
@@ -398,6 +399,7 @@ if (root) {
     current: root.querySelector<HTMLElement>("[data-reduction-5x5-academy-current]")!,
     phases: root.querySelector<HTMLElement>("[data-reduction-5x5-academy-phases]")!,
     guide: root.querySelector<HTMLElement>("[data-reduction-5x5-academy-guide]")!,
+    findCycle: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-find-cycle]")!,
     applyCentre: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-apply-centre]")!,
     applyWing: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-apply-wing]")!,
   };
@@ -612,6 +614,10 @@ if (root) {
   let twoPhaseSolveBusy = false;
   let optimal2x2SolveBusy = false;
   let reduction4x4SolveBusy = false;
+  let reduction5x5CycleBusy = false;
+  let reduction5x5CycleRequest = 0;
+  let reduction5x5CycleGuide: any = null;
+  let reduction5x5CycleKey = "";
   let optimal2x2Request = 0;
   let reduction4x4Request = 0;
   let nissSide: "normal" | "inverse" = "normal";
@@ -672,6 +678,11 @@ if (root) {
     },
   );
   let reduction4x4SolverClient = newReduction4x4SolverClient();
+  const newReduction5x5CycleClient = () => createReduction5x5CycleSolverClient<CubeState, any>(
+    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+    (stage) => { if (reduction5x5CycleBusy) reduction5x5Academy.guide.textContent = stage; },
+  );
+  let reduction5x5CycleClient = newReduction5x5CycleClient();
   const resetTwoPhaseRefinement = () => {
     // Setup defines every solver request. A Setup change makes any in-flight
     // search and its retained candidate unusable, so stop the dedicated worker
@@ -2867,6 +2878,7 @@ if (root) {
     academy.guide.textContent = "";
     academy.applyCentre.hidden = true;
     academy.applyCentre.disabled = true;
+    academy.findCycle.hidden = true;
     academy.applyGuide.hidden = true;
     academy.applyGuide.disabled = true;
     academy.repairParity.hidden = true;
@@ -3005,8 +3017,19 @@ if (root) {
         academy.applyCentre.hidden = false;
         academy.applyCentre.disabled = false;
       } else {
-        academy.guide.textContent = guide._0.message;
-        academy.guide.classList.add("error");
+        const key = FaceletCodec.render(recognized.state);
+        if (reduction5x5CycleGuide !== null && reduction5x5CycleKey === key) {
+          academy.guide.textContent = `Replay-verified X-centre cycle: ${reduction5x5CycleGuide.algorithm}.`;
+          academy.guide.classList.remove("error");
+          academy.applyCentre.hidden = false;
+          academy.applyCentre.disabled = false;
+        } else {
+          academy.guide.textContent = guide._0.message;
+          academy.guide.classList.add("error");
+          academy.findCycle.hidden = false;
+          academy.findCycle.disabled = reduction5x5CycleBusy;
+          academy.findCycle.textContent = reduction5x5CycleBusy ? "Stop centre-cycle search" : "Find full X-centre cycle";
+        }
       }
     }
     if (progress.stage === "wings") {
@@ -5451,9 +5474,48 @@ if (root) {
 
   reduction5x5Academy.applyCentre.addEventListener("click", () => {
     if (size !== 5 || activeRecognized === null) return;
-    const guide = planNextCentre5x5(activeRecognized.state);
-    if (guide.TAG !== "Ok") return;
-    store.patch({moves: [movesInput.value.trim(), guide._0.algorithm].filter(Boolean).join(" ")});
+    const key = FaceletCodec.render(activeRecognized.state);
+    const guide = reduction5x5CycleGuide !== null && reduction5x5CycleKey === key
+      ? {TAG: "Ok", _0: reduction5x5CycleGuide}
+      : planNextCentre5x5(activeRecognized.state);
+    if (guide.TAG === "Ok") store.patch({moves: [movesInput.value.trim(), guide._0.algorithm].filter(Boolean).join(" ")});
+  });
+
+  reduction5x5Academy.findCycle.addEventListener("click", async () => {
+    if (size !== 5 || activeRecognized === null) return;
+    if (reduction5x5CycleBusy) {
+      reduction5x5CycleRequest += 1;
+      reduction5x5CycleClient.terminate();
+      reduction5x5CycleClient = newReduction5x5CycleClient();
+      reduction5x5CycleBusy = false;
+      reduction5x5Academy.findCycle.textContent = "Find full X-centre cycle";
+      reduction5x5Academy.guide.textContent = "Centre-cycle search stopped.";
+      return;
+    }
+    const request = ++reduction5x5CycleRequest;
+    const state = activeRecognized.state;
+    const key = FaceletCodec.render(state);
+    reduction5x5CycleBusy = true;
+    reduction5x5Academy.findCycle.hidden = false;
+    reduction5x5Academy.findCycle.textContent = "Stop centre-cycle search";
+    reduction5x5Academy.guide.textContent = "Preparing exact 24-piece X-centre tables…";
+    try {
+      const guide = await reduction5x5CycleClient.solve(state);
+      if (request !== reduction5x5CycleRequest || FaceletCodec.render(activeRecognized?.state ?? state) !== key) return;
+      reduction5x5CycleGuide = guide;
+      reduction5x5CycleKey = key;
+      reduction5x5Academy.guide.textContent = `Replay-verified X-centre cycle: ${guide.algorithm}.`;
+      reduction5x5Academy.guide.classList.remove("error");
+      reduction5x5Academy.applyCentre.hidden = false;
+      reduction5x5Academy.applyCentre.disabled = false;
+    } catch (error) {
+      if (request === reduction5x5CycleRequest) reduction5x5Academy.guide.textContent = error instanceof Error ? error.message : "Centre-cycle search stopped.";
+    } finally {
+      if (request === reduction5x5CycleRequest) {
+        reduction5x5CycleBusy = false;
+        reduction5x5Academy.findCycle.textContent = "Find full X-centre cycle";
+      }
+    }
   });
 
   reduction5x5Academy.applyWing.addEventListener("click", () => {
