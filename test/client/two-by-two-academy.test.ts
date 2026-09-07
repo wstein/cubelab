@@ -5,6 +5,7 @@ import * as MoveParser from "../../src/Move/MoveParser.res.mjs";
 import * as StateTypes from "../../src/State/StateTypes.res.mjs";
 import {
   twoByTwoPhaseStatus,
+  planTwoByTwoPblFinish,
   verifyTwoByTwoBeginnerRoute,
 } from "../../src/client/two-by-two-academy";
 
@@ -36,5 +37,15 @@ describe("2×2 Beginner Academy phase contract", () => {
       ok: false,
       phase: 1,
     });
+  });
+
+  test("uses the exact solver only for PBL after first layer and OLL are satisfied", async () => {
+    const pblState = apply("U");
+    const result = await planTwoByTwoPblFinish(pblState, async () => ({alg: parse("U'"), moveCount: 1}));
+    expect(result).toMatchObject({ok: true, moveCount: 1});
+    if (result.ok) expect(verifyTwoByTwoBeginnerRoute(pblState, result.phaseAlgorithms).ok).toBe(true);
+
+    const premature = await planTwoByTwoPblFinish(apply("R"), async () => ({alg: parse("R'"), moveCount: 1}));
+    expect(premature).toMatchObject({ok: false, message: expect.stringMatching(/first layer and OLL/i)});
   });
 });

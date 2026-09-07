@@ -92,3 +92,29 @@ export const verifyTwoByTwoBeginnerRoute = (
   }
   return {ok: true, finalState: state};
 };
+
+type ExactTwoByTwoSolution = {alg: unknown; moveCount: number};
+type ExactTwoByTwoSolver = (state: unknown) => Promise<ExactTwoByTwoSolution>;
+export type TwoByTwoPblPlan =
+  | {ok: true; phaseAlgorithms: [unknown, unknown, unknown]; moveCount: number}
+  | {ok: false; message: string};
+
+/**
+ * The final Beginner/Ortega stage is exactly the remaining corner
+ * permutation. The exact solver is permitted here only after the preceding
+ * instructional states are already true, then its output is rechecked through
+ * the same three-boundary contract used by the future full planner.
+ */
+export const planTwoByTwoPblFinish = async (
+  state: unknown,
+  solveExactly: ExactTwoByTwoSolver,
+): Promise<TwoByTwoPblPlan> => {
+  const status = twoByTwoPhaseStatus(state);
+  if (!status.firstLayer || !status.orientLastLayer) {
+    return {ok: false, message: "PBL planning requires the first layer and OLL to be complete."};
+  }
+  const solution = await solveExactly(state);
+  const verification = verifyTwoByTwoBeginnerRoute(state, [[], [], solution.alg]);
+  if (!verification.ok) return {ok: false, message: verification.message};
+  return {ok: true, phaseAlgorithms: [[], [], solution.alg], moveCount: solution.moveCount};
+};

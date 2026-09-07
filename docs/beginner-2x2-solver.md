@@ -14,3 +14,7 @@ may be shown separately, but is never relabelled as these teaching phases.
 The planner's candidate route is replayed phase-by-phase. A route is rejected
 if phase 1 has not fixed the D-layer corners, phase 2 has not oriented all U-layer
 corners while preserving that layer, or phase 3 does not leave every face monochrome.
+
+The PBL planner can use the exact 2×2 table only after the first two goals are
+already true. Its returned finish is replayed through all three boundaries before
+the Academy may present it.
