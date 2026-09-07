@@ -1,4 +1,5 @@
 import * as FaceletCodec from "../State/FaceletCodec.res.mjs";
+import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
 
 /**
@@ -57,3 +58,37 @@ export const twoByTwoBeginnerPhaseDefinitions = [
     instruction: "Cycle the oriented last-layer corners until all six faces are monochrome.",
   },
 ] as const;
+
+export type TwoByTwoBeginnerRouteVerification =
+  | {ok: true; finalState: unknown}
+  | {ok: false; phase: 1 | 2 | 3; message: string};
+
+/**
+ * Verifies the exact staged promise shown by the Academy cards. A planner may
+ * choose any algorithms, but it cannot promote a route to the UI unless every
+ * boundary reaches the corresponding teaching goal.
+ */
+export const verifyTwoByTwoBeginnerRoute = (
+  initialState: unknown,
+  phaseAlgorithms: readonly [unknown, unknown, unknown],
+): TwoByTwoBeginnerRouteVerification => {
+  let state = initialState;
+  for (let index = 0; index < phaseAlgorithms.length; index += 1) {
+    const replay = MoveExecutor.applyAlg(state, phaseAlgorithms[index]);
+    if (replay.TAG !== "Ok") {
+      return {ok: false, phase: (index + 1) as 1 | 2 | 3, message: "The phase algorithm could not be replayed."};
+    }
+    state = replay._0;
+    const status = twoByTwoPhaseStatus(state);
+    if (index === 0 && !status.firstLayer) {
+      return {ok: false, phase: 1, message: "Phase 1 did not build the first layer."};
+    }
+    if (index === 1 && !status.orientLastLayer) {
+      return {ok: false, phase: 2, message: "Phase 2 did not orient the last-layer corners."};
+    }
+    if (index === 2 && !status.permuteLastLayer) {
+      return {ok: false, phase: 3, message: "Phase 3 did not leave every face monochrome."};
+    }
+  }
+  return {ok: true, finalState: state};
+};
