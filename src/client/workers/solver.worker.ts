@@ -2,7 +2,7 @@ import * as BeginnerSolver from "../../Solver/BeginnerSolver.res.mjs";
 import * as CfopSolver from "../../Solver/CfopSolver.res.mjs";
 import * as PetrusSolver from "../../Solver/PetrusSolver.res.mjs";
 import * as TwoPhaseSolver from "../../Solver/TwoPhaseSolver.res.mjs";
-import * as Optimal2x2Solver from "../../Solver/Optimal2x2Solver";
+import * as Optimal2x2Solver from "../../Solver/Optimal2x2Solver.res.mjs";
 import * as MoveExecutor from "../../Move/MoveExecutor.res.mjs";
 import {
   planTwoByTwoBeginnerRoute,

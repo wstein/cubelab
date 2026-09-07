@@ -1,6 +1,6 @@
 import {mkdir, writeFile} from "node:fs/promises";
-import {transitionCoordinate} from "../src/Solver/Canonical2x2";
-import {encodeOptimal2x2Tables, OPTIMAL_2X2_STATES} from "../src/Solver/Optimal2x2Table";
+import {transitionCoordinate} from "../src/Solver/Canonical2x2.res.mjs";
+import {encodeOptimal2x2Tables, OPTIMAL_2X2_STATES} from "../src/Solver/Optimal2x2Table.res.mjs";
 
 const distances = new Uint8Array(OPTIMAL_2X2_STATES).fill(255);
 const queue = new Uint32Array(OPTIMAL_2X2_STATES);

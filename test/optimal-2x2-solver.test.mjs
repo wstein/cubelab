@@ -10,7 +10,7 @@ import {
   decodeOptimal2x2Tables,
   OPTIMAL_2X2_TABLE_URL,
   optimal2x2TableBytes,
-} from "../src/Solver/Optimal2x2Table.ts";
+} from "../src/Solver/Optimal2x2Table.res.mjs";
 
 const tablePath = fileURLToPath(new URL("../public/solver/optimal-2x2.v2.bin", import.meta.url));
 
@@ -47,7 +47,7 @@ describe("optimal 2×2 table", () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = fetch;
     try {
-      const solver = await import("../src/Solver/Optimal2x2Solver.ts");
+      const solver = await import("../src/Solver/Optimal2x2Solver.res.mjs");
       expect(solver.hasPreparedTables()).toBe(false);
       const state = apply("R U F2 R'");
       const solution = await solver.solve(state);
@@ -73,7 +73,7 @@ describe("optimal 2×2 table", () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = fetch;
     try {
-      const solver = await import("../src/Solver/Optimal2x2Solver.ts");
+      const solver = await import("../src/Solver/Optimal2x2Solver.res.mjs");
       // A state whose HTM-optimal (7 move) solve reaches a whole-cube rotation of
       // solved (e.g. UUUULLLLBBBBDDDDRRRRFFFF), not the untouched identity cubies.
       // A 2x2 has no fixed centres, so this is still a fully solved cube: every
@@ -95,7 +95,7 @@ describe("optimal 2×2 table", () => {
   test("uniformly samples a canonical coordinate and renders a replayable inverse scramble", async () => {
     const bytes = await readFile(tablePath);
     const tables = decodeOptimal2x2Tables(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
-    const solver = await import("../src/Solver/Optimal2x2Solver.ts");
+    const solver = await import("../src/Solver/Optimal2x2Solver.res.mjs");
     const generated = solver.randomStateScrambleFromTables(tables, () => 0.5);
     expect(generated.coordinate).toBe(Math.floor(0.5 * 3_674_160));
     const replay = MoveExecutor.applyAlg(StateTypes.solved(2)._0, generated.scramble);
@@ -109,7 +109,7 @@ describe("optimal 2×2 table", () => {
   test("supports exact easy-drill distance buckets alongside any and 5+", async () => {
     const bytes = await readFile(tablePath);
     const tables = decodeOptimal2x2Tables(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
-    const solver = await import("../src/Solver/Optimal2x2Solver.ts");
+    const solver = await import("../src/Solver/Optimal2x2Solver.res.mjs");
     expect(solver.randomStateScrambleFromTables(tables, () => 0, "any").moveCount).toBe(0);
     expect(solver.randomStateScrambleFromTables(tables, () => 0, "3").moveCount).toBe(3);
     expect(solver.randomStateScrambleFromTables(tables, () => 0, "4").moveCount).toBe(4);

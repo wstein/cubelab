@@ -2,7 +2,9 @@ import * as FaceletCodec from "../State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
-import {applyTransform, moveTokens, transformations, type Cubies} from "../Solver/Canonical2x2";
+import {applyTransform, moveTokens, transformations} from "../Solver/Canonical2x2.res.mjs";
+
+export type Cubies = {cp: number[]; co: number[]};
 
 /**
  * A 2×2 has no fixed centres. The final Academy goal therefore accepts every
