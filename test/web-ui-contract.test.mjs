@@ -526,6 +526,7 @@ test("the SPA workspace keeps one viewport beside four URL-addressable destinati
   assert.match(page, /data-workspace-tab="patterns"/);
   assert.doesNotMatch(page, /data-workspace-tab="(?:beginner|cfop)"/);
   assert.match(page, /data-academy-method="beginner"/);
+  assert.match(page, /data-academy-method="twoByTwoBeginner"/);
   assert.match(page, /data-academy-method="advancedLbl"/);
   assert.match(page, /data-academy-method="beginnerCfop"/);
   assert.match(page, /data-academy-method="fullCfop"/);
@@ -535,6 +536,7 @@ test("the SPA workspace keeps one viewport beside four URL-addressable destinati
   assert.match(page, /data-academy-method="reduction4x4"/);
   assert.match(page, /57 OLL \+ 21 PLL/);
   assert.match(page, /data-academy-method-panel="beginner"/);
+  assert.match(page, /data-academy-method-panel="twoByTwoBeginner"/);
   assert.match(page, /data-academy-method-panel="advancedLbl"/);
   assert.match(page, /data-academy-method-panel="beginnerCfop"/);
   assert.match(page, /data-academy-method-panel="fullCfop"/);
@@ -565,6 +567,7 @@ test("the SPA workspace keeps one viewport beside four URL-addressable destinati
   assert.match(client, /buildTimeline\(initialState, solution\.alg\)/);
   assert.match(client, /store\.patch\(\{activeTab:/);
   assert.match(client, /academyMethod:/);
+  assert.match(client, /twoByTwoAcademySolverClient\.solve\(initialState\)/);
   assert.match(client, /tutorialPhaseMoveCount/);
   assert.match(client, /inspectReduction4x4/);
   assert.match(client, /renderReduction4x4Academy/);

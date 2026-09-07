@@ -5,6 +5,7 @@ type WorkerResponse<T> = WorkerSuccess<T> | WorkerFailure;
 type TwoPhaseProgress = {id: number; type: "twoPhaseProgress"; stage: string};
 type TwoPhaseCandidate<T> = {id: number; type: "twoPhaseCandidate"; solution: T};
 type Optimal2x2Progress = {id: number; type: "optimal2x2Progress"; stage: string};
+type TwoByTwoAcademyProgress = {id: number; type: "twoByTwoAcademyProgress"; stage: string};
 type Reduction4x4Progress = {id: number; type: "reduction4x4Progress"; stage: string};
 type FullReduction4x4Progress = {id: number; type: "fullReduction4x4Progress"; stage: string};
 export type TwoPhaseSearchOptions = {refine?: boolean; maximumDepth?: number};
@@ -173,6 +174,19 @@ export const createOptimal2x2SolverClient = <TState, TSolution>(
   "optimal2x2Progress",
   "The optimal 2×2 solver worker could not start.",
   "The optimal 2×2 solver was stopped.",
+  onProgress,
+);
+
+/** Dedicated request contract for the staged 2×2 Beginner/Ortega Academy. */
+export const createTwoByTwoAcademySolverClient = <TState, TSolution>(
+  worker: Worker,
+  onProgress?: (stage: string) => void,
+) => createProgressSolverClient<TState, TSolution>(
+  worker,
+  "solveTwoByTwoAcademy",
+  "twoByTwoAcademyProgress",
+  "The 2×2 Academy solver worker could not start.",
+  "The 2×2 Academy solver was stopped.",
   onProgress,
 );
 

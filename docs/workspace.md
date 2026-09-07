@@ -3,6 +3,7 @@
 CubeLab uses four client-side workspace views over one canonical state:
 
 - **Converter** presents the six size-aware state formats and copy controls.
+- **2×2 Beginner / Ortega Academy** generates a replay-verified First layer → OLL → PBL route; it accepts monochrome solved orientations because a 2×2 has no fixed centres.
 - **Beginner Academy** generates and explains a seven-phase 3×3 LBL tutorial.
 - **CFOP Academy** teaches a replay-verified Cross, four recognized and locked F2L pairs,
   two-look OLL, and two-look PLL path.

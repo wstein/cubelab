@@ -4,6 +4,7 @@ import * as PetrusSolver from "../../Solver/PetrusSolver.res.mjs";
 import * as TwoPhaseSolver from "../../Solver/TwoPhaseSolver.res.mjs";
 import * as Optimal2x2Solver from "../../Solver/Optimal2x2Solver";
 import * as MoveExecutor from "../../Move/MoveExecutor.res.mjs";
+import {planTwoByTwoBeginnerRoute, twoByTwoBeginnerPhaseDefinitions} from "../two-by-two-academy";
 import {inspectReduction4x4, isMonochromeSolved4x4, reduce4x4} from "../../Solver/Reduction4x4";
 import {measureReduction4x4Moves, solveFullReduction4x4} from "../../Solver/FullReduction4x4";
 
@@ -11,6 +12,7 @@ type TutorialMethod = "beginner" | "advancedLbl" | "beginnerCfop" | "fullCfop" |
 type WorkerRequest =
   | {id: number; type: "solveTutorial"; method: TutorialMethod; state: unknown}
   | {id: number; type: "solveOptimal2x2"; state: unknown}
+  | {id: number; type: "solveTwoByTwoAcademy"; state: unknown}
   | {id: number; type: "solveReduced4x4"; state: unknown}
   | {id: number; type: "solveFullReduction4x4"; state: unknown}
   | {id: number; type: "solveTwoPhase"; state: unknown; refine?: boolean; maximumDepth?: number}
@@ -110,6 +112,41 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
             id: request.id,
             ok: false,
             error: error instanceof Error ? error.message : "The optimal 2×2 solver stopped unexpectedly.",
+          });
+        }
+      })();
+      return;
+    }
+    if (request.type === "solveTwoByTwoAcademy") {
+      void (async () => {
+        try {
+          if (!Optimal2x2Solver.hasPreparedTables()) {
+            self.postMessage({id: request.id, type: "twoByTwoAcademyProgress", stage: "Preparing 2×2 corner table…"});
+            await Optimal2x2Solver.prepareTables();
+          }
+          self.postMessage({id: request.id, type: "twoByTwoAcademyProgress", stage: "Planning first layer…"});
+          const planned = await planTwoByTwoBeginnerRoute(request.state, Optimal2x2Solver.solve);
+          if (!planned.ok) {
+            self.postMessage({id: request.id, ok: false, error: planned.message});
+            return;
+          }
+          self.postMessage({
+            id: request.id,
+            ok: true,
+            solution: {
+              phases: twoByTwoBeginnerPhaseDefinitions.map((phase, index) => ({
+                ...phase,
+                alg: planned.phaseAlgorithms[index] as unknown[],
+              })),
+              alg: planned.phaseAlgorithms.flat(),
+              moveCount: planned.moveCount,
+            },
+          });
+        } catch (error) {
+          self.postMessage({
+            id: request.id,
+            ok: false,
+            error: error instanceof Error ? error.message : "The 2×2 Academy planner stopped unexpectedly.",
           });
         }
       })();

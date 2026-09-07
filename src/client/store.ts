@@ -5,6 +5,7 @@ export type LowercaseMode = "Wide" | "InnerSlice";
 export type NotationDialect = "Modern" | "Ruwix" | "Twizzle" | "Sse" | "Acube";
 export type ActiveTab = "converter" | "academy" | "workbench" | "patterns" | "timer";
 export type AcademyMethod =
+  | "twoByTwoBeginner"
   | "beginner"
   | "advancedLbl"
   | "beginnerCfop"

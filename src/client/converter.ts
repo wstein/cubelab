@@ -15,6 +15,7 @@ import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
 import {inspectReduction4x4, planNextCentreBlock4x4, planNextWingPair4x4, planOLLParityRepair4x4, planPLLParityRepair4x4, reduce4x4} from "../Solver/Reduction4x4";
 import {
   createOptimal2x2SolverClient,
+  createTwoByTwoAcademySolverClient,
   createReduction4x4SolverClient,
   createManualStateVerifierClient,
   createSolverClient,
@@ -117,6 +118,7 @@ import {
   selectPhasePiece,
   selectTutorialPiece,
 } from "./tutorial-focus";
+import {isMonochromeSolved2x2} from "./two-by-two-academy";
 import {
   appendRecordedMove,
   assessSmartCubeMove,
@@ -504,6 +506,12 @@ if (root) {
   let academyWcaDrillEnabled = false;
   const academyRequestGuard = createAcademyRequestGuard();
   const savedTutorialSolutions = new Map<TutorialMethod, SavedTutorialSolution>();
+  const twoByTwoBeginnerAcademy: AcademyElements = {
+    method: "twoByTwoBeginner",
+    label: "2×2 Beginner / Ortega",
+    phaseCount: 3,
+    ...academyDom("two-by-two-beginner"),
+  };
   const beginnerAcademy: AcademyElements = {
     method: "beginner",
     label: "Beginner LBL",
@@ -547,6 +555,7 @@ if (root) {
     ...academyDom("enhanced-petrus"),
   };
   const academies = [
+    twoByTwoBeginnerAcademy,
     beginnerAcademy,
     advancedLblAcademy,
     beginnerCfopAcademy,
@@ -562,6 +571,9 @@ if (root) {
   const isPetrusMethod = (method: TutorialMethod): boolean =>
     method === "petrus" || method === "enhancedPetrus";
   const solverClient = createSolverClient<CubeState, TutorialSolution>(
+    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+  );
+  const twoByTwoAcademySolverClient = createTwoByTwoAcademySolverClient<CubeState, TutorialSolution>(
     new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
   );
   const manualStateVerifier = createManualStateVerifierClient(
@@ -2737,7 +2749,7 @@ if (root) {
     academySolve.disabled = academySolveBusy
       || activeRecognized === null
       || academyTargetDiagnostic() !== null
-      || size !== 3;
+      || size !== (method === "twoByTwoBeginner" ? 2 : 3);
     academySolve.textContent = savedTutorialSolutions.has(method)
       ? "Regenerate solution"
       : activeRecognized && isSolvedState(activeRecognized.state)
@@ -2975,9 +2987,15 @@ if (root) {
 
   const updateAcademyMethodControls = () => {
     const reductionMode = academyMethod === "reduction4x4";
+    const twoByTwoMode = academyMethod === "twoByTwoBeginner";
     academySharedActions.forEach((control) => { control.hidden = reductionMode; });
-    if (academyTargetControl) academyTargetControl.hidden = reductionMode;
-    if (reductionMode) academyComparison.hidden = true;
+    [academyInstantDrill, academyWcaDrill, academyLoadDrill, academyRandomDrill].forEach((control) => {
+      control.hidden = reductionMode || twoByTwoMode;
+    });
+    academyDrillFamily.closest<HTMLElement>(".academy-target-input")!.hidden = reductionMode || twoByTwoMode;
+    academyDrillCase.closest<HTMLElement>(".academy-target-input")!.hidden = reductionMode || twoByTwoMode;
+    if (academyTargetControl) academyTargetControl.hidden = reductionMode || twoByTwoMode;
+    if (reductionMode || twoByTwoMode) academyComparison.hidden = true;
   };
 
   const updateAcademySource = (recognized: RecognizedInput | null) => {
@@ -2987,8 +3005,8 @@ if (root) {
     resetAcademy();
     academies.forEach((academy) => {
       academy.status.classList.remove("error");
-      academy.status.textContent = size !== 3
-        ? `${academy.label} Academy is available for 3×3 states.`
+      academy.status.textContent = size !== (academy.method === "twoByTwoBeginner" ? 2 : 3)
+        ? `${academy.label} Academy is available for ${academy.method === "twoByTwoBeginner" ? "2×2" : "3×3"} states.`
         : recognized === null
           ? "Enter a valid 3×3 state to begin."
           : isSolvedState(recognized.state) && academyTarget.value.trim() === ""
@@ -6220,8 +6238,40 @@ if (root) {
 
   academySolve.addEventListener("click", () => {
     const method = selectedTutorialMethod();
-    if (method === null || size !== 3 || activeRecognized === null) return;
+    if (method === null || activeRecognized === null) return;
     const initialState = activeRecognized.state;
+    if (method === "twoByTwoBeginner") {
+      if (size !== 2) return;
+      const academy = academyForMethod(method);
+      const request = academyRequestGuard.begin();
+      academySolveBusy = true;
+      updateAcademySolveButton();
+      academy.status.classList.remove("error");
+      academy.status.textContent = "Planning and replay-verifying first layer, OLL, and PBL…";
+      void twoByTwoAcademySolverClient.solve(initialState).then((solution) => {
+        if (!academyRequestGuard.isCurrent(request)) return;
+        academySolveBusy = false;
+        const replay = MoveExecutor.applyAlg(initialState, solution.alg) as Result<CubeState, unknown>;
+        if (replay.TAG === "Error" || !isMonochromeSolved2x2(replay._0)) {
+          academy.status.textContent = "The generated 2×2 route did not reach a monochrome solved cube.";
+          academy.status.classList.add("error");
+          updateAcademySolveButton();
+          return;
+        }
+        savedTutorialSolutions.set(method, {initialState, solution});
+        updateAcademyComparison();
+        updateAcademySolveButton();
+        presentTutorialSolution(initialState, solution, academy);
+      }).catch((reason: unknown) => {
+        if (!academyRequestGuard.isCurrent(request)) return;
+        academySolveBusy = false;
+        academy.status.textContent = reason instanceof Error ? reason.message : String(reason);
+        academy.status.classList.add("error");
+        updateAcademySolveButton();
+      });
+      return;
+    }
+    if (size !== 3) return;
     const target = academyTargetState();
     const academy = academyForMethod(method);
     if (target.TAG === "Error") {
