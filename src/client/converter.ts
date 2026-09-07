@@ -40,6 +40,7 @@ import {
   faceletOrder,
   fillForcedManualStateColours,
   fillLocallyForcedManualStateColours,
+  isManualStateColourAllowedByScarcity,
   isManualStateFixedCentre,
   locallyAllowedManualStateColours,
   manualStateCornerSlots,
@@ -48,6 +49,7 @@ import {
   manualStateFaces,
   manualStatePieceMates,
   manualStateLocalConstraintIndices,
+  manualStateOrbits,
   manualStateStickerCount,
   solvedManualState,
   type ManualStateDraft,
@@ -979,12 +981,35 @@ if (root) {
       (beforeCounts.filter((colour) => colour === face).length === manualSize * manualSize)
       !== (afterCounts.filter((colour) => colour === face).length === manualSize * manualSize),
     );
+    const touchedColours = new Set<ManualStateFace>();
     manualStateDraft.forEach((colour, index) => {
       if (before[index] === colour) return;
+      if (before[index]) touchedColours.add(before[index]!);
+      if (colour) touchedColours.add(colour);
       manualStateLocalConstraintIndices(manualSize, index).forEach((affected) => dirty.add(affected));
     });
-    if (quotaChanged) manualStateDraft.forEach((colour, index) => { if (colour === null) dirty.add(index); });
+    if (quotaChanged) {
+      manualStateDraft.forEach((colour, index) => { if (colour === null) dirty.add(index); });
+    } else {
+      touchedColours.forEach((col) => dirtyManualStateOrbitsForScarcity(manualSize, manualStateDraft, col, dirty, before));
+    }
     manualStateDirtyDots = dirty;
+  };
+
+  const dirtyManualStateOrbitsForScarcity = (
+    manualSize: ManualStateSize,
+    draft: ManualStateDraft,
+    colour: ManualStateFace,
+    target: Set<number>,
+    beforeDraft?: ManualStateDraft,
+  ) => {
+    manualStateOrbits(manualSize).forEach((orbit) => {
+      const sample = orbit.slots[0][0];
+      const allowed = isManualStateColourAllowedByScarcity(manualSize, draft, sample, colour);
+      if (!allowed || (beforeDraft && isManualStateColourAllowedByScarcity(manualSize, beforeDraft, sample, colour) !== allowed)) {
+        orbit.slots.forEach((slot) => slot.forEach((idx) => { if (draft[idx] === null) target.add(idx); }));
+      }
+    });
   };
 
   // A face-centre never has a chosen colour; it is fixed by emptyManualState
@@ -1123,6 +1148,7 @@ if (root) {
           const dirty = manualStateDirtyDots ?? new Set<number>();
           const affected = new Set(manualStateLocalConstraintIndices(manualSize, next.index));
           if (quotaExhausted) manualStateDraft.forEach((c, idx) => { if (c === null) affected.add(idx); });
+          else dirtyManualStateOrbitsForScarcity(manualSize, manualStateDraft, promotedColour, affected);
           affected.forEach((idx) => {
             if (manualStateDraft[idx] !== null) return;
             dirty.add(idx);
