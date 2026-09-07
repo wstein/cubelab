@@ -485,7 +485,7 @@ export const cameraTween = (start: number, target: number, progress: number): nu
 export type OrientationQuaternion = { x: number; y: number; z: number; w: number };
 export type OrientationCoordinateFrame = "viewport" | "gocube-wire" | "gan-wire";
 
-const normalizedQuaternion = (quaternion: OrientationQuaternion): OrientationQuaternion => {
+export const normalizedQuaternion = (quaternion: OrientationQuaternion): OrientationQuaternion => {
   const length = Math.hypot(quaternion.x, quaternion.y, quaternion.z, quaternion.w) || 1;
   return {
     x: quaternion.x / length,
