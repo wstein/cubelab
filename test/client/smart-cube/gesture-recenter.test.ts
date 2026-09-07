@@ -239,4 +239,21 @@ describe("gesture recenter detector", () => {
     expect(triggers.length).toBe(9);
     expect(triggers.every((t) => t.face === 1 && t.move1 === "R" && t.move2 === "R'")).toBe(true);
   });
+
+  test("plays 'realigned' sound cue through audioFeedback when detected", () => {
+    const cues: string[] = [];
+    const detector = createGestureRecenterDetector({
+      targetFace: 1,
+      maxIntervalMs: 250,
+      audioFeedback: {
+        play: (cue) => cues.push(cue),
+      },
+    });
+
+    detector.observeMove({face: 1, direction: 0, move: "R", localTimestamp: 1000});
+    expect(cues.length).toBe(0);
+
+    detector.observeMove({face: 1, direction: 1, move: "R'", localTimestamp: 1150});
+    expect(cues).toEqual(["realigned"]);
+  });
 });

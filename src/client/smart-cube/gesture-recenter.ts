@@ -10,6 +10,8 @@ export type GestureRecenterOptions = {
   targetFace?: number | "any";
   /** Whether gesture detection is currently enabled (default: true). */
   enabled?: boolean;
+  /** Audio feedback instance or callback to play when a gesture is detected. */
+  audioFeedback?: {play: (cue: "realigned") => void} | null;
   /** Callback fired when a valid rapid flick gesture is recognized. */
   onRecenter?: (event: GestureRecenterTriggerEvent) => void;
 };
@@ -45,6 +47,7 @@ export class GestureRecenterDetector {
   private cooldownMs: number;
   private targetFace: number | "any";
   public enabled: boolean;
+  private audioFeedback?: {play: (cue: "realigned") => void} | null;
   private onRecenter?: (event: GestureRecenterTriggerEvent) => void;
 
   private lastOrientation: StoredOrientation | null = null;
@@ -56,6 +59,7 @@ export class GestureRecenterDetector {
     this.cooldownMs = options.cooldownMs ?? 800;
     this.targetFace = options.targetFace ?? 1; // Face 1 = R
     this.enabled = options.enabled ?? true;
+    this.audioFeedback = options.audioFeedback;
     this.onRecenter = options.onRecenter;
   }
 
@@ -135,6 +139,7 @@ export class GestureRecenterDetector {
           restingOrientation,
         };
 
+        this.audioFeedback?.play("realigned");
         this.onRecenter?.(triggerEvent);
         return true;
       }

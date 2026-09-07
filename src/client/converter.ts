@@ -2335,16 +2335,6 @@ if (root) {
     window.setTimeout(() => smartCubeRecenter.classList.remove("pulse"), 450);
   };
 
-  const smartCubeGestureRecenter = createGestureRecenterDetector({
-    targetFace: 1, // Face 1 = R
-    maxIntervalMs: 280,
-    cooldownMs: 800,
-    onRecenter: (event) => {
-      if (!smartCubeOrientationTracking || smartCubeRecording) return;
-      recenterSmartCubeGyroView("gesture", event.restingOrientation ?? undefined);
-    },
-  });
-
   let smartCubeMovesInFlight = 0;
   let smartCubeMoveQueue = Promise.resolve();
   type QueuedSmartCubeMove = {move: string; state: CubeState | null};
@@ -2368,6 +2358,17 @@ if (root) {
     storedSoundPreference = true;
   }
   const smartCubeAudio = createSmartCubeAudioFeedback(storedSoundPreference);
+
+  const smartCubeGestureRecenter = createGestureRecenterDetector({
+    targetFace: 1, // Face 1 = R
+    maxIntervalMs: 280,
+    cooldownMs: 800,
+    audioFeedback: smartCubeAudio,
+    onRecenter: (event) => {
+      if (!smartCubeOrientationTracking || smartCubeRecording) return;
+      recenterSmartCubeGyroView("gesture", event.restingOrientation ?? undefined);
+    },
+  });
 
   const viewportPalette = (): CubePalette =>
     schemeSelect.value === "Japanese" ? "Japanese" : "Western";
