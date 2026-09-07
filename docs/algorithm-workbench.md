@@ -179,6 +179,7 @@ offset or crawl toward an artificial sphere. The exact 24-pose cube rotation gro
 used only to select the nearest cardinal detent: inside 12° of that pose, a quadratic
 blend gently removes tremor and snaps precisely to it; outside the well the motion is
 strictly 1:1 with the sensor.
+The detent runs whether or not the diagnostics HUD is enabled.
 
 Regrip events use a separate 65° threshold from the last confirmed raw baseline. Crossing
 it selects the nearest cardinal cube pose, emits clockwise `x/y/z` notation (the positive

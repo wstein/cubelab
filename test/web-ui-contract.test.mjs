@@ -659,6 +659,11 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /createStableOrientationTracker/);
   assert.match(client, /reconcileDeviceOrientation/);
   assert.match(client, /observeThresholdOrientation/);
+  assert.ok(
+    client.indexOf("viewport.setVirtualOrientationLock(lock)")
+      < client.indexOf("if (!smartCubeDiagnosticsEnabled"),
+    "magnetic detents must remain active when the diagnostic HUD is off",
+  );
   assert.match(client, /Recorded virtual regrip/);
   assert.match(client, /smartCubeDiscreteOrientationTracker\s*=\s*createStableOrientationTracker/);
   assert.match(client, /appendRecordedMove/);

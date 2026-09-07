@@ -2274,12 +2274,10 @@ if (root) {
     if (!viewport) return;
     const eventTracker = smartCubeVirtualFixpointTracker;
     const continuousTracker = smartCubeDiscreteOrientationTracker;
-    if (!smartCubeDiagnosticsEnabled || !eventTracker || !continuousTracker || !current || !frame) {
+    if (!continuousTracker || !current || !frame) {
       viewport.setRegripGauge(null);
       return;
     }
-    const rawDelta = deviceOrientationDelta(eventTracker.baseline, current, frame, eventTracker.deltaFrame);
-    const {axis, radians} = quaternionAxisAngle(rawDelta);
     const continuousDelta = deviceOrientationDelta(
       continuousTracker.baseline,
       current,
@@ -2287,13 +2285,21 @@ if (root) {
       continuousTracker.deltaFrame,
     );
     const lock = nearestCardinalOrientation(continuousDelta);
+    // This is live rendering state, not diagnostics: it must be updated even
+    // when the gauge HUD is disabled.
+    viewport.setVirtualOrientationLock(lock);
+    if (!smartCubeDiagnosticsEnabled || !eventTracker) {
+      viewport.setRegripGauge(null);
+      return;
+    }
+    const rawDelta = deviceOrientationDelta(eventTracker.baseline, current, frame, eventTracker.deltaFrame);
+    const {axis, radians} = quaternionAxisAngle(rawDelta);
     viewport.setRegripGauge({
       degrees: radians * 180 / Math.PI,
       label: nearestRegripAxis(axis),
       activeLockin: cardinalOrientationFaces(lock),
       rawOrientation: current,
     });
-    viewport.setVirtualOrientationLock(lock);
   };
   // During a recording session the physical cube is an input device. Keep a
   // separate virtual state so incoming facelet packets cannot repaint the
