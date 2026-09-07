@@ -127,6 +127,11 @@ describe("cube viewport math", () => {
     expect(viewportSource).not.toMatch(/deviceOrientation = deviceOrientation\s*\? smoothTrackedOrientation/);
   });
 
+  test("labels the virtual 45-degree locks and 30-degree event circles in the gauge", () => {
+    expect(viewportSource).toMatch(/45° virtual lock/);
+    expect(viewportSource).toMatch(/30° event circle/);
+  });
+
   test("preallocates enough VBO space as cube sizes increase", () => {
     const capacities = [2, 3, 4, 5].map(vboCapacityFloats);
     expect(capacities.every((value) => value > 0)).toBe(true);

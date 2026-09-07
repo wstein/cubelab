@@ -1547,14 +1547,32 @@ export const createCubeViewport = (
     overlay.arc(cx, cy, radius + 15 * dpr, 0, Math.PI * 2);
     overlay.fill();
 
-    // Active lock-in pose header above gauge (e.g. "Lock: URFDLB")
+    // Active virtual lock header (e.g. "Lock: URFDLB")
     const activeLockin = regripGaugeDisplayActiveLockin ?? regripGauge.activeLockin;
     if (activeLockin) {
       overlay.fillStyle = "rgba(148, 163, 184, 0.9)";
       overlay.font = `600 ${8.5 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
       overlay.textAlign = "center";
       overlay.textBaseline = "bottom";
-      overlay.fillText(`Lock: ${activeLockin}`, cx, cy - radius - 18 * dpr);
+      overlay.fillText(`Virtual lock: ${activeLockin}`, cx, cy - radius - 18 * dpr);
+    }
+
+    // 45° virtual lock: a cyan equatorial ring with eight dots, representing
+    // the nearest-point stabilizer's 45° longitude spacing.
+    const virtualLockRadius = radius * 0.5;
+    overlay.strokeStyle = "rgba(34, 211, 238, 0.42)";
+    overlay.lineWidth = 1 * dpr;
+    overlay.setLineDash([2 * dpr, 3 * dpr]);
+    overlay.beginPath();
+    overlay.arc(cx, cy, virtualLockRadius, 0, Math.PI * 2);
+    overlay.stroke();
+    overlay.setLineDash([]);
+    overlay.fillStyle = "rgba(34, 211, 238, 0.82)";
+    for (let point = 0; point < 8; point += 1) {
+      const angle = point * Math.PI / 4;
+      overlay.beginPath();
+      overlay.arc(cx + Math.cos(angle) * virtualLockRadius, cy + Math.sin(angle) * virtualLockRadius, 1.5 * dpr, 0, Math.PI * 2);
+      overlay.fill();
     }
 
     // Spokes and labels
@@ -1565,6 +1583,14 @@ export const createCubeViewport = (
       overlay.moveTo(cx, cy);
       overlay.lineTo(cx + Math.cos(spoke.angle) * radius, cy + Math.sin(spoke.angle) * radius);
       overlay.stroke();
+      // 30° event circle around each 90° x/y/z fixpoint.
+      overlay.strokeStyle = "rgba(251, 191, 36, 0.5)";
+      overlay.setLineDash([2 * dpr, 2 * dpr]);
+      overlay.beginPath();
+      overlay.arc(cx + Math.cos(spoke.angle) * radius, cy + Math.sin(spoke.angle) * radius, 7 * dpr, 0, Math.PI * 2);
+      overlay.stroke();
+      overlay.setLineDash([]);
+      overlay.strokeStyle = "rgba(148, 163, 184, 0.45)";
       overlay.fillStyle = spoke.label === regripGaugeDisplayLabel ? "#67e8f9" : "rgba(203, 213, 225, 0.85)";
       overlay.font = `600 ${10 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
       overlay.textAlign = "center";
@@ -1606,6 +1632,10 @@ export const createCubeViewport = (
     overlay.textAlign = "center";
     overlay.textBaseline = "middle";
     overlay.fillText(`${Math.round(regripGaugeDisplayDegrees)}°`, cx, cy);
+    overlay.fillStyle = "rgba(34, 211, 238, 0.82)";
+    overlay.font = `600 ${6.5 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+    overlay.textBaseline = "top";
+    overlay.fillText("cyan: 45° lock · amber: 30° event", cx, cy + 8 * dpr);
     overlay.restore();
   };
 

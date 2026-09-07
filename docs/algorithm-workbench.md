@@ -188,6 +188,9 @@ regrip: learn mode animates the viewport, and a physical-mirror recording append
 event and advances its hardware-to-viewport frame. This does not alter the continuous
 three-ring lock target.
 
+Diagnostics renders these two mechanisms separately: cyan marks the 45° virtual-lock
+ring and its eight longitude points; amber circles mark the six 30° event-capture areas.
+
 Live regrip detection (`observeThresholdOrientation`) fires as soon as the cumulative
 rotation from the last confirmed pose crosses `regripThresholdDegrees` (65° by default,
 see the profile below) — no dwell, no tight alignment gate. Every pair of the cube's 24
