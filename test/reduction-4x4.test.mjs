@@ -128,6 +128,23 @@ test("lifts a verified two-phase finish back onto the original reduced 4×4", ()
   if (replay.TAG === "Ok") expect(isMonochromeSolved4x4(replay._0)).toBe(true);
 });
 
+test("finishes a reduced 4×4 whose completed centre frame is globally rotated", () => {
+  const compact = "UUUUBBBDBBBDUUUURLLRLRRRLRRRRRRRFFFFUUUFUUUFFDDDDBBBUFFFUFFFDFFFLRRLLLLLLLLLLRRLBBBBDDDBDDDBDDDB";
+  const parsed = FaceletCodec.parse(4, compact);
+  expect(parsed.TAG).toBe("Ok");
+  if (parsed.TAG !== "Ok") return;
+  const reduced = reduce4x4(parsed._0);
+  expect(reduced.TAG).toBe("Ok");
+  if (reduced.TAG !== "Ok") return;
+  TwoPhaseSolver.prepareTables();
+  const solution = TwoPhaseSolver.solve(reduced._0.state);
+  expect(solution.TAG).toBe("Ok");
+  if (solution.TAG !== "Ok") return;
+  const replay = MoveExecutor.applyAlg(parsed._0, solution._0.alg);
+  expect(replay.TAG).toBe("Ok");
+  if (replay.TAG === "Ok") expect(isMonochromeSolved4x4(replay._0)).toBe(true);
+});
+
 test("the bounded full-reduction orchestrator solves an already reduced 4×4", () => {
   const fourByFour = apply(4, "R U F2 L'");
   const solution = solveFullReduction4x4(fourByFour);

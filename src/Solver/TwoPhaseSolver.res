@@ -2,6 +2,7 @@ open StateTypes
 open MoveTypes
 
 type solution = {alg: alg, moveCount: int}
+type normalizedInput = {state: cubeState, prefix: alg}
 
 type phase1Coordinates = {twist: int, flip: int, slice: int}
 type phase2Coordinates = {corners: int, edges: int, slice: int}
@@ -114,6 +115,35 @@ let statesEqual = (left: cubeState, right: cubeState) =>
         facelet == Belt.Array.getUnsafe(other, index)
       )
     })
+
+let sameCentres = (left: cubeState, right: cubeState) => {
+  let centre = left.size * left.size / 2
+  left.facelets->Array.everyWithIndex((facelets, faceIndex) => {
+    let other = Belt.Array.getUnsafe(right.facelets, faceIndex)
+    Belt.Array.getUnsafe(facelets, centre) == Belt.Array.getUnsafe(other, centre)
+  })
+}
+
+// Two-phase coordinates are defined in the fixed U/L/F/R/B/D colour frame.
+// Odd cubes may arrive in any valid whole-cube orientation, so reframe the
+// search input first and retain that orientation as a prefix of the answer.
+let normalizedSearchInput = (state: cubeState): option<normalizedInput> =>
+  switch StateTypes.solved(3) {
+  | Error(_) => None
+  | Ok(solved) => {
+    let found = ref(None)
+    PatternState.orientationAlgorithms(3)->Array.forEach(orientation => {
+      if found.contents == None {
+        switch MoveExecutor.applyAlg(state, orientation.alg) {
+        | Ok(candidate) if sameCentres(candidate, solved) =>
+          found := Some({state: candidate, prefix: orientation.alg})
+        | _ => ()
+        }
+      }
+    })
+    found.contents
+  }
+  }
 
 let verifiedSolution = (input: cubeState, alg: alg) =>
   switch (MoveExecutor.applyAlg(input, alg), StateTypes.solved(3)) {
@@ -985,16 +1015,20 @@ let solveAtDepth = (state: cubeState, totalDepth): result<solution, solverError>
   } else if state.size != 3 {
     Error(UnsupportedSize(state.size))
   } else {
-    switch (PieceReducer.reduce(state), phase1Coordinates(state)) {
+    let (searchState, prefix) = switch normalizedSearchInput(state) {
+    | Some(normalized) => (normalized.state, normalized.prefix)
+    | None => (state, [])
+    }
+    switch (PieceReducer.reduce(searchState), phase1Coordinates(searchState)) {
     | (Error(error), _) => Error(InvalidState(error))
     | (_, Error(error)) => Error(error)
     | (Ok(pieces), Ok(coordinates)) =>
       if solvedPieces(pieces) {
-        verifiedSolution(state, [])
+        verifiedSolution(state, prefix)
       } else {
-        switch totalDepthSearch(state, coordinates, totalDepth) {
+        switch totalDepthSearch(searchState, coordinates, totalDepth) {
         | None => Error(SearchFailed)
-        | Some(moves) => verifiedSolution(state, algorithmForMoves(moves))
+        | Some(moves) => verifiedSolution(state, Array.concat(prefix, algorithmForMoves(moves)))
         }
       }
     }
@@ -1011,18 +1045,22 @@ let solve = (state: cubeState): result<solution, solverError> =>
   if state.size != 3 {
     Error(UnsupportedSize(state.size))
   } else {
-    switch PieceReducer.reduce(state) {
+    let (searchState, prefix) = switch normalizedSearchInput(state) {
+    | Some(normalized) => (normalized.state, normalized.prefix)
+    | None => (state, [])
+    }
+    switch PieceReducer.reduce(searchState) {
     | Error(error) => Error(InvalidState(error))
     | Ok(pieces) =>
       if solvedPieces(pieces) {
-        verifiedSolution(state, [])
+        verifiedSolution(state, prefix)
       } else {
-        switch phase1Coordinates(state) {
+        switch phase1Coordinates(searchState) {
         | Error(error) => Error(error)
         | Ok(coordinates) =>
-          switch totalDepthSearch(state, coordinates, 24) {
+          switch totalDepthSearch(searchState, coordinates, 24) {
           | None => Error(SearchFailed)
-          | Some(moves) => verifiedSolution(state, algorithmForMoves(moves))
+          | Some(moves) => verifiedSolution(state, Array.concat(prefix, algorithmForMoves(moves)))
           }
         }
       }

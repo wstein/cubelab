@@ -3,6 +3,7 @@
 import * as Belt_Array from "@rescript/runtime/lib/es6/Belt_Array.js";
 import * as StateTypes from "../State/StateTypes.res.mjs";
 import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
+import * as PatternState from "../State/PatternState.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as Primitive_int from "@rescript/runtime/lib/es6/Primitive_int.js";
@@ -150,6 +151,43 @@ function statesEqual(left, right) {
   } else {
     return false;
   }
+}
+
+function sameCentres(left, right) {
+  let centre = (left.size * left.size | 0) / 2 | 0;
+  return left.facelets.every((facelets, faceIndex) => {
+    let other = right.facelets[faceIndex];
+    return facelets[centre] === other[centre];
+  });
+}
+
+function normalizedSearchInput(state) {
+  let solved = StateTypes.solved(3);
+  if (solved.TAG !== "Ok") {
+    return;
+  }
+  let solved$1 = solved._0;
+  let found = {
+    contents: undefined
+  };
+  PatternState.orientationAlgorithms(3).forEach(orientation => {
+    if (found.contents !== undefined) {
+      return;
+    }
+    let candidate = MoveExecutor.applyAlg(state, orientation.alg);
+    if (candidate.TAG !== "Ok") {
+      return;
+    }
+    let candidate$1 = candidate._0;
+    if (sameCentres(candidate$1, solved$1)) {
+      found.contents = {
+        state: candidate$1,
+        prefix: orientation.alg
+      };
+      return;
+    }
+  });
+  return found.contents;
 }
 
 function verifiedSolution(input, alg) {
@@ -1142,29 +1180,39 @@ function solveAtDepth(state, totalDepth) {
       }
     };
   }
-  let match = PieceReducer.reduce(state);
-  let match$1 = phase1Coordinates(state);
-  if (match.TAG !== "Ok") {
+  let normalized = normalizedSearchInput(state);
+  let match = normalized !== undefined ? [
+      normalized.state,
+      normalized.prefix
+    ] : [
+      state,
+      []
+    ];
+  let prefix = match[1];
+  let searchState = match[0];
+  let match$1 = PieceReducer.reduce(searchState);
+  let match$2 = phase1Coordinates(searchState);
+  if (match$1.TAG !== "Ok") {
     return {
       TAG: "Error",
       _0: {
         TAG: "InvalidState",
-        _0: match._0
+        _0: match$1._0
       }
     };
   }
-  if (match$1.TAG !== "Ok") {
+  if (match$2.TAG !== "Ok") {
     return {
       TAG: "Error",
-      _0: match$1._0
+      _0: match$2._0
     };
   }
-  if (solvedPieces(match._0)) {
-    return verifiedSolution(state, []);
+  if (solvedPieces(match$1._0)) {
+    return verifiedSolution(state, prefix);
   }
-  let moves = totalDepthSearch(state, match$1._0, totalDepth);
+  let moves = totalDepthSearch(searchState, match$2._0, totalDepth);
   if (moves !== undefined) {
-    return verifiedSolution(state, algorithmForMoves(moves));
+    return verifiedSolution(state, prefix.concat(algorithmForMoves(moves)));
   } else {
     return {
       TAG: "Error",
@@ -1196,7 +1244,17 @@ function solve(state) {
       }
     };
   }
-  let error = PieceReducer.reduce(state);
+  let normalized = normalizedSearchInput(state);
+  let match = normalized !== undefined ? [
+      normalized.state,
+      normalized.prefix
+    ] : [
+      state,
+      []
+    ];
+  let prefix = match[1];
+  let searchState = match[0];
+  let error = PieceReducer.reduce(searchState);
   if (error.TAG !== "Ok") {
     return {
       TAG: "Error",
@@ -1207,18 +1265,18 @@ function solve(state) {
     };
   }
   if (solvedPieces(error._0)) {
-    return verifiedSolution(state, []);
+    return verifiedSolution(state, prefix);
   }
-  let error$1 = phase1Coordinates(state);
+  let error$1 = phase1Coordinates(searchState);
   if (error$1.TAG !== "Ok") {
     return {
       TAG: "Error",
       _0: error$1._0
     };
   }
-  let moves = totalDepthSearch(state, error$1._0, 24);
+  let moves = totalDepthSearch(searchState, error$1._0, 24);
   if (moves !== undefined) {
-    return verifiedSolution(state, algorithmForMoves(moves));
+    return verifiedSolution(state, prefix.concat(algorithmForMoves(moves)));
   } else {
     return {
       TAG: "Error",
@@ -1254,6 +1312,8 @@ export {
   compactSliceMoveTableCache,
   describeError,
   statesEqual,
+  sameCentres,
+  normalizedSearchInput,
   verifiedSolution,
   isIdentity,
   allZero,
