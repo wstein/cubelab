@@ -1,4 +1,5 @@
 import {describe, expect, test} from "vitest";
+import {readFile} from "node:fs/promises";
 
 import * as CubeGeometry from "../../src/Render/CubeGeometry.res.mjs";
 import * as StateTypes from "../../src/State/StateTypes.res.mjs";
@@ -29,6 +30,8 @@ import {
   vboCapacityFloats,
 } from "../../src/client/cube-gl";
 import {cubieIsFrontFacing} from "../../src/client/motion-overlay";
+
+const viewportSource = await readFile(new URL("../../src/client/cube-gl.ts", import.meta.url), "utf8");
 
 describe("cube viewport math", () => {
   test("derives a display correction without changing the raw IMU pose", () => {
@@ -117,6 +120,11 @@ describe("cube viewport math", () => {
       z: 0,
       w: 1,
     })).toBeCloseTo(0, 8);
+  });
+
+  test("feeds the virtual lock and gauge directly from the raw IMU sample", () => {
+    expect(viewportSource).toMatch(/deviceOrientation = normalized;/);
+    expect(viewportSource).not.toMatch(/deviceOrientation = deviceOrientation\s*\? smoothTrackedOrientation/);
   });
 
   test("preallocates enough VBO space as cube sizes increase", () => {

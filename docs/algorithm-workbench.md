@@ -261,6 +261,11 @@ drifts that residual to zero at the 2°/s offset rate. The detector still rebase
 the raw triggering sample internally, solely to prevent repeated threshold events; that
 rolling detector baseline is never used for the gauge.
 
+The gauge and virtual correction consume the same raw IMU packet as the threshold
+detector. They must not use a separately smoothed packet: smoothing introduces lag, which
+can make an ordinary rotation appear more than 90° away from a lock that the detector has
+already advanced.
+
 The first smart-cube event prints `trace enabled`. If it does not, reload after setting
 the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use
 a hard reload or restart the development server before reproducing the issue.

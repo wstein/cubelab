@@ -2108,9 +2108,10 @@ export const createCubeViewport = (
       }
       deviceOrientationFrame = coordinateFrame;
       if (!deviceOrientationBase) deviceOrientationBase = normalized;
-      deviceOrientation = deviceOrientation
-        ? smoothTrackedOrientation(deviceOrientation, normalized)
-        : normalized;
+      // Regrip detection and the virtual lock both use this raw packet. Keeping
+      // a second, lagging smoothing stream here can put the gauge more than a
+      // quarter turn behind the detector's already-advanced cardinal lock.
+      deviceOrientation = normalized;
       cancelCamera();
       stopInertia();
       stopAutoOrbitFrame();
