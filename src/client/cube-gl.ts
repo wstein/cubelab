@@ -1692,7 +1692,9 @@ export const createCubeViewport = (
       const now = performance.now();
       const targetOffset = multiplyQuaternions(deviceOrientationLockTarget, inverseQuaternion(rawOrientation));
       if (deviceOrientationOffset === null) {
-        deviceOrientationOffset = targetOffset;
+        // Start at the unadjusted raw pose. Initializing to targetOffset would
+        // snap the gauge to zero before its 2°/s virtual drift is observable.
+        deviceOrientationOffset = {x: 0, y: 0, z: 0, w: 1};
       } else {
         deviceOrientationOffset = followSmartCubeOrientationOffset(
           deviceOrientationOffset,

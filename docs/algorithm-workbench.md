@@ -182,6 +182,9 @@ display-only offset moves toward the selected point at 2°/s, stabilizing sensor
 without threshold or regrip detection. The threshold-specific description below remains
 as historical context for the recording tracker only.
 
+The offset begins at the raw pose rather than snapping to the first selected lock, so the
+diagnostics needle exposes the initial residual and its gradual correction to zero.
+
 An independent event layer retains six 30° quarter-turn capture circles (`x`, `x'`, `y`,
 `y'`, `z`, `z'`) around the active pose. Entering one emits the corresponding virtual
 regrip: learn mode animates the viewport, and a physical-mirror recording appends the

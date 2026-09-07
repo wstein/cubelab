@@ -132,6 +132,10 @@ describe("cube viewport math", () => {
     expect(viewportSource).toMatch(/30° event circle/);
   });
 
+  test("starts virtual drift at the raw pose instead of snapping its gauge to a lock", () => {
+    expect(viewportSource).toMatch(/deviceOrientationOffset = \{x: 0, y: 0, z: 0, w: 1\}/);
+  });
+
   test("preallocates enough VBO space as cube sizes increase", () => {
     const capacities = [2, 3, 4, 5].map(vboCapacityFloats);
     expect(capacities.every((value) => value > 0)).toBe(true);
