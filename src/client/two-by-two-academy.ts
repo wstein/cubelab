@@ -226,3 +226,150 @@ export const planTwoByTwoBeginnerRoute = async (
     moveCount: firstLayer.moveCount + oll.moveCount + pbl.moveCount,
   };
 };
+
+/**
+ * A 2×2 has neither fixed centres nor edge cubies. This Academy calls its
+ * small-corner route Petrus-inspired rather than Petrus: it teaches a square,
+ * then the adjacent back pair, in a reference frame chosen once per setup.
+ *
+ * The four frames are equivalent y-axis views. Their index is retained with
+ * the route so every phase is measured against the same LBD teaching frame.
+ */
+const petrusFrameSlots = (frame: number): {firstSquare: readonly [number, number]; backPair: readonly [number, number]} => {
+  const frames = [
+    {firstSquare: [5, 6], backPair: [2, 6]}, // DLF, DBL · ULB, DBL
+    {firstSquare: [6, 7], backPair: [3, 7]}, // DBL, DRB · UBR, DRB
+    {firstSquare: [7, 4], backPair: [0, 4]}, // DRB, DFR · URF, DFR
+    {firstSquare: [4, 5], backPair: [1, 5]}, // DFR, DLF · UFL, DLF
+  ] as const;
+  return frames[((frame % frames.length) + frames.length) % frames.length]!;
+};
+
+const petrusFrameLabels = ["LBD", "RBD", "RFD", "LFD"] as const;
+
+/** Human-readable name for the Academy-relative frame locked with a route. */
+export const twoByTwoPetrusFrameLabel = (frame: number): string =>
+  petrusFrameLabels[((frame % petrusFrameLabels.length) + petrusFrameLabels.length) % petrusFrameLabels.length]!;
+
+const correctlySolvedSlots = (state: Cubies, slots: readonly number[]): boolean =>
+  slots.every((slot) => state.cp[slot] === slot && state.co[slot] === 0);
+
+export type TwoByTwoPetrusPhaseStatus = {
+  firstSquare: boolean;
+  backPair: boolean;
+  finish: boolean;
+};
+
+export const twoByTwoPetrusPhaseStatus = (state: unknown, frame: number): TwoByTwoPetrusPhaseStatus => {
+  const reduced = PieceReducer.reduce(state);
+  if (reduced.TAG !== "Ok") return {firstSquare: false, backPair: false, finish: false};
+  const slots = petrusFrameSlots(frame);
+  const cubies = reduced._0 as Cubies;
+  const firstSquare = correctlySolvedSlots(cubies, slots.firstSquare);
+  return {
+    firstSquare,
+    backPair: firstSquare && correctlySolvedSlots(cubies, slots.backPair),
+    finish: isMonochromeSolved2x2(state),
+  };
+};
+
+export const twoByTwoPetrusPhaseDefinitions = [
+  {
+    number: 1,
+    title: "Build the first square / block",
+    instruction: "Build the two-corner square in the Academy-relative LBD frame selected for this setup.",
+  },
+  {
+    number: 2,
+    title: "Complete the back pair",
+    instruction: "Keep that square and complete its adjacent back-corner pair in the locked frame.",
+  },
+  {
+    number: 3,
+    title: "Finish the corner relation",
+    instruction: "Use the remaining corner relation to finish; any monochrome whole-cube orientation is solved.",
+  },
+] as const;
+
+export type TwoByTwoPetrusRouteVerification =
+  | {ok: true; finalState: unknown}
+  | {ok: false; phase: 1 | 2 | 3; message: string};
+
+export const verifyTwoByTwoPetrusRoute = (
+  initialState: unknown,
+  frame: number,
+  phaseAlgorithms: readonly [unknown, unknown, unknown],
+): TwoByTwoPetrusRouteVerification => {
+  let state = initialState;
+  for (let index = 0; index < phaseAlgorithms.length; index += 1) {
+    const replay = MoveExecutor.applyAlg(state, phaseAlgorithms[index]);
+    if (replay.TAG !== "Ok") {
+      return {ok: false, phase: (index + 1) as 1 | 2 | 3, message: "The Petrus-inspired phase algorithm could not be replayed."};
+    }
+    state = replay._0;
+    const status = twoByTwoPetrusPhaseStatus(state, frame);
+    if (index === 0 && !status.firstSquare) {
+      return {ok: false, phase: 1, message: "Phase 1 did not build the selected first square."};
+    }
+    if (index === 1 && !status.backPair) {
+      return {ok: false, phase: 2, message: "Phase 2 did not complete the selected back pair."};
+    }
+    if (index === 2 && !status.finish) {
+      return {ok: false, phase: 3, message: "Phase 3 did not leave every face monochrome."};
+    }
+  }
+  return {ok: true, finalState: state};
+};
+
+const petrusFrameScore = (state: Cubies, frame: number): number => {
+  const slots = petrusFrameSlots(frame);
+  const firstSquare = slots.firstSquare.filter((slot) => state.cp[slot] === slot && state.co[slot] === 0).length;
+  const backPair = slots.backPair.filter((slot) => state.cp[slot] === slot && state.co[slot] === 0).length;
+  return firstSquare * 10 + backPair;
+};
+
+/** Select once, deterministically, then preserve the most promising LBD view throughout the lesson. */
+export const selectTwoByTwoPetrusFrame = (state: unknown): number => {
+  const reduced = PieceReducer.reduce(state);
+  if (reduced.TAG !== "Ok") return 0;
+  const cubies = reduced._0 as Cubies;
+  return [0, 1, 2, 3].reduce((best, frame) =>
+    petrusFrameScore(cubies, frame) > petrusFrameScore(cubies, best) ? frame : best, 0);
+};
+
+export type TwoByTwoPetrusPlan =
+  | {ok: true; frame: number; phaseAlgorithms: [unknown, unknown, unknown]; moveCount: number}
+  | {ok: false; message: string};
+
+/** Plans and replay-verifies a three-phase, frame-locked 2×2 Petrus-inspired route. */
+export const planTwoByTwoPetrusRoute = async (
+  initialState: unknown,
+  solveExactly: ExactTwoByTwoSolver,
+): Promise<TwoByTwoPetrusPlan> => {
+  const reduced = PieceReducer.reduce(initialState);
+  if (reduced.TAG !== "Ok") return {ok: false, message: "The 2×2 state could not be reduced to corners."};
+  const frame = selectTwoByTwoPetrusFrame(initialState);
+  const slots = petrusFrameSlots(frame);
+  const firstMoves = searchStage(reduced._0 as Cubies, (state) => correctlySolvedSlots(state, slots.firstSquare), 8);
+  if (firstMoves === null) return {ok: false, message: "No first-square route was found within 8 moves."};
+  const firstSquare = encodeStage(firstMoves);
+  if (!firstSquare.ok) return firstSquare;
+  const afterFirstSquare = applyAcademyPhase(initialState, firstSquare.algorithm);
+  if (!afterFirstSquare.ok) return afterFirstSquare;
+
+  const afterFirstReduced = PieceReducer.reduce(afterFirstSquare.state);
+  if (afterFirstReduced.TAG !== "Ok") return {ok: false, message: "The first-square state could not be reduced to corners."};
+  const allBackSlots = [...new Set([...slots.firstSquare, ...slots.backPair])];
+  const backMoves = searchStage(afterFirstReduced._0 as Cubies, (state) => correctlySolvedSlots(state, allBackSlots), 8);
+  if (backMoves === null) return {ok: false, message: "No first-square-preserving back-pair route was found within 8 moves."};
+  const backPair = encodeStage(backMoves);
+  if (!backPair.ok) return backPair;
+  const afterBackPair = applyAcademyPhase(afterFirstSquare.state, backPair.algorithm);
+  if (!afterBackPair.ok) return afterBackPair;
+
+  const finish = await solveExactly(afterBackPair.state);
+  const phaseAlgorithms: [unknown, unknown, unknown] = [firstSquare.algorithm, backPair.algorithm, finish.alg];
+  const verification = verifyTwoByTwoPetrusRoute(initialState, frame, phaseAlgorithms);
+  if (!verification.ok) return {ok: false, message: verification.message};
+  return {ok: true, frame, phaseAlgorithms, moveCount: firstSquare.moveCount + backPair.moveCount + finish.moveCount};
+};

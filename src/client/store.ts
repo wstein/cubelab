@@ -6,6 +6,7 @@ export type NotationDialect = "Modern" | "Ruwix" | "Twizzle" | "Sse" | "Acube";
 export type ActiveTab = "converter" | "academy" | "workbench" | "patterns" | "timer";
 export type AcademyMethod =
   | "twoByTwoBeginner"
+  | "twoByTwoPetrus"
   | "beginner"
   | "advancedLbl"
   | "beginnerCfop"
@@ -122,7 +123,10 @@ export const readHash = (hash: string): AppState => {
         ? "timer"
       : "converter";
   const requestedMethod = params.get("method");
-  const academyMethod: AcademyMethod = requestedMethod === "petrus"
+  const academyMethod: AcademyMethod = requestedMethod === "twoByTwoPetrus"
+      || requestedMethod === "petrus2x2"
+      ? "twoByTwoPetrus"
+      : requestedMethod === "petrus"
       || requestedMethod === "classicalPetrus"
       ? "petrus"
       : requestedMethod === "enhancedPetrus" || requestedMethod === "modernPetrus"

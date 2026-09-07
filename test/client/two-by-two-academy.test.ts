@@ -5,10 +5,15 @@ import * as MoveParser from "../../src/Move/MoveParser.res.mjs";
 import * as StateTypes from "../../src/State/StateTypes.res.mjs";
 import {
   twoByTwoPhaseStatus,
+  isMonochromeSolved2x2,
   planTwoByTwoPblFinish,
   planTwoByTwoOll,
   planTwoByTwoFirstLayer,
   planTwoByTwoBeginnerRoute,
+  planTwoByTwoPetrusRoute,
+  twoByTwoPetrusFrameLabel,
+  twoByTwoPetrusPhaseStatus,
+  verifyTwoByTwoPetrusRoute,
   verifyTwoByTwoBeginnerRoute,
 } from "../../src/client/two-by-two-academy";
 
@@ -79,5 +84,38 @@ describe("2×2 Beginner Academy phase contract", () => {
     const result = await planTwoByTwoBeginnerRoute(apply("U"), async () => ({alg: parse("U'"), moveCount: 1}));
     expect(result).toMatchObject({ok: true, moveCount: 1});
     if (result.ok) expect(verifyTwoByTwoBeginnerRoute(apply("U"), result.phaseAlgorithms).ok).toBe(true);
+  });
+});
+
+describe("2×2 Petrus-inspired Academy phase contract", () => {
+  test("locks one adaptive frame and keeps first square distinct from the back pair", () => {
+    expect(twoByTwoPetrusFrameLabel(0)).toBe("LBD");
+    expect(twoByTwoPetrusFrameLabel(4)).toBe("LBD");
+    const solved = apply("");
+    const status = twoByTwoPetrusPhaseStatus(solved, 0);
+    expect(status).toEqual({firstSquare: true, backPair: true, finish: true});
+
+    const firstSquareOnly = apply("U");
+    expect(twoByTwoPetrusPhaseStatus(firstSquareOnly, 0)).toMatchObject({firstSquare: true, backPair: false, finish: false});
+  });
+
+  test("only accepts replayed phase boundaries in the selected frame", () => {
+    expect(verifyTwoByTwoPetrusRoute(apply("U"), 0, [parse(""), parse("U'"), parse("")]).ok).toBe(true);
+    expect(verifyTwoByTwoPetrusRoute(apply("R"), 3, [parse(""), parse(""), parse("R'")])).toMatchObject({
+      ok: false,
+      phase: 1,
+    });
+  });
+
+  test("plans a locked-frame route and proves all three Petrus-inspired boundaries", async () => {
+    const initial = apply("U");
+    const result = await planTwoByTwoPetrusRoute(initial, async (state) => ({
+      alg: isMonochromeSolved2x2(state) ? parse("") : parse("U'"),
+      moveCount: isMonochromeSolved2x2(state) ? 0 : 1,
+    }));
+    expect(result).toMatchObject({ok: true, moveCount: 1});
+    if (result.ok) {
+      expect(verifyTwoByTwoPetrusRoute(initial, result.frame, result.phaseAlgorithms).ok).toBe(true);
+    }
   });
 });

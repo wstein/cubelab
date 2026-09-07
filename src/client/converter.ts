@@ -16,6 +16,7 @@ import {inspectReduction4x4, planNextCentreBlock4x4, planNextWingPair4x4, planOL
 import {
   createOptimal2x2SolverClient,
   createTwoByTwoAcademySolverClient,
+  createTwoByTwoPetrusSolverClient,
   createReduction4x4SolverClient,
   createManualStateVerifierClient,
   createSolverClient,
@@ -517,6 +518,12 @@ if (root) {
     phaseCount: 3,
     ...academyDom("two-by-two-beginner"),
   };
+  const twoByTwoPetrusAcademy: AcademyElements = {
+    method: "twoByTwoPetrus",
+    label: "2×2 Petrus-inspired",
+    phaseCount: 3,
+    ...academyDom("two-by-two-petrus"),
+  };
   const beginnerAcademy: AcademyElements = {
     method: "beginner",
     label: "Beginner LBL",
@@ -561,6 +568,7 @@ if (root) {
   };
   const academies = [
     twoByTwoBeginnerAcademy,
+    twoByTwoPetrusAcademy,
     beginnerAcademy,
     advancedLblAcademy,
     beginnerCfopAcademy,
@@ -579,6 +587,9 @@ if (root) {
     new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
   );
   const twoByTwoAcademySolverClient = createTwoByTwoAcademySolverClient<CubeState, TutorialSolution>(
+    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+  );
+  const twoByTwoPetrusSolverClient = createTwoByTwoPetrusSolverClient<CubeState, TutorialSolution>(
     new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
   );
   const manualStateVerifier = createManualStateVerifierClient(
@@ -2774,7 +2785,7 @@ if (root) {
     academySolve.disabled = academySolveBusy
       || activeRecognized === null
       || academyTargetDiagnostic() !== null
-      || size !== (method === "twoByTwoBeginner" ? 2 : 3);
+      || size !== (method === "twoByTwoBeginner" || method === "twoByTwoPetrus" ? 2 : 3);
     academySolve.textContent = savedTutorialSolutions.has(method)
       ? "Regenerate solution"
       : activeRecognized && isSolvedState(activeRecognized.state)
@@ -3012,7 +3023,7 @@ if (root) {
 
   const updateAcademyMethodControls = () => {
     const reductionMode = academyMethod === "reduction4x4";
-    const twoByTwoMode = academyMethod === "twoByTwoBeginner";
+    const twoByTwoMode = academyMethod === "twoByTwoBeginner" || academyMethod === "twoByTwoPetrus";
     academySharedActions.forEach((control) => { control.hidden = reductionMode; });
     [academyInstantDrill, academyWcaDrill, academyLoadDrill, academyRandomDrill].forEach((control) => {
       control.hidden = reductionMode || twoByTwoMode;
@@ -3030,8 +3041,8 @@ if (root) {
     resetAcademy();
     academies.forEach((academy) => {
       academy.status.classList.remove("error");
-      academy.status.textContent = size !== (academy.method === "twoByTwoBeginner" ? 2 : 3)
-        ? `${academy.label} Academy is available for ${academy.method === "twoByTwoBeginner" ? "2×2" : "3×3"} states.`
+      academy.status.textContent = size !== (academy.method === "twoByTwoBeginner" || academy.method === "twoByTwoPetrus" ? 2 : 3)
+        ? `${academy.label} Academy is available for ${academy.method === "twoByTwoBeginner" || academy.method === "twoByTwoPetrus" ? "2×2" : "3×3"} states.`
         : recognized === null
           ? "Enter a valid 3×3 state to begin."
           : isSolvedState(recognized.state) && academyTarget.value.trim() === ""
@@ -6265,15 +6276,18 @@ if (root) {
     const method = selectedTutorialMethod();
     if (method === null || activeRecognized === null) return;
     const initialState = activeRecognized.state;
-    if (method === "twoByTwoBeginner") {
+    if (method === "twoByTwoBeginner" || method === "twoByTwoPetrus") {
       if (size !== 2) return;
       const academy = academyForMethod(method);
       const request = academyRequestGuard.begin();
       academySolveBusy = true;
       updateAcademySolveButton();
       academy.status.classList.remove("error");
-      academy.status.textContent = "Planning and replay-verifying first layer, OLL, and PBL…";
-      void twoByTwoAcademySolverClient.solve(initialState).then((solution) => {
+      academy.status.textContent = method === "twoByTwoPetrus"
+        ? "Selecting a frame and replay-verifying first square, back pair, and finish…"
+        : "Planning and replay-verifying first layer, OLL, and PBL…";
+      const client = method === "twoByTwoPetrus" ? twoByTwoPetrusSolverClient : twoByTwoAcademySolverClient;
+      void client.solve(initialState).then((solution) => {
         if (!academyRequestGuard.isCurrent(request)) return;
         academySolveBusy = false;
         const replay = MoveExecutor.applyAlg(initialState, solution.alg) as Result<CubeState, unknown>;
