@@ -2298,6 +2298,7 @@ if (root) {
       degrees: radians * 180 / Math.PI,
       label: nearestRegripAxis(axis),
       activeLockin: cardinalOrientationFaces(lock),
+      rawDegrees: radians * 180 / Math.PI,
       rawOrientation: current,
     });
   };

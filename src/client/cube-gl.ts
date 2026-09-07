@@ -73,6 +73,8 @@ export type RegripGaugeState = {
   label: string | null;
   /** Active lock-in orientation in URFDLB face notation (e.g. "URFDLB"). */
   activeLockin?: string | null;
+  /** Raw rotation displacement in degrees before detent or drift offset. */
+  rawDegrees?: number;
   /** Latest raw gyro quaternion, shown verbatim for diagnostics. */
   rawOrientation?: OrientationQuaternion;
 } | null;
@@ -591,24 +593,66 @@ export const slerpQuaternion = (
 
 /**
  * A zero-latency magnetic detent for live gyro rendering. Outside the well
- * the raw orientation passes through unchanged; within it a strong but
- * continuous pull
- * removes tremor and lands exactly on the cardinal pose.
+ * the raw orientation passes through unchanged; within it a strong continuous pull
+ * removes tremor, while near the centre (<= snapDegrees) it locks fully onto the
+ * cardinal pose.
  */
 export const magneticOrientationDetent = (
   raw: OrientationQuaternion,
   cardinalTarget: OrientationQuaternion,
   radiusDegrees = 35,
+  snapDegrees = 4,
 ): OrientationQuaternion => {
   const distance = orientationDistanceRadians(raw, cardinalTarget);
   const radius = radiusDegrees * Math.PI / 180;
   if (distance >= radius) return raw;
-  const normalizedDistance = distance / Math.max(radius, 1e-8);
+  const snapRadius = snapDegrees * Math.PI / 180;
+  if (distance <= snapRadius) return cardinalTarget;
+  const normalizedDistance = (distance - snapRadius) / Math.max(radius - snapRadius, 1e-8);
   return slerpQuaternion(
     raw,
     cardinalTarget,
     Math.sqrt(Math.max(0, 1 - normalizedDistance * normalizedDistance)),
   );
+};
+
+/**
+ * Slews a persistent gyro drift offset toward the cardinal lock at a bounded
+ * rate (default ~2°/s). When inside the magnetic well, ongoing sensor drift
+ * and resting hand deviations are smoothly absorbed until the virtual cube
+ * reaches exact 0° alignment.
+ */
+export const stepGyroDriftOffset = (
+  currentOffset: OrientationQuaternion,
+  rawOrientation: OrientationQuaternion,
+  lockTarget: OrientationQuaternion,
+  deltaTimeSeconds: number,
+  driftRateDegreesPerSecond = 2,
+  wellRadiusDegrees = 35,
+): {offset: OrientationQuaternion; distanceToLock: number; isDrifting: boolean} => {
+  const normOffset = normalizedQuaternion(currentOffset);
+  const normRaw = normalizedQuaternion(rawOrientation);
+  const normTarget = normalizedQuaternion(lockTarget);
+  const adjusted = normalizedQuaternion(multiplyQuaternions(normOffset, normRaw));
+  const distance = orientationDistanceRadians(adjusted, normTarget);
+  const wellRadius = wellRadiusDegrees * Math.PI / 180;
+
+  if (distance >= wellRadius || distance < 1e-6 || deltaTimeSeconds <= 0) {
+    return {offset: normOffset, distanceToLock: distance, isDrifting: false};
+  }
+
+  const maxAngleStep = (driftRateDegreesPerSecond * Math.PI / 180) * deltaTimeSeconds;
+  const fraction = Math.min(1, maxAngleStep / distance);
+  const nextAdjusted = slerpQuaternion(adjusted, normTarget, fraction);
+  const nextOffset = normalizedQuaternion(
+    multiplyQuaternions(nextAdjusted, inverseQuaternion(normRaw)),
+  );
+  const nextDistance = orientationDistanceRadians(nextAdjusted, normTarget);
+  return {
+    offset: nextOffset,
+    distanceToLock: nextDistance,
+    isDrifting: nextDistance > 1e-5,
+  };
 };
 
 /** Locks sub-threshold IMU jitter and softens larger moves along the shortest quaternion path. */
@@ -911,6 +955,9 @@ export const createCubeViewport = (
   let deviceOrientationFrame: OrientationCoordinateFrame = "viewport";
   let deviceOrientationCorrectionFrame: number | null = null;
   let deviceOrientationCorrectionGeneration = 0;
+  let gyroDriftOffset: OrientationQuaternion = {x: 0, y: 0, z: 0, w: 1};
+  let lastGyroDriftTime: number | null = null;
+  let isGyroDrifting = false;
   canvas.dataset.autoOrbitState = "off";
   const overlay = overlayCanvas.getContext("2d");
 
@@ -1549,9 +1596,10 @@ export const createCubeViewport = (
     overlay.save();
 
     // Dark translucent background disc
-    overlay.fillStyle = "rgba(8, 15, 30, 0.65)";
+    const discRadius = radius + 22 * dpr;
+    overlay.fillStyle = "rgba(8, 15, 30, 0.68)";
     overlay.beginPath();
-    overlay.arc(cx, cy, radius + 15 * dpr, 0, Math.PI * 2);
+    overlay.arc(cx, cy, discRadius, 0, Math.PI * 2);
     overlay.fill();
 
     // Active virtual lock header (e.g. "Lock: URFDLB")
@@ -1618,29 +1666,51 @@ export const createCubeViewport = (
     overlay.font = `600 ${6.5 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
     overlay.textBaseline = "top";
     overlay.fillText("residual to virtual lock", cx, cy + 8 * dpr);
+    const rawDegrees = regripGauge.rawDegrees ?? (regripGauge.rawOrientation ? regripGauge.degrees : 0);
+    const driftOffsetDeg = orientationDistanceRadians({x: 0, y: 0, z: 0, w: 1}, gyroDriftOffset) * 180 / Math.PI;
+
+    overlay.fillStyle = "rgba(203, 213, 225, 0.82)";
+    overlay.font = `600 ${5.5 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
     if (regripGauge.rawOrientation) {
       const raw = regripGauge.rawOrientation;
-      overlay.fillStyle = "rgba(203, 213, 225, 0.78)";
-      overlay.font = `600 ${6 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
-      overlay.fillText(`gyro ${raw.x.toFixed(2)} ${raw.y.toFixed(2)} ${raw.z.toFixed(2)} ${raw.w.toFixed(2)}`, cx, cy + 17 * dpr);
-      overlay.fillText(`magnet: pull ${magneticDetentPullDegrees.toFixed(1)}°`, cx, cy + 25 * dpr);
+      overlay.fillText(
+        `raw gyro ${raw.x.toFixed(2)} ${raw.y.toFixed(2)} ${raw.z.toFixed(2)} ${raw.w.toFixed(2)} (${rawDegrees.toFixed(1)}°)`,
+        cx,
+        cy + 17 * dpr,
+      );
+    } else {
+      overlay.fillText(`raw ${rawDegrees.toFixed(1)}°`, cx, cy + 17 * dpr);
     }
+    overlay.fillText(
+      `offset ${driftOffsetDeg.toFixed(1)}° (${gyroDriftOffset.x.toFixed(2)} ${gyroDriftOffset.y.toFixed(2)} ${gyroDriftOffset.z.toFixed(2)} ${gyroDriftOffset.w.toFixed(2)})`,
+      cx,
+      cy + 24.5 * dpr,
+    );
+    overlay.fillText(`magnet: pull ${magneticDetentPullDegrees.toFixed(1)}°`, cx, cy + 32 * dpr);
     overlay.restore();
   };
 
-  const stepRegripGaugeDisplay = () => {
+  const stepRegripGaugeDisplay = (
+    adjustedResidualDegrees?: number,
+    adjustedResidualLabel?: string | null,
+  ) => {
     if (!regripGauge) {
       regripGaugeDisplayDegrees = 0;
       regripGaugeDisplayLabel = null;
       regripGaugeDisplayActiveLockin = null;
       return;
     }
-    regripGaugeDisplayLabel = regripGauge.label ?? regripGaugeDisplayLabel;
     regripGaugeDisplayActiveLockin = regripGauge.activeLockin ?? regripGaugeDisplayActiveLockin;
-    regripGaugeDisplayDegrees = Math.max(0, regripGauge.degrees);
+    if (adjustedResidualDegrees !== undefined) {
+      regripGaugeDisplayDegrees = Math.max(0, adjustedResidualDegrees);
+      regripGaugeDisplayLabel = adjustedResidualLabel ?? regripGauge.label ?? regripGaugeDisplayLabel;
+    } else {
+      regripGaugeDisplayLabel = regripGauge.label ?? regripGaugeDisplayLabel;
+      regripGaugeDisplayDegrees = Math.max(0, regripGauge.degrees);
+    }
   };
 
-  const render = () => {
+  const render = (now: number = performance.now()) => {
     frame = null;
     if (disposed || !visible || vertexCount === 0) return;
     const bounds = canvas.getBoundingClientRect();
@@ -1673,13 +1743,37 @@ export const createCubeViewport = (
     const rawOrientation = deviceOrientationBase && deviceOrientation
       ? deviceOrientationDelta(deviceOrientationBase, deviceOrientation, deviceOrientationFrame, "world")
       : undefined;
-    const detentedOrientation = rawOrientation
-      ? magneticOrientationDetent(rawOrientation, deviceOrientationLockTarget)
-      : rawOrientation;
+    if (rawOrientation) {
+      if (lastGyroDriftTime !== null) {
+        const dt = Math.min(0.1, Math.max(0, (now - lastGyroDriftTime) / 1000));
+        const driftStep = stepGyroDriftOffset(
+          gyroDriftOffset,
+          rawOrientation,
+          deviceOrientationLockTarget,
+          dt,
+          2,
+          35,
+        );
+        gyroDriftOffset = driftStep.offset;
+        isGyroDrifting = driftStep.isDrifting;
+      }
+      lastGyroDriftTime = now;
+    } else {
+      lastGyroDriftTime = null;
+      isGyroDrifting = false;
+    }
+    const driftAdjustedOrientation = rawOrientation
+      ? normalizedQuaternion(multiplyQuaternions(gyroDriftOffset, rawOrientation))
+      : undefined;
+    const detentedOrientation = driftAdjustedOrientation
+      ? magneticOrientationDetent(driftAdjustedOrientation, deviceOrientationLockTarget)
+      : driftAdjustedOrientation;
     magneticDetentPullDegrees = rawOrientation && detentedOrientation
       ? orientationDistanceRadians(rawOrientation, detentedOrientation) * 180 / Math.PI
       : 0;
     canvas.dataset.magneticDetentPullDegrees = magneticDetentPullDegrees.toFixed(3);
+    const driftOffsetDeg = orientationDistanceRadians({x: 0, y: 0, z: 0, w: 1}, gyroDriftOffset) * 180 / Math.PI;
+    canvas.dataset.gyroDriftOffsetDegrees = driftOffsetDeg.toFixed(3);
     const relativeOrientation = detentedOrientation && deviceOrientationCorrection
       ? multiplyQuaternions(deviceOrientationCorrection, detentedOrientation)
       : detentedOrientation;
@@ -1711,12 +1805,22 @@ export const createCubeViewport = (
     gl.uniform2f(guideRange, guideTransform?.min ?? 0, guideTransform?.max ?? 0);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
     drawMotionOverlay(matrices, width, height);
-    stepRegripGaugeDisplay();
+
+    const adjustedResidual = detentedOrientation
+      ? regripGaugeDeviation(detentedOrientation, deviceOrientationLockTarget)
+      : null;
+    const {axis: adjAxis, radians: adjRadians} = adjustedResidual
+      ? quaternionAxisAngle(adjustedResidual)
+      : {axis: [0, 0, 0] as [number, number, number], radians: 0};
+    const adjDegrees = adjRadians * 180 / Math.PI;
+    const adjLabel = regripGaugeLabelForAxis(adjAxis);
+
+    stepRegripGaugeDisplay(adjDegrees, adjLabel);
     drawRegripGauge(width, height);
     canvas.dataset.webgl = "ready";
     canvas.dataset.cameraYaw = yaw.toFixed(6);
     canvas.dataset.cameraPitch = pitch.toFixed(6);
-    if (focus || turnGuide || milestone) requestRender();
+    if (focus || turnGuide || milestone || isGyroDrifting) requestRender();
   };
 
   const requestRender = () => {
@@ -2072,6 +2176,9 @@ export const createCubeViewport = (
         deviceOrientationBase = null;
         deviceOrientation = null;
         deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
+        gyroDriftOffset = {x: 0, y: 0, z: 0, w: 1};
+        lastGyroDriftTime = null;
+        isGyroDrifting = false;
         deviceOrientationCorrection = null;
         deviceOrientationCorrectionGeneration += 1;
         deviceOrientationFrame = "viewport";
@@ -2084,6 +2191,9 @@ export const createCubeViewport = (
         deviceOrientationBase = null;
         deviceOrientation = null;
         deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
+        gyroDriftOffset = {x: 0, y: 0, z: 0, w: 1};
+        lastGyroDriftTime = null;
+        isGyroDrifting = false;
         deviceOrientationCorrection = null;
         deviceOrientationCorrectionGeneration += 1;
       }
@@ -2104,6 +2214,9 @@ export const createCubeViewport = (
       deviceOrientationBase = normalized;
       deviceOrientation = normalized;
       deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
+      gyroDriftOffset = {x: 0, y: 0, z: 0, w: 1};
+      lastGyroDriftTime = null;
+      isGyroDrifting = false;
       deviceOrientationFrame = coordinateFrame;
       deviceOrientationCorrection = null;
       deviceOrientationCorrectionGeneration += 1;
@@ -2118,6 +2231,9 @@ export const createCubeViewport = (
       }
       deviceOrientation = normalized;
       deviceOrientationLockTarget = normalizedQuaternion(target);
+      gyroDriftOffset = {x: 0, y: 0, z: 0, w: 1};
+      lastGyroDriftTime = null;
+      isGyroDrifting = false;
       deviceOrientationCorrection = null;
       deviceOrientationCorrectionGeneration += 1;
       canvas.dataset.deviceOrientation = "tracking";

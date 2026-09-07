@@ -174,12 +174,15 @@ stream supplies the virtual lock-in stabilizer rather than directly driving the 
 
 ### Current magnetic-detent gyro mode
 
-The live cube mirrors its raw gyro orientation continuously. It does not accumulate an
-offset or crawl toward an artificial sphere. The exact 24-pose cube rotation group is
-used only to select the nearest cardinal detent: inside 35° of that pose, a strong,
-continuous blend removes tremor and snaps precisely to it; outside the well the motion is
-strictly 1:1 with the sensor.
-The detent runs whether or not the diagnostics HUD is enabled.
+The live cube mirrors its gyro orientation continuously with active magnetic lock-in and
+slow drift compensation. The exact 24-pose cube rotation group is used to select the nearest
+cardinal detent:
+- Inside 35° of that pose, a strong continuous blend pulls the virtual cube toward the lock,
+  snapping fully into exact cardinal alignment within the inner 4° core.
+- Within the well, a persistent gyro drift offset continuously slews toward the magnets at ~2°/s,
+  gradually absorbing IMU bias and hand deviations at rest so the resting cube lands cleanly at 0.0°.
+- Outside the 35° well, motion remains strictly 1:1 with the sensor.
+The detent and drift compensation run continuously whether or not the diagnostics HUD is enabled.
 
 Regrip events use a separate 65° threshold from the last confirmed raw baseline. Crossing
 it selects the nearest cardinal cube pose, emits clockwise `x/y/z` notation (the positive
@@ -189,9 +192,10 @@ The user-facing notation token is deliberately separate from the sensor/cardinal
 stored for physical-face remapping; deriving the latter from inverted notation reverses
 later moves after a `y` regrip.
 
-Diagnostics shows the event displacement from 0° toward 65°, its axis direction, the
-nearest cardinal lock, the current raw gyro quaternion (`x y z w`), and the exact
-magnetic correction currently applied to the rendered cube.
+Diagnostics shows the adjusted orientation data in the dial graph (needle and center degree
+readout indicating residual to the virtual lock), while the text below details the raw gyro
+quaternion and degrees, accumulated drift offset degrees and quaternion, and instantaneous
+magnetic detent pull.
 
 Live regrip detection (`observeThresholdOrientation`) fires as soon as the cumulative
 rotation from the last confirmed pose crosses `regripThresholdDegrees` (65° by default,

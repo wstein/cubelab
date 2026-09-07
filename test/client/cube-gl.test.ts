@@ -21,6 +21,7 @@ import {
   orientationDistanceRadians,
   quaternionAxisAngle,
   regripGaugeDeviation,
+  stepGyroDriftOffset,
   pngBlobFromDataUrl,
   relativeQuaternion,
   safeCameraDistance,
@@ -98,9 +99,35 @@ describe("cube viewport math", () => {
     const x = (degrees: number) => ({x: Math.sin(degrees * Math.PI / 360), y: 0, z: 0, w: Math.cos(degrees * Math.PI / 360)});
     expect(magneticOrientationDetent(x(36), identity)).toEqual(x(36));
     expect(orientationDistanceRadians(magneticOrientationDetent(x(0), identity), identity)).toBeCloseTo(0);
+    // Within the 4-degree decisive snap zone, detent locks fully to cardinal target
+    expect(orientationDistanceRadians(magneticOrientationDetent(x(3), identity), identity)).toBeCloseTo(0);
     expect(orientationDistanceRadians(magneticOrientationDetent(x(9), identity), identity)).toBeLessThan(1 * Math.PI / 180);
     expect(orientationDistanceRadians(magneticOrientationDetent(x(20), identity), identity)).toBeLessThan(5 * Math.PI / 180);
     expect(orientationDistanceRadians(magneticOrientationDetent(x(25), identity), identity)).toBeLessThan(8 * Math.PI / 180);
+  });
+
+  test("slews gyro drift offset toward cardinal magnets at 2 deg/s inside well", () => {
+    const identity = {x: 0, y: 0, z: 0, w: 1};
+    const x = (degrees: number) => ({x: Math.sin(degrees * Math.PI / 360), y: 0, z: 0, w: Math.cos(degrees * Math.PI / 360)});
+    const initialRaw = x(10); // 10 degrees off lock
+    const step1 = stepGyroDriftOffset(identity, initialRaw, identity, 1.0, 2, 35);
+    expect(step1.isDrifting).toBe(true);
+    // After 1s at 2 deg/s, distanceToLock should be ~8 degrees
+    expect(step1.distanceToLock * 180 / Math.PI).toBeCloseTo(8, 1);
+
+    // After 5 seconds total (at 2 deg/s), 10 degrees is completely absorbed into lock
+    let current = identity;
+    for (let s = 0; s < 5; s++) {
+      current = stepGyroDriftOffset(current, initialRaw, identity, 1.0, 2, 35).offset;
+    }
+    const finalStep = stepGyroDriftOffset(current, initialRaw, identity, 0.1, 2, 35);
+    expect(finalStep.distanceToLock * 180 / Math.PI).toBeCloseTo(0, 1);
+
+    // Outside the 35° well, drift does not adjust the offset
+    const outsideRaw = x(40);
+    const outsideStep = stepGyroDriftOffset(identity, outsideRaw, identity, 1.0, 2, 35);
+    expect(outsideStep.offset).toEqual(identity);
+    expect(outsideStep.isDrifting).toBe(false);
   });
 
   test("shows the residual after a threshold regrip until virtual drift reaches the cardinal lock", () => {
@@ -131,11 +158,8 @@ describe("cube viewport math", () => {
   test("keeps the gauge to a residual readout and current raw gyro values", () => {
     expect(viewportSource).toMatch(/residual to virtual lock/);
     expect(viewportSource).toMatch(/gyro \$\{raw\.x\.toFixed\(2\)\}/);
+    expect(viewportSource).toMatch(/offset \$\{driftOffsetDeg\.toFixed\(1\)\}/);
     expect(viewportSource).toMatch(/magnet: pull/);
-  });
-
-  test("removes the old rate-limited virtual drift path", () => {
-    expect(viewportSource).not.toMatch(/deviceOrientationOffset/);
   });
 
   test("preallocates enough VBO space as cube sizes increase", () => {
