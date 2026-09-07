@@ -133,6 +133,58 @@ function centreScore(face, indices, core) {
   ) | 0);
 }
 
+function centreBarScore(state) {
+  let compact = compactFacelets(state);
+  if (compact === undefined) {
+    return;
+  }
+  let bars = {
+    contents: 0
+  };
+  for (let faceIndex = 0; faceIndex <= 5; ++faceIndex) {
+    let face = faceAt(compact, faceIndex);
+    let core = charAt(face, 12);
+    [
+      [
+        6,
+        7,
+        8
+      ],
+      [
+        11,
+        12,
+        13
+      ],
+      [
+        16,
+        17,
+        18
+      ],
+      [
+        6,
+        11,
+        16
+      ],
+      [
+        7,
+        12,
+        17
+      ],
+      [
+        8,
+        13,
+        18
+      ]
+    ].forEach(line => {
+      if (line.every(index => charAt(face, index) === core)) {
+        bars.contents = bars.contents + 1 | 0;
+        return;
+      }
+    });
+  }
+  return bars.contents;
+}
+
 function progressFor(state) {
   let compact = compactFacelets(state);
   if (compact === undefined) {
@@ -233,6 +285,11 @@ function planNextCentre5x5(state) {
   let best = {
     contents: undefined
   };
+  let value = centreBarScore(state);
+  let initialBars = value !== undefined ? value : 0;
+  let bestBar = {
+    contents: undefined
+  };
   let frontier = [{
       state: state,
       alg: [],
@@ -274,30 +331,62 @@ function planNextCentre5x5(state) {
           [expanded],
           next.contents
         ]);
-        if (after.score <= initial.score) {
+        if (after.score > initial.score) {
+          let guide_alg = expanded_alg;
+          let guide_algorithm = MoveTransform.serialize(expanded_alg);
+          let guide_before = initial.score;
+          let guide_after = after.score;
+          let guide = {
+            alg: guide_alg,
+            algorithm: guide_algorithm,
+            before: guide_before,
+            after: guide_after,
+            kind: "improvement",
+            barsBefore: initialBars,
+            barsAfter: initialBars
+          };
+          let current = best.contents;
+          if (current !== undefined && guide_after <= current.after) {
+            return;
+          } else {
+            best.contents = guide;
+            return;
+          }
+        }
+        if (after.score < (initial.score - 3 | 0)) {
           return;
         }
-        let guide_alg = expanded_alg;
-        let guide_algorithm = MoveTransform.serialize(expanded_alg);
-        let guide_before = initial.score;
-        let guide_after = after.score;
-        let guide = {
-          alg: guide_alg,
-          algorithm: guide_algorithm,
-          before: guide_before,
-          after: guide_after
+        let barsAfter = centreBarScore(nextState$1);
+        if (barsAfter === undefined) {
+          return;
+        }
+        if (barsAfter <= initialBars) {
+          return;
+        }
+        let guide_alg$1 = expanded_alg;
+        let guide_algorithm$1 = MoveTransform.serialize(expanded_alg);
+        let guide_before$1 = initial.score;
+        let guide_after$1 = after.score;
+        let guide$1 = {
+          alg: guide_alg$1,
+          algorithm: guide_algorithm$1,
+          before: guide_before$1,
+          after: guide_after$1,
+          kind: "bar",
+          barsBefore: initialBars,
+          barsAfter: barsAfter
         };
-        let current = best.contents;
-        if (current !== undefined && guide_after <= current.after) {
+        let current$1 = bestBar.contents;
+        if (current$1 !== undefined && !(barsAfter > current$1.barsAfter || barsAfter === current$1.barsAfter && guide_after$1 > current$1.after)) {
           return;
         } else {
-          best.contents = guide;
+          bestBar.contents = guide$1;
           return;
         }
       });
     });
     let ranked = Belt_SortArray.stableSortBy(next.contents, (left, right) => right.score - left.score | 0);
-    frontier = ranked.slice(0, Primitive_int.min(500, ranked.length));
+    frontier = ranked.slice(0, Primitive_int.min(900, ranked.length));
   }
   let guide = best.contents;
   if (guide !== undefined) {
@@ -305,11 +394,18 @@ function planNextCentre5x5(state) {
       TAG: "Ok",
       _0: guide
     };
+  }
+  let guide$1 = bestBar.contents;
+  if (guide$1 !== undefined) {
+    return {
+      TAG: "Ok",
+      _0: guide$1
+    };
   } else {
     return {
       TAG: "Error",
       _0: {
-        message: "No bounded centre improvement is available after three setup moves. Make a bar setup, then request the next guide."
+        message: "No bounded centre improvement or core-aligned bar setup is available after three setup moves."
       }
     };
   }
@@ -383,7 +479,10 @@ function planNextWingPair5x5(state) {
         alg: alg,
         algorithm: candidate_algorithm,
         before: candidate_before,
-        after: candidate_after
+        after: candidate_after,
+        kind: "wing",
+        barsBefore: 0,
+        barsAfter: 0
       };
       let current = best.contents;
       if (current !== undefined && candidate_after <= current.after) {
@@ -515,6 +614,7 @@ export {
   faceAt,
   compactFacelets,
   centreScore,
+  centreBarScore,
   progressFor,
   inspectReduction5x5,
   parse,

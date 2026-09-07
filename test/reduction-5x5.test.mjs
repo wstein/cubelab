@@ -1,6 +1,8 @@
 import {expect, test} from "vitest";
 
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
+import * as MoveParser from "../src/Move/MoveParser.res.mjs";
+import * as Orbit64Codec from "../src/State/Orbit64Codec.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
 import {inspectReduction5x5, planNextCentre5x5, planNextWingPair5x5, reduce5x5} from "../src/Solver/Reduction5x5.res.mjs";
 
@@ -48,6 +50,39 @@ test("finds a centre improvement for the reported deep mixed-centre setup", () =
   if (scrambled.TAG !== "Ok") return;
   const guide = planNextCentre5x5(scrambled._0);
   expect(guide).toMatchObject({TAG: "Ok", _0: {algorithm: "2R 2D 2B", before: 14, after: 29}});
+});
+
+test("finds a centre guide after the reported Orbit64 state and move history", () => {
+  const initial = Orbit64Codec.decodeState("AQTY8UOpmHNJlT9FBk_ZM-dNfFIU3Q19NyWh05yV51Y");
+  expect(initial.TAG).toBe("Ok");
+  if (initial.TAG !== "Ok") return;
+  const history = MoveParser.parseWithOptions(5, "Wide", "Modern", "B' 2D' 2R 2R D2 2R' 2U' L 2U 2U2 L' 2U2 2R 2B' 2R' 2R2 D' 2R2");
+  expect(history.TAG).toBe("Ok");
+  if (history.TAG !== "Ok") return;
+  const state = MoveExecutor.applyAlg(initial._0, history._0);
+  expect(state.TAG).toBe("Ok");
+  if (state.TAG !== "Ok") return;
+  const guide = planNextCentre5x5(state._0);
+  expect(guide).toMatchObject({TAG: "Ok", _0: {algorithm: "2L' F' 2L", before: 26, after: 28}});
+  if (guide.TAG === "Ok") {
+    const replay = MoveExecutor.applyAlg(state._0, guide._0.alg);
+    expect(replay.TAG).toBe("Ok");
+    expect(guide._0.after).toBeGreaterThan(guide._0.before);
+  }
+});
+
+test("offers a labelled bar setup when exact centre placement cannot improve", () => {
+  const initial = Orbit64Codec.decodeState("AQTY8UOpmHNJlT9FBk_ZM-dNfFIU3Q19NyWh05yV51Y");
+  expect(initial.TAG).toBe("Ok");
+  if (initial.TAG !== "Ok") return;
+  const history = MoveParser.parseWithOptions(5, "Wide", "Modern", "B' 2D' 2R 2R D2 2R' 2U' L 2U 2U2 L' 2U2 2R 2B' 2R' 2R2 D' 2R2 2L' F' 2L 2R2 B 2R2 2R' B' 2R");
+  expect(history.TAG).toBe("Ok");
+  if (history.TAG !== "Ok") return;
+  const state = MoveExecutor.applyAlg(initial._0, history._0);
+  expect(state.TAG).toBe("Ok");
+  if (state.TAG !== "Ok") return;
+  const guide = planNextCentre5x5(state._0);
+  expect(guide).toMatchObject({TAG: "Ok", _0: {algorithm: "2R' U 2R", kind: "bar", before: 30, after: 30, barsBefore: 8, barsAfter: 9}});
 });
 
 test("returns a centre-preserving slice-cycle wing improvement", () => {

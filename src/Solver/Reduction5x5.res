@@ -10,7 +10,7 @@ type inspection = {
   stage: string,
   nextGoal: string,
 }
-type guide = {alg: alg, algorithm: string, before: int, after: int}
+type guide = {alg: alg, algorithm: string, before: int, after: int, kind: string, barsBefore: int, barsAfter: int}
 type reduced = {state: cubeState, compact: string}
 type progress = {x: int, plus: int, faces: int, wings: int, score: int}
 type centreCandidate = {state: cubeState, alg: alg, lastFace: string, score: int}
@@ -34,6 +34,25 @@ let compactFacelets = (state: cubeState): option<string> => {
 
 let centreScore = (face, indices, core) =>
   indices->Array.reduce(0, (score, index) => score + (if charAt(face, index) == core {1} else {0}))
+
+/** Counts core-aligned 1×3 centre bars. A bar setup may deliberately trade a
+ * few placed stickers for a row or column that can be joined next. */
+let centreBarScore = (state: cubeState): option<int> =>
+  switch compactFacelets(state) {
+  | None => None
+  | Some(compact) => {
+    let bars = ref(0)
+    for faceIndex in 0 to 5 {
+      let face = faceAt(compact, faceIndex)
+      let core = charAt(face, 12)
+      [[6, 7, 8], [11, 12, 13], [16, 17, 18], [6, 11, 16], [7, 12, 17], [8, 13, 18]]
+      ->Array.forEach(line => {
+        if line->Array.every(index => charAt(face, index) == core) {bars := bars.contents + 1}
+      })
+    }
+    Some(bars.contents)
+  }
+  }
 
 let progressFor = (state: cubeState): option<progress> =>
   switch compactFacelets(state) {
@@ -87,6 +106,8 @@ let planNextCentre5x5 = (state: cubeState): result<guide, reductionError> =>
   | Some(initial) if initial.faces == 6 => Error({message: "All six 3×3 centre faces are complete."})
   | Some(initial) => {
     let best = ref(None)
+    let initialBars = switch centreBarScore(state) { | Some(value) => value | None => 0 }
+    let bestBar = ref(None)
     let frontier: ref<array<centreCandidate>> = ref([{state, alg: [], lastFace: "", score: initial.score}])
     for _ in 0 to 2 {
       let next = ref([])
@@ -103,8 +124,16 @@ let planNextCentre5x5 = (state: cubeState): result<guide, reductionError> =>
                 let expanded = {state: nextState, alg: Array.concat(candidate.alg, move), lastFace: face, score: after.score}
                 next := [expanded, ...next.contents]
                 if after.score > initial.score {
-                  let guide = {alg: expanded.alg, algorithm: MoveTransform.serialize(expanded.alg), before: initial.score, after: after.score}
+                  let guide = {alg: expanded.alg, algorithm: MoveTransform.serialize(expanded.alg), before: initial.score, after: after.score, kind: "improvement", barsBefore: initialBars, barsAfter: initialBars}
                   switch best.contents { | None => best := Some(guide) | Some(current) if guide.after > current.after => best := Some(guide) | Some(_) => () }
+                } else if after.score >= initial.score - 3 {
+                  switch centreBarScore(nextState) {
+                  | Some(barsAfter) if barsAfter > initialBars => {
+                    let guide = {alg: expanded.alg, algorithm: MoveTransform.serialize(expanded.alg), before: initial.score, after: after.score, kind: "bar", barsBefore: initialBars, barsAfter}
+                    switch bestBar.contents { | None => bestBar := Some(guide) | Some(current) if guide.barsAfter > current.barsAfter || (guide.barsAfter == current.barsAfter && guide.after > current.after) => bestBar := Some(guide) | Some(_) => () }
+                    }
+                  | _ => ()
+                  }
                 }
               }
               }
@@ -113,9 +142,9 @@ let planNextCentre5x5 = (state: cubeState): result<guide, reductionError> =>
         }
       }))
       let ranked = next.contents->Belt.SortArray.stableSortBy((left, right) => right.score - left.score)
-      frontier := ranked->Array.slice(~start=0, ~end=min(500, ranked->Array.length))
+      frontier := ranked->Array.slice(~start=0, ~end=min(900, ranked->Array.length))
     }
-    switch best.contents { | Some(guide) => Ok(guide) | None => Error({message: "No bounded centre improvement is available after three setup moves. Make a bar setup, then request the next guide."}) }
+    switch best.contents { | Some(guide) => Ok(guide) | None => switch bestBar.contents { | Some(guide) => Ok(guide) | None => Error({message: "No bounded centre improvement or core-aligned bar setup is available after three setup moves."}) } }
   }
   }
 
@@ -146,7 +175,7 @@ let planNextWingPair5x5 = (state: cubeState): result<guide, reductionError> =>
         switch MoveExecutor.applyAlg(state, alg) {
         | Ok(replay) => switch progressFor(replay) {
           | Some(after) if after.faces == 6 && after.wings > initial.wings =>
-            let candidate = {alg, algorithm: MoveTransform.serialize(alg), before: initial.wings, after: after.wings}
+            let candidate = {alg, algorithm: MoveTransform.serialize(alg), before: initial.wings, after: after.wings, kind: "wing", barsBefore: 0, barsAfter: 0}
             switch best.contents { | None => best := Some(candidate) | Some(current) if candidate.after > current.after => best := Some(candidate) | Some(_) => () }
           | _ => ()
           }

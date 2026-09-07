@@ -114,7 +114,9 @@ wing-pairing, and parity stages remain separate work.
 The 5×5×5 Reduction Academy currently begins before that handoff: its inspector reports
 the six fixed-core 3×3 centres (with X- and +-centre orbits separately), then the 24
 two-wing pairs around fixed middle edges. During the centre stage it may offer one bounded,
-replay-verified inner-slice improvement. Its wing stage likewise offers only bounded,
+replay-verified inner-slice improvement or, when no exact placement can increase, a clearly
+labelled core-aligned 1×3 bar setup that preserves or deliberately trades placement only to
+build the next joinable bar. Its wing stage likewise offers only bounded,
 centre-preserving slice–setup–restore cycles. Once its milestones are complete it projects
 the fixed middle edges to a 3×3 only after both wings agree with each middle edge and the
 projected state passes the 3×3 physical/parity check. The reduced 3×3 finish remains
