@@ -33,3 +33,5 @@ verification before returning the route to a worker or UI.
 The initial catalogue has one replayable fixture for each phase: a displaced
 first-layer corner, an Antisune OLL, and a U-permutation PBL. Each fixture is
 applied from solved and tested against the corresponding phase predicate.
+The first-layer planner regression suite also covers short mixed U/R/F scrambles,
+not just a one-turn recovery.

@@ -64,13 +64,15 @@ describe("2×2 Beginner Academy phase contract", () => {
   });
 
   test("finds a first-layer route before OLL and PBL planning", () => {
-    const scrambled = apply("R");
-    const plan = planTwoByTwoFirstLayer(scrambled);
-    expect(plan.ok).toBe(true);
-    if (!plan.ok) return;
-    const after = MoveExecutor.applyAlg(scrambled, plan.algorithm);
-    expect(after.TAG).toBe("Ok");
-    if (after.TAG === "Ok") expect(twoByTwoPhaseStatus(after._0).firstLayer).toBe(true);
+    ["R", "R U", "F R U"].forEach((scramble) => {
+      const scrambled = apply(scramble);
+      const plan = planTwoByTwoFirstLayer(scrambled);
+      expect(plan.ok).toBe(true);
+      if (!plan.ok) return;
+      const after = MoveExecutor.applyAlg(scrambled, plan.algorithm);
+      expect(after.TAG).toBe("Ok");
+      if (after.TAG === "Ok") expect(twoByTwoPhaseStatus(after._0).firstLayer).toBe(true);
+    });
   });
 
   test("composes first layer, OLL, and PBL into one verified route", async () => {
