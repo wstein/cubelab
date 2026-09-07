@@ -188,7 +188,9 @@ diagnostics needle exposes the initial residual and its gradual correction to ze
 An independent event layer retains six 30° quarter-turn capture circles (`x`, `x'`, `y`,
 `y'`, `z`, `z'`) around the active pose. Entering one emits the corresponding virtual
 regrip: learn mode animates the viewport, and a physical-mirror recording appends the
-event and advances its hardware-to-viewport frame. The event tracker keeps its original
+event and advances its hardware-to-viewport frame. The sensor's positive quaternion
+direction is counter-clockwise while whole-cube `x/y/z` notation is clockwise, so the
+emitted token is inverted without changing the physical viewport pose. The event tracker keeps its original
 gyro calibration sample and advances its virtual target by an exact 90° after each
 entry; it must not rebase to the 60° circle boundary. Thus consecutive quarter turns
 remain detectable even when packets arrive only at the edge of each capture circle.

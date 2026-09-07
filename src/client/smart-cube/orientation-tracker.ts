@@ -220,6 +220,14 @@ const AXIS_TOKENS: Array<{axis: [number, number, number]; token: RegripToken}> =
   {axis: [0, 0, -1], token: "z'"},
 ];
 
+// A positive sensor quaternion is counter-clockwise in the cube's local
+// right-hand frame. Singmaster whole-cube x/y/z is clockwise, so only the
+// emitted notation token must be inverted; the sensor quaternion itself is
+// still the correct physical pose for viewport reconciliation.
+const clockwiseNotationToken = (token: RegripToken): RegripToken => token.endsWith("'")
+  ? token.slice(0, -1) as RegripToken
+  : `${token}'` as RegripToken;
+
 /**
  * Nearest of the six quarter-turn directions to a raw rotation axis (as from
  * quaternionAxisAngle). Unlike closestCardinalOrientation, this only looks at
@@ -288,7 +296,7 @@ export const observeVirtualFixpoint = (
       orientation: fixpoint.orientation,
       candidate: null,
     },
-    tokens: [fixpoint.token],
+    tokens: [clockwiseNotationToken(fixpoint.token)],
   };
 };
 

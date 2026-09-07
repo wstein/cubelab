@@ -27,10 +27,10 @@ describe("stable smart-cube orientation tracker", () => {
     expect(nearestVirtualSphereFixpoint(identity).w).toBeCloseTo(1);
   });
 
-  test("emits a virtual regrip on entering a 30-degree quarter-turn circle", () => {
+  test("maps positive sensor rotation to clockwise cube notation", () => {
     const tracker = createStableOrientationTracker(identity, "viewport", "world");
     expect(observeVirtualFixpoint(tracker, x(55), "viewport").tokens).toEqual([]);
-    expect(observeVirtualFixpoint(tracker, x(61), "viewport").tokens).toEqual(["x"]);
+    expect(observeVirtualFixpoint(tracker, x(61), "viewport").tokens).toEqual(["x'"]);
   });
 
   test("keeps the 90-degree virtual targets after entering a capture circle", () => {
@@ -44,7 +44,7 @@ describe("stable smart-cube orientation tracker", () => {
       tracker = observed.tracker;
       tokens.push(...observed.tokens);
     }
-    expect(tokens).toEqual(Array(20).fill("x"));
+    expect(tokens).toEqual(Array(20).fill("x'"));
   });
 
   test("selects the next virtual lock at the 45-degree cardinal boundary", () => {
