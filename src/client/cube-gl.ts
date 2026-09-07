@@ -69,8 +69,6 @@ export type TurnGuide = {
 export type RegripGaugeState = {
   /** Rotation distance in degrees from current active lock-in position: 0 at rest, rising toward 90. */
   degrees: number;
-  /** Regrip trigger threshold in degrees (e.g. 65). */
-  thresholdDegrees: number;
   /** Nearest quarter-turn axis direction ("x" | "x'" | "y" | "y'" | "z" | "z'"). */
   label: string | null;
   /** Active lock-in orientation in URFDLB face notation (e.g. "URFDLB"). */
@@ -783,6 +781,7 @@ export type CubeViewport = {
   setTurnGuide: (guide: TurnGuide | null) => void;
   setMoveRibbon: (ribbon: TurnGuide | null) => void;
   setRegripGauge: (gauge: RegripGaugeState) => void;
+  setVirtualOrientationLock: (target: OrientationQuaternion) => void;
   smoothOrbitTo: (yaw: number, pitch: number, duration?: number) => Promise<void>;
   setDeviceOrientation: (
     orientation: OrientationQuaternion | null,
@@ -1577,21 +1576,11 @@ export const createCubeViewport = (
       );
     });
 
-    // Yellow dashed confirm threshold ring (at 65° / 90° ≈ 72% radius)
-    const thresholdFraction = toFraction(regripGauge.thresholdDegrees);
-    overlay.strokeStyle = "rgba(251, 191, 36, 0.75)";
-    overlay.setLineDash([3 * dpr, 3 * dpr]);
-    overlay.beginPath();
-    overlay.arc(cx, cy, radius * thresholdFraction, 0, Math.PI * 2);
-    overlay.stroke();
-    overlay.setLineDash([]);
-
     // Live distance needle: extends outward from center as cube moves toward next regrip
     const spoke = spokes.find((candidate) => candidate.label === regripGaugeDisplayLabel);
-    const crossed = regripGaugeDisplayDegrees >= regripGauge.thresholdDegrees;
     if (spoke && regripGaugeDisplayDegrees > 0.5) {
       const fraction = toFraction(regripGaugeDisplayDegrees);
-      const needleColour = crossed ? "#4ade80" : "#67e8f9";
+      const needleColour = "#67e8f9";
       overlay.strokeStyle = needleColour;
       overlay.fillStyle = needleColour;
       overlay.lineWidth = 2.5 * dpr;
@@ -1612,7 +1601,7 @@ export const createCubeViewport = (
     }
 
     // Distance in degrees at the centre
-    overlay.fillStyle = crossed ? "#4ade80" : "rgba(203, 213, 225, 0.9)";
+    overlay.fillStyle = "rgba(203, 213, 225, 0.9)";
     overlay.font = `600 ${9 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
     overlay.textAlign = "center";
     overlay.textBaseline = "middle";
@@ -2079,6 +2068,10 @@ export const createCubeViewport = (
     },
     setRegripGauge(gauge) {
       regripGauge = gauge;
+      requestRender();
+    },
+    setVirtualOrientationLock(target) {
+      deviceOrientationLockTarget = normalizedQuaternion(target);
       requestRender();
     },
     smoothOrbitTo,

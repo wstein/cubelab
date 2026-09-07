@@ -132,17 +132,10 @@ import {assessGyroRotation, detectGyroQuarterRotation} from "./smart-cube/orient
 import {
   cardinalOrientationFaces,
   createStableOrientationTracker,
-  nearestRegripAxis,
+  nearestCardinalOrientation,
   observeStableOrientation,
-  observeThresholdOrientation,
   type StableOrientationTracker,
 } from "./smart-cube/orientation-tracker";
-import {
-  defaultRegripProfile,
-  parseRegripProfileRegistry,
-  regripProfileFor,
-  type RegripProfile,
-} from "./smart-cube/regrip-profile";
 import {
   createSmartCubeAudioFeedback,
   readSmartCubeSoundPreference,
@@ -2239,22 +2232,6 @@ if (root) {
   let smartCubeRecordingAnimationGeneration = 0;
   let smartCubeRecordingOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeDiscreteOrientationTracker: StableOrientationTracker | null = null;
-  // The cube's 24 legal poses are all exactly 90° apart, with a 45° Voronoi
-  // boundary between neighbours. 65° (the built-in default; see
-  // public/smart-cube/regrip-profile.v1.json) gives a real hand regrip ~20°
-  // of slack past that boundary before it's mistaken for jostle, without
-  // needing to land anywhere near precisely — see observeThresholdOrientation.
-  let smartCubeRegripProfile: RegripProfile = defaultRegripProfile;
-  let smartCubeRegripProfileLoad: Promise<ReturnType<typeof parseRegripProfileRegistry>> | null = null;
-  const loadSmartCubeRegripProfiles = () => {
-    if (!smartCubeRegripProfileLoad) {
-      smartCubeRegripProfileLoad = fetch("/smart-cube/regrip-profile.v1.json")
-        .then((response) => (response.ok ? response.json() : null))
-        .then(parseRegripProfileRegistry)
-        .catch(() => null);
-    }
-    return smartCubeRegripProfileLoad;
-  };
   let smartCubeStabilizationTraceAnnounced = false;
   let smartCubeDiagnosticsEnabled = window.localStorage.getItem("cubelab.smartCube.diagnostics") === "1";
   const smartCubeDiagnosticTrace: Array<{
@@ -2283,9 +2260,7 @@ if (root) {
       updateSmartCubeDiagnosticsUi();
     }
   };
-  // Debug-only 2D HUD for gyro regrip detection: shows the distance in
-  // degrees from the current active lock-in position (URFDLB cardinal pose)
-  // toward the next regrip position (threshold at 65°, confirm at 90°).
+  // Debug-only 2D HUD for the continuously selected cardinal gyro lock.
   const updateSmartCubeRegripGauge = (
     current?: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
@@ -2297,13 +2272,13 @@ if (root) {
     }
     const tracker = smartCubeDiscreteOrientationTracker;
     const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
-    const {axis, radians} = quaternionAxisAngle(delta);
+    const lock = nearestCardinalOrientation(delta);
     viewport.setRegripGauge({
-      degrees: radians * 180 / Math.PI,
-      thresholdDegrees: smartCubeRegripProfile.regripThresholdDegrees,
-      label: nearestRegripAxis(axis),
-      activeLockin: cardinalOrientationFaces(tracker.orientation),
+      degrees: 0,
+      label: null,
+      activeLockin: cardinalOrientationFaces(lock),
     });
+    viewport.setVirtualOrientationLock(lock);
   };
   // During a recording session the physical cube is an input device. Keep a
   // separate virtual state so incoming facelet packets cannot repaint the
@@ -4648,14 +4623,6 @@ if (root) {
         clearSmartCubeRecovery();
       }
       smartCubeDeviceName = connectionState.device.name;
-      void loadSmartCubeRegripProfiles().then((registry) => {
-        if (!smartCubeConnected || smartCubeManager?.getState().device?.brand !== connectionState.device?.brand) return;
-        smartCubeRegripProfile = regripProfileFor(registry, connectionState.device!.brand);
-        traceSmartCubeStabilization("regrip profile loaded", {
-          label: smartCubeRegripProfile.label,
-          regripThresholdDegrees: smartCubeRegripProfile.regripThresholdDegrees,
-        });
-      });
       smartCubeLedFeedback = connectionState.device.capabilities.led;
       const streamReadyMs = connectionState.device.timing?.streamReadyMs;
       const timing = streamReadyMs === undefined
@@ -4799,49 +4766,6 @@ if (root) {
             event.coordinateFrame,
             "world",
           );
-        } else {
-          const priorBaseline = smartCubeDiscreteOrientationTracker.baseline;
-          const priorOrientation = smartCubeDiscreteOrientationTracker.orientation;
-          // Regrip detection is threshold-based, not dwell-based: it fires the
-          // instant cumulative rotation from the last confirmed pose crosses
-          // smartCubeRegripProfile.regripThresholdDegrees, however imprecisely
-          // the hand lands, rather than waiting for samples to settle within a
-          // tight alignment gate. See observeThresholdOrientation for why this
-          // is safe.
-          const observed = observeThresholdOrientation(
-            smartCubeDiscreteOrientationTracker,
-            event.quaternion,
-            event.coordinateFrame,
-            smartCubeRegripProfile.regripThresholdDegrees,
-          );
-          smartCubeDiscreteOrientationTracker = observed.tracker;
-          if (
-            observed.tokens.length > 0
-            && smartCubeOrientationTracking
-            && !smartCubeRecording
-            && !smartCubeRecordingTapePresented
-          ) {
-            // The gyro view never mirrors live orientation continuously (it drifts
-            // and is loose to read). It only ever moves in response to a confirmed
-            // regrip, animating once to the new cardinal pose and then resting
-            // there — the same model tutorial mode already uses for coached
-            // rotations, just for whichever regrip actually happened rather than
-            // a specific expected one.
-            viewport?.reconcileDeviceOrientation(
-              event.quaternion,
-              observed.tracker.orientation,
-              event.coordinateFrame,
-            );
-          }
-          if (observed.tokens.length > 0) {
-            traceSmartCubeStabilization("regrip settled", {
-              tokens: observed.tokens.join(" "),
-              quaternion: event.quaternion,
-              priorBaseline,
-              priorOrientation,
-              target: observed.tracker.orientation,
-            });
-          }
         }
         updateSmartCubeRegripGauge(event.quaternion, event.coordinateFrame);
         if (smartCubeRecording && smartCubeSyncMode === "PhysicalMirror") {

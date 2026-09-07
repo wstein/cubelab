@@ -89,6 +89,10 @@ const closestCardinalOrientation = (quaternion: OrientationQuaternion): {index: 
   return result;
 };
 
+/** Nearest of the 24 URFDLB cardinal poses; boundaries lie 45° between neighbours. */
+export const nearestCardinalOrientation = (quaternion: OrientationQuaternion): OrientationQuaternion =>
+  orientations[closestCardinalOrientation(quaternion).index]!.quaternion;
+
 export const createStableOrientationTracker = (
   baseline: OrientationQuaternion,
   frame: OrientationCoordinateFrame,
@@ -284,4 +288,3 @@ export const cardinalOrientationFaces = (orientation: OrientationQuaternion): st
     return best.face;
   }).join("");
 };
-

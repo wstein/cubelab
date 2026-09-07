@@ -170,7 +170,17 @@ even mid-turn on a face that never left the hand) that continuously mirroring it
 the display feel drifty regardless of how aggressively later corrections tried to chase
 it down — an entire ring-buffer/nearest-cardinal-snap correction system existed solely
 to fight that drift, and still couldn't make continuous mirroring feel solid. The raw
-stream is used for exactly one thing: detecting when the whole cube has been regripped.
+stream supplies the virtual lock-in stabilizer rather than directly driving the cube.
+
+### Current virtual-lock experiment
+
+The threshold regrip detector is temporarily bypassed for the live gyro view. Instead,
+every raw orientation sample selects the nearest of the 24 cardinal URFDLB fixpoints.
+Those fixpoints are 90° apart, so the virtual sphere changes its selected target at the
+45° boundary between neighbours. No regrip event, token, or baseline reset is produced.
+The display-only offset then moves toward that target at 2°/s, stabilizing sensor drift
+without requiring a threshold crossing. The threshold-specific description below remains
+as historical context for the recording tracker only.
 
 Live regrip detection (`observeThresholdOrientation`) fires as soon as the cumulative
 rotation from the last confirmed pose crosses `regripThresholdDegrees` (65° by default,

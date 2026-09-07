@@ -4,6 +4,7 @@ import {
   cardinalOrientationCount,
   cardinalOrientationFaces,
   createStableOrientationTracker,
+  nearestCardinalOrientation,
   nearestRegripAxis,
   observeStableOrientation,
   observeThresholdOrientation,
@@ -16,6 +17,11 @@ const x = (degrees: number) => ({x: Math.sin(degrees * Math.PI / 360), y: 0, z: 
 describe("stable smart-cube orientation tracker", () => {
   test("enumerates the cube's complete 24-pose cardinal rotation group", () => {
     expect(cardinalOrientationCount).toBe(24);
+  });
+
+  test("selects the next virtual lock at the 45-degree cardinal boundary", () => {
+    expect(cardinalOrientationFaces(nearestCardinalOrientation(x(44)))).toBe("URFDLB");
+    expect(cardinalOrientationFaces(nearestCardinalOrientation(x(46)))).toBe("BRUFLD");
   });
 
   test("waits for a settled cardinal pose instead of committing at 65 degrees", () => {
