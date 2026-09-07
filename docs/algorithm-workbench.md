@@ -266,13 +266,9 @@ tracker's running orientation and the viewport's displayed pose must never be ab
 disagree about "where is the cube now," since there is exactly one of each and only
 confirmed regrips ever change either one.
 
-For hardware diagnosis, set `localStorage.cubelab.smartCube.gyroTrace` to `"1"` in
-browser DevTools and reproduce a turn. The console records regrip settlement and an
-explicit **Recenter gyro view** click. `regrip settled` entries include the tracker's
-prior baseline and orientation *before* the update they report, alongside the raw
-sample and the resulting tokens/target, so a wrong result can be verified by hand from
-the log alone rather than requiring a repro. Remove the key (or set it to another
-value) to silence the trace.
+For hardware diagnosis, turn **Diagnostics** on before reproducing a turn. Diagnostic
+records are captured only while that control is on; turning it off immediately clears
+the local trace and stops all further diagnostic logging.
 
 While **Diagnostics** is on, a fixed 2D gauge in the viewport's corner shows the
 virtual lock-in state: a hexagon with a spoke for each of the six quarter-turn directions

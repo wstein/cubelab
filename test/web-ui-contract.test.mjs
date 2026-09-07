@@ -647,6 +647,8 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /traceSmartCubeStabilization\("received event"/);
   assert.match(client, /manager\.subscribeCommands\(\(command\) =>/);
   assert.match(client, /traceSmartCubeStabilization\("sent command"/);
+  assert.match(client, /if \(!smartCubeDiagnosticsEnabled\) return;/);
+  assert.doesNotMatch(client, /cubelab\.smartCube\.gyroTrace/);
   assert.match(client, /const copied = await copyText\(JSON\.stringify\(report, null, 2\)\);/);
   assert.match(viewportComponent, /data-smart-cube-disconnect/);
   assert.match(viewportComponent, /data-smart-cube-sound/);
@@ -664,9 +666,10 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /createStableOrientationTracker/);
   assert.match(client, /reconcileDeviceOrientation/);
   assert.match(client, /observeThresholdOrientation/);
+  const virtualLockIndex = client.indexOf("viewport.setVirtualOrientationLock(lock)");
   assert.ok(
-    client.indexOf("viewport.setVirtualOrientationLock(lock)")
-      < client.indexOf("if (!smartCubeDiagnosticsEnabled"),
+    virtualLockIndex
+      < client.indexOf("if (!smartCubeDiagnosticsEnabled || !eventTracker)", virtualLockIndex),
     "magnetic detents must remain active when the diagnostic HUD is off",
   );
   assert.match(client, /Recorded virtual regrip/);

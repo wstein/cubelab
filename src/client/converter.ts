@@ -2237,7 +2237,6 @@ if (root) {
   let smartCubeRecordingOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeDiscreteOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeVirtualFixpointTracker: StableOrientationTracker | null = null;
-  let smartCubeStabilizationTraceAnnounced = false;
   let smartCubeDiagnosticsEnabled = window.localStorage.getItem("cubelab.smartCube.diagnostics") === "1";
   const smartCubeDiagnosticTrace: Array<{
     at: string;
@@ -2250,20 +2249,10 @@ if (root) {
     smartCubeCopyTrace.disabled = !smartCubeDiagnosticsEnabled || smartCubeDiagnosticTrace.length === 0;
   };
   const traceSmartCubeStabilization = (event: string, detail: Record<string, unknown>) => {
-    const consoleTraceEnabled = window.localStorage.getItem("cubelab.smartCube.gyroTrace") === "1";
-    if (!consoleTraceEnabled && !smartCubeDiagnosticsEnabled) return;
-    if (consoleTraceEnabled && !smartCubeStabilizationTraceAnnounced) {
-      smartCubeStabilizationTraceAnnounced = true;
-      console.info("[SmartCube stabilization] trace enabled", {
-        hint: "Set cubelab.smartCube.gyroTrace to any other value to disable.",
-      });
-    }
-    if (consoleTraceEnabled) console.info(`[SmartCube stabilization] ${event}`, detail);
-    if (smartCubeDiagnosticsEnabled) {
-      smartCubeDiagnosticTrace.push({at: new Date().toISOString(), event, detail});
-      if (smartCubeDiagnosticTrace.length > 500) smartCubeDiagnosticTrace.shift();
-      updateSmartCubeDiagnosticsUi();
-    }
+    if (!smartCubeDiagnosticsEnabled) return;
+    smartCubeDiagnosticTrace.push({at: new Date().toISOString(), event, detail});
+    if (smartCubeDiagnosticTrace.length > 500) smartCubeDiagnosticTrace.shift();
+    updateSmartCubeDiagnosticsUi();
   };
   // Debug-only HUD: raw displacement from the last confirmed regrip, while
   // the viewport independently selects its nearest magnetic cardinal detent.
