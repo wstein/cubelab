@@ -4804,6 +4804,11 @@ if (root) {
           );
           smartCubeVirtualFixpointTracker = observed.tracker;
           if (observed.tokens.length > 0) {
+            traceSmartCubeStabilization("virtual regrip", {
+              notationTokens: observed.tokens,
+              sensorFrameTokens: observed.frameTokens,
+              coordinateFrame: event.coordinateFrame,
+            });
             if (smartCubeRecording && smartCubeSyncMode === "PhysicalMirror") {
               observed.tokens.forEach((token, index) => {
                 // `token` is clockwise cube notation; frameToken is the
@@ -4835,6 +4840,15 @@ if (root) {
           const siny_cosp = 2 * (vq.w * vq.z + vq.x * vq.y);
           const cosy_cosp = 1 - 2 * (vq.y * vq.y + vq.z * vq.z);
           const roll = Math.atan2(siny_cosp, cosy_cosp) * 180 / Math.PI;
+
+          traceSmartCubeStabilization("gyro orientation", {
+            coordinateFrame: event.coordinateFrame,
+            rawQuaternion: event.quaternion,
+            viewportQuaternion: vq,
+            eulerDegrees: {pitchX: pitch, yawY: yaw, rollZ: roll},
+            tracking: smartCubeOrientationTracking,
+            recording: smartCubeRecording,
+          });
 
           // console.log(
           //   `[SmartCube Orientation] Live trace: frame=${event.coordinateFrame} ` +
@@ -6526,10 +6540,10 @@ if (root) {
       device: {brand: smartCubeManager?.getState().device?.brand ?? "unknown"},
       events: smartCubeDiagnosticTrace,
     };
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(report, null, 2));
+    const copied = await copyText(JSON.stringify(report, null, 2));
+    if (copied) {
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Copied ${smartCubeDiagnosticTrace.length} diagnostic events. Send this text with your issue report.`;
-    } catch {
+    } else {
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Could not copy the trace. Check browser clipboard permission and try again.`;
     }
   });

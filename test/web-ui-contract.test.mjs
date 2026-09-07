@@ -642,7 +642,9 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(viewportComponent, /data-smart-cube-copy-trace/);
   assert.match(client, /cubelab\.smartCube\.diagnostics/);
   assert.match(client, /cubelab-smart-cube-diagnostic-v1/);
-  assert.match(client, /navigator\.clipboard\.writeText/);
+  assert.match(client, /traceSmartCubeStabilization\("gyro orientation"/);
+  assert.match(client, /traceSmartCubeStabilization\("virtual regrip"/);
+  assert.match(client, /const copied = await copyText\(JSON\.stringify\(report, null, 2\)\);/);
   assert.match(viewportComponent, /data-smart-cube-disconnect/);
   assert.match(viewportComponent, /data-smart-cube-sound/);
   assert.match(viewportComponent, /data-smart-cube-mistakes/);
