@@ -8,6 +8,8 @@ export {
   nextExpectedSmartCubeMove,
 } from "./live-sync";
 export type {SmartCubeHalfTurnProgress} from "./live-sync";
+export {createGestureRecenterDetector, GestureRecenterDetector} from "./gesture-recenter";
+export type {GestureRecenterOptions, GestureRecenterTriggerEvent} from "./gesture-recenter";
 export type {
   SmartCubeBatteryEvent,
   SmartCubeBrand,
