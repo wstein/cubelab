@@ -20,6 +20,7 @@ import {
   orientationCorrectionForTarget,
   orientationDistanceRadians,
   quaternionAxisAngle,
+  recenterOrientationCorrection,
   regripGaugeDeviation,
   stepGyroDriftOffset,
   pngBlobFromDataUrl,
@@ -425,5 +426,39 @@ describe("cube viewport math", () => {
     expect(transformed[0]).toBeCloseTo(0);
     expect(transformed[1]).toBeCloseTo(1);
     expect(transformed[2]).toBeCloseTo(0);
+  });
+
+  test("recenterOrientationCorrection returns start correction for tilted cube and null inside deadband", () => {
+    const identity = {x: 0, y: 0, z: 0, w: 1};
+    const tilted = {x: Math.sin(20 * Math.PI / 360), y: 0, z: 0, w: Math.cos(20 * Math.PI / 360)};
+    const smallJitter = {x: Math.sin(0.8 * Math.PI / 360), y: 0, z: 0, w: Math.cos(0.8 * Math.PI / 360)};
+
+    const correction = recenterOrientationCorrection(tilted);
+    expect(correction).not.toBeNull();
+    expect(correction!.x).toBeCloseTo(tilted.x);
+    expect(correction!.w).toBeCloseTo(tilted.w);
+
+    const noCorrection = recenterOrientationCorrection(smallJitter);
+    expect(noCorrection).toBeNull();
+    expect(recenterOrientationCorrection(identity)).toBeNull();
+  });
+
+  test("smooth recenter trajectory begins at current visual angle and slerps to identity", () => {
+    const identity = {x: 0, y: 0, z: 0, w: 1};
+    const startAngle = 30 * Math.PI / 180;
+    const tilted = {x: Math.sin(startAngle / 2), y: 0, z: 0, w: Math.cos(startAngle / 2)};
+
+    // At progress 0: exact visual match (no instantaneous jump)
+    const p0 = slerpQuaternion(tilted, identity, 0);
+    expect(orientationDistanceRadians(p0, tilted)).toBeCloseTo(0);
+
+    // At progress 0.5 with cubic ease-out: 1 - (1 - 0.5)^3 = 0.875
+    const easedHalf = 1 - (1 - 0.5) ** 3;
+    const pHalf = slerpQuaternion(tilted, identity, easedHalf);
+    expect(orientationDistanceRadians(pHalf, identity)).toBeLessThan(startAngle * 0.2);
+
+    // At progress 1.0: exact identity
+    const p1 = slerpQuaternion(tilted, identity, 1);
+    expect(orientationDistanceRadians(p1, identity)).toBeCloseTo(0);
   });
 });

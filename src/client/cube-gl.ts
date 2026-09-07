@@ -791,6 +791,14 @@ export const matrixFromQuaternion = (quaternion: OrientationQuaternion): Mat4 =>
   return matrix;
 };
 
+export const recenterOrientationCorrection = (
+  currentVisual: OrientationQuaternion,
+  thresholdRadians = 0.03,
+): OrientationQuaternion | null => {
+  const dist = orientationDistanceRadians(currentVisual, {x: 0, y: 0, z: 0, w: 1});
+  return dist >= thresholdRadians ? normalizedQuaternion(currentVisual) : null;
+};
+
 const compileShader = (gl: WebGLRenderingContext, type: number, source: string): WebGLShader => {
   const shader = gl.createShader(type);
   if (!shader) throw new Error("Unable to allocate a WebGL shader.");
@@ -843,6 +851,7 @@ export type CubeViewport = {
   recenterDeviceOrientation: (
     orientation: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
+    animate?: boolean,
   ) => void;
   reconcileDeviceOrientation: (
     orientation: OrientationQuaternion,
@@ -952,6 +961,7 @@ export const createCubeViewport = (
   // The correction actually being drawn this frame; only animateDeviceOrientationCorrectionTo
   // may write it.
   let deviceOrientationCorrection: OrientationQuaternion | null = null;
+  let lastRenderedOrientation: OrientationQuaternion | null = null;
   let deviceOrientationFrame: OrientationCoordinateFrame = "viewport";
   let deviceOrientationCorrectionFrame: number | null = null;
   let deviceOrientationCorrectionGeneration = 0;
@@ -1777,6 +1787,7 @@ export const createCubeViewport = (
     const relativeOrientation = detentedOrientation && deviceOrientationCorrection
       ? multiplyQuaternions(deviceOrientationCorrection, detentedOrientation)
       : detentedOrientation;
+    lastRenderedOrientation = relativeOrientation ?? null;
     const aspect = width / height;
     const matrices = cameraMatrices(
       aspect,
@@ -2044,7 +2055,11 @@ export const createCubeViewport = (
     });
   };
 
-  const animateDeviceOrientationCorrectionTo = (target: OrientationQuaternion, duration = 180) => {
+  const animateDeviceOrientationCorrectionTo = (target: OrientationQuaternion, duration = 150) => {
+    if (deviceOrientationCorrectionFrame !== null) {
+      window.cancelAnimationFrame(deviceOrientationCorrectionFrame);
+      deviceOrientationCorrectionFrame = null;
+    }
     const generation = ++deviceOrientationCorrectionGeneration;
     const start = deviceOrientationCorrection ?? {x: 0, y: 0, z: 0, w: 1};
     const started = performance.now();
@@ -2055,7 +2070,12 @@ export const createCubeViewport = (
       const eased = 1 - (1 - progress) ** 3;
       deviceOrientationCorrection = slerpQuaternion(start, target, eased);
       requestRender();
-      deviceOrientationCorrectionFrame = progress < 1 ? window.requestAnimationFrame(tick) : null;
+      if (progress >= 1) {
+        deviceOrientationCorrection = null;
+        deviceOrientationCorrectionFrame = null;
+      } else {
+        deviceOrientationCorrectionFrame = window.requestAnimationFrame(tick);
+      }
     };
     deviceOrientationCorrectionFrame = window.requestAnimationFrame(tick);
   };
@@ -2175,6 +2195,7 @@ export const createCubeViewport = (
       if (!orientation) {
         deviceOrientationBase = null;
         deviceOrientation = null;
+        lastRenderedOrientation = null;
         deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
         gyroDriftOffset = {x: 0, y: 0, z: 0, w: 1};
         lastGyroDriftTime = null;
@@ -2190,6 +2211,7 @@ export const createCubeViewport = (
       if (deviceOrientationFrame !== coordinateFrame) {
         deviceOrientationBase = null;
         deviceOrientation = null;
+        lastRenderedOrientation = null;
         deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
         gyroDriftOffset = {x: 0, y: 0, z: 0, w: 1};
         lastGyroDriftTime = null;
@@ -2209,8 +2231,9 @@ export const createCubeViewport = (
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
     },
-    recenterDeviceOrientation(orientation, coordinateFrame = "viewport") {
+    recenterDeviceOrientation(orientation, coordinateFrame = "viewport", animate = true) {
       const normalized = normalizedQuaternion(orientation);
+      const prevVisual = lastRenderedOrientation;
       deviceOrientationBase = normalized;
       deviceOrientation = normalized;
       deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
@@ -2218,8 +2241,20 @@ export const createCubeViewport = (
       lastGyroDriftTime = null;
       isGyroDrifting = false;
       deviceOrientationFrame = coordinateFrame;
-      deviceOrientationCorrection = null;
-      deviceOrientationCorrectionGeneration += 1;
+
+      const correction = (animate && prevVisual) ? recenterOrientationCorrection(prevVisual) : null;
+      if (correction) {
+        deviceOrientationCorrection = correction;
+        animateDeviceOrientationCorrectionTo({x: 0, y: 0, z: 0, w: 1}, 150);
+      } else {
+        if (deviceOrientationCorrectionFrame !== null) {
+          window.cancelAnimationFrame(deviceOrientationCorrectionFrame);
+          deviceOrientationCorrectionFrame = null;
+        }
+        deviceOrientationCorrection = null;
+        deviceOrientationCorrectionGeneration += 1;
+      }
+
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
     },
