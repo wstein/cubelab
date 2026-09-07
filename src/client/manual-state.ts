@@ -484,40 +484,60 @@ const canAssignKind = (
   return search(0);
 };
 
+const signatureMemoTable = new Int8Array(13 * 4096);
+
 /** Which orientation sums and permutation parities still have a completion. */
 const feasibleSignatures = (draft: ManualStateDraft, kind: CubieKind): boolean[][] => {
   const domains = candidatesFor(kind).map((candidates, index) =>
     candidates.filter((candidate) => matches(draft, kind.slots[index], candidate)),
   );
-  const result = Array.from({length: kind.orientations}, () => [false, false]);
+  const orientations = kind.orientations;
+  const fullMask = (1 << (orientations * 2)) - 1;
+  const result = Array.from({length: orientations}, () => [false, false]);
   if (domains.some((domain) => domain.length === 0)) return result;
-  const memo = new Map<string, boolean[][]>();
-  const search = (slot: number, used: number): boolean[][] => {
+
+  signatureMemoTable.fill(-1);
+
+  const search = (slot: number, used: number): number => {
     if (slot === domains.length) {
-      const terminal = Array.from({length: kind.orientations}, () => [false, false]);
-      terminal[0][0] = true;
-      return terminal;
+      return 1;
     }
-    const key = `${slot}/${used}`;
-    const cached = memo.get(key);
-    if (cached) return cached;
-    const possible = Array.from({length: kind.orientations}, () => [false, false]);
-    domains[slot].forEach((candidate) => {
+    const key = (slot << 12) | used;
+    const cached = signatureMemoTable[key];
+    if (cached !== -1) return cached;
+
+    let possible = 0;
+    const domain = domains[slot];
+    for (let cIndex = 0; cIndex < domain.length; cIndex += 1) {
+      const candidate = domain[cIndex];
       const bit = 1 << candidate.piece;
-      if ((used & bit) !== 0) return;
+      if ((used & bit) !== 0) continue;
       const inversions = popcountParity(used >>> (candidate.piece + 1));
       const rest = search(slot + 1, used | bit);
-      for (let orientation = 0; orientation < kind.orientations; orientation += 1) {
+      if (rest === 0) continue;
+      for (let orientation = 0; orientation < orientations; orientation += 1) {
         for (let parity = 0; parity < 2; parity += 1) {
-          if (!rest[orientation][parity]) continue;
-          possible[(orientation + candidate.orientation) % kind.orientations][parity ^ inversions] = true;
+          if ((rest & (1 << (orientation * 2 + parity))) === 0) continue;
+          const nextO = (orientation + candidate.orientation) % orientations;
+          const nextP = parity ^ inversions;
+          possible |= 1 << (nextO * 2 + nextP);
         }
       }
-    });
-    memo.set(key, possible);
+      if (possible === fullMask) break;
+    }
+    signatureMemoTable[key] = possible;
     return possible;
   };
-  return search(0, 0);
+
+  const bits = search(0, 0);
+  for (let orientation = 0; orientation < orientations; orientation += 1) {
+    for (let parity = 0; parity < 2; parity += 1) {
+      if ((bits & (1 << (orientation * 2 + parity))) !== 0) {
+        result[orientation][parity] = true;
+      }
+    }
+  }
+  return result;
 };
 
 export const manualStateStickerCount = (size: ManualStateSize): number => 6 * size * size;
