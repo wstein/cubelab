@@ -14,6 +14,7 @@ import {
 import {resolveSmartCubeDriver} from "./drivers";
 import type {
   SmartCubeCapabilities,
+  SmartCubeCommand,
   SmartCubeConnectOptions,
   SmartCubeConnectionState,
   SmartCubeDevice,
@@ -270,6 +271,7 @@ export const createSmartCubeManager = (
   let connectionGeneration = 0;
   const stateListeners = new Set<(next: SmartCubeConnectionState) => void>();
   const eventListeners = new Set<(event: SmartCubeEvent) => void>();
+  const commandListeners = new Set<(command: SmartCubeCommand) => void>();
 
   const publishState = (next: SmartCubeConnectionState) => {
     state = next;
@@ -278,6 +280,10 @@ export const createSmartCubeManager = (
 
   const publishEvent = (event: SmartCubeEvent) => {
     eventListeners.forEach((listener) => listener(event));
+  };
+
+  const publishCommand = (command: SmartCubeCommand) => {
+    commandListeners.forEach((listener) => listener(command));
   };
 
   const clearTransport = () => {
@@ -295,9 +301,18 @@ export const createSmartCubeManager = (
 
   const refresh = async (): Promise<void> => {
     const active = requireConnection();
-    if (active.capabilities.hardware) await active.sendCommand({type: "REQUEST_HARDWARE"});
-    if (active.capabilities.battery) await active.sendCommand({type: "REQUEST_BATTERY"});
-    if (active.capabilities.facelets) await active.sendCommand({type: "REQUEST_FACELETS"});
+    if (active.capabilities.hardware) {
+      publishCommand({timestamp: Date.now(), type: "REQUEST_HARDWARE"});
+      await active.sendCommand({type: "REQUEST_HARDWARE"});
+    }
+    if (active.capabilities.battery) {
+      publishCommand({timestamp: Date.now(), type: "REQUEST_BATTERY"});
+      await active.sendCommand({type: "REQUEST_BATTERY"});
+    }
+    if (active.capabilities.facelets) {
+      publishCommand({timestamp: Date.now(), type: "REQUEST_FACELETS"});
+      await active.sendCommand({type: "REQUEST_FACELETS"});
+    }
   };
 
   const disconnect = async (): Promise<void> => {
@@ -410,6 +425,7 @@ export const createSmartCubeManager = (
       if (!active.capabilities.reset) {
         throw new Error(`${active.deviceName} does not support remote state reset`);
       }
+      publishCommand({timestamp: Date.now(), type: "REQUEST_RESET"});
       await active.sendCommand({type: "REQUEST_RESET"});
     },
     flashLed: async (colour, durationMs) => {
@@ -417,7 +433,9 @@ export const createSmartCubeManager = (
       if (typeof active.flashLed !== "function") {
         throw new Error(`${active.deviceName} does not expose verified LED control`);
       }
-      await active.flashLed(colour, Math.max(50, Math.min(5000, Math.round(durationMs))));
+      const normalizedDuration = Math.max(50, Math.min(5000, Math.round(durationMs)));
+      publishCommand({timestamp: Date.now(), type: "FLASH_LED", colour, durationMs: normalizedDuration});
+      await active.flashLed(colour, normalizedDuration);
     },
     subscribeState(listener) {
       stateListeners.add(listener);
@@ -427,6 +445,10 @@ export const createSmartCubeManager = (
     subscribeEvents(listener) {
       eventListeners.add(listener);
       return () => eventListeners.delete(listener);
+    },
+    subscribeCommands(listener) {
+      commandListeners.add(listener);
+      return () => commandListeners.delete(listener);
     },
   };
 };

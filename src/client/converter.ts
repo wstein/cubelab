@@ -4726,7 +4726,54 @@ if (root) {
     updateSmartCubeRecordingUi();
   };
 
+  const traceReceivedSmartCubeEvent = (event: SmartCubeEvent) => {
+    switch (event.type) {
+      case "move":
+        traceSmartCubeStabilization("received event", {
+          type: event.type,
+          timestamp: event.timestamp,
+          move: event.move,
+          face: event.face,
+          direction: event.direction,
+          localTimestamp: event.localTimestamp,
+          cubeTimestamp: event.cubeTimestamp,
+        });
+        return;
+      case "orientation":
+        traceSmartCubeStabilization("received event", {
+          type: event.type,
+          timestamp: event.timestamp,
+          quaternion: event.quaternion,
+          coordinateFrame: event.coordinateFrame,
+          angularVelocity: event.angularVelocity,
+        });
+        return;
+      case "facelets":
+        // Capture that a state packet arrived without exporting cube state.
+        traceSmartCubeStabilization("received event", {
+          type: event.type,
+          timestamp: event.timestamp,
+          faceletCount: event.facelets.length,
+        });
+        return;
+      case "battery":
+        traceSmartCubeStabilization("received event", event);
+        return;
+      case "hardware":
+        traceSmartCubeStabilization("received event", {
+          type: event.type,
+          timestamp: event.timestamp,
+          orientationSupported: event.orientationSupported,
+        });
+        return;
+      case "disconnected":
+        traceSmartCubeStabilization("received event", event);
+        return;
+    }
+  };
+
   const handleSmartCubeEvent = (event: SmartCubeEvent) => {
+    traceReceivedSmartCubeEvent(event);
     switch (event.type) {
       case "move": {
         const record: QueuedSmartCubeMove = {move: event.move, state: null};
@@ -4885,6 +4932,9 @@ if (root) {
           // repeatedly touching navigator.bluetooth in permission-blocked embeds.
           const manager = createSmartCubeManager({isBluetoothAvailable: () => true});
           manager.subscribeState(renderSmartCubeConnection);
+          manager.subscribeCommands((command) => {
+            traceSmartCubeStabilization("sent command", command);
+          });
           manager.subscribeEvents(handleSmartCubeEvent);
           smartCubeManager = manager;
           clearSmartCubeChunkReload();

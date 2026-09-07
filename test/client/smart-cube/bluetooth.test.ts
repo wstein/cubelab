@@ -302,6 +302,8 @@ describe("smart cube connection manager", () => {
     manager.subscribeState((state) => statuses.push(state.message));
     const events: string[] = [];
     manager.subscribeEvents((event) => events.push(event.type));
+    const commands: string[] = [];
+    manager.subscribeCommands((command) => commands.push(command.type));
 
     const device = await manager.connect({enableAddressSearch: true});
     expect(device).toMatchObject({brand: "gan", protocolId: "gan-gen2"});
@@ -311,6 +313,11 @@ describe("smart cube connection manager", () => {
 
     await manager.refresh();
     expect(fake.commands).toEqual(expect.arrayContaining([
+      "REQUEST_HARDWARE",
+      "REQUEST_BATTERY",
+      "REQUEST_FACELETS",
+    ]));
+    expect(commands).toEqual(expect.arrayContaining([
       "REQUEST_HARDWARE",
       "REQUEST_BATTERY",
       "REQUEST_FACELETS",
@@ -328,6 +335,7 @@ describe("smart cube connection manager", () => {
 
     await manager.resetCubeState();
     expect(fake.commands).toContain("REQUEST_RESET");
+    expect(commands).toContain("REQUEST_RESET");
     await expect(manager.flashLed("amber", 500)).rejects.toThrow("verified LED control");
     await manager.disconnect();
     expect(fake.disconnectCount()).toBe(1);

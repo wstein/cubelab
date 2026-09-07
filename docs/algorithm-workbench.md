@@ -157,11 +157,14 @@ only controls the virtual presentation.
 ## Smart-cube diagnostics
 
 The smart-cube dock has **Diagnostics off** by default. Turning it on records at most
-500 local gyro samples and virtual-regrip decisions for the current browser session;
-samples are throttled to roughly one record every 350 ms. CubeLab never uploads them.
+500 local diagnostic records for the current browser session. This includes every
+normalized received smart-cube event and each transport command CubeLab sends; the
+ring buffer retains the newest records when a high-rate gyro stream exceeds its limit.
+CubeLab never uploads them.
 **Copy cube trace** produces a small JSON report that a customer can paste into an issue
-or support request. It contains the cube brand and orientation measurements and
-decisions, but not facelets, cube state, Bluetooth addresses, or the device name.
+or support request. It contains the cube brand, orientation measurements, received-event
+metadata, and sent commands, but not facelets, cube state, Bluetooth addresses, or the
+device name.
 Copy first uses the browser clipboard API and then falls back to a temporary selected
 text field when that API is unavailable or permission is denied.
 Turning Diagnostics off clears the captured trace immediately, providing an explicit

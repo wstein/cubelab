@@ -83,6 +83,14 @@ export type SmartCubeEvent =
   | SmartCubeHardwareEvent
   | SmartCubeDisconnectedEvent;
 
+/** A command CubeLab has handed to the connected cube transport. */
+export type SmartCubeCommand = {
+  timestamp: number;
+  type: "REQUEST_HARDWARE" | "REQUEST_BATTERY" | "REQUEST_FACELETS" | "REQUEST_RESET" | "FLASH_LED";
+  colour?: "amber" | "green";
+  durationMs?: number;
+};
+
 export type SmartCubeConnectionPhase =
   | "unavailable"
   | "disconnected"
@@ -123,4 +131,5 @@ export type SmartCubeManager = {
   flashLed: (colour: "amber" | "green", durationMs: number) => Promise<void>;
   subscribeState: (listener: (state: SmartCubeConnectionState) => void) => () => void;
   subscribeEvents: (listener: (event: SmartCubeEvent) => void) => () => void;
+  subscribeCommands: (listener: (command: SmartCubeCommand) => void) => () => void;
 };
