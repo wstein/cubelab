@@ -5,9 +5,10 @@ import {
   cardinalOrientationFaces,
   createStableOrientationTracker,
   nearestCardinalOrientation,
+  nearestVirtualSphereFixpoint,
   nearestRegripAxis,
   observeStableOrientation,
-  observeVirtualFixpoint,
+  virtualSphereFixpointCount,
   observeThresholdOrientation,
   settleStableOrientation,
 } from "../../../src/client/smart-cube/orientation-tracker";
@@ -20,16 +21,16 @@ describe("stable smart-cube orientation tracker", () => {
     expect(cardinalOrientationCount).toBe(24);
   });
 
+  test("uses three eight-point rings for the virtual gyro sphere", () => {
+    expect(virtualSphereFixpointCount).toBe(24);
+    expect(nearestVirtualSphereFixpoint(identity).w).toBeCloseTo(1);
+  });
+
   test("selects the next virtual lock at the 45-degree cardinal boundary", () => {
     expect(cardinalOrientationFaces(nearestCardinalOrientation(x(44)))).toBe("URFDLB");
     expect(cardinalOrientationFaces(nearestCardinalOrientation(x(46)))).toBe("BRUFLD");
   });
 
-  test("emits a quarter-turn event only inside its 30-degree fixpoint circle", () => {
-    const tracker = createStableOrientationTracker(identity, "viewport", "world");
-    expect(observeVirtualFixpoint(tracker, x(55), "viewport").tokens).toEqual([]);
-    expect(observeVirtualFixpoint(tracker, x(61), "viewport").tokens).toEqual(["x"]);
-  });
 
   test("waits for a settled cardinal pose instead of committing at 65 degrees", () => {
     let tracker = createStableOrientationTracker(identity, "viewport");

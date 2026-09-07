@@ -175,17 +175,12 @@ stream supplies the virtual lock-in stabilizer rather than directly driving the 
 ### Current virtual-lock experiment
 
 The threshold regrip detector is temporarily bypassed for the live gyro view. Instead,
-every raw orientation sample selects the nearest of the 24 cardinal URFDLB fixpoints.
-Those fixpoints are 90° apart, so the virtual sphere changes its selected target at the
-45° boundary between neighbours. The continuous target change itself does not emit an
-event or reset a baseline. The display-only offset then moves toward that target at 2°/s,
-stabilizing sensor drift without requiring a threshold crossing. The threshold-specific
-description below remains as historical context for the recording tracker only.
-
-Alongside that continuous lock, each active pose exposes six 30° capture circles around
-its `x`, `x'`, `y`, `y'`, `z`, and `z'` quarter-turn fixpoints. Entering a circle emits the
-matching virtual cube event and advances the event baseline, while the 45° nearest-lock
-stabilizer continues independently.
+every raw orientation sample selects the nearest point in a 24-point virtual sphere: eight
+points every 45° around the equator, plus eight each on the north and south 45° latitude
+rings. The continuous target change emits no regrip event and resets no baseline. The
+display-only offset moves toward the selected point at 2°/s, stabilizing sensor drift
+without threshold or regrip detection. The threshold-specific description below remains
+as historical context for the recording tracker only.
 
 Live regrip detection (`observeThresholdOrientation`) fires as soon as the cumulative
 rotation from the last confirmed pose crosses `regripThresholdDegrees` (65° by default,
