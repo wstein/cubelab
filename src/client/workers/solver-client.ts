@@ -42,12 +42,35 @@ export const createSolverClient = <TState, TSolution>(worker: Worker) => {
   };
 };
 
+export type BatchVerifyProgress = {index: number; choices: string[]};
+
 /** Exact manual-state dot checks run off the interaction thread. */
 export const createManualStateVerifierClient = (worker: Worker) => {
   let nextId = 0;
   const pending = new Map<number, {resolve: (value: string[]) => void; reject: (reason: Error) => void}>();
-  worker.addEventListener("message", (event: MessageEvent<WorkerResponse<string[]>>) => {
+  const batchPending = new Map<number, {
+    onProgress: (progress: BatchVerifyProgress) => void;
+    resolve: () => void;
+    reject: (reason: Error) => void;
+  }>();
+
+  worker.addEventListener("message", (event: MessageEvent<any>) => {
     const response = event.data;
+    if (batchPending.has(response.id)) {
+      const entry = batchPending.get(response.id)!;
+      if (!response.ok) {
+        batchPending.delete(response.id);
+        entry.reject(new Error(response.error));
+        return;
+      }
+      if (response.type === "progress") {
+        entry.onProgress({index: response.index, choices: response.solution});
+      } else if (response.type === "done") {
+        batchPending.delete(response.id);
+        entry.resolve();
+      }
+      return;
+    }
     const request = pending.get(response.id);
     if (!request) return;
     pending.delete(response.id);
@@ -57,6 +80,8 @@ export const createManualStateVerifierClient = (worker: Worker) => {
   worker.addEventListener("error", () => {
     pending.forEach(({reject}) => reject(new Error("The manual-state verifier worker could not start.")));
     pending.clear();
+    batchPending.forEach(({reject}) => reject(new Error("The manual-state verifier worker could not start.")));
+    batchPending.clear();
   });
   return {
     verify(size: number, draft: Array<string | null>, index: number): Promise<string[]> {
@@ -66,9 +91,43 @@ export const createManualStateVerifierClient = (worker: Worker) => {
         worker.postMessage({id, type: "verifyManualStateColours", size, draft, index});
       });
     },
+    verifyBatch(
+      size: number,
+      draft: Array<string | null>,
+      indices: number[],
+      onProgress: (progress: BatchVerifyProgress) => void,
+    ): {promise: Promise<void>; cancel: () => void} {
+      const id = nextId++;
+      let cancelled = false;
+      const promise = new Promise<void>((resolve, reject) => {
+        batchPending.set(id, {
+          onProgress: (res) => {
+            if (!cancelled) onProgress(res);
+          },
+          resolve: () => {
+            batchPending.delete(id);
+            resolve();
+          },
+          reject: (err) => {
+            batchPending.delete(id);
+            reject(err);
+          },
+        });
+        worker.postMessage({id, type: "verifyManualStateBatch", size, draft, indices});
+      });
+      return {
+        promise,
+        cancel: () => {
+          cancelled = true;
+          batchPending.delete(id);
+        },
+      };
+    },
     terminate(): void {
       pending.forEach(({reject}) => reject(new Error("The manual-state verifier was stopped.")));
       pending.clear();
+      batchPending.forEach(({reject}) => reject(new Error("The manual-state verifier was stopped.")));
+      batchPending.clear();
       worker.terminate();
     },
   };
