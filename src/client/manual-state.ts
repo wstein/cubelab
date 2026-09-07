@@ -598,23 +598,59 @@ export const locallyAllowedManualStateColours = (
     const slotIndex = kind.slots.findIndex((slot) => slot.includes(index));
     if (slotIndex < 0) continue;
     const localIndex = kind.slots[slotIndex].indexOf(index);
-    const candidates = candidatesFor(kind);
-    const claimed = new Set<number>();
-    kind.slots.forEach((slot, sIndex) => {
+    const slot = kind.slots[slotIndex];
+    const uniquePieces = uniquePiecesFor(kind);
+    const usedCounts = new Array(uniquePieces.length).fill(0);
+    kind.slots.forEach((s, sIndex) => {
       if (sIndex === slotIndex) return;
-      if (slot.every((s) => draft[s] !== null)) {
-        const matched = candidates[sIndex].find((c) => matches(draft, slot, c));
-        if (matched) claimed.add(matched.piece);
+      if (s.every((idx) => draft[idx] !== null)) {
+        const matched = uniquePieces.findIndex((p) =>
+          p.rotations.some((rot) => s.every((idx, li) => draft[idx] === rot[li])),
+        );
+        if (matched >= 0) usedCounts[matched] += 1;
       }
     });
-    return candidates[slotIndex]
-      .filter((candidate) => !claimed.has(candidate.piece) && matches(draft, kind.slots[slotIndex], candidate))
-      .map((candidate) => candidate.stickers[localIndex])
-      .filter((colour, candidateIndex, values) =>
-        values.indexOf(colour) === candidateIndex &&
-        (counts[colour] < perColour || draft[index] === colour) &&
-        isManualStateColourAllowedByScarcity(size, draft, index, colour),
-      );
+
+    const allowed = new Set<ManualStateFace>();
+    for (const piece of uniquePieces) {
+      if (usedCounts[piece.typeId] >= piece.capacity) continue;
+      for (const stickers of piece.rotations) {
+        const colour = stickers[localIndex];
+        if (draft[index] !== null && draft[index] !== colour) continue;
+        if (counts[colour] >= perColour && draft[index] !== colour) continue;
+        if (!isManualStateColourAllowedByScarcity(size, draft, index, colour)) continue;
+
+        let matesValid = true;
+        for (let li = 0; li < slot.length; li += 1) {
+          if (li === localIndex) continue;
+          const otherIdx = slot[li];
+          const otherColour = stickers[li];
+          if (draft[otherIdx] !== null) {
+            if (draft[otherIdx] !== otherColour) {
+              matesValid = false;
+              break;
+            }
+          } else {
+            if (counts[otherColour] >= perColour) {
+              matesValid = false;
+              break;
+            }
+            if (otherColour === colour && counts[colour] + 1 >= perColour) {
+              matesValid = false;
+              break;
+            }
+            if (!isManualStateColourAllowedByScarcity(size, draft, otherIdx, otherColour)) {
+              matesValid = false;
+              break;
+            }
+          }
+        }
+        if (matesValid) {
+          allowed.add(colour);
+        }
+      }
+    }
+    return manualStateFaces.filter((colour) => allowed.has(colour));
   }
   // Interior big-cube centres do not belong to a corner or edge cubie. Their
   // local constraint is the colour quota, which also lets the last remaining

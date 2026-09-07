@@ -567,5 +567,43 @@ describe("dot diagnostics explain an unreachable draft", () => {
     expect(locallyAllowedManualStateColours(4, draft, freeWing)).not.toContain("U");
     expect(allowedManualStateColours(4, draft, freeWing)).not.toContain("U");
   });
+
+  test("24 Greens placed on 5×5: bottom L-face wings reject Green when mate cannot be Orange", () => {
+    const draft = emptyManualState(5);
+    const orbits = manualStateOrbits(5);
+    const corners = orbits.find((o) => o.name === "corners")!;
+    const midges = orbits.find((o) => o.name === "midges")!;
+    const wings = orbits.find((o) => o.name === "wings")!;
+    const xCentres = orbits.find((o) => o.name === "xCentres")!;
+    const plusCentres = orbits.find((o) => o.name === "plusCentres")!;
+
+    // 4 corners, 4 midges, 4 X-centres, 4 +-centres placed with Green (F)
+    corners.slots.slice(0, 4).forEach((s) => { draft[s[0]] = "F"; });
+    midges.slots.slice(0, 4).forEach((s) => { draft[s[0]] = "F"; });
+    xCentres.slots.slice(0, 4).forEach((s) => { draft[s[0]] = "F"; });
+    plusCentres.slots.slice(0, 4).forEach((s) => { draft[s[0]] = "F"; });
+
+    // 7 wings placed with Green: 2 UF, 2 DF, 2 FR, 1 FL
+    const otherWings = wings.slots.filter((s) => !s.includes(121) && !s.includes(123));
+    draft[otherWings[0][0]] = "U"; draft[otherWings[0][1]] = "F";
+    draft[otherWings[1][0]] = "U"; draft[otherWings[1][1]] = "F";
+    draft[otherWings[2][0]] = "D"; draft[otherWings[2][1]] = "F";
+    draft[otherWings[3][0]] = "D"; draft[otherWings[3][1]] = "F";
+    draft[otherWings[4][0]] = "F"; draft[otherWings[4][1]] = "R";
+    draft[otherWings[5][0]] = "F"; draft[otherWings[5][1]] = "R";
+    draft[otherWings[6][0]] = "F"; draft[otherWings[6][1]] = "L";
+
+    expect(draft.filter((c) => c === "F")).toHaveLength(24);
+
+    // Place remaining Orange wings on other slots so Orange cannot go on DL edge
+    otherWings.slice(7, 14).forEach((s) => { draft[s[0]] = "L"; });
+
+    // Both bottom wings of L face (121 and 123) must reject Green
+    expect(locallyAllowedManualStateColours(5, draft, 121)).not.toContain("F");
+    expect(locallyAllowedManualStateColours(5, draft, 123)).not.toContain("F");
+    expect(allowedManualStateColours(5, draft, 121)).not.toContain("F");
+    expect(allowedManualStateColours(5, draft, 123)).not.toContain("F");
+  });
 });
+
 
