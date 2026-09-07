@@ -111,6 +111,12 @@ finish against the 4×4×4 and requires every face to be monochrome. This is a
 reduction-stage finish, not a general 4×4×4 or move-optimal solver; centre,
 wing-pairing, and parity stages remain separate work.
 
+The 5×5×5 Reduction Academy currently begins before that handoff: its inspector reports
+the six fixed-core 3×3 centres (with X- and +-centre orbits separately), then the 24
+two-wing pairs around fixed middle edges. During the centre stage it may offer one bounded,
+replay-verified inner-slice improvement. Wing pairing and the reduced 3×3 finish remain
+explicitly locked until their dedicated 5×5 physical-state planner is available.
+
 ## Manual state entry
 
 The editor keeps its private draft, hover target, keyboard cursor, and dot-verification

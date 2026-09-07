@@ -13,6 +13,7 @@ import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as HamiltonMacro from "../Move/HamiltonMacro";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
 import {inspectReduction4x4, planNextCentreBlock4x4, planNextWingPair4x4, planOLLParityRepair4x4, planPLLParityRepair4x4, reduce4x4} from "../Solver/Reduction4x4";
+import {inspectReduction5x5, planNextCentre5x5} from "../Solver/Reduction5x5";
 import {
   createOptimal2x2SolverClient,
   createRandom2x2ScrambleClient,
@@ -193,7 +194,7 @@ type RecognizedInput = {
   timeline?: AlgorithmTimeline;
   timelineKey?: string;
 };
-type TutorialMethod = Exclude<AcademyMethod, "reduction4x4">;
+type TutorialMethod = Exclude<AcademyMethod, "reduction4x4" | "reduction5x5">;
 type TutorialPhase = {
   number: number;
   title: string;
@@ -391,6 +392,13 @@ if (root) {
     applyGuide: root.querySelector<HTMLButtonElement>("[data-reduction-4x4-academy-apply-guide]")!,
     repairParity: root.querySelector<HTMLButtonElement>("[data-reduction-4x4-academy-repair-parity]")!,
     finish: root.querySelector<HTMLButtonElement>("[data-reduction-4x4-academy-finish]")!,
+  };
+  const reduction5x5Academy = {
+    status: root.querySelector<HTMLElement>("[data-reduction-5x5-academy-status]")!,
+    current: root.querySelector<HTMLElement>("[data-reduction-5x5-academy-current]")!,
+    phases: root.querySelector<HTMLElement>("[data-reduction-5x5-academy-phases]")!,
+    guide: root.querySelector<HTMLElement>("[data-reduction-5x5-academy-guide]")!,
+    applyCentre: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-apply-centre]")!,
   };
   const autoOrbitButton = root.querySelector<HTMLButtonElement>("[data-auto-orbit]")!;
   const turnGuidesButton = root.querySelector<HTMLButtonElement>("[data-turn-guides]")!;
@@ -2713,8 +2721,8 @@ if (root) {
       const moveCount = savedTutorialSolutions.get(academy.method)?.solution.moveCount;
       return moveCount === undefined ? [] : [{label: academy.label, moveCount}];
     });
-    academyComparison.hidden = academyMethod === "reduction4x4" || compared.length < 2;
-    if (academyMethod === "reduction4x4" || compared.length < 2) {
+    academyComparison.hidden = academyMethod === "reduction4x4" || academyMethod === "reduction5x5" || compared.length < 2;
+    if (academyMethod === "reduction4x4" || academyMethod === "reduction5x5" || compared.length < 2) {
       academyComparison.textContent = "";
       return;
     }
@@ -2725,7 +2733,7 @@ if (root) {
   };
 
   const selectedTutorialMethod = (): TutorialMethod | null =>
-    academyMethod === "reduction4x4" ? null : academyMethod;
+    academyMethod === "reduction4x4" || academyMethod === "reduction5x5" ? null : academyMethod;
 
   const isSolvedState = (state: CubeState): boolean => {
     const solved = StateTypes.solved(state.size) as Result<CubeState, unknown>;
@@ -2762,14 +2770,14 @@ if (root) {
     `${input.value}\u0000${schemeSelect.value}\u0000${customScheme.value}`;
 
   const academySetupSourceKey = (): string =>
-    `${size}\u0000${lowercaseMode}\u0000${notationDialect}\u0000${schemeSelect.value}\u0000${customScheme.value}\u0000${input.value}\u0000${academyMethod === "reduction4x4" ? movesInput.value : ""}`;
+    `${size}\u0000${lowercaseMode}\u0000${notationDialect}\u0000${schemeSelect.value}\u0000${customScheme.value}\u0000${input.value}\u0000${academyMethod === "reduction4x4" || academyMethod === "reduction5x5" ? movesInput.value : ""}`;
 
   const synchronizeAcademySetup = () => {
     const key = academySetupSourceKey();
     if (key === academySetupKey) return;
     academySetupKey = key;
     const setup = parseState(input.value);
-    const source = academyMethod === "reduction4x4"
+    const source = academyMethod === "reduction4x4" || academyMethod === "reduction5x5"
       ? parseWorkspaceState(setup)
       : setup;
     updateAcademySource(source.TAG === "Ok" ? source._0 : null);
@@ -3029,8 +3037,54 @@ if (root) {
     academy.finish.disabled = !finishReady;
   };
 
+  const renderReduction5x5Academy = (recognized: RecognizedInput | null) => {
+    const academy = reduction5x5Academy;
+    academy.status.classList.remove("error");
+    academy.phases.replaceChildren();
+    academy.current.hidden = true;
+    academy.guide.hidden = true;
+    academy.guide.classList.remove("error");
+    academy.applyCentre.hidden = true;
+    academy.applyCentre.disabled = true;
+    if (size !== 5) {
+      academy.status.textContent = "5×5 Reduction Academy is available for 5×5 states.";
+      return;
+    }
+    if (recognized === null) {
+      academy.status.textContent = "Enter a complete, physically valid 5×5 state to inspect reduction.";
+      return;
+    }
+    const inspection = inspectReduction5x5(recognized.state);
+    if (inspection.TAG === "Error") {
+      academy.status.textContent = inspection._0.message;
+      academy.status.classList.add("error");
+      return;
+    }
+    const progress = inspection._0;
+    academy.status.textContent = `${progress.centreFacesComplete}/6 3×3 centres · ${progress.xCentresComplete}/6 X-centre sets · ${progress.plusCentresComplete}/6 +‑centre sets · ${progress.wingPairsMatched}/24 wing pairs.`;
+    academy.current.hidden = false;
+    academy.current.textContent = progress.nextGoal;
+    academy.phases.append(
+      reductionAcademyPhase(1, "Build six 3×3 centres", "Each fixed core defines its face colour. Complete the diagonal X-centres and orthogonal +-centres around it before calling a centre solved.", `${progress.centreFacesComplete}/6 faces · X ${progress.xCentresComplete}/6 · + ${progress.plusCentresComplete}/6`, progress.centreFacesComplete === 6, progress.stage === "centres", ["Make matching 1×3 bars with inner slices, store them, then join them around the fixed core.", "Keep completed centres on protected faces; verify all eight movable centres match their core."]),
+      reductionAcademyPhase(2, "Pair wings around fixed middle edges", "Each edge has a fixed middle edge and two movable wings. Pair both wings to form one reduced dedge.", `${progress.wingPairsMatched}/24 wing pairs`, progress.wingPairsMatched === 24, progress.stage === "wings", ["Use the fixed middle edge as the colour reference; do not pair wings by surface colour alone.", "This milestone is read-only in the first 5×5 Academy release."]),
+      reductionAcademyPhase(3, "Verify the 3×3 handoff", "The final 3×3 finish stays locked until centre and wing reduction has a dedicated 5×5 physical-state handoff.", progress.stage === "handoff" ? "Milestones reached · finisher pending" : "Locked", false, progress.stage === "handoff", ["The inspector never labels a partly reduced 5×5 as a solved 3×3."]),
+    );
+    if (progress.stage === "centres") {
+      const guide = planNextCentre5x5(recognized.state);
+      academy.guide.hidden = false;
+      if (guide.TAG === "Ok") {
+        academy.guide.textContent = `Next replay-verified centre move: ${guide._0.algorithm} · centre score ${guide._0.before}/48 → ${guide._0.after}/48.`;
+        academy.applyCentre.hidden = false;
+        academy.applyCentre.disabled = false;
+      } else {
+        academy.guide.textContent = guide._0.message;
+        academy.guide.classList.add("error");
+      }
+    }
+  };
+
   const updateAcademyMethodControls = () => {
-    const reductionMode = academyMethod === "reduction4x4";
+    const reductionMode = academyMethod === "reduction4x4" || academyMethod === "reduction5x5";
     const twoByTwoMode = academyMethod === "twoByTwoBeginner" || academyMethod === "twoByTwoPetrus";
     academySharedActions.forEach((control) => { control.hidden = reductionMode; });
     [academyInstantDrill, academyWcaDrill, academyLoadDrill, academyRandomDrill].forEach((control) => {
@@ -3058,6 +3112,7 @@ if (root) {
             : `Ready to teach the recognized ${recognized.label.toLowerCase()} setup to the selected target pattern.`;
     });
     renderReduction4x4Academy(recognized);
+    renderReduction5x5Academy(recognized);
     const diagnostic = academyTargetDiagnostic();
     const method = selectedTutorialMethod();
     if (diagnostic !== null && method !== null) {
@@ -5363,6 +5418,13 @@ if (root) {
   reduction4x4Academy.applyCentre.addEventListener("click", () => {
     if (size !== 4 || activeRecognized === null) return;
     const guide = planNextCentreBlock4x4(activeRecognized.state);
+    if (guide.TAG !== "Ok") return;
+    store.patch({moves: [movesInput.value.trim(), guide._0.algorithm].filter(Boolean).join(" ")});
+  });
+
+  reduction5x5Academy.applyCentre.addEventListener("click", () => {
+    if (size !== 5 || activeRecognized === null) return;
+    const guide = planNextCentre5x5(activeRecognized.state);
     if (guide.TAG !== "Ok") return;
     store.patch({moves: [movesInput.value.trim(), guide._0.algorithm].filter(Boolean).join(" ")});
   });

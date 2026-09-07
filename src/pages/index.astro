@@ -1013,6 +1013,9 @@ s100"></textarea>
                       >Centres · wings · 3×3 handoff</span
                     >
                   </button>
+                  <button type="button" class="academy-method" data-academy-method="reduction5x5" aria-pressed="false">
+                    <strong>🧠 5×5 Reduction</strong><span>3×3 centres · wings · handoff</span>
+                  </button>
                 </div>
                 <button
                   type="button"
@@ -1431,6 +1434,15 @@ s100"></textarea>
                   hidden
                 >Continue with reduced 3×3 finish</button>
               </div>
+            </div>
+            <div data-academy-method-panel="reduction5x5" hidden>
+              <header class="feature-header academy-method-header"><div><span class="panel-label">Fixed cores · movable X/+ centres · paired wings</span><h3>5×5 Reduction Academy</h3></div></header>
+              <p class="academy-intro">Build each 3×3 centre around its fixed core, then pair the two wings around every fixed middle edge. This first release inspects milestones and offers bounded, replay-verified centre hints; the reduced 3×3 finisher remains locked.</p>
+              <div class="academy-status" data-reduction-5x5-academy-status aria-live="polite">Enter a valid 5×5 state to inspect reduction.</div>
+              <div class="academy-current" data-reduction-5x5-academy-current hidden></div>
+              <div class="academy-phases" data-reduction-5x5-academy-phases></div>
+              <div class="academy-current" data-reduction-5x5-academy-guide hidden></div>
+              <div class="academy-solution-actions"><button type="button" class="transform-btn" data-reduction-5x5-academy-apply-centre hidden>Apply next centre guide</button></div>
             </div>
           </section>
 

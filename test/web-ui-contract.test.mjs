@@ -212,6 +212,13 @@ test("Academy exposes an optional target pattern field", () => {
   assert.match(client, /generated solution did not replay from setup to the target pattern/);
 });
 
+test("Academy exposes the milestone-first 5×5 reduction inspector", () => {
+  assert.match(page, /data-academy-method="reduction5x5"/);
+  assert.match(page, /data-reduction-5x5-academy-status/);
+  assert.match(client, /inspectReduction5x5/);
+  assert.match(client, /planNextCentre5x5/);
+});
+
 test("the editor separates a synchronized setup from optional replay moves", () => {
   assert.match(page, /Setup \(state\)/);
   assert.match(page, /data-moves-input/);

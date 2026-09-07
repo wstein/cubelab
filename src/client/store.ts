@@ -14,7 +14,8 @@ export type AcademyMethod =
   | "advancedCfop"
   | "petrus"
   | "enhancedPetrus"
-  | "reduction4x4";
+  | "reduction4x4"
+  | "reduction5x5";
 
 export type AppState = {
   size: number;
@@ -139,6 +140,8 @@ export const readHash = (hash: string): AppState => {
       ? "beginnerCfop"
       : requestedMethod === "advancedCfop" || requestedMethod === "advanced"
         ? "advancedCfop"
+        : requestedMethod === "reduction5x5" || requestedMethod === "reduction5"
+          ? "reduction5x5"
         : requestedMethod === "reduction4x4" || requestedMethod === "reduction"
           ? "reduction4x4"
         : requestedMethod === "fullCfop" || requestedMethod === "cfop" || requestedTab === "cfop"
