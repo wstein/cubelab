@@ -1,10 +1,10 @@
 import * as ColorCodec from "../State/ColorCodec.res.mjs";
 import * as FaceletCodec from "../State/FaceletCodec.res.mjs";
 import * as NetCodec from "../State/NetCodec.res.mjs";
-import * as Orbit64Codec from "../State/Orbit64Codec";
+import * as Orbit64Codec from "../State/Orbit64Codec.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import * as StateTypes from "../State/StateTypes.res.mjs";
-import {validate4x4} from "../State/StateValidation4x4";
+import {validate4x4} from "../State/StateValidation4x4.res.mjs";
 import * as MoveCompatibility from "../Move/MoveCompatibility.res.mjs";
 import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 import * as MoveNiss from "../Move/MoveNiss.res.mjs";

@@ -52,7 +52,7 @@ Academy solving, or smart-cube synchronization as valid states.
 
 ## 4×4 wing and centre validation
 
-`StateValidation4x4.ts` validates a completed 4×4×4 facelet state before the manual editor
+`StateValidation4x4.res` validates a completed 4×4×4 facelet state before the manual editor
 enables **Load**. It reduces the eight outer corners to the 2×2×2 coordinate model, checking
 their identity permutation and twist sum. It then models all twenty-four physical wing pieces:
 for every solved wing it enumerates the facelet slots and orientations reachable by outer and

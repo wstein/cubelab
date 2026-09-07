@@ -7,7 +7,7 @@
  * also respect corner and edge-piece identities; a complete 4×4 is further
  * checked by StateValidation4x4 before it can load.
  */
-import {canComplete4x4Wings} from "../State/StateValidation4x4";
+import {canComplete4x4Wings} from "../State/StateValidation4x4.res.mjs";
 /** FaceletCodec's serialized order. Keep this independent of the editor UI. */
 export const faceletOrder = ["U", "R", "F", "D", "L", "B"] as const;
 export type ManualStateFace = typeof faceletOrder[number];

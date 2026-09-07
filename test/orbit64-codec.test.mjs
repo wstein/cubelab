@@ -3,7 +3,7 @@ import {test} from "vitest";
 
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
-import * as Orbit64Codec from "../src/State/Orbit64Codec.ts";
+import * as Orbit64Codec from "../src/State/Orbit64Codec.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
 import {normative3x3Tokens, publishedStateVectors, solved3x3FrameTokens} from "./fixtures/orbit64-rosetta-vectors.mjs";
 

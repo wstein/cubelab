@@ -3,7 +3,7 @@ import {expect, test} from "vitest";
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
-import {validate4x4} from "../src/State/StateValidation4x4.ts";
+import {validate4x4} from "../src/State/StateValidation4x4.res.mjs";
 
 const state = (algorithm) => {
   const applied = MoveExecutor.parseAndApply(4, algorithm);
