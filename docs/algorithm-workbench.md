@@ -188,8 +188,12 @@ diagnostics needle exposes the initial residual and its gradual correction to ze
 An independent event layer retains six 30° quarter-turn capture circles (`x`, `x'`, `y`,
 `y'`, `z`, `z'`) around the active pose. Entering one emits the corresponding virtual
 regrip: learn mode animates the viewport, and a physical-mirror recording appends the
-event and advances its hardware-to-viewport frame. This does not alter the continuous
-three-ring lock target.
+event and advances its hardware-to-viewport frame. The event tracker keeps its original
+gyro calibration sample and advances its virtual target by an exact 90° after each
+entry; it must not rebase to the 60° circle boundary. Thus consecutive quarter turns
+remain detectable even when packets arrive only at the edge of each capture circle.
+Recenter and recording-mode changes create a fresh event tracker. This does not alter
+the continuous three-ring lock target.
 
 Diagnostics renders these two mechanisms separately: cyan marks the 45° virtual-lock
 ring and its eight longitude points; amber circles mark the six 30° event-capture areas.

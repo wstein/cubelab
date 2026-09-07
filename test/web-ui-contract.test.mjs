@@ -658,8 +658,8 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /recenterDeviceOrientation/);
   assert.match(client, /createStableOrientationTracker/);
   assert.match(client, /reconcileDeviceOrientation/);
-  assert.match(client, /observeStableOrientation/);
-  assert.match(client, /regrip settled/);
+  assert.match(client, /observeVirtualFixpoint/);
+  assert.match(client, /Recorded virtual regrip/);
   assert.match(client, /smartCubeDiscreteOrientationTracker\s*=\s*createStableOrientationTracker/);
   assert.match(client, /appendRecordedMove/);
   assert.match(client, /mirrorSmartCubeFaceletsToInput\(event\.facelets\)/);
@@ -827,7 +827,7 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(client, /await animateSmartCubeRecordingToken\(tapeMove\)/);
   assert.match(client, /void animateSmartCubeRecordingToken\(token\)/);
   assert.match(client, /MoveExecutor\.applyStep\(smartCubeRecordingState, step\)/);
-  assert.match(client, /Recorded regrip/);
+  assert.match(client, /Recorded virtual regrip/);
   assert.match(client, /Record · verified \+ gyro/);
   const recordingBranch = client.indexOf("if (smartCubeRecording) {", client.indexOf("const applySmartCubeMove"));
   const recordingStopPlayback = client.indexOf("stopPlayback();", recordingBranch);

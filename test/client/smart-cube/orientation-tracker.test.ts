@@ -33,6 +33,20 @@ describe("stable smart-cube orientation tracker", () => {
     expect(observeVirtualFixpoint(tracker, x(61), "viewport").tokens).toEqual(["x"]);
   });
 
+  test("keeps the 90-degree virtual targets after entering a capture circle", () => {
+    let tracker = createStableOrientationTracker(identity, "viewport", "world");
+    const tokens: string[] = [];
+    // Samples cross each 30° capture-circle boundary, rather than landing
+    // precisely on its 90° centre. A full five turns must still produce all
+    // twenty quarter-turn events.
+    for (let degrees = 0; degrees <= 1_800; degrees += 1) {
+      const observed = observeVirtualFixpoint(tracker, x(degrees), "viewport");
+      tracker = observed.tracker;
+      tokens.push(...observed.tokens);
+    }
+    expect(tokens).toEqual(Array(20).fill("x"));
+  });
+
   test("selects the next virtual lock at the 45-degree cardinal boundary", () => {
     expect(cardinalOrientationFaces(nearestCardinalOrientation(x(44)))).toBe("URFDLB");
     expect(cardinalOrientationFaces(nearestCardinalOrientation(x(46)))).toBe("BRUFLD");

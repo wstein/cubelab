@@ -4591,6 +4591,7 @@ if (root) {
       settingsAutoOrbit.disabled = true;
     } else {
       smartCubeDiscreteOrientationTracker = null;
+      smartCubeVirtualFixpointTracker = null;
       autoOrbitButton.disabled = !viewport;
       settingsAutoOrbit.disabled = !viewport;
       setAutoOrbitEnabled(autoOrbit, false);
@@ -6477,6 +6478,11 @@ if (root) {
       latestSmartCubeOrientation.coordinateFrame,
       "world",
     );
+    smartCubeVirtualFixpointTracker = createStableOrientationTracker(
+      latestSmartCubeOrientation.quaternion,
+      latestSmartCubeOrientation.coordinateFrame,
+      "world",
+    );
     viewport?.recenterDeviceOrientation(
       latestSmartCubeOrientation.quaternion,
       latestSmartCubeOrientation.coordinateFrame,
@@ -7357,6 +7363,7 @@ if (root) {
       smartCubeRecordingTapePresented = true;
       smartCubeRecordingFrame = [];
       smartCubeRecordingOrientationTracker = null;
+      smartCubeVirtualFixpointTracker = null;
       cancelSmartCubeRecordingAnimation();
       smartCubeRecordingTapeDirty = false;
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Recording stopped; captured turns were appended to Moves.`;
@@ -7379,6 +7386,7 @@ if (root) {
       smartCubeRecordingTapePresented = false;
       smartCubeRecordingFrame = [];
       smartCubeRecordingOrientationTracker = null;
+      smartCubeVirtualFixpointTracker = null;
       cancelSmartCubeRecordingAnimation();
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Recording physical turns into Moves.`;
       syncSmartCubeTrackedOrientation();

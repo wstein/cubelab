@@ -2,7 +2,6 @@ import {
   deviceOrientationDelta,
   multiplyQuaternions,
   orientationDistanceRadians,
-  quaternionAxisAngle,
   type OrientationCoordinateFrame,
   type OrientationQuaternion,
 } from "../cube-gl";
@@ -229,7 +228,16 @@ export const nearestRegripAxis = (axis: [number, number, number]): RegripToken |
   return best!.token;
 };
 
-/** Emits on entry into a 30° circle around one of the six quarter-turn directions. */
+/**
+ * Emits on entry into a 30° circle around the next six quarter-turn targets.
+ *
+ * `baseline` deliberately remains the calibration sample. Advancing it to the
+ * sample that entered a circle makes the next target only ~60° away, which
+ * eventually loses the x/y/z sequence during repeated regrips. Instead the
+ * accepted *virtual* orientation advances exactly 90°; the next capture
+ * circle is therefore always the next quarter turn, while the raw gyro can
+ * still enter it anywhere in its 30° radius.
+ */
 export const observeVirtualFixpoint = (
   tracker: StableOrientationTracker,
   current: OrientationQuaternion,
@@ -238,15 +246,24 @@ export const observeVirtualFixpoint = (
 ): {tracker: StableOrientationTracker; tokens: RegripToken[]} => {
   if (tracker.frame !== frame) return {tracker: createStableOrientationTracker(current, frame, tracker.deltaFrame), tokens: []};
   const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
-  const token = nearestRegripAxis(quaternionAxisAngle(delta).axis);
-  const fixpoint = token && orientations.find((item) => item.tokens.length === 1 && item.tokens[0] === token);
-  if (!fixpoint || orientationDistanceRadians(delta, fixpoint.quaternion) > radiusDegrees * Math.PI / 180) {
+  const targets = candidates.map((candidate) => ({
+    ...candidate,
+    orientation: normalize(tracker.deltaFrame === "world"
+      ? multiplyQuaternions(candidate.quaternion, tracker.orientation)
+      : multiplyQuaternions(tracker.orientation, candidate.quaternion)),
+  }));
+  const fixpoint = targets.reduce((closest, candidate) =>
+    orientationDistanceRadians(delta, candidate.orientation) < orientationDistanceRadians(delta, closest.orientation)
+      ? candidate
+      : closest,
+  );
+  if (orientationDistanceRadians(delta, fixpoint.orientation) > radiusDegrees * Math.PI / 180) {
     return {tracker, tokens: []};
   }
-  const orientation = normalize(tracker.deltaFrame === "world"
-    ? multiplyQuaternions(fixpoint.quaternion, tracker.orientation)
-    : multiplyQuaternions(tracker.orientation, fixpoint.quaternion));
-  return {tracker: {baseline: current, frame, deltaFrame: tracker.deltaFrame, orientation, candidate: null}, tokens: fixpoint.tokens};
+  return {
+    tracker: {...tracker, orientation: fixpoint.orientation, candidate: null},
+    tokens: [fixpoint.token],
+  };
 };
 
 /**
