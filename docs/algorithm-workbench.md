@@ -176,8 +176,8 @@ stream supplies the virtual lock-in stabilizer rather than directly driving the 
 
 The live cube mirrors its raw gyro orientation continuously. It does not accumulate an
 offset or crawl toward an artificial sphere. The exact 24-pose cube rotation group is
-used only to select the nearest cardinal detent: inside 12° of that pose, a quadratic
-blend gently removes tremor and snaps precisely to it; outside the well the motion is
+used only to select the nearest cardinal detent: inside 18° of that pose, a strong,
+continuous blend removes tremor and snaps precisely to it; outside the well the motion is
 strictly 1:1 with the sensor.
 The detent runs whether or not the diagnostics HUD is enabled.
 

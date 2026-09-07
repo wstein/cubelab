@@ -591,19 +591,20 @@ export const slerpQuaternion = (
 
 /**
  * A zero-latency magnetic detent for live gyro rendering. Outside the well
- * the raw orientation passes through unchanged; within it a quadratic pull
+ * the raw orientation passes through unchanged; within it a strong but
+ * continuous pull
  * removes tremor and lands exactly on the cardinal pose.
  */
 export const magneticOrientationDetent = (
   raw: OrientationQuaternion,
   cardinalTarget: OrientationQuaternion,
-  radiusDegrees = 12,
+  radiusDegrees = 18,
 ): OrientationQuaternion => {
   const distance = orientationDistanceRadians(raw, cardinalTarget);
   const radius = radiusDegrees * Math.PI / 180;
   if (distance >= radius) return raw;
   const normalizedDistance = distance / Math.max(radius, 1e-8);
-  return slerpQuaternion(raw, cardinalTarget, (1 - normalizedDistance) ** 2);
+  return slerpQuaternion(raw, cardinalTarget, Math.sqrt(1 - normalizedDistance));
 };
 
 /** Locks sub-threshold IMU jitter and softens larger moves along the shortest quaternion path. */
