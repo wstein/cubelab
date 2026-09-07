@@ -188,3 +188,41 @@ export const planTwoByTwoOll = (state: unknown, maximumDepth = 8): TwoByTwoOllPl
   if (moves !== null) return encodeStage(moves);
   return {ok: false, message: `No first-layer-preserving OLL route was found within ${maximumDepth} moves.`};
 };
+
+export type TwoByTwoBeginnerPlan =
+  | {ok: true; phaseAlgorithms: [unknown, unknown, unknown]; moveCount: number}
+  | {ok: false; message: string};
+
+const applyAcademyPhase = (state: unknown, algorithm: unknown): {ok: true; state: unknown} | {ok: false; message: string} => {
+  const replay = MoveExecutor.applyAlg(state, algorithm);
+  return replay.TAG === "Ok"
+    ? {ok: true, state: replay._0}
+    : {ok: false, message: "A generated 2×2 Academy phase could not be replayed."};
+};
+
+/** Builds the complete Beginner/Ortega route, proving every phase boundary. */
+export const planTwoByTwoBeginnerRoute = async (
+  initialState: unknown,
+  solveExactly: ExactTwoByTwoSolver,
+): Promise<TwoByTwoBeginnerPlan> => {
+  const firstLayer = planTwoByTwoFirstLayer(initialState);
+  if (!firstLayer.ok) return firstLayer;
+  const afterFirstLayer = applyAcademyPhase(initialState, firstLayer.algorithm);
+  if (!afterFirstLayer.ok) return afterFirstLayer;
+
+  const oll = planTwoByTwoOll(afterFirstLayer.state);
+  if (!oll.ok) return oll;
+  const afterOll = applyAcademyPhase(afterFirstLayer.state, oll.algorithm);
+  if (!afterOll.ok) return afterOll;
+
+  const pbl = await planTwoByTwoPblFinish(afterOll.state, solveExactly);
+  if (!pbl.ok) return pbl;
+  const phaseAlgorithms: [unknown, unknown, unknown] = [firstLayer.algorithm, oll.algorithm, pbl.phaseAlgorithms[2]];
+  const verification = verifyTwoByTwoBeginnerRoute(initialState, phaseAlgorithms);
+  if (!verification.ok) return {ok: false, message: verification.message};
+  return {
+    ok: true,
+    phaseAlgorithms,
+    moveCount: firstLayer.moveCount + oll.moveCount + pbl.moveCount,
+  };
+};

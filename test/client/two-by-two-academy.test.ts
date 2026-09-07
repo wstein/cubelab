@@ -8,6 +8,7 @@ import {
   planTwoByTwoPblFinish,
   planTwoByTwoOll,
   planTwoByTwoFirstLayer,
+  planTwoByTwoBeginnerRoute,
   verifyTwoByTwoBeginnerRoute,
 } from "../../src/client/two-by-two-academy";
 
@@ -70,5 +71,11 @@ describe("2×2 Beginner Academy phase contract", () => {
     const after = MoveExecutor.applyAlg(scrambled, plan.algorithm);
     expect(after.TAG).toBe("Ok");
     if (after.TAG === "Ok") expect(twoByTwoPhaseStatus(after._0).firstLayer).toBe(true);
+  });
+
+  test("composes first layer, OLL, and PBL into one verified route", async () => {
+    const result = await planTwoByTwoBeginnerRoute(apply("U"), async () => ({alg: parse("U'"), moveCount: 1}));
+    expect(result).toMatchObject({ok: true, moveCount: 1});
+    if (result.ok) expect(verifyTwoByTwoBeginnerRoute(apply("U"), result.phaseAlgorithms).ok).toBe(true);
   });
 });
