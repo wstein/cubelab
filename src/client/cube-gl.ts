@@ -598,13 +598,17 @@ export const slerpQuaternion = (
 export const magneticOrientationDetent = (
   raw: OrientationQuaternion,
   cardinalTarget: OrientationQuaternion,
-  radiusDegrees = 18,
+  radiusDegrees = 35,
 ): OrientationQuaternion => {
   const distance = orientationDistanceRadians(raw, cardinalTarget);
   const radius = radiusDegrees * Math.PI / 180;
   if (distance >= radius) return raw;
   const normalizedDistance = distance / Math.max(radius, 1e-8);
-  return slerpQuaternion(raw, cardinalTarget, Math.sqrt(1 - normalizedDistance));
+  return slerpQuaternion(
+    raw,
+    cardinalTarget,
+    Math.sqrt(Math.max(0, 1 - normalizedDistance * normalizedDistance)),
+  );
 };
 
 /** Locks sub-threshold IMU jitter and softens larger moves along the shortest quaternion path. */

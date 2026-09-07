@@ -93,12 +93,14 @@ describe("cube viewport math", () => {
     expect(autoOrbitYawDelta(-10)).toBe(0);
   });
 
-  test("keeps live gyro 1:1 outside the 18-degree magnetic detent and strongly pulls inside it", () => {
+  test("keeps live gyro 1:1 outside the 35-degree magnetic detent and strongly pulls inside it", () => {
     const identity = {x: 0, y: 0, z: 0, w: 1};
     const x = (degrees: number) => ({x: Math.sin(degrees * Math.PI / 360), y: 0, z: 0, w: Math.cos(degrees * Math.PI / 360)});
-    expect(magneticOrientationDetent(x(20), identity)).toEqual(x(20));
+    expect(magneticOrientationDetent(x(36), identity)).toEqual(x(36));
     expect(orientationDistanceRadians(magneticOrientationDetent(x(0), identity), identity)).toBeCloseTo(0);
-    expect(orientationDistanceRadians(magneticOrientationDetent(x(9), identity), identity)).toBeLessThan(3 * Math.PI / 180);
+    expect(orientationDistanceRadians(magneticOrientationDetent(x(9), identity), identity)).toBeLessThan(1 * Math.PI / 180);
+    expect(orientationDistanceRadians(magneticOrientationDetent(x(20), identity), identity)).toBeLessThan(5 * Math.PI / 180);
+    expect(orientationDistanceRadians(magneticOrientationDetent(x(25), identity), identity)).toBeLessThan(8 * Math.PI / 180);
   });
 
   test("shows the residual after a threshold regrip until virtual drift reaches the cardinal lock", () => {

@@ -98,9 +98,9 @@ describe("real GoCube capture: U2, 720° spin, R2, 720° spin, F2, 720° spin, r
     // hand to land precisely on any of them.
     const tokens = regrips.flatMap((regrip) => regrip.tokens.split(" "));
     expect(tokens).toEqual([
-      ...Array(9).fill("y'"),
-      ...Array(10).fill("z'"),
-      ...Array(10).fill("x"),
+      ...Array(9).fill("y"),
+      ...Array(10).fill("z"),
+      ...Array(10).fill("x'"),
     ]);
 
     // The capture ends several seconds into "rest" after the last spin. This
