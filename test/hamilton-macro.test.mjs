@@ -1,6 +1,6 @@
 import {describe, expect, test} from "vitest";
 
-import {createStreamPlayer, importAlg, measure, parse, prefix, streamEvents, unfold, window} from "../src/Move/HamiltonMacro.ts";
+import {createStreamPlayer, importAlg, measure, parse, prefix, streamEvents, unfold, window} from "../src/Move/HamiltonMacro.res.mjs";
 
 describe("Hamilton macro programs", () => {
   test("measures recursive definitions without unfolding them", () => {
