@@ -182,6 +182,12 @@ display-only offset moves toward the selected point at 2°/s, stabilizing sensor
 without threshold or regrip detection. The threshold-specific description below remains
 as historical context for the recording tracker only.
 
+An independent event layer retains six 30° quarter-turn capture circles (`x`, `x'`, `y`,
+`y'`, `z`, `z'`) around the active pose. Entering one emits the corresponding virtual
+regrip: learn mode animates the viewport, and a physical-mirror recording appends the
+event and advances its hardware-to-viewport frame. This does not alter the continuous
+three-ring lock target.
+
 Live regrip detection (`observeThresholdOrientation`) fires as soon as the cumulative
 rotation from the last confirmed pose crosses `regripThresholdDegrees` (65° by default,
 see the profile below) — no dwell, no tight alignment gate. Every pair of the cube's 24

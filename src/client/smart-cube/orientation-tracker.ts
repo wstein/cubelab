@@ -1,6 +1,8 @@
 import {
   deviceOrientationDelta,
   multiplyQuaternions,
+  orientationDistanceRadians,
+  quaternionAxisAngle,
   type OrientationCoordinateFrame,
   type OrientationQuaternion,
 } from "../cube-gl";
@@ -225,6 +227,26 @@ export const nearestRegripAxis = (axis: [number, number, number]): RegripToken |
     if (!best || dot > best.dot) best = {token: candidate.token, dot};
   }
   return best!.token;
+};
+
+/** Emits on entry into a 30° circle around one of the six quarter-turn directions. */
+export const observeVirtualFixpoint = (
+  tracker: StableOrientationTracker,
+  current: OrientationQuaternion,
+  frame: OrientationCoordinateFrame,
+  radiusDegrees = 30,
+): {tracker: StableOrientationTracker; tokens: RegripToken[]} => {
+  if (tracker.frame !== frame) return {tracker: createStableOrientationTracker(current, frame, tracker.deltaFrame), tokens: []};
+  const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
+  const token = nearestRegripAxis(quaternionAxisAngle(delta).axis);
+  const fixpoint = token && orientations.find((item) => item.tokens.length === 1 && item.tokens[0] === token);
+  if (!fixpoint || orientationDistanceRadians(delta, fixpoint.quaternion) > radiusDegrees * Math.PI / 180) {
+    return {tracker, tokens: []};
+  }
+  const orientation = normalize(tracker.deltaFrame === "world"
+    ? multiplyQuaternions(fixpoint.quaternion, tracker.orientation)
+    : multiplyQuaternions(tracker.orientation, fixpoint.quaternion));
+  return {tracker: {baseline: current, frame, deltaFrame: tracker.deltaFrame, orientation, candidate: null}, tokens: fixpoint.tokens};
 };
 
 /**

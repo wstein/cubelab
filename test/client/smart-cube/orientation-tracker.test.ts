@@ -8,6 +8,7 @@ import {
   nearestVirtualSphereFixpoint,
   nearestRegripAxis,
   observeStableOrientation,
+  observeVirtualFixpoint,
   virtualSphereFixpointCount,
   observeThresholdOrientation,
   settleStableOrientation,
@@ -24,6 +25,12 @@ describe("stable smart-cube orientation tracker", () => {
   test("uses three eight-point rings for the virtual gyro sphere", () => {
     expect(virtualSphereFixpointCount).toBe(24);
     expect(nearestVirtualSphereFixpoint(identity).w).toBeCloseTo(1);
+  });
+
+  test("emits a virtual regrip on entering a 30-degree quarter-turn circle", () => {
+    const tracker = createStableOrientationTracker(identity, "viewport", "world");
+    expect(observeVirtualFixpoint(tracker, x(55), "viewport").tokens).toEqual([]);
+    expect(observeVirtualFixpoint(tracker, x(61), "viewport").tokens).toEqual(["x"]);
   });
 
   test("selects the next virtual lock at the 45-degree cardinal boundary", () => {

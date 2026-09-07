@@ -135,6 +135,7 @@ import {
   createStableOrientationTracker,
   nearestVirtualSphereFixpoint,
   observeStableOrientation,
+  observeVirtualFixpoint,
   type StableOrientationTracker,
 } from "./smart-cube/orientation-tracker";
 import {
@@ -2233,6 +2234,7 @@ if (root) {
   let smartCubeRecordingAnimationGeneration = 0;
   let smartCubeRecordingOrientationTracker: StableOrientationTracker | null = null;
   let smartCubeDiscreteOrientationTracker: StableOrientationTracker | null = null;
+  let smartCubeVirtualFixpointTracker: StableOrientationTracker | null = null;
   let smartCubeStabilizationTraceAnnounced = false;
   let smartCubeDiagnosticsEnabled = window.localStorage.getItem("cubelab.smartCube.diagnostics") === "1";
   const smartCubeDiagnosticTrace: Array<{
@@ -4768,21 +4770,28 @@ if (root) {
             "world",
           );
         }
-        updateSmartCubeRegripGauge(event.quaternion, event.coordinateFrame);
-        if (smartCubeRecording && smartCubeSyncMode === "PhysicalMirror") {
-          if (smartCubeRecordingOrientationTracker === null) {
-            smartCubeRecordingOrientationTracker = createStableOrientationTracker(
-              event.quaternion,
-              event.coordinateFrame,
-            );
-          } else {
-            const observed = observeStableOrientation(
-              smartCubeRecordingOrientationTracker,
-              event.quaternion,
-              event.coordinateFrame,
-            );
-            smartCubeRecordingOrientationTracker = observed.tracker;
-            if (observed.tokens.length > 0) {
+        if (smartCubeVirtualFixpointTracker === null) {
+          smartCubeVirtualFixpointTracker = createStableOrientationTracker(
+            event.quaternion,
+            event.coordinateFrame,
+            "world",
+          );
+        } else {
+          const observed = observeVirtualFixpoint(
+            smartCubeVirtualFixpointTracker,
+            event.quaternion,
+            event.coordinateFrame,
+          );
+          smartCubeVirtualFixpointTracker = observed.tracker;
+          if (observed.tokens.length > 0) {
+            if (smartCubeOrientationTracking && !smartCubeRecording && !smartCubeRecordingTapePresented) {
+              viewport?.reconcileDeviceOrientation(
+                event.quaternion,
+                observed.tracker.orientation,
+                event.coordinateFrame,
+              );
+            }
+            if (smartCubeRecording && smartCubeSyncMode === "PhysicalMirror") {
               observed.tokens.forEach((token) => {
                 const axis = token[0]!.toUpperCase() as "X" | "Y" | "Z";
                 const turns = token.endsWith("'") ? -1 : 1;
@@ -4790,10 +4799,11 @@ if (root) {
                 void animateSmartCubeRecordingToken(token);
                 smartCubeRecordingFrame.push({axis, turns});
               });
-              smartCubeStatus.textContent = `${smartCubeDeviceName} · Recorded regrip ${observed.tokens.join(" ")}`;
+              smartCubeStatus.textContent = `${smartCubeDeviceName} · Recorded virtual regrip ${observed.tokens.join(" ")}`;
             }
           }
         }
+        updateSmartCubeRegripGauge(event.quaternion, event.coordinateFrame);
         // Smart cube hardware face encoders are physically fixed to their turn indices
         // (U, R, F, D, L, B). Rotating the cube in hand rotates the 3D viewport view
         // via setDeviceOrientation, while face turn packets remain fixed to their physical faces.
