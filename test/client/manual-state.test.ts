@@ -239,7 +239,7 @@ describe("manualStatePieceMates", () => {
   test("invalidates a local hint's full cubie orbit, not unrelated centres", () => {
     expect(manualStateLocalConstraintIndices(4, 7)).toContain(18);
     expect(manualStateLocalConstraintIndices(4, 7)).not.toContain(5);
-    expect(manualStateLocalConstraintIndices(4, 5)).toEqual([5]);
+    expect(manualStateLocalConstraintIndices(4, 5)).toHaveLength(24);
     expect(manualStateLocalConstraintIndices(5, 106)).toContain(108);
     expect(manualStateLocalConstraintIndices(5, 106)).not.toContain(107);
     expect(manualStateLocalConstraintIndices(5, 106)).toHaveLength(24);
@@ -320,42 +320,26 @@ describe("dot diagnostics explain an unreachable draft", () => {
   // tile keep working.
   const SIZE = 4;
   const deadDraft = (): ManualStateDraft => {
-    let rs = 3;
-    const rnd = (m: number) => { rs = (rs * 1103515245 + 12345) & 0x7fffffff; return rs % m; };
-    const explicit = new Map<number, ManualStateFace>();
-    const source = () => {
-      const s = emptyManualState(SIZE);
-      explicit.forEach((colour, index) => { s[index] = colour; });
-      return s;
+    const d: Record<ManualStateFace, Array<ManualStateFace | null>> = {
+      U: ["R", "D", "R", "U", "L", null, null, null, "R", "R", "R", "D", "R", "U", "U", "R"],
+      R: ["D", null, "D", "L", "R", "R", "R", null, null, null, "D", null, null, null, "D", "L"],
+      F: ["B", "F", "F", "F", "L", "F", "F", "F", "U", "F", "F", "F", "F", "F", "F", "B"],
+      D: ["U", "R", null, "D", null, "L", "L", "R", "L", "L", "L", "R", "L", "L", "L", "D"],
+      L: ["U", "U", "U", "D", "U", "U", "U", "D", "U", null, null, "R", "U", null, "R", "R"],
+      B: ["F", "B", "B", "B", null, "L", "B", "B", null, "B", "B", "B", "F", "B", "B", "B"],
     };
-    let draft = emptyManualState(SIZE);
-    for (let step = 0; step < 200; step += 1) {
-      const blanks: number[] = [];
-      for (let i = 0; i < 96; i += 1) {
-        if (draft[i] === null && !isManualStateFixedCentre(SIZE, i)) blanks.push(i);
-      }
-      if (blanks.length === 0) break;
-      if (blanks.some((i) => allowedManualStateColours(SIZE, draft, i).length === 0)) return draft;
-      const target = blanks[rnd(blanks.length)]!;
-      const gate = source();
-      gate[target] = null;
-      const choices = allowedManualStateColours(SIZE, gate, target);
-      if (choices.length === 0) break;
-      explicit.set(target, choices[rnd(choices.length)]!);
-      draft = fillLocallyForcedManualStateColours(SIZE, source());
-    }
-    throw new Error("expected the seeded walk to reach a dead draft");
+    const draft: ManualStateDraft = [];
+    (["U", "R", "F", "D", "L", "B"] as const).forEach((f) => draft.push(...d[f]));
+    return draft;
   };
 
-  test("a draft can offer no colour at a tile while the gate still reports it completable", () => {
+  test("an unreachable draft is rejected by canCompleteManualState and offers no colour at a dead tile", () => {
     const draft = deadDraft();
     const dead = draft.findIndex((colour, index) =>
       colour === null && !isManualStateFixedCentre(SIZE, index)
       && allowedManualStateColours(SIZE, draft, index).length === 0);
     expect(dead).toBeGreaterThanOrEqual(0);
-    // The contradiction: an exact predicate P must satisfy
-    // P(draft) => exists colour c. P(draft with c at the blank).
-    expect(canCompleteManualState(SIZE, draft)).toBe(true);
+    expect(canCompleteManualState(SIZE, draft)).toBe(false);
     expect(manualStateFaces.some((colour) => {
       const candidate = [...draft];
       candidate[dead] = colour;
@@ -639,6 +623,34 @@ describe("dot diagnostics explain an unreachable draft", () => {
       expect(locallyAllowedManualStateColours(4, draft, lSticker)).not.toContain("F");
       expect(allowedManualStateColours(4, draft, lSticker)).not.toContain("F");
     });
+  });
+
+  test("4×4 centre quota rejects placing a 5th centre of a colour, preventing false-positive dead tile on corner", () => {
+    // Reconstruct the 79-sticker draft from the user screenshot where face D already has 4 Orange centres
+    const d: Record<ManualStateFace, Array<ManualStateFace | null>> = {
+      U: ["R", "D", "R", "U", "L", null, null, null, "R", "R", "R", "D", "R", "U", "U", "R"],
+      R: ["D", null, "D", "L", "R", "R", "R", null, null, null, "D", null, null, null, "D", "L"],
+      F: ["B", "F", "F", "F", "L", "F", "F", "F", "U", "F", "F", "F", "F", "F", "F", "B"],
+      D: ["U", "R", null, "D", null, "L", "L", "R", "L", "L", "L", "R", "L", "L", "L", "D"],
+      L: ["U", "U", "U", "D", "U", "U", "U", "D", "U", null, null, "R", "U", null, "R", "R"],
+      B: ["F", "B", "B", "B", null, null, "B", "B", null, "B", "B", "B", "F", "B", "B", "B"],
+    };
+    const draft: ManualStateDraft = [];
+    (["U", "R", "F", "D", "L", "B"] as const).forEach((f) => draft.push(...d[f]));
+
+    // Face D already has 4 Orange centres (indices 53, 54, 57, 58).
+    // An empty centre slot on B (index 85 = B[1,1]) must NOT allow Orange (L), locally or globally.
+    expect(locallyAllowedManualStateColours(4, draft, 85)).not.toContain("L");
+    expect(allowedManualStateColours(4, draft, 85)).not.toContain("L");
+
+    // With the centre quota enforced and index 85 left blank, corner R[3,0] (index 28)
+    // is NOT dead: its only valid physical completion (Orange) is permitted.
+    expect(allowedManualStateColours(4, draft, 28)).toEqual(["L"]);
+
+    // If an impossible 5th Orange centre is forced at index 85, canCompleteManualState must reject it.
+    const impossibleDraft = [...draft];
+    impossibleDraft[85] = "L";
+    expect(canCompleteManualState(4, impossibleDraft)).toBe(false);
   });
 });
 

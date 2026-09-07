@@ -149,6 +149,10 @@ const buildHighOrderPieceKinds = (size: 4 | 5, slots: number[][]): CubieKind[] =
       slots: edgeSlots,
       pieces: edges.pieces.flatMap((piece) => [piece, piece]),
       orientations: 2,
+    }, {
+      slots: buildCenterSlots4(),
+      pieces: centerPieces,
+      orientations: 1,
     }];
   }
   // 5×5 wings at offsets one and three form the 24-piece wing orbit; the
