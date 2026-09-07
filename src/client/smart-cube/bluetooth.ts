@@ -315,6 +315,16 @@ export const createSmartCubeManager = (
     }
   };
 
+  const flashLed = async (colour: "amber" | "green", durationMs: number): Promise<void> => {
+    const active = requireConnection() as FeedbackTransport;
+    if (typeof active.flashLed !== "function") {
+      throw new Error(`${active.deviceName} does not expose verified LED control`);
+    }
+    const normalizedDuration = Math.max(50, Math.min(5000, Math.round(durationMs)));
+    publishCommand({timestamp: Date.now(), type: "FLASH_LED", colour, durationMs: normalizedDuration});
+    await active.flashLed(colour, normalizedDuration);
+  };
+
   const disconnect = async (): Promise<void> => {
     connectionGeneration += 1;
     if (!connection) {
@@ -398,8 +408,10 @@ export const createSmartCubeManager = (
       });
       publishState({phase: "connected", message: `${device.name} connected`, device, error: null});
 
-      // Initial reports are best-effort; a model may advertise a command before its firmware responds.
-      void refresh().catch(() => {});
+      // Initial reports and the connection flash are best-effort: some models
+      // advertise a command before their firmware is ready to answer it.
+      await refresh().catch(() => {});
+      if (device.capabilities.led) await flashLed("green", 300).catch(() => {});
       return device;
     } catch (error) {
       const normalized = error instanceof Error ? error : new Error(String(error));
@@ -428,15 +440,7 @@ export const createSmartCubeManager = (
       publishCommand({timestamp: Date.now(), type: "REQUEST_RESET"});
       await active.sendCommand({type: "REQUEST_RESET"});
     },
-    flashLed: async (colour, durationMs) => {
-      const active = requireConnection() as FeedbackTransport;
-      if (typeof active.flashLed !== "function") {
-        throw new Error(`${active.deviceName} does not expose verified LED control`);
-      }
-      const normalizedDuration = Math.max(50, Math.min(5000, Math.round(durationMs)));
-      publishCommand({timestamp: Date.now(), type: "FLASH_LED", colour, durationMs: normalizedDuration});
-      await active.flashLed(colour, normalizedDuration);
-    },
+    flashLed,
     subscribeState(listener) {
       stateListeners.add(listener);
       listener(state);

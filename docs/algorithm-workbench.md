@@ -161,6 +161,10 @@ The smart-cube dock has **Diagnostics off** by default. Turning it on records at
 normalized received smart-cube event and each transport command CubeLab sends; the
 ring buffer retains the newest records when a high-rate gyro stream exceeds its limit.
 CubeLab never uploads them.
+
+After a cube connects, CubeLab requests its hardware/status, battery, and facelet
+state. Cubes with verified LED control also receive a short green connection flash;
+all of these commands appear in the diagnostic trace when Diagnostics is enabled.
 **Copy cube trace** produces a small JSON report that a customer can paste into an issue
 or support request. It contains the cube brand, orientation measurements, received-event
 metadata, and sent commands, but not facelets, cube state, Bluetooth addresses, or the

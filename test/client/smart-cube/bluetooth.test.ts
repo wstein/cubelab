@@ -355,8 +355,9 @@ describe("smart cube connection manager", () => {
     });
     const device = await manager.connect();
     expect(device.capabilities.led).toBe(true);
+    expect(flashes).toEqual([["green", 300]]);
     await manager.flashLed("green", 10_000);
-    expect(flashes).toEqual([["green", 5000]]);
+    expect(flashes).toEqual([["green", 300], ["green", 5000]]);
   });
 
   test("clears the active connection after a hardware disconnect", async () => {
