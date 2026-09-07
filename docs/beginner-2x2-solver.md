@@ -27,3 +27,9 @@ states with all four D-layer corners both placed and oriented.
 The complete planner composes First layer → OLL → PBL only by replaying each
 generated algorithm into the next stage, then performs one final three-boundary
 verification before returning the route to a worker or UI.
+
+## Curated drills
+
+The initial catalogue has one replayable fixture for each phase: a displaced
+first-layer corner, an Antisune OLL, and a U-permutation PBL. Each fixture is
+applied from solved and tested against the corresponding phase predicate.

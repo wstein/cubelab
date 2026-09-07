@@ -267,8 +267,9 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(manualState, /export const explainManualStateColours/);
   assert.match(manualState, /export const manualStateColourBudget/);
   assert.match(client, /createManualStateVerifierClient/);
-  assert.match(client, /choices\.length === 1[\s\S]{0,700}manualStateAutoIndices\.add\(next\.index\)/);
-  assert.match(client, /choices\.length === 1[\s\S]{0,2000}updateManualStateMetrics\(manualSize\)[\s\S]{0,300}verifyNext\(offset \+ 1\)/);
+  assert.match(client, /choices\.length === 1[\s\S]{0,2000}updateManualStateMetrics\(manualSize\)/);
+  assert.match(client, /manualStateVerifier\.verifyBatch/);
+  assert.match(manualStateWorker, /verifyManualStateBatch/);
   assert.match(manualStateWorker, /allowedManualStateColours\(request\.size, request\.draft, request\.index\)/);
   assert.match(client, /manualStateDialog\.showModal\(\);[\s\S]{0,200}renderManualStateEditor\(\);/);
   assert.match(manualState, /const highOrderPieceKindsBySize/);
@@ -537,6 +538,8 @@ test("the SPA workspace keeps one viewport beside four URL-addressable destinati
   assert.match(page, /57 OLL \+ 21 PLL/);
   assert.match(page, /data-academy-method-panel="beginner"/);
   assert.match(page, /data-academy-method-panel="twoByTwoBeginner"/);
+  assert.match(page, /data-two-by-two-drill-case/);
+  assert.match(client, /twoByTwoLoadDrill\.addEventListener\("click"/);
   assert.match(page, /data-academy-method-panel="advancedLbl"/);
   assert.match(page, /data-academy-method-panel="beginnerCfop"/);
   assert.match(page, /data-academy-method-panel="fullCfop"/);

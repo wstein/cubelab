@@ -119,6 +119,7 @@ import {
   selectTutorialPiece,
 } from "./tutorial-focus";
 import {isMonochromeSolved2x2} from "./two-by-two-academy";
+import {twoByTwoDrillCases} from "./two-by-two-drills";
 import {
   appendRecordedMove,
   assessSmartCubeMove,
@@ -347,6 +348,8 @@ if (root) {
   const academyInstantDrill = root.querySelector<HTMLButtonElement>("[data-academy-instant-drill]")!;
   const academyWcaDrill = root.querySelector<HTMLButtonElement>("[data-academy-wca-drill]")!;
   const academyDrillCase = root.querySelector<HTMLSelectElement>("[data-academy-drill-case]")!;
+  const twoByTwoDrillCase = root.querySelector<HTMLSelectElement>("[data-two-by-two-drill-case]")!;
+  const twoByTwoLoadDrill = root.querySelector<HTMLButtonElement>("[data-two-by-two-load-drill]")!;
   const academyDrillFamily = root.querySelector<HTMLSelectElement>("[data-academy-drill-family]")!;
   const academyLoadDrill = root.querySelector<HTMLButtonElement>("[data-academy-load-drill]")!;
   const academyRandomDrill = root.querySelector<HTMLButtonElement>("[data-academy-random-drill]")!;
@@ -1083,94 +1086,90 @@ if (root) {
   // background, one per task so a blank 3×3's ~150 candidate calculations
   // don't freeze the dialog, and corrects any dot the cheap check was too
   // optimistic about before anyone clicks it.
+  let activeManualStateBatch: {cancel: () => void} | null = null;
+
   const verifyManualStateDots = (
     manualSize: ManualStateSize,
     pending: Array<{index: number; element: HTMLElement}>,
   ) => {
+    activeManualStateBatch?.cancel();
     const generation = manualStateDotGeneration;
     const snapshot = [...manualStateDraft];
-    const verifyNext = (offset: number) => {
-      if (generation !== manualStateDotGeneration || offset >= pending.length) return;
-      const next = pending[offset];
-      window.setTimeout(() => {
-        if (generation !== manualStateDotGeneration) return;
-        void manualStateVerifier.verify(manualSize, snapshot, next.index).then((choices) => {
-          if (generation !== manualStateDotGeneration) return;
-          if (choices.length === 1 && manualStateDraft[next.index] === null) {
-            const promotedColour = choices[0] as ManualStateFace;
-            manualStateDraft[next.index] = promotedColour;
-            snapshot[next.index] = promotedColour;
-            touchManualStateDraft();
-            manualStateAutoIndices.add(next.index);
-            manualStateUnverifiedDots.delete(next.index);
-            manualStateDeadIndices.delete(next.index);
-            const sticker = manualStateStickerElements[next.index];
-            if (sticker) {
-              sticker.dataset.face = promotedColour;
-              sticker.dataset.auto = "true";
-              delete sticker.dataset.dead;
-              sticker.textContent = "";
-            }
-            const quotaExhausted = manualStateDraft.filter((c) => c === promotedColour).length === manualSize * manualSize;
-            const dirty = manualStateDirtyDots ?? new Set<number>();
-            const pendingIndices = new Set(pending.slice(offset + 1).map((p) => p.index));
-            const affected = new Set(manualStateLocalConstraintIndices(manualSize, next.index));
-            if (quotaExhausted) manualStateDraft.forEach((c, idx) => { if (c === null) affected.add(idx); });
-            affected.forEach((idx) => {
-              if (manualStateDraft[idx] !== null) return;
-              dirty.add(idx);
-              manualStateUnverifiedDots.add(idx);
-              const dots = manualStateStickerElements[idx]?.querySelector<HTMLElement>(".manual-state-dots");
-              if (dots) {
-                renderManualStateDots(dots, locallyAllowedManualStateColours(manualSize, manualStateDraft, idx));
-                if (!pendingIndices.has(idx)) {
-                  pending.push({index: idx, element: dots});
-                  pendingIndices.add(idx);
-                }
-              }
-            });
-            manualStateDirtyDots = dirty;
-            updateManualStateMetrics(manualSize);
+    const pendingIndices = pending.map((p) => p.index);
 
-            dotTrace.log({
-              type: "promote",
-              index: next.index,
-              colour: promotedColour,
-              generation,
-            });
-            verifyNext(offset + 1);
-            return;
+    activeManualStateBatch = manualStateVerifier.verifyBatch(
+      manualSize,
+      snapshot,
+      pendingIndices,
+      ({index, choices}) => {
+        if (generation !== manualStateDotGeneration) return;
+        const next = {index, element: manualStateStickerElements[index]?.querySelector<HTMLElement>(".manual-state-dots")};
+        if (choices.length === 1 && manualStateDraft[next.index] === null) {
+          const promotedColour = choices[0] as ManualStateFace;
+          manualStateDraft[next.index] = promotedColour;
+          snapshot[next.index] = promotedColour;
+          touchManualStateDraft();
+          manualStateAutoIndices.add(next.index);
+          manualStateUnverifiedDots.delete(next.index);
+          manualStateDeadIndices.delete(next.index);
+          const sticker = manualStateStickerElements[next.index];
+          if (sticker) {
+            sticker.dataset.face = promotedColour;
+            sticker.dataset.auto = "true";
+            delete sticker.dataset.dead;
+            sticker.textContent = "";
           }
+          const quotaExhausted = manualStateDraft.filter((c) => c === promotedColour).length === manualSize * manualSize;
+          const dirty = manualStateDirtyDots ?? new Set<number>();
+          const affected = new Set(manualStateLocalConstraintIndices(manualSize, next.index));
+          if (quotaExhausted) manualStateDraft.forEach((c, idx) => { if (c === null) affected.add(idx); });
+          affected.forEach((idx) => {
+            if (manualStateDraft[idx] !== null) return;
+            dirty.add(idx);
+            manualStateUnverifiedDots.add(idx);
+            const dots = manualStateStickerElements[idx]?.querySelector<HTMLElement>(".manual-state-dots");
+            if (dots) {
+              renderManualStateDots(dots, locallyAllowedManualStateColours(manualSize, manualStateDraft, idx));
+            }
+          });
+          manualStateDirtyDots = dirty;
+          updateManualStateMetrics(manualSize);
+
           dotTrace.log({
-            type: "verify",
+            type: "promote",
             index: next.index,
-            choices: choices as ManualStateFace[],
+            colour: promotedColour,
             generation,
           });
-          // An empty exact result means this draft has no legal completion at
-          // all: the paint gate accepted a sticker it should have refused.
-          if (choices.length === 0) {
-            manualStateDeadIndices.add(next.index);
-            const sticker = manualStateStickerElements[next.index];
-            if (sticker) sticker.dataset.dead = "true";
-            dotTrace.deadTile(manualSize, snapshot, next.index, "verify");
-            updateManualStateMetrics(manualSize);
-          } else {
-            manualStateDeadIndices.delete(next.index);
-            const sticker = manualStateStickerElements[next.index];
-            if (sticker) delete sticker.dataset.dead;
-          }
-          renderManualStateDots(next.element, choices as ManualStateFace[]);
-          manualStateUnverifiedDots.delete(next.index);
-          verifyNext(offset + 1);
-        }).catch((error) => {
-          // Leave the conservative local result visible if a worker cannot start.
-          dotTrace.log({type: "skip", index: next.index, reason: `verifier failed: ${String(error)}`});
-          verifyNext(offset + 1);
+          return;
+        }
+
+        dotTrace.log({
+          type: "verify",
+          index: next.index,
+          choices: choices as ManualStateFace[],
+          generation,
         });
-      }, 0);
-    };
-    verifyNext(0);
+
+        // An empty exact result means this draft has no legal completion at
+        // all: the paint gate accepted a sticker it should have refused.
+        if (choices.length === 0) {
+          manualStateDeadIndices.add(next.index);
+          const sticker = manualStateStickerElements[next.index];
+          if (sticker) sticker.dataset.dead = "true";
+          dotTrace.deadTile(manualSize, snapshot, next.index, "verify");
+          updateManualStateMetrics(manualSize);
+        } else {
+          manualStateDeadIndices.delete(next.index);
+          const sticker = manualStateStickerElements[next.index];
+          if (sticker) delete sticker.dataset.dead;
+        }
+        if (next.element) {
+          renderManualStateDots(next.element, choices as ManualStateFace[]);
+        }
+        manualStateUnverifiedDots.delete(next.index);
+      },
+    );
   };
 
   const manualStateSummaryRow = (label: string, value: string, pct: number, colour: string): HTMLElement => {
@@ -6370,6 +6369,17 @@ if (root) {
     if (drill) loadCuratedDrill(drill);
   });
   academyDrillFamily.addEventListener("change", () => populateDrillCases());
+  twoByTwoLoadDrill.addEventListener("click", () => {
+    const drill = twoByTwoDrillCases.find((entry) => entry.id === twoByTwoDrillCase.value);
+    if (!drill) return;
+    store.patch({
+      size: 2,
+      input: drill.scramble,
+      moves: "",
+      activeTab: "academy",
+      academyMethod: "twoByTwoBeginner",
+    });
+  });
   academyRandomDrill.addEventListener("click", () => {
     const drill = randomDrillCase(selectedDrillFamily());
     if (!drill) return;

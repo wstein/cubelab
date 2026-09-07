@@ -1069,6 +1069,16 @@ s100"></textarea>
               </div></header>
               <p class="academy-intro">Build the first layer, orient last-layer corners, then permute them. Each boundary is replay-verified; any monochrome whole-cube orientation is solved.</p>
               <div class="academy-status" data-two-by-two-beginner-status aria-live="polite">Enter a valid 2×2 state to begin.</div>
+              <div class="academy-action-row">
+                <label class="academy-target-input academy-drill-select"><span>Practice case</span>
+                  <select data-two-by-two-drill-case aria-label="2×2 curated drill case">
+                    <option value="first-layer-right-corner">First layer · right corner</option>
+                    <option value="oll-antisune">OLL · Antisune</option>
+                    <option value="pbl-u-permutation">PBL · U permutation</option>
+                  </select>
+                </label>
+                <button type="button" class="transform-btn" data-two-by-two-load-drill>Load 2×2 case</button>
+              </div>
               <div class="academy-current" data-two-by-two-beginner-current hidden></div>
               <div class="academy-phases" data-two-by-two-beginner-phases></div>
               <div class="academy-solution-actions"><button type="button" class="transform-btn" data-two-by-two-beginner-copy disabled>Copy commented solution</button></div>
