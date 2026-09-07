@@ -7,6 +7,7 @@ import {
   goCubeDeviceSupportsGyro,
   isGoCubeDeviceName,
   parseGoCubeOrientationPayload,
+  WRITE_FLASH_LIGHTS,
 } from "../../../src/client/smart-cube/fast-gocube";
 
 const solved = "U".repeat(9) + "R".repeat(9) + "F".repeat(9)
@@ -20,6 +21,10 @@ describe("fast GoCube transport", () => {
     expect(goCubeDeviceSupportsGyro("GoCube_ABC")).toBe(true);
     expect(goCubeDeviceSupportsGyro("GoCubeX_ABC")).toBe(false);
     expect(goCubeDeviceSupportsGyro("Rubiks_123")).toBe(false);
+  });
+
+  test("uses GoCube's unframed A command for the three-flash LED signal", () => {
+    expect(WRITE_FLASH_LIGHTS).toBe(0x41);
   });
 
   test("decodes a solved full-state frame without waiting for it during connect", () => {

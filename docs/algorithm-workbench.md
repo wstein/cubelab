@@ -165,6 +165,9 @@ CubeLab never uploads them.
 After a cube connects, CubeLab requests its hardware/status, battery, and facelet
 state. Cubes with verified LED control also receive a short green connection flash;
 all of these commands appear in the diagnostic trace when Diagnostics is enabled.
+For GoCube and Rubik's Connected, that flash is the device's bare NUS `0x41` (`A`)
+command, which performs its fixed three-flash effect (the protocol has no colour or
+duration arguments).
 **Copy cube trace** produces a small JSON report that a customer can paste into an issue
 or support request. It contains the cube brand, orientation measurements, received-event
 metadata, and sent commands, but not facelets, cube state, Bluetooth addresses, or the

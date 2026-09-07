@@ -16,6 +16,8 @@ export const WRITE_BATTERY = 50;
 export const WRITE_STATE = 51;
 export const WRITE_RESET = 53;
 export const WRITE_ENABLE_ORIENTATION = 0x38;
+/** GoCube NUS `A`: flash the cube lights three times (no packet framing). */
+export const WRITE_FLASH_LIGHTS = 0x41;
 
 export const AXIS_PERM = [5, 2, 0, 3, 1, 4];
 export const FACE_PERM = [0, 1, 2, 5, 8, 7, 6, 3];
@@ -326,6 +328,12 @@ export const connectFastGoCube = async (
       } else if (command.type === "REQUEST_RESET") {
         await writeValue([WRITE_RESET]);
       }
+    },
+    async flashLed(_colour: "amber" | "green", _durationMs: number) {
+      // GoCube exposes one fixed LED effect: bare ASCII `A` on the NUS write
+      // characteristic. It flashes three times; colour and duration are not
+      // parameters in this protocol.
+      await writeValue([WRITE_FLASH_LIGHTS]);
     },
     async disconnect() {
       readChrct.removeEventListener("characteristicvaluechanged", onPacket);
