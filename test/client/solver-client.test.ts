@@ -141,9 +141,18 @@ describe("solver worker client", () => {
     const worker = new FakeWorker();
     const client = createRandom2x2ScrambleClient<{alg: unknown[]; moveCount: number}>(worker as unknown as Worker);
     const generated = client.generate();
-    expect(worker.requests).toEqual([{id: 0, type: "generateRandom2x2", minimumMoves: 4}]);
+    expect(worker.requests).toEqual([{id: 0, type: "generateRandom2x2", difficulty: "5+"}]);
     worker.respond({id: 0, ok: true, solution: {alg: [], moveCount: 8}});
     await expect(generated).resolves.toEqual({alg: [], moveCount: 8});
+  });
+
+  test("passes an exact 2×2 drill bucket to the random-state worker", async () => {
+    const worker = new FakeWorker();
+    const client = createRandom2x2ScrambleClient<{alg: unknown[]}>(worker as unknown as Worker);
+    const generated = client.generate("3");
+    expect(worker.requests).toEqual([{id: 0, type: "generateRandom2x2", difficulty: "3"}]);
+    worker.respond({id: 0, ok: true, solution: {alg: []}});
+    await expect(generated).resolves.toEqual({alg: []});
   });
 
   test("uses a dedicated request and progress stages for reduced 4×4 finishes", async () => {

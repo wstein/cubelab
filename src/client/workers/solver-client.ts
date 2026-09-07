@@ -262,11 +262,11 @@ export const createRandom2x2ScrambleClient = <TSolution>(
     pending.clear();
   });
   return {
-    generate(minimumMoves = 4): Promise<TSolution> {
+    generate(difficulty: "any" | "3" | "4" | "5+" = "5+"): Promise<TSolution> {
       const id = nextId++;
       return new Promise((resolve, reject) => {
         pending.set(id, {resolve, reject});
-        worker.postMessage({id, type: "generateRandom2x2", minimumMoves});
+        worker.postMessage({id, type: "generateRandom2x2", difficulty});
       });
     },
     terminate(): void {

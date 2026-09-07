@@ -64,9 +64,10 @@ keeps its exact canonical state and reframes the persistent viewport for the nex
 sequence-purpose visualization.
 
 Practice scramble is located in **Quick load**, not among algebraic transformations. On
-2×2 it uniformly samples one of the 3,674,160 canonical states with a minimum optimal
-distance of 4 HTM, then renders a replay-verified inverse scramble. Other sizes retain a
-random-turn practice sequence. Neither is labeled as an official WCA scramble.
+2×2 it uniformly samples one of the 3,674,160 canonical states, then renders a
+replay-verified inverse scramble. The drill selector offers **Any**, exactly **3 HTM**,
+exactly **4 HTM**, and **5+ HTM** optimal distance; 5+ is the default. Other sizes retain
+a random-turn practice sequence. Neither is labeled as an official WCA scramble.
 
 ## Setup and moves
 

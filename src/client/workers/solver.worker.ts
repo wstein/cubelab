@@ -18,7 +18,7 @@ type TutorialMethod = "beginner" | "advancedLbl" | "beginnerCfop" | "fullCfop" |
 type WorkerRequest =
   | {id: number; type: "solveTutorial"; method: TutorialMethod; state: unknown}
   | {id: number; type: "solveOptimal2x2"; state: unknown}
-  | {id: number; type: "generateRandom2x2"; minimumMoves?: number}
+  | {id: number; type: "generateRandom2x2"; difficulty?: "any" | "3" | "4" | "5+"}
   | {id: number; type: "solveTwoByTwoAcademy"; state: unknown}
   | {id: number; type: "solveTwoByTwoPetrus"; state: unknown}
   | {id: number; type: "solveReduced4x4"; state: unknown}
@@ -133,7 +133,7 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
             await Optimal2x2Solver.prepareTables();
           }
           self.postMessage({id: request.id, type: "random2x2Progress", stage: "Sampling a uniform 2×2 state…"});
-          const generated = await Optimal2x2Solver.randomStateScramble(Math.random, request.minimumMoves ?? 4);
+          const generated = await Optimal2x2Solver.randomStateScramble(Math.random, request.difficulty ?? "5+");
           self.postMessage({
             id: request.id,
             ok: true,

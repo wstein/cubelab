@@ -406,6 +406,8 @@ if (root) {
   const settingsTnoodleEvent = root.querySelector<HTMLSelectElement>("[data-settings-tnoodle-event]")!;
   const settingsTnoodleStatus = root.querySelector<HTMLElement>("[data-settings-tnoodle-status]")!;
   const settingsTnoodleTest = root.querySelector<HTMLButtonElement>("[data-settings-tnoodle-test]")!;
+  const practice2x2Difficulty = root.querySelector<HTMLElement>("[data-practice-2x2-difficulty]")!;
+  const practice2x2DifficultySelect = root.querySelector<HTMLSelectElement>("[data-practice-2x2-difficulty-select]")!;
   const settingsInspectionSeconds = root.querySelector<HTMLInputElement>(
     "[data-settings-inspection-seconds]",
   )!;
@@ -5194,6 +5196,7 @@ if (root) {
     settingsSize.value = String(state.size);
     settingsScheme.value = state.scheme;
     settingsDialect.value = state.notationDialect;
+    practice2x2Difficulty.hidden = state.size !== 2;
     customScheme.hidden = state.scheme !== "Custom";
     if (patternSizeChanged) {
       patternSearch.value = "";
@@ -5655,7 +5658,8 @@ if (root) {
       const originalLabel = button.textContent;
       button.disabled = true;
       button.textContent = "Sampling 2×2 state…";
-      void random2x2ScrambleClient.generate().then((generated) => {
+      const difficulty = practice2x2DifficultySelect.value as "any" | "3" | "4" | "5+";
+      void random2x2ScrambleClient.generate(difficulty).then((generated) => {
         const scramble = MoveTransform.serialize(generated.alg) as string;
         commitTransformedAlgorithm(scramble);
         if (smartCubeSyncMode === "VirtualController") {

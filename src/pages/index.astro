@@ -879,9 +879,18 @@ s100"></textarea>
                 type="button"
                 class="preset-chip practice"
                 data-practice-scramble
-                title="Random-turn practice sequence; not an official WCA scramble"
+                title="Load a practice scramble; not an official WCA scramble"
                 >🎲 Practice scramble</button
               >
+              <label class="practice-difficulty" data-practice-2x2-difficulty hidden>
+                <span>2×2 drill</span>
+                <select aria-label="2×2 practice difficulty" data-practice-2x2-difficulty-select>
+                  <option value="any">Any distance</option>
+                  <option value="3">Exactly 3 HTM</option>
+                  <option value="4">Exactly 4 HTM</option>
+                  <option value="5+" selected>5+ HTM</option>
+                </select>
+              </label>
             </div>
             <div class="error-banner" data-error role="alert" hidden></div>
           </section>

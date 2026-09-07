@@ -26,6 +26,8 @@ const transformFor = (token: string): Transform => {
   return {cp: reduced._0.cp, co: reduced._0.co};
 };
 const moveTransforms = moveTokens.map(transformFor);
+const wholeRotationTokens = ["x", "x'", "y", "y'", "z", "z'"];
+const wholeRotationTransforms = wholeRotationTokens.map(transformFor);
 const rotations = (() => {
   const generators = [transformFor("x"), transformFor("y"), transformFor("z")];
   const values = [identity()];
@@ -83,3 +85,20 @@ export const coordinateForCubies = (state: Cubies): number => {
 export const cubiesForCoordinate = (coordinate: number): Cubies => ({cp: unrank(Math.floor(coordinate / 729)), co: orientationUnrank(coordinate % 729)});
 export const transitionCoordinate = (coordinate: number, move: number): number => coordinateForCubies(applyTransform(cubiesForCoordinate(coordinate), moveTransforms[move]!));
 export const transformations = (): readonly Transform[] => moveTransforms;
+
+/** Returns whole-cube rotations that put a solved-equivalent orientation back in the fixed frame. */
+export const rotationTokensToIdentity = (state: Cubies): string[] => {
+  const queue: Array<{state: Cubies; tokens: string[]}> = [{state, tokens: []}];
+  const seen = new Set([stateKey(state)]);
+  for (let index = 0; index < queue.length; index += 1) {
+    const candidate = queue[index]!;
+    if (stateKey(candidate.state) === stateKey(identity())) return candidate.tokens;
+    wholeRotationTransforms.forEach((transform, transformIndex) => {
+      const next = applyTransform(candidate.state, transform);
+      if (seen.has(stateKey(next))) return;
+      seen.add(stateKey(next));
+      queue.push({state: next, tokens: [...candidate.tokens, wholeRotationTokens[transformIndex]!]});
+    });
+  }
+  throw new Error("The solved-equivalent 2×2 orientation could not be restored.");
+};

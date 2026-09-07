@@ -10,6 +10,7 @@ import {
   decodeOptimal2x2Tables,
   OPTIMAL_2X2_TABLE_URL,
   optimal2x2TableBytes,
+  packedDistance,
 } from "../src/Solver/Optimal2x2Table.ts";
 
 const tablePath = fileURLToPath(new URL("../public/solver/optimal-2x2.v2.bin", import.meta.url));
@@ -103,6 +104,20 @@ describe("optimal 2×2 table", () => {
     if (replay.TAG === "Ok") expect(FaceletCodec.render(replay._0)).toBe(FaceletCodec.render(generated.state));
     const solution = await solver.solve(generated.state);
     expect(solution.moveCount).toBe(generated.moveCount);
-    expect(generated.moveCount).toBeGreaterThanOrEqual(4);
+    expect(generated.moveCount).toBeGreaterThanOrEqual(5);
+  });
+
+  test("supports exact easy-drill distance buckets alongside any and 5+", async () => {
+    const bytes = await readFile(tablePath);
+    const tables = decodeOptimal2x2Tables(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+    const solver = await import("../src/Solver/Optimal2x2Solver.ts");
+    const randomForDistance = (distance) => {
+      let coordinate = 0;
+      while (packedDistance(tables.distance, coordinate) !== distance) coordinate += 1;
+      return () => (coordinate + 0.5) / 3_674_160;
+    };
+    expect(solver.randomStateScrambleFromTables(tables, () => 0, "any").moveCount).toBe(0);
+    expect(solver.randomStateScrambleFromTables(tables, randomForDistance(3), "3").moveCount).toBe(3);
+    expect(solver.randomStateScrambleFromTables(tables, randomForDistance(4), "4").moveCount).toBe(4);
   });
 });

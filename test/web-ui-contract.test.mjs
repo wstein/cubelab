@@ -583,6 +583,8 @@ test("the SPA workspace keeps one viewport beside four URL-addressable destinati
 
 test("practice scramble is a Quick load action rather than a transform", () => {
   assert.match(page, /class="preset-chip practice"[\s\S]*data-practice-scramble/);
+  assert.match(page, /data-practice-2x2-difficulty-select[\s\S]*Exactly 3 HTM[\s\S]*Exactly 4 HTM[\s\S]*5\+ HTM/);
+  assert.match(client, /random2x2ScrambleClient\.generate\(difficulty\)/);
   assert.doesNotMatch(page, /class="transform-btn practice"/);
 });
 
