@@ -604,6 +604,42 @@ describe("dot diagnostics explain an unreachable draft", () => {
     expect(allowedManualStateColours(5, draft, 121)).not.toContain("F");
     expect(allowedManualStateColours(5, draft, 123)).not.toContain("F");
   });
+
+  test("15 Greens placed on 4×4: bottom L-face wings reject Green when mate cannot be Orange", () => {
+    const draft = emptyManualState(4);
+    const orbits = manualStateOrbits(4);
+    const corners = orbits.find((o) => o.name === "corners")!;
+    const wings = orbits.find((o) => o.name === "wings")!;
+    const centres = orbits.find((o) => o.name === "centres")!;
+
+    corners.slots.slice(0, 4).forEach((s) => { draft[s[0]] = "F"; });
+    centres.slots.slice(0, 4).forEach((s) => { draft[s[0]] = "F"; });
+
+    const otherWings = wings.slots.slice(0, 20);
+    draft[otherWings[0][0]] = "U"; draft[otherWings[0][1]] = "F";
+    draft[otherWings[1][0]] = "U"; draft[otherWings[1][1]] = "F";
+    draft[otherWings[2][0]] = "D"; draft[otherWings[2][1]] = "F";
+    draft[otherWings[3][0]] = "D"; draft[otherWings[3][1]] = "F";
+    draft[otherWings[4][0]] = "F"; draft[otherWings[4][1]] = "R";
+    draft[otherWings[5][0]] = "F"; draft[otherWings[5][1]] = "R";
+    draft[otherWings[6][0]] = "F"; draft[otherWings[6][1]] = "L";
+
+    expect(draft.filter((c) => c === "F")).toHaveLength(15);
+
+    otherWings.slice(7, 14).forEach((s) => { draft[s[0]] = "L"; });
+
+    const dlSlots = wings.slots.filter((s) => {
+      const f1 = Math.floor(s[0] / 16);
+      const f2 = Math.floor(s[1] / 16);
+      return (f1 === 3 && f2 === 4) || (f1 === 4 && f2 === 3);
+    });
+
+    dlSlots.forEach((s) => {
+      const lSticker = s.find((idx) => Math.floor(idx / 16) === 4)!;
+      expect(locallyAllowedManualStateColours(4, draft, lSticker)).not.toContain("F");
+      expect(allowedManualStateColours(4, draft, lSticker)).not.toContain("F");
+    });
+  });
 });
 
 
