@@ -129,6 +129,7 @@ describe("cube viewport math", () => {
   test("keeps the gauge to a residual readout and current raw gyro values", () => {
     expect(viewportSource).toMatch(/residual to virtual lock/);
     expect(viewportSource).toMatch(/gyro \$\{raw\.x\.toFixed\(2\)\}/);
+    expect(viewportSource).toMatch(/magnet: pull/);
   });
 
   test("removes the old rate-limited virtual drift path", () => {

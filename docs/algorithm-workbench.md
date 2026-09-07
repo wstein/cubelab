@@ -187,7 +187,8 @@ sensor quaternion direction is counter-clockwise), and immediately rebases. Ther
 capture-circle correction or lockout, so reversals and mixed-axis regrips remain valid.
 
 Diagnostics shows the event displacement from 0° toward 65°, its axis direction, the
-nearest cardinal lock, and the current raw gyro quaternion (`x y z w`).
+nearest cardinal lock, the current raw gyro quaternion (`x y z w`), and the exact
+magnetic correction currently applied to the rendered cube.
 
 Live regrip detection (`observeThresholdOrientation`) fires as soon as the cumulative
 rotation from the last confirmed pose crosses `regripThresholdDegrees` (65° by default,

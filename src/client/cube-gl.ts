@@ -890,6 +890,7 @@ export const createCubeViewport = (
   let regripGaugeDisplayDegrees = 0;
   let regripGaugeDisplayLabel: string | null = null;
   let regripGaugeDisplayActiveLockin: string | null = null;
+  let magneticDetentPullDegrees = 0;
   let turnFrame: number | null = null;
   let turnGeneration = 0;
   let autoOrbit = false;
@@ -1618,6 +1619,7 @@ export const createCubeViewport = (
       overlay.fillStyle = "rgba(203, 213, 225, 0.78)";
       overlay.font = `600 ${6 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
       overlay.fillText(`gyro ${raw.x.toFixed(2)} ${raw.y.toFixed(2)} ${raw.z.toFixed(2)} ${raw.w.toFixed(2)}`, cx, cy + 17 * dpr);
+      overlay.fillText(`magnet: pull ${magneticDetentPullDegrees.toFixed(1)}°`, cx, cy + 25 * dpr);
     }
     overlay.restore();
   };
@@ -1670,6 +1672,10 @@ export const createCubeViewport = (
     const detentedOrientation = rawOrientation
       ? magneticOrientationDetent(rawOrientation, deviceOrientationLockTarget)
       : rawOrientation;
+    magneticDetentPullDegrees = rawOrientation && detentedOrientation
+      ? orientationDistanceRadians(rawOrientation, detentedOrientation) * 180 / Math.PI
+      : 0;
+    canvas.dataset.magneticDetentPullDegrees = magneticDetentPullDegrees.toFixed(3);
     const relativeOrientation = detentedOrientation && deviceOrientationCorrection
       ? multiplyQuaternions(deviceOrientationCorrection, detentedOrientation)
       : detentedOrientation;
