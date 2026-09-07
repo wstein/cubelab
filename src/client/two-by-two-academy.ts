@@ -25,8 +25,8 @@ export type TwoByTwoPhaseStatus = {
 
 /**
  * The reducer's corner order is URF, UFL, ULB, UBR, DFR, DLF, DBL, DRB.
- * A Beginner/Ortega route fixes the four D-layer corners first, then orients
- * the remaining U-layer corners, and finally permutes those corners.
+ * A Beginner/Ortega route fixes the four U-layer (white) corners first, then
+ * orients the remaining D-layer (yellow) corners, and finally permutes them.
  */
 export const twoByTwoPhaseStatus = (state: unknown): TwoByTwoPhaseStatus => {
   const reduced = PieceReducer.reduce(state);
@@ -34,8 +34,8 @@ export const twoByTwoPhaseStatus = (state: unknown): TwoByTwoPhaseStatus => {
     return {firstLayer: false, orientLastLayer: false, permuteLastLayer: false};
   }
   const {cp, co} = reduced._0 as {cp: number[]; co: number[]};
-  const firstLayer = [4, 5, 6, 7].every((slot) => cp[slot] === slot && co[slot] === 0);
-  const orientLastLayer = firstLayer && [0, 1, 2, 3].every((slot) => co[slot] === 0);
+  const firstLayer = [0, 1, 2, 3].every((slot) => cp[slot] === slot && co[slot] === 0);
+  const orientLastLayer = firstLayer && [4, 5, 6, 7].every((slot) => co[slot] === 0);
   return {
     firstLayer,
     orientLastLayer,
@@ -47,12 +47,12 @@ export const twoByTwoBeginnerPhaseDefinitions = [
   {
     number: 1,
     title: "Build the first layer",
-    instruction: "Place and orient the four bottom-layer corners without relying on fixed centres.",
+    instruction: "Place and orient the four white bottom-layer corners without relying on fixed centres.",
   },
   {
     number: 2,
     title: "Orient last-layer corners",
-    instruction: "Keep the first layer intact while turning every last-layer corner upright.",
+    instruction: "Keep the white first layer intact while turning every yellow last-layer corner upright.",
   },
   {
     number: 3,
@@ -122,26 +122,27 @@ export const planTwoByTwoPblFinish = async (
 };
 
 type TwoByTwoOllPlan = {ok: true; algorithm: unknown; moveCount: number} | {ok: false; message: string};
-const ollMoveIndices = [0, 1, 2, 6, 7, 8, 12, 13, 14]; // U, R, F and inverses/halves
+const whiteLayerMoveIndices = [3, 4, 5, 6, 7, 8, 12, 13, 14]; // D, R, F and inverses/halves
 const faceForMove = (move: number): number => Math.floor(move / 3);
 const firstLayerGoal = (state: Cubies): boolean =>
-  [4, 5, 6, 7].every((slot) => state.cp[slot] === slot && state.co[slot] === 0);
+  [0, 1, 2, 3].every((slot) => state.cp[slot] === slot && state.co[slot] === 0);
 const ollGoal = (state: Cubies): boolean =>
   firstLayerGoal(state)
-  && [0, 1, 2, 3].every((slot) => state.co[slot] === 0);
+  && [4, 5, 6, 7].every((slot) => state.co[slot] === 0);
 
 type TwoByTwoStagePlan = {ok: true; algorithm: unknown; moveCount: number} | {ok: false; message: string};
 const searchStage = (
   initial: Cubies,
   goal: (state: Cubies) => boolean,
   maximumDepth: number,
+  allowedMoves = whiteLayerMoveIndices,
 ): number[] | null => {
   if (goal(initial)) return [];
   const transforms = transformations();
   const search = (current: Cubies, remaining: number, previousFace: number | null, path: number[]): number[] | null => {
     if (goal(current)) return path;
     if (remaining === 0) return null;
-    for (const move of ollMoveIndices) {
+    for (const move of allowedMoves) {
       const face = faceForMove(move);
       if (face === previousFace) continue;
       const found = search(applyTransform(current, transforms[move]!), remaining - 1, face, [...path, move]);
@@ -162,7 +163,7 @@ const encodeStage = (moves: number[]): TwoByTwoStagePlan => {
     : {ok: false, message: "The staged 2×2 route could not be encoded."};
 };
 
-/** Finds a bounded U/R/F route to four correctly placed and oriented D-layer corners. */
+/** Finds a bounded D/R/F route to four correctly placed and oriented white-layer corners. */
 export const planTwoByTwoFirstLayer = (state: unknown, maximumDepth = 8): TwoByTwoStagePlan => {
   const reduced = PieceReducer.reduce(state);
   if (reduced.TAG !== "Ok") return {ok: false, message: "The 2×2 state could not be reduced to corners."};
@@ -173,7 +174,7 @@ export const planTwoByTwoFirstLayer = (state: unknown, maximumDepth = 8): TwoByT
 };
 
 /**
- * Searches the small first-layer-preserving OLL space with U/R/F turns. The
+ * Searches the small first-layer-preserving OLL space with D/R/F turns. The
  * search is deliberately bounded: it is a phase planner, not a fallback full
  * 2×2 solver (PBL remains delegated to the verified exact table).
  */
@@ -232,20 +233,21 @@ export const planTwoByTwoBeginnerRoute = async (
  * small-corner route Petrus-inspired rather than Petrus: it teaches a square,
  * then the adjacent back pair, in a reference frame chosen once per setup.
  *
- * The four frames are equivalent y-axis views. Their index is retained with
- * the route so every phase is measured against the same LBD teaching frame.
+ * The four frames are equivalent views around the white first layer. Their
+ * index is retained with the route so every phase is measured against the
+ * same white-first teaching frame.
  */
 const petrusFrameSlots = (frame: number): {firstSquare: readonly [number, number]; backPair: readonly [number, number]} => {
   const frames = [
-    {firstSquare: [5, 6], backPair: [2, 6]}, // DLF, DBL · ULB, DBL
-    {firstSquare: [6, 7], backPair: [3, 7]}, // DBL, DRB · UBR, DRB
-    {firstSquare: [7, 4], backPair: [0, 4]}, // DRB, DFR · URF, DFR
-    {firstSquare: [4, 5], backPair: [1, 5]}, // DFR, DLF · UFL, DLF
+    {firstSquare: [1, 2], backPair: [2, 6]}, // UFL, ULB · ULB, DBL
+    {firstSquare: [2, 3], backPair: [3, 7]}, // ULB, UBR · UBR, DRB
+    {firstSquare: [3, 0], backPair: [0, 4]}, // UBR, URF · URF, DFR
+    {firstSquare: [0, 1], backPair: [1, 5]}, // URF, UFL · UFL, DLF
   ] as const;
   return frames[((frame % frames.length) + frames.length) % frames.length]!;
 };
 
-const petrusFrameLabels = ["LBD", "RBD", "RFD", "LFD"] as const;
+const petrusFrameLabels = ["ULB", "UBR", "URF", "UFL"] as const;
 
 /** Human-readable name for the Academy-relative frame locked with a route. */
 export const twoByTwoPetrusFrameLabel = (frame: number): string =>
@@ -277,7 +279,7 @@ export const twoByTwoPetrusPhaseDefinitions = [
   {
     number: 1,
     title: "Build the first square / block",
-    instruction: "Build the two-corner square in the Academy-relative LBD frame selected for this setup.",
+    instruction: "Build the two-corner square on the white first layer in the Academy-relative frame selected for this setup.",
   },
   {
     number: 2,
@@ -328,7 +330,7 @@ const petrusFrameScore = (state: Cubies, frame: number): number => {
   return firstSquare * 10 + backPair;
 };
 
-/** Select once, deterministically, then preserve the most promising LBD view throughout the lesson. */
+/** Select once, deterministically, then preserve the most promising white-first view throughout the lesson. */
 export const selectTwoByTwoPetrusFrame = (state: unknown): number => {
   const reduced = PieceReducer.reduce(state);
   if (reduced.TAG !== "Ok") return 0;
@@ -350,7 +352,7 @@ export const planTwoByTwoPetrusRoute = async (
   if (reduced.TAG !== "Ok") return {ok: false, message: "The 2×2 state could not be reduced to corners."};
   const frame = selectTwoByTwoPetrusFrame(initialState);
   const slots = petrusFrameSlots(frame);
-  const firstMoves = searchStage(reduced._0 as Cubies, (state) => correctlySolvedSlots(state, slots.firstSquare), 8);
+  const firstMoves = searchStage(reduced._0 as Cubies, (state) => correctlySolvedSlots(state, slots.firstSquare), 8, whiteLayerMoveIndices);
   if (firstMoves === null) return {ok: false, message: "No first-square route was found within 8 moves."};
   const firstSquare = encodeStage(firstMoves);
   if (!firstSquare.ok) return firstSquare;
@@ -360,7 +362,7 @@ export const planTwoByTwoPetrusRoute = async (
   const afterFirstReduced = PieceReducer.reduce(afterFirstSquare.state);
   if (afterFirstReduced.TAG !== "Ok") return {ok: false, message: "The first-square state could not be reduced to corners."};
   const allBackSlots = [...new Set([...slots.firstSquare, ...slots.backPair])];
-  const backMoves = searchStage(afterFirstReduced._0 as Cubies, (state) => correctlySolvedSlots(state, allBackSlots), 8);
+  const backMoves = searchStage(afterFirstReduced._0 as Cubies, (state) => correctlySolvedSlots(state, allBackSlots), 8, whiteLayerMoveIndices);
   if (backMoves === null) return {ok: false, message: "No first-square-preserving back-pair route was found within 8 moves."};
   const backPair = encodeStage(backMoves);
   if (!backPair.ok) return backPair;

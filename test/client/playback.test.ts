@@ -34,8 +34,9 @@ describe("algorithm playback timeline", () => {
     const rotation = {step: {move: {TAG: "Rotation", _0: "X"}, turns: 2}};
     const insertion = {step: {move: {TAG: "FaceTurn", _0: "R", _1: {from_: 1, to_: 1}}, turns: 1}};
     const alignment = {step: {move: {TAG: "FaceTurn", _0: "U", _1: {from_: 1, to_: 1}}, turns: -1}};
+    const firstLayer = {number: 1, title: "White Cross", instruction: "Build the first layer."};
     const middle = {number: 3, title: "Middle Layer", instruction: "Insert middle edges."};
-    expect(describeTimelineGroup([rotation], middle)).toContain("yellow faces up");
+    expect(describeTimelineGroup([rotation], firstLayer)).toContain("white is on the bottom");
     expect(describeTimelineGroup([alignment], middle)).toContain("Align the next middle-layer edge");
     expect(describeTimelineGroup([insertion], middle)).toContain("beginner left or right insertion");
     expect(describeTimelineGroup([insertion])).toBe(

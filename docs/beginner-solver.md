@@ -18,10 +18,9 @@ Each phase preserves the completed goal of every earlier phase:
 6. **Position Yellow Corners** — every last-layer corner occupies its solved slot.
 7. **Position Yellow Edges** — the final edges are cycled and the fixed frame is solved.
 
-The generated tutorial keeps **white on top for Steps 1–2**, matching the beginner's
-view while building the cross and inserting the first-layer corners. Step 3 begins with
-an explicit `x2` regrip; **yellow remains on top for Steps 3–7**. A final `x2` restores
-the canonical `U/R/F/D/L/B` centre frame. Inputs ending in whole-cube rotations are
+The generated tutorial begins with an explicit `x2` regrip and keeps **white on the
+bottom for Steps 1–7**, so yellow remains on top throughout every teaching phase. A final
+`x2` restores the canonical `U/R/F/D/L/B` centre frame. Inputs ending in whole-cube rotations are
 first returned to that canonical frame. Reorientation is emitted explicitly with `x`,
 `y`, and `z` moves instead of silently remapping every case: `y` regrips present
 insertion and last-layer cases from a natural front face, while whichever axes are

@@ -29,13 +29,13 @@ export const twoByTwoDrillCases: readonly TwoByTwoDrillCase[] = [
     id: "oll-antisune",
     family: "OLL",
     label: "OLL · Antisune",
-    scramble: "R U2 R' U' R U' R'",
+    scramble: "R D2 R' D' R D' R'",
   },
   {
-    id: "pbl-u-permutation",
+    id: "pbl-d-permutation",
     family: "PBL",
-    label: "PBL · U permutation",
-    scramble: "U",
+    label: "PBL · D permutation",
+    scramble: "D",
   },
 ];
 
@@ -47,10 +47,10 @@ export const twoByTwoPetrusDrillCases: readonly TwoByTwoPetrusDrillCase[] = [
     scramble: "R F",
   },
   {
-    id: "petrus-back-pair-u",
+    id: "petrus-back-pair-d",
     family: "BackPair",
-    label: "Back pair · U permutation",
-    scramble: "U",
+    label: "Back pair · D permutation",
+    scramble: "D",
   },
   {
     id: "petrus-finish-r",

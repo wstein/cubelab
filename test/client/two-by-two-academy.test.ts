@@ -35,12 +35,12 @@ const parse = (algorithm: string) => {
 describe("2×2 Beginner Academy phase contract", () => {
   test("keeps the first layer and corner orientation distinct from final permutation", () => {
     expect(twoByTwoPhaseStatus(apply(""))).toEqual({firstLayer: true, orientLastLayer: true, permuteLastLayer: true});
-    expect(twoByTwoPhaseStatus(apply("U"))).toEqual({firstLayer: true, orientLastLayer: true, permuteLastLayer: false});
+    expect(twoByTwoPhaseStatus(apply("D"))).toEqual({firstLayer: true, orientLastLayer: true, permuteLastLayer: false});
     expect(twoByTwoPhaseStatus(apply("R"))).toEqual({firstLayer: false, orientLastLayer: false, permuteLastLayer: false});
   });
 
   test("accepts only routes whose three boundaries satisfy their named goals", () => {
-    expect(verifyTwoByTwoBeginnerRoute(apply("U"), [parse(""), parse(""), parse("U'")]).ok).toBe(true);
+    expect(verifyTwoByTwoBeginnerRoute(apply("D"), [parse(""), parse(""), parse("D'")]).ok).toBe(true);
     expect(verifyTwoByTwoBeginnerRoute(apply("R"), [parse(""), parse(""), parse("R'")])).toMatchObject({
       ok: false,
       phase: 1,
@@ -48,8 +48,8 @@ describe("2×2 Beginner Academy phase contract", () => {
   });
 
   test("uses the exact solver only for PBL after first layer and OLL are satisfied", async () => {
-    const pblState = apply("U");
-    const result = await planTwoByTwoPblFinish(pblState, async () => ({alg: parse("U'"), moveCount: 1}));
+    const pblState = apply("D");
+    const result = await planTwoByTwoPblFinish(pblState, async () => ({alg: parse("D'"), moveCount: 1}));
     expect(result).toMatchObject({ok: true, moveCount: 1});
     if (result.ok) expect(verifyTwoByTwoBeginnerRoute(pblState, result.phaseAlgorithms).ok).toBe(true);
 
@@ -58,7 +58,7 @@ describe("2×2 Beginner Academy phase contract", () => {
   });
 
   test("finds an OLL route that restores the first layer", () => {
-    const ollCase = apply("R U2 R' U' R U' R'");
+    const ollCase = apply("R D2 R' D' R D' R'");
     expect(twoByTwoPhaseStatus(ollCase)).toMatchObject({firstLayer: true, orientLastLayer: false});
     const plan = planTwoByTwoOll(ollCase);
     expect(plan.ok).toBe(true);
@@ -69,7 +69,7 @@ describe("2×2 Beginner Academy phase contract", () => {
   });
 
   test("finds a first-layer route before OLL and PBL planning", () => {
-    ["R", "R U", "F R U"].forEach((scramble) => {
+    ["R", "R D", "F R D"].forEach((scramble) => {
       const scrambled = apply(scramble);
       const plan = planTwoByTwoFirstLayer(scrambled);
       expect(plan.ok).toBe(true);
@@ -81,26 +81,26 @@ describe("2×2 Beginner Academy phase contract", () => {
   });
 
   test("composes first layer, OLL, and PBL into one verified route", async () => {
-    const result = await planTwoByTwoBeginnerRoute(apply("U"), async () => ({alg: parse("U'"), moveCount: 1}));
+    const result = await planTwoByTwoBeginnerRoute(apply("D"), async () => ({alg: parse("D'"), moveCount: 1}));
     expect(result).toMatchObject({ok: true, moveCount: 1});
-    if (result.ok) expect(verifyTwoByTwoBeginnerRoute(apply("U"), result.phaseAlgorithms).ok).toBe(true);
+    if (result.ok) expect(verifyTwoByTwoBeginnerRoute(apply("D"), result.phaseAlgorithms).ok).toBe(true);
   });
 });
 
 describe("2×2 Petrus-inspired Academy phase contract", () => {
   test("locks one adaptive frame and keeps first square distinct from the back pair", () => {
-    expect(twoByTwoPetrusFrameLabel(0)).toBe("LBD");
-    expect(twoByTwoPetrusFrameLabel(4)).toBe("LBD");
+    expect(twoByTwoPetrusFrameLabel(0)).toBe("ULB");
+    expect(twoByTwoPetrusFrameLabel(4)).toBe("ULB");
     const solved = apply("");
     const status = twoByTwoPetrusPhaseStatus(solved, 0);
     expect(status).toEqual({firstSquare: true, backPair: true, finish: true});
 
-    const firstSquareOnly = apply("U");
+    const firstSquareOnly = apply("D");
     expect(twoByTwoPetrusPhaseStatus(firstSquareOnly, 0)).toMatchObject({firstSquare: true, backPair: false, finish: false});
   });
 
   test("only accepts replayed phase boundaries in the selected frame", () => {
-    expect(verifyTwoByTwoPetrusRoute(apply("U"), 0, [parse(""), parse("U'"), parse("")]).ok).toBe(true);
+    expect(verifyTwoByTwoPetrusRoute(apply("D"), 0, [parse(""), parse("D'"), parse("")]).ok).toBe(true);
     expect(verifyTwoByTwoPetrusRoute(apply("R"), 3, [parse(""), parse(""), parse("R'")])).toMatchObject({
       ok: false,
       phase: 1,
@@ -108,9 +108,9 @@ describe("2×2 Petrus-inspired Academy phase contract", () => {
   });
 
   test("plans a locked-frame route and proves all three Petrus-inspired boundaries", async () => {
-    const initial = apply("U");
+    const initial = apply("D");
     const result = await planTwoByTwoPetrusRoute(initial, async (state) => ({
-      alg: isMonochromeSolved2x2(state) ? parse("") : parse("U'"),
+      alg: isMonochromeSolved2x2(state) ? parse("") : parse("D'"),
       moveCount: isMonochromeSolved2x2(state) ? 0 : 1,
     }));
     expect(result).toMatchObject({ok: true, moveCount: 1});

@@ -818,19 +818,19 @@ let solve = (input: cubeState): result<solution, solverError> => {
       phase(
         1,
         "White Cross",
-        "Keep white on top and align the four white edges with their side centres.",
+        "Keep white on the bottom and align the four white edges with their side centres.",
         crossAlg.contents,
       ),
       phase(
         2,
         "First-Layer Corners",
-        "Keep white on top and insert the four white corners while preserving the cross.",
+        "Keep white on the bottom and insert the four white corners while preserving the cross.",
         cornerAlg.contents,
       ),
       phase(
         3,
         "Middle Layer",
-        "Turn yellow to the top, then insert the four non-yellow edges with beginner left/right insertions.",
+        "Keep yellow on top, then insert the four non-yellow edges with beginner left/right insertions.",
         middleAlg.contents,
       ),
       phase(
@@ -858,31 +858,23 @@ let solve = (input: cubeState): result<solution, solverError> => {
         groupedActions(edgePermutationPath),
       ),
     ]
-    let phases = corePhases->Array.mapWithIndex((item, index) => {
+    let phases = corePhases->Array.map(item => {
       ...item,
-      alg: if index < 2 {
-        item.alg
-      } else {
-        MoveTransform.rotate(item.alg, ~axis=X, ~turns=2)
-      },
+      alg: item.alg->MoveTransform.rotate(~axis=X, ~turns=2),
     })
     let coreHasMoves = corePhases->Array.some(item => item.alg->Array.length > 0)
-    let yellowUp = if coreHasMoves {
+    let whiteDown = if coreHasMoves {
       [located(Move(Rotation(X), 2))]
     } else {
       []
     }
     phases[0] = {
       ...Belt.Array.getUnsafe(phases, 0),
-      alg: groupedSequence(frameAlg)->Array.concat(Belt.Array.getUnsafe(phases, 0).alg),
-    }
-    phases[2] = {
-      ...Belt.Array.getUnsafe(phases, 2),
-      alg: groupedSequence(yellowUp)->Array.concat(Belt.Array.getUnsafe(phases, 2).alg),
+      alg: groupedSequence(frameAlg)->Array.concat(groupedSequence(whiteDown))->Array.concat(Belt.Array.getUnsafe(phases, 0).alg),
     }
     phases[6] = {
       ...Belt.Array.getUnsafe(phases, 6),
-      alg: Belt.Array.getUnsafe(phases, 6).alg->Array.concat(groupedSequence(yellowUp)),
+      alg: Belt.Array.getUnsafe(phases, 6).alg->Array.concat(groupedSequence(whiteDown)),
     }
     for index in 0 to phases->Array.length - 2 {
       let currentPhase = Belt.Array.getUnsafe(phases, index)

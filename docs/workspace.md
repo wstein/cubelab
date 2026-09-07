@@ -4,7 +4,7 @@ CubeLab uses four client-side workspace views over one canonical state:
 
 - **Converter** presents the six size-aware state formats and copy controls.
 - **2×2 Beginner / Ortega Academy** generates a replay-verified First layer → OLL → PBL route; it accepts monochrome solved orientations because a 2×2 has no fixed centres.
-- **2×2 Petrus-inspired Academy** selects one equivalent lower-back teaching frame from the setup, locks it for the lesson, then replay-verifies First square/block → Back pair → Finish. It deliberately describes corner relations rather than claiming a 2×2 has edge cubies or canonical Petrus steps.
+- **2×2 Petrus-inspired Academy** selects one equivalent white-first teaching frame from the setup, locks it for the lesson, then replay-verifies First square/block → Back pair → Finish. It deliberately describes corner relations rather than claiming a 2×2 has edge cubies or canonical Petrus steps.
 - **Beginner Academy** generates and explains a seven-phase 3×3 LBL tutorial.
 - **CFOP Academy** teaches a replay-verified Cross, four recognized and locked F2L pairs,
   two-look OLL, and two-look PLL path.
@@ -12,6 +12,10 @@ CubeLab uses four client-side workspace views over one canonical state:
 - **Pattern Catalog** browses and loads the 230-record attributed pattern library,
   filters to proven mathematical antipodes, and surfaces live pattern recognition
   against the current cube state.
+
+All layer-based Academy lessons use **white as the bottom first layer** and
+**yellow as the top last layer**. Reduction lessons retain their separate
+centre-and-wing workflow, then hand off to that same white-bottom 3×3 finish.
 
 The tabs are visibility controls over one persistent `CubeViewport`, so switching views
 does not recreate the WebGL context, mesh buffers, camera, or tape player. They also have

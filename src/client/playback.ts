@@ -221,8 +221,7 @@ export const describeTimelineGroup = (
     }
   }
   if (onlyRotations) {
-    if (phase?.number === 1) return "Restore a consistent white-up starting orientation.";
-    if (phase?.number === 3) return "Turn the whole cube so yellow faces up for the remaining layers.";
+    if (phase?.number === 1) return "Regrip once so white is on the bottom for the entire solve.";
     if (phase?.number === 7) return "Restore the canonical white-up cube orientation.";
     return "Reorient the whole cube for the next algorithm.";
   }
