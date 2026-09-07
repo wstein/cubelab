@@ -658,7 +658,7 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /recenterDeviceOrientation/);
   assert.match(client, /createStableOrientationTracker/);
   assert.match(client, /reconcileDeviceOrientation/);
-  assert.match(client, /observeVirtualFixpoint/);
+  assert.match(client, /observeThresholdOrientation/);
   assert.match(client, /Recorded virtual regrip/);
   assert.match(client, /smartCubeDiscreteOrientationTracker\s*=\s*createStableOrientationTracker/);
   assert.match(client, /appendRecordedMove/);

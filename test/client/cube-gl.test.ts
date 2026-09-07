@@ -13,7 +13,7 @@ import {
   transformTurnPointForCubie,
   transformTurnPoint,
   focusCameraTarget,
-  followSmartCubeOrientationOffset,
+  magneticOrientationDetent,
   matrixFromQuaternion,
   multiplyQuaternions,
   orientationInViewportFrame,
@@ -93,13 +93,12 @@ describe("cube viewport math", () => {
     expect(autoOrbitYawDelta(-10)).toBe(0);
   });
 
-  test("limits the smart-cube drift offset to two degrees per second", () => {
+  test("keeps live gyro 1:1 outside the 12-degree magnetic detent and snaps at its centre", () => {
     const identity = {x: 0, y: 0, z: 0, w: 1};
-    const quarterTurn = {x: 0, y: Math.SQRT1_2, z: 0, w: Math.SQRT1_2};
-    const afterOneSecond = followSmartCubeOrientationOffset(identity, quarterTurn, 1_000);
-    expect(orientationDistanceRadians(identity, afterOneSecond)).toBeCloseTo(2 * Math.PI / 180, 8);
-    const afterOneMinute = followSmartCubeOrientationOffset(identity, quarterTurn, 60_000);
-    expect(orientationDistanceRadians(identity, afterOneMinute)).toBeCloseTo(Math.PI / 2, 8);
+    const x = (degrees: number) => ({x: Math.sin(degrees * Math.PI / 360), y: 0, z: 0, w: Math.cos(degrees * Math.PI / 360)});
+    expect(magneticOrientationDetent(x(18), identity)).toEqual(x(18));
+    expect(orientationDistanceRadians(magneticOrientationDetent(x(0), identity), identity)).toBeCloseTo(0);
+    expect(orientationDistanceRadians(magneticOrientationDetent(x(6), identity), identity)).toBeLessThan(6 * Math.PI / 180);
   });
 
   test("shows the residual after a threshold regrip until virtual drift reaches the cardinal lock", () => {
@@ -132,8 +131,8 @@ describe("cube viewport math", () => {
     expect(viewportSource).toMatch(/gyro \$\{raw\.x\.toFixed\(2\)\}/);
   });
 
-  test("starts virtual drift at the raw pose instead of snapping its gauge to a lock", () => {
-    expect(viewportSource).toMatch(/deviceOrientationOffset = \{x: 0, y: 0, z: 0, w: 1\}/);
+  test("removes the old rate-limited virtual drift path", () => {
+    expect(viewportSource).not.toMatch(/deviceOrientationOffset/);
   });
 
   test("preallocates enough VBO space as cube sizes increase", () => {

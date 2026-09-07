@@ -1,7 +1,6 @@
 import {
   deviceOrientationDelta,
   multiplyQuaternions,
-  orientationDistanceRadians,
   type OrientationCoordinateFrame,
   type OrientationQuaternion,
 } from "../cube-gl";
@@ -15,11 +14,6 @@ type CardinalOrientation = {
 
 export type StableOrientationTracker = {
   baseline: OrientationQuaternion;
-  /** Maps the raw baseline delta into the virtual cardinal orientation frame. */
-  calibrationCorrection: OrientationQuaternion;
-  /** Raw sample at the last virtual event, used to reject a duplicate circle entry. */
-  lastVirtualFixpointSample?: OrientationQuaternion | null;
-  lastVirtualFixpointToken?: RegripToken | null;
   frame: OrientationCoordinateFrame;
   deltaFrame: "local" | "world";
   orientation: OrientationQuaternion;
@@ -34,11 +28,6 @@ const normalize = (quaternion: OrientationQuaternion): OrientationQuaternion => 
     z: quaternion.z / length,
     w: quaternion.w / length,
   };
-};
-
-const inverse = (quaternion: OrientationQuaternion): OrientationQuaternion => {
-  const normalized = normalize(quaternion);
-  return {x: -normalized.x, y: -normalized.y, z: -normalized.z, w: normalized.w};
 };
 
 const quarter = (axis: "X" | "Y" | "Z", turns: 1 | -1): OrientationQuaternion => {
@@ -82,11 +71,8 @@ const cardinalOrientations = (): CardinalOrientation[] => {
 
 const orientations = cardinalOrientations();
 
-const virtualSphereFixpoints: OrientationQuaternion[] = orientations.map((entry) => entry.quaternion);
-
 /** The rotation group of a cube: every legal cardinal pose, exactly once. */
 export const cardinalOrientationCount = orientations.length;
-export const virtualSphereFixpointCount = virtualSphereFixpoints.length;
 
 const closestCardinalOrientation = (quaternion: OrientationQuaternion): {index: number; alignment: number} => {
   const normalized = normalize(quaternion);
@@ -107,19 +93,12 @@ const closestCardinalOrientation = (quaternion: OrientationQuaternion): {index: 
 export const nearestCardinalOrientation = (quaternion: OrientationQuaternion): OrientationQuaternion =>
   orientations[closestCardinalOrientation(quaternion).index]!.quaternion;
 
-/** Nearest of the 24 cardinal orientations of the cube. */
-export const nearestVirtualSphereFixpoint = (quaternion: OrientationQuaternion): OrientationQuaternion =>
-  nearestCardinalOrientation(quaternion);
-
 export const createStableOrientationTracker = (
   baseline: OrientationQuaternion,
   frame: OrientationCoordinateFrame,
   deltaFrame: "local" | "world" = "local",
 ): StableOrientationTracker => ({
   baseline,
-  calibrationCorrection: {x: 0, y: 0, z: 0, w: 1},
-  lastVirtualFixpointSample: null,
-  lastVirtualFixpointToken: null,
   frame,
   deltaFrame,
   orientation: {x: 0, y: 0, z: 0, w: 1},
@@ -187,7 +166,7 @@ export const observeThresholdOrientation = (
     : multiplyQuaternions(tracker.orientation, cardinal));
   return {
     tracker: {...tracker, baseline: current, frame, orientation, candidate: null},
-    tokens: orientations[nearest.index]!.tokens,
+    tokens: orientations[nearest.index]!.tokens.map(clockwiseNotationToken),
   };
 };
 
@@ -236,53 +215,6 @@ export const nearestRegripAxis = (axis: [number, number, number]): RegripToken |
  * bias without rebasing to the 60° circle boundary, which otherwise makes
  * the next target only ~60° away and loses a long x/y/z sequence.
  */
-export const observeVirtualFixpoint = (
-  tracker: StableOrientationTracker,
-  current: OrientationQuaternion,
-  frame: OrientationCoordinateFrame,
-  radiusDegrees = 30,
-): {tracker: StableOrientationTracker; tokens: RegripToken[]} => {
-  if (tracker.frame !== frame) return {tracker: createStableOrientationTracker(current, frame, tracker.deltaFrame), tokens: []};
-  const rawDelta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
-  const delta = normalize(multiplyQuaternions(tracker.calibrationCorrection, rawDelta));
-  const targets = candidates.map((candidate) => ({
-    ...candidate,
-    orientation: normalize(tracker.deltaFrame === "world"
-      ? multiplyQuaternions(candidate.quaternion, tracker.orientation)
-      : multiplyQuaternions(tracker.orientation, candidate.quaternion)),
-  }));
-  const fixpoint = targets.reduce((closest, candidate) =>
-    orientationDistanceRadians(delta, candidate.orientation) < orientationDistanceRadians(delta, closest.orientation)
-      ? candidate
-      : closest,
-  );
-  if (orientationDistanceRadians(delta, fixpoint.orientation) > radiusDegrees * Math.PI / 180) {
-    return {tracker, tokens: []};
-  }
-  // Require a full 90° quarter-turn advance (~85°) when spinning continuously in
-  // the same direction, but allow immediate reversals (e.g. x then x') and perpendicular
-  // turns once the hand reverses past the boundary (>= 25°).
-  const isSameDirection = tracker.lastVirtualFixpointToken === fixpoint.token;
-  const minSeparation = isSameDirection ? 89 * Math.PI / 180 : 25 * Math.PI / 180;
-  if (
-    tracker.lastVirtualFixpointSample
-    && orientationDistanceRadians(tracker.lastVirtualFixpointSample, current) < minSeparation
-  ) {
-    return {tracker, tokens: []};
-  }
-  return {
-    tracker: {
-      ...tracker,
-      calibrationCorrection: normalize(multiplyQuaternions(fixpoint.orientation, inverse(rawDelta))),
-      lastVirtualFixpointSample: current,
-      lastVirtualFixpointToken: fixpoint.token,
-      orientation: fixpoint.orientation,
-      candidate: null,
-    },
-    tokens: [clockwiseNotationToken(fixpoint.token)],
-  };
-};
-
 /**
  * Commits a cardinal pose that another sensor window has already proven still.
  * Face-turn anchors supply that proof after their own three-sample dwell, so a

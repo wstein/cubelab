@@ -5,11 +5,8 @@ import {
   cardinalOrientationFaces,
   createStableOrientationTracker,
   nearestCardinalOrientation,
-  nearestVirtualSphereFixpoint,
   nearestRegripAxis,
   observeStableOrientation,
-  observeVirtualFixpoint,
-  virtualSphereFixpointCount,
   observeThresholdOrientation,
   settleStableOrientation,
 } from "../../../src/client/smart-cube/orientation-tracker";
@@ -22,45 +19,10 @@ describe("stable smart-cube orientation tracker", () => {
     expect(cardinalOrientationCount).toBe(24);
   });
 
-  test("uses three eight-point rings for the virtual gyro sphere", () => {
-    expect(virtualSphereFixpointCount).toBe(24);
-    expect(nearestVirtualSphereFixpoint(identity).w).toBeCloseTo(1);
-  });
-
-  test("maps positive sensor rotation to clockwise cube notation", () => {
-    const tracker = createStableOrientationTracker(identity, "viewport", "world");
-    expect(observeVirtualFixpoint(tracker, x(55), "viewport").tokens).toEqual([]);
-    expect(observeVirtualFixpoint(tracker, x(61), "viewport").tokens).toEqual(["x'"]);
-  });
-
-  test("keeps the 90-degree virtual targets after entering a capture circle", () => {
-    let tracker = createStableOrientationTracker(identity, "viewport", "world");
-    const tokens: string[] = [];
-    // Samples cross each 30° capture-circle boundary, rather than landing
-    // precisely on its 90° centre. A full five turns must still produce all
-    // twenty quarter-turn events.
-    for (let degrees = 0; degrees <= 1_800; degrees += 1) {
-      const observed = observeVirtualFixpoint(tracker, x(degrees), "viewport");
-      tracker = observed.tracker;
-      tokens.push(...observed.tokens);
-    }
-    expect(tokens).toEqual(Array(20).fill("x'"));
-  });
-
-  test("selects the next virtual lock at the 45-degree cardinal boundary", () => {
+  test("selects the nearest cardinal pose at the 45-degree Voronoi boundary", () => {
     expect(cardinalOrientationFaces(nearestCardinalOrientation(x(44)))).toBe("URFDLB");
     expect(cardinalOrientationFaces(nearestCardinalOrientation(x(46)))).toBe("BRUFLD");
   });
-
-  test("allows immediate reversal without being blocked by same-direction separation", () => {
-    let tracker = createStableOrientationTracker(identity, "viewport", "world");
-    const forward = observeVirtualFixpoint(tracker, x(61), "viewport");
-    tracker = forward.tracker;
-    expect(forward.tokens).toEqual(["x'"]);
-    const reverse = observeVirtualFixpoint(tracker, x(0), "viewport");
-    expect(reverse.tokens).toEqual(["x"]);
-  });
-
 
   test("waits for a settled cardinal pose instead of committing at 65 degrees", () => {
     let tracker = createStableOrientationTracker(identity, "viewport");
@@ -116,7 +78,15 @@ describe("stable smart-cube orientation tracker", () => {
   test("threshold: confirms from a single sample the instant the threshold is crossed", () => {
     const tracker = createStableOrientationTracker(identity, "viewport", "world");
     const resolved = observeThresholdOrientation(tracker, x(66), "viewport", 65);
-    expect(resolved.tokens).toEqual(["x"]);
+    expect(resolved.tokens).toEqual(["x'"]);
+  });
+
+  test("threshold: accepts an immediate reversal without an artificial lockout", () => {
+    const tracker = createStableOrientationTracker(identity, "viewport", "world");
+    const first = observeThresholdOrientation(tracker, x(66), "viewport", 65);
+    expect(first.tokens).toEqual(["x'"]);
+    const reversed = observeThresholdOrientation(first.tracker, identity, "viewport", 65);
+    expect(reversed.tokens).toEqual(["x"]);
   });
 
   test("threshold: resolves to the nearest cardinal without requiring precision", () => {
@@ -125,13 +95,13 @@ describe("stable smart-cube orientation tracker", () => {
     // 90° neighbour than to identity (45° would be the ambiguous midpoint).
     const tracker = createStableOrientationTracker(identity, "viewport", "world");
     const resolved = observeThresholdOrientation(tracker, x(78), "viewport", 65);
-    expect(resolved.tokens).toEqual(["x"]);
+    expect(resolved.tokens).toEqual(["x'"]);
   });
 
   test("threshold: rebases to the triggering sample so it does not immediately refire", () => {
     const tracker = createStableOrientationTracker(identity, "viewport", "world");
     const first = observeThresholdOrientation(tracker, x(90), "viewport", 65);
-    expect(first.tokens).toEqual(["x"]);
+    expect(first.tokens).toEqual(["x'"]);
     const second = observeThresholdOrientation(first.tracker, x(91), "viewport", 65);
     expect(second.tokens).toEqual([]);
   });
@@ -146,7 +116,7 @@ describe("stable smart-cube orientation tracker", () => {
       tracker = observed.tracker;
       tokens.push(...observed.tokens);
     }
-    expect(tokens).toEqual(["x", "x", "x", "x"]);
+    expect(tokens).toEqual(["x'", "x'", "x'", "x'"]);
     // A full 360° turn is identity up to quaternion double-cover (w may be -1).
     expect(Math.abs(tracker.orientation.w)).toBeCloseTo(1);
   });

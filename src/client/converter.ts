@@ -136,9 +136,8 @@ import {
   cardinalOrientationFaces,
   createStableOrientationTracker,
   nearestRegripAxis,
-  nearestVirtualSphereFixpoint,
-  observeStableOrientation,
-  observeVirtualFixpoint,
+  nearestCardinalOrientation,
+  observeThresholdOrientation,
   type StableOrientationTracker,
 } from "./smart-cube/orientation-tracker";
 import {
@@ -2266,26 +2265,33 @@ if (root) {
       updateSmartCubeDiagnosticsUi();
     }
   };
-  // Debug-only 2D HUD for the continuously selected cardinal gyro lock.
+  // Debug-only HUD: raw displacement from the last confirmed regrip, while
+  // the viewport independently selects its nearest magnetic cardinal detent.
   const updateSmartCubeRegripGauge = (
     current?: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
   ) => {
     if (!viewport) return;
-    const tracker = smartCubeVirtualFixpointTracker ?? smartCubeDiscreteOrientationTracker;
-    if (!smartCubeDiagnosticsEnabled || !tracker || !current || !frame) {
+    const eventTracker = smartCubeVirtualFixpointTracker;
+    const continuousTracker = smartCubeDiscreteOrientationTracker;
+    if (!smartCubeDiagnosticsEnabled || !eventTracker || !continuousTracker || !current || !frame) {
       viewport.setRegripGauge(null);
       return;
     }
-    const rawDelta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
-    const delta = normalizedQuaternion(multiplyQuaternions(tracker.calibrationCorrection, rawDelta));
-    const lock = tracker.orientation;
-    const deviation = regripGaugeDeviation(delta, lock);
-    const {axis, radians} = quaternionAxisAngle(deviation);
+    const rawDelta = deviceOrientationDelta(eventTracker.baseline, current, frame, eventTracker.deltaFrame);
+    const {axis, radians} = quaternionAxisAngle(rawDelta);
+    const continuousDelta = deviceOrientationDelta(
+      continuousTracker.baseline,
+      current,
+      frame,
+      continuousTracker.deltaFrame,
+    );
+    const lock = nearestCardinalOrientation(continuousDelta);
     viewport.setRegripGauge({
       degrees: radians * 180 / Math.PI,
       label: nearestRegripAxis(axis),
       activeLockin: cardinalOrientationFaces(lock),
+      rawOrientation: current,
     });
     viewport.setVirtualOrientationLock(lock);
   };
@@ -4784,21 +4790,13 @@ if (root) {
             "world",
           );
         } else {
-          const observed = observeVirtualFixpoint(
+          const observed = observeThresholdOrientation(
             smartCubeVirtualFixpointTracker,
             event.quaternion,
             event.coordinateFrame,
           );
           smartCubeVirtualFixpointTracker = observed.tracker;
-          smartCubeDiscreteOrientationTracker = observed.tracker;
           if (observed.tokens.length > 0) {
-            if (smartCubeOrientationTracking && !smartCubeRecording && !smartCubeRecordingTapePresented) {
-              viewport?.reconcileDeviceOrientation(
-                event.quaternion,
-                observed.tracker.orientation,
-                event.coordinateFrame,
-              );
-            }
             if (smartCubeRecording && smartCubeSyncMode === "PhysicalMirror") {
               observed.tokens.forEach((token) => {
                 const axis = token[0]!.toUpperCase() as "X" | "Y" | "Z";

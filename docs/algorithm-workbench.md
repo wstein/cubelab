@@ -172,36 +172,21 @@ it down — an entire ring-buffer/nearest-cardinal-snap correction system existe
 to fight that drift, and still couldn't make continuous mirroring feel solid. The raw
 stream supplies the virtual lock-in stabilizer rather than directly driving the cube.
 
-### Current virtual-lock experiment
+### Current magnetic-detent gyro mode
 
-The threshold regrip detector is temporarily bypassed for the live gyro view. Instead,
-every raw orientation sample selects the nearest point in a 24-point virtual sphere: eight
-points every 45° around the equator, plus eight each on the north and south 45° latitude
-rings. The continuous target change emits no regrip event and resets no baseline. The
-display-only offset moves toward the selected point at 2°/s, stabilizing sensor drift
-without threshold or regrip detection. The threshold-specific description below remains
-as historical context for the recording tracker only.
+The live cube mirrors its raw gyro orientation continuously. It does not accumulate an
+offset or crawl toward an artificial sphere. The exact 24-pose cube rotation group is
+used only to select the nearest cardinal detent: inside 12° of that pose, a quadratic
+blend gently removes tremor and snaps precisely to it; outside the well the motion is
+strictly 1:1 with the sensor.
 
-The offset begins at the raw pose rather than snapping to the first selected lock, so the
-diagnostics needle exposes the initial residual and its gradual correction to zero.
+Regrip events use a separate 65° threshold from the last confirmed raw baseline. Crossing
+it selects the nearest cardinal cube pose, emits clockwise `x/y/z` notation (the positive
+sensor quaternion direction is counter-clockwise), and immediately rebases. There is no
+capture-circle correction or lockout, so reversals and mixed-axis regrips remain valid.
 
-An independent event layer retains six 30° quarter-turn capture circles (`x`, `x'`, `y`,
-`y'`, `z`, `z'`) around the active pose. Entering one emits the corresponding virtual
-regrip: learn mode animates the viewport, and a physical-mirror recording appends the
-event and advances its hardware-to-viewport frame. The sensor's positive quaternion
-direction is counter-clockwise while whole-cube `x/y/z` notation is clockwise, so the
-emitted token is inverted without changing the physical viewport pose. The event tracker keeps its original
-gyro calibration sample and advances its virtual target by an exact 90° after each
-entry; it must not rebase to the 60° circle boundary. Thus consecutive quarter turns
-remain detectable even when packets arrive only at the edge of each capture circle.
-After an accepted event, the raw residual is recalibrated to that exact virtual target;
-a near-quarter-turn separation rejects the duplicate circle entry that can occur when
-the quaternion wraps after a full revolution. Recenter and recording-mode changes
-create a fresh event tracker. This does not alter the continuous three-ring lock target.
-
-Diagnostics shows only the residual direction and angle to the selected virtual lock,
-plus the current raw gyro quaternion (`x y z w`). It intentionally does not project the
-3D lock sphere and event circles into a misleading 2D diagram.
+Diagnostics shows the event displacement from 0° toward 65°, its axis direction, the
+nearest cardinal lock, and the current raw gyro quaternion (`x y z w`).
 
 Live regrip detection (`observeThresholdOrientation`) fires as soon as the cumulative
 rotation from the last confirmed pose crosses `regripThresholdDegrees` (65° by default,

@@ -589,19 +589,21 @@ export const slerpQuaternion = (
   });
 };
 
-/** The drift baseline may advance no faster than two degrees per second. */
-export const SMART_CUBE_OFFSET_RADIANS_PER_SECOND = 2 * Math.PI / 180;
-
-/** Advances a rendered-orientation correction toward a cardinal lock-in target. */
-export const followSmartCubeOrientationOffset = (
-  offset: OrientationQuaternion,
-  targetOffset: OrientationQuaternion,
-  elapsedMs: number,
+/**
+ * A zero-latency magnetic detent for live gyro rendering. Outside the well
+ * the raw orientation passes through unchanged; within it a quadratic pull
+ * removes tremor and lands exactly on the cardinal pose.
+ */
+export const magneticOrientationDetent = (
+  raw: OrientationQuaternion,
+  cardinalTarget: OrientationQuaternion,
+  radiusDegrees = 12,
 ): OrientationQuaternion => {
-  const distance = orientationDistanceRadians(offset, targetOffset);
-  if (distance < 1e-8) return normalizedQuaternion(targetOffset);
-  const maxStep = SMART_CUBE_OFFSET_RADIANS_PER_SECOND * Math.max(0, elapsedMs) / 1000;
-  return slerpQuaternion(offset, targetOffset, Math.min(1, maxStep / distance));
+  const distance = orientationDistanceRadians(raw, cardinalTarget);
+  const radius = radiusDegrees * Math.PI / 180;
+  if (distance >= radius) return raw;
+  const normalizedDistance = distance / Math.max(radius, 1e-8);
+  return slerpQuaternion(raw, cardinalTarget, (1 - normalizedDistance) ** 2);
 };
 
 /** Locks sub-threshold IMU jitter and softens larger moves along the shortest quaternion path. */
@@ -887,7 +889,6 @@ export const createCubeViewport = (
   let regripGaugeDisplayDegrees = 0;
   let regripGaugeDisplayLabel: string | null = null;
   let regripGaugeDisplayActiveLockin: string | null = null;
-  let regripGaugeCorrected: {degrees: number; label: string | null} | null = null;
   let turnFrame: number | null = null;
   let turnGeneration = 0;
   let autoOrbit = false;
@@ -897,8 +898,6 @@ export const createCubeViewport = (
   let cameraGeneration = 0;
   let deviceOrientationBase: OrientationQuaternion | null = null;
   let deviceOrientation: OrientationQuaternion | null = null;
-  let deviceOrientationOffset: OrientationQuaternion | null = null;
-  let deviceOrientationOffsetUpdatedAt: number | null = null;
   let deviceOrientationLockTarget: OrientationQuaternion = {x: 0, y: 0, z: 0, w: 1};
   // The correction actually being drawn this frame; only animateDeviceOrientationCorrectionTo
   // may write it.
@@ -1627,15 +1626,11 @@ export const createCubeViewport = (
       regripGaugeDisplayDegrees = 0;
       regripGaugeDisplayLabel = null;
       regripGaugeDisplayActiveLockin = null;
-      regripGaugeCorrected = null;
       return;
     }
-    regripGaugeDisplayLabel = regripGaugeCorrected?.label ?? regripGauge.label ?? regripGaugeDisplayLabel;
+    regripGaugeDisplayLabel = regripGauge.label ?? regripGaugeDisplayLabel;
     regripGaugeDisplayActiveLockin = regripGauge.activeLockin ?? regripGaugeDisplayActiveLockin;
-    // The virtual offset already supplies the intentional 2°/s easing. Do not
-    // add a second display easing step: crossing 65° must immediately read as
-    // the signed residual to the new 90° lock (for example x' 25°).
-    regripGaugeDisplayDegrees = Math.max(0, regripGaugeCorrected?.degrees ?? regripGauge.degrees);
+    regripGaugeDisplayDegrees = Math.max(0, regripGauge.degrees);
   };
 
   const render = () => {
@@ -1671,41 +1666,12 @@ export const createCubeViewport = (
     const rawOrientation = deviceOrientationBase && deviceOrientation
       ? deviceOrientationDelta(deviceOrientationBase, deviceOrientation, deviceOrientationFrame, "world")
       : undefined;
-    if (rawOrientation) {
-      const now = performance.now();
-      const targetOffset = multiplyQuaternions(deviceOrientationLockTarget, inverseQuaternion(rawOrientation));
-      if (deviceOrientationOffset === null) {
-        // Start at the unadjusted raw pose. Initializing to targetOffset would
-        // snap the gauge to zero before its 2°/s virtual drift is observable.
-        deviceOrientationOffset = {x: 0, y: 0, z: 0, w: 1};
-      } else {
-        deviceOrientationOffset = followSmartCubeOrientationOffset(
-          deviceOrientationOffset,
-          targetOffset,
-          Math.min(250, Math.max(0, now - (deviceOrientationOffsetUpdatedAt ?? now))),
-        );
-      }
-      deviceOrientationOffsetUpdatedAt = now;
-    }
-    const driftCorrectedOrientation = rawOrientation && deviceOrientationOffset
-      ? multiplyQuaternions(deviceOrientationOffset, rawOrientation)
+    const detentedOrientation = rawOrientation
+      ? magneticOrientationDetent(rawOrientation, deviceOrientationLockTarget)
       : rawOrientation;
-    if (regripGauge && driftCorrectedOrientation) {
-      const residual = quaternionAxisAngle(
-        regripGaugeDeviation(driftCorrectedOrientation, deviceOrientationLockTarget),
-      );
-      regripGaugeCorrected = {
-        degrees: residual.radians * 180 / Math.PI,
-        label: regripGaugeLabelForAxis(residual.axis),
-      };
-      const targetOffset = multiplyQuaternions(deviceOrientationLockTarget, inverseQuaternion(rawOrientation!));
-      if (orientationDistanceRadians(deviceOrientationOffset!, targetOffset) > 1e-8) requestRender();
-    } else {
-      regripGaugeCorrected = null;
-    }
-    const relativeOrientation = driftCorrectedOrientation && deviceOrientationCorrection
-      ? multiplyQuaternions(deviceOrientationCorrection, driftCorrectedOrientation)
-      : driftCorrectedOrientation;
+    const relativeOrientation = detentedOrientation && deviceOrientationCorrection
+      ? multiplyQuaternions(deviceOrientationCorrection, detentedOrientation)
+      : detentedOrientation;
     const aspect = width / height;
     const matrices = cameraMatrices(
       aspect,
@@ -2094,8 +2060,6 @@ export const createCubeViewport = (
       if (!orientation) {
         deviceOrientationBase = null;
         deviceOrientation = null;
-        deviceOrientationOffset = null;
-        deviceOrientationOffsetUpdatedAt = null;
         deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
         deviceOrientationCorrection = null;
         deviceOrientationCorrectionGeneration += 1;
@@ -2108,8 +2072,6 @@ export const createCubeViewport = (
       if (deviceOrientationFrame !== coordinateFrame) {
         deviceOrientationBase = null;
         deviceOrientation = null;
-        deviceOrientationOffset = null;
-        deviceOrientationOffsetUpdatedAt = null;
         deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
         deviceOrientationCorrection = null;
         deviceOrientationCorrectionGeneration += 1;
@@ -2130,8 +2092,6 @@ export const createCubeViewport = (
       const normalized = normalizedQuaternion(orientation);
       deviceOrientationBase = normalized;
       deviceOrientation = normalized;
-      deviceOrientationOffset = null;
-      deviceOrientationOffsetUpdatedAt = null;
       deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
       deviceOrientationFrame = coordinateFrame;
       deviceOrientationCorrection = null;
@@ -2178,8 +2138,6 @@ export const createCubeViewport = (
     resetCamera() {
       deviceOrientationBase = null;
       deviceOrientation = null;
-      deviceOrientationOffset = null;
-      deviceOrientationOffsetUpdatedAt = null;
       deviceOrientationCorrection = null;
       deviceOrientationCorrectionGeneration += 1;
       deviceOrientationFrame = "viewport";
