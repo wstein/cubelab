@@ -218,6 +218,8 @@ test("Academy exposes the milestone-first 5×5 reduction inspector", () => {
   assert.match(client, /inspectReduction5x5/);
   assert.match(client, /planNextCentre5x5/);
   assert.match(client, /planNextWingPair5x5/);
+  const reduction4x4Renderer = client.match(/const renderReduction4x4Academy = \([\s\S]*?^  };/m)?.[0] ?? "";
+  assert.doesNotMatch(reduction4x4Renderer, /applyWing/);
 });
 
 test("the editor separates a synchronized setup from optional replay moves", () => {

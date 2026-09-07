@@ -13,6 +13,7 @@ type inspection = {
 type guide = {alg: alg, algorithm: string, before: int, after: int}
 type reduced = {state: cubeState, compact: string}
 type progress = {x: int, plus: int, faces: int, wings: int, score: int}
+type centreCandidate = {state: cubeState, alg: alg, lastFace: string, score: int}
 
 let xCentres = [6, 8, 16, 18]
 let plusCentres = [7, 11, 13, 17]
@@ -20,6 +21,7 @@ let wingPairs = [(1, 3), (9, 19), (21, 23), (5, 15)]
 let middleEdges = [2, 14, 22, 10]
 let reducedIndices = [0, 2, 4, 10, 12, 14, 20, 22, 24]
 let centreMoves = ["2U", "2U'", "2U2", "2R", "2R'", "2R2", "2F", "2F'", "2F2", "2D", "2D'", "2D2", "2L", "2L'", "2L2", "2B", "2B'", "2B2"]
+let centreSearchMoves = ["U", "U'", "U2", "R", "R'", "R2", "F", "F'", "F2", "D", "D'", "D2", "L", "L'", "L2", "B", "B'", "B2", ...centreMoves]
 let wingCycleNotations = ["2R U R' U' 2R'", "2R U2 2R'"]
 
 let charAt = (value, index) => value->String.slice(~start=index, ~end=index + 1)
@@ -85,20 +87,35 @@ let planNextCentre5x5 = (state: cubeState): result<guide, reductionError> =>
   | Some(initial) if initial.faces == 6 => Error({message: "All six 3×3 centre faces are complete."})
   | Some(initial) => {
     let best = ref(None)
-    centreMoves->Array.forEach(notation =>
-      switch parse(notation) {
-      | None => ()
-      | Some(alg) => switch MoveExecutor.applyAlg(state, alg) {
-        | Ok(replay) => switch progressFor(replay) {
-          | Some(after) if after.score > initial.score =>
-            let candidate = {alg, algorithm: MoveTransform.serialize(alg), before: initial.score, after: after.score}
-            switch best.contents { | None => best := Some(candidate) | Some(current) if candidate.after > current.after => best := Some(candidate) | Some(_) => () }
-          | _ => ()
+    let frontier: ref<array<centreCandidate>> = ref([{state, alg: [], lastFace: "", score: initial.score}])
+    for _ in 0 to 2 {
+      let next = ref([])
+      frontier.contents->Array.forEach(candidate => centreSearchMoves->Array.forEach(notation => {
+        let face = if notation->String.slice(~start=0, ~end=1) == "2" {notation->String.slice(~start=1, ~end=2)} else {notation->String.slice(~start=0, ~end=1)}
+        if face != candidate.lastFace {
+          switch parse(notation) {
+          | None => ()
+          | Some(move) => switch MoveExecutor.applyAlg(candidate.state, move) {
+            | Error(_) => ()
+            | Ok(nextState) => switch progressFor(nextState) {
+              | None => ()
+              | Some(after) => {
+                let expanded = {state: nextState, alg: Array.concat(candidate.alg, move), lastFace: face, score: after.score}
+                next := [expanded, ...next.contents]
+                if after.score > initial.score {
+                  let guide = {alg: expanded.alg, algorithm: MoveTransform.serialize(expanded.alg), before: initial.score, after: after.score}
+                  switch best.contents { | None => best := Some(guide) | Some(current) if guide.after > current.after => best := Some(guide) | Some(_) => () }
+                }
+              }
+              }
+            }
           }
-        | Error(_) => ()
         }
-      })
-    switch best.contents { | Some(guide) => Ok(guide) | None => Error({message: "No one-turn centre improvement is available. Make a bar setup, then request the next guide."}) }
+      }))
+      let ranked = next.contents->Belt.SortArray.stableSortBy((left, right) => right.score - left.score)
+      frontier := ranked->Array.slice(~start=0, ~end=min(500, ranked->Array.length))
+    }
+    switch best.contents { | Some(guide) => Ok(guide) | None => Error({message: "No bounded centre improvement is available after three setup moves. Make a bar setup, then request the next guide."}) }
   }
   }
 

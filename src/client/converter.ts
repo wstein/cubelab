@@ -2867,8 +2867,6 @@ if (root) {
     academy.guide.textContent = "";
     academy.applyCentre.hidden = true;
     academy.applyCentre.disabled = true;
-    academy.applyWing.hidden = true;
-    academy.applyWing.disabled = true;
     academy.applyGuide.hidden = true;
     academy.applyGuide.disabled = true;
     academy.repairParity.hidden = true;
@@ -3049,6 +3047,8 @@ if (root) {
     academy.guide.classList.remove("error");
     academy.applyCentre.hidden = true;
     academy.applyCentre.disabled = true;
+    academy.applyWing.hidden = true;
+    academy.applyWing.disabled = true;
     if (size !== 5) {
       academy.status.textContent = "5×5 Reduction Academy is available for 5×5 states.";
       return;
@@ -3076,7 +3076,7 @@ if (root) {
       const guide = planNextCentre5x5(recognized.state);
       academy.guide.hidden = false;
       if (guide.TAG === "Ok") {
-        academy.guide.textContent = `Next replay-verified centre move: ${guide._0.algorithm} · centre score ${guide._0.before}/48 → ${guide._0.after}/48.`;
+        academy.guide.textContent = `Next replay-verified centre setup: ${guide._0.algorithm} · centre score ${guide._0.before}/48 → ${guide._0.after}/48.`;
         academy.applyCentre.hidden = false;
         academy.applyCentre.disabled = false;
       } else {

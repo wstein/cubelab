@@ -7,6 +7,8 @@ import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
+import * as Primitive_int from "@rescript/runtime/lib/es6/Primitive_int.js";
+import * as Belt_SortArray from "@rescript/runtime/lib/es6/Belt_SortArray.js";
 
 let xCentres = [
   6,
@@ -80,6 +82,30 @@ let centreMoves = [
   "2B'",
   "2B2"
 ];
+
+let centreSearchMoves = Belt_Array.concatMany([
+  [
+    "U",
+    "U'",
+    "U2",
+    "R",
+    "R'",
+    "R2",
+    "F",
+    "F'",
+    "F2",
+    "D",
+    "D'",
+    "D2",
+    "L",
+    "L'",
+    "L2",
+    "B",
+    "B'",
+    "B2"
+  ],
+  centreMoves
+]);
 
 let wingCycleNotations = [
   "2R U R' U' 2R'",
@@ -207,39 +233,72 @@ function planNextCentre5x5(state) {
   let best = {
     contents: undefined
   };
-  centreMoves.forEach(notation => {
-    let alg = parse(notation);
-    if (alg === undefined) {
-      return;
-    }
-    let replay = MoveExecutor.applyAlg(state, alg);
-    if (replay.TAG !== "Ok") {
-      return;
-    }
-    let after = progressFor(replay._0);
-    if (after === undefined) {
-      return;
-    }
-    if (after.score <= initial.score) {
-      return;
-    }
-    let candidate_algorithm = MoveTransform.serialize(alg);
-    let candidate_before = initial.score;
-    let candidate_after = after.score;
-    let candidate = {
-      alg: alg,
-      algorithm: candidate_algorithm,
-      before: candidate_before,
-      after: candidate_after
+  let frontier = [{
+      state: state,
+      alg: [],
+      lastFace: "",
+      score: initial.score
+    }];
+  for (let _for = 0; _for <= 2; ++_for) {
+    let next = {
+      contents: []
     };
-    let current = best.contents;
-    if (current !== undefined && candidate_after <= current.after) {
-      return;
-    } else {
-      best.contents = candidate;
-      return;
-    }
-  });
+    frontier.forEach(candidate => {
+      centreSearchMoves.forEach(notation => {
+        let face = notation.slice(0, 1) === "2" ? notation.slice(1, 2) : notation.slice(0, 1);
+        if (face === candidate.lastFace) {
+          return;
+        }
+        let move = parse(notation);
+        if (move === undefined) {
+          return;
+        }
+        let nextState = MoveExecutor.applyAlg(candidate.state, move);
+        if (nextState.TAG !== "Ok") {
+          return;
+        }
+        let nextState$1 = nextState._0;
+        let after = progressFor(nextState$1);
+        if (after === undefined) {
+          return;
+        }
+        let expanded_alg = candidate.alg.concat(move);
+        let expanded_score = after.score;
+        let expanded = {
+          state: nextState$1,
+          alg: expanded_alg,
+          lastFace: face,
+          score: expanded_score
+        };
+        next.contents = Belt_Array.concatMany([
+          [expanded],
+          next.contents
+        ]);
+        if (after.score <= initial.score) {
+          return;
+        }
+        let guide_alg = expanded_alg;
+        let guide_algorithm = MoveTransform.serialize(expanded_alg);
+        let guide_before = initial.score;
+        let guide_after = after.score;
+        let guide = {
+          alg: guide_alg,
+          algorithm: guide_algorithm,
+          before: guide_before,
+          after: guide_after
+        };
+        let current = best.contents;
+        if (current !== undefined && guide_after <= current.after) {
+          return;
+        } else {
+          best.contents = guide;
+          return;
+        }
+      });
+    });
+    let ranked = Belt_SortArray.stableSortBy(next.contents, (left, right) => right.score - left.score | 0);
+    frontier = ranked.slice(0, Primitive_int.min(500, ranked.length));
+  }
   let guide = best.contents;
   if (guide !== undefined) {
     return {
@@ -250,7 +309,7 @@ function planNextCentre5x5(state) {
     return {
       TAG: "Error",
       _0: {
-        message: "No one-turn centre improvement is available. Make a bar setup, then request the next guide."
+        message: "No bounded centre improvement is available after three setup moves. Make a bar setup, then request the next guide."
       }
     };
   }
@@ -450,6 +509,7 @@ export {
   middleEdges,
   reducedIndices,
   centreMoves,
+  centreSearchMoves,
   wingCycleNotations,
   charAt,
   faceAt,
@@ -462,4 +522,4 @@ export {
   planNextWingPair5x5,
   reduce5x5,
 }
-/* No side effect */
+/* centreSearchMoves Not a pure module */

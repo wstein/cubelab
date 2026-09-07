@@ -33,6 +33,15 @@ test("returns a replay-verified inner-slice centre improvement", () => {
   if (replay.TAG === "Ok") expect(guide._0.after).toBeGreaterThan(guide._0.before);
 });
 
+test("uses bounded setup turns when no one-turn centre hint exists", () => {
+  const scrambled = MoveExecutor.parseAndApply(5, "2R 2F' 2D");
+  expect(scrambled.TAG).toBe("Ok");
+  if (scrambled.TAG !== "Ok") return;
+  const guide = planNextCentre5x5(scrambled._0);
+  expect(guide).toMatchObject({TAG: "Ok", _0: {before: 18, after: 48}});
+  if (guide.TAG === "Ok") expect(guide._0.algorithm).toBe("2D' 2F 2R'");
+});
+
 test("returns a centre-preserving slice-cycle wing improvement", () => {
   const scrambled = MoveExecutor.parseAndApply(5, "2R U R' U' 2R'");
   expect(scrambled.TAG).toBe("Ok");
