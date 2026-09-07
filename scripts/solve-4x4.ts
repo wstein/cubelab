@@ -1,5 +1,5 @@
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
-import {solveFullReduction4x4} from "../src/Solver/FullReduction4x4";
+import {solveFullReduction4x4} from "../src/Solver/FullReduction4x4.res.mjs";
 
 const [facelets] = process.argv.slice(2);
 

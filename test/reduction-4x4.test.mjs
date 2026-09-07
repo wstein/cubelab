@@ -13,9 +13,9 @@ import {
   planOLLParityRepair4x4,
   planPLLParityRepair4x4,
   reduce4x4,
-} from "../src/Solver/Reduction4x4.ts";
+} from "../src/Solver/Reduction4x4.res.mjs";
 import * as TwoPhaseSolver from "../src/Solver/TwoPhaseSolver.res.mjs";
-import {measureReduction4x4Moves, normalizeFullReductionAlgorithm, solveFullReduction4x4} from "../src/Solver/FullReduction4x4.ts";
+import {measureReduction4x4Moves, normalizeFullReductionAlgorithm, solveFullReduction4x4} from "../src/Solver/FullReduction4x4.res.mjs";
 
 const apply = (size, algorithm) => {
   const result = MoveExecutor.parseAndApply(size, algorithm);

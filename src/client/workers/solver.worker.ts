@@ -11,8 +11,8 @@ import {
   twoByTwoPetrusFrameLabel,
   twoByTwoPetrusPhaseDefinitions,
 } from "../two-by-two-academy";
-import {inspectReduction4x4, isMonochromeSolved4x4, reduce4x4} from "../../Solver/Reduction4x4";
-import {measureReduction4x4Moves, solveFullReduction4x4} from "../../Solver/FullReduction4x4";
+import {inspectReduction4x4, isMonochromeSolved4x4, reduce4x4} from "../../Solver/Reduction4x4.res.mjs";
+import {measureReduction4x4Moves, solveFullReduction4x4} from "../../Solver/FullReduction4x4.res.mjs";
 
 type TutorialMethod = "beginner" | "advancedLbl" | "beginnerCfop" | "fullCfop" | "advancedCfop" | "petrus" | "enhancedPetrus";
 type WorkerRequest =
