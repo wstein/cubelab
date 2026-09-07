@@ -172,3 +172,28 @@ test("generates bounded size-aware practice scrambles without adjacent equal axe
   }
   assert.equal(MoveTransform.practiceScramble(6).TAG, "Error");
 });
+
+test("5×5 practice scrambles never rotate the core centre frame", () => {
+  const families = MoveTransform.practiceFamilies(5).map(([name]) => name);
+  for (const family of families) {
+    assert.doesNotMatch(family, /^3/, `Practice family ${family} must not use 3-layer turns`);
+  }
+
+  // Verify multiple pseudo-random scrambles maintain the canonical core centre frame
+  for (let seed = 1; seed <= 10; seed += 1) {
+    let state = seed;
+    const rng = () => {
+      state = (state * 1664525 + 1013904223) % 4294967296;
+      return state / 4294967296;
+    };
+    const scramble = MoveTransform.practiceScrambleWithRandom(5, rng);
+    assert.equal(scramble.TAG, "Ok");
+    assert.doesNotMatch(scramble._0, /\b3[URFDLB]w/, "Scramble must not include 3-layer wide moves");
+
+    const applied = MoveExecutor.parseAndApply(5, scramble._0);
+    assert.equal(applied.TAG, "Ok");
+    const coreCentres = applied._0.facelets.map((face) => face[12]);
+    assert.deepEqual(coreCentres, ["U", "L", "F", "R", "B", "D"], "Core centres must remain unrotated");
+  }
+});
+

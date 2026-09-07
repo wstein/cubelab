@@ -2059,15 +2059,15 @@ function practiceFamilies(size) {
         "Z"
       ],
       [
-        "3Uw",
+        "Dw",
         "Y"
       ],
       [
-        "3Rw",
+        "Lw",
         "X"
       ],
       [
-        "3Fw",
+        "Bw",
         "Z"
       ]
     ]);

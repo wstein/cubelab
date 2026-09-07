@@ -806,7 +806,14 @@ let practiceFamilies = size => {
   } else if size == 4 {
     outer->Array.concat([("Uw", Y), ("Rw", X), ("Fw", Z)])
   } else {
-    outer->Array.concat([("Uw", Y), ("Rw", X), ("Fw", Z), ("3Uw", Y), ("3Rw", X), ("3Fw", Z)])
+    outer->Array.concat([
+      ("Uw", Y),
+      ("Rw", X),
+      ("Fw", Z),
+      ("Dw", Y),
+      ("Lw", X),
+      ("Bw", Z),
+    ])
   }
 }
 
