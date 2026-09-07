@@ -122,7 +122,7 @@ import {
   selectTutorialPiece,
 } from "./tutorial-focus";
 import {isMonochromeSolved2x2} from "./two-by-two-academy";
-import {twoByTwoDrillCases} from "./two-by-two-drills";
+import {twoByTwoDrillCases, twoByTwoPetrusDrillCases} from "./two-by-two-drills";
 import {
   appendRecordedMove,
   assessSmartCubeMove,
@@ -353,6 +353,8 @@ if (root) {
   const academyDrillCase = root.querySelector<HTMLSelectElement>("[data-academy-drill-case]")!;
   const twoByTwoDrillCase = root.querySelector<HTMLSelectElement>("[data-two-by-two-drill-case]")!;
   const twoByTwoLoadDrill = root.querySelector<HTMLButtonElement>("[data-two-by-two-load-drill]")!;
+  const twoByTwoPetrusDrillCase = root.querySelector<HTMLSelectElement>("[data-two-by-two-petrus-drill-case]")!;
+  const twoByTwoPetrusLoadDrill = root.querySelector<HTMLButtonElement>("[data-two-by-two-petrus-load-drill]")!;
   const academyDrillFamily = root.querySelector<HTMLSelectElement>("[data-academy-drill-family]")!;
   const academyLoadDrill = root.querySelector<HTMLButtonElement>("[data-academy-load-drill]")!;
   const academyRandomDrill = root.querySelector<HTMLButtonElement>("[data-academy-random-drill]")!;
@@ -6418,6 +6420,17 @@ if (root) {
       moves: "",
       activeTab: "academy",
       academyMethod: "twoByTwoBeginner",
+    });
+  });
+  twoByTwoPetrusLoadDrill.addEventListener("click", () => {
+    const drill = twoByTwoPetrusDrillCases.find((entry) => entry.id === twoByTwoPetrusDrillCase.value);
+    if (!drill) return;
+    store.patch({
+      size: 2,
+      input: drill.scramble,
+      moves: "",
+      activeTab: "academy",
+      academyMethod: "twoByTwoPetrus",
     });
   });
   academyRandomDrill.addEventListener("click", () => {

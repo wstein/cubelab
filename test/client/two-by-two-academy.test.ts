@@ -118,4 +118,9 @@ describe("2×2 Petrus-inspired Academy phase contract", () => {
       expect(verifyTwoByTwoPetrusRoute(initial, result.frame, result.phaseAlgorithms).ok).toBe(true);
     }
   });
+
+  test("reaches both block boundaries before asking the exact finisher to solve a first-square case", async () => {
+    const result = await planTwoByTwoPetrusRoute(apply("R F"), async () => ({alg: parse(""), moveCount: 0}));
+    expect(result).toMatchObject({ok: false, message: expect.stringMatching(/Phase 3/i)});
+  });
 });

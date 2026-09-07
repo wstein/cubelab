@@ -18,3 +18,8 @@ phases. The frame never changes mid-lesson.
 The worker plans each stage separately, replays every boundary, and rejects a
 route when a named phase goal is not actually reached. The final phase uses
 the table-backed exact 2×2 solver only after the first two contracts hold.
+
+The Academy includes one replayable starter drill for each phase: `R F` for
+the first square, `U` for the back pair, and `R` for the finish. Their phase
+contracts are tested against the same adaptive frame selection used by the
+planner.
