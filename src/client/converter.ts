@@ -3078,6 +3078,8 @@ if (root) {
       if (guide.TAG === "Ok") {
         academy.guide.textContent = guide._0.kind === "bar"
           ? `Next replay-verified bar setup: ${guide._0.algorithm} · core-aligned 1×3 bars ${guide._0.barsBefore} → ${guide._0.barsAfter}; centre score temporarily ${guide._0.before}/48 → ${guide._0.after}/48.`
+          : guide._0.kind === "orbit"
+            ? `Next replay-verified centre-orbit setup: ${guide._0.algorithm} · completed X/+ centre orbits ${guide._0.completedBefore} → ${guide._0.completedAfter}; centre score ${guide._0.before}/48 → ${guide._0.after}/48.`
           : `Next replay-verified centre setup: ${guide._0.algorithm} · centre score ${guide._0.before}/48 → ${guide._0.after}/48.`;
         academy.applyCentre.hidden = false;
         academy.applyCentre.disabled = false;

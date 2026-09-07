@@ -122,6 +122,10 @@ the fixed middle edges to a 3×3 only after both wings agree with each middle ed
 projected state passes the 3×3 physical/parity check. The reduced 3×3 finish remains
 explicitly locked until its dedicated 5×5 replay lifter is available.
 
+The Academy's synchronous centre hint is deliberately bounded. Expensive
+centre-cycle table construction must run in the solver worker; it is never
+started while the page is rendering or responding to input.
+
 ## Manual state entry
 
 The editor keeps its private draft, hover target, keyboard cursor, and dot-verification

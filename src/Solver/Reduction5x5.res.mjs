@@ -264,6 +264,86 @@ function parse(notation) {
   }
 }
 
+function planNextCentreOrbit(state, initial) {
+  let completedBefore = initial.x + initial.plus | 0;
+  let best = {
+    contents: undefined
+  };
+  let frontier = [{
+      state: state,
+      alg: [],
+      lastFace: "",
+      score: initial.score + (completedBefore * 100 | 0) | 0
+    }];
+  for (let _for = 0; _for <= 2; ++_for) {
+    let next = {
+      contents: []
+    };
+    frontier.forEach(candidate => {
+      centreSearchMoves.forEach(notation => {
+        let face = notation.slice(0, 1) === "2" ? notation.slice(1, 2) : notation.slice(0, 1);
+        if (face === candidate.lastFace) {
+          return;
+        }
+        let move = parse(notation);
+        if (move === undefined) {
+          return;
+        }
+        let nextState = MoveExecutor.applyAlg(candidate.state, move);
+        if (nextState.TAG !== "Ok") {
+          return;
+        }
+        let nextState$1 = nextState._0;
+        let after = progressFor(nextState$1);
+        if (after === undefined) {
+          return;
+        }
+        let completedAfter = after.x + after.plus | 0;
+        let quality = (after.score + (completedAfter * 100 | 0) | 0) + (after.faces * 1000 | 0) | 0;
+        let expanded_alg = candidate.alg.concat(move);
+        let expanded = {
+          state: nextState$1,
+          alg: expanded_alg,
+          lastFace: face,
+          score: quality
+        };
+        next.contents = Belt_Array.concatMany([
+          [expanded],
+          next.contents
+        ]);
+        if (completedAfter <= completedBefore) {
+          return;
+        }
+        let guide_alg = expanded_alg;
+        let guide_algorithm = MoveTransform.serialize(expanded_alg);
+        let guide_before = initial.score;
+        let guide_after = after.score;
+        let guide = {
+          alg: guide_alg,
+          algorithm: guide_algorithm,
+          before: guide_before,
+          after: guide_after,
+          kind: "orbit",
+          barsBefore: 0,
+          barsAfter: 0,
+          completedBefore: completedBefore,
+          completedAfter: completedAfter
+        };
+        let current = best.contents;
+        if (current !== undefined && !(completedAfter > current.completedAfter || completedAfter === current.completedAfter && guide_after > current.after)) {
+          return;
+        } else {
+          best.contents = guide;
+          return;
+        }
+      });
+    });
+    let ranked = Belt_SortArray.stableSortBy(next.contents, (left, right) => right.score - left.score | 0);
+    frontier = ranked.slice(0, Primitive_int.min(900, ranked.length));
+  }
+  return best.contents;
+}
+
 function planNextCentre5x5(state) {
   let initial = progressFor(state);
   if (initial === undefined) {
@@ -336,6 +416,8 @@ function planNextCentre5x5(state) {
           let guide_algorithm = MoveTransform.serialize(expanded_alg);
           let guide_before = initial.score;
           let guide_after = after.score;
+          let guide_completedBefore = initial.x + initial.plus | 0;
+          let guide_completedAfter = initial.x + initial.plus | 0;
           let guide = {
             alg: guide_alg,
             algorithm: guide_algorithm,
@@ -343,7 +425,9 @@ function planNextCentre5x5(state) {
             after: guide_after,
             kind: "improvement",
             barsBefore: initialBars,
-            barsAfter: initialBars
+            barsAfter: initialBars,
+            completedBefore: guide_completedBefore,
+            completedAfter: guide_completedAfter
           };
           let current = best.contents;
           if (current !== undefined && guide_after <= current.after) {
@@ -367,6 +451,8 @@ function planNextCentre5x5(state) {
         let guide_algorithm$1 = MoveTransform.serialize(expanded_alg);
         let guide_before$1 = initial.score;
         let guide_after$1 = after.score;
+        let guide_completedBefore$1 = initial.x + initial.plus | 0;
+        let guide_completedAfter$1 = initial.x + initial.plus | 0;
         let guide$1 = {
           alg: guide_alg$1,
           algorithm: guide_algorithm$1,
@@ -374,7 +460,9 @@ function planNextCentre5x5(state) {
           after: guide_after$1,
           kind: "bar",
           barsBefore: initialBars,
-          barsAfter: barsAfter
+          barsAfter: barsAfter,
+          completedBefore: guide_completedBefore$1,
+          completedAfter: guide_completedAfter$1
         };
         let current$1 = bestBar.contents;
         if (current$1 !== undefined && !(barsAfter > current$1.barsAfter || barsAfter === current$1.barsAfter && guide_after$1 > current$1.after)) {
@@ -401,11 +489,18 @@ function planNextCentre5x5(state) {
       TAG: "Ok",
       _0: guide$1
     };
+  }
+  let guide$2 = planNextCentreOrbit(state, initial);
+  if (guide$2 !== undefined) {
+    return {
+      TAG: "Ok",
+      _0: guide$2
+    };
   } else {
     return {
       TAG: "Error",
       _0: {
-        message: "No bounded centre improvement or core-aligned bar setup is available after three setup moves."
+        message: "No bounded centre improvement, bar setup, or orbit completion is available. The full centre-cycle solver runs separately from the page."
       }
     };
   }
@@ -482,7 +577,9 @@ function planNextWingPair5x5(state) {
         after: candidate_after,
         kind: "wing",
         barsBefore: 0,
-        barsAfter: 0
+        barsAfter: 0,
+        completedBefore: 0,
+        completedAfter: 0
       };
       let current = best.contents;
       if (current !== undefined && candidate_after <= current.after) {
@@ -618,6 +715,7 @@ export {
   progressFor,
   inspectReduction5x5,
   parse,
+  planNextCentreOrbit,
   planNextCentre5x5,
   planNextWingPair5x5,
   reduce5x5,

@@ -10,7 +10,7 @@ type inspection = {
   stage: string,
   nextGoal: string,
 }
-type guide = {alg: alg, algorithm: string, before: int, after: int, kind: string, barsBefore: int, barsAfter: int}
+type guide = {alg: alg, algorithm: string, before: int, after: int, kind: string, barsBefore: int, barsAfter: int, completedBefore: int, completedAfter: int}
 type reduced = {state: cubeState, compact: string}
 type progress = {x: int, plus: int, faces: int, wings: int, score: int}
 type centreCandidate = {state: cubeState, alg: alg, lastFace: string, score: int}
@@ -100,6 +100,45 @@ let parse = notation =>
   | Error(_) => None
   }
 
+/** When individual sticker placement is locally flat, prefer completing one
+ * whole X- or +-centre orbit. This keeps the tutorial moving through its
+ * actual milestone, instead of requiring an arbitrary manual setup. */
+let planNextCentreOrbit = (state: cubeState, initial: progress): option<guide> => {
+  let completedBefore = initial.x + initial.plus
+  let best = ref(None)
+  let frontier: ref<array<centreCandidate>> = ref([{state, alg: [], lastFace: "", score: initial.score + completedBefore * 100}])
+  for _ in 0 to 2 {
+    let next = ref([])
+    frontier.contents->Array.forEach(candidate => centreSearchMoves->Array.forEach(notation => {
+      let face = if notation->String.slice(~start=0, ~end=1) == "2" {notation->String.slice(~start=1, ~end=2)} else {notation->String.slice(~start=0, ~end=1)}
+      if face != candidate.lastFace {
+        switch parse(notation) {
+        | None => ()
+        | Some(move) => switch MoveExecutor.applyAlg(candidate.state, move) {
+          | Error(_) => ()
+          | Ok(nextState) => switch progressFor(nextState) {
+            | None => ()
+            | Some(after) => {
+              let completedAfter = after.x + after.plus
+              let quality = after.score + completedAfter * 100 + after.faces * 1000
+              let expanded = {state: nextState, alg: Array.concat(candidate.alg, move), lastFace: face, score: quality}
+              next := [expanded, ...next.contents]
+              if completedAfter > completedBefore {
+                let guide = {alg: expanded.alg, algorithm: MoveTransform.serialize(expanded.alg), before: initial.score, after: after.score, kind: "orbit", barsBefore: 0, barsAfter: 0, completedBefore, completedAfter}
+                switch best.contents { | None => best := Some(guide) | Some(current) if guide.completedAfter > current.completedAfter || (guide.completedAfter == current.completedAfter && guide.after > current.after) => best := Some(guide) | Some(_) => () }
+              }
+            }
+            }
+          }
+        }
+      }
+    }))
+    let ranked = next.contents->Belt.SortArray.stableSortBy((left, right) => right.score - left.score)
+    frontier := ranked->Array.slice(~start=0, ~end=min(900, ranked->Array.length))
+  }
+  best.contents
+}
+
 let planNextCentre5x5 = (state: cubeState): result<guide, reductionError> =>
   switch progressFor(state) {
   | None => Error({message: "The 5×5 centre guide requires a complete state."})
@@ -124,12 +163,12 @@ let planNextCentre5x5 = (state: cubeState): result<guide, reductionError> =>
                 let expanded = {state: nextState, alg: Array.concat(candidate.alg, move), lastFace: face, score: after.score}
                 next := [expanded, ...next.contents]
                 if after.score > initial.score {
-                  let guide = {alg: expanded.alg, algorithm: MoveTransform.serialize(expanded.alg), before: initial.score, after: after.score, kind: "improvement", barsBefore: initialBars, barsAfter: initialBars}
+                  let guide = {alg: expanded.alg, algorithm: MoveTransform.serialize(expanded.alg), before: initial.score, after: after.score, kind: "improvement", barsBefore: initialBars, barsAfter: initialBars, completedBefore: initial.x + initial.plus, completedAfter: initial.x + initial.plus}
                   switch best.contents { | None => best := Some(guide) | Some(current) if guide.after > current.after => best := Some(guide) | Some(_) => () }
                 } else if after.score >= initial.score - 3 {
                   switch centreBarScore(nextState) {
                   | Some(barsAfter) if barsAfter > initialBars => {
-                    let guide = {alg: expanded.alg, algorithm: MoveTransform.serialize(expanded.alg), before: initial.score, after: after.score, kind: "bar", barsBefore: initialBars, barsAfter}
+                    let guide = {alg: expanded.alg, algorithm: MoveTransform.serialize(expanded.alg), before: initial.score, after: after.score, kind: "bar", barsBefore: initialBars, barsAfter, completedBefore: initial.x + initial.plus, completedAfter: initial.x + initial.plus}
                     switch bestBar.contents { | None => bestBar := Some(guide) | Some(current) if guide.barsAfter > current.barsAfter || (guide.barsAfter == current.barsAfter && guide.after > current.after) => bestBar := Some(guide) | Some(_) => () }
                     }
                   | _ => ()
@@ -144,7 +183,7 @@ let planNextCentre5x5 = (state: cubeState): result<guide, reductionError> =>
       let ranked = next.contents->Belt.SortArray.stableSortBy((left, right) => right.score - left.score)
       frontier := ranked->Array.slice(~start=0, ~end=min(900, ranked->Array.length))
     }
-    switch best.contents { | Some(guide) => Ok(guide) | None => switch bestBar.contents { | Some(guide) => Ok(guide) | None => Error({message: "No bounded centre improvement or core-aligned bar setup is available after three setup moves."}) } }
+    switch best.contents { | Some(guide) => Ok(guide) | None => switch bestBar.contents { | Some(guide) => Ok(guide) | None => switch planNextCentreOrbit(state, initial) { | Some(guide) => Ok(guide) | None => Error({message: "No bounded centre improvement, bar setup, or orbit completion is available. The full centre-cycle solver runs separately from the page."}) } } }
   }
   }
 
@@ -175,7 +214,7 @@ let planNextWingPair5x5 = (state: cubeState): result<guide, reductionError> =>
         switch MoveExecutor.applyAlg(state, alg) {
         | Ok(replay) => switch progressFor(replay) {
           | Some(after) if after.faces == 6 && after.wings > initial.wings =>
-            let candidate = {alg, algorithm: MoveTransform.serialize(alg), before: initial.wings, after: after.wings, kind: "wing", barsBefore: 0, barsAfter: 0}
+            let candidate = {alg, algorithm: MoveTransform.serialize(alg), before: initial.wings, after: after.wings, kind: "wing", barsBefore: 0, barsAfter: 0, completedBefore: 0, completedAfter: 0}
             switch best.contents { | None => best := Some(candidate) | Some(current) if candidate.after > current.after => best := Some(candidate) | Some(_) => () }
           | _ => ()
           }
