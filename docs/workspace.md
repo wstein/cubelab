@@ -63,8 +63,10 @@ controls animate one complete parenthesized group forward or backward. A sequenc
 keeps its exact canonical state and reframes the persistent viewport for the next
 sequence-purpose visualization.
 
-Practice scramble is located in **Quick load**, not among algebraic transformations. It
-remains a random-turn practice sequence and is not labeled as an official WCA scramble.
+Practice scramble is located in **Quick load**, not among algebraic transformations. On
+2×2 it uniformly samples one of the 3,674,160 canonical states with a minimum optimal
+distance of 4 HTM, then renders a replay-verified inverse scramble. Other sizes retain a
+random-turn practice sequence. Neither is labeled as an official WCA scramble.
 
 ## Setup and moves
 

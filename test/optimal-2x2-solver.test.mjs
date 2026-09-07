@@ -91,4 +91,18 @@ describe("optimal 2×2 table", () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  test("uniformly samples a canonical coordinate and renders a replayable inverse scramble", async () => {
+    const bytes = await readFile(tablePath);
+    const tables = decodeOptimal2x2Tables(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+    const solver = await import("../src/Solver/Optimal2x2Solver.ts");
+    const generated = solver.randomStateScrambleFromTables(tables, () => 0.5);
+    expect(generated.coordinate).toBe(Math.floor(0.5 * 3_674_160));
+    const replay = MoveExecutor.applyAlg(StateTypes.solved(2)._0, generated.scramble);
+    expect(replay.TAG).toBe("Ok");
+    if (replay.TAG === "Ok") expect(FaceletCodec.render(replay._0)).toBe(FaceletCodec.render(generated.state));
+    const solution = await solver.solve(generated.state);
+    expect(solution.moveCount).toBe(generated.moveCount);
+    expect(generated.moveCount).toBeGreaterThanOrEqual(4);
+  });
 });

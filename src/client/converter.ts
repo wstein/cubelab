@@ -15,6 +15,7 @@ import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
 import {inspectReduction4x4, planNextCentreBlock4x4, planNextWingPair4x4, planOLLParityRepair4x4, planPLLParityRepair4x4, reduce4x4} from "../Solver/Reduction4x4";
 import {
   createOptimal2x2SolverClient,
+  createRandom2x2ScrambleClient,
   createTwoByTwoAcademySolverClient,
   createTwoByTwoPetrusSolverClient,
   createReduction4x4SolverClient,
@@ -650,6 +651,9 @@ if (root) {
     },
   );
   let optimal2x2SolverClient = newOptimal2x2SolverClient();
+  const random2x2ScrambleClient = createRandom2x2ScrambleClient<{alg: unknown; state: CubeState; coordinate: number; moveCount: number}>(
+    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+  );
   const newReduction4x4SolverClient = () => createReduction4x4SolverClient<CubeState, {alg: unknown; stm: number; obtm: number}>(
     new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
     (stage) => {
@@ -5646,6 +5650,28 @@ if (root) {
   });
 
   root.querySelector<HTMLButtonElement>("[data-practice-scramble]")!.addEventListener("click", () => {
+    if (size === 2) {
+      const button = root.querySelector<HTMLButtonElement>("[data-practice-scramble]")!;
+      const originalLabel = button.textContent;
+      button.disabled = true;
+      button.textContent = "Sampling 2×2 state…";
+      void random2x2ScrambleClient.generate().then((generated) => {
+        const scramble = MoveTransform.serialize(generated.alg) as string;
+        commitTransformedAlgorithm(scramble);
+        if (smartCubeSyncMode === "VirtualController") {
+          loadVirtualControllerState(generated.state, "Virtual controller · uniform random 2×2 state");
+        }
+        if (smartCubeConnected) {
+          smartCubeStatus.textContent = `${smartCubeDeviceName} · Uniform random 2×2 state loaded (${generated.moveCount} HTM optimal).`;
+        }
+      }).catch((reason: unknown) => {
+        smartCubeStatus.textContent = reason instanceof Error ? reason.message : "Could not generate a random 2×2 state.";
+      }).finally(() => {
+        button.disabled = false;
+        button.textContent = originalLabel;
+      });
+      return;
+    }
     const scramble = MoveTransform.practiceScramble(size) as Result<string, string>;
     if (scramble.TAG !== "Ok") return;
     if (smartCubeSyncMode !== "VirtualController") {
@@ -6288,8 +6314,10 @@ if (root) {
       academy.status.textContent = method === "twoByTwoPetrus"
         ? "Selecting a frame and replay-verifying first square, back pair, and finish…"
         : "Planning and replay-verifying first layer, OLL, and PBL…";
-      const client = method === "twoByTwoPetrus" ? twoByTwoPetrusSolverClient : twoByTwoAcademySolverClient;
-      void client.solve(initialState).then((solution) => {
+      const solutionRequest = method === "twoByTwoPetrus"
+        ? twoByTwoPetrusSolverClient.solve(initialState)
+        : twoByTwoAcademySolverClient.solve(initialState);
+      void solutionRequest.then((solution) => {
         if (!academyRequestGuard.isCurrent(request)) return;
         academySolveBusy = false;
         const replay = MoveExecutor.applyAlg(initialState, solution.alg) as Result<CubeState, unknown>;

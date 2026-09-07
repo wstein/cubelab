@@ -2,6 +2,7 @@ import {describe, expect, test} from "vitest";
 
 import {
   createOptimal2x2SolverClient,
+  createRandom2x2ScrambleClient,
   createReduction4x4SolverClient,
   createSolverClient,
   createTwoPhaseSolverClient,
@@ -134,6 +135,15 @@ describe("solver worker client", () => {
     worker.respond({id: 0, ok: true, solution: {moveCount: 11}});
     expect(stages).toEqual(["Preparing optimal 2×2 solver…"]);
     await expect(solution).resolves.toEqual({moveCount: 11});
+  });
+
+  test("uses a dedicated request for uniform random 2×2 states", async () => {
+    const worker = new FakeWorker();
+    const client = createRandom2x2ScrambleClient<{alg: unknown[]; moveCount: number}>(worker as unknown as Worker);
+    const generated = client.generate();
+    expect(worker.requests).toEqual([{id: 0, type: "generateRandom2x2", minimumMoves: 4}]);
+    worker.respond({id: 0, ok: true, solution: {alg: [], moveCount: 8}});
+    await expect(generated).resolves.toEqual({alg: [], moveCount: 8});
   });
 
   test("uses a dedicated request and progress stages for reduced 4×4 finishes", async () => {

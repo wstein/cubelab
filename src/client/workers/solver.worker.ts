@@ -18,6 +18,7 @@ type TutorialMethod = "beginner" | "advancedLbl" | "beginnerCfop" | "fullCfop" |
 type WorkerRequest =
   | {id: number; type: "solveTutorial"; method: TutorialMethod; state: unknown}
   | {id: number; type: "solveOptimal2x2"; state: unknown}
+  | {id: number; type: "generateRandom2x2"; minimumMoves?: number}
   | {id: number; type: "solveTwoByTwoAcademy"; state: unknown}
   | {id: number; type: "solveTwoByTwoPetrus"; state: unknown}
   | {id: number; type: "solveReduced4x4"; state: unknown}
@@ -119,6 +120,30 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
             id: request.id,
             ok: false,
             error: error instanceof Error ? error.message : "The optimal 2×2 solver stopped unexpectedly.",
+          });
+        }
+      })();
+      return;
+    }
+    if (request.type === "generateRandom2x2") {
+      void (async () => {
+        try {
+          if (!Optimal2x2Solver.hasPreparedTables()) {
+            self.postMessage({id: request.id, type: "random2x2Progress", stage: "Preparing random 2×2 state table…"});
+            await Optimal2x2Solver.prepareTables();
+          }
+          self.postMessage({id: request.id, type: "random2x2Progress", stage: "Sampling a uniform 2×2 state…"});
+          const generated = await Optimal2x2Solver.randomStateScramble(Math.random, request.minimumMoves ?? 4);
+          self.postMessage({
+            id: request.id,
+            ok: true,
+            solution: {alg: generated.scramble, state: generated.state, coordinate: generated.coordinate, moveCount: generated.moveCount},
+          });
+        } catch (error) {
+          self.postMessage({
+            id: request.id,
+            ok: false,
+            error: error instanceof Error ? error.message : "The random 2×2 generator stopped unexpectedly.",
           });
         }
       })();

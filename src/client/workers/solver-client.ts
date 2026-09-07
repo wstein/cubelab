@@ -5,6 +5,7 @@ type WorkerResponse<T> = WorkerSuccess<T> | WorkerFailure;
 type TwoPhaseProgress = {id: number; type: "twoPhaseProgress"; stage: string};
 type TwoPhaseCandidate<T> = {id: number; type: "twoPhaseCandidate"; solution: T};
 type Optimal2x2Progress = {id: number; type: "optimal2x2Progress"; stage: string};
+type Random2x2Progress = {id: number; type: "random2x2Progress"; stage: string};
 type TwoByTwoAcademyProgress = {id: number; type: "twoByTwoAcademyProgress"; stage: string};
 type TwoByTwoPetrusProgress = {id: number; type: "twoByTwoPetrusProgress"; stage: string};
 type Reduction4x4Progress = {id: number; type: "reduction4x4Progress"; stage: string};
@@ -192,7 +193,7 @@ const createProgressSolverClient = <TState, TSolution, TRequest extends string, 
 ) => {
   let nextId = 0;
   const pending = new Map<number, {resolve: (value: TSolution) => void; reject: (reason: Error) => void}>();
-  worker.addEventListener("message", (event: MessageEvent<WorkerResponse<TSolution> | Optimal2x2Progress | TwoByTwoAcademyProgress | TwoByTwoPetrusProgress | Reduction4x4Progress | FullReduction4x4Progress>) => {
+  worker.addEventListener("message", (event: MessageEvent<WorkerResponse<TSolution> | Optimal2x2Progress | Random2x2Progress | TwoByTwoAcademyProgress | TwoByTwoPetrusProgress | Reduction4x4Progress | FullReduction4x4Progress>) => {
     const response = event.data;
     if ("type" in response && response.type === progressType) {
       onProgress?.(response.stage);
@@ -236,6 +237,45 @@ export const createOptimal2x2SolverClient = <TState, TSolution>(
   "The optimal 2×2 solver was stopped.",
   onProgress,
 );
+
+/** Dedicated request contract for uniformly sampled, table-backed 2×2 practice states. */
+export const createRandom2x2ScrambleClient = <TSolution>(
+  worker: Worker,
+  onProgress?: (stage: string) => void,
+) => {
+  let nextId = 0;
+  const pending = new Map<number, {resolve: (value: TSolution) => void; reject: (reason: Error) => void}>();
+  worker.addEventListener("message", (event: MessageEvent<WorkerResponse<TSolution> | Random2x2Progress>) => {
+    const response = event.data;
+    if ("type" in response && response.type === "random2x2Progress") {
+      onProgress?.(response.stage);
+      return;
+    }
+    const request = pending.get(response.id);
+    if (!request) return;
+    pending.delete(response.id);
+    if (response.ok) request.resolve(response.solution);
+    else request.reject(new Error(response.error));
+  });
+  worker.addEventListener("error", () => {
+    pending.forEach(({reject}) => reject(new Error("The random 2×2 worker could not start.")));
+    pending.clear();
+  });
+  return {
+    generate(minimumMoves = 4): Promise<TSolution> {
+      const id = nextId++;
+      return new Promise((resolve, reject) => {
+        pending.set(id, {resolve, reject});
+        worker.postMessage({id, type: "generateRandom2x2", minimumMoves});
+      });
+    },
+    terminate(): void {
+      pending.forEach(({reject}) => reject(new Error("The random 2×2 worker was stopped.")));
+      pending.clear();
+      worker.terminate();
+    },
+  };
+};
 
 /** Dedicated request contract for the staged 2×2 Beginner/Ortega Academy. */
 export const createTwoByTwoAcademySolverClient = <TState, TSolution>(
