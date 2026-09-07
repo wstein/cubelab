@@ -2,7 +2,7 @@ import {expect, test} from "vitest";
 
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
-import {inspectReduction5x5, planNextCentre5x5, planNextWingPair5x5} from "../src/Solver/Reduction5x5.ts";
+import {inspectReduction5x5, planNextCentre5x5, planNextWingPair5x5} from "../src/Solver/Reduction5x5.res.mjs";
 
 test("inspects fixed-core 5×5 centre and wing milestones", () => {
   const solved = StateTypes.solved(5);

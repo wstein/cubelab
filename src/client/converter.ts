@@ -13,7 +13,7 @@ import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as HamiltonMacro from "../Move/HamiltonMacro";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
 import {inspectReduction4x4, planNextCentreBlock4x4, planNextWingPair4x4, planOLLParityRepair4x4, planPLLParityRepair4x4, reduce4x4} from "../Solver/Reduction4x4";
-import {inspectReduction5x5, planNextCentre5x5, planNextWingPair5x5} from "../Solver/Reduction5x5";
+import {inspectReduction5x5, planNextCentre5x5, planNextWingPair5x5} from "../Solver/Reduction5x5.res.mjs";
 import {
   createOptimal2x2SolverClient,
   createRandom2x2ScrambleClient,
