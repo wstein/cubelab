@@ -6,6 +6,7 @@ import {decodeOptimal2x2Tables, OPTIMAL_2X2_STATES, OPTIMAL_2X2_TABLE_URL, packe
 
 let preparedTables: Optimal2x2Tables | undefined;
 let tablesPromise: Promise<Optimal2x2Tables> | undefined;
+const exactDrillCoordinates = new WeakMap<Optimal2x2Tables, {three: number[]; four: number[]}>();
 export const hasPreparedTables = (): boolean => preparedTables !== undefined;
 export const prepareTables = (): Promise<Optimal2x2Tables> => {
   if (preparedTables) return Promise.resolve(preparedTables);
@@ -64,9 +65,24 @@ export const randomCanonicalCoordinate = (random: () => number = Math.random): n
   return Math.floor(bounded * OPTIMAL_2X2_STATES);
 };
 
-const matchesDifficulty = (distance: number, difficulty: Random2x2Difficulty): boolean => (
-  difficulty === "any" || distance === Number(difficulty) || (difficulty === "5+" && distance >= 5)
-);
+const exactCoordinates = (tables: Optimal2x2Tables): {three: number[]; four: number[]} => {
+  const existing = exactDrillCoordinates.get(tables);
+  if (existing) return existing;
+  const indexed = {three: [] as number[], four: [] as number[]};
+  for (let coordinate = 0; coordinate < OPTIMAL_2X2_STATES; coordinate += 1) {
+    const distance = packedDistance(tables.distance, coordinate);
+    if (distance === 3) indexed.three.push(coordinate);
+    else if (distance === 4) indexed.four.push(coordinate);
+  }
+  exactDrillCoordinates.set(tables, indexed);
+  return indexed;
+};
+
+const randomFrom = (coordinates: readonly number[], random: () => number): number => {
+  const value = random();
+  const bounded = Number.isFinite(value) ? Math.min(Math.max(value, 0), 0.999999999999) : 0;
+  return coordinates[Math.floor(bounded * coordinates.length)]!;
+};
 
 /** Reconstructs a sampled canonical state, then emits its optimal inverse as a scramble. */
 export const randomStateScrambleFromTables = (
@@ -74,11 +90,15 @@ export const randomStateScrambleFromTables = (
   random: () => number = Math.random,
   difficulty: Random2x2Difficulty = "5+",
 ): Random2x2StateScramble => {
-  let coordinate = randomCanonicalCoordinate(random);
-  let attempts = 0;
-  while (!matchesDifficulty(packedDistance(tables.distance, coordinate), difficulty)) {
-    if (attempts++ === 1_000) throw new Error("The random source did not produce a 2×2 state in the requested drill bucket.");
+  let coordinate: number;
+  if (difficulty === "any") {
     coordinate = randomCanonicalCoordinate(random);
+  } else if (difficulty === "3" || difficulty === "4") {
+    const coordinates = exactCoordinates(tables);
+    coordinate = randomFrom(difficulty === "3" ? coordinates.three : coordinates.four, random);
+  } else {
+    coordinate = randomCanonicalCoordinate(random);
+    while (packedDistance(tables.distance, coordinate) < 5) coordinate = randomCanonicalCoordinate(random);
   }
   const pieces = cubiesForCoordinate(coordinate);
   const state = reconstruct(pieces);

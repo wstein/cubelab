@@ -10,7 +10,6 @@ import {
   decodeOptimal2x2Tables,
   OPTIMAL_2X2_TABLE_URL,
   optimal2x2TableBytes,
-  packedDistance,
 } from "../src/Solver/Optimal2x2Table.ts";
 
 const tablePath = fileURLToPath(new URL("../public/solver/optimal-2x2.v2.bin", import.meta.url));
@@ -111,13 +110,8 @@ describe("optimal 2×2 table", () => {
     const bytes = await readFile(tablePath);
     const tables = decodeOptimal2x2Tables(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
     const solver = await import("../src/Solver/Optimal2x2Solver.ts");
-    const randomForDistance = (distance) => {
-      let coordinate = 0;
-      while (packedDistance(tables.distance, coordinate) !== distance) coordinate += 1;
-      return () => (coordinate + 0.5) / 3_674_160;
-    };
     expect(solver.randomStateScrambleFromTables(tables, () => 0, "any").moveCount).toBe(0);
-    expect(solver.randomStateScrambleFromTables(tables, randomForDistance(3), "3").moveCount).toBe(3);
-    expect(solver.randomStateScrambleFromTables(tables, randomForDistance(4), "4").moveCount).toBe(4);
+    expect(solver.randomStateScrambleFromTables(tables, () => 0, "3").moveCount).toBe(3);
+    expect(solver.randomStateScrambleFromTables(tables, () => 0, "4").moveCount).toBe(4);
   });
 });
