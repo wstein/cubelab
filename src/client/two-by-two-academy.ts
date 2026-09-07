@@ -124,9 +124,53 @@ export const planTwoByTwoPblFinish = async (
 type TwoByTwoOllPlan = {ok: true; algorithm: unknown; moveCount: number} | {ok: false; message: string};
 const ollMoveIndices = [0, 1, 2, 6, 7, 8, 12, 13, 14]; // U, R, F and inverses/halves
 const faceForMove = (move: number): number => Math.floor(move / 3);
+const firstLayerGoal = (state: Cubies): boolean =>
+  [4, 5, 6, 7].every((slot) => state.cp[slot] === slot && state.co[slot] === 0);
 const ollGoal = (state: Cubies): boolean =>
-  [4, 5, 6, 7].every((slot) => state.cp[slot] === slot && state.co[slot] === 0)
+  firstLayerGoal(state)
   && [0, 1, 2, 3].every((slot) => state.co[slot] === 0);
+
+type TwoByTwoStagePlan = {ok: true; algorithm: unknown; moveCount: number} | {ok: false; message: string};
+const searchStage = (
+  initial: Cubies,
+  goal: (state: Cubies) => boolean,
+  maximumDepth: number,
+): number[] | null => {
+  if (goal(initial)) return [];
+  const transforms = transformations();
+  const search = (current: Cubies, remaining: number, previousFace: number | null, path: number[]): number[] | null => {
+    if (goal(current)) return path;
+    if (remaining === 0) return null;
+    for (const move of ollMoveIndices) {
+      const face = faceForMove(move);
+      if (face === previousFace) continue;
+      const found = search(applyTransform(current, transforms[move]!), remaining - 1, face, [...path, move]);
+      if (found !== null) return found;
+    }
+    return null;
+  };
+  for (let depth = 1; depth <= maximumDepth; depth += 1) {
+    const found = search(initial, depth, null, []);
+    if (found !== null) return found;
+  }
+  return null;
+};
+const encodeStage = (moves: number[]): TwoByTwoStagePlan => {
+  const parsed = MoveParser.parse(2, moves.map((move) => moveTokens[move]).join(" "));
+  return parsed.TAG === "Ok"
+    ? {ok: true, algorithm: parsed._0, moveCount: moves.length}
+    : {ok: false, message: "The staged 2×2 route could not be encoded."};
+};
+
+/** Finds a bounded U/R/F route to four correctly placed and oriented D-layer corners. */
+export const planTwoByTwoFirstLayer = (state: unknown, maximumDepth = 8): TwoByTwoStagePlan => {
+  const reduced = PieceReducer.reduce(state);
+  if (reduced.TAG !== "Ok") return {ok: false, message: "The 2×2 state could not be reduced to corners."};
+  const moves = searchStage(reduced._0 as Cubies, firstLayerGoal, maximumDepth);
+  return moves === null
+    ? {ok: false, message: `No first-layer route was found within ${maximumDepth} moves.`}
+    : encodeStage(moves);
+};
 
 /**
  * Searches the small first-layer-preserving OLL space with U/R/F turns. The
@@ -140,24 +184,7 @@ export const planTwoByTwoOll = (state: unknown, maximumDepth = 8): TwoByTwoOllPl
   if (!twoByTwoPhaseStatus(state).firstLayer) {
     return {ok: false, message: "OLL planning requires the first layer to be complete."};
   }
-  if (ollGoal(initial)) return {ok: true, algorithm: [], moveCount: 0};
-  const transforms = transformations();
-  const search = (current: Cubies, remaining: number, previousFace: number | null, path: number[]): number[] | null => {
-    if (ollGoal(current)) return path;
-    if (remaining === 0) return null;
-    for (const move of ollMoveIndices) {
-      const face = faceForMove(move);
-      if (face === previousFace) continue;
-      const found = search(applyTransform(current, transforms[move]!), remaining - 1, face, [...path, move]);
-      if (found !== null) return found;
-    }
-    return null;
-  };
-  for (let depth = 1; depth <= maximumDepth; depth += 1) {
-    const moves = search(initial, depth, null, []);
-    if (moves === null) continue;
-    const parsed = MoveParser.parse(2, moves.map((move) => moveTokens[move]).join(" "));
-    if (parsed.TAG === "Ok") return {ok: true, algorithm: parsed._0, moveCount: moves.length};
-  }
+  const moves = searchStage(initial, ollGoal, maximumDepth);
+  if (moves !== null) return encodeStage(moves);
   return {ok: false, message: `No first-layer-preserving OLL route was found within ${maximumDepth} moves.`};
 };

@@ -7,6 +7,7 @@ import {
   twoByTwoPhaseStatus,
   planTwoByTwoPblFinish,
   planTwoByTwoOll,
+  planTwoByTwoFirstLayer,
   verifyTwoByTwoBeginnerRoute,
 } from "../../src/client/two-by-two-academy";
 
@@ -59,5 +60,15 @@ describe("2×2 Beginner Academy phase contract", () => {
     const after = MoveExecutor.applyAlg(ollCase, plan.algorithm);
     expect(after.TAG).toBe("Ok");
     if (after.TAG === "Ok") expect(twoByTwoPhaseStatus(after._0)).toMatchObject({firstLayer: true, orientLastLayer: true});
+  });
+
+  test("finds a first-layer route before OLL and PBL planning", () => {
+    const scrambled = apply("R");
+    const plan = planTwoByTwoFirstLayer(scrambled);
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    const after = MoveExecutor.applyAlg(scrambled, plan.algorithm);
+    expect(after.TAG).toBe("Ok");
+    if (after.TAG === "Ok") expect(twoByTwoPhaseStatus(after._0).firstLayer).toBe(true);
   });
 });
