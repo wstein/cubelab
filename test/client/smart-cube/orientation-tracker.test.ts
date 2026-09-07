@@ -52,6 +52,15 @@ describe("stable smart-cube orientation tracker", () => {
     expect(cardinalOrientationFaces(nearestCardinalOrientation(x(46)))).toBe("BRUFLD");
   });
 
+  test("allows immediate reversal without being blocked by same-direction separation", () => {
+    let tracker = createStableOrientationTracker(identity, "viewport", "world");
+    const forward = observeVirtualFixpoint(tracker, x(61), "viewport");
+    tracker = forward.tracker;
+    expect(forward.tokens).toEqual(["x'"]);
+    const reverse = observeVirtualFixpoint(tracker, x(0), "viewport");
+    expect(reverse.tokens).toEqual(["x"]);
+  });
+
 
   test("waits for a settled cardinal pose instead of committing at 65 degrees", () => {
     let tracker = createStableOrientationTracker(identity, "viewport");
