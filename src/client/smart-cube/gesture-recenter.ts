@@ -8,6 +8,8 @@ export type GestureRecenterOptions = {
   cooldownMs?: number;
   /** Face index to watch: 0=U, 1=R, 2=F, 3=D, 4=L, 5=B, or "any" (default: 1 for R). */
   targetFace?: number | "any";
+  /** Required initial turn direction (0: CW like R, 1: CCW like R', or "any"). Default: 0 (only R -> R'). */
+  initialDirection?: 0 | 1 | "any";
   /** Whether gesture detection is currently enabled (default: true). */
   enabled?: boolean;
   /** Audio feedback instance or callback to play when a gesture is detected. */
@@ -46,6 +48,7 @@ export class GestureRecenterDetector {
   private maxIntervalMs: number;
   private cooldownMs: number;
   private targetFace: number | "any";
+  private initialDirection: 0 | 1 | "any";
   public enabled: boolean;
   private audioFeedback?: {play: (cue: "recenter") => void} | null;
   private onRecenter?: (event: GestureRecenterTriggerEvent) => void;
@@ -58,6 +61,7 @@ export class GestureRecenterDetector {
     this.maxIntervalMs = options.maxIntervalMs ?? 280;
     this.cooldownMs = options.cooldownMs ?? 800;
     this.targetFace = options.targetFace ?? 1; // Face 1 = R
+    this.initialDirection = options.initialDirection ?? 0; // 0 = CW (R)
     this.enabled = options.enabled ?? true;
     this.audioFeedback = options.audioFeedback;
     this.onRecenter = options.onRecenter;
@@ -148,8 +152,11 @@ export class GestureRecenterDetector {
       this.pendingMove = null;
     }
 
+    const initialDirectionMatches =
+      this.initialDirection === "any" || moveEvent.direction === this.initialDirection;
+
     // Check if this move can begin a new rapid cycle
-    if (faceMatches) {
+    if (faceMatches && initialDirectionMatches) {
       this.pendingMove = {
         face: moveEvent.face,
         direction: moveEvent.direction,

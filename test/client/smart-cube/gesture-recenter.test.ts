@@ -42,7 +42,7 @@ describe("gesture recenter detector", () => {
     expect(triggers[0]!.restingOrientation?.quaternion).toEqual({x: 0, y: 0, z: 0, w: 1});
   });
 
-  test("detects rapid R' -> R reverse flick cycle", () => {
+  test("only R -> R' triggers recenter by default, not R' -> R", () => {
     const triggers: GestureRecenterTriggerEvent[] = [];
     const detector = createGestureRecenterDetector({
       targetFace: 1,
@@ -52,15 +52,20 @@ describe("gesture recenter detector", () => {
 
     detector.observeOrientation({x: 0.1, y: 0.2, z: 0.3, w: 0.9}, "gocube-wire", 2000);
 
+    // R' then R should NOT trigger
     detector.observeMove({face: 1, direction: 1, move: "R'", localTimestamp: 2100});
-    const triggered = detector.observeMove({face: 1, direction: 0, move: "R", localTimestamp: 2220});
+    const reverseTriggered = detector.observeMove({face: 1, direction: 0, move: "R", localTimestamp: 2220});
+    expect(reverseTriggered).toBe(false);
+    expect(triggers.length).toBe(0);
 
-    expect(triggered).toBe(true);
+    // R then R' SHOULD trigger
+    detector.observeMove({face: 1, direction: 0, move: "R", localTimestamp: 3000});
+    const forwardTriggered = detector.observeMove({face: 1, direction: 1, move: "R'", localTimestamp: 3180});
+    expect(forwardTriggered).toBe(true);
     expect(triggers.length).toBe(1);
-    expect(triggers[0]!.move1).toBe("R'");
-    expect(triggers[0]!.move2).toBe("R");
-    expect(triggers[0]!.intervalMs).toBe(120);
-    expect(triggers[0]!.restingOrientation?.quaternion).toEqual({x: 0.1, y: 0.2, z: 0.3, w: 0.9});
+    expect(triggers[0]!.move1).toBe("R");
+    expect(triggers[0]!.move2).toBe("R'");
+    expect(triggers[0]!.intervalMs).toBe(180);
   });
 
   test("rejects slow face moves exceeding maxIntervalMs", () => {
