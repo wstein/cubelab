@@ -662,6 +662,14 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   color: #c7d2fe;
 }
 
+.viewport-control.pulse {
+  border-color: rgba(99, 102, 241, 0.9);
+  background: rgba(99, 102, 241, 0.35);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.5);
+  transition: all 0.2s ease-out;
+}
+
 .shortcuts-dialog {
   width: min(42rem, calc(100vw - 2rem));
   margin: auto;

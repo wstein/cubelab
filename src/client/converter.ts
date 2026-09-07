@@ -140,6 +140,7 @@ import {
   observeThresholdOrientation,
   type StableOrientationTracker,
 } from "./smart-cube/orientation-tracker";
+import {createGestureRecenterDetector} from "./smart-cube/gesture-recenter";
 import {
   createSmartCubeAudioFeedback,
   readSmartCubeSoundPreference,
@@ -2300,6 +2301,50 @@ if (root) {
     SmartCubeOrientationEvent,
     "quaternion" | "coordinateFrame"
   > | null = null;
+
+  const recenterSmartCubeGyroView = (
+    source: "button" | "gesture" = "button",
+    orientationOverride?: Pick<SmartCubeOrientationEvent, "quaternion" | "coordinateFrame">,
+  ) => {
+    if (!smartCubeOrientationTracking) return;
+    const target = orientationOverride ?? latestSmartCubeOrientation;
+    if (!target) return;
+    smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
+      target.quaternion,
+      target.coordinateFrame,
+      "world",
+    );
+    smartCubeVirtualFixpointTracker = createStableOrientationTracker(
+      target.quaternion,
+      target.coordinateFrame,
+      "world",
+    );
+    viewport?.recenterDeviceOrientation(
+      target.quaternion,
+      target.coordinateFrame,
+    );
+    updateSmartCubeRegripGauge(target.quaternion, target.coordinateFrame);
+    traceSmartCubeStabilization(`gyro view recentered (${source})`, {
+      coordinates: target.quaternion,
+      target: smartCubeDiscreteOrientationTracker.orientation,
+    });
+    smartCubeStatus.textContent = source === "gesture"
+      ? `${smartCubeDeviceName} · Gyro view centered (R flick gesture)`
+      : `${smartCubeDeviceName} · Gyro view centered`;
+    smartCubeRecenter.classList.add("pulse");
+    window.setTimeout(() => smartCubeRecenter.classList.remove("pulse"), 450);
+  };
+
+  const smartCubeGestureRecenter = createGestureRecenterDetector({
+    targetFace: 1, // Face 1 = R
+    maxIntervalMs: 280,
+    cooldownMs: 800,
+    onRecenter: (event) => {
+      if (!smartCubeOrientationTracking || smartCubeRecording) return;
+      recenterSmartCubeGyroView("gesture", event.restingOrientation ?? undefined);
+    },
+  });
+
   let smartCubeMovesInFlight = 0;
   let smartCubeMoveQueue = Promise.resolve();
   type QueuedSmartCubeMove = {move: string; state: CubeState | null};
@@ -4606,6 +4651,8 @@ if (root) {
       viewport?.setRegripGauge(null);
     }
     syncSmartCubeTrackedOrientation();
+    smartCubeGestureRecenter.enabled = smartCubeOrientationTracking && !smartCubeRecording;
+    if (!smartCubeOrientationTracking) smartCubeGestureRecenter.reset();
     if (wasTracking && !smartCubeOrientationTracking && smartCubeRotationWait?.baseline) {
       waitForSmartCubeMove();
     }
@@ -4765,6 +4812,7 @@ if (root) {
     traceReceivedSmartCubeEvent(event);
     switch (event.type) {
       case "move": {
+        smartCubeGestureRecenter.observeMove(event);
         const record: QueuedSmartCubeMove = {move: event.move, state: null};
         smartCubePendingMoves.push(record);
         smartCubeMovesInFlight += 1;
@@ -4816,6 +4864,7 @@ if (root) {
           quaternion: event.quaternion,
           coordinateFrame: event.coordinateFrame,
         };
+        smartCubeGestureRecenter.observeOrientation(event.quaternion, event.coordinateFrame, event.timestamp);
         if (smartCubeOrientationTracking && !smartCubeRecording && !smartCubeRecordingTapePresented) {
           viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
         }
@@ -6540,27 +6589,7 @@ if (root) {
     setSmartCubeOrientationTracking(!smartCubeOrientationTracking);
   });
   smartCubeRecenter.addEventListener("click", () => {
-    if (!smartCubeOrientationTracking || !latestSmartCubeOrientation) return;
-    smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
-      latestSmartCubeOrientation.quaternion,
-      latestSmartCubeOrientation.coordinateFrame,
-      "world",
-    );
-    smartCubeVirtualFixpointTracker = createStableOrientationTracker(
-      latestSmartCubeOrientation.quaternion,
-      latestSmartCubeOrientation.coordinateFrame,
-      "world",
-    );
-    viewport?.recenterDeviceOrientation(
-      latestSmartCubeOrientation.quaternion,
-      latestSmartCubeOrientation.coordinateFrame,
-    );
-    updateSmartCubeRegripGauge(latestSmartCubeOrientation.quaternion, latestSmartCubeOrientation.coordinateFrame);
-    traceSmartCubeStabilization("gyro view recentered", {
-      coordinates: latestSmartCubeOrientation.quaternion,
-      target: smartCubeDiscreteOrientationTracker.orientation,
-    });
-    smartCubeStatus.textContent = `${smartCubeDeviceName} · Gyro view centered`;
+    recenterSmartCubeGyroView("button");
   });
   smartCubeDiagnostics.addEventListener("click", () => {
     smartCubeDiagnosticsEnabled = !smartCubeDiagnosticsEnabled;
