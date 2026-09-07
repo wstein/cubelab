@@ -67,6 +67,7 @@ import {
   createCubeViewport,
   deviceOrientationDelta,
   focusCameraTarget,
+  multiplyQuaternions,
   orientationInViewportFrame,
   quaternionAxisAngle,
   turnTransform,
@@ -134,6 +135,7 @@ import {
   createStableOrientationTracker,
   nearestCardinalOrientation,
   observeStableOrientation,
+  observeVirtualFixpoint,
   type StableOrientationTracker,
 } from "./smart-cube/orientation-tracker";
 import {
@@ -2272,7 +2274,7 @@ if (root) {
     }
     const tracker = smartCubeDiscreteOrientationTracker;
     const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
-    const lock = nearestCardinalOrientation(delta);
+    const lock = multiplyQuaternions(tracker.orientation, nearestCardinalOrientation(delta));
     viewport.setRegripGauge({
       degrees: 0,
       label: null,
@@ -4766,6 +4768,24 @@ if (root) {
             event.coordinateFrame,
             "world",
           );
+        } else {
+          const observed = observeVirtualFixpoint(
+            smartCubeDiscreteOrientationTracker,
+            event.quaternion,
+            event.coordinateFrame,
+          );
+          smartCubeDiscreteOrientationTracker = observed.tracker;
+          if (observed.tokens.length > 0) {
+            viewport?.reconcileDeviceOrientation(
+              event.quaternion,
+              observed.tracker.orientation,
+              event.coordinateFrame,
+            );
+            traceSmartCubeStabilization("virtual fixpoint entered", {
+              tokens: observed.tokens.join(" "),
+              target: observed.tracker.orientation,
+            });
+          }
         }
         updateSmartCubeRegripGauge(event.quaternion, event.coordinateFrame);
         if (smartCubeRecording && smartCubeSyncMode === "PhysicalMirror") {

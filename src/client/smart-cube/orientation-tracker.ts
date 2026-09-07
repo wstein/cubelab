@@ -1,6 +1,8 @@
 import {
   deviceOrientationDelta,
   multiplyQuaternions,
+  orientationDistanceRadians,
+  quaternionAxisAngle,
   type OrientationCoordinateFrame,
   type OrientationQuaternion,
 } from "../cube-gl";
@@ -196,6 +198,34 @@ export const nearestRegripAxis = (axis: [number, number, number]): RegripToken |
     if (!best || dot > best.dot) best = {token: candidate.token, dot};
   }
   return best!.token;
+};
+
+/**
+ * Emits once on entry into a 30° capture circle around one of the six
+ * quarter-turn fixpoints. The rolling baseline is advanced only after entry,
+ * while callers may continue using the nearest cardinal lock independently.
+ */
+export const observeVirtualFixpoint = (
+  tracker: StableOrientationTracker,
+  current: OrientationQuaternion,
+  frame: OrientationCoordinateFrame,
+  radiusDegrees = 30,
+): {tracker: StableOrientationTracker; tokens: RegripToken[]} => {
+  if (tracker.frame !== frame) return {tracker: createStableOrientationTracker(current, frame, tracker.deltaFrame), tokens: []};
+  const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
+  const {axis} = quaternionAxisAngle(delta);
+  const token = nearestRegripAxis(axis);
+  const fixpoint = token && orientations.find((candidate) => candidate.tokens.length === 1 && candidate.tokens[0] === token);
+  if (!fixpoint || orientationDistanceRadians(delta, fixpoint.quaternion) > radiusDegrees * Math.PI / 180) {
+    return {tracker, tokens: []};
+  }
+  const orientation = normalize(tracker.deltaFrame === "world"
+    ? multiplyQuaternions(fixpoint.quaternion, tracker.orientation)
+    : multiplyQuaternions(tracker.orientation, fixpoint.quaternion));
+  return {
+    tracker: {baseline: current, frame, deltaFrame: tracker.deltaFrame, orientation, candidate: null},
+    tokens: fixpoint.tokens,
+  };
 };
 
 /**
