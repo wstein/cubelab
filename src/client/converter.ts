@@ -13,7 +13,7 @@ import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as HamiltonMacro from "../Move/HamiltonMacro";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
 import {inspectReduction4x4, planNextCentreBlock4x4, planNextWingPair4x4, planOLLParityRepair4x4, planPLLParityRepair4x4, reduce4x4} from "../Solver/Reduction4x4";
-import {inspectReduction5x5, planNextCentre5x5} from "../Solver/Reduction5x5";
+import {inspectReduction5x5, planNextCentre5x5, planNextWingPair5x5} from "../Solver/Reduction5x5";
 import {
   createOptimal2x2SolverClient,
   createRandom2x2ScrambleClient,
@@ -399,6 +399,7 @@ if (root) {
     phases: root.querySelector<HTMLElement>("[data-reduction-5x5-academy-phases]")!,
     guide: root.querySelector<HTMLElement>("[data-reduction-5x5-academy-guide]")!,
     applyCentre: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-apply-centre]")!,
+    applyWing: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-apply-wing]")!,
   };
   const autoOrbitButton = root.querySelector<HTMLButtonElement>("[data-auto-orbit]")!;
   const turnGuidesButton = root.querySelector<HTMLButtonElement>("[data-turn-guides]")!;
@@ -2866,6 +2867,8 @@ if (root) {
     academy.guide.textContent = "";
     academy.applyCentre.hidden = true;
     academy.applyCentre.disabled = true;
+    academy.applyWing.hidden = true;
+    academy.applyWing.disabled = true;
     academy.applyGuide.hidden = true;
     academy.applyGuide.disabled = true;
     academy.repairParity.hidden = true;
@@ -3066,7 +3069,7 @@ if (root) {
     academy.current.textContent = progress.nextGoal;
     academy.phases.append(
       reductionAcademyPhase(1, "Build six 3×3 centres", "Each fixed core defines its face colour. Complete the diagonal X-centres and orthogonal +-centres around it before calling a centre solved.", `${progress.centreFacesComplete}/6 faces · X ${progress.xCentresComplete}/6 · + ${progress.plusCentresComplete}/6`, progress.centreFacesComplete === 6, progress.stage === "centres", ["Make matching 1×3 bars with inner slices, store them, then join them around the fixed core.", "Keep completed centres on protected faces; verify all eight movable centres match their core."]),
-      reductionAcademyPhase(2, "Pair wings around fixed middle edges", "Each edge has a fixed middle edge and two movable wings. Pair both wings to form one reduced dedge.", `${progress.wingPairsMatched}/24 wing pairs`, progress.wingPairsMatched === 24, progress.stage === "wings", ["Use the fixed middle edge as the colour reference; do not pair wings by surface colour alone.", "This milestone is read-only in the first 5×5 Academy release."]),
+      reductionAcademyPhase(2, "Pair wings around fixed middle edges", "Each edge has a fixed middle edge and two movable wings. Pair both wings to form one reduced dedge.", `${progress.wingPairsMatched}/24 wing pairs`, progress.wingPairsMatched === 24, progress.stage === "wings", ["Use the fixed middle edge as the colour reference; do not pair wings by surface colour alone.", "The bounded guide tries only centre-preserving slice–setup–restore cycles."]),
       reductionAcademyPhase(3, "Verify the 3×3 handoff", "The final 3×3 finish stays locked until centre and wing reduction has a dedicated 5×5 physical-state handoff.", progress.stage === "handoff" ? "Milestones reached · finisher pending" : "Locked", false, progress.stage === "handoff", ["The inspector never labels a partly reduced 5×5 as a solved 3×3."]),
     );
     if (progress.stage === "centres") {
@@ -3076,6 +3079,18 @@ if (root) {
         academy.guide.textContent = `Next replay-verified centre move: ${guide._0.algorithm} · centre score ${guide._0.before}/48 → ${guide._0.after}/48.`;
         academy.applyCentre.hidden = false;
         academy.applyCentre.disabled = false;
+      } else {
+        academy.guide.textContent = guide._0.message;
+        academy.guide.classList.add("error");
+      }
+    }
+    if (progress.stage === "wings") {
+      const guide = planNextWingPair5x5(recognized.state);
+      academy.guide.hidden = false;
+      if (guide.TAG === "Ok") {
+        academy.guide.textContent = `Next replay-verified wing cycle: ${guide._0.algorithm} · ${guide._0.before}/24 → ${guide._0.after}/24 matched wing pairs; all six centres remain complete.`;
+        academy.applyWing.hidden = false;
+        academy.applyWing.disabled = false;
       } else {
         academy.guide.textContent = guide._0.message;
         academy.guide.classList.add("error");
@@ -5425,6 +5440,13 @@ if (root) {
   reduction5x5Academy.applyCentre.addEventListener("click", () => {
     if (size !== 5 || activeRecognized === null) return;
     const guide = planNextCentre5x5(activeRecognized.state);
+    if (guide.TAG !== "Ok") return;
+    store.patch({moves: [movesInput.value.trim(), guide._0.algorithm].filter(Boolean).join(" ")});
+  });
+
+  reduction5x5Academy.applyWing.addEventListener("click", () => {
+    if (size !== 5 || activeRecognized === null) return;
+    const guide = planNextWingPair5x5(activeRecognized.state);
     if (guide.TAG !== "Ok") return;
     store.patch({moves: [movesInput.value.trim(), guide._0.algorithm].filter(Boolean).join(" ")});
   });

@@ -114,8 +114,9 @@ wing-pairing, and parity stages remain separate work.
 The 5×5×5 Reduction Academy currently begins before that handoff: its inspector reports
 the six fixed-core 3×3 centres (with X- and +-centre orbits separately), then the 24
 two-wing pairs around fixed middle edges. During the centre stage it may offer one bounded,
-replay-verified inner-slice improvement. Wing pairing and the reduced 3×3 finish remain
-explicitly locked until their dedicated 5×5 physical-state planner is available.
+replay-verified inner-slice improvement. Its wing stage likewise offers only bounded,
+centre-preserving slice–setup–restore cycles; the reduced 3×3 finish remains explicitly
+locked until a dedicated 5×5 physical-state handoff is available.
 
 ## Manual state entry
 

@@ -217,6 +217,7 @@ test("Academy exposes the milestone-first 5×5 reduction inspector", () => {
   assert.match(page, /data-reduction-5x5-academy-status/);
   assert.match(client, /inspectReduction5x5/);
   assert.match(client, /planNextCentre5x5/);
+  assert.match(client, /planNextWingPair5x5/);
 });
 
 test("the editor separates a synchronized setup from optional replay moves", () => {

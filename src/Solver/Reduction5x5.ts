@@ -19,6 +19,7 @@ export type Reduction5x5Inspection = {
   nextGoal: string;
 };
 export type CentreGuide5x5 = {alg: unknown[]; algorithm: string; before: number; after: number};
+export type WingGuide5x5 = {alg: unknown[]; algorithm: string; before: number; after: number};
 
 const compact = (state: unknown): string | null => {
   if ((state as {size?: unknown}).size !== 5) return null;
@@ -61,6 +62,7 @@ const parse = (notation: string): unknown[] | null => {
   return parsed.TAG === "Ok" ? parsed._0 : null;
 };
 const centreMoves = faces.flatMap((face) => [`2${face}`, `2${face}'`, `2${face}2`]);
+const wingCycleNotations = ["2R U R' U' 2R'", "2R U2 2R'"];
 
 /** A deliberately bounded, replay-verified next-centre hint, never a claimed full 5×5 solver. */
 export const planNextCentre5x5 = (state: unknown): Result<CentreGuide5x5> => {
@@ -78,5 +80,32 @@ export const planNextCentre5x5 = (state: unknown): Result<CentreGuide5x5> => {
   });
   return best === null
     ? {TAG: "Error", _0: {message: "No one-turn centre improvement is available. Make a bar setup, then request the next guide."}}
+    : {TAG: "Ok", _0: best};
+};
+
+/**
+ * Finds one centre-preserving wing-pair improvement. It is deliberately
+ * bounded to a small set of slice–setup–restore cycles. A complete 5×5 wing
+ * planner will later search wider, but this Academy hint never returns a move
+ * unless its replay preserves all completed 3×3 centres.
+ */
+export const planNextWingPair5x5 = (state: unknown): Result<WingGuide5x5> => {
+  const initial = progress(state);
+  if (initial === null) return {TAG: "Error", _0: {message: "The 5×5 wing guide requires a complete state."}};
+  if (initial.faces !== 6) return {TAG: "Error", _0: {message: "Complete all six 3×3 centres before requesting a wing guide."}};
+  if (initial.wings === 24) return {TAG: "Error", _0: {message: "All 24 visible wing pairs are already matched."}};
+  let best: WingGuide5x5 | null = null;
+  wingCycleNotations.forEach((notation) => {
+    const seed = parse(notation); if (seed === null) return;
+    [seed, MoveTransform.invert(seed)].forEach((alg) => {
+    const replay = MoveExecutor.applyAlg(state, alg) as Result<unknown>;
+    const after = replay.TAG === "Ok" ? progress(replay._0) : null;
+    if (after === null || after.faces !== 6 || after.wings <= initial.wings) return;
+    const guide = {alg, algorithm: MoveTransform.serialize(alg) as string, before: initial.wings, after: after.wings};
+    if (best === null || guide.after > best.after) best = guide;
+    });
+  });
+  return best === null
+    ? {TAG: "Error", _0: {message: "No centre-preserving one-turn wing improvement is available. Make a pairing setup, then request the next guide."}}
     : {TAG: "Ok", _0: best};
 };
