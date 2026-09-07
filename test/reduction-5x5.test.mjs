@@ -42,6 +42,14 @@ test("uses bounded setup turns when no one-turn centre hint exists", () => {
   if (guide.TAG === "Ok") expect(guide._0.algorithm).toBe("2D' 2F 2R'");
 });
 
+test("finds a centre improvement for the reported deep mixed-centre setup", () => {
+  const scrambled = MoveExecutor.parseAndApply(5, "B' 2D' 2R 2R D2 2R' 2U' L 2U 2U2 L' 2U2 2R 2B' 2R' 2R2 D' 2R2");
+  expect(scrambled.TAG).toBe("Ok");
+  if (scrambled.TAG !== "Ok") return;
+  const guide = planNextCentre5x5(scrambled._0);
+  expect(guide).toMatchObject({TAG: "Ok", _0: {algorithm: "2R 2D 2B", before: 14, after: 29}});
+});
+
 test("returns a centre-preserving slice-cycle wing improvement", () => {
   const scrambled = MoveExecutor.parseAndApply(5, "2R U R' U' 2R'");
   expect(scrambled.TAG).toBe("Ok");
