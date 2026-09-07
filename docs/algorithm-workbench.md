@@ -185,6 +185,9 @@ Regrip events use a separate 65° threshold from the last confirmed raw baseline
 it selects the nearest cardinal cube pose, emits clockwise `x/y/z` notation (the positive
 sensor quaternion direction is counter-clockwise), and immediately rebases. There is no
 capture-circle correction or lockout, so reversals and mixed-axis regrips remain valid.
+The user-facing notation token is deliberately separate from the sensor/cardinal rotation
+stored for physical-face remapping; deriving the latter from inverted notation reverses
+later moves after a `y` regrip.
 
 Diagnostics shows the event displacement from 0° toward 65°, its axis direction, the
 nearest cardinal lock, the current raw gyro quaternion (`x y z w`), and the exact

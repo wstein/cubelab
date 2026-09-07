@@ -13,6 +13,7 @@ import {
 
 const identity = {x: 0, y: 0, z: 0, w: 1};
 const x = (degrees: number) => ({x: Math.sin(degrees * Math.PI / 360), y: 0, z: 0, w: Math.cos(degrees * Math.PI / 360)});
+const y = (degrees: number) => ({x: 0, y: Math.sin(degrees * Math.PI / 360), z: 0, w: Math.cos(degrees * Math.PI / 360)});
 
 describe("stable smart-cube orientation tracker", () => {
   test("enumerates the cube's complete 24-pose cardinal rotation group", () => {
@@ -87,6 +88,13 @@ describe("stable smart-cube orientation tracker", () => {
     expect(first.tokens).toEqual(["x'"]);
     const reversed = observeThresholdOrientation(first.tracker, identity, "viewport", 65);
     expect(reversed.tokens).toEqual(["x"]);
+  });
+
+  test("keeps the sensor-frame y step separate from the inverted notation token", () => {
+    const tracker = createStableOrientationTracker(identity, "viewport", "world");
+    const observed = observeThresholdOrientation(tracker, y(66), "viewport", 65);
+    expect(observed.tokens).toEqual(["y'"]);
+    expect(observed.frameTokens).toEqual(["y"]);
   });
 
   test("threshold: resolves to the nearest cardinal without requiring precision", () => {

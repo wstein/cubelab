@@ -6,6 +6,13 @@ import {
 } from "../cube-gl";
 
 export type RegripToken = "x" | "x'" | "y" | "y'" | "z" | "z'";
+export type RegripObservation = {
+  tracker: StableOrientationTracker;
+  /** User-facing clockwise notation. */
+  tokens: RegripToken[];
+  /** Sensor/cardinal rotations for physical-face remapping. */
+  frameTokens?: RegripToken[];
+};
 
 type CardinalOrientation = {
   quaternion: OrientationQuaternion;
@@ -153,7 +160,7 @@ export const observeThresholdOrientation = (
   current: OrientationQuaternion,
   frame: OrientationCoordinateFrame,
   minimumRotationDegrees = 65,
-): {tracker: StableOrientationTracker; tokens: RegripToken[]} => {
+): RegripObservation => {
   if (tracker.frame !== frame) return {tracker: createStableOrientationTracker(current, frame, tracker.deltaFrame), tokens: []};
   const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);
   const angleDegrees = 2 * Math.acos(Math.min(1, Math.abs(delta.w))) * 180 / Math.PI;
@@ -167,6 +174,7 @@ export const observeThresholdOrientation = (
   return {
     tracker: {...tracker, baseline: current, frame, orientation, candidate: null},
     tokens: orientations[nearest.index]!.tokens.map(clockwiseNotationToken),
+    frameTokens: orientations[nearest.index]!.tokens,
   };
 };
 

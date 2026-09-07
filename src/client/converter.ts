@@ -4804,9 +4804,12 @@ if (root) {
           smartCubeVirtualFixpointTracker = observed.tracker;
           if (observed.tokens.length > 0) {
             if (smartCubeRecording && smartCubeSyncMode === "PhysicalMirror") {
-              observed.tokens.forEach((token) => {
-                const axis = token[0]!.toUpperCase() as "X" | "Y" | "Z";
-                const turns = token.endsWith("'") ? -1 : 1;
+              observed.tokens.forEach((token, index) => {
+                // `token` is clockwise cube notation; frameToken is the
+                // sensor/cardinal pose used to remap later physical faces.
+                const frameToken = observed.frameTokens?.[index] ?? token;
+                const axis = frameToken[0]!.toUpperCase() as "X" | "Y" | "Z";
+                const turns = frameToken.endsWith("'") ? -1 : 1;
                 appendSmartCubeRecordingToken(token);
                 void animateSmartCubeRecordingToken(token);
                 smartCubeRecordingFrame.push({axis, turns});
