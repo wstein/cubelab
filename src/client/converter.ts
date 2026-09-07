@@ -135,6 +135,7 @@ import {assessGyroRotation, detectGyroQuarterRotation} from "./smart-cube/orient
 import {
   cardinalOrientationFaces,
   createStableOrientationTracker,
+  nearestRegripAxis,
   nearestVirtualSphereFixpoint,
   observeStableOrientation,
   observeVirtualFixpoint,
