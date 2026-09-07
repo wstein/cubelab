@@ -19,6 +19,7 @@ import {
   orientationCorrectionForTarget,
   orientationDistanceRadians,
   quaternionAxisAngle,
+  regripGaugeDeviation,
   pngBlobFromDataUrl,
   relativeQuaternion,
   safeCameraDistance,
@@ -96,6 +97,26 @@ describe("cube viewport math", () => {
     expect(orientationDistanceRadians(identity, afterOneSecond)).toBeCloseTo(2 * Math.PI / 180, 8);
     const afterOneMinute = followSmartCubeOrientationOffset(identity, quarterTurn, 60_000);
     expect(orientationDistanceRadians(identity, afterOneMinute)).toBeCloseTo(Math.PI / 2, 8);
+  });
+
+  test("shows the residual after a threshold regrip until virtual drift reaches the cardinal lock", () => {
+    const rawAtThreshold = {x: Math.sin(65 * Math.PI / 360), y: 0, z: 0, w: Math.cos(65 * Math.PI / 360)};
+    const cardinalLock = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
+    const residual = quaternionAxisAngle(regripGaugeDeviation(rawAtThreshold, cardinalLock));
+    expect(residual.radians).toBeCloseTo(25 * Math.PI / 180, 8);
+    expect(residual.axis).toEqual([-1, 0, 0]);
+
+    const offset = orientationCorrectionForTarget(
+      {x: 0, y: 0, z: 0, w: 1},
+      rawAtThreshold,
+      cardinalLock,
+    );
+    expect(orientationDistanceRadians(regripGaugeDeviation(multiplyQuaternions(offset, rawAtThreshold), cardinalLock), {
+      x: 0,
+      y: 0,
+      z: 0,
+      w: 1,
+    })).toBeCloseTo(0, 8);
   });
 
   test("preallocates enough VBO space as cube sizes increase", () => {

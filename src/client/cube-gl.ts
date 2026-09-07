@@ -541,6 +541,33 @@ export const orientationCorrectionForTarget = (
   );
 };
 
+/**
+ * Gives the signed residual from the virtual, drift-corrected IMU pose to its
+ * current cardinal lock. A 65° x regrip into a 90° x lock is therefore x' 25°.
+ */
+export const regripGaugeDeviation = (
+  driftCorrectedOrientation: OrientationQuaternion,
+  lockTarget: OrientationQuaternion,
+): OrientationQuaternion => normalizedQuaternion(
+  multiplyQuaternions(inverseQuaternion(lockTarget), driftCorrectedOrientation),
+);
+
+const regripGaugeLabelForAxis = (axis: [number, number, number]): string | null => {
+  const candidates: Array<{axis: [number, number, number]; label: string}> = [
+    {axis: [1, 0, 0], label: "x"},
+    {axis: [-1, 0, 0], label: "x'"},
+    {axis: [0, 1, 0], label: "y"},
+    {axis: [0, -1, 0], label: "y'"},
+    {axis: [0, 0, 1], label: "z"},
+    {axis: [0, 0, -1], label: "z'"},
+  ];
+  const nearest = candidates.reduce((best, candidate) => {
+    const alignment = axis[0] * candidate.axis[0] + axis[1] * candidate.axis[1] + axis[2] * candidate.axis[2];
+    return alignment > best.alignment ? {...candidate, alignment} : best;
+  }, {...candidates[0]!, alignment: -Infinity});
+  return nearest.alignment > 0.1 ? nearest.label : null;
+};
+
 /** Interpolates along the shortest arc from one orientation to another. */
 export const slerpQuaternion = (
   from: OrientationQuaternion,
@@ -859,7 +886,7 @@ export const createCubeViewport = (
   let regripGaugeDisplayDegrees = 0;
   let regripGaugeDisplayLabel: string | null = null;
   let regripGaugeDisplayActiveLockin: string | null = null;
-  let regripGaugeLastFrameAt = 0;
+  let regripGaugeCorrected: {degrees: number; label: string | null} | null = null;
   let turnFrame: number | null = null;
   let turnGeneration = 0;
   let autoOrbit = false;
@@ -1595,24 +1622,18 @@ export const createCubeViewport = (
 
   const stepRegripGaugeDisplay = () => {
     if (!regripGauge) {
-      regripGaugeLastFrameAt = 0;
       regripGaugeDisplayDegrees = 0;
       regripGaugeDisplayLabel = null;
       regripGaugeDisplayActiveLockin = null;
+      regripGaugeCorrected = null;
       return;
     }
-    regripGaugeDisplayLabel = regripGauge.label ?? regripGaugeDisplayLabel;
+    regripGaugeDisplayLabel = regripGaugeCorrected?.label ?? regripGauge.label ?? regripGaugeDisplayLabel;
     regripGaugeDisplayActiveLockin = regripGauge.activeLockin ?? regripGaugeDisplayActiveLockin;
-    const now = performance.now();
-    const elapsed = regripGaugeLastFrameAt === 0 ? 0 : Math.min(250, now - regripGaugeLastFrameAt);
-    regripGaugeLastFrameAt = now;
-    const targetDegrees = Math.max(0, regripGauge.degrees);
-    // Smoothly follow the live gyro sample distance with high responsiveness (tau ~ 60ms)
-    const alpha = elapsed === 0 ? 1 : 1 - Math.exp(-elapsed / 60);
-    regripGaugeDisplayDegrees += (targetDegrees - regripGaugeDisplayDegrees) * alpha;
-    if (Math.abs(regripGaugeDisplayDegrees - targetDegrees) > 0.1) {
-      requestRender();
-    }
+    // The virtual offset already supplies the intentional 2°/s easing. Do not
+    // add a second display easing step: crossing 65° must immediately read as
+    // the signed residual to the new 90° lock (for example x' 25°).
+    regripGaugeDisplayDegrees = Math.max(0, regripGaugeCorrected?.degrees ?? regripGauge.degrees);
   };
 
   const render = () => {
@@ -1665,6 +1686,19 @@ export const createCubeViewport = (
     const driftCorrectedOrientation = rawOrientation && deviceOrientationOffset
       ? multiplyQuaternions(deviceOrientationOffset, rawOrientation)
       : rawOrientation;
+    if (regripGauge && driftCorrectedOrientation) {
+      const residual = quaternionAxisAngle(
+        regripGaugeDeviation(driftCorrectedOrientation, deviceOrientationLockTarget),
+      );
+      regripGaugeCorrected = {
+        degrees: residual.radians * 180 / Math.PI,
+        label: regripGaugeLabelForAxis(residual.axis),
+      };
+      const targetOffset = multiplyQuaternions(deviceOrientationLockTarget, inverseQuaternion(rawOrientation!));
+      if (orientationDistanceRadians(deviceOrientationOffset!, targetOffset) > 1e-8) requestRender();
+    } else {
+      regripGaugeCorrected = null;
+    }
     const relativeOrientation = driftCorrectedOrientation && deviceOrientationCorrection
       ? multiplyQuaternions(deviceOrientationCorrection, driftCorrectedOrientation)
       : driftCorrectedOrientation;

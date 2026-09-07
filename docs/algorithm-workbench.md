@@ -244,22 +244,22 @@ the log alone rather than requiring a repro. Remove the key (or set it to anothe
 value) to silence the trace.
 
 While **Diagnostics** is on, a fixed 2D gauge in the viewport's corner shows the
-threshold detector's live state: a hexagon with a spoke for each of the six quarter-turn
-directions (`x`, `x'`, `y`, `y'`, `z`, `z'`), a dashed ring at the confirm threshold, and a
-needle from the centre toward whichever spoke the raw sample's rotation axis is currently
-closest to. This is deliberately a flat, screen-fixed HUD rather than a 3D arrow in the
-scene: once the cube itself is rotating, a 3D debug vector competing for the same space
-is hard to read at a glance, where a fixed gauge stays legible regardless of camera angle
-or cube motion.
+virtual lock-in state: a hexagon with a spoke for each of the six quarter-turn directions
+(`x`, `x'`, `y`, `y'`, `z`, `z'`), a dashed ring at the confirm threshold, and a needle
+showing the signed residual from the drift-corrected orientation to its current cardinal
+lock. This is deliberately a flat, screen-fixed HUD rather than a 3D arrow in the scene:
+once the cube itself is rotating, a 3D debug vector competing for the same space is hard
+to read at a glance, where a fixed gauge stays legible regardless of camera angle or cube
+motion.
 
-The gauge shows the live rotation distance in degrees between the cube's current active
-lock-in position (the settled URFDLB cardinal pose) and the smartcube's relative orientation.
-At rest, the distance is 0° with the needle at the centre. As the cube rotates toward a new
-regrip, the needle extends outward along the direction spoke (`x`, `x'`, `y`, `y'`, `z`, `z'`),
-with the centre text displaying the degrees travelled toward the next 90° pose. The dashed
-ring marks the confirm threshold (65°). Once the needle reaches or crosses the 65° ring,
-it turns green, indicating a regrip has fired. Upon confirming the new cardinal pose, the
-active lock-in position updates and the distance smoothly resets back to 0°.
+At rest, the residual is 0° with the needle at the centre. As the cube rotates toward a
+new regrip, the needle extends toward the raw direction and the dashed ring marks the
+confirm threshold (65°). Crossing it advances the lock-in by the full cardinal 90° step;
+it does **not** reset the detector's raw sample into the gauge. Thus an `x` sample at 65°
+immediately becomes an `x'` residual of 25° (`65° − 90°`). The virtual correction then
+drifts that residual to zero at the 2°/s offset rate. The detector still rebases to
+the raw triggering sample internally, solely to prevent repeated threshold events; that
+rolling detector baseline is never used for the gauge.
 
 The first smart-cube event prints `trace enabled`. If it does not, reload after setting
 the key. A Vite `504 Outdated Optimize Dep` means the development client is stale: use
