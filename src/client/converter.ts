@@ -879,6 +879,17 @@ if (root) {
     previewHistory.value = appendRecordedMove(previewHistory.value, token);
     updatePreviewHistoryUi();
   };
+  const removeTrailingPreviewHistoryTokens = (tokens: readonly string[]) => {
+    const history = previewHistory.value.trim().split(/\s+/).filter(Boolean);
+    if (
+      tokens.length === 0
+      || history.length < tokens.length
+      || !tokens.every((token, index) => history[history.length - tokens.length + index] === token)
+    ) return false;
+    previewHistory.value = history.slice(0, -tokens.length).join(" ");
+    updatePreviewHistoryUi();
+    return true;
+  };
   updatePreviewHistoryUi();
   previewHistory.addEventListener("input", updatePreviewHistoryUi);
   previewHistoryCopy.addEventListener("click", async () => {
@@ -2527,8 +2538,9 @@ if (root) {
 
   let smartCubeMovesInFlight = 0;
   let smartCubeMoveQueue = Promise.resolve();
-  type QueuedSmartCubeMove = {move: string; state: CubeState | null};
+  type QueuedSmartCubeMove = {move: string; state: CubeState | null; omitPreviewHistory?: boolean};
   const smartCubePendingMoves: QueuedSmartCubeMove[] = [];
+  let omitNextGestureTriggerMove: string | null = null;
   let suppressNextSmartCubeExtension = false;
   let smartCubeCoachingWaiting = false;
   let smartCubeCoachingFrameActive = false;
@@ -2555,6 +2567,15 @@ if (root) {
     audioFeedback: smartCubeAudio,
     onRecenter: (event) => {
       if (!smartCubeOrientationTracking || smartCubeRecording) return;
+      // The rapid face-and-return pair is an input gesture, not part of the
+      // move ledger. Its first half may already be written, while the second
+      // packet is queued immediately after this callback.
+      removeTrailingPreviewHistoryTokens([event.move1, event.move2])
+        || removeTrailingPreviewHistoryTokens([event.move1]);
+      const firstTriggerMove = [...smartCubePendingMoves].reverse()
+        .find((record) => record.move === event.move1);
+      if (firstTriggerMove) firstTriggerMove.omitPreviewHistory = true;
+      omitNextGestureTriggerMove = event.move2;
       const flickedFace = ["U", "R", "F", "D", "L", "B"][event.face] ?? "R";
       recenterSmartCubeGyroView("gesture", event.restingOrientation ?? undefined, flickedFace);
     },
@@ -4929,18 +4950,18 @@ if (root) {
     const move = record.move;
     // console.log("[SmartCube Move] Received physical face move from Bluetooth:", move);
     if (smartCubeSyncMode === "VirtualController") {
-      appendPreviewHistoryToken(move);
+      if (!record.omitPreviewHistory) appendPreviewHistoryToken(move);
       await applyVirtualControllerMove(move);
       return;
     }
     if (smartCubeRecording) {
       const tapeMove = controllerMoveInViewportFrame(move, smartCubeRecordingFrame);
-      appendPreviewHistoryToken(tapeMove);
+      if (!record.omitPreviewHistory) appendPreviewHistoryToken(tapeMove);
       appendSmartCubeRecordingToken(tapeMove);
       await animateSmartCubeRecordingToken(tapeMove);
       return;
     }
-    appendPreviewHistoryToken(move);
+    if (!record.omitPreviewHistory) appendPreviewHistoryToken(move);
     // A fresh physical turn resumes the normal mirror after a recording
     // session deliberately left the recorded tape in view.
     smartCubeRecordingTapePresented = false;
@@ -5253,7 +5274,9 @@ if (root) {
     switch (event.type) {
       case "move": {
         smartCubeGestureRecenter.observeMove(event);
-        const record: QueuedSmartCubeMove = {move: event.move, state: null};
+        const omitPreviewHistory = omitNextGestureTriggerMove === event.move;
+        if (omitPreviewHistory) omitNextGestureTriggerMove = null;
+        const record: QueuedSmartCubeMove = {move: event.move, state: null, omitPreviewHistory};
         smartCubePendingMoves.push(record);
         smartCubeMovesInFlight += 1;
         smartCubeMoveQueue = smartCubeMoveQueue

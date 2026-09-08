@@ -493,6 +493,8 @@ test("the interactive preview exposes an editable, copyable move history", () =>
   assert.match(viewportComponent, /data-preview-history-clear/);
   assert.match(client, /appendPreviewHistoryToken/);
   assert.match(client, /data-preview-history-copy/);
+  assert.match(client, /observed\.tokens\.forEach\(appendPreviewHistoryToken\)/);
+  assert.match(client, /removeTrailingPreviewHistoryTokens\(\[event\.move1, event\.move2\]\)/);
 });
 
 test("the Setup parser recognizes explicit SSE cubie-state cycles apart from algorithms", () => {

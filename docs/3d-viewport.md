@@ -222,8 +222,10 @@ When a physical smart cube (e.g. GoCube, GAN) with IMU hardware is connected, te
 
 The **3D move history** directly below the preview is a local, editable capture ledger. It
 records preview playback, physical/controller turns, and accepted virtual `x/y/z` regrips in
-their displayed frame. **Copy history** copies its current edited text; **Clear** affects only
-this ledger, never Setup, Moves, or the live cube state.
+their displayed frame. The temporary face-and-return turns used to invoke a gesture realignment
+are removed, so a realignment contributes its detected regrip rather than a spurious `R R'`
+(or similar) pair. **Copy history** copies its current edited text; **Clear** affects only this
+ledger, never Setup, Moves, or the live cube state.
 - **Facelet Alignment:** Top White ($+Y$), Right Red ($+X$), and Front Green ($+Z$) remain 1:1 aligned during physical turns and whole-cube regrips across 0°, 90°, 180°, and 270°.
 
 In normal **physical mirror** mode, reported facelets also determine the displayed cube
