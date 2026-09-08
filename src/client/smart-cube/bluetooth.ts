@@ -374,17 +374,23 @@ export const createSmartCubeManager = (
         throw new Error(`Unsupported smart cube protocol: ${transport.protocol.id}`);
       }
 
-      const device: SmartCubeDevice = {
+      // Gen4 advertises the same capability set for models with and without
+      // active orientation telemetry. The i4 capture shows move/facelet
+      // packets only, so do not promise gyro until a real 0xEC packet proves
+      // it on this connection.
+      const transportCapabilities = normalizeCapabilities(
+        transport.capabilities,
+        typeof (transport as FeedbackTransport).flashLed === "function",
+      );
+      if (transport.protocol.id === "gan-gen4") transportCapabilities.orientation = false;
+      let device: SmartCubeDevice = {
         name: transport.deviceName,
         macAddress: transport.deviceMAC || null,
         brand: driver.brand,
         brandName: driver.brandName,
         protocolId: transport.protocol.id,
         protocolName: transport.protocol.name,
-        capabilities: normalizeCapabilities(
-          transport.capabilities,
-          typeof (transport as FeedbackTransport).flashLed === "function",
-        ),
+        capabilities: transportCapabilities,
         ...("timing" in transport && (transport as Partial<TimedGoCubeConnection>).timing
           ? {timing: (transport as TimedGoCubeConnection).timing}
           : {}),
@@ -397,6 +403,14 @@ export const createSmartCubeManager = (
           const event = normalizeTransportEvent(rawEvent, transport.protocol.id);
           if (!event) return;
           publishEvent(event);
+          if (event.type === "orientation" && !device.capabilities.orientation) {
+            device = {...device, capabilities: {...device.capabilities, orientation: true}};
+            publishState({phase: "connected", message: `${device.name} connected · gyro detected`, device, error: null});
+          } else if (event.type === "hardware" && event.orientationSupported !== undefined
+            && event.orientationSupported !== device.capabilities.orientation) {
+            device = {...device, capabilities: {...device.capabilities, orientation: event.orientationSupported}};
+            publishState({phase: "connected", message: `${device.name} connected`, device, error: null});
+          }
           if (event.type === "disconnected") {
             clearTransport();
             publishState(disconnectedState());

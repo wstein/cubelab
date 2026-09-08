@@ -351,6 +351,32 @@ describe("smart cube connection manager", () => {
     expect(manager.getState().phase).toBe("disconnected");
   });
 
+  test("keeps GAN i4 gyro unavailable until a Gen4 orientation packet arrives", async () => {
+    const fake = fakeConnection({
+      deviceName: "GANi4_A73F",
+      protocol: {id: "gan-gen4", name: "GAN Gen4"},
+    });
+    const manager = createSmartCubeManager({
+      isBluetoothAvailable: () => true,
+      connectTransport: async () => fake.connection,
+    });
+    const states: SmartCubeConnectionState[] = [];
+    manager.subscribeState((state) => states.push(state));
+
+    const device = await manager.connect();
+    expect(device.capabilities.orientation).toBe(false);
+    fake.emit({
+      type: "GYRO",
+      timestamp: 5,
+      quaternion: {x: 0, y: 0, z: 0, w: 1},
+    });
+    expect(states.at(-1)).toMatchObject({
+      phase: "connected",
+      message: "GANi4_A73F connected · gyro detected",
+      device: {capabilities: {orientation: true}},
+    });
+  });
+
   test("exposes LED feedback only when the transport supplies a verified writer", async () => {
     const flashes: Array<[string, number]> = [];
     const fake = fakeConnection({
