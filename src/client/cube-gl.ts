@@ -616,16 +616,6 @@ export const magneticOrientationDetent = (
   );
 };
 
-/** Holds a confirmed virtual regrip through the rest of its physical quarter turn. */
-export const settledRegripOrientation = (
-  raw: OrientationQuaternion,
-  cardinalTarget: OrientationQuaternion,
-): OrientationQuaternion => (
-  orientationDistanceRadians(raw, cardinalTarget) <= 45 * Math.PI / 180
-    ? normalizedQuaternion(cardinalTarget)
-    : raw
-);
-
 /**
  * Slews a persistent gyro drift offset toward the cardinal lock at a bounded
  * rate (default ~2°/s). When inside the magnetic well, ongoing sensor drift
@@ -1988,9 +1978,12 @@ export const createCubeViewport = (
     const driftAdjustedOrientation = rawOrientation
       ? normalizedQuaternion(multiplyQuaternions(gyroDriftOffset, rawOrientation))
       : undefined;
+    // A confirmed virtual regrip owns the persistent correction and axis
+    // frame, not the physical gyro stream.  Quantizing the latter here made
+    // every delta within the 45° completion tail disappear indefinitely.
     const detentedOrientation = driftAdjustedOrientation
       ? deviceOrientationIsVirtualRegrip
-        ? settledRegripOrientation(driftAdjustedOrientation, deviceOrientationLockTarget)
+        ? driftAdjustedOrientation
         : magneticOrientationDetent(driftAdjustedOrientation, deviceOrientationLockTarget)
       : driftAdjustedOrientation;
     magneticDetentPullDegrees = rawOrientation && detentedOrientation

@@ -30,7 +30,6 @@ import {
   pngBlobFromDataUrl,
   relativeQuaternion,
   safeCameraDistance,
-  settledRegripOrientation,
   slerpQuaternion,
   smoothTrackedOrientation,
   standardStickerFinish,
@@ -170,11 +169,9 @@ describe("cube viewport math", () => {
     expect(orientationDistanceRadians(magneticOrientationDetent(x(25), identity), identity)).toBeLessThan(8 * Math.PI / 180);
   });
 
-  test("holds a confirmed virtual regrip at its cardinal pose through the remaining quarter turn", () => {
-    const identity = {x: 0, y: 0, z: 0, w: 1};
-    const z = (degrees: number) => ({x: 0, y: 0, z: Math.sin(degrees * Math.PI / 360), w: Math.cos(degrees * Math.PI / 360)});
-    expect(orientationDistanceRadians(settledRegripOrientation(z(38), identity), identity)).toBeCloseTo(0);
-    expect(orientationDistanceRadians(settledRegripOrientation(z(46), identity), z(46))).toBeCloseTo(0);
+  test("keeps gyro deltas live after a confirmed virtual regrip", () => {
+    expect(viewportSource).toMatch(/deviceOrientationIsVirtualRegrip\s*\?\s*driftAdjustedOrientation/);
+    expect(viewportSource).not.toMatch(/settledRegripOrientation/);
   });
 
   test("slews gyro drift offset toward cardinal magnets at 2 deg/s inside well", () => {
