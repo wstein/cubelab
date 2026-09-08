@@ -4,6 +4,7 @@ import * as Util from "../../src/Solver/Cube555/Util555.res.mjs";
 import * as Phase1Center from "../../src/Solver/Cube555/Phase1Center555.res.mjs";
 import * as Phase2Center from "../../src/Solver/Cube555/Phase2Center555.res.mjs";
 import * as Phase3Center from "../../src/Solver/Cube555/Phase3Center555.res.mjs";
+import * as Phase3Edge from "../../src/Solver/Cube555/Phase3Edge555.res.mjs";
 import * as Phase4Center from "../../src/Solver/Cube555/Phase4Center555.res.mjs";
 import * as Phase5Center from "../../src/Solver/Cube555/Phase5Center555.res.mjs";
 
@@ -164,6 +165,27 @@ describe("Phase3Center555 coordinate reduction", () => {
     expect(Phase3Center.getCenter(center)).toBe(0);
   });
 });
+
+describe("Phase3Edge555 coordinate reduction", () => {
+  it("initializes Phase 3 edges to coordinate 0", () => {
+    const edge = Phase3Edge.make();
+    expect(Phase3Edge.getMEdge(edge)).toBe(0);
+    expect(Phase3Edge.getWEdge(edge)).toBe(0);
+  });
+
+  it("roundtrips Phase 3 middle edge indices (0..2047)", () => {
+    const edge = Phase3Edge.make();
+    Phase3Edge.setMEdge(edge, 1023);
+    expect(Phase3Edge.getMEdge(edge)).toBe(1023);
+  });
+
+  it("roundtrips Phase 3 wing edge combinations C(24, 12)", () => {
+    const edge = Phase3Edge.make();
+    Phase3Edge.setWEdge(edge, 123456);
+    expect(Phase3Edge.getWEdge(edge)).toBe(123456);
+  });
+});
+
 
 describe("Phase4Center555 coordinate reduction", () => {
   it("initializes Phase 4 centers to coordinate 0", () => {
