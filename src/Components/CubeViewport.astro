@@ -131,11 +131,12 @@
     >Disconnect</button>
   </div>
   <aside class="smart-cube-qa-panel" data-smart-cube-qa-panel hidden aria-label="Mock device QA panel">
-    <strong>Mock device</strong>
-    <span data-smart-cube-qa-session>No session selected</span>
-    <button type="button" class="viewport-control" data-smart-cube-choose-session>Choose session…</button>
+    <header><strong>Mock device QA</strong><span data-smart-cube-qa-session>No session selected</span></header>
+    <button type="button" class="viewport-control" data-smart-cube-choose-session>Choose / change session…</button>
+    <p class="smart-cube-qa-transport">Choose a session, then use the transport dock below.</p>
+    <strong>Event log</strong>
     <div data-smart-cube-qa-log class="smart-cube-qa-log" aria-live="polite"></div>
-    <div data-smart-cube-qa-diff>Derived diff: <span data-smart-cube-qa-diff-value>none</span></div>
+    <div data-smart-cube-qa-diff>Derived diff: <span data-smart-cube-qa-diff-value>Awaiting replay</span></div>
   </aside>
   <dialog data-smart-cube-tape-picker aria-label="Choose mock session">
     <form method="dialog">

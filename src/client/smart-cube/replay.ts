@@ -140,22 +140,6 @@ const validateCommand = (value: unknown, path: string): asserts value is SmartCu
   );
 };
 
-const validateEntries = <T>(
-  entries: unknown,
-  name: string,
-  validate: (value: unknown, path: string) => asserts value is T,
-): asserts entries is Array<{offsetMs: number} & Record<string, unknown>> => {
-  assert(Array.isArray(entries), `${name} must be an array`);
-  let previous = -Infinity;
-  entries.forEach((entry, index) => {
-    assert(isRecord(entry), `${name}[${index}] must be an object`);
-    assert(isFiniteNumber(entry.offsetMs) && entry.offsetMs >= 0, `${name}[${index}].offsetMs must be a non-negative finite number`);
-    assert(entry.offsetMs >= previous, `${name} offsets must be non-decreasing`);
-    previous = entry.offsetMs;
-    validate(entry[name === "events" ? "event" : "command"], `${name}[${index}].${name === "events" ? "event" : "command"}`);
-  });
-};
-
 /** Validates untrusted JSON before it is allowed to drive a replay session. */
 export const validateSmartCubeTape = (value: unknown): SmartCubeTape => {
   assert(isRecord(value), "tape must be an object");
@@ -260,7 +244,7 @@ const inputEntries = (tape: SmartCubeTape): Array<{offsetMs: number; event: Smar
 export const createReplaySmartCubeManager = (source: SmartCubeTape | unknown): ReplaySmartCubeManager => {
   const tape = validateSmartCubeTape(source);
   const inputs = inputEntries(tape);
-  const durationMs = tape.timeline.at(-1)?.offsetMs ?? 0;
+  const durationMs = inputs.at(-1)?.offsetMs ?? 0;
   let state = disconnectedState();
   let status: ReplayStatus = "paused";
   let offsetMs = 0;
@@ -424,7 +408,9 @@ export const createMockDeviceManager = ({catalogue, pickTape}: MockDeviceManager
     return inner;
   };
   const connect = async (): Promise<SmartCubeDevice> => {
-    if (inner) await inner.disconnect();
+    // Stop the prior clock without emitting its synthetic disconnect into the
+    // shared downstream pipeline while a new tape is being selected.
+    if (inner) inner.pause();
     const tape = validateSmartCubeTape(await pickTape(catalogue));
     selectedTape = tape;
     const replay = createReplaySmartCubeManager(tape);

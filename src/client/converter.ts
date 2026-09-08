@@ -482,6 +482,7 @@ if (root) {
   const smartCubeReplayRate = root.querySelector<HTMLSelectElement>("[data-smart-cube-replay-rate]")!;
   const smartCubeQaSession = root.querySelector<HTMLElement>("[data-smart-cube-qa-session]")!;
   const smartCubeQaPanel = root.querySelector<HTMLElement>("[data-smart-cube-qa-panel]")!;
+  const smartCubeQaLog = root.querySelector<HTMLElement>("[data-smart-cube-qa-log]")!;
   const smartCubeChooseSession = root.querySelector<HTMLButtonElement>("[data-smart-cube-choose-session]")!;
   const smartCubeTapePicker = root.querySelector<HTMLDialogElement>("[data-smart-cube-tape-picker]")!;
   const smartCubeTapePickerList = root.querySelector<HTMLElement>("[data-smart-cube-tape-picker-list]")!;
@@ -2426,6 +2427,15 @@ if (root) {
   const smartCubeDevEnabled = new URLSearchParams(window.location.search).has("dev");
   const smartCubeMockMode = root.dataset.mock === "true";
   smartCubeQaPanel.hidden = !smartCubeMockMode;
+  const appendSmartCubeQaEvent = (event: SmartCubeEvent) => {
+    if (!smartCubeMockMode) return;
+    const replay = smartCubeReplayControlsApi?.getReplayState();
+    const row = document.createElement("div");
+    row.textContent = `${replay?.offsetMs ?? 0} ms  input/${event.type}`;
+    smartCubeQaLog.append(row);
+    while (smartCubeQaLog.childElementCount > 80) smartCubeQaLog.firstElementChild?.remove();
+    smartCubeQaLog.scrollTop = smartCubeQaLog.scrollHeight;
+  };
   const requestedReplayName = smartCubeDevEnabled
     ? new URLSearchParams(window.location.search).get("replay")
     : null;
@@ -2469,7 +2479,7 @@ if (root) {
   };
   const traceSmartCubeStabilization = (event: string, detail: Record<string, unknown>) => {
     const trigger = event === "virtual regrip" ? "virtual-regrip"
-      : event === "gyro view recentered (button)" ? "gyro-recenter"
+      : event.startsWith("gyro view recentered (") ? "gyro-recenter"
       : event === "gyro orientation" ? "orientation-snapshot"
       : null;
     if (trigger) smartCubeTapeRecorder?.recordDerived(trigger, {}, detail);
@@ -5573,6 +5583,7 @@ if (root) {
           manager.subscribeEvents(handleSmartCubeEvent);
           manager.subscribeEvents((event) => {
             smartCubeTapeRecorder?.recordEvent(event);
+            appendSmartCubeQaEvent(event);
             renderSmartCubeReplay();
             window.setTimeout(renderSmartCubeReplay, 0);
           });
