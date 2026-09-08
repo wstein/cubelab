@@ -837,6 +837,7 @@ test("the mock-device route reuses index mode and stays outside the app shell", 
   assert.match(client, /createMockDeviceManager/);
   assert.match(client, /smartCubeMockMode/);
   assert.doesNotMatch(serviceWorker, /\/dev\/mock/);
+  assert.match(client, /let selected = false;[\s\S]*selected = true;[\s\S]*if \(!selected\) reject/);
 });
 
 test("the viewport compacts within a narrow studio column", () => {

@@ -5519,6 +5519,7 @@ if (root) {
 
   const pickMockTape = <T extends {name: string; note?: string; brand?: string; durationMs?: number; profile?: string; load: () => Promise<unknown>}>(catalogue: readonly T[]): Promise<unknown> =>
     new Promise((resolve, reject) => {
+      let selected = false;
       smartCubeTapePickerList.replaceChildren();
       catalogue.forEach((entry) => {
         const button = document.createElement("button");
@@ -5530,6 +5531,7 @@ if (root) {
         button.textContent = description ? `${entry.name} — ${description}` : entry.name;
         button.addEventListener("click", async () => {
           button.disabled = true;
+          selected = true;
           smartCubeTapePicker.close();
           try {
             resolve(await entry.load());
@@ -5539,7 +5541,9 @@ if (root) {
         }, {once: true});
         smartCubeTapePickerList.append(button);
       });
-      smartCubeTapePicker.addEventListener("close", () => reject(new DOMException("Mock tape selection cancelled", "AbortError")), {once: true});
+      smartCubeTapePicker.addEventListener("close", () => {
+        if (!selected) reject(new DOMException("Mock tape selection cancelled", "AbortError"));
+      }, {once: true});
       smartCubeTapePicker.showModal();
     });
 
