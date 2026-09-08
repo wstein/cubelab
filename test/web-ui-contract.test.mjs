@@ -839,6 +839,10 @@ test("the mock-device route reuses index mode and stays outside the app shell", 
   assert.match(page, /data-mock=/);
   assert.match(viewportComponent, /data-smart-cube-qa-panel/);
   assert.match(viewportComponent, /data-smart-cube-tape-picker/);
+  assert.match(styles, /\[data-mock="true"\] \.viewport-panel[\s\S]*grid-template-columns: clamp\(20rem, 27vw, 27rem\) minmax\(0, 1fr\)/);
+  assert.match(styles, /\[data-mock="true"\] \.viewport-stage[\s\S]*grid-column: 2/);
+  assert.match(styles, /\[data-mock="true"\] \.smart-cube-qa-panel[\s\S]*grid-column: 1/);
+  assert.match(styles, /\[data-mock="true"\] \.smart-cube-dock[\s\S]*grid-column: 1/);
   assert.match(client, /createMockDeviceManager/);
   assert.match(client, /smartCubeMockMode/);
   assert.doesNotMatch(serviceWorker, /\/dev\/mock/);

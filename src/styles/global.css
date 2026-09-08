@@ -328,36 +328,79 @@ body.player-page .viewport-panel:has(.playback:not([hidden])) .viewport-footer {
   bottom: 9.5rem;
 }
 
+/*
+ * Mock replay is a two-pane inspection surface.  Keeping the QA/session
+ * controls outside the stage means the canvas is never hidden behind a
+ * growing event log or transport dock.
+ */
+body.player-page:has([data-mock="true"]) .site-header {
+  display: none;
+}
+
+body.player-page [data-mock="true"] .viewport-panel {
+  display: grid;
+  grid-template-columns: clamp(20rem, 27vw, 27rem) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  background: #090e1c;
+}
+
+body.player-page [data-mock="true"] .viewport-stage {
+  position: relative;
+  z-index: 0;
+  grid-column: 2;
+  grid-row: 1 / -1;
+  min-width: 0;
+  min-height: 100dvh;
+}
+
 body.player-page [data-mock="true"] .smart-cube-qa-panel {
-  position: fixed;
-  z-index: 6;
-  top: 5rem;
-  right: 1rem;
-  width: min(22rem, calc(100vw - 2rem));
-  max-height: calc(100dvh - 6rem);
+  position: relative;
+  z-index: 2;
+  grid-column: 1;
+  grid-row: 1;
+  width: auto;
+  max-height: none;
   overflow: auto;
   display: grid;
   gap: 0.55rem;
   padding: 0.75rem;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 0.7rem;
-  background: rgba(10, 15, 27, 0.9);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(14px);
+  align-content: start;
+  border-right: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(10, 15, 27, 0.96);
 }
 
 body.player-page [data-mock="true"] .smart-cube-dock {
-  position: fixed;
-  z-index: 6;
-  right: 1rem;
-  bottom: 1rem;
-  width: min(32rem, calc(100vw - 2rem));
+  position: relative;
+  z-index: 2;
+  grid-column: 1;
+  grid-row: 2;
+  width: auto;
   padding: 0.65rem;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 0.7rem;
-  background: rgba(10, 15, 27, 0.9);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(14px);
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+  border-right: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(10, 15, 27, 0.96);
+  align-content: start;
+}
+
+body.player-page [data-mock="true"] .viewport-footer,
+body.player-page [data-mock="true"] .preview-history {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  body.player-page [data-mock="true"] .viewport-panel {
+    display: block;
+    overflow: auto;
+  }
+
+  body.player-page [data-mock="true"] .viewport-stage {
+    min-height: min(64dvh, 34rem);
+  }
+
+  body.player-page [data-mock="true"] .smart-cube-qa-panel,
+  body.player-page [data-mock="true"] .smart-cube-dock {
+    border-right: 0;
+  }
 }
 
 .smart-cube-qa-panel header { display: grid; gap: 0.15rem; }
