@@ -18,10 +18,9 @@ export type {
   MockDeviceManagerOptions,
   MockTapeCatalogueEntry,
   SmartCubeTape,
-  SmartCubeTapeCommand,
-  SmartCubeTapeEntry,
   SmartCubeTapeHeader,
   SmartCubeTapeRecorder,
+  SmartCubeTapeTimelineEntry,
 } from "./replay";
 export {resolveSmartCubeDriver, smartCubeDrivers} from "./drivers";
 export {

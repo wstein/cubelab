@@ -23,16 +23,19 @@ export type SmartCubeTapeHeader = {
   };
 };
 
-export type SmartCubeTapeEntry = {offsetMs: number; event: SmartCubeEvent};
-export type SmartCubeTapeCommand = {offsetMs: number; command: SmartCubeCommand};
+export type SmartCubeTapeTimelineEntry =
+  | ({offsetMs: number; kind: "input"} & {event: SmartCubeEvent})
+  | ({offsetMs: number; kind: "command"} & {command: SmartCubeCommand})
+  | {offsetMs: number; kind: "derived"; trigger: string; in: Record<string, unknown>; out: Record<string, unknown>}
+  | {offsetMs: number; kind: "state"; field: string; value: unknown};
 
 export type SmartCubeTape = {
   schema: typeof SMART_CUBE_TAPE_SCHEMA;
+  profile: "full" | "diagnostic";
   capturedAt: string;
   note?: string;
   header: SmartCubeTapeHeader;
-  events: SmartCubeTapeEntry[];
-  commands: SmartCubeTapeCommand[];
+  timeline: SmartCubeTapeTimelineEntry[];
 };
 
 export type ReplayTapeLoaderDependencies = {
@@ -163,9 +166,34 @@ export const validateSmartCubeTape = (value: unknown): SmartCubeTape => {
   assert(value.header.syncMode === "PhysicalMirror" || value.header.syncMode === "VirtualController", "header.syncMode is unsupported");
   assert(typeof value.header.orientationTracking === "boolean" && typeof value.header.recording === "boolean", "header tracking fields must be boolean");
   assert(isRecord(value.header.settings) && typeof value.header.settings.autoOrbit === "boolean" && isFiniteNumber(value.header.settings.regripThresholdDegrees), "header.settings is invalid");
-  validateEntries(value.events, "events", validateEvent);
-  validateEntries(value.commands, "commands", validateCommand);
-  return value as unknown as SmartCubeTape;
+  assert(value.profile === "full" || value.profile === "diagnostic", "profile is required and must be full or diagnostic");
+  const profile = value.profile;
+  if (Array.isArray(value.timeline)) {
+    const timeline: SmartCubeTapeTimelineEntry[] = [];
+    let previous = -Infinity;
+    value.timeline.forEach((entry, index) => {
+      assert(isRecord(entry), `timeline[${index}] must be an object`);
+      assert(isFiniteNumber(entry.offsetMs) && entry.offsetMs >= 0 && entry.offsetMs >= previous, "timeline offsets must be non-decreasing");
+      previous = entry.offsetMs;
+      if (entry.kind === "input") {
+        validateEvent(entry.event, `timeline[${index}].event`);
+        const normalized = {offsetMs: entry.offsetMs, kind: "input" as const, event: entry.event};
+        timeline.push(normalized);
+      } else if (entry.kind === "command") {
+        validateCommand(entry.command, `timeline[${index}].command`);
+        const normalized = {offsetMs: entry.offsetMs, kind: "command" as const, command: entry.command};
+        timeline.push(normalized);
+      } else if (entry.kind === "derived") {
+        assert(typeof entry.trigger === "string" && isRecord(entry.in) && isRecord(entry.out), `timeline[${index}] derived entry is invalid`);
+        timeline.push({offsetMs: entry.offsetMs, kind: "derived", trigger: entry.trigger, in: entry.in, out: entry.out});
+      } else if (entry.kind === "state") {
+        assert(typeof entry.field === "string", `timeline[${index}] state entry is invalid`);
+        timeline.push({offsetMs: entry.offsetMs, kind: "state", field: entry.field, value: entry.value});
+      } else throw new Error(`Invalid smart-cube tape: timeline[${index}].kind is unsupported`);
+    });
+    return {...value, profile, timeline} as unknown as SmartCubeTape;
+  }
+  throw new Error("Invalid smart-cube tape: timeline must be an array");
 };
 
 /** Loads a validated tape from the capture cache, then the bundled QA catalogue. */
@@ -195,18 +223,17 @@ export const createSmartCubeTapeRecorder = (
     previousOffsetMs = Math.max(previousOffsetMs, Math.round(now() - origin));
     return previousOffsetMs;
   };
-  const events: SmartCubeTapeEntry[] = [];
-  const commands: SmartCubeTapeCommand[] = [];
+  const timeline: SmartCubeTapeTimelineEntry[] = [];
   return {
-    recordEvent: (event) => events.push({offsetMs: offsetMs(), event}),
-    recordCommand: (command) => commands.push({offsetMs: offsetMs(), command}),
+    recordEvent: (event) => timeline.push({offsetMs: offsetMs(), kind: "input", event}),
+    recordCommand: (command) => timeline.push({offsetMs: offsetMs(), kind: "command", command}),
     finish: (note) => ({
       schema: SMART_CUBE_TAPE_SCHEMA,
+      profile: "full",
       capturedAt: capturedAt(),
       ...(note ? {note} : {}),
       header,
-      events: [...events],
-      commands: [...commands],
+      timeline: [...timeline],
     }),
   };
 };
@@ -218,6 +245,9 @@ const disconnectedState = (): SmartCubeConnectionState => ({
   error: null,
 });
 
+const inputEntries = (tape: SmartCubeTape): Array<{offsetMs: number; event: SmartCubeEvent}> =>
+  tape.timeline.flatMap((entry) => entry.kind === "input" ? [{offsetMs: entry.offsetMs, event: entry.event}] : []);
+
 /**
  * An in-memory SmartCubeManager backed by a validated capture tape. It has no
  * Bluetooth or other I/O, so its event timing is reproducible in both the app
@@ -225,7 +255,8 @@ const disconnectedState = (): SmartCubeConnectionState => ({
  */
 export const createReplaySmartCubeManager = (source: SmartCubeTape | unknown): ReplaySmartCubeManager => {
   const tape = validateSmartCubeTape(source);
-  const durationMs = tape.events.at(-1)?.offsetMs ?? 0;
+  const inputs = inputEntries(tape);
+  const durationMs = tape.timeline.at(-1)?.offsetMs ?? 0;
   let state = disconnectedState();
   let status: ReplayStatus = "paused";
   let offsetMs = 0;
@@ -255,7 +286,7 @@ export const createReplaySmartCubeManager = (source: SmartCubeTape | unknown): R
     timer = null;
   };
   const emitNext = () => {
-    const entry = tape.events[eventIndex];
+    const entry = inputs[eventIndex];
     if (!entry) return false;
     eventIndex += 1;
     offsetMs = entry.offsetMs;
@@ -264,11 +295,11 @@ export const createReplaySmartCubeManager = (source: SmartCubeTape | unknown): R
   };
   const scheduleNext = (): void => {
     clearTimer();
-    if (status !== "playing" || eventIndex >= tape.events.length) {
-      if (eventIndex >= tape.events.length) status = "paused";
+    if (status !== "playing" || eventIndex >= inputs.length) {
+      if (eventIndex >= inputs.length) status = "paused";
       return;
     }
-    const entry = tape.events[eventIndex];
+    const entry = inputs[eventIndex];
     timer = setTimeout(() => {
       timer = null;
       if (status !== "playing") return;
@@ -277,7 +308,7 @@ export const createReplaySmartCubeManager = (source: SmartCubeTape | unknown): R
     }, Math.max(0, (entry.offsetMs - offsetMs) / rate));
   };
   const replayTo = (targetOffsetMs: number) => {
-    while (eventIndex < tape.events.length && tape.events[eventIndex].offsetMs <= targetOffsetMs) emitNext();
+    while (eventIndex < inputs.length && inputs[eventIndex].offsetMs <= targetOffsetMs) emitNext();
     offsetMs = Math.min(targetOffsetMs, durationMs);
   };
 

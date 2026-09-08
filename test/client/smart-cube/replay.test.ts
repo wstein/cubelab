@@ -14,6 +14,7 @@ import {
 
 const tape: SmartCubeTape = {
   schema: "cubelab-smart-cube-tape-v1",
+  profile: "full",
   capturedAt: "2026-09-08T10:07:00.000Z",
   note: "small replay fixture",
   header: {
@@ -41,23 +42,60 @@ const tape: SmartCubeTape = {
   commands: [
     {offsetMs: 5, command: {type: "REQUEST_HARDWARE", timestamp: 15}},
   ],
+  timeline: [
+    {offsetMs: 0, kind: "input", event: {type: "hardware", timestamp: 10, orientationSupported: true}},
+    {offsetMs: 5, kind: "command", command: {type: "REQUEST_HARDWARE", timestamp: 15}},
+    {offsetMs: 12, kind: "input", event: {type: "battery", timestamp: 22, level: 87}},
+    {offsetMs: 40, kind: "input", event: {type: "move", timestamp: 50, move: "R", face: 1, direction: 0, localTimestamp: 40, cubeTimestamp: 40}},
+  ],
 };
+const inputs = tape.timeline.filter((entry): entry is Extract<typeof entry, {kind: "input"}> => entry.kind === "input");
+const commands = tape.timeline.filter((entry): entry is Extract<typeof entry, {kind: "command"}> => entry.kind === "command");
 
 describe("smart-cube replay tape", () => {
+  test("accepts the profiled timeline format and replays input entries only", async () => {
+    const profiled = validateSmartCubeTape({
+      ...tape,
+      profile: "diagnostic",
+      timeline: [
+        {offsetMs: 0, kind: "input", event: inputs[0]!.event},
+        {offsetMs: 3, kind: "derived", trigger: "virtual-regrip", in: {}, out: {notationTokens: ["y"]}},
+        {offsetMs: 5, kind: "command", command: commands[0]!.command},
+      ],
+    });
+    expect(profiled.profile).toBe("diagnostic");
+    expect(profiled.timeline.filter((entry) => entry.kind === "input")).toHaveLength(1);
+    const manager = createReplaySmartCubeManager(profiled);
+    const received: string[] = [];
+    manager.subscribeEvents((event) => received.push(event.type));
+    await manager.connect();
+    manager.step();
+    expect(received).toEqual(["hardware"]);
+  });
+
+  test("rejects the retired events-and-commands tape shape", () => {
+    expect(() => validateSmartCubeTape({
+      schema: "cubelab-smart-cube-tape-v1",
+      capturedAt: tape.capturedAt,
+      header: tape.header,
+      events: [],
+      commands: [],
+    })).toThrow("profile is required");
+  });
+
   test("records normalized events and commands against one monotonic clock", () => {
     let now = 100;
     const recorder = createSmartCubeTapeRecorder(tape.header, () => now, () => "2026-09-08T10:07:00.000Z");
-    recorder.recordEvent(tape.events[0]!.event);
+    recorder.recordEvent(inputs[0]!.event);
     now = 117.6;
-    recorder.recordCommand(tape.commands[0]!.command);
+    recorder.recordCommand(commands[0]!.command);
     now = 141.2;
-    recorder.recordEvent(tape.events[2]!.event);
+    recorder.recordEvent(inputs[2]!.event);
 
     expect(recorder.finish("replay regression")).toMatchObject({
       schema: "cubelab-smart-cube-tape-v1",
       note: "replay regression",
-      events: [{offsetMs: 0}, {offsetMs: 41}],
-      commands: [{offsetMs: 18}],
+      timeline: [{offsetMs: 0, kind: "input"}, {offsetMs: 18, kind: "command"}, {offsetMs: 41, kind: "input"}],
     });
   });
 
@@ -105,8 +143,8 @@ describe("smart-cube replay tape", () => {
 
   test("validates a complete tape and rejects a clock that moves backwards", () => {
     expect(validateSmartCubeTape(tape)).toEqual(tape);
-    expect(() => validateSmartCubeTape({...tape, events: [tape.events[1], tape.events[0]]}))
-      .toThrow("events offsets must be non-decreasing");
+    expect(() => validateSmartCubeTape({...tape, timeline: [tape.timeline[2], tape.timeline[0]]}))
+      .toThrow("timeline offsets must be non-decreasing");
   });
 
   test("plays normalized events on their relative clock and supports pause, seek, and step", async () => {

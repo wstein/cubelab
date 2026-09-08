@@ -22,12 +22,13 @@ export const replayTape = (
   onEvent: (event: SmartCubeEvent, offsetMs: number) => void,
 ): TapeReplaySession => {
   const tape = validateSmartCubeTape(source);
-  const durationMs = tape.events.at(-1)?.offsetMs ?? 0;
+  const entries = tape.timeline.filter((entry): entry is Extract<typeof entry, {kind: "input"}> => entry.kind === "input");
+  const durationMs = tape.timeline.at(-1)?.offsetMs ?? 0;
   let offsetMs = 0;
   let eventIndex = 0;
 
   const step = (): boolean => {
-    const entry = tape.events[eventIndex];
+    const entry = entries[eventIndex];
     if (!entry) return false;
     eventIndex += 1;
     offsetMs = entry.offsetMs;
@@ -40,7 +41,7 @@ export const replayTape = (
       eventIndex = 0;
       offsetMs = 0;
     }
-    while (eventIndex < tape.events.length && tape.events[eventIndex].offsetMs <= target) step();
+    while (eventIndex < entries.length && entries[eventIndex].offsetMs <= target) step();
     offsetMs = target;
   };
 

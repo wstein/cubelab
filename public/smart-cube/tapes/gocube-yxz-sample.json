@@ -1,15 +1,15 @@
 {
   "schema": "cubelab-smart-cube-tape-v1",
+  "profile": "full",
   "capturedAt": "2026-09-08T10:07:00.000Z",
   "note": "Hand-authored normalized slice of the GoCube y/x/z replay capture.",
   "header": {
     "device": {"name": "GoCube_A1B2", "macAddress": null, "brand": "gocube", "brandName": "GoCube", "protocolId": "gocube", "protocolName": "GoCube / Rubik's Connected", "capabilities": {"orientation": true, "battery": true, "facelets": true, "hardware": true, "reset": true, "led": false}},
     "syncMode": "PhysicalMirror", "orientationTracking": true, "recording": false, "route": null, "inputHash": "", "settings": {"autoOrbit": false, "regripThresholdDegrees": 65}
   },
-  "events": [
-    {"offsetMs": 0, "event": {"type": "hardware", "timestamp": 1725787620000, "orientationSupported": true}},
-    {"offsetMs": 12, "event": {"type": "battery", "timestamp": 1725787620012, "level": 87}},
-    {"offsetMs": 40, "event": {"type": "move", "timestamp": 1725787620040, "move": "U", "face": 0, "direction": 0, "localTimestamp": 40, "cubeTimestamp": 40}}
-  ],
-  "commands": []
+  "timeline": [
+    {"offsetMs": 0, "kind": "input", "event": {"type": "hardware", "timestamp": 1725787620000, "orientationSupported": true}},
+    {"offsetMs": 12, "kind": "input", "event": {"type": "battery", "timestamp": 1725787620012, "level": 87}},
+    {"offsetMs": 40, "kind": "input", "event": {"type": "move", "timestamp": 1725787620040, "move": "U", "face": 0, "direction": 0, "localTimestamp": 40, "cubeTimestamp": 40}}
+  ]
 }
