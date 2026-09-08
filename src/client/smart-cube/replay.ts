@@ -41,6 +41,12 @@ export type ReplayTapeLoaderDependencies = {
   fetchTape?: (name: string) => Promise<unknown>;
 };
 
+export type SmartCubeTapeRecorder = {
+  recordEvent: (event: SmartCubeEvent) => void;
+  recordCommand: (command: SmartCubeCommand) => void;
+  finish: (note?: string) => SmartCubeTape;
+};
+
 export const replayTapeStorageKey = (name: string): string => `cubelab.smartCube.tape.${name}`;
 
 /** Returns a safe replay name only when the explicitly opt-in dev flag is set. */
@@ -168,6 +174,34 @@ export const loadReplayTape = async (
   const response = await fetch(`/scratch/tapes/${encodeURIComponent(name)}.json`);
   if (!response.ok) throw new Error(`Replay tape ${name} could not be loaded (${response.status})`);
   return validateSmartCubeTape(await response.json());
+};
+
+/** Captures the exact normalized manager stream without using wall-clock event timestamps. */
+export const createSmartCubeTapeRecorder = (
+  header: SmartCubeTapeHeader,
+  now: () => number = () => performance.now(),
+  capturedAt: () => string = () => new Date().toISOString(),
+): SmartCubeTapeRecorder => {
+  const origin = now();
+  let previousOffsetMs = 0;
+  const offsetMs = () => {
+    previousOffsetMs = Math.max(previousOffsetMs, Math.round(now() - origin));
+    return previousOffsetMs;
+  };
+  const events: SmartCubeTapeEntry[] = [];
+  const commands: SmartCubeTapeCommand[] = [];
+  return {
+    recordEvent: (event) => events.push({offsetMs: offsetMs(), event}),
+    recordCommand: (command) => commands.push({offsetMs: offsetMs(), command}),
+    finish: (note) => ({
+      schema: SMART_CUBE_TAPE_SCHEMA,
+      capturedAt: capturedAt(),
+      ...(note ? {note} : {}),
+      header,
+      events: [...events],
+      commands: [...commands],
+    }),
+  };
 };
 
 const disconnectedState = (): SmartCubeConnectionState => ({

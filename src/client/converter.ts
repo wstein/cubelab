@@ -472,6 +472,7 @@ if (root) {
   const smartCubeController = root.querySelector<HTMLButtonElement>("[data-smart-cube-controller]")!;
   const smartCubeMacRecovery = root.querySelector<HTMLButtonElement>("[data-smart-cube-mac-recovery]")!;
   const smartCubeDisconnect = root.querySelector<HTMLButtonElement>("[data-smart-cube-disconnect]")!;
+  const smartCubeCapture = root.querySelector<HTMLButtonElement>("[data-smart-cube-capture]")!;
   const smartCubeReplayControls = root.querySelector<HTMLElement>("[data-smart-cube-replay-controls]")!;
   const smartCubeReplayPlay = root.querySelector<HTMLButtonElement>("[data-smart-cube-replay-play]")!;
   const smartCubeReplayStep = root.querySelector<HTMLButtonElement>("[data-smart-cube-replay-step]")!;
@@ -2410,8 +2411,17 @@ if (root) {
   let smartCubeManager: SmartCubeManager | null = null;
   let smartCubeManagerLoading: Promise<SmartCubeManager> | null = null;
   let smartCubeReplayControlsApi: ReplayControls | null = null;
-  const smartCubeReplayRequested = new URLSearchParams(window.location.search).has("dev")
+  let smartCubeTapeRecorder: {
+    recordEvent: (event: SmartCubeEvent) => void;
+    recordCommand: (command: import("./smart-cube/types").SmartCubeCommand) => void;
+    finish: (note?: string) => unknown;
+  } | null = null;
+  const smartCubeDevEnabled = new URLSearchParams(window.location.search).has("dev");
+  const requestedReplayName = smartCubeDevEnabled
     ? new URLSearchParams(window.location.search).get("replay")
+    : null;
+  const smartCubeReplayRequested = requestedReplayName !== null && /^[a-z0-9][a-z0-9_-]*$/i.test(requestedReplayName)
+    ? requestedReplayName
     : null;
   let smartCubeMacRecoveryAvailable = false;
   let smartCubeConnected = false;
@@ -5207,6 +5217,8 @@ if (root) {
       updateSmartCubeDiagnosticsUi();
       smartCubeController.hidden = false;
       smartCubeController.disabled = false;
+      smartCubeCapture.hidden = !smartCubeDevEnabled || smartCubeReplayControlsApi !== null;
+      smartCubeCapture.disabled = !smartCubeDevEnabled || smartCubeReplayControlsApi !== null;
       smartCubeMacRecoveryAvailable = false;
       smartCubeMacRecovery.hidden = true;
       setSmartCubeOrientationTracking(supportsOrientation);
@@ -5231,6 +5243,8 @@ if (root) {
       smartCubeDiagnostics.hidden = true;
       smartCubeCopyTrace.hidden = true;
       smartCubeController.hidden = true;
+      smartCubeCapture.hidden = true;
+      smartCubeTapeRecorder = null;
       smartCubeMacRecovery.hidden = !smartCubeMacRecoveryAvailable;
       smartCubeMacRecovery.disabled = connectionState.phase === "connecting";
       setSmartCubeControllerMode(false);
@@ -5480,7 +5494,14 @@ if (root) {
     if (smartCubeManager) return smartCubeManager;
     if (!smartCubeManagerLoading) {
       smartCubeManagerLoading = import("./smart-cube/index")
-        .then(async ({createReplaySmartCubeManager, createSmartCubeManager, loadReplayTape, replayTapeNameFromSearch}) => {
+        .then(async ({
+          createReplaySmartCubeManager,
+          createSmartCubeManager,
+          createSmartCubeTapeRecorder,
+          loadReplayTape,
+          replayTapeNameFromSearch,
+          replayTapeStorageKey,
+        }) => {
           // Capability is checked once, inside the explicit Connect gesture. Avoid
           // repeatedly touching navigator.bluetooth in permission-blocked embeds.
           const replayName = replayTapeNameFromSearch(window.location.search);
@@ -5491,9 +5512,48 @@ if (root) {
           manager.subscribeState(renderSmartCubeConnection);
           manager.subscribeCommands((command) => {
             traceSmartCubeStabilization("sent command", command);
+            smartCubeTapeRecorder?.recordCommand(command);
           });
           manager.subscribeEvents(handleSmartCubeEvent);
-          manager.subscribeEvents(() => renderSmartCubeReplay());
+          manager.subscribeEvents((event) => {
+            smartCubeTapeRecorder?.recordEvent(event);
+            renderSmartCubeReplay();
+            window.setTimeout(renderSmartCubeReplay, 0);
+          });
+          smartCubeCapture.addEventListener("click", () => {
+            const device = manager.getState().device;
+            if (!device || smartCubeReplayControlsApi) return;
+            if (smartCubeTapeRecorder) {
+              const tape = smartCubeTapeRecorder.finish("Captured in CubeLab dev mode");
+              smartCubeTapeRecorder = null;
+              const defaultName = `smart-cube-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+              const name = window.prompt("Replay tape name", defaultName)?.trim() || defaultName;
+              window.localStorage.setItem(replayTapeStorageKey(name), JSON.stringify(tape));
+              const blob = new Blob([JSON.stringify(tape, null, 2)], {type: "application/json"});
+              const url = URL.createObjectURL(blob);
+              const anchor = document.createElement("a");
+              anchor.href = url;
+              anchor.download = `${name}.json`;
+              anchor.click();
+              URL.revokeObjectURL(url);
+              smartCubeCapture.classList.remove("active");
+              smartCubeCapture.textContent = "● Capture session";
+              smartCubeStatus.textContent = `${smartCubeDeviceName} · Captured replay tape (${(tape as {events: unknown[]}).events.length} events).`;
+              return;
+            }
+            smartCubeTapeRecorder = createSmartCubeTapeRecorder({
+              device,
+              syncMode: smartCubeSyncMode,
+              orientationTracking: smartCubeOrientationTracking,
+              recording: smartCubeRecording,
+              route: activeTab === "academy" ? window.location.hash || null : null,
+              inputHash: window.location.hash,
+              settings: {autoOrbit, regripThresholdDegrees: 65},
+            });
+            smartCubeCapture.classList.add("active");
+            smartCubeCapture.textContent = "■ Stop capture";
+            smartCubeStatus.textContent = `${smartCubeDeviceName} · Capturing full replay tape locally.`;
+          });
           smartCubeManager = manager;
           clearSmartCubeChunkReload();
           return manager;

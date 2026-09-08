@@ -4,6 +4,7 @@ import fixture from "../../fixtures/smart-cube/gocube-yxz-sample.json";
 import {replayTape} from "../../helpers/replay-tape";
 import {
   createReplaySmartCubeManager,
+  createSmartCubeTapeRecorder,
   loadReplayTape,
   replayTapeNameFromSearch,
   validateSmartCubeTape,
@@ -42,6 +43,23 @@ const tape: SmartCubeTape = {
 };
 
 describe("smart-cube replay tape", () => {
+  test("records normalized events and commands against one monotonic clock", () => {
+    let now = 100;
+    const recorder = createSmartCubeTapeRecorder(tape.header, () => now, () => "2026-09-08T10:07:00.000Z");
+    recorder.recordEvent(tape.events[0]!.event);
+    now = 117.6;
+    recorder.recordCommand(tape.commands[0]!.command);
+    now = 141.2;
+    recorder.recordEvent(tape.events[2]!.event);
+
+    expect(recorder.finish("replay regression")).toMatchObject({
+      schema: "cubelab-smart-cube-tape-v1",
+      note: "replay regression",
+      events: [{offsetMs: 0}, {offsetMs: 41}],
+      commands: [{offsetMs: 18}],
+    });
+  });
+
   test("only enables a named replay behind the explicit dev flag", () => {
     expect(replayTapeNameFromSearch("?replay=gocube-yxz-sample")).toBeNull();
     expect(replayTapeNameFromSearch("?dev&replay=gocube-yxz-sample")).toBe("gocube-yxz-sample");

@@ -814,6 +814,16 @@ test("smart-cube replay is dev-gated and exposes deterministic transport control
   assert.match(client, /smartCubeReplayControlsApi\?\.setRate/);
 });
 
+test("smart-cube tape capture stays dev-only and records both manager streams", () => {
+  assert.match(viewportComponent, /data-smart-cube-capture/);
+  assert.match(client, /createSmartCubeTapeRecorder/);
+  assert.match(client, /smartCubeTapeRecorder\?\.recordEvent\(event\)/);
+  assert.match(client, /smartCubeTapeRecorder\?\.recordCommand\(command\)/);
+  assert.match(client, /replayTapeStorageKey\(name\)/);
+  assert.match(client, /anchor\.download = `\$\{name\}\.json`/);
+  assert.match(client, /smartCubeCapture\.hidden = !smartCubeDevEnabled/);
+});
+
 test("the viewport compacts within a narrow studio column", () => {
   assert.match(styles, /\.viewport-panel[\s\S]*container-type: inline-size/);
   assert.match(styles, /\.smart-cube-dock[\s\S]*flex-wrap: wrap/);
