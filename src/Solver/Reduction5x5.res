@@ -23,6 +23,7 @@ let reducedIndices = [0, 2, 4, 10, 12, 14, 20, 22, 24]
 let centreMoves = ["2U", "2U'", "2U2", "2R", "2R'", "2R2", "2F", "2F'", "2F2", "2D", "2D'", "2D2", "2L", "2L'", "2L2", "2B", "2B'", "2B2"]
 let centreSearchMoves = ["U", "U'", "U2", "R", "R'", "R2", "F", "F'", "F2", "D", "D'", "D2", "L", "L'", "L2", "B", "B'", "B2", ...centreMoves]
 let barCommutators = ["Rw U Rw'", "Rw U' Rw'", "2R U 2R'", "2R U' 2R'", "Rw U Rw' U'", "2R U 2R' U'"]
+let barSetupTurns = ["U", "U'", "U2"]
 let wingCycleNotations = ["2R U R' U' 2R'", "2R U2 2R'"]
 
 let charAt = (value, index) => value->String.slice(~start=index, ~end=index + 1)
@@ -138,6 +139,65 @@ let planOneByThreeBar = (state: cubeState, initial: progress): option<guide> => 
   best.contents
 }
 
+/** A deeper, cancellable Academy action. It conjugates each familiar centre
+ * commutator with one outer setup turn, then insists that replay creates a
+ * new core-aligned 1×3 bar. This is deliberately separate from the immediate
+ * guide because it evaluates several thousand concrete 5×5 replays. */
+let findOneByThreeBar5x5 = (state: cubeState): result<guide, reductionError> =>
+  switch progressFor(state) {
+  | None => Error({message: "The 1×3 bar planner requires a complete 5×5 state."})
+  | Some(initial) => {
+    switch planOneByThreeBar(state, initial) {
+    | Some(guide) => Ok(guide)
+    | None => {
+    let beforeBars = switch centreBarScore(state) { | Some(value) => value | None => 0 }
+    let best = ref(None)
+    barCommutators->Array.forEach(notation => {
+      switch parse(notation) {
+      | None => ()
+      | Some(seed) => barSetupTurns->Array.forEach(setupNotation => {
+        switch parse(setupNotation) {
+        | None => ()
+        | Some(setup) => {
+        for xTurns in 0 to 3 {
+          for yTurns in 0 to 3 {
+            for zTurns in 0 to 3 {
+              let rotatedSetup = setup
+                ->MoveTransform.rotate(~axis=X, ~turns=xTurns)
+                ->MoveTransform.rotate(~axis=Y, ~turns=yTurns)
+                ->MoveTransform.rotate(~axis=Z, ~turns=zTurns)
+              let rotatedSeed = seed
+                ->MoveTransform.rotate(~axis=X, ~turns=xTurns)
+                ->MoveTransform.rotate(~axis=Y, ~turns=yTurns)
+                ->MoveTransform.rotate(~axis=Z, ~turns=zTurns)
+              let alg = Array.concat(Array.concat(rotatedSetup, rotatedSeed), MoveTransform.invert(rotatedSetup))
+              switch MoveExecutor.applyAlg(state, alg) {
+              | Error(_) => ()
+              | Ok(replay) => switch (progressFor(replay), centreBarScore(replay)) {
+                | (Some(after), Some(barsAfter)) if barsAfter > beforeBars && after.score >= initial.score - 3 => {
+                  let guide = {alg, algorithm: MoveTransform.serialize(alg), before: initial.score, after: after.score, kind: "bar", barsBefore: beforeBars, barsAfter, completedBefore: initial.x + initial.plus, completedAfter: after.x + after.plus}
+                  switch best.contents { | None => best := Some(guide) | Some(current) if guide.barsAfter > current.barsAfter || (guide.barsAfter == current.barsAfter && guide.after > current.after) => best := Some(guide) | Some(_) => () }
+                  }
+                | _ => ()
+                }
+              }
+            }
+          }
+        }
+        }
+        }
+      })
+      }
+    })
+    switch best.contents {
+    | Some(guide) => Ok(guide)
+    | None => Error({message: "No replay-verified 1×3 bar commutator was found within the bounded setup search."})
+    }
+    }
+  }
+  }
+  }
+
 /** Runs only in the solver worker. The diagonal X-centres are isomorphic to
  * the 24 centres of a 4×4, so the exact three-phase coordinate can supply a
  * replay-verified 5×5 centre cycle. */
@@ -155,7 +215,7 @@ let solveXCentreCycle5x5 = (state: cubeState): result<guide, reductionError> =>
     // This is a bounded diagnostic only: ThreePhase4x4's phase-two heuristic
     // is not exact under its restricted move set, so deeper limits can explode.
     switch ThreePhase4x4.solveCentreReduction(centres, 6, 6, 3) {
-    | Error(_) => Error({message: "No safe bounded X-centre cycle was found within the search budget. Try another bounded X-centre search after changing the state."})
+    | Error(_) => Error({message: "No safe bounded X-centre cycle was found within the search budget. Find 1×3 bar commutator remains available for a separate bounded setup search."})
     | Ok(solution) => {
       let notation = Array.concat(solution.phase1Notations, solution.phase2Notations)->Array.join(" ")
       switch parse(notation) {

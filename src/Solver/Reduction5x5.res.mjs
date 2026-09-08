@@ -117,6 +117,12 @@ let barCommutators = [
   "2R U 2R' U'"
 ];
 
+let barSetupTurns = [
+  "U",
+  "U'",
+  "U2"
+];
+
 let wingCycleNotations = [
   "2R U R' U' 2R'",
   "2R U2 2R'"
@@ -340,6 +346,95 @@ function planOneByThreeBar(state, initial) {
   return best.contents;
 }
 
+function findOneByThreeBar5x5(state) {
+  let initial = progressFor(state);
+  if (initial === undefined) {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The 1×3 bar planner requires a complete 5×5 state."
+      }
+    };
+  }
+  let guide = planOneByThreeBar(state, initial);
+  if (guide !== undefined) {
+    return {
+      TAG: "Ok",
+      _0: guide
+    };
+  }
+  let value = centreBarScore(state);
+  let beforeBars = value !== undefined ? value : 0;
+  let best = {
+    contents: undefined
+  };
+  barCommutators.forEach(notation => {
+    let seed = parse(notation);
+    if (seed !== undefined) {
+      barSetupTurns.forEach(setupNotation => {
+        let setup = parse(setupNotation);
+        if (setup === undefined) {
+          return;
+        }
+        for (let xTurns = 0; xTurns <= 3; ++xTurns) {
+          for (let yTurns = 0; yTurns <= 3; ++yTurns) {
+            for (let zTurns = 0; zTurns <= 3; ++zTurns) {
+              let rotatedSetup = MoveTransform.rotate(MoveTransform.rotate(MoveTransform.rotate(setup, "X", xTurns), "Y", yTurns), "Z", zTurns);
+              let rotatedSeed = MoveTransform.rotate(MoveTransform.rotate(MoveTransform.rotate(seed, "X", xTurns), "Y", yTurns), "Z", zTurns);
+              let alg = rotatedSetup.concat(rotatedSeed).concat(MoveTransform.invert(rotatedSetup));
+              let replay = MoveExecutor.applyAlg(state, alg);
+              if (replay.TAG === "Ok") {
+                let replay$1 = replay._0;
+                let match = progressFor(replay$1);
+                let match$1 = centreBarScore(replay$1);
+                if (match !== undefined && match$1 !== undefined && match$1 > beforeBars && match.score >= (initial.score - 3 | 0)) {
+                  let guide_algorithm = MoveTransform.serialize(alg);
+                  let guide_before = initial.score;
+                  let guide_after = match.score;
+                  let guide_completedBefore = initial.x + initial.plus | 0;
+                  let guide_completedAfter = match.x + match.plus | 0;
+                  let guide = {
+                    alg: alg,
+                    algorithm: guide_algorithm,
+                    before: guide_before,
+                    after: guide_after,
+                    kind: "bar",
+                    barsBefore: beforeBars,
+                    barsAfter: match$1,
+                    completedBefore: guide_completedBefore,
+                    completedAfter: guide_completedAfter
+                  };
+                  let current = best.contents;
+                  if (current !== undefined && !(match$1 > current.barsAfter || match$1 === current.barsAfter && guide_after > current.after)) {
+
+                  } else {
+                    best.contents = guide;
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+      return;
+    }
+  });
+  let guide$1 = best.contents;
+  if (guide$1 !== undefined) {
+    return {
+      TAG: "Ok",
+      _0: guide$1
+    };
+  } else {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "No replay-verified 1×3 bar commutator was found within the bounded setup search."
+      }
+    };
+  }
+}
+
 function solveXCentreCycle5x5(state) {
   let initial = progressFor(state);
   if (initial === undefined) {
@@ -378,7 +473,7 @@ function solveXCentreCycle5x5(state) {
     return {
       TAG: "Error",
       _0: {
-        message: "No safe bounded X-centre cycle was found within the search budget. Try another bounded X-centre search after changing the state."
+        message: "No safe bounded X-centre cycle was found within the search budget. Find 1×3 bar commutator remains available for a separate bounded setup search."
       }
     };
   }
@@ -887,6 +982,7 @@ export {
   centreMoves,
   centreSearchMoves,
   barCommutators,
+  barSetupTurns,
   wingCycleNotations,
   charAt,
   faceAt,
@@ -897,6 +993,7 @@ export {
   inspectReduction5x5,
   parse,
   planOneByThreeBar,
+  findOneByThreeBar5x5,
   solveXCentreCycle5x5,
   solvePlusCentreCycle5x5,
   planNextCentreOrbit,

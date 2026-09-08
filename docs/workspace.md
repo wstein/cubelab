@@ -132,9 +132,11 @@ responding to input.
 
 Before that bounded diagnostic, the immediate guide tries rotated standard
 `Rw`/`2R` 1×3 centre-bar commutators and their inverses, accepting only a
-replay-verified increase in core-aligned bars. A failed bounded X-centre
-search never points to a separate bar control: none exists, because the normal
-centre guide already attempts those commutators.
+replay-verified increase in core-aligned bars. When the immediate centre guide
+cannot produce a verified move, Academy exposes **Find 1×3 bar commutator**.
+That cancellable worker action
+extends the immediate guide with one-turn setup conjugates of the standard
+commutators and returns only a replay-verified new core-aligned bar.
 
 Both phases of the reused three-phase diagnostic have independent 30,000-node
 budgets; a budget miss is a normal bounded failure, never an open-ended search.

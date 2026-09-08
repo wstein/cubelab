@@ -20,6 +20,7 @@ import {
   createTwoByTwoAcademySolverClient,
   createTwoByTwoPetrusSolverClient,
   createReduction4x4SolverClient,
+  createReduction5x5BarSolverClient,
   createReduction5x5CycleSolverClient,
   createManualStateVerifierClient,
   createSolverClient,
@@ -399,6 +400,7 @@ if (root) {
     current: root.querySelector<HTMLElement>("[data-reduction-5x5-academy-current]")!,
     phases: root.querySelector<HTMLElement>("[data-reduction-5x5-academy-phases]")!,
     guide: root.querySelector<HTMLElement>("[data-reduction-5x5-academy-guide]")!,
+    findBar: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-find-bar]")!,
     findCycle: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-find-cycle]")!,
     applyCentre: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-apply-centre]")!,
     applyWing: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-apply-wing]")!,
@@ -618,6 +620,10 @@ if (root) {
   let reduction5x5CycleRequest = 0;
   let reduction5x5CycleGuide: any = null;
   let reduction5x5CycleKey = "";
+  let reduction5x5BarBusy = false;
+  let reduction5x5BarRequest = 0;
+  let reduction5x5BarGuide: any = null;
+  let reduction5x5BarKey = "";
   let optimal2x2Request = 0;
   let reduction4x4Request = 0;
   let nissSide: "normal" | "inverse" = "normal";
@@ -683,6 +689,11 @@ if (root) {
     (stage) => { if (reduction5x5CycleBusy) reduction5x5Academy.guide.textContent = stage; },
   );
   let reduction5x5CycleClient = newReduction5x5CycleClient();
+  const newReduction5x5BarClient = () => createReduction5x5BarSolverClient<CubeState, any>(
+    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+    (stage) => { if (reduction5x5BarBusy) reduction5x5Academy.guide.textContent = stage; },
+  );
+  let reduction5x5BarClient = newReduction5x5BarClient();
   const resetTwoPhaseRefinement = () => {
     // Setup defines every solver request. A Setup change makes any in-flight
     // search and its retained candidate unusable, so stop the dedicated worker
@@ -3058,6 +3069,7 @@ if (root) {
     academy.guide.classList.remove("error");
     academy.applyCentre.hidden = true;
     academy.applyCentre.disabled = true;
+    academy.findBar.hidden = true;
     academy.findCycle.hidden = true;
     academy.applyWing.hidden = true;
     academy.applyWing.disabled = true;
@@ -3097,7 +3109,12 @@ if (root) {
         academy.applyCentre.disabled = false;
       } else {
         const key = FaceletCodec.render(recognized.state);
-        if (reduction5x5CycleGuide !== null && reduction5x5CycleKey === key) {
+        if (reduction5x5BarGuide !== null && reduction5x5BarKey === key) {
+          academy.guide.textContent = `Replay-verified 1×3 bar commutator: ${reduction5x5BarGuide.algorithm} · core-aligned bars ${reduction5x5BarGuide.barsBefore} → ${reduction5x5BarGuide.barsAfter}.`;
+          academy.guide.classList.remove("error");
+          academy.applyCentre.hidden = false;
+          academy.applyCentre.disabled = false;
+        } else if (reduction5x5CycleGuide !== null && reduction5x5CycleKey === key) {
           academy.guide.textContent = `Replay-verified ${reduction5x5CycleGuide.kind === "plusCycle" ? "+-centre" : "X-centre"} cycle: ${reduction5x5CycleGuide.algorithm}.`;
           academy.guide.classList.remove("error");
           academy.applyCentre.hidden = false;
@@ -3105,6 +3122,9 @@ if (root) {
         } else {
           academy.guide.textContent = guide._0.message;
           academy.guide.classList.add("error");
+          academy.findBar.hidden = false;
+          academy.findBar.disabled = reduction5x5BarBusy;
+          academy.findBar.textContent = reduction5x5BarBusy ? "Stop bar-commutator search" : "Find 1×3 bar commutator";
           academy.findCycle.hidden = false;
           academy.findCycle.disabled = reduction5x5CycleBusy;
           academy.findCycle.textContent = reduction5x5CycleBusy ? "Stop centre-cycle search" : "Try bounded X-centre cycle";
@@ -5475,10 +5495,49 @@ if (root) {
   reduction5x5Academy.applyCentre.addEventListener("click", () => {
     if (size !== 5 || activeRecognized === null) return;
     const key = FaceletCodec.render(activeRecognized.state);
-    const guide = reduction5x5CycleGuide !== null && reduction5x5CycleKey === key
+    const guide = reduction5x5BarGuide !== null && reduction5x5BarKey === key
+      ? {TAG: "Ok", _0: reduction5x5BarGuide}
+      : reduction5x5CycleGuide !== null && reduction5x5CycleKey === key
       ? {TAG: "Ok", _0: reduction5x5CycleGuide}
       : planNextCentre5x5(activeRecognized.state);
     if (guide.TAG === "Ok") store.patch({moves: [movesInput.value.trim(), guide._0.algorithm].filter(Boolean).join(" ")});
+  });
+
+  reduction5x5Academy.findBar.addEventListener("click", async () => {
+    if (size !== 5 || activeRecognized === null) return;
+    if (reduction5x5BarBusy) {
+      reduction5x5BarRequest += 1;
+      reduction5x5BarClient.terminate();
+      reduction5x5BarClient = newReduction5x5BarClient();
+      reduction5x5BarBusy = false;
+      reduction5x5Academy.findBar.textContent = "Find 1×3 bar commutator";
+      reduction5x5Academy.guide.textContent = "Bar-commutator search stopped.";
+      return;
+    }
+    const request = ++reduction5x5BarRequest;
+    const state = activeRecognized.state;
+    const key = FaceletCodec.render(state);
+    reduction5x5BarBusy = true;
+    reduction5x5Academy.findBar.hidden = false;
+    reduction5x5Academy.findBar.textContent = "Stop bar-commutator search";
+    reduction5x5Academy.guide.textContent = "Searching replay-verified 1×3 bar commutators…";
+    try {
+      const guide = await reduction5x5BarClient.solve(state);
+      if (request !== reduction5x5BarRequest || FaceletCodec.render(activeRecognized?.state ?? state) !== key) return;
+      reduction5x5BarGuide = guide;
+      reduction5x5BarKey = key;
+      reduction5x5Academy.guide.textContent = `Replay-verified 1×3 bar commutator: ${guide.algorithm} · core-aligned bars ${guide.barsBefore} → ${guide.barsAfter}.`;
+      reduction5x5Academy.guide.classList.remove("error");
+      reduction5x5Academy.applyCentre.hidden = false;
+      reduction5x5Academy.applyCentre.disabled = false;
+    } catch (error) {
+      if (request === reduction5x5BarRequest) reduction5x5Academy.guide.textContent = error instanceof Error ? error.message : "Bar-commutator search stopped.";
+    } finally {
+      if (request === reduction5x5BarRequest) {
+        reduction5x5BarBusy = false;
+        reduction5x5Academy.findBar.textContent = "Find 1×3 bar commutator";
+      }
+    }
   });
 
   reduction5x5Academy.findCycle.addEventListener("click", async () => {

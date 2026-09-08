@@ -11,6 +11,7 @@ type TwoByTwoPetrusProgress = {id: number; type: "twoByTwoPetrusProgress"; stage
 type Reduction4x4Progress = {id: number; type: "reduction4x4Progress"; stage: string};
 type FullReduction4x4Progress = {id: number; type: "fullReduction4x4Progress"; stage: string};
 type Reduction5x5CycleProgress = {id: number; type: "reduction5x5CycleProgress"; stage: string};
+type Reduction5x5BarProgress = {id: number; type: "reduction5x5BarProgress"; stage: string};
 export type TwoPhaseSearchOptions = {refine?: boolean; maximumDepth?: number};
 
 /** Request/response boundary for expensive searches; the UI thread never waits for them. */
@@ -194,7 +195,7 @@ const createProgressSolverClient = <TState, TSolution, TRequest extends string, 
 ) => {
   let nextId = 0;
   const pending = new Map<number, {resolve: (value: TSolution) => void; reject: (reason: Error) => void}>();
-  worker.addEventListener("message", (event: MessageEvent<WorkerResponse<TSolution> | Optimal2x2Progress | Random2x2Progress | TwoByTwoAcademyProgress | TwoByTwoPetrusProgress | Reduction4x4Progress | FullReduction4x4Progress | Reduction5x5CycleProgress>) => {
+  worker.addEventListener("message", (event: MessageEvent<WorkerResponse<TSolution> | Optimal2x2Progress | Random2x2Progress | TwoByTwoAcademyProgress | TwoByTwoPetrusProgress | Reduction4x4Progress | FullReduction4x4Progress | Reduction5x5CycleProgress | Reduction5x5BarProgress>) => {
     const response = event.data;
     if ("type" in response && response.type === progressType) {
       onProgress?.(response.stage);
@@ -341,5 +342,18 @@ export const createReduction5x5CycleSolverClient = <TState, TSolution>(
   "reduction5x5CycleProgress",
   "The 5×5 centre-cycle worker could not start.",
   "The 5×5 centre-cycle worker was stopped.",
+  onProgress,
+);
+
+/** Broader 1×3 centre-bar commutator setups are cancellable worker work. */
+export const createReduction5x5BarSolverClient = <TState, TSolution>(
+  worker: Worker,
+  onProgress?: (stage: string) => void,
+) => createProgressSolverClient<TState, TSolution>(
+  worker,
+  "solve5x5CentreBar",
+  "reduction5x5BarProgress",
+  "The 5×5 centre-bar worker could not start.",
+  "The 5×5 centre-bar worker was stopped.",
   onProgress,
 );
