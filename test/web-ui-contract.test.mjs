@@ -727,6 +727,7 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.doesNotMatch(client, /cubelab-smart-cube-diagnostic-v1/);
   assert.match(client, /traceSmartCubeStabilization\("gyro orientation"/);
   assert.match(client, /traceSmartCubeStabilization\("virtual regrip"/);
+  assert.match(client, /viewport\?\.rebaseDeviceOrientation\([\s\S]*observed\.tracker\.baseline/);
   assert.match(client, /traceSmartCubeStabilization\("received event"/);
   assert.match(client, /manager\.subscribeCommands\(\(command\) =>/);
   assert.match(client, /traceSmartCubeStabilization\("sent command"/);

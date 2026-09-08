@@ -5464,7 +5464,12 @@ if (root) {
             smartCubeDiscreteOrientationTracker = observed.tracker;
             if (smartCubeOrientationTracking && !smartCubeRecording && !smartCubeRecordingTapePresented) {
               viewport?.rebaseDeviceOrientation(
-                event.quaternion,
+                // The threshold tracker has already projected this early
+                // (~60°) packet onto its inferred 90° cardinal boundary.
+                // Rebase the live viewport to that same origin; retaining the
+                // raw packet here makes a reversal expose their 30° mismatch
+                // as a visible cube jump.
+                observed.tracker.baseline,
                 observed.tracker.orientation,
                 event.coordinateFrame,
               );
