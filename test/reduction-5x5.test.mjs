@@ -5,7 +5,7 @@ import * as MoveParser from "../src/Move/MoveParser.res.mjs";
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as Orbit64Codec from "../src/State/Orbit64Codec.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
-import {findL2CRelation5x5, findOneByThreeBar5x5, inspectReduction5x5, planOLLParityRepair5x5, planPLLParityRepair5x5, planNextCentre5x5, planNextWingPair5x5, reduce5x5, solveXCentreCycle5x5} from "../src/Solver/Reduction5x5.res.mjs";
+import {findL2CRelation5x5, findL2ERelation5x5, findOneByThreeBar5x5, inspectReduction5x5, planOLLParityRepair5x5, planPLLParityRepair5x5, planNextCentre5x5, planNextWingPair5x5, reduce5x5, solveXCentreCycle5x5} from "../src/Solver/Reduction5x5.res.mjs";
 
 test("inspects fixed-core 5×5 centre and wing milestones", () => {
   const solved = StateTypes.solved(5);
@@ -157,6 +157,18 @@ test("uses a protected setup–cycle–restore wing guide for the reported L2E s
   const replay = MoveExecutor.applyAlg(state._0, guide._0.alg);
   expect(replay).toMatchObject({TAG: "Ok"});
   if (replay.TAG === "Ok") expect(inspectReduction5x5(replay._0)).toMatchObject({TAG: "Ok", _0: {centreFacesComplete: 6, wingPairsMatched: guide._0.after}});
+});
+
+test("solves the reported last-two-edges relation with a restored setup", () => {
+  const state = FaceletCodec.parse(5, "LRURLDUUULLUUULDUUULRRDRURDDDUURRRUURRRDURRRUBFBFLDBRUFFFFFLBFFFRFFFFLBLBLDDBUBLBDDDLUDDDDUDDDLRRRRDUBFBFULLLDFLLLLULLLDBRFRRBDLDFBBBBFFBBBRBBBBFFFBFU");
+  expect(state.TAG).toBe("Ok");
+  if (state.TAG !== "Ok") return;
+  const guide = findL2ERelation5x5(state._0);
+  expect(guide).toMatchObject({TAG: "Ok", _0: {kind: "l2e", before: 22, after: 24}});
+  if (guide.TAG !== "Ok") return;
+  const replay = MoveExecutor.applyAlg(state._0, guide._0.alg);
+  expect(replay).toMatchObject({TAG: "Ok"});
+  if (replay.TAG === "Ok") expect(inspectReduction5x5(replay._0)).toMatchObject({TAG: "Ok", _0: {centreFacesComplete: 6, wingPairsMatched: 24}});
 });
 
 test("finds an 8-move X-centre commutator for the reported endgame state", () => {

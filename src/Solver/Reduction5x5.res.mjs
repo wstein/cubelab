@@ -1188,6 +1188,98 @@ function planNextCentre5x5(state) {
   }
 }
 
+function findL2ERelation5x5(state) {
+  let initial = progressFor(state);
+  if (initial === undefined) {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The L2E relation solver requires a complete 5×5 state."
+      }
+    };
+  }
+  if (initial.faces !== 6) {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "Complete all six 3×3 centres before the L2E relation search."
+      }
+    };
+  }
+  let seed = parse("Rw' U2 Rw' U2 B2 Rw' B2 Rw' F2 Lw2 F2 Rw U2 Rw2");
+  if (seed === undefined) {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The L2E relation algorithm could not be parsed."
+      }
+    };
+  }
+  let best = {
+    contents: undefined
+  };
+  for (let xTurns = 0; xTurns <= 3; ++xTurns) {
+    for (let yTurns = 0; yTurns <= 3; ++yTurns) {
+      for (let zTurns = 0; zTurns <= 3; ++zTurns) {
+        let rotated = MoveTransform.rotate(MoveTransform.rotate(MoveTransform.rotate(seed, "X", xTurns), "Y", yTurns), "Z", zTurns);
+        centreSearchMoves.forEach(setupNotation => {
+          let setup = parse(setupNotation);
+          if (setup === undefined) {
+            return;
+          }
+          let alg = setup.concat(rotated).concat(MoveTransform.invert(setup));
+          let replay = MoveExecutor.applyAlg(state, alg);
+          if (replay.TAG !== "Ok") {
+            return;
+          }
+          let after = progressFor(replay._0);
+          if (after === undefined) {
+            return;
+          }
+          if (!(after.faces === 6 && after.wings > initial.wings)) {
+            return;
+          }
+          let guide_algorithm = MoveTransform.serialize(alg);
+          let guide_before = initial.wings;
+          let guide_after = after.wings;
+          let guide = {
+            alg: alg,
+            algorithm: guide_algorithm,
+            before: guide_before,
+            after: guide_after,
+            kind: "l2e",
+            barsBefore: 0,
+            barsAfter: 0,
+            completedBefore: 0,
+            completedAfter: 0
+          };
+          let current = best.contents;
+          if (current !== undefined && guide_after <= current.after) {
+            return;
+          } else {
+            best.contents = guide;
+            return;
+          }
+        });
+      }
+    }
+  }
+  let guide = best.contents;
+  if (guide !== undefined) {
+    return {
+      TAG: "Ok",
+      _0: guide
+    };
+  } else {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "No replay-verified L2E setup and restore relation was found."
+      }
+    };
+  }
+}
+
 function planNextWingPair5x5(state) {
   let initial = progressFor(state);
   if (initial === undefined) {
@@ -1338,12 +1430,7 @@ function planNextWingPair5x5(state) {
       _0: guide
     };
   } else {
-    return {
-      TAG: "Error",
-      _0: {
-        message: "No centre-preserving wing improvement is available. Make a pairing setup, then request the next guide."
-      }
-    };
+    return findL2ERelation5x5(state);
   }
 }
 
@@ -1596,6 +1683,7 @@ export {
   solvePlusCentreCycle5x5,
   planNextCentreOrbit,
   planNextCentre5x5,
+  findL2ERelation5x5,
   planNextWingPair5x5,
   reduce5x5,
   planOLLParityRepair5x5,

@@ -534,6 +534,44 @@ let planNextCentre5x5 = (state: cubeState): result<guide, reductionError> =>
   }
   }
 
+/** Dedicated L2E relation search. It sets up the two remaining dedges around
+ * the published L2E interchange, executes it, and restores the setup. */
+let findL2ERelation5x5 = (state: cubeState): result<guide, reductionError> =>
+  switch progressFor(state) {
+  | None => Error({message: "The L2E relation solver requires a complete 5×5 state."})
+  | Some(initial) if initial.faces != 6 => Error({message: "Complete all six 3×3 centres before the L2E relation search."})
+  | Some(initial) => switch parse("Rw' U2 Rw' U2 B2 Rw' B2 Rw' F2 Lw2 F2 Rw U2 Rw2") {
+    | None => Error({message: "The L2E relation algorithm could not be parsed."})
+    | Some(seed) => {
+      let best = ref(None)
+      for xTurns in 0 to 3 {
+        for yTurns in 0 to 3 {
+          for zTurns in 0 to 3 {
+            let rotated = seed->MoveTransform.rotate(~axis=X, ~turns=xTurns)->MoveTransform.rotate(~axis=Y, ~turns=yTurns)->MoveTransform.rotate(~axis=Z, ~turns=zTurns)
+            centreSearchMoves->Array.forEach(setupNotation => switch parse(setupNotation) {
+              | Some(setup) => {
+                let alg = Array.concat(Array.concat(setup, rotated), MoveTransform.invert(setup))
+                switch MoveExecutor.applyAlg(state, alg) {
+                | Ok(replay) => switch progressFor(replay) {
+                  | Some(after) if after.faces == 6 && after.wings > initial.wings => {
+                    let guide = {alg, algorithm: MoveTransform.serialize(alg), before: initial.wings, after: after.wings, kind: "l2e", barsBefore: 0, barsAfter: 0, completedBefore: 0, completedAfter: 0}
+                    switch best.contents { | None => best := Some(guide) | Some(current) if guide.after > current.after => best := Some(guide) | Some(_) => () }
+                    }
+                  | _ => ()
+                  }
+                | Error(_) => ()
+                }
+                }
+              | None => ()
+            })
+          }
+        }
+      }
+      switch best.contents { | Some(guide) => Ok(guide) | None => Error({message: "No replay-verified L2E setup and restore relation was found."}) }
+    }
+  }
+  }
+
 let planNextWingPair5x5 = (state: cubeState): result<guide, reductionError> =>
   switch progressFor(state) {
   | None => Error({message: "The 5×5 wing guide requires a complete state."})
@@ -604,9 +642,13 @@ let planNextWingPair5x5 = (state: cubeState): result<guide, reductionError> =>
       }
       })
     }
-    switch best.contents { | Some(guide) => Ok(guide) | None => Error({message: "No centre-preserving wing improvement is available. Make a pairing setup, then request the next guide."}) }
+    switch best.contents {
+    | Some(guide) => Ok(guide)
+    | None => findL2ERelation5x5(state)
+    }
   }
   }
+
 
 /**
  * Projects only a genuinely reduced 5×5. The fixed middle edges supply the
