@@ -997,9 +997,10 @@ export type CubeViewport = {
     gestureBaseline?: OrientationQuaternion,
   ) => OrientationQuaternion;
   rebaseDeviceOrientation: (
-    orientation: OrientationQuaternion,
+    baseline: OrientationQuaternion,
     virtualOrientation: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
+    currentOrientation?: OrientationQuaternion,
   ) => void;
   reconcileDeviceOrientation: (
     orientation: OrientationQuaternion,
@@ -2593,11 +2594,16 @@ export const createCubeViewport = (
       requestRender();
       return alignment;
     },
-    rebaseDeviceOrientation(orientation, virtualOrientation, coordinateFrame = "viewport") {
+    rebaseDeviceOrientation(baseline, virtualOrientation, coordinateFrame = "viewport", currentOrientation = baseline) {
       rebaseGlyphRufOrientation(virtualOrientation);
-      const normalized = normalizedQuaternion(orientation);
-      deviceOrientationBase = normalized;
-      deviceOrientation = normalized;
+      // The detector advances its baseline to a synthetic cardinal 90° pose
+      // as soon as a raw packet crosses its early (~60°) threshold.  Keep the
+      // actual packet as the current live orientation: its residual against
+      // the new baseline renders the still-in-progress part of the turn.
+      // Replacing it with `baseline` here visibly snaps every regrip, most
+      // obviously when a y turn is immediately reversed.
+      deviceOrientationBase = normalizedQuaternion(baseline);
+      deviceOrientation = normalizedQuaternion(currentOrientation);
       deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
       gyroDriftOffset = {x: 0, y: 0, z: 0, w: 1};
       lastGyroDriftTime = null;
