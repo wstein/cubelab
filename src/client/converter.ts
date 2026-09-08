@@ -5297,6 +5297,17 @@ if (root) {
           );
           smartCubeVirtualFixpointTracker = observed.tracker;
           if (observed.tokens.length > 0) {
+            // The viewport, continuous gauge baseline, and face-flick frame
+            // must advance together. Otherwise two non-commuting regrips can
+            // compose as z·y in the view but y·z in the virtual tracker.
+            smartCubeDiscreteOrientationTracker = observed.tracker;
+            if (smartCubeOrientationTracking && !smartCubeRecording && !smartCubeRecordingTapePresented) {
+              viewport?.rebaseDeviceOrientation(
+                event.quaternion,
+                observed.tracker.orientation,
+                event.coordinateFrame,
+              );
+            }
             traceSmartCubeStabilization("virtual regrip", {
               notationTokens: observed.tokens,
               sensorFrameTokens: observed.frameTokens,

@@ -286,6 +286,9 @@ matters at a 45° boundary: the drift offset is part of the Up decision, rather 
 adjustment applied after a centre colour has already been chosen. Phase two measures
 gyro movement from the last accepted virtual regrip, rather than the initial viewport
 baseline, so that an already-recorded `y` regrip is not accidentally applied twice.
+Each accepted regrip also rebases the viewport and live gauge to that same accumulated
+virtual orientation. This keeps non-commuting sequences such as `z` then `y` in the
+same order everywhere, rather than allowing the view and tracker to diverge.
 
 For hardware diagnosis, turn **Diagnostics** on before reproducing a turn. Diagnostic
 records are captured only while that control is on; turning it off immediately clears

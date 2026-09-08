@@ -40,6 +40,12 @@ import {cubieIsFrontFacing} from "../../src/client/motion-overlay";
 const viewportSource = await readFile(new URL("../../src/client/cube-gl.ts", import.meta.url), "utf8");
 
 describe("cube viewport math", () => {
+  test("rebases a confirmed virtual regrip into the viewport's persistent orientation", () => {
+    expect(viewportSource).toMatch(/rebaseDeviceOrientation/);
+    expect(viewportSource).toMatch(/deviceOrientationCorrection = normalizedQuaternion\(virtualOrientation\)/);
+    expect(viewportSource).not.toMatch(/label: "-x"|label: "-y"|label: "-z"/);
+  });
+
   test("rotates a flicked face into virtual Right before resolving Up", () => {
     const identity = {x: 0, y: 0, z: 0, w: 1};
 

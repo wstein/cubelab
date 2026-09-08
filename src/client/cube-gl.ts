@@ -969,6 +969,11 @@ export type CubeViewport = {
     flickedFace?: string,
     gestureBaseline?: OrientationQuaternion,
   ) => OrientationQuaternion;
+  rebaseDeviceOrientation: (
+    orientation: OrientationQuaternion,
+    virtualOrientation: OrientationQuaternion,
+    frame?: OrientationCoordinateFrame,
+  ) => void;
   reconcileDeviceOrientation: (
     orientation: OrientationQuaternion,
     target: OrientationQuaternion,
@@ -1174,14 +1179,10 @@ export const createCubeViewport = (
       ? {U: "#f5f5f2", R: "#eb4d4a", F: "#66cc57", D: "#facc2e", L: "#f58c26", B: "#479eF0"}
       : {U: "#f2f2f2", R: "#c4352e", F: "#218c4a", D: "#f5cc33", L: "#f07821", B: "#2959a8"};
     const front = palette === "Japanese" ? faceColours.B : faceColours.F;
-    const back = palette === "Japanese" ? faceColours.F : faceColours.B;
     const axisSpecs: Array<{label: string; point: [number, number, number]; colour: string}> = [
       {label: "x", point: [1, 0, 0], colour: faceColours.R},
-      {label: "-x", point: [-1, 0, 0], colour: faceColours.L},
       {label: "y", point: [0, 1, 0], colour: faceColours.U},
-      {label: "-y", point: [0, -1, 0], colour: faceColours.D},
       {label: "z", point: [0, 0, 1], colour: front},
-      {label: "-z", point: [0, 0, -1], colour: back},
     ];
     const axes = axisSpecs.map((axis) => {
       const endpoint = projectPoint(axis.point, matrices.modelView, matrices.projection, width, height);
@@ -2468,6 +2469,24 @@ export const createCubeViewport = (
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
       return alignment;
+    },
+    rebaseDeviceOrientation(orientation, virtualOrientation, coordinateFrame = "viewport") {
+      const normalized = normalizedQuaternion(orientation);
+      deviceOrientationBase = normalized;
+      deviceOrientation = normalized;
+      deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
+      gyroDriftOffset = {x: 0, y: 0, z: 0, w: 1};
+      lastGyroDriftTime = null;
+      isGyroDrifting = false;
+      deviceOrientationFrame = coordinateFrame;
+      if (deviceOrientationCorrectionFrame !== null) {
+        window.cancelAnimationFrame(deviceOrientationCorrectionFrame);
+        deviceOrientationCorrectionFrame = null;
+      }
+      deviceOrientationCorrection = normalizedQuaternion(virtualOrientation);
+      deviceOrientationCorrectionGeneration += 1;
+      canvas.dataset.deviceOrientation = "tracking";
+      requestRender();
     },
     reconcileDeviceOrientation(orientation, target, coordinateFrame = "viewport") {
       const normalized = normalizedQuaternion(orientation);
