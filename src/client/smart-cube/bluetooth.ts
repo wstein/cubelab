@@ -101,7 +101,10 @@ export const normalizeTransportEvent = (
           w: event.quaternion.w,
         };
         coordinateFrame = "gocube-wire";
-      } else if (protocolId === "gan") {
+      } else if (protocolId === "gan" || /^gan-gen[1-4]$/.test(protocolId)) {
+        // GAN i4 is a Gen4 cube. All supported GAN generations publish the
+        // same device-axis convention, so keep gyro/regrip math in gan-wire
+        // rather than falling back to an uncalibrated viewport frame.
         coordinateFrame = "gan-wire";
       }
       return {

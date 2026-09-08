@@ -5,7 +5,7 @@ the commit-pinned `smartcube-web-bluetooth` transport and exposes normalized sma
 
 Supported protocol families:
 
-- GAN Gen1–Gen4, including MAC-derived AES variants
+- GAN Gen1–Gen4, including GAN i4 (Gen4) and MAC-derived AES variants
 - GiiKER / Mi Smart 20-byte cubie-state frames
 - GoCube and Rubik's Connected Nordic UART frames
 - MoYu MHC and MoYu32; AiCube models using GAN Gen2 framing are identified as MoYu

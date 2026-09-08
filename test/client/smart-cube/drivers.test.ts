@@ -17,6 +17,7 @@ describe("smart cube driver registry", () => {
 
   test("resolves native protocol families", () => {
     expect(resolveSmartCubeDriver("gan-gen4", "GAN14ui")?.brand).toBe("gan");
+    expect(resolveSmartCubeDriver("gan-gen4", "GANi4_A26E")?.brand).toBe("gan");
     expect(resolveSmartCubeDriver("giiker", "GiCube")?.brand).toBe("giiker");
     expect(resolveSmartCubeDriver("gocube", "Rubik's Connected")?.brand).toBe("gocube");
     expect(resolveSmartCubeDriver("moyu-mhc", "MHC-01")?.brand).toBe("moyu");

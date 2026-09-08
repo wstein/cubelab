@@ -99,6 +99,15 @@ describe("smart cube event normalization", () => {
       quaternion: {x: 0.1, y: 0.2, z: 0.3, w: 0.9},
     });
   });
+
+  test("tags GAN i4 Gen4 orientation packets with the GAN hardware frame", () => {
+    const normalized = normalizeTransportEvent({
+      type: "GYRO",
+      timestamp: 12,
+      quaternion: {x: 0, y: 0, z: 0, w: 1},
+    }, "gan-gen4");
+    expect(normalized).toMatchObject({type: "orientation", coordinateFrame: "gan-wire"});
+  });
 });
 
 describe("live cube orientation tracking and wire coordinate regression tests", () => {
