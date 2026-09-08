@@ -12,6 +12,10 @@ locations because their text no longer occupies the original input span. Seriali
 always emits explicit, modern notation: uppercase `Rw` wide moves, numbered inner
 layers, `x/y/z` rotations, direct repetition suffixes, and one space between units.
 
+The Setup panel keeps only its state and Moves inputs open by default. Its native
+**Expand Setup options** disclosure reveals notes, solvers, transforms, compatibility,
+and quick-load presets on demand; closing it never changes the current setup or moves.
+
 ## Transformations
 
 ### Invert

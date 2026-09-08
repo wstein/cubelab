@@ -478,6 +478,15 @@ test("the web UI exposes pure algorithm transforms and a clearly labeled practic
   assert.match(client, /if \(smartCubeSyncMode === "VirtualController"\) return/);
 });
 
+test("Setup keeps optional tools behind an explicit expand control", () => {
+  assert.match(page, /<details class="setup-options" data-setup-options>/);
+  assert.match(page, /<summary>Expand Setup options<\/summary>/);
+  const optionsStart = page.indexOf('data-setup-options');
+  assert.ok(optionsStart > page.indexOf('id="cube-moves"'));
+  assert.ok(page.indexOf('data-two-phase-solve', optionsStart) > optionsStart);
+  assert.ok(page.indexOf('data-practice-scramble', optionsStart) > optionsStart);
+});
+
 test("the Setup parser recognizes explicit SSE cubie-state cycles apart from algorithms", () => {
   assert.match(client, /looksLikeSseState/);
   assert.match(client, /parseSseState/);

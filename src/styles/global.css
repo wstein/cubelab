@@ -2425,6 +2425,23 @@ textarea.manual-state-notation-input {
   min-height: 4.9rem;
 }
 
+.setup-options {
+  margin-top: 0.8rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.setup-options summary {
+  padding: 0.7rem 0 0.1rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.setup-options[open] summary {
+  margin-bottom: 0.55rem;
+}
+
 .input-help {
   margin-top: 0.6rem;
   color: var(--text-muted);
