@@ -7514,7 +7514,14 @@ if (root) {
     void smartCubeManager?.disconnect();
   });
   smartCubeChooseSession.addEventListener("click", () => {
-    void smartCubeManager?.reconnect().catch((reason) => {
+    // The mock page hides the ordinary Connect control. On a fresh page there
+    // is no manager to reconnect yet, so route this explicit QA action through
+    // the same connect flow that creates it and opens the session picker.
+    if (!smartCubeManager) {
+      smartCubeConnect.click();
+      return;
+    }
+    void smartCubeManager.reconnect().catch((reason) => {
       smartCubeStatus.textContent = reason instanceof Error ? reason.message : String(reason);
     });
   });
