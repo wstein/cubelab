@@ -766,12 +766,12 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /await smartCubeManager\.resetCubeState\(\)/);
   assert.match(client, /local baseline updated without reading facelets/);
   assert.match(viewportComponent, /data-smart-cube-mac-recovery/);
-  assert.match(client, /enableAddressSearch: false/);
+  assert.match(client, /await manager\.connect\(\);/);
   assert.match(client, /data-smart-cube-mac-recovery/);
   assert.match(client, /macAddressProvider: promptForEncryptedCubeMac/);
   assert.match(client, /promptForEncryptedCubeMac = async/);
   assert.match(client, /if \(!isFallbackCall\) return recoverGanI4MacFromAdvertisements\(device\);/);
-  assert.match(bluetoothClient, /const recoveredGanI4Mac = options\.enableAddressSearch/);
+  assert.match(bluetoothClient, /const recoveredGanI4Mac = await recoverGanI4MacFromAdvertisements\(device\);/);
   assert.match(client, /device: diagnosticDevice/);
   assert.match(client, /enable-experimental-web-platform-features/);
   assert.match(client, /assessSmartCubeMove/);

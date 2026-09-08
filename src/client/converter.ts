@@ -7425,10 +7425,9 @@ if (root) {
       smartCubeMacRecoveryAvailable = false;
       smartCubeMacRecovery.hidden = true;
       smartCubeStateSyncPending = true;
-      // MAC-address discovery can add 8–23 seconds before GATT even starts.
-      // It is only needed by encrypted protocols, so the normal connection
-      // path deliberately stays fast and asks for recovery only on demand.
-      await manager.connect({enableAddressSearch: false});
+      // GAN i4 MAC recovery is a no-op for every other device and runs before
+      // its GATT connection, so an i4 enters its encrypted path directly.
+      await manager.connect();
     } catch (reason) {
       if (bluetoothChooserWasCancelled(reason)) {
         await smartCubeManager?.disconnect();

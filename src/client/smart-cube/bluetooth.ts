@@ -214,9 +214,10 @@ export const smartCubeTransportConnector: TransportConnector = async (
   // A GAN i4 puts its encryption MAC before an FF broadcast trailer, unlike
   // other GAN models. Capture that packet while it still advertises and before
   // GATT connects; the generic library parser otherwise sees only the FFs.
-  const recoveredGanI4Mac = options.enableAddressSearch
-    ? await recoverGanI4MacFromAdvertisements(device)
-    : null;
+  // Do this on the initial connection as well. The helper returns immediately
+  // for every non-i4 device, while an i4 obtains its encryption MAC before the
+  // generic encrypted connection can fail and surface a recovery-only UI.
+  const recoveredGanI4Mac = await recoverGanI4MacFromAdvertisements(device);
   const macAddressProvider = recoveredGanI4Mac
     ? async () => recoveredGanI4Mac
     : options.macAddressProvider;
