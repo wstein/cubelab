@@ -4,7 +4,7 @@ import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
 import * as MoveParser from "../src/Move/MoveParser.res.mjs";
 import * as Orbit64Codec from "../src/State/Orbit64Codec.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
-import {findOneByThreeBar5x5, inspectReduction5x5, planNextCentre5x5, planNextWingPair5x5, reduce5x5} from "../src/Solver/Reduction5x5.res.mjs";
+import {findOneByThreeBar5x5, inspectReduction5x5, planNextCentre5x5, planNextWingPair5x5, reduce5x5, solveXCentreCycle5x5} from "../src/Solver/Reduction5x5.res.mjs";
 
 test("inspects fixed-core 5×5 centre and wing milestones", () => {
   const solved = StateTypes.solved(5);
@@ -117,3 +117,14 @@ test("returns a centre-preserving slice-cycle wing improvement", () => {
     expect(inspectReduction5x5(replay._0)).toMatchObject({TAG: "Ok", _0: {centreFacesComplete: 6}});
   }
 });
+
+test("finds an 8-move X-centre commutator for the reported endgame state", () => {
+  const state = Orbit64Codec.decodeState("Aeqx8Vluxg8M8JeJaRG-X2TAv76y6Xw7skl252dK-s4");
+  expect(state.TAG).toBe("Ok");
+  if (state.TAG !== "Ok") return;
+  const cycle = solveXCentreCycle5x5(state._0);
+  expect(cycle).toMatchObject({TAG: "Ok", _0: {algorithm: "2U' L 2D' L' 2U L 2D L'", kind: "xCycle", before: 38, after: 41}});
+  const plan = planNextCentre5x5(state._0);
+  expect(plan).toMatchObject({TAG: "Ok", _0: {algorithm: "2U' L 2D' L' 2U L 2D L'", kind: "xCycle", before: 38, after: 41}});
+});
+

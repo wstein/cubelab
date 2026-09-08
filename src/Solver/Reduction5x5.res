@@ -198,46 +198,138 @@ let findOneByThreeBar5x5 = (state: cubeState): result<guide, reductionError> =>
   }
   }
 
+/** Evaluates standard 8-move 3-cycle centre commutators [S1, F S2 F'] = S1 F S2 F' S1' F S2' F'.
+ * These resolve isolated X-centres and +-centres when 1×3 bars are already complete. */
+let findCentreCommutator = (state: cubeState, initial: progress): option<guide> => {
+  let innerSlices = ["2R", "2R'", "2L", "2L'", "2U", "2U'", "2D", "2D'", "2F", "2F'", "2B", "2B'"]
+  let middleSlices = ["3R", "3R'", "3U", "3U'", "3F", "3F'"]
+  let faces = ["U", "U'", "D", "D'", "F", "F'", "B", "B'", "L", "L'", "R", "R'"]
+  let invertMove = (m: string) => if m->String.endsWith("'") { m->String.slice(~start=0, ~end=m->String.length - 1) } else { m ++ "'" }
+  let best = ref(None)
+
+  // First check X-centre commutators across inner slices
+  innerSlices->Array.forEach(s1 => faces->Array.forEach(f => innerSlices->Array.forEach(s2 => {
+    let s1Base = s1->String.replace("'", "")
+    let s2Base = s2->String.replace("'", "")
+    if s1Base != s2Base {
+      let invF = invertMove(f)
+      let invS1 = invertMove(s1)
+      let invS2 = invertMove(s2)
+      let comm = `${s1} ${f} ${s2} ${invF} ${invS1} ${f} ${invS2} ${invF}`
+      switch parse(comm) {
+      | None => ()
+      | Some(alg) => switch MoveExecutor.applyAlg(state, alg) {
+        | Error(_) => ()
+        | Ok(replay) => switch progressFor(replay) {
+          | Some(after) if after.x > initial.x => {
+            let completedBefore = initial.x + initial.plus
+            let completedAfter = after.x + after.plus
+            let guide = {alg, algorithm: MoveTransform.serialize(alg), before: initial.score, after: after.score, kind: "xCycle", barsBefore: 0, barsAfter: 0, completedBefore, completedAfter}
+            switch best.contents {
+            | None => best := Some(guide)
+            | Some(current) if guide.completedAfter > current.completedAfter || (guide.completedAfter == current.completedAfter && guide.after > current.after) => best := Some(guide)
+            | Some(_) => ()
+            }
+          }
+          | _ => ()
+          }
+        }
+      }
+    }
+  })))
+
+  // If no X-centre improvement was found, check +-centre commutators involving middle or inner slices
+  if best.contents == None {
+    let allSlices = Array.concat(innerSlices, middleSlices)
+    allSlices->Array.forEach(s1 => faces->Array.forEach(f => allSlices->Array.forEach(s2 => {
+      let s1Base = s1->String.replace("'", "")
+      let s2Base = s2->String.replace("'", "")
+      if s1Base != s2Base && (s1->String.startsWith("3") || s2->String.startsWith("3")) {
+        let invF = invertMove(f)
+        let invS1 = invertMove(s1)
+        let invS2 = invertMove(s2)
+        let comm = `${s1} ${f} ${s2} ${invF} ${invS1} ${f} ${invS2} ${invF}`
+        switch parse(comm) {
+        | None => ()
+        | Some(alg) => switch MoveExecutor.applyAlg(state, alg) {
+          | Error(_) => ()
+          | Ok(replay) => switch progressFor(replay) {
+            | Some(after) if after.plus > initial.plus && after.x >= initial.x => {
+              let completedBefore = initial.x + initial.plus
+              let completedAfter = after.x + after.plus
+              let guide = {alg, algorithm: MoveTransform.serialize(alg), before: initial.score, after: after.score, kind: "plusCycle", barsBefore: 0, barsAfter: 0, completedBefore, completedAfter}
+              switch best.contents {
+              | None => best := Some(guide)
+              | Some(current) if guide.completedAfter > current.completedAfter || (guide.completedAfter == current.completedAfter && guide.after > current.after) => best := Some(guide)
+              | Some(_) => ()
+              }
+            }
+            | _ => ()
+            }
+          }
+        }
+      }
+    })))
+  }
+
+  best.contents
+}
+
 /** Runs only in the solver worker. The diagonal X-centres are isomorphic to
  * the 24 centres of a 4×4, so the exact three-phase coordinate can supply a
  * replay-verified 5×5 centre cycle. */
 let solveXCentreCycle5x5 = (state: cubeState): result<guide, reductionError> =>
   switch progressFor(state) {
   | None => Error({message: "The 5×5 centre-cycle solver requires a complete state."})
-  | Some(initial) => {
-    let compact = FaceletCodec.render(state)
-    let output = ref([])
-    [0, 3, 2, 5, 1, 4]->Array.forEach(faceIndex => {
-      let face = faceAt(compact, faceIndex)
-      [6, 8, 18, 16]->Array.forEach(index => output := Array.concat(output.contents, [charAt(face, index)]))
-    })
-    let centres = output.contents->Array.join("")
-    // This is a bounded diagnostic only: ThreePhase4x4's phase-two heuristic
-    // is not exact under its restricted move set, so deeper limits can explode.
-    switch ThreePhase4x4.solveCentreReduction(centres, 6, 6, 3) {
-    | Error(_) => Error({message: "No safe bounded X-centre cycle was found within the search budget. Find 1×3 bar commutator remains available for a separate bounded setup search."})
-    | Ok(solution) => {
-      let notation = Array.concat(solution.phase1Notations, solution.phase2Notations)->Array.join(" ")
-      switch parse(notation) {
-      | None => Error({message: "The X-centre solver generated invalid 5×5 notation."})
-      | Some(alg) => switch MoveExecutor.applyAlg(state, alg) {
-        | Error(_) => Error({message: "The X-centre cycle could not be replayed on the 5×5 state."})
-        | Ok(replay) => switch progressFor(replay) {
-          | Some(after) if after.x > initial.x => Ok({alg, algorithm: MoveTransform.serialize(alg), before: initial.score, after: after.score, kind: "xCycle", barsBefore: 0, barsAfter: 0, completedBefore: initial.x + initial.plus, completedAfter: after.x + after.plus})
-          | _ => Error({message: "The mapped X-centre cycle did not improve the 5×5 X-centre orbit."})
+  | Some(initial) =>
+    switch findCentreCommutator(state, initial) {
+    | Some(guide) if guide.kind == "xCycle" => Ok(guide)
+    | _ => {
+      let compact = FaceletCodec.render(state)
+      let output = ref([])
+      [0, 3, 2, 5, 1, 4]->Array.forEach(faceIndex => {
+        let face = faceAt(compact, faceIndex)
+        [6, 8, 18, 16]->Array.forEach(index => output := Array.concat(output.contents, [charAt(face, index)]))
+      })
+      let centres = output.contents->Array.join("")
+      // This is a bounded diagnostic only: ThreePhase4x4's phase-two heuristic
+      // is not exact under its restricted move set, so deeper limits can explode.
+      switch ThreePhase4x4.solveCentreReduction(centres, 6, 6, 3) {
+      | Error(_) =>
+        switch findCentreCommutator(state, initial) {
+        | Some(guide) => Ok(guide)
+        | None => Error({message: "No safe bounded X-centre cycle was found within the search budget. Find 1×3 bar commutator remains available for a separate bounded setup search."})
+        }
+      | Ok(solution) => {
+        let notation = Array.concat(solution.phase1Notations, solution.phase2Notations)->Array.join(" ")
+        switch parse(notation) {
+        | None => Error({message: "The X-centre solver generated invalid 5×5 notation."})
+        | Some(alg) => switch MoveExecutor.applyAlg(state, alg) {
+          | Error(_) => Error({message: "The X-centre cycle could not be replayed on the 5×5 state."})
+          | Ok(replay) => switch progressFor(replay) {
+            | Some(after) if after.x > initial.x => Ok({alg, algorithm: MoveTransform.serialize(alg), before: initial.score, after: after.score, kind: "xCycle", barsBefore: 0, barsAfter: 0, completedBefore: initial.x + initial.plus, completedAfter: after.x + after.plus})
+            | _ => Error({message: "The mapped X-centre cycle did not improve the 5×5 X-centre orbit."})
+            }
           }
         }
       }
+      }
     }
     }
-  }
   }
 
 /** The orthogonal +-centres are the second 24-piece regular orbit. Their
  * geometry does not share 4×4 inner-slice mechanics, so they use the teachable
  * bar and commutator guide. */
-let solvePlusCentreCycle5x5 = (_state: cubeState): result<guide, reductionError> =>
-  Error({message: "+-centres do not share 4×4 geometry. Their guidance is provided by the replay-verified centre planner."})
+let solvePlusCentreCycle5x5 = (state: cubeState): result<guide, reductionError> =>
+  switch progressFor(state) {
+  | None => Error({message: "The 5×5 centre-cycle solver requires a complete state."})
+  | Some(initial) =>
+    switch findCentreCommutator(state, initial) {
+    | Some(guide) => Ok(guide)
+    | None => Error({message: "+-centres do not share 4×4 geometry. Their guidance is provided by the replay-verified centre planner."})
+    }
+  }
 
 /** When individual sticker placement is locally flat, prefer completing one
  * whole X- or +-centre orbit. This keeps the tutorial moving through its
@@ -326,11 +418,14 @@ let planNextCentre5x5 = (state: cubeState): result<guide, reductionError> =>
     | Some(guide) => Ok(guide)
     | None => switch bestBar.contents {
       | Some(guide) => Ok(guide)
-      | None => switch planOneByThreeBar(state, initial) {
+      | None => switch findCentreCommutator(state, initial) {
         | Some(guide) => Ok(guide)
-        | None => switch planNextCentreOrbit(state, initial) {
+        | None => switch planOneByThreeBar(state, initial) {
           | Some(guide) => Ok(guide)
-          | None => Error({message: "No replay-verified 1×3 bar insertion is available for this state."})
+          | None => switch planNextCentreOrbit(state, initial) {
+            | Some(guide) => Ok(guide)
+            | None => Error({message: "No replay-verified 1×3 bar insertion or centre commutator is available for this state."})
+            }
           }
         }
       }

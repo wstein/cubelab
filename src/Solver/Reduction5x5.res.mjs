@@ -406,7 +406,7 @@ function findOneByThreeBar5x5(state) {
                   };
                   let current = best.contents;
                   if (current !== undefined && !(match$1 > current.barsAfter || match$1 === current.barsAfter && guide_after > current.after)) {
-
+                    
                   } else {
                     best.contents = guide;
                   }
@@ -435,6 +435,165 @@ function findOneByThreeBar5x5(state) {
   }
 }
 
+function findCentreCommutator(state, initial) {
+  let innerSlices = [
+    "2R",
+    "2R'",
+    "2L",
+    "2L'",
+    "2U",
+    "2U'",
+    "2D",
+    "2D'",
+    "2F",
+    "2F'",
+    "2B",
+    "2B'"
+  ];
+  let middleSlices = [
+    "3R",
+    "3R'",
+    "3U",
+    "3U'",
+    "3F",
+    "3F'"
+  ];
+  let faces = [
+    "U",
+    "U'",
+    "D",
+    "D'",
+    "F",
+    "F'",
+    "B",
+    "B'",
+    "L",
+    "L'",
+    "R",
+    "R'"
+  ];
+  let invertMove = m => {
+    if (m.endsWith("'")) {
+      return m.slice(0, m.length - 1 | 0);
+    } else {
+      return m + "'";
+    }
+  };
+  let best = {
+    contents: undefined
+  };
+  innerSlices.forEach(s1 => {
+    faces.forEach(f => {
+      innerSlices.forEach(s2 => {
+        let s1Base = s1.replace("'", "");
+        let s2Base = s2.replace("'", "");
+        if (s1Base === s2Base) {
+          return;
+        }
+        let invF = invertMove(f);
+        let invS1 = invertMove(s1);
+        let invS2 = invertMove(s2);
+        let comm = s1 + ` ` + f + ` ` + s2 + ` ` + invF + ` ` + invS1 + ` ` + f + ` ` + invS2 + ` ` + invF;
+        let alg = parse(comm);
+        if (alg === undefined) {
+          return;
+        }
+        let replay = MoveExecutor.applyAlg(state, alg);
+        if (replay.TAG !== "Ok") {
+          return;
+        }
+        let after = progressFor(replay._0);
+        if (after === undefined) {
+          return;
+        }
+        if (after.x <= initial.x) {
+          return;
+        }
+        let completedBefore = initial.x + initial.plus | 0;
+        let completedAfter = after.x + after.plus | 0;
+        let guide_algorithm = MoveTransform.serialize(alg);
+        let guide_before = initial.score;
+        let guide_after = after.score;
+        let guide = {
+          alg: alg,
+          algorithm: guide_algorithm,
+          before: guide_before,
+          after: guide_after,
+          kind: "xCycle",
+          barsBefore: 0,
+          barsAfter: 0,
+          completedBefore: completedBefore,
+          completedAfter: completedAfter
+        };
+        let current = best.contents;
+        if (current !== undefined && !(completedAfter > current.completedAfter || completedAfter === current.completedAfter && guide_after > current.after)) {
+          return;
+        } else {
+          best.contents = guide;
+          return;
+        }
+      });
+    });
+  });
+  if (best.contents === undefined) {
+    let allSlices = innerSlices.concat(middleSlices);
+    allSlices.forEach(s1 => {
+      faces.forEach(f => {
+        allSlices.forEach(s2 => {
+          let s1Base = s1.replace("'", "");
+          let s2Base = s2.replace("'", "");
+          if (!(s1Base !== s2Base && (s1.startsWith("3") || s2.startsWith("3")))) {
+            return;
+          }
+          let invF = invertMove(f);
+          let invS1 = invertMove(s1);
+          let invS2 = invertMove(s2);
+          let comm = s1 + ` ` + f + ` ` + s2 + ` ` + invF + ` ` + invS1 + ` ` + f + ` ` + invS2 + ` ` + invF;
+          let alg = parse(comm);
+          if (alg === undefined) {
+            return;
+          }
+          let replay = MoveExecutor.applyAlg(state, alg);
+          if (replay.TAG !== "Ok") {
+            return;
+          }
+          let after = progressFor(replay._0);
+          if (after === undefined) {
+            return;
+          }
+          if (!(after.plus > initial.plus && after.x >= initial.x)) {
+            return;
+          }
+          let completedBefore = initial.x + initial.plus | 0;
+          let completedAfter = after.x + after.plus | 0;
+          let guide_algorithm = MoveTransform.serialize(alg);
+          let guide_before = initial.score;
+          let guide_after = after.score;
+          let guide = {
+            alg: alg,
+            algorithm: guide_algorithm,
+            before: guide_before,
+            after: guide_after,
+            kind: "plusCycle",
+            barsBefore: 0,
+            barsAfter: 0,
+            completedBefore: completedBefore,
+            completedAfter: completedAfter
+          };
+          let current = best.contents;
+          if (current !== undefined && !(completedAfter > current.completedAfter || completedAfter === current.completedAfter && guide_after > current.after)) {
+            return;
+          } else {
+            best.contents = guide;
+            return;
+          }
+        });
+      });
+    });
+  }
+  return best.contents;
+}
+
 function solveXCentreCycle5x5(state) {
   let initial = progressFor(state);
   if (initial === undefined) {
@@ -443,6 +602,13 @@ function solveXCentreCycle5x5(state) {
       _0: {
         message: "The 5×5 centre-cycle solver requires a complete state."
       }
+    };
+  }
+  let guide = findCentreCommutator(state, initial);
+  if (guide !== undefined && guide.kind === "xCycle") {
+    return {
+      TAG: "Ok",
+      _0: guide
     };
   }
   let compact = FaceletCodec.render(state);
@@ -469,7 +635,59 @@ function solveXCentreCycle5x5(state) {
   });
   let centres = output.contents.join("");
   let solution = ThreePhase4x4.solveCentreReduction(centres, 6, 6, 3);
-  if (solution.TAG !== "Ok") {
+  if (solution.TAG === "Ok") {
+    let solution$1 = solution._0;
+    let notation = solution$1.phase1Notations.concat(solution$1.phase2Notations).join(" ");
+    let alg = parse(notation);
+    if (alg === undefined) {
+      return {
+        TAG: "Error",
+        _0: {
+          message: "The X-centre solver generated invalid 5×5 notation."
+        }
+      };
+    }
+    let replay = MoveExecutor.applyAlg(state, alg);
+    if (replay.TAG !== "Ok") {
+      return {
+        TAG: "Error",
+        _0: {
+          message: "The X-centre cycle could not be replayed on the 5×5 state."
+        }
+      };
+    }
+    let after = progressFor(replay._0);
+    if (after !== undefined && after.x > initial.x) {
+      return {
+        TAG: "Ok",
+        _0: {
+          alg: alg,
+          algorithm: MoveTransform.serialize(alg),
+          before: initial.score,
+          after: after.score,
+          kind: "xCycle",
+          barsBefore: 0,
+          barsAfter: 0,
+          completedBefore: initial.x + initial.plus | 0,
+          completedAfter: after.x + after.plus | 0
+        }
+      };
+    } else {
+      return {
+        TAG: "Error",
+        _0: {
+          message: "The mapped X-centre cycle did not improve the 5×5 X-centre orbit."
+        }
+      };
+    }
+  }
+  let guide$1 = findCentreCommutator(state, initial);
+  if (guide$1 !== undefined) {
+    return {
+      TAG: "Ok",
+      _0: guide$1
+    };
+  } else {
     return {
       TAG: "Error",
       _0: {
@@ -477,59 +695,32 @@ function solveXCentreCycle5x5(state) {
       }
     };
   }
-  let solution$1 = solution._0;
-  let notation = solution$1.phase1Notations.concat(solution$1.phase2Notations).join(" ");
-  let alg = parse(notation);
-  if (alg === undefined) {
+}
+
+function solvePlusCentreCycle5x5(state) {
+  let initial = progressFor(state);
+  if (initial === undefined) {
     return {
       TAG: "Error",
       _0: {
-        message: "The X-centre solver generated invalid 5×5 notation."
+        message: "The 5×5 centre-cycle solver requires a complete state."
       }
     };
   }
-  let replay = MoveExecutor.applyAlg(state, alg);
-  if (replay.TAG !== "Ok") {
-    return {
-      TAG: "Error",
-      _0: {
-        message: "The X-centre cycle could not be replayed on the 5×5 state."
-      }
-    };
-  }
-  let after = progressFor(replay._0);
-  if (after !== undefined && after.x > initial.x) {
+  let guide = findCentreCommutator(state, initial);
+  if (guide !== undefined) {
     return {
       TAG: "Ok",
-      _0: {
-        alg: alg,
-        algorithm: MoveTransform.serialize(alg),
-        before: initial.score,
-        after: after.score,
-        kind: "xCycle",
-        barsBefore: 0,
-        barsAfter: 0,
-        completedBefore: initial.x + initial.plus | 0,
-        completedAfter: after.x + after.plus | 0
-      }
+      _0: guide
     };
   } else {
     return {
       TAG: "Error",
       _0: {
-        message: "The mapped X-centre cycle did not improve the 5×5 X-centre orbit."
+        message: "+-centres do not share 4×4 geometry. Their guidance is provided by the replay-verified centre planner."
       }
     };
   }
-}
-
-function solvePlusCentreCycle5x5(_state) {
-  return {
-    TAG: "Error",
-    _0: {
-      message: "+-centres do not share 4×4 geometry. Their guidance is provided by the replay-verified centre planner."
-    }
-  };
 }
 
 function planNextCentreOrbit(state, initial) {
@@ -758,24 +949,31 @@ function planNextCentre5x5(state) {
       _0: guide$1
     };
   }
-  let guide$2 = planOneByThreeBar(state, initial);
+  let guide$2 = findCentreCommutator(state, initial);
   if (guide$2 !== undefined) {
     return {
       TAG: "Ok",
       _0: guide$2
     };
   }
-  let guide$3 = planNextCentreOrbit(state, initial);
+  let guide$3 = planOneByThreeBar(state, initial);
   if (guide$3 !== undefined) {
     return {
       TAG: "Ok",
       _0: guide$3
     };
+  }
+  let guide$4 = planNextCentreOrbit(state, initial);
+  if (guide$4 !== undefined) {
+    return {
+      TAG: "Ok",
+      _0: guide$4
+    };
   } else {
     return {
       TAG: "Error",
       _0: {
-        message: "No replay-verified 1×3 bar insertion is available for this state."
+        message: "No replay-verified 1×3 bar insertion or centre commutator is available for this state."
       }
     };
   }
@@ -994,6 +1192,7 @@ export {
   parse,
   planOneByThreeBar,
   findOneByThreeBar5x5,
+  findCentreCommutator,
   solveXCentreCycle5x5,
   solvePlusCentreCycle5x5,
   planNextCentreOrbit,
