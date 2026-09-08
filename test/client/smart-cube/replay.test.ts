@@ -151,7 +151,9 @@ describe("smart-cube replay tape", () => {
     vi.useFakeTimers();
     const manager = createReplaySmartCubeManager(tape);
     const received: string[] = [];
+    const resets: number[] = [];
     manager.subscribeEvents((event) => received.push(event.type));
+    manager.subscribeReplayReset(() => resets.push(1));
 
     await manager.connect();
     expect(manager.getState()).toMatchObject({phase: "connected", device: tape.header.device});
@@ -164,6 +166,7 @@ describe("smart-cube replay tape", () => {
 
     manager.pause();
     manager.seek(0);
+    expect(resets).toEqual([1]);
     expect(received).toEqual(["hardware", "battery", "hardware"]);
     expect(manager.getReplayState()).toMatchObject({status: "paused", offsetMs: 0, eventIndex: 1});
 

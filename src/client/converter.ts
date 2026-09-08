@@ -185,6 +185,7 @@ type ReplayControls = {
   seek: (offsetMs: number) => void;
   step: () => void;
   setRate: (rate: number) => void;
+  subscribeReplayReset: (listener: () => void) => () => void;
 };
 import {
   extremalStateFor,
@@ -5553,6 +5554,17 @@ if (root) {
               ? createReplaySmartCubeManager(await loadReplayTape(replayName))
               : createSmartCubeManager({isBluetoothAvailable: () => true});
           smartCubeReplayControlsApi = "getReplayState" in manager ? manager : null;
+          smartCubeReplayControlsApi?.subscribeReplayReset(() => {
+            // A backward seek must start the real downstream chain from a clean
+            // fold; queued move animations are non-idempotent.
+            smartCubeMoveQueue = Promise.resolve();
+            smartCubePendingMoves.length = 0;
+            smartCubeHalfTurnProgress = null;
+            clearSmartCubeRecovery();
+            latestSmartCubeOrientation = null;
+            smartCubeDiscreteOrientationTracker = null;
+            smartCubeVirtualFixpointTracker = null;
+          });
           manager.subscribeState(renderSmartCubeConnection);
           manager.subscribeCommands((command) => {
             traceSmartCubeStabilization("sent command", command);

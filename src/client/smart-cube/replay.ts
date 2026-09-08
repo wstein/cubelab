@@ -78,6 +78,8 @@ export type ReplaySmartCubeManager = SmartCubeManager & {
   seek: (offsetMs: number) => void;
   step: () => void;
   setRate: (rate: number) => void;
+  /** Fires before a backwards seek replays inputs from offset zero. */
+  subscribeReplayReset: (listener: () => void) => () => void;
   getIssuedCommands: () => readonly SmartCubeCommand[];
 };
 
@@ -269,6 +271,7 @@ export const createReplaySmartCubeManager = (source: SmartCubeTape | unknown): R
   const stateListeners = new Set<(state: SmartCubeConnectionState) => void>();
   const eventListeners = new Set<(event: SmartCubeEvent) => void>();
   const commandListeners = new Set<(command: SmartCubeCommand) => void>();
+  const replayResetListeners = new Set<() => void>();
 
   const publishState = (next: SmartCubeConnectionState) => {
     state = next;
@@ -377,6 +380,7 @@ export const createReplaySmartCubeManager = (source: SmartCubeTape | unknown): R
       status = "paused";
       clearTimer();
       if (target < offsetMs) {
+        replayResetListeners.forEach((listener) => listener());
         eventIndex = 0;
         offsetMs = 0;
       }
@@ -391,6 +395,10 @@ export const createReplaySmartCubeManager = (source: SmartCubeTape | unknown): R
       if (!Number.isFinite(nextRate) || nextRate < 0.25 || nextRate > 4) throw new Error("Replay rate must be between 0.25 and 4");
       rate = nextRate;
       if (status === "playing") scheduleNext();
+    },
+    subscribeReplayReset(listener) {
+      replayResetListeners.add(listener);
+      return () => replayResetListeners.delete(listener);
     },
     getIssuedCommands: () => issuedCommands,
   };
@@ -458,6 +466,18 @@ export const createMockDeviceManager = ({catalogue, pickTape}: MockDeviceManager
     seek: (offsetMs) => requireInner().seek(offsetMs),
     step: () => requireInner().step(),
     setRate: (rate) => requireInner().setRate(rate),
+    subscribeReplayReset(listener) {
+      let unsubscribe = () => {};
+      const attach = () => {
+        unsubscribe();
+        if (inner) unsubscribe = inner.subscribeReplayReset(listener);
+      };
+      // A newly selected inner replay must keep the same downstream reset hook.
+      const stateUnsubscribe = this.subscribeState((next) => {
+        if (next.phase === "connected") attach();
+      });
+      return () => { unsubscribe(); stateUnsubscribe(); };
+    },
     getIssuedCommands: () => inner?.getIssuedCommands() ?? [],
     getSelectedTape: () => selectedTape,
   };
