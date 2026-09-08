@@ -1121,7 +1121,6 @@ export const createCubeViewport = (
     startedAt: number;
     previous: NonNullable<typeof lastGlyphFrame>;
   } | null = null;
-  let glyphColourOrientation: OrientationQuaternion = {x: 0, y: 0, z: 0, w: 1};
   canvas.dataset.autoOrbitState = "off";
   const overlay = overlayCanvas.getContext("2d");
 
@@ -1213,13 +1212,25 @@ export const createCubeViewport = (
     const colourForFace = (face: string): string => (
       face === "F" ? front : face === "B" ? back : faceColours[face as "U" | "R" | "D" | "L"]
     );
-    // Axis names remain body axes (R/L=x, U/D=y, F/B=z), while their centre
-    // paints are refreshed from the normalized virtual frame after a regrip.
+    // Find the physical centre at each current screen-facing R/U/F direction.
+    // Its arrow gets the corresponding label, so the marker rotates with the
+    // cube yet always presents x=Right, y=Up, z=Front to the user.
     const axisFaces = orientationAxisFaces(colourOrientation);
+    const pointForFace = (face: string): [number, number, number] => {
+      switch (face) {
+        case "U": return [0, 1, 0];
+        case "D": return [0, -1, 0];
+        case "R": return [1, 0, 0];
+        case "L": return [-1, 0, 0];
+        case "F": return [0, 0, 1];
+        case "B": return [0, 0, -1];
+        default: return [0, 0, 1];
+      }
+    };
     const axisSpecs: Array<{label: string; point: [number, number, number]; colour: string}> = [
-      {label: "x", point: [1, 0, 0], colour: colourForFace(axisFaces.x)},
-      {label: "y", point: [0, 1, 0], colour: colourForFace(axisFaces.y)},
-      {label: "z", point: [0, 0, 1], colour: colourForFace(axisFaces.z)},
+      {label: "x", point: pointForFace(axisFaces.x), colour: colourForFace(axisFaces.x)},
+      {label: "y", point: pointForFace(axisFaces.y), colour: colourForFace(axisFaces.y)},
+      {label: "z", point: pointForFace(axisFaces.z), colour: colourForFace(axisFaces.z)},
     ];
     const axes = axisSpecs.map((axis) => {
       const endpoint = projectPoint(axis.point, matrices.modelView, matrices.projection, width, height);
@@ -2034,13 +2045,12 @@ export const createCubeViewport = (
       cameraDistance,
       relativeOrientation,
     );
-    // The glyph is a viewport R/U/F legend. Its geometry remains in the
-    // screen's Right/Up/Front frame while colours identify the cube centres
-    // currently occupying those directions. Those colours only change when
-    // the x/y/z regrip detector accepts a normalized frame.
+    // The glyph follows every live cube-orientation packet. Its labels and
+    // paints are remapped from the same orientation so it continues to show
+    // the physical centres at screen Right/Up/Front throughout a regrip.
     const targetGlyphFrame = {
-      orientation: undefined,
-      colourOrientation: glyphColourOrientation,
+      orientation: relativeOrientation,
+      colourOrientation: normalizedQuaternion(relativeOrientation ?? {x: 0, y: 0, z: 0, w: 1}),
     };
     let glyphFrame = targetGlyphFrame;
     let glyphScale = 1;
@@ -2464,7 +2474,6 @@ export const createCubeViewport = (
         isGyroDrifting = false;
         deviceOrientationCorrection = null;
         deviceOrientationIsVirtualRegrip = false;
-        glyphColourOrientation = {x: 0, y: 0, z: 0, w: 1};
         deviceOrientationCorrectionGeneration += 1;
         deviceOrientationFrame = "viewport";
         delete canvas.dataset.deviceOrientation;
@@ -2482,7 +2491,6 @@ export const createCubeViewport = (
         isGyroDrifting = false;
         deviceOrientationCorrection = null;
         deviceOrientationIsVirtualRegrip = false;
-        glyphColourOrientation = {x: 0, y: 0, z: 0, w: 1};
         deviceOrientationCorrectionGeneration += 1;
       }
       deviceOrientationFrame = coordinateFrame;
@@ -2565,7 +2573,6 @@ export const createCubeViewport = (
       }
       deviceOrientationCorrection = normalizedQuaternion(virtualOrientation);
       deviceOrientationIsVirtualRegrip = true;
-      glyphColourOrientation = normalizedQuaternion(virtualOrientation);
       deviceOrientationCorrectionGeneration += 1;
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();

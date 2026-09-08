@@ -48,9 +48,9 @@ describe("cube viewport math", () => {
     expect(viewportSource).not.toMatch(/label: "-x"|label: "-y"|label: "-z"/);
   });
 
-  test("keeps the orientation marker in the viewport R/U/F frame", () => {
-    expect(viewportSource).toMatch(/orientation: undefined/);
-    expect(viewportSource).toMatch(/glyphColourOrientation/);
+  test("keeps the orientation marker attached to the live cube frame", () => {
+    expect(viewportSource).toMatch(/orientation: relativeOrientation/);
+    expect(viewportSource).toMatch(/colourOrientation: normalizedQuaternion\(relativeOrientation/);
     expect(viewportSource).toMatch(/drawMotionOverlay\(width, height, glyphMatrices, glyphFrame\.colourOrientation, glyphScale\)/);
     expect(viewportSource).toMatch(/drawOrientationAxes\(axisMatrices, width, height/);
     expect(viewportSource).not.toMatch(/const virtualAxisMatrices = cameraMatrices\(/);
@@ -63,15 +63,14 @@ describe("cube viewport math", () => {
     expect(wholeCubeTurnQuaternion({axis: [0, 1, 0], min: 0.4, max: 1.6, angle: Math.PI / 2})).toBeNull();
   });
 
-  test("preserves x/y/z labels while refreshing glyph centre colours", () => {
+  test("maps x/y/z labels and colours to the current screen R/U/F centres", () => {
     const half = Math.SQRT1_2;
     expect(orientationAxisFaces()).toEqual({x: "R", y: "U", z: "F"});
     expect(orientationAxisFaces({x: 0, y: half, z: 0, w: half})).toEqual({x: "F", y: "U", z: "L"});
     expect(viewportSource).toMatch(/glyphReorientation = \{startedAt: performance\.now\(\), previous: lastGlyphFrame\}/);
-    expect(viewportSource).toMatch(/glyphColourOrientation = normalizedQuaternion\(virtualOrientation\)/);
-    expect(viewportSource).toMatch(/label: "x", point: \[1, 0, 0\], colour: colourForFace\(axisFaces\.x\)/);
-    expect(viewportSource).toMatch(/label: "y", point: \[0, 1, 0\], colour: colourForFace\(axisFaces\.y\)/);
-    expect(viewportSource).toMatch(/label: "z", point: \[0, 0, 1\], colour: colourForFace\(axisFaces\.z\)/);
+    expect(viewportSource).toMatch(/label: "x", point: pointForFace\(axisFaces\.x\), colour: colourForFace\(axisFaces\.x\)/);
+    expect(viewportSource).toMatch(/label: "y", point: pointForFace\(axisFaces\.y\), colour: colourForFace\(axisFaces\.y\)/);
+    expect(viewportSource).toMatch(/label: "z", point: pointForFace\(axisFaces\.z\), colour: colourForFace\(axisFaces\.z\)/);
   });
 
   test("rotates a flicked face into virtual Right before resolving Up", () => {
