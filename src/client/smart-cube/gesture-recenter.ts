@@ -6,7 +6,7 @@ export type GestureRecenterOptions = {
   maxIntervalMs?: number;
   /** Cooldown in ms after a trigger before another can fire (default: 800ms). */
   cooldownMs?: number;
-  /** Face index to watch: 0=U, 1=R, 2=F, 3=D, 4=L, 5=B, or "any" (default: 1 for R). */
+  /** Face index to watch: 0=U, 1=R, 2=F, 3=D, 4=L, 5=B, or "any" (the default). */
   targetFace?: number | "any";
   /** Required initial turn direction (0: CW like R, 1: CCW like R', or "any"). Default: 0 (only R -> R'). */
   initialDirection?: 0 | 1 | "any";
@@ -60,7 +60,7 @@ export class GestureRecenterDetector {
   constructor(options: GestureRecenterOptions = {}) {
     this.maxIntervalMs = options.maxIntervalMs ?? 280;
     this.cooldownMs = options.cooldownMs ?? 800;
-    this.targetFace = options.targetFace ?? 1; // Face 1 = R
+    this.targetFace = options.targetFace ?? "any";
     this.initialDirection = options.initialDirection ?? 0; // 0 = CW (R)
     this.enabled = options.enabled ?? true;
     this.audioFeedback = options.audioFeedback;

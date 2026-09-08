@@ -275,14 +275,15 @@ tracker’s running orientation and the viewport’s displayed pose must never b
 disagree about "where is the cube now," since there is exactly one of each and only
 confirmed regrips ever change either one.
 
-A rapid physical **R then R′** flick is a more specific virtual-cube alignment gesture,
-not the same reset. It first retains the virtual cube’s rotated **Right** centre. In a
-second step it applies the current raw gyro pose and its live drift offset in that
-rotated frame, then snaps to the nearest legal cardinal pose to choose **Up**. The
-result is stored as the new persistent virtual orientation; it is not treated as the
-brief visual correction used by the ordinary Recenter button. This ordering matters at
-a 45° boundary: the drift offset is part of the Up decision, rather than an adjustment
-applied after a centre colour has already been chosen.
+A rapid physical outer-face turn followed by its reversal (for example **R then R′**)
+is a virtual-cube alignment gesture, not the same reset. It works on **U/R/F/D/L/B**.
+It first retains the virtual cube’s rotated **Right** centre. In a second step it applies
+the current raw gyro pose and its live drift offset in that rotated frame, then snaps to
+the nearest legal cardinal pose to choose **Up**. The result is stored as the new
+persistent virtual orientation; it is not treated as the brief visual correction used by
+the ordinary Recenter button. This ordering matters at a 45° boundary: the drift offset
+is part of the Up decision, rather than an adjustment applied after a centre colour has
+already been chosen.
 
 For hardware diagnosis, turn **Diagnostics** on before reproducing a turn. Diagnostic
 records are captured only while that control is on; turning it off immediately clears

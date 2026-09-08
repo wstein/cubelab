@@ -42,7 +42,7 @@ describe("gesture recenter detector", () => {
     expect(triggers[0]!.restingOrientation?.quaternion).toEqual({x: 0, y: 0, z: 0, w: 1});
   });
 
-  test("only R -> R' triggers recenter by default, not R' -> R", () => {
+  test("a clockwise-then-counter-clockwise flick triggers, but not its reverse", () => {
     const triggers: GestureRecenterTriggerEvent[] = [];
     const detector = createGestureRecenterDetector({
       targetFace: 1,
@@ -66,6 +66,23 @@ describe("gesture recenter detector", () => {
     expect(triggers[0]!.move1).toBe("R");
     expect(triggers[0]!.move2).toBe("R'");
     expect(triggers[0]!.intervalMs).toBe(180);
+  });
+
+  test("uses the same fast turn-and-reversal trigger on every outer face by default", () => {
+    const triggeredFaces: number[] = [];
+    const detector = createGestureRecenterDetector({
+      cooldownMs: 0,
+      onRecenter: ({face}) => triggeredFaces.push(face),
+    });
+    const faces = [0, 1, 2, 3, 4, 5]; // U, R, F, D, L, B
+
+    faces.forEach((face, index) => {
+      const timestamp = 1_000 + index * 500;
+      detector.observeMove({face, direction: 0, move: "turn", localTimestamp: timestamp});
+      expect(detector.observeMove({face, direction: 1, move: "turn'", localTimestamp: timestamp + 150})).toBe(true);
+    });
+
+    expect(triggeredFaces).toEqual(faces);
   });
 
   test("rejects slow face moves exceeding maxIntervalMs", () => {

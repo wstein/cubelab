@@ -2421,7 +2421,7 @@ if (root) {
     if (!smartCubeOrientationTracking) return;
     const target = orientationOverride ?? latestSmartCubeOrientation;
     if (!target) return;
-    // An R flick first preserves the already-rotated virtual Right frame;
+    // A face flick first preserves the already-rotated virtual Right frame;
     // CubeViewport then selects Up from the offset-adjusted current pose.
     const virtualOffset = source === "gesture"
       ? smartCubeVirtualFixpointTracker?.orientation
@@ -2454,7 +2454,7 @@ if (root) {
       target: smartCubeDiscreteOrientationTracker.orientation,
     });
     smartCubeStatus.textContent = source === "gesture"
-      ? `${smartCubeDeviceName} · Gyro view centered (R flick gesture)`
+      ? `${smartCubeDeviceName} · Gyro view centered (face flick gesture)`
       : `${smartCubeDeviceName} · Gyro view centered`;
     smartCubeRecenter.classList.add("pulse");
     window.setTimeout(() => smartCubeRecenter.classList.remove("pulse"), 450);
@@ -2485,7 +2485,6 @@ if (root) {
   const smartCubeAudio = createSmartCubeAudioFeedback(storedSoundPreference);
 
   const smartCubeGestureRecenter = createGestureRecenterDetector({
-    targetFace: 1, // Face 1 = R
     maxIntervalMs: 280,
     cooldownMs: 800,
     audioFeedback: smartCubeAudio,
