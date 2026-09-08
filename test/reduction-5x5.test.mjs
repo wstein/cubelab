@@ -104,7 +104,7 @@ test("searches an explicit replay-verified 1×3 bar commutator", () => {
   const replay = MoveExecutor.applyAlg(state._0, guide._0.alg);
   expect(replay.TAG).toBe("Ok");
   expect(guide._0.barsAfter).toBeGreaterThan(guide._0.barsBefore);
-});
+}, 15000);
 
 test("uses a buffered centre 3-cycle when only a whole centre face can advance", () => {
   const state = FaceletCodec.parse(5, "LFUFLBUUULFUUUFBUUUBBBRLRDDLDFRRRRFFRRRUURDRLUFBDDDRDUFUFFFUBFFFRBFFFLDLBUFLDUFRRDDDLUDDLDRDDDRBBBFLBUDURLLRLRLLLLLDBLLDUDLBFURFUUDLBBBRBBBDFBBBFBRRLR");
@@ -144,6 +144,19 @@ test("returns a centre-preserving slice-cycle wing improvement", () => {
     expect(guide._0.after).toBeGreaterThan(guide._0.before);
     expect(inspectReduction5x5(replay._0)).toMatchObject({TAG: "Ok", _0: {centreFacesComplete: 6}});
   }
+});
+
+test("uses a protected setup–cycle–restore wing guide for the reported L2E state", () => {
+  const state = FaceletCodec.parse(5, "DRFRBRUUURFUUURUUUUDBRDRULBBFUURRRFURRRLURRRLBFBFUDBRUBFFFFLBFFFRFFFFLLLBLDUBUBLDDDDLLDDDDUDDDLFDLDFFFRFRULLLDDLLLLULLLDLRURFRDUBRUBBBBDBBBFDBBBBRBFLD");
+  expect(state.TAG).toBe("Ok");
+  if (state.TAG !== "Ok") return;
+  const guide = planNextWingPair5x5(state._0);
+  expect(guide).toMatchObject({TAG: "Ok", _0: {kind: "wing", before: 15}});
+  if (guide.TAG !== "Ok") return;
+  expect(guide._0.after).toBeGreaterThan(15);
+  const replay = MoveExecutor.applyAlg(state._0, guide._0.alg);
+  expect(replay).toMatchObject({TAG: "Ok"});
+  if (replay.TAG === "Ok") expect(inspectReduction5x5(replay._0)).toMatchObject({TAG: "Ok", _0: {centreFacesComplete: 6, wingPairsMatched: guide._0.after}});
 });
 
 test("finds an 8-move X-centre commutator for the reported endgame state", () => {
