@@ -433,23 +433,24 @@ describe("cube viewport math", () => {
     expect(aroundSensorZ.z).toBeCloseTo(half);
   });
 
-  test("maps GAN wire sensor axes (X: Red, Y: Blue, Z: White) to canonical viewport axes", () => {
+  test("maps the measured GAN i4 wire basis to user-facing RUF axes", () => {
     const half = Math.sqrt(0.5);
     const aroundGanX = orientationInViewportFrame({x: half, y: 0, z: 0, w: half}, "gan-wire");
     const aroundGanY = orientationInViewportFrame({x: 0, y: half, z: 0, w: half}, "gan-wire");
     const aroundGanZ = orientationInViewportFrame({x: 0, y: 0, z: half, w: half}, "gan-wire");
 
-    // GAN +X (Red) -> Viewport +X
-    expect(aroundGanX.x).toBeCloseTo(half);
+    // Measured GAN i4 world basis: raw (x, y, z) -> RUF (-y, z, -x).
+    // Raw +X -> Front negative Z.
+    expect(aroundGanX.x).toBeCloseTo(0);
     expect(aroundGanX.y).toBeCloseTo(0);
-    expect(aroundGanX.z).toBeCloseTo(0);
+    expect(aroundGanX.z).toBeCloseTo(-half);
 
-    // GAN +Y (Blue) -> Viewport -Z
-    expect(aroundGanY.x).toBeCloseTo(0);
+    // Raw +Y -> Right negative X.
+    expect(aroundGanY.x).toBeCloseTo(-half);
     expect(aroundGanY.y).toBeCloseTo(0);
-    expect(aroundGanY.z).toBeCloseTo(-half);
+    expect(aroundGanY.z).toBeCloseTo(0);
 
-    // GAN +Z (White) -> Viewport +Y
+    // Raw +Z -> Up positive Y.
     expect(aroundGanZ.x).toBeCloseTo(0);
     expect(aroundGanZ.y).toBeCloseTo(half);
     expect(aroundGanZ.z).toBeCloseTo(0);
