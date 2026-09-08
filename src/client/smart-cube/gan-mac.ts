@@ -13,6 +13,23 @@ export const ganI4MacFromManufacturerData = (data: DataView): string | null => {
     .join(":").toUpperCase();
 };
 
+/** Reverse a conventional colon-separated MAC without accepting malformed input. */
+export const reverseGanMacAddress = (mac: string): string | null => {
+  const bytes = mac.split(":");
+  if (bytes.length !== 6 || bytes.some((byte) => !/^[0-9a-f]{2}$/i.test(byte))) return null;
+  return bytes.reverse().join(":").toUpperCase();
+};
+
+/**
+ * smartcube-web-bluetooth reverses a supplied MAC while creating every GAN
+ * AES salt. GAN i4 publishes the bytes already in the order its salt needs,
+ * so pass the reversed display string to cancel that package-level reversal.
+ */
+export const ganI4TransportMacFromManufacturerData = (data: DataView): string | null => {
+  const advertised = ganI4MacFromManufacturerData(data);
+  return advertised ? reverseGanMacAddress(advertised) : null;
+};
+
 /**
  * Web Bluetooth only exposes manufacturer data after `watchAdvertisements()`
  * starts.  This must run before GATT connects: several GAN i4 firmwares stop
@@ -41,7 +58,7 @@ export const recoverGanI4MacFromAdvertisements = async (
       const manufacturerData = (event as BluetoothAdvertisingEvent).manufacturerData;
       if (!manufacturerData) return;
       for (const value of manufacturerData.values()) {
-        const mac = ganI4MacFromManufacturerData(value);
+        const mac = ganI4TransportMacFromManufacturerData(value);
         if (mac) finish(mac);
       }
     };

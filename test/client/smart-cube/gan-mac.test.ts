@@ -2,7 +2,9 @@ import {describe, expect, test} from "vitest";
 
 import {
   ganI4MacFromManufacturerData,
+  ganI4TransportMacFromManufacturerData,
   recoverGanI4MacFromAdvertisements,
+  reverseGanMacAddress,
 } from "../../../src/client/smart-cube/gan-mac";
 
 describe("GAN i4 manufacturer-data MAC recovery", () => {
@@ -13,6 +15,9 @@ describe("GAN i4 manufacturer-data MAC recovery", () => {
       0x64, 0x63, 0x6f, 0x6e, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     ]).buffer);
     expect(ganI4MacFromManufacturerData(data)).toBe("3F:A7:BD:5E:3D:0C");
+    // The browser transport reverses its display MAC before salting AES. The
+    // capture proves i4 needs this advertised byte order as the final salt.
+    expect(ganI4TransportMacFromManufacturerData(data)).toBe("0C:3D:5E:BD:A7:3F");
   });
 
   test("does not reinterpret an ordinary GAN advertisement", () => {
@@ -26,5 +31,10 @@ describe("GAN i4 manufacturer-data MAC recovery", () => {
       name: "GAN356i",
       watchAdvertisements,
     } as unknown as BluetoothDevice)).resolves.toBeNull();
+  });
+
+  test("only reverses a valid human-entered MAC", () => {
+    expect(reverseGanMacAddress("3F:A7:BD:5E:3D:0C")).toBe("0C:3D:5E:BD:A7:3F");
+    expect(reverseGanMacAddress("not-a-mac")).toBeNull();
   });
 });

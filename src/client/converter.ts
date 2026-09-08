@@ -160,7 +160,7 @@ import {
   type StableOrientationTracker,
 } from "./smart-cube/orientation-tracker";
 import {createGestureRecenterDetector} from "./smart-cube/gesture-recenter";
-import {recoverGanI4MacFromAdvertisements} from "./smart-cube/gan-mac";
+import {recoverGanI4MacFromAdvertisements, reverseGanMacAddress} from "./smart-cube/gan-mac";
 import {
   createSmartCubeAudioFeedback,
   readSmartCubeSoundPreference,
@@ -7384,7 +7384,12 @@ if (root) {
         + `Enter it as aa:bb:cc:dd:ee:ff, or Cancel. For automatic detection, enable `
         + `${experimentalFeaturesUrl} and restart the browser.`,
     );
-    return value?.trim() || null;
+    const mac = value?.trim() || null;
+    // Keep the prompt human-facing (advertised MAC order), while compensating
+    // for the current GAN package's unconditional salt-byte reversal on i4.
+    return mac && /^GANi4(?:_|$)/i.test(device.name ?? "")
+      ? reverseGanMacAddress(mac) ?? mac
+      : mac;
   };
   smartCubeConnect.addEventListener("click", async () => {
     void smartCubeAudio.unlock();

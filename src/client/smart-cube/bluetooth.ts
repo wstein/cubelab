@@ -12,7 +12,7 @@ import {
   type TimedGoCubeConnection,
 } from "./fast-gocube";
 import {resolveSmartCubeDriver} from "./drivers";
-import {recoverGanI4MacFromAdvertisements} from "./gan-mac";
+import {recoverGanI4MacFromAdvertisements, reverseGanMacAddress} from "./gan-mac";
 import type {
   SmartCubeCapabilities,
   SmartCubeCommand,
@@ -395,9 +395,15 @@ export const createSmartCubeManager = (
         typeof (transport as FeedbackTransport).flashLed === "function",
       );
       if (transport.protocol.id === "gan-gen4") transportCapabilities.orientation = false;
+      // The i4 transport receives its MAC byte-reversed to compensate for the
+      // vendor package's fixed AES-salt reversal. Keep user-visible metadata
+      // in normal advertised order.
+      const displayMac = transport.protocol.id === "gan-gen4" && /^GANi4(?:_|$)/i.test(transport.deviceName)
+        ? reverseGanMacAddress(transport.deviceMAC) ?? transport.deviceMAC
+        : transport.deviceMAC;
       let device: SmartCubeDevice = {
         name: transport.deviceName,
-        macAddress: transport.deviceMAC || null,
+        macAddress: displayMac || null,
         brand: driver.brand,
         brandName: driver.brandName,
         protocolId: transport.protocol.id,
