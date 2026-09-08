@@ -1,4 +1,4 @@
-export type SmartCubeAudioCue = "correct" | "deviation" | "realigned" | "milestone" | "recenter";
+export type SmartCubeAudioCue = "turn" | "correct" | "deviation" | "realigned" | "milestone" | "recenter";
 
 export const SMART_CUBE_SOUND_PREFERENCE = "cube-rosetta:smart-cube-sound";
 
@@ -74,7 +74,10 @@ export const createSmartCubeAudioFeedback = (
     const active = ensureContext();
     if (!active || active.state !== "running") return;
     const now = active.currentTime + 0.004;
-    if (cue === "correct") {
+    if (cue === "turn") {
+      // Neutral tactile click for every physical or virtual cube turn.
+      voice(740, now, 0.025, "sine", 0.032, 810);
+    } else if (cue === "correct") {
       voice(880, now, 0.04, "sine", 0.055, 1200);
     } else if (cue === "deviation") {
       voice(240, now, 0.15, "triangle", 0.045, 180);

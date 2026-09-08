@@ -772,6 +772,7 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /assessSmartCubeRecovery/);
   assert.match(client, /smartCubeRecoveryPrompt/);
   assert.match(client, /signalSmartCubeFeedback/);
+  assert.match(client, /smartCubeAudio\.play\("turn"\)/);
   assert.match(viewport, /turnGuide\.tone === "recovery"/);
   assert.match(viewport, /turnGuideTone/);
   assert.match(client, /viewport\?\.setDeviceOrientation/);

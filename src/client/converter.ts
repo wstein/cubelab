@@ -5274,6 +5274,9 @@ if (root) {
     switch (event.type) {
       case "move": {
         smartCubeGestureRecenter.observeMove(event);
+        // Turn acknowledgement is independent of coaching correctness: every
+        // physical face turn gets the same cue when sound is enabled.
+        smartCubeAudio.play("turn");
         const omitPreviewHistory = omitNextGestureTriggerMove === event.move;
         if (omitPreviewHistory) omitNextGestureTriggerMove = null;
         const record: QueuedSmartCubeMove = {move: event.move, state: null, omitPreviewHistory};
@@ -5353,6 +5356,9 @@ if (root) {
           smartCubeVirtualFixpointTracker = observed.tracker;
           if (observed.tokens.length > 0) {
             observed.tokens.forEach(appendPreviewHistoryToken);
+            // Detected x/y/z regrips are turns too, even though the hardware
+            // emits them through orientation packets rather than move packets.
+            observed.tokens.forEach(() => smartCubeAudio.play("turn"));
             // The viewport, continuous gauge baseline, and face-flick frame
             // must advance together. Otherwise two non-commuting regrips can
             // compose as z·y in the view but y·z in the virtual tracker.
