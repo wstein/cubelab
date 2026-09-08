@@ -5648,7 +5648,10 @@ if (root) {
               URL.revokeObjectURL(url);
               smartCubeCapture.classList.remove("active");
               smartCubeCapture.textContent = "● Capture session";
-              smartCubeStatus.textContent = `${smartCubeDeviceName} · Captured replay tape (${(tape as {events: unknown[]}).events.length} events).`;
+              const inputCount = tape.timeline.filter((entry) => entry.kind === "input").length;
+              smartCubeStatus.textContent = inputCount > 0
+                ? `${smartCubeDeviceName} · Captured replay tape (${inputCount} input events).`
+                : `${smartCubeDeviceName} · Capture contained no input packets. Keep the cube connected and move it while capture is active.`;
               return;
             }
             smartCubeTapeRecorder = createSmartCubeTapeRecorder({

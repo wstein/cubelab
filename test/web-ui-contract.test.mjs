@@ -822,6 +822,8 @@ test("smart-cube tape capture stays dev-only and records both manager streams", 
   assert.match(client, /createSmartCubeTapeRecorder/);
   assert.match(client, /smartCubeTapeRecorder\?\.recordEvent\(event\)/);
   assert.match(client, /smartCubeTapeRecorder\?\.recordCommand\(command\)/);
+  assert.match(client, /tape\.timeline\.filter\(\(entry\) => entry\.kind === "input"\)/);
+  assert.match(client, /Capture contained no input packets/);
   assert.match(client, /replayTapeStorageKey\(name\)/);
   assert.match(client, /anchor\.download = `\$\{name\}\.json`/);
   assert.match(client, /smartCubeCapture\.hidden = !smartCubeDevEnabled/);
