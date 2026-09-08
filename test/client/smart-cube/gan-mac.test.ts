@@ -1,0 +1,19 @@
+import {describe, expect, test} from "vitest";
+
+import {ganI4MacFromManufacturerData} from "../../../src/client/smart-cube/gan-mac";
+
+describe("GAN i4 manufacturer-data MAC recovery", () => {
+  test("reads the i4 address before its FF broadcast trailer", () => {
+    // Captured GANi4_A73F payload after its 0x0001 company identifier.
+    const data = new DataView(Uint8Array.from([
+      0x00, 0x00, 0x00, 0x3f, 0xa7, 0xbd, 0x5e, 0x3d, 0x0c,
+      0x64, 0x63, 0x6f, 0x6e, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    ]).buffer);
+    expect(ganI4MacFromManufacturerData(data)).toBe("3F:A7:BD:5E:3D:0C");
+  });
+
+  test("does not reinterpret an ordinary GAN advertisement", () => {
+    const data = new DataView(Uint8Array.from([0, 0, 0, 1, 2, 3, 4, 5, 6]).buffer);
+    expect(ganI4MacFromManufacturerData(data)).toBeNull();
+  });
+});
