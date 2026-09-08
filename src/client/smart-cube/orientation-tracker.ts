@@ -1,6 +1,8 @@
 import {
   deviceOrientationDelta,
   multiplyQuaternions,
+  relativeQuaternion,
+  relativeQuaternionLocal,
   type OrientationCoordinateFrame,
   type OrientationQuaternion,
 } from "../cube-gl";
@@ -44,6 +46,37 @@ const quarter = (axis: "X" | "Y" | "Z", turns: 1 | -1): OrientationQuaternion =>
     : axis === "Y"
       ? {x: 0, y: half, z: 0, w: Math.SQRT1_2}
       : {x: 0, y: 0, z: half, w: Math.SQRT1_2};
+};
+
+/**
+ * Projects an early threshold sample onto the quarter-turn boundary that it
+ * represents. Re-basing to the raw 60° trigger causes a smooth 360° turn to
+ * be emitted every 60°; re-basing to its inferred 90° boundary preserves the
+ * early response while counting four cardinal regrips.
+ */
+const projectedQuarterTurnBaseline = (
+  baseline: OrientationQuaternion,
+  current: OrientationQuaternion,
+  deltaFrame: "local" | "world",
+): OrientationQuaternion => {
+  const rawDelta = deltaFrame === "world"
+    ? relativeQuaternion(baseline, current)
+    : relativeQuaternionLocal(baseline, current);
+  const directed = rawDelta.w < 0
+    ? {x: -rawDelta.x, y: -rawDelta.y, z: -rawDelta.z, w: -rawDelta.w}
+    : rawDelta;
+  const magnitude = Math.hypot(directed.x, directed.y, directed.z);
+  if (magnitude < 1e-8) return current;
+  const scale = Math.SQRT1_2 / magnitude;
+  const cardinalDelta = {
+    x: directed.x * scale,
+    y: directed.y * scale,
+    z: directed.z * scale,
+    w: Math.SQRT1_2,
+  };
+  return normalize(deltaFrame === "world"
+    ? multiplyQuaternions(cardinalDelta, baseline)
+    : multiplyQuaternions(baseline, cardinalDelta));
 };
 
 const candidates = ([
@@ -172,7 +205,13 @@ export const observeThresholdOrientation = (
     ? multiplyQuaternions(cardinal, tracker.orientation)
     : multiplyQuaternions(tracker.orientation, cardinal));
   return {
-    tracker: {...tracker, baseline: current, frame, orientation, candidate: null},
+    tracker: {
+      ...tracker,
+      baseline: projectedQuarterTurnBaseline(tracker.baseline, current, tracker.deltaFrame),
+      frame,
+      orientation,
+      candidate: null,
+    },
     tokens: orientations[nearest.index]!.tokens.map(clockwiseNotationToken),
     frameTokens: orientations[nearest.index]!.tokens,
   };

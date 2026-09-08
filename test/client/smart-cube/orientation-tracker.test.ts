@@ -106,12 +106,23 @@ describe("stable smart-cube orientation tracker", () => {
     expect(resolved.tokens).toEqual(["x'"]);
   });
 
-  test("threshold: rebases to the triggering sample so it does not immediately refire", () => {
+  test("threshold: rebases to the inferred cardinal boundary so it does not immediately refire", () => {
     const tracker = createStableOrientationTracker(identity, "viewport", "world");
     const first = observeThresholdOrientation(tracker, x(90), "viewport", 65);
     expect(first.tokens).toEqual(["x'"]);
     const second = observeThresholdOrientation(first.tracker, x(91), "viewport", 65);
     expect(second.tokens).toEqual([]);
+  });
+
+  test("threshold: emits exactly four cardinal regrips during a continuous 360-degree turn", () => {
+    let tracker = createStableOrientationTracker(identity, "viewport", "world");
+    const tokens: string[] = [];
+    for (let currentDegrees = 0; currentDegrees <= 360; currentDegrees += 10) {
+      const observed = observeThresholdOrientation(tracker, x(currentDegrees), "viewport", 60);
+      tracker = observed.tracker;
+      tokens.push(...observed.tokens);
+    }
+    expect(tokens).toEqual(["x'", "x'", "x'", "x'"]);
   });
 
   test("threshold: composes each confirmed step onto the running orientation", () => {
