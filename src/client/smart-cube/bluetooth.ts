@@ -1,18 +1,12 @@
 import {
-  getRegisteredProtocols,
+  connectSmartCube,
   type ConnectSmartCubeOptions as TransportConnectOptions,
   type SmartCubeConnection as TransportConnection,
   type SmartCubeEvent as TransportEvent,
 } from "smartcube-web-bluetooth";
 
-import {
-  connectFastGoCube,
-  isGoCubeDeviceName,
-  GOCUBE_SERVICE_UUID,
-  type TimedGoCubeConnection,
-} from "./fast-gocube";
 import {resolveSmartCubeDriver} from "./drivers";
-import {recoverGanI4MacFromAdvertisements, reverseGanMacAddress} from "./gan-mac";
+import {reverseGanMacAddress} from "./gan-mac";
 import type {
   SmartCubeCapabilities,
   SmartCubeCommand,
@@ -154,125 +148,10 @@ const transportOptions = (
   onStatus,
 });
 
-export const smartCubeTransportConnector: TransportConnector = async (
+/** Use the vendor's picker, pre-GATT advertisement capture, and protocol routing. */
+export const smartCubeTransportConnector: TransportConnector = (
   options: TransportConnectOptions = {},
-): Promise<TransportConnection> => {
-  const protocols = getRegisteredProtocols();
-  const filters: BluetoothLEScanFilter[] = [];
-  const serviceUuids = new Set<string>();
-  const manufacturerIds = new Set<number>();
-
-  for (const p of protocols) {
-    if (p.nameFilters) {
-      for (const f of p.nameFilters) filters.push(f as BluetoothLEScanFilter);
-    }
-    if (p.optionalServices) {
-      for (const s of p.optionalServices) serviceUuids.add(s);
-    }
-    if (p.optionalManufacturerData) {
-      for (const id of p.optionalManufacturerData) manufacturerIds.add(id);
-    }
-  }
-  serviceUuids.add(GOCUBE_SERVICE_UUID);
-
-  for (const companyIdentifier of manufacturerIds) {
-    filters.push({manufacturerData: [{companyIdentifier}]});
-  }
-
-  if (options.deviceName) {
-    filters.unshift({name: options.deviceName});
-  }
-
-  const optionalManufacturerData = Array.from(manufacturerIds);
-  const requestOptions: RequestDeviceOptions = options.deviceSelection === "any"
-    ? {
-        acceptAllDevices: true,
-        optionalServices: Array.from(serviceUuids),
-        optionalManufacturerData,
-      }
-    : {
-        filters,
-        optionalServices: Array.from(serviceUuids),
-        optionalManufacturerData,
-      };
-
-  options.onStatus?.("Select your smart cube…");
-  const tChooserStart = performance.now();
-  const device = await navigator.bluetooth.requestDevice(requestOptions);
-  const tChooserEnd = performance.now();
-
-  const rawName = device.name ?? "";
-  if (isGoCubeDeviceName(rawName)) {
-    return connectFastGoCube(device, {
-      onStatus: options.onStatus,
-      signal: options.signal,
-      tPickerStart: tChooserStart,
-      tPickerEnd: tChooserEnd,
-    });
-  }
-
-  // A GAN i4 puts its encryption MAC before an FF broadcast trailer, unlike
-  // other GAN models. Capture that packet while it still advertises and before
-  // GATT connects; the generic library parser otherwise sees only the FFs.
-  // Do this on the initial connection as well. The helper returns immediately
-  // for every non-i4 device, while an i4 obtains its encryption MAC before the
-  // generic encrypted connection can fail and surface a recovery-only UI.
-  const recoveredGanI4Mac = await recoverGanI4MacFromAdvertisements(device);
-  const macAddressProvider = recoveredGanI4Mac
-    ? async () => recoveredGanI4Mac
-    : options.macAddressProvider;
-
-  // The upstream convenience function opens its own chooser and then waits
-  // for advertisements before connecting. We already have the user-selected
-  // device, so resolve its GATT profile directly. This also prevents a
-  // non-GoCube device from making the user select the same cube twice.
-  const gatt = device.gatt;
-  if (!gatt) throw new Error("GATT is unavailable on the selected device");
-  try {
-    options.onStatus?.("Connecting GATT…");
-    const tGattStart = performance.now();
-    await gatt.connect();
-    const tGattEnd = performance.now();
-
-    options.onStatus?.("Resolving GATT profile…");
-    const services = await gatt.getPrimaryServices();
-    const serviceUuids = new Set(services.map((service) => {
-      const uuid = service.uuid;
-      return /^[0-9a-f]{4}$/i.test(uuid)
-        ? `0000${uuid}-0000-1000-8000-00805f9b34fb`.toUpperCase()
-        : uuid.toUpperCase();
-    }));
-    const ranked = protocols.map((protocol) => ({
-      protocol,
-      score: protocol.gattAffinity(serviceUuids, device),
-    }));
-    const bestScore = ranked.reduce((score, entry) => Math.max(score, entry.score), 0);
-    const best = ranked.filter((entry) => entry.score === bestScore);
-    const protocol = bestScore > 0
-      ? (best.find((entry) => entry.protocol.matchesDevice(device)) ?? best[0])?.protocol
-      : protocols.find((entry) => entry.matchesDevice(device));
-    if (!protocol) {
-      throw new Error("Selected device doesn't match a supported smart-cube profile");
-    }
-
-    const connection = await protocol.connect(device, macAddressProvider, {
-      serviceUuids,
-      advertisementManufacturerData: null,
-      enableAddressSearch: options.enableAddressSearch === true,
-      onStatus: options.onStatus,
-      signal: options.signal,
-    });
-    const tEnd = performance.now();
-    console.info(
-      `[BLE Timing] Connected to ${rawName} via its GATT profile in ${(tEnd - tChooserEnd).toFixed(1)}ms `
-        + `(GATT: ${(tGattEnd - tGattStart).toFixed(1)}ms; chooser: ${(tChooserEnd - tChooserStart).toFixed(1)}ms)`,
-    );
-    return connection;
-  } catch (reason) {
-    if (gatt.connected) gatt.disconnect();
-    throw reason;
-  }
-};
+): Promise<TransportConnection> => connectSmartCube(options);
 
 export const createSmartCubeManager = (
   dependencies: Partial<SmartCubeManagerDependencies> = {},
@@ -409,9 +288,6 @@ export const createSmartCubeManager = (
         protocolId: transport.protocol.id,
         protocolName: transport.protocol.name,
         capabilities: transportCapabilities,
-        ...("timing" in transport && (transport as Partial<TimedGoCubeConnection>).timing
-          ? {timing: (transport as TimedGoCubeConnection).timing}
-          : {}),
       };
 
       connection = transport;
