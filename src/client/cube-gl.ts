@@ -312,20 +312,21 @@ export const wholeCubeTurnQuaternion = (turn: TurnTransform | null): Orientation
 };
 
 /**
- * The HUD is a cube-frame reference, viewed against the screen rather than
- * another physical object.  It therefore counter-rotates the cube's complete
- * effective pose: R/L stays x, U/D stays y, and F/B stays z without swapping
- * those axes after a whole-cube regrip.
+ * The glyph follows the live IMU pose exactly. Only an explicit whole-cube
+ * x/y/z move counter-rotates its matching axis: confirmed virtual regrips
+ * supply `virtualRegrip`, while Play mode supplies `wholeCubeTurn`. This
+ * preserves R/L→x, U/D→y, and F/B→z without inverting ordinary gyro motion.
  */
 export const glyphOrientationForCube = (
-  cubeOrientation: OrientationQuaternion | null | undefined,
+  liveOrientation: OrientationQuaternion | null | undefined,
+  virtualRegrip: OrientationQuaternion | null = null,
   wholeCubeTurn: OrientationQuaternion | null = null,
 ): OrientationQuaternion | undefined => {
-  if (!cubeOrientation && !wholeCubeTurn) return undefined;
-  const effectiveOrientation = wholeCubeTurn
-    ? multiplyQuaternions(cubeOrientation ?? {x: 0, y: 0, z: 0, w: 1}, wholeCubeTurn)
-    : cubeOrientation!;
-  return inverseQuaternion(effectiveOrientation);
+  if (!liveOrientation && !virtualRegrip && !wholeCubeTurn) return undefined;
+  let glyphOrientation = liveOrientation ?? {x: 0, y: 0, z: 0, w: 1};
+  if (virtualRegrip) glyphOrientation = multiplyQuaternions(inverseQuaternion(virtualRegrip), glyphOrientation);
+  if (wholeCubeTurn) glyphOrientation = multiplyQuaternions(glyphOrientation, inverseQuaternion(wholeCubeTurn));
+  return normalizedQuaternion(glyphOrientation);
 };
 
 export const turnPreviewTransform = (
@@ -2029,12 +2030,16 @@ export const createCubeViewport = (
       cameraDistance,
       relativeOrientation,
     );
-    // Full-cube x/y/z playback is applied in the vertex shader. The glyph is
-    // the inverse cube-frame reference, so invert the complete pose after
-    // composing the in-flight whole-cube turn. Face turns remain local and
-    // deliberately leave the orientation marker unchanged.
+    // Full-cube x/y/z playback is applied in the vertex shader. Counter-rotate
+    // only this explicit move (and a confirmed virtual regrip), leaving the
+    // live IMU orientation forward and synchronized with the displayed cube.
+    // Face turns remain local and leave the orientation marker unchanged.
     const wholeCubeAnimation = wholeCubeTurnQuaternion(activeTurn);
-    const glyphOrientation = glyphOrientationForCube(relativeOrientation, wholeCubeAnimation);
+    const glyphOrientation = glyphOrientationForCube(
+      detentedOrientation,
+      deviceOrientationIsVirtualRegrip ? deviceOrientationCorrection : null,
+      wholeCubeAnimation,
+    );
     const glyphMatrices = cameraMatrices(
       aspect,
       yaw,

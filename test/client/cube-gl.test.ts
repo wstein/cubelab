@@ -48,9 +48,9 @@ describe("cube viewport math", () => {
     expect(viewportSource).not.toMatch(/label: "-x"|label: "-y"|label: "-z"/);
   });
 
-  test("counter-rotates the orientation marker against the displayed cube", () => {
+  test("counter-rotates only explicit whole-cube marker moves", () => {
     expect(viewportSource).toMatch(/const wholeCubeAnimation = wholeCubeTurnQuaternion\(activeTurn\)/);
-    expect(viewportSource).toMatch(/glyphOrientationForCube\(relativeOrientation, wholeCubeAnimation\)/);
+    expect(viewportSource).toMatch(/deviceOrientationIsVirtualRegrip \? deviceOrientationCorrection : null/);
     expect(viewportSource).toMatch(/drawMotionOverlay\(width, height, glyphMatrices\)/);
     expect(viewportSource).toMatch(/drawOrientationAxes\(axisMatrices, width, height/);
     expect(viewportSource).not.toMatch(/const virtualAxisMatrices = cameraMatrices\(/);
@@ -63,17 +63,27 @@ describe("cube viewport math", () => {
     expect(wholeCubeTurnQuaternion({axis: [0, 1, 0], min: 0.4, max: 1.6, angle: Math.PI / 2})).toBeNull();
   });
 
-  test("counter-rotates glyph axes without changing their x/y/z identity", () => {
+  test("counter-rotates explicit x/y/z moves but retains live gyro orientation", () => {
     const half = Math.SQRT1_2;
-    const cubeY = {x: 0, y: half, z: 0, w: half};
-    const glyphY = glyphOrientationForCube(cubeY);
-    expect(glyphY?.x).toBeCloseTo(0);
-    expect(glyphY?.y).toBeCloseTo(-half);
-    expect(glyphY?.z).toBeCloseTo(0);
-    expect(glyphY?.w).toBeCloseTo(half);
+    const liveY = {x: 0, y: half, z: 0, w: half};
+    const glyphLiveY = glyphOrientationForCube(liveY);
+    expect(glyphLiveY?.x).toBeCloseTo(0);
+    expect(glyphLiveY?.y).toBeCloseTo(half);
+    expect(glyphLiveY?.z).toBeCloseTo(0);
+    expect(glyphLiveY?.w).toBeCloseTo(half);
+
+    const glyphRegripY = glyphOrientationForCube(
+      {x: 0, y: 0, z: 0, w: 1},
+      liveY,
+    );
+    expect(glyphRegripY?.x).toBeCloseTo(0);
+    expect(glyphRegripY?.y).toBeCloseTo(-half);
+    expect(glyphRegripY?.z).toBeCloseTo(0);
+    expect(glyphRegripY?.w).toBeCloseTo(half);
 
     const glyphWithTurn = glyphOrientationForCube(
       {x: 0, y: 0, z: 0, w: 1},
+      null,
       {x: 0, y: 0, z: half, w: half},
     );
     expect(glyphWithTurn?.x).toBeCloseTo(0);
