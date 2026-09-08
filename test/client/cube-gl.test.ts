@@ -439,16 +439,16 @@ describe("cube viewport math", () => {
     const aroundGanY = orientationInViewportFrame({x: 0, y: half, z: 0, w: half}, "gan-wire");
     const aroundGanZ = orientationInViewportFrame({x: 0, y: 0, z: half, w: half}, "gan-wire");
 
-    // Measured GAN i4 world basis: raw (x, y, z) -> RUF (-y, z, -x).
-    // Raw +X -> Front negative Z.
-    expect(aroundGanX.x).toBeCloseTo(0);
+    // Measured GAN i4 world basis: raw (x, y, z) -> RUF (x, z, -y).
+    // Raw +X -> Right positive X.
+    expect(aroundGanX.x).toBeCloseTo(half);
     expect(aroundGanX.y).toBeCloseTo(0);
-    expect(aroundGanX.z).toBeCloseTo(-half);
+    expect(aroundGanX.z).toBeCloseTo(0);
 
-    // Raw +Y -> Right negative X.
-    expect(aroundGanY.x).toBeCloseTo(-half);
+    // Raw +Y -> Front negative Z.
+    expect(aroundGanY.x).toBeCloseTo(0);
     expect(aroundGanY.y).toBeCloseTo(0);
-    expect(aroundGanY.z).toBeCloseTo(0);
+    expect(aroundGanY.z).toBeCloseTo(-half);
 
     // Raw +Z -> Up positive Y.
     expect(aroundGanZ.x).toBeCloseTo(0);
