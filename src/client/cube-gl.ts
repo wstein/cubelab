@@ -296,6 +296,21 @@ export const turnTransform = (size: number, step: MoveStep): TurnTransform | nul
   };
 };
 
+/** Quaternion represented by an in-flight whole-cube x/y/z turn, if any. */
+export const wholeCubeTurnQuaternion = (turn: TurnTransform | null): OrientationQuaternion | null => {
+  // `turnTransform` reserves this range for MoveStep.Rotation; face and wide
+  // turns always select a proper layer subset.
+  if (!turn || turn.min > -1.5 || turn.max < 1.5) return null;
+  const halfAngle = turn.angle / 2;
+  const sine = Math.sin(halfAngle);
+  return normalizedQuaternion({
+    x: turn.axis[0] * sine,
+    y: turn.axis[1] * sine,
+    z: turn.axis[2] * sine,
+    w: Math.cos(halfAngle),
+  });
+};
+
 export const turnPreviewTransform = (
   turn: TurnTransform,
   degrees = 4,
@@ -2005,6 +2020,23 @@ export const createCubeViewport = (
       cameraDistance,
       relativeOrientation,
     );
+    // Full-cube x/y/z playback is applied in the vertex shader, so compose
+    // the same in-flight turn into the canvas glyph explicitly. Face turns
+    // remain local and deliberately leave the orientation marker unchanged.
+    const wholeCubeAnimation = wholeCubeTurnQuaternion(activeTurn);
+    const glyphOrientation = wholeCubeAnimation
+      ? multiplyQuaternions(
+        relativeOrientation ?? {x: 0, y: 0, z: 0, w: 1},
+        wholeCubeAnimation,
+      )
+      : relativeOrientation;
+    const glyphMatrices = cameraMatrices(
+      aspect,
+      yaw,
+      pitch,
+      cameraDistance,
+      glyphOrientation,
+    );
     gl.uniformMatrix4fv(modelView, false, matrices.modelView);
     gl.uniformMatrix4fv(projection, false, matrices.projection);
     gl.uniform1f(speedStyle, style === "Speed" ? 1 : 0);
@@ -2024,7 +2056,7 @@ export const createCubeViewport = (
     gl.uniform3fv(guideAxis, guideTransform?.axis ?? [1, 0, 0]);
     gl.uniform2f(guideRange, guideTransform?.min ?? 0, guideTransform?.max ?? 0);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
-    drawMotionOverlay(width, height, matrices, deviceOrientationCorrection);
+    drawMotionOverlay(width, height, glyphMatrices, deviceOrientationCorrection);
 
     const adjustedResidual = detentedOrientation
       ? regripGaugeDeviation(detentedOrientation, deviceOrientationLockTarget)

@@ -10,6 +10,7 @@ import {
   cameraMatrices,
   clampedCanvasSize,
   turnTransform,
+  wholeCubeTurnQuaternion,
   turnPreviewTransform,
   transformTurnPointForCubie,
   transformTurnPoint,
@@ -48,9 +49,17 @@ describe("cube viewport math", () => {
   });
 
   test("rotates the orientation marker with the displayed cube", () => {
-    expect(viewportSource).toMatch(/drawMotionOverlay\(width, height, matrices, deviceOrientationCorrection\)/);
+    expect(viewportSource).toMatch(/const wholeCubeAnimation = wholeCubeTurnQuaternion\(activeTurn\)/);
+    expect(viewportSource).toMatch(/drawMotionOverlay\(width, height, glyphMatrices, deviceOrientationCorrection\)/);
     expect(viewportSource).toMatch(/drawOrientationAxes\(axisMatrices, width, height/);
     expect(viewportSource).not.toMatch(/const virtualAxisMatrices = cameraMatrices\(/);
+  });
+
+  test("maps only whole-cube playback turns into the glyph orientation", () => {
+    const rotation = wholeCubeTurnQuaternion({axis: [0, 1, 0], min: -2, max: 2, angle: Math.PI / 2});
+    expect(rotation?.y).toBeCloseTo(Math.SQRT1_2);
+    expect(rotation?.w).toBeCloseTo(Math.SQRT1_2);
+    expect(wholeCubeTurnQuaternion({axis: [0, 1, 0], min: 0.4, max: 1.6, angle: Math.PI / 2})).toBeNull();
   });
 
   test("updates virtual axis colours from the virtual cube's centre colours", () => {
