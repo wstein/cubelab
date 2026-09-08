@@ -1,4 +1,14 @@
 export {createSmartCubeManager, isWebBluetoothAvailable, normalizeTransportEvent} from "./bluetooth";
+export {createReplaySmartCubeManager, validateSmartCubeTape, SMART_CUBE_TAPE_SCHEMA} from "./replay";
+export type {
+  ReplaySmartCubeManager,
+  ReplayState,
+  ReplayStatus,
+  SmartCubeTape,
+  SmartCubeTapeCommand,
+  SmartCubeTapeEntry,
+  SmartCubeTapeHeader,
+} from "./replay";
 export {resolveSmartCubeDriver, smartCubeDrivers} from "./drivers";
 export {
   appendRecordedMove,
