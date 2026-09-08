@@ -866,6 +866,17 @@ export const deviceOrientationDelta = (
 };
 
 /**
+ * Phase-two gyro displacement for a face-flick alignment. Its baseline is
+ * the last accepted virtual regrip, so that regrip's offset is never applied
+ * again when the flick is captured at rest.
+ */
+export const gestureAlignmentDelta = (
+  baseline: OrientationQuaternion,
+  current: OrientationQuaternion,
+  coordinateFrame: OrientationCoordinateFrame = "viewport",
+): OrientationQuaternion => deviceOrientationDelta(baseline, current, coordinateFrame, "world");
+
+/**
  * Re-expresses a vendor-specific hardware sensor quaternion in canonical viewport axes.
  */
 export const orientationInViewportFrame = (
@@ -956,6 +967,7 @@ export type CubeViewport = {
     animate?: boolean,
     virtualOffset?: OrientationQuaternion,
     flickedFace?: string,
+    gestureBaseline?: OrientationQuaternion,
   ) => OrientationQuaternion;
   reconcileDeviceOrientation: (
     orientation: OrientationQuaternion,
@@ -2335,11 +2347,13 @@ export const createCubeViewport = (
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
     },
-    recenterDeviceOrientation(orientation, coordinateFrame = "viewport", animate = true, virtualOffset, flickedFace) {
+    recenterDeviceOrientation(orientation, coordinateFrame = "viewport", animate = true, virtualOffset, flickedFace, gestureBaseline) {
       const normalized = normalizedQuaternion(orientation);
       const prevVisual = lastRenderedOrientation;
-      const rawOrientation = deviceOrientationBase && deviceOrientationFrame === coordinateFrame
-        ? deviceOrientationDelta(deviceOrientationBase, normalized, coordinateFrame, "world")
+      const rawOrientation = gestureBaseline
+        ? gestureAlignmentDelta(gestureBaseline, normalized, coordinateFrame)
+        : deviceOrientationBase && deviceOrientationFrame === coordinateFrame
+          ? deviceOrientationDelta(deviceOrientationBase, normalized, coordinateFrame, "world")
         : {x: 0, y: 0, z: 0, w: 1};
       const alignment = virtualOffset
         ? virtualCubeAlignment(virtualOffset, gyroDriftOffset, rawOrientation, flickedFace)

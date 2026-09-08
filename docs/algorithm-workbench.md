@@ -283,7 +283,9 @@ offset in that rotated frame, then snaps to the nearest legal cardinal pose to c
 **Up**. The result is stored as the new persistent virtual orientation; it is not treated
 as the brief visual correction used by the ordinary Recenter button. This ordering
 matters at a 45° boundary: the drift offset is part of the Up decision, rather than an
-adjustment applied after a centre colour has already been chosen.
+adjustment applied after a centre colour has already been chosen. Phase two measures
+gyro movement from the last accepted virtual regrip, rather than the initial viewport
+baseline, so that an already-recorded `y` regrip is not accidentally applied twice.
 
 For hardware diagnosis, turn **Diagnostics** on before reproducing a turn. Diagnostic
 records are captured only while that control is on; turning it off immediately clears

@@ -2455,8 +2455,12 @@ if (root) {
     if (!target) return;
     // A face flick first rotates its physical face into virtual Right; the
     // viewport then selects Up from the offset-adjusted current pose.
-    const virtualOffset = source === "gesture"
-      ? smartCubeVirtualFixpointTracker?.orientation
+    const gestureTracker = source === "gesture" ? smartCubeVirtualFixpointTracker : null;
+    const virtualOffset = gestureTracker
+      ? gestureTracker.orientation
+      : undefined;
+    const gestureBaseline = gestureTracker?.frame === target.coordinateFrame
+      ? gestureTracker.baseline
       : undefined;
     const alignment = viewport?.recenterDeviceOrientation(
       target.quaternion,
@@ -2464,6 +2468,7 @@ if (root) {
       true,
       virtualOffset,
       flickedFace,
+      gestureBaseline,
     );
     const discreteTracker = createStableOrientationTracker(
       target.quaternion,

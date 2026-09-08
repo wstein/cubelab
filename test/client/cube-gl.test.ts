@@ -14,6 +14,7 @@ import {
   transformTurnPointForCubie,
   transformTurnPoint,
   focusCameraTarget,
+  gestureAlignmentDelta,
   magneticOrientationDetent,
   matrixFromQuaternion,
   multiplyQuaternions,
@@ -46,6 +47,17 @@ describe("cube viewport math", () => {
       const aligned = virtualCubeAlignment(identity, identity, identity, face);
       expect(cardinalOrientationFaces(aligned)[1]).toBe(face);
     }
+  });
+
+  test("does not apply an accepted y regrip twice when its Right face flicks", () => {
+    const identity = {x: 0, y: 0, z: 0, w: 1};
+    const y = {x: 0, y: Math.SQRT1_2, z: 0, w: Math.SQRT1_2};
+    const flickedFace = cardinalOrientationFaces(y)[1]!;
+
+    // The y regrip is already represented by virtualOffset. At the flick's
+    // resting pose, phase 2 must therefore see no additional gyro rotation.
+    const aligned = virtualCubeAlignment(y, identity, gestureAlignmentDelta(y, y), flickedFace);
+    expect(cardinalOrientationFaces(aligned)[1]).toBe(flickedFace);
   });
 
   test("chooses Up from the offset-adjusted pose after placing a flicked face on Right", () => {
