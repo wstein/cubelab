@@ -3016,19 +3016,8 @@ if (root) {
         academy.applyCentre.hidden = false;
         academy.applyCentre.disabled = false;
       } else {
-        const key = FaceletCodec.render(recognized.state);
-        if (reduction5x5CycleGuide !== null && reduction5x5CycleKey === key) {
-          academy.guide.textContent = `Replay-verified ${reduction5x5CycleGuide.kind === "plusCycle" ? "+-centre" : "X-centre"} cycle: ${reduction5x5CycleGuide.algorithm}.`;
-          academy.guide.classList.remove("error");
-          academy.applyCentre.hidden = false;
-          academy.applyCentre.disabled = false;
-        } else {
-          academy.guide.textContent = guide._0.message;
-          academy.guide.classList.add("error");
-          academy.findCycle.hidden = false;
-          academy.findCycle.disabled = reduction5x5CycleBusy;
-          academy.findCycle.textContent = reduction5x5CycleBusy ? "Stop centre-cycle search" : "Find full X/+ centre cycle";
-        }
+        academy.guide.textContent = guide._0.message;
+        academy.guide.classList.add("error");
       }
     }
     if (progress.stage === "wings") {
@@ -3107,8 +3096,19 @@ if (root) {
         academy.applyCentre.hidden = false;
         academy.applyCentre.disabled = false;
       } else {
-        academy.guide.textContent = guide._0.message;
-        academy.guide.classList.add("error");
+        const key = FaceletCodec.render(recognized.state);
+        if (reduction5x5CycleGuide !== null && reduction5x5CycleKey === key) {
+          academy.guide.textContent = `Replay-verified ${reduction5x5CycleGuide.kind === "plusCycle" ? "+-centre" : "X-centre"} cycle: ${reduction5x5CycleGuide.algorithm}.`;
+          academy.guide.classList.remove("error");
+          academy.applyCentre.hidden = false;
+          academy.applyCentre.disabled = false;
+        } else {
+          academy.guide.textContent = guide._0.message;
+          academy.guide.classList.add("error");
+          academy.findCycle.hidden = false;
+          academy.findCycle.disabled = reduction5x5CycleBusy;
+          academy.findCycle.textContent = reduction5x5CycleBusy ? "Stop centre-cycle search" : "Find full X/+ centre cycle";
+        }
       }
     }
     if (progress.stage === "wings") {
