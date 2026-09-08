@@ -20,6 +20,7 @@ import {
   multiplyQuaternions,
   nearestCardinalQuaternion,
   orientationInViewportFrame,
+  orientationAxisFaces,
   orientationCorrectionForTarget,
   orientationDistanceRadians,
   quaternionAxisAngle,
@@ -29,6 +30,7 @@ import {
   pngBlobFromDataUrl,
   relativeQuaternion,
   safeCameraDistance,
+  settledRegripOrientation,
   slerpQuaternion,
   smoothTrackedOrientation,
   standardStickerFinish,
@@ -46,9 +48,16 @@ describe("cube viewport math", () => {
     expect(viewportSource).not.toMatch(/label: "-x"|label: "-y"|label: "-z"/);
   });
 
-  test("keeps the orientation marker in the camera frame, outside live gyro rotation", () => {
-    expect(viewportSource).toMatch(/const cameraOnlyMatrices = cameraMatrices\(/);
-    expect(viewportSource).toMatch(/drawOrientationAxes\(cameraOnlyMatrices, width, height\)/);
+  test("rotates the orientation marker only with detected virtual regrips", () => {
+    expect(viewportSource).toMatch(/const virtualAxisMatrices = cameraMatrices\(/);
+    expect(viewportSource).toMatch(/deviceOrientationCorrection \? deviceOrientationCorrection : undefined/);
+    expect(viewportSource).toMatch(/drawOrientationAxes\(virtualAxisMatrices, width, height/);
+  });
+
+  test("updates virtual axis colours from the virtual cube's centre colours", () => {
+    const z = {x: 0, y: 0, z: Math.SQRT1_2, w: Math.SQRT1_2};
+    expect(orientationAxisFaces({x: 0, y: 0, z: 0, w: 1})).toEqual({x: "R", y: "U", z: "F"});
+    expect(orientationAxisFaces(z)).toEqual({x: "D", y: "R", z: "F"});
   });
 
   test("rotates a flicked face into virtual Right before resolving Up", () => {
@@ -159,6 +168,13 @@ describe("cube viewport math", () => {
     expect(orientationDistanceRadians(magneticOrientationDetent(x(9), identity), identity)).toBeLessThan(1 * Math.PI / 180);
     expect(orientationDistanceRadians(magneticOrientationDetent(x(20), identity), identity)).toBeLessThan(5 * Math.PI / 180);
     expect(orientationDistanceRadians(magneticOrientationDetent(x(25), identity), identity)).toBeLessThan(8 * Math.PI / 180);
+  });
+
+  test("holds a confirmed virtual regrip at its cardinal pose through the remaining quarter turn", () => {
+    const identity = {x: 0, y: 0, z: 0, w: 1};
+    const z = (degrees: number) => ({x: 0, y: 0, z: Math.sin(degrees * Math.PI / 360), w: Math.cos(degrees * Math.PI / 360)});
+    expect(orientationDistanceRadians(settledRegripOrientation(z(38), identity), identity)).toBeCloseTo(0);
+    expect(orientationDistanceRadians(settledRegripOrientation(z(46), identity), z(46))).toBeCloseTo(0);
   });
 
   test("slews gyro drift offset toward cardinal magnets at 2 deg/s inside well", () => {

@@ -616,6 +616,16 @@ export const magneticOrientationDetent = (
   );
 };
 
+/** Holds a confirmed virtual regrip through the rest of its physical quarter turn. */
+export const settledRegripOrientation = (
+  raw: OrientationQuaternion,
+  cardinalTarget: OrientationQuaternion,
+): OrientationQuaternion => (
+  orientationDistanceRadians(raw, cardinalTarget) <= 45 * Math.PI / 180
+    ? normalizedQuaternion(cardinalTarget)
+    : raw
+);
+
 /**
  * Slews a persistent gyro drift offset toward the cardinal lock at a bounded
  * rate (default ~2°/s). When inside the magnetic well, ongoing sensor drift
@@ -793,6 +803,14 @@ export const cardinalOrientationFaces = (orientation: OrientationQuaternion): st
         ? candidate : best
     ), CARDINAL_BODY_FACES[0]!).face;
   }).join("");
+};
+
+/** Centre colours assigned to the positive x (Right), y (Up), and z (Front) axes. */
+export const orientationAxisFaces = (
+  orientation: OrientationQuaternion = {x: 0, y: 0, z: 0, w: 1},
+): {x: string; y: string; z: string} => {
+  const faces = cardinalOrientationFaces(orientation);
+  return {x: faces[1]!, y: faces[0]!, z: faces[2]!};
 };
 
 export const relativeQuaternion = (
@@ -1082,6 +1100,7 @@ export const createCubeViewport = (
   // The correction actually being drawn this frame; only animateDeviceOrientationCorrectionTo
   // may write it.
   let deviceOrientationCorrection: OrientationQuaternion | null = null;
+  let deviceOrientationIsVirtualRegrip = false;
   let lastRenderedOrientation: OrientationQuaternion | null = null;
   let deviceOrientationFrame: OrientationCoordinateFrame = "viewport";
   let deviceOrientationCorrectionFrame: number | null = null;
@@ -1160,6 +1179,7 @@ export const createCubeViewport = (
     matrices: { modelView: Mat4; projection: Mat4 },
     width: number,
     height: number,
+    virtualOrientation: OrientationQuaternion | null,
   ) => {
     if (!overlay) return;
     const bounds = canvas.getBoundingClientRect();
@@ -1174,10 +1194,15 @@ export const createCubeViewport = (
       ? {U: "#f5f5f2", R: "#eb4d4a", F: "#66cc57", D: "#facc2e", L: "#f58c26", B: "#479eF0"}
       : {U: "#f2f2f2", R: "#c4352e", F: "#218c4a", D: "#f5cc33", L: "#f07821", B: "#2959a8"};
     const front = palette === "Japanese" ? faceColours.B : faceColours.F;
+    const back = palette === "Japanese" ? faceColours.F : faceColours.B;
+    const axisFaces = orientationAxisFaces(virtualOrientation ?? {x: 0, y: 0, z: 0, w: 1});
+    const colourForFace = (face: string): string => (
+      face === "F" ? front : face === "B" ? back : faceColours[face as "U" | "R" | "D" | "L"]
+    );
     const axisSpecs: Array<{label: string; point: [number, number, number]; colour: string}> = [
-      {label: "x", point: [1, 0, 0], colour: faceColours.R},
-      {label: "y", point: [0, 1, 0], colour: faceColours.U},
-      {label: "z", point: [0, 0, 1], colour: front},
+      {label: "x", point: [1, 0, 0], colour: colourForFace(axisFaces.x)},
+      {label: "y", point: [0, 1, 0], colour: colourForFace(axisFaces.y)},
+      {label: "z", point: [0, 0, 1], colour: colourForFace(axisFaces.z)},
     ];
     const axes = axisSpecs.map((axis) => {
       const endpoint = projectPoint(axis.point, matrices.modelView, matrices.projection, width, height);
@@ -1512,7 +1537,8 @@ export const createCubeViewport = (
   const drawMotionOverlay = (
     width: number,
     height: number,
-    cameraOnlyMatrices: { modelView: Mat4; projection: Mat4 },
+    virtualAxisMatrices: { modelView: Mat4; projection: Mat4 },
+    virtualOrientation: OrientationQuaternion | null,
   ) => {
     if (!overlay) return;
     if (overlayCanvas.width !== width || overlayCanvas.height !== height) {
@@ -1520,7 +1546,7 @@ export const createCubeViewport = (
       overlayCanvas.height = height;
     }
     overlay.clearRect(0, 0, width, height);
-    drawOrientationAxes(cameraOnlyMatrices, width, height);
+    drawOrientationAxes(virtualAxisMatrices, width, height, virtualOrientation);
     if (!focus && !turnGuide && !milestone) {
       delete overlayCanvas.dataset.motionVisible;
       return;
@@ -1963,7 +1989,9 @@ export const createCubeViewport = (
       ? normalizedQuaternion(multiplyQuaternions(gyroDriftOffset, rawOrientation))
       : undefined;
     const detentedOrientation = driftAdjustedOrientation
-      ? magneticOrientationDetent(driftAdjustedOrientation, deviceOrientationLockTarget)
+      ? deviceOrientationIsVirtualRegrip
+        ? settledRegripOrientation(driftAdjustedOrientation, deviceOrientationLockTarget)
+        : magneticOrientationDetent(driftAdjustedOrientation, deviceOrientationLockTarget)
       : driftAdjustedOrientation;
     magneticDetentPullDegrees = rawOrientation && detentedOrientation
       ? orientationDistanceRadians(rawOrientation, detentedOrientation) * 180 / Math.PI
@@ -1984,7 +2012,13 @@ export const createCubeViewport = (
       cameraDistance,
       relativeOrientation,
     );
-    const cameraOnlyMatrices = cameraMatrices(aspect, yaw, pitch, cameraDistance);
+    const virtualAxisMatrices = cameraMatrices(
+      aspect,
+      yaw,
+      pitch,
+      cameraDistance,
+      deviceOrientationCorrection ? deviceOrientationCorrection : undefined,
+    );
     gl.uniformMatrix4fv(modelView, false, matrices.modelView);
     gl.uniformMatrix4fv(projection, false, matrices.projection);
     gl.uniform1f(speedStyle, style === "Speed" ? 1 : 0);
@@ -2004,7 +2038,7 @@ export const createCubeViewport = (
     gl.uniform3fv(guideAxis, guideTransform?.axis ?? [1, 0, 0]);
     gl.uniform2f(guideRange, guideTransform?.min ?? 0, guideTransform?.max ?? 0);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
-    drawMotionOverlay(width, height, cameraOnlyMatrices);
+    drawMotionOverlay(width, height, virtualAxisMatrices, deviceOrientationCorrection);
 
     const adjustedResidual = detentedOrientation
       ? regripGaugeDeviation(detentedOrientation, deviceOrientationLockTarget)
@@ -2390,6 +2424,7 @@ export const createCubeViewport = (
         lastGyroDriftTime = null;
         isGyroDrifting = false;
         deviceOrientationCorrection = null;
+        deviceOrientationIsVirtualRegrip = false;
         deviceOrientationCorrectionGeneration += 1;
         deviceOrientationFrame = "viewport";
         delete canvas.dataset.deviceOrientation;
@@ -2406,6 +2441,7 @@ export const createCubeViewport = (
         lastGyroDriftTime = null;
         isGyroDrifting = false;
         deviceOrientationCorrection = null;
+        deviceOrientationIsVirtualRegrip = false;
         deviceOrientationCorrectionGeneration += 1;
       }
       deviceOrientationFrame = coordinateFrame;
@@ -2444,6 +2480,7 @@ export const createCubeViewport = (
         : (animate && prevVisual) ? recenterOrientationCorrection(prevVisual) : null;
       if (correction && !virtualOffset) {
         deviceOrientationCorrection = correction;
+        deviceOrientationIsVirtualRegrip = false;
         animateDeviceOrientationCorrectionTo({x: 0, y: 0, z: 0, w: 1}, 150);
       } else if (correction) {
         // A gesture alignment is the new persistent virtual frame, not a
@@ -2453,6 +2490,7 @@ export const createCubeViewport = (
           deviceOrientationCorrectionFrame = null;
         }
         deviceOrientationCorrection = correction;
+        deviceOrientationIsVirtualRegrip = Boolean(virtualOffset);
         deviceOrientationCorrectionGeneration += 1;
       } else {
         if (deviceOrientationCorrectionFrame !== null) {
@@ -2460,6 +2498,7 @@ export const createCubeViewport = (
           deviceOrientationCorrectionFrame = null;
         }
         deviceOrientationCorrection = null;
+        deviceOrientationIsVirtualRegrip = false;
         deviceOrientationCorrectionGeneration += 1;
       }
 
@@ -2481,6 +2520,7 @@ export const createCubeViewport = (
         deviceOrientationCorrectionFrame = null;
       }
       deviceOrientationCorrection = normalizedQuaternion(virtualOrientation);
+      deviceOrientationIsVirtualRegrip = true;
       deviceOrientationCorrectionGeneration += 1;
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
@@ -2497,6 +2537,7 @@ export const createCubeViewport = (
       lastGyroDriftTime = null;
       isGyroDrifting = false;
       deviceOrientationCorrection = null;
+      deviceOrientationIsVirtualRegrip = false;
       deviceOrientationCorrectionGeneration += 1;
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
