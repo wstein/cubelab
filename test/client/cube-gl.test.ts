@@ -47,10 +47,10 @@ describe("cube viewport math", () => {
     expect(viewportSource).not.toMatch(/label: "-x"|label: "-y"|label: "-z"/);
   });
 
-  test("rotates the orientation marker only with detected virtual regrips", () => {
-    expect(viewportSource).toMatch(/const virtualAxisMatrices = cameraMatrices\(/);
-    expect(viewportSource).toMatch(/deviceOrientationCorrection \? deviceOrientationCorrection : undefined/);
-    expect(viewportSource).toMatch(/drawOrientationAxes\(virtualAxisMatrices, width, height/);
+  test("rotates the orientation marker with the displayed cube", () => {
+    expect(viewportSource).toMatch(/drawMotionOverlay\(width, height, matrices, deviceOrientationCorrection\)/);
+    expect(viewportSource).toMatch(/drawOrientationAxes\(axisMatrices, width, height/);
+    expect(viewportSource).not.toMatch(/const virtualAxisMatrices = cameraMatrices\(/);
   });
 
   test("updates virtual axis colours from the virtual cube's centre colours", () => {

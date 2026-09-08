@@ -1164,7 +1164,7 @@ export const createCubeViewport = (
     context.restore();
   };
 
-  /** Small camera-frame reference marker; it never inherits gyro cube turns. */
+  /** Small cube-frame reference marker; it follows the displayed cube orientation. */
   const drawOrientationAxes = (
     matrices: { modelView: Mat4; projection: Mat4 },
     width: number,
@@ -1527,7 +1527,7 @@ export const createCubeViewport = (
   const drawMotionOverlay = (
     width: number,
     height: number,
-    virtualAxisMatrices: { modelView: Mat4; projection: Mat4 },
+    axisMatrices: { modelView: Mat4; projection: Mat4 },
     virtualOrientation: OrientationQuaternion | null,
   ) => {
     if (!overlay) return;
@@ -1536,7 +1536,7 @@ export const createCubeViewport = (
       overlayCanvas.height = height;
     }
     overlay.clearRect(0, 0, width, height);
-    drawOrientationAxes(virtualAxisMatrices, width, height, virtualOrientation);
+    drawOrientationAxes(axisMatrices, width, height, virtualOrientation);
     if (!focus && !turnGuide && !milestone) {
       delete overlayCanvas.dataset.motionVisible;
       return;
@@ -2005,13 +2005,6 @@ export const createCubeViewport = (
       cameraDistance,
       relativeOrientation,
     );
-    const virtualAxisMatrices = cameraMatrices(
-      aspect,
-      yaw,
-      pitch,
-      cameraDistance,
-      deviceOrientationCorrection ? deviceOrientationCorrection : undefined,
-    );
     gl.uniformMatrix4fv(modelView, false, matrices.modelView);
     gl.uniformMatrix4fv(projection, false, matrices.projection);
     gl.uniform1f(speedStyle, style === "Speed" ? 1 : 0);
@@ -2031,7 +2024,7 @@ export const createCubeViewport = (
     gl.uniform3fv(guideAxis, guideTransform?.axis ?? [1, 0, 0]);
     gl.uniform2f(guideRange, guideTransform?.min ?? 0, guideTransform?.max ?? 0);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
-    drawMotionOverlay(width, height, virtualAxisMatrices, deviceOrientationCorrection);
+    drawMotionOverlay(width, height, matrices, deviceOrientationCorrection);
 
     const adjustedResidual = detentedOrientation
       ? regripGaugeDeviation(detentedOrientation, deviceOrientationLockTarget)
