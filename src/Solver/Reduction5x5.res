@@ -139,6 +139,43 @@ let planOneByThreeBar = (state: cubeState, initial: progress): option<guide> => 
   best.contents
 }
 
+/** Searches setup turns specifically for a new 1×3 bar. This deliberately
+ * keeps a wider frontier than the synchronous next-guide planner: a useful
+ * bar can require three neutral setup turns before the fourth creates it. */
+let planBoundedBarSetup = (state: cubeState, initial: progress): option<guide> => {
+  let beforeBars = switch centreBarScore(state) { | Some(value) => value | None => 0 }
+  let best = ref(None)
+  let frontier: ref<array<centreCandidate>> = ref([{state, alg: [], lastFace: "", score: initial.score + beforeBars * 2}])
+  for _ in 0 to 3 {
+    let next = ref([])
+    frontier.contents->Array.forEach(candidate => centreSearchMoves->Array.forEach(notation => {
+      let face = if notation->String.slice(~start=0, ~end=1) == "2" {notation->String.slice(~start=1, ~end=2)} else {notation->String.slice(~start=0, ~end=1)}
+      if face != candidate.lastFace {
+        switch parse(notation) {
+        | None => ()
+        | Some(move) => switch MoveExecutor.applyAlg(candidate.state, move) {
+          | Error(_) => ()
+          | Ok(nextState) => switch (progressFor(nextState), centreBarScore(nextState)) {
+            | (Some(after), Some(barsAfter)) => {
+              let expanded = {state: nextState, alg: Array.concat(candidate.alg, move), lastFace: face, score: after.score + barsAfter * 2}
+              let _ = Array.push(next.contents, expanded)
+              if barsAfter > beforeBars && after.score >= initial.score - 3 {
+                let guide = {alg: expanded.alg, algorithm: MoveTransform.serialize(expanded.alg), before: initial.score, after: after.score, kind: "bar", barsBefore: beforeBars, barsAfter, completedBefore: initial.x + initial.plus, completedAfter: after.x + after.plus}
+                switch best.contents { | None => best := Some(guide) | Some(current) if guide.barsAfter > current.barsAfter || (guide.barsAfter == current.barsAfter && guide.after > current.after) => best := Some(guide) | Some(_) => () }
+                }
+              }
+            | _ => ()
+            }
+          }
+        }
+      }
+    }))
+    let ranked = next.contents->Belt.SortArray.stableSortBy((left, right) => right.score - left.score)
+    frontier := ranked->Array.slice(~start=0, ~end=min(10000, ranked->Array.length))
+  }
+  best.contents
+}
+
 /** A deeper, cancellable Academy action. It conjugates each familiar centre
  * commutator with one outer setup turn, then insists that replay creates a
  * new core-aligned 1×3 bar. This is deliberately separate from the immediate
@@ -148,6 +185,8 @@ let findOneByThreeBar5x5 = (state: cubeState): result<guide, reductionError> =>
   | None => Error({message: "The 1×3 bar planner requires a complete 5×5 state."})
   | Some(initial) => {
     switch planOneByThreeBar(state, initial) {
+    | Some(guide) => Ok(guide)
+    | None => switch planBoundedBarSetup(state, initial) {
     | Some(guide) => Ok(guide)
     | None => {
     let beforeBars = switch centreBarScore(state) { | Some(value) => value | None => 0 }
@@ -194,6 +233,7 @@ let findOneByThreeBar5x5 = (state: cubeState): result<guide, reductionError> =>
     | None => Error({message: "No replay-verified 1×3 bar commutator was found within the bounded setup search."})
     }
     }
+    }
   }
   }
   }
@@ -221,7 +261,7 @@ let findCentreCommutator = (state: cubeState, initial: progress): option<guide> 
       | Some(alg) => switch MoveExecutor.applyAlg(state, alg) {
         | Error(_) => ()
         | Ok(replay) => switch progressFor(replay) {
-          | Some(after) if after.x > initial.x => {
+          | Some(after) if after.x > initial.x || after.faces > initial.faces || after.score > initial.score => {
             let completedBefore = initial.x + initial.plus
             let completedAfter = after.x + after.plus
             let guide = {alg, algorithm: MoveTransform.serialize(alg), before: initial.score, after: after.score, kind: "xCycle", barsBefore: 0, barsAfter: 0, completedBefore, completedAfter}
@@ -254,7 +294,7 @@ let findCentreCommutator = (state: cubeState, initial: progress): option<guide> 
         | Some(alg) => switch MoveExecutor.applyAlg(state, alg) {
           | Error(_) => ()
           | Ok(replay) => switch progressFor(replay) {
-            | Some(after) if after.plus > initial.plus && after.x >= initial.x => {
+          | Some(after) if (after.plus > initial.plus || after.faces > initial.faces || after.score > initial.score) && after.x >= initial.x => {
               let completedBefore = initial.x + initial.plus
               let completedAfter = after.x + after.plus
               let guide = {alg, algorithm: MoveTransform.serialize(alg), before: initial.score, after: after.score, kind: "plusCycle", barsBefore: 0, barsAfter: 0, completedBefore, completedAfter}

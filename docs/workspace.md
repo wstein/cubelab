@@ -126,17 +126,23 @@ The Academy's synchronous centre hint is deliberately bounded. **Find full
 bounded X-centre cycle** runs a capped 24-piece X-centre diagnostic in a
 dedicated worker, reports its table-preparation stage, and can stop immediately
 by terminating that worker. The +-centre orbit has different wide-move geometry
-on a 5×5 and remains on the bar/commutator route until its dedicated solver is
-implemented. Table construction is never started while the page is rendering or
-responding to input.
+on a 5×5. Its endgame guidance therefore uses replay-verified buffered centre
+3-cycles rather than the 4×4 X-centre coordinate. Table construction is never
+started while the page is rendering or responding to input.
 
 Before that bounded diagnostic, the immediate guide tries rotated standard
 `Rw`/`2R` 1×3 centre-bar commutators and their inverses, accepting only a
 replay-verified increase in core-aligned bars. When the immediate centre guide
 cannot produce a verified move, Academy exposes **Find 1×3 bar commutator**.
 That cancellable worker action
-extends the immediate guide with one-turn setup conjugates of the standard
-commutators and returns only a replay-verified new core-aligned bar.
+extends the immediate guide with a wider four-ply bar-setup beam and one-turn
+setup conjugates of the standard commutators. It returns only a
+replay-verified new core-aligned bar.
+
+Near the centre endgame, the planner evaluates buffered eight-move
+`[S1, F S2 F']` X/+ centre 3-cycles. It accepts a cycle when it completes a
+whole 3×3 centre face, improves the exact centre score, or completes an orbit;
+it is not limited to the coarser whole-X/+ orbit counter.
 
 Both phases of the reused three-phase diagnostic have independent 30,000-node
 budgets; a budget miss is a normal bounded failure, never an open-ended search.

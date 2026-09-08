@@ -346,6 +346,89 @@ function planOneByThreeBar(state, initial) {
   return best.contents;
 }
 
+function planBoundedBarSetup(state, initial) {
+  let value = centreBarScore(state);
+  let beforeBars = value !== undefined ? value : 0;
+  let best = {
+    contents: undefined
+  };
+  let frontier = [{
+      state: state,
+      alg: [],
+      lastFace: "",
+      score: initial.score + (beforeBars << 1) | 0
+    }];
+  for (let _for = 0; _for <= 3; ++_for) {
+    let next = {
+      contents: []
+    };
+    frontier.forEach(candidate => {
+      centreSearchMoves.forEach(notation => {
+        let face = notation.slice(0, 1) === "2" ? notation.slice(1, 2) : notation.slice(0, 1);
+        if (face === candidate.lastFace) {
+          return;
+        }
+        let move = parse(notation);
+        if (move === undefined) {
+          return;
+        }
+        let nextState = MoveExecutor.applyAlg(candidate.state, move);
+        if (nextState.TAG !== "Ok") {
+          return;
+        }
+        let nextState$1 = nextState._0;
+        let match = progressFor(nextState$1);
+        let match$1 = centreBarScore(nextState$1);
+        if (match === undefined) {
+          return;
+        }
+        if (match$1 === undefined) {
+          return;
+        }
+        let expanded_alg = candidate.alg.concat(move);
+        let expanded_score = match.score + (match$1 << 1) | 0;
+        let expanded = {
+          state: nextState$1,
+          alg: expanded_alg,
+          lastFace: face,
+          score: expanded_score
+        };
+        next.contents.push(expanded);
+        if (!(match$1 > beforeBars && match.score >= (initial.score - 3 | 0))) {
+          return;
+        }
+        let guide_alg = expanded_alg;
+        let guide_algorithm = MoveTransform.serialize(expanded_alg);
+        let guide_before = initial.score;
+        let guide_after = match.score;
+        let guide_completedBefore = initial.x + initial.plus | 0;
+        let guide_completedAfter = match.x + match.plus | 0;
+        let guide = {
+          alg: guide_alg,
+          algorithm: guide_algorithm,
+          before: guide_before,
+          after: guide_after,
+          kind: "bar",
+          barsBefore: beforeBars,
+          barsAfter: match$1,
+          completedBefore: guide_completedBefore,
+          completedAfter: guide_completedAfter
+        };
+        let current = best.contents;
+        if (current !== undefined && !(match$1 > current.barsAfter || match$1 === current.barsAfter && guide_after > current.after)) {
+          return;
+        } else {
+          best.contents = guide;
+          return;
+        }
+      });
+    });
+    let ranked = Belt_SortArray.stableSortBy(next.contents, (left, right) => right.score - left.score | 0);
+    frontier = ranked.slice(0, Primitive_int.min(10000, ranked.length));
+  }
+  return best.contents;
+}
+
 function findOneByThreeBar5x5(state) {
   let initial = progressFor(state);
   if (initial === undefined) {
@@ -361,6 +444,13 @@ function findOneByThreeBar5x5(state) {
     return {
       TAG: "Ok",
       _0: guide
+    };
+  }
+  let guide$1 = planBoundedBarSetup(state, initial);
+  if (guide$1 !== undefined) {
+    return {
+      TAG: "Ok",
+      _0: guide$1
     };
   }
   let value = centreBarScore(state);
@@ -419,11 +509,11 @@ function findOneByThreeBar5x5(state) {
       return;
     }
   });
-  let guide$1 = best.contents;
-  if (guide$1 !== undefined) {
+  let guide$2 = best.contents;
+  if (guide$2 !== undefined) {
     return {
       TAG: "Ok",
-      _0: guide$1
+      _0: guide$2
     };
   } else {
     return {
@@ -506,7 +596,7 @@ function findCentreCommutator(state, initial) {
         if (after === undefined) {
           return;
         }
-        if (after.x <= initial.x) {
+        if (!(after.x > initial.x || after.faces > initial.faces || after.score > initial.score)) {
           return;
         }
         let completedBefore = initial.x + initial.plus | 0;
@@ -561,7 +651,7 @@ function findCentreCommutator(state, initial) {
           if (after === undefined) {
             return;
           }
-          if (!(after.plus > initial.plus && after.x >= initial.x)) {
+          if (!((after.plus > initial.plus || after.faces > initial.faces || after.score > initial.score) && after.x >= initial.x)) {
             return;
           }
           let completedBefore = initial.x + initial.plus | 0;
@@ -1191,6 +1281,7 @@ export {
   inspectReduction5x5,
   parse,
   planOneByThreeBar,
+  planBoundedBarSetup,
   findOneByThreeBar5x5,
   findCentreCommutator,
   solveXCentreCycle5x5,
