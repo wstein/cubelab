@@ -750,10 +750,22 @@ export const virtualCubeAlignment = (
   virtualOffset: OrientationQuaternion,
   gyroDriftOffset: OrientationQuaternion,
   rawOrientation: OrientationQuaternion,
-): OrientationQuaternion => nearestCardinalQuaternion(multiplyQuaternions(
-  multiplyQuaternions(gyroDriftOffset, rawOrientation),
-  virtualOffset,
-));
+  flickedFace = "R",
+): OrientationQuaternion => {
+  const rotatedOffset = CARDINAL_ORIENTATIONS
+    .map(({quaternion}) => ({
+      orientation: multiplyQuaternions(quaternion, virtualOffset),
+      adjustment: quaternion,
+    }))
+    .filter(({orientation}) => cardinalOrientationFaces(orientation)[1] === flickedFace)
+    .sort((left, right) => orientationDistanceRadians(left.adjustment, {x: 0, y: 0, z: 0, w: 1})
+      - orientationDistanceRadians(right.adjustment, {x: 0, y: 0, z: 0, w: 1}))[0]?.orientation
+    ?? virtualOffset;
+  return nearestCardinalQuaternion(multiplyQuaternions(
+    multiplyQuaternions(gyroDriftOffset, rawOrientation),
+    rotatedOffset,
+  ));
+};
 
 const CARDINAL_BODY_FACES: Array<{face: string; normal: [number, number, number]}> = [
   {face: "U", normal: [0, 1, 0]}, {face: "R", normal: [1, 0, 0]}, {face: "F", normal: [0, 0, 1]},
@@ -943,6 +955,7 @@ export type CubeViewport = {
     frame?: OrientationCoordinateFrame,
     animate?: boolean,
     virtualOffset?: OrientationQuaternion,
+    flickedFace?: string,
   ) => OrientationQuaternion;
   reconcileDeviceOrientation: (
     orientation: OrientationQuaternion,
@@ -2322,14 +2335,14 @@ export const createCubeViewport = (
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
     },
-    recenterDeviceOrientation(orientation, coordinateFrame = "viewport", animate = true, virtualOffset) {
+    recenterDeviceOrientation(orientation, coordinateFrame = "viewport", animate = true, virtualOffset, flickedFace) {
       const normalized = normalizedQuaternion(orientation);
       const prevVisual = lastRenderedOrientation;
       const rawOrientation = deviceOrientationBase && deviceOrientationFrame === coordinateFrame
         ? deviceOrientationDelta(deviceOrientationBase, normalized, coordinateFrame, "world")
         : {x: 0, y: 0, z: 0, w: 1};
       const alignment = virtualOffset
-        ? virtualCubeAlignment(virtualOffset, gyroDriftOffset, rawOrientation)
+        ? virtualCubeAlignment(virtualOffset, gyroDriftOffset, rawOrientation, flickedFace)
         : {x: 0, y: 0, z: 0, w: 1};
       deviceOrientationBase = normalized;
       deviceOrientation = normalized;

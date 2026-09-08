@@ -39,25 +39,28 @@ import {cubieIsFrontFacing} from "../../src/client/motion-overlay";
 const viewportSource = await readFile(new URL("../../src/client/cube-gl.ts", import.meta.url), "utf8");
 
 describe("cube viewport math", () => {
-  test("aligns an R-flick virtual cube before choosing its offset-aware nearest Up", () => {
+  test("rotates a flicked face into virtual Right before resolving Up", () => {
+    const identity = {x: 0, y: 0, z: 0, w: 1};
+
+    for (const face of ["U", "R", "F", "D", "L", "B"]) {
+      const aligned = virtualCubeAlignment(identity, identity, identity, face);
+      expect(cardinalOrientationFaces(aligned)[1]).toBe(face);
+    }
+  });
+
+  test("chooses Up from the offset-adjusted pose after placing a flicked face on Right", () => {
     const identity = {x: 0, y: 0, z: 0, w: 1};
     const x = (degrees: number) => ({
       x: Math.sin(degrees * Math.PI / 360), y: 0, z: 0, w: Math.cos(degrees * Math.PI / 360),
     });
-    const y = (degrees: number) => ({
-      x: 0, y: Math.sin(degrees * Math.PI / 360), z: 0, w: Math.cos(degrees * Math.PI / 360),
-    });
-
     // The raw 44° pose is still nearest identity. A 5° live gyro offset puts
-    // the rendered pose on the x quarter-turn side of the 45° boundary. The
-    // virtual y pose is applied first (to keep its rotated Right centre), then
-    // the offset-aware current pose determines the new Up centre.
-    const aligned = virtualCubeAlignment(y(90), x(5), x(44));
+    // the rendered pose on the x quarter-turn side of the 45° boundary.
+    const aligned = virtualCubeAlignment(identity, x(5), x(44), "R");
 
-    const rotatedRight = cardinalOrientationFaces(y(90))[1]!;
+    const rotatedRight = "R";
     const offsetAwareUp = cardinalOrientationFaces(nearestCardinalQuaternion(multiplyQuaternions(
       multiplyQuaternions(x(5), x(44)),
-      y(90),
+      identity,
     )))[0]!;
     const faces = cardinalOrientationFaces(aligned);
     expect(faces[1]).toBe(rotatedRight);

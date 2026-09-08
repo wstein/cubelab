@@ -2448,12 +2448,13 @@ if (root) {
   const recenterSmartCubeGyroView = (
     source: "button" | "gesture" = "button",
     orientationOverride?: Pick<SmartCubeOrientationEvent, "quaternion" | "coordinateFrame">,
+    flickedFace?: string,
   ) => {
     if (!smartCubeOrientationTracking) return;
     const target = orientationOverride ?? latestSmartCubeOrientation;
     if (!target) return;
-    // A face flick first preserves the already-rotated virtual Right frame;
-    // CubeViewport then selects Up from the offset-adjusted current pose.
+    // A face flick first rotates its physical face into virtual Right; the
+    // viewport then selects Up from the offset-adjusted current pose.
     const virtualOffset = source === "gesture"
       ? smartCubeVirtualFixpointTracker?.orientation
       : undefined;
@@ -2462,6 +2463,7 @@ if (root) {
       target.coordinateFrame,
       true,
       virtualOffset,
+      flickedFace,
     );
     const discreteTracker = createStableOrientationTracker(
       target.quaternion,
@@ -2521,7 +2523,8 @@ if (root) {
     audioFeedback: smartCubeAudio,
     onRecenter: (event) => {
       if (!smartCubeOrientationTracking || smartCubeRecording) return;
-      recenterSmartCubeGyroView("gesture", event.restingOrientation ?? undefined);
+      const flickedFace = ["U", "R", "F", "D", "L", "B"][event.face] ?? "R";
+      recenterSmartCubeGyroView("gesture", event.restingOrientation ?? undefined, flickedFace);
     },
   });
 
