@@ -311,22 +311,6 @@ export const wholeCubeTurnQuaternion = (turn: TurnTransform | null): Orientation
   });
 };
 
-/**
- * The glyph uses the cube's effective orientation, so its arrows point toward
- * the same screen-facing cube faces. Explicit x/y/z moves are normalized by
- * the regrip detector before this function receives them; face turns remain
- * local and do not affect the marker.
- */
-export const glyphOrientationForCube = (
-  cubeOrientation: OrientationQuaternion | null | undefined,
-  wholeCubeTurn: OrientationQuaternion | null = null,
-): OrientationQuaternion | undefined => {
-  if (!cubeOrientation && !wholeCubeTurn) return undefined;
-  let glyphOrientation = cubeOrientation ?? {x: 0, y: 0, z: 0, w: 1};
-  if (wholeCubeTurn) glyphOrientation = multiplyQuaternions(glyphOrientation, wholeCubeTurn);
-  return normalizedQuaternion(glyphOrientation);
-};
-
 export const turnPreviewTransform = (
   turn: TurnTransform,
   degrees = 4,
@@ -2050,13 +2034,12 @@ export const createCubeViewport = (
       cameraDistance,
       relativeOrientation,
     );
-    // Full-cube x/y/z playback is applied in the vertex shader, so apply that
-    // same transform to the glyph. Its centre colours are intentionally held
-    // at the last detector-confirmed virtual frame, never live-remapped while
-    // a physical regrip is still in progress.
-    const wholeCubeAnimation = wholeCubeTurnQuaternion(activeTurn);
+    // The glyph is a viewport R/U/F legend. Its geometry remains in the
+    // screen's Right/Up/Front frame while colours identify the cube centres
+    // currently occupying those directions. Those colours only change when
+    // the x/y/z regrip detector accepts a normalized frame.
     const targetGlyphFrame = {
-      orientation: glyphOrientationForCube(relativeOrientation, wholeCubeAnimation),
+      orientation: undefined,
       colourOrientation: glyphColourOrientation,
     };
     let glyphFrame = targetGlyphFrame;
