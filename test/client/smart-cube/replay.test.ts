@@ -4,6 +4,8 @@ import fixture from "../../fixtures/smart-cube/gocube-yxz-sample.json";
 import {replayTape} from "../../helpers/replay-tape";
 import {
   createReplaySmartCubeManager,
+  loadReplayTape,
+  replayTapeNameFromSearch,
   validateSmartCubeTape,
   type SmartCubeTape,
 } from "../../../src/client/smart-cube/replay";
@@ -40,6 +42,22 @@ const tape: SmartCubeTape = {
 };
 
 describe("smart-cube replay tape", () => {
+  test("only enables a named replay behind the explicit dev flag", () => {
+    expect(replayTapeNameFromSearch("?replay=gocube-yxz-sample")).toBeNull();
+    expect(replayTapeNameFromSearch("?dev&replay=gocube-yxz-sample")).toBe("gocube-yxz-sample");
+    expect(replayTapeNameFromSearch("?dev&replay=../../secrets")).toBeNull();
+  });
+
+  test("loads a dev replay from local storage before its scratch fallback", async () => {
+    const stored = JSON.stringify(fixture);
+    const fetchTape = vi.fn();
+    await expect(loadReplayTape("gocube-yxz-sample", {
+      storage: {getItem: () => stored},
+      fetchTape,
+    })).resolves.toMatchObject({schema: "cubelab-smart-cube-tape-v1"});
+    expect(fetchTape).not.toHaveBeenCalled();
+  });
+
   test("the fixture helper advances the same normalized stream synchronously", () => {
     const received: string[] = [];
     const session = replayTape(fixture, (event) => received.push(event.type));

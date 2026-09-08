@@ -47,6 +47,15 @@
     <span class="smart-cube-battery" data-smart-cube-record-capability hidden></span>
     <span class="smart-cube-battery" data-smart-cube-battery hidden></span>
     <span class="smart-cube-mistakes" data-smart-cube-mistakes hidden></span>
+    <div class="smart-cube-replay-controls" data-smart-cube-replay-controls hidden>
+      <button type="button" class="viewport-control" data-smart-cube-replay-play aria-pressed="false">Play</button>
+      <button type="button" class="viewport-control" data-smart-cube-replay-step title="Emit the next captured event">Step</button>
+      <input type="range" data-smart-cube-replay-seek min="0" max="0" value="0" step="1" aria-label="Replay position" />
+      <output data-smart-cube-replay-position>0 ms · 0</output>
+      <select data-smart-cube-replay-rate aria-label="Replay speed">
+        <option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option>
+      </select>
+    </div>
     <button
       type="button"
       class="viewport-control smart-cube-reroute"

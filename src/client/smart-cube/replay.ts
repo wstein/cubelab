@@ -8,6 +8,7 @@ import type {
 } from "./types";
 
 export const SMART_CUBE_TAPE_SCHEMA = "cubelab-smart-cube-tape-v1" as const;
+const replayNamePattern = /^[a-z0-9][a-z0-9_-]*$/i;
 
 export type SmartCubeTapeHeader = {
   device: SmartCubeDevice;
@@ -32,6 +33,21 @@ export type SmartCubeTape = {
   header: SmartCubeTapeHeader;
   events: SmartCubeTapeEntry[];
   commands: SmartCubeTapeCommand[];
+};
+
+export type ReplayTapeLoaderDependencies = {
+  storage?: Pick<Storage, "getItem">;
+  /** Injected by tests; production fetches the dev-only scratch tape URL. */
+  fetchTape?: (name: string) => Promise<unknown>;
+};
+
+export const replayTapeStorageKey = (name: string): string => `cubelab.smartCube.tape.${name}`;
+
+/** Returns a safe replay name only when the explicitly opt-in dev flag is set. */
+export const replayTapeNameFromSearch = (search: string): string | null => {
+  const params = new URLSearchParams(search);
+  const name = params.get("replay");
+  return params.has("dev") && name !== null && replayNamePattern.test(name) ? name : null;
 };
 
 export type ReplayStatus = "playing" | "paused";
@@ -137,6 +153,21 @@ export const validateSmartCubeTape = (value: unknown): SmartCubeTape => {
   validateEntries(value.events, "events", validateEvent);
   validateEntries(value.commands, "commands", validateCommand);
   return value as unknown as SmartCubeTape;
+};
+
+/** Loads a validated tape from the capture cache, then the dev scratch drop zone. */
+export const loadReplayTape = async (
+  name: string,
+  dependencies: ReplayTapeLoaderDependencies = {},
+): Promise<SmartCubeTape> => {
+  if (!replayNamePattern.test(name)) throw new Error("Invalid replay tape name");
+  const storage = dependencies.storage ?? window.localStorage;
+  const stored = storage.getItem(replayTapeStorageKey(name));
+  if (stored !== null) return validateSmartCubeTape(JSON.parse(stored));
+  if (dependencies.fetchTape) return validateSmartCubeTape(await dependencies.fetchTape(name));
+  const response = await fetch(`/scratch/tapes/${encodeURIComponent(name)}.json`);
+  if (!response.ok) throw new Error(`Replay tape ${name} could not be loaded (${response.status})`);
+  return validateSmartCubeTape(await response.json());
 };
 
 const disconnectedState = (): SmartCubeConnectionState => ({

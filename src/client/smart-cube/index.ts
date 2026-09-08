@@ -1,9 +1,17 @@
 export {createSmartCubeManager, isWebBluetoothAvailable, normalizeTransportEvent} from "./bluetooth";
-export {createReplaySmartCubeManager, validateSmartCubeTape, SMART_CUBE_TAPE_SCHEMA} from "./replay";
+export {
+  createReplaySmartCubeManager,
+  loadReplayTape,
+  replayTapeNameFromSearch,
+  replayTapeStorageKey,
+  validateSmartCubeTape,
+  SMART_CUBE_TAPE_SCHEMA,
+} from "./replay";
 export type {
   ReplaySmartCubeManager,
   ReplayState,
   ReplayStatus,
+  ReplayTapeLoaderDependencies,
   SmartCubeTape,
   SmartCubeTapeCommand,
   SmartCubeTapeEntry,

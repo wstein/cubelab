@@ -178,6 +178,14 @@ type SmartCubeRecoveryState = {
   undoMoves: string[];
   deviations: string[];
 };
+type ReplayControls = {
+  getReplayState: () => {status: "playing" | "paused"; offsetMs: number; eventIndex: number; rate: number; durationMs: number};
+  play: () => void;
+  pause: () => void;
+  seek: (offsetMs: number) => void;
+  step: () => void;
+  setRate: (rate: number) => void;
+};
 import {
   extremalStateFor,
   patternCount,
@@ -464,6 +472,12 @@ if (root) {
   const smartCubeController = root.querySelector<HTMLButtonElement>("[data-smart-cube-controller]")!;
   const smartCubeMacRecovery = root.querySelector<HTMLButtonElement>("[data-smart-cube-mac-recovery]")!;
   const smartCubeDisconnect = root.querySelector<HTMLButtonElement>("[data-smart-cube-disconnect]")!;
+  const smartCubeReplayControls = root.querySelector<HTMLElement>("[data-smart-cube-replay-controls]")!;
+  const smartCubeReplayPlay = root.querySelector<HTMLButtonElement>("[data-smart-cube-replay-play]")!;
+  const smartCubeReplayStep = root.querySelector<HTMLButtonElement>("[data-smart-cube-replay-step]")!;
+  const smartCubeReplaySeek = root.querySelector<HTMLInputElement>("[data-smart-cube-replay-seek]")!;
+  const smartCubeReplayPosition = root.querySelector<HTMLOutputElement>("[data-smart-cube-replay-position]")!;
+  const smartCubeReplayRate = root.querySelector<HTMLSelectElement>("[data-smart-cube-replay-rate]")!;
   const timerCover = root.querySelector<HTMLButtonElement>("[data-timer-cover]")!;
   const timerHud = root.querySelector<HTMLElement>("[data-timer-hud]")!;
   const timerHudPhase = root.querySelector<HTMLElement>("[data-timer-hud-phase]")!;
@@ -2395,6 +2409,10 @@ if (root) {
   let tutorialCameraGeneration = 0;
   let smartCubeManager: SmartCubeManager | null = null;
   let smartCubeManagerLoading: Promise<SmartCubeManager> | null = null;
+  let smartCubeReplayControlsApi: ReplayControls | null = null;
+  const smartCubeReplayRequested = new URLSearchParams(window.location.search).has("dev")
+    ? new URLSearchParams(window.location.search).get("replay")
+    : null;
   let smartCubeMacRecoveryAvailable = false;
   let smartCubeConnected = false;
   let smartCubeDeviceName = "Smart cube";
@@ -5119,6 +5137,19 @@ if (root) {
     }
   };
 
+  const renderSmartCubeReplay = () => {
+    const replay = smartCubeReplayControlsApi;
+    smartCubeReplayControls.hidden = replay === null || !smartCubeConnected;
+    if (!replay || !smartCubeConnected) return;
+    const state = replay.getReplayState();
+    smartCubeReplayPlay.textContent = state.status === "playing" ? "Pause" : "Play";
+    smartCubeReplayPlay.setAttribute("aria-pressed", String(state.status === "playing"));
+    smartCubeReplaySeek.max = String(state.durationMs);
+    smartCubeReplaySeek.value = String(state.offsetMs);
+    smartCubeReplayRate.value = String(state.rate);
+    smartCubeReplayPosition.value = `${state.offsetMs} ms · ${state.eventIndex}`;
+  };
+
   const renderSmartCubeConnection = (connectionState: SmartCubeConnectionState) => {
     root.dataset.smartCubePhase = connectionState.phase;
     smartCubeDock.dataset.phase = connectionState.phase;
@@ -5148,7 +5179,9 @@ if (root) {
       const timing = streamReadyMs === undefined
         ? ""
         : ` · stream ready ${Math.round(streamReadyMs)}ms`;
-      smartCubeStatus.textContent = `${connectionState.device.brandName} · ${connectionState.device.name} · Live sync${timing}`;
+      smartCubeStatus.textContent = smartCubeReplayControlsApi
+        ? `${connectionState.device.brandName} · ${connectionState.device.name} · Replay${timing}`
+        : `${connectionState.device.brandName} · ${connectionState.device.name} · Live sync${timing}`;
       const supportsOrientation = connectionState.device.capabilities.orientation;
       const supportsFacelets = connectionState.device.capabilities.facelets;
       const supportsReset = connectionState.device.capabilities.reset;
@@ -5220,6 +5253,7 @@ if (root) {
         scheduleUpdate();
       }
     }
+    renderSmartCubeReplay();
     updateSmartCubeRecordingUi();
   };
 
@@ -5446,15 +5480,20 @@ if (root) {
     if (smartCubeManager) return smartCubeManager;
     if (!smartCubeManagerLoading) {
       smartCubeManagerLoading = import("./smart-cube/index")
-        .then(({createSmartCubeManager}) => {
+        .then(async ({createReplaySmartCubeManager, createSmartCubeManager, loadReplayTape, replayTapeNameFromSearch}) => {
           // Capability is checked once, inside the explicit Connect gesture. Avoid
           // repeatedly touching navigator.bluetooth in permission-blocked embeds.
-          const manager = createSmartCubeManager({isBluetoothAvailable: () => true});
+          const replayName = replayTapeNameFromSearch(window.location.search);
+          const manager = replayName
+            ? createReplaySmartCubeManager(await loadReplayTape(replayName))
+            : createSmartCubeManager({isBluetoothAvailable: () => true});
+          smartCubeReplayControlsApi = "getReplayState" in manager ? manager : null;
           manager.subscribeState(renderSmartCubeConnection);
           manager.subscribeCommands((command) => {
             traceSmartCubeStabilization("sent command", command);
           });
           manager.subscribeEvents(handleSmartCubeEvent);
+          manager.subscribeEvents(() => renderSmartCubeReplay());
           smartCubeManager = manager;
           clearSmartCubeChunkReload();
           return manager;
@@ -7175,6 +7214,16 @@ if (root) {
   };
   smartCubeConnect.addEventListener("click", async () => {
     void smartCubeAudio.unlock();
+    if (smartCubeReplayRequested) {
+      try {
+        const manager = await loadSmartCubeManager();
+        await manager.connect();
+        renderSmartCubeReplay();
+      } catch (reason) {
+        showBluetoothUnavailable(reason instanceof Error ? reason.message : String(reason));
+      }
+      return;
+    }
     const usingBrave = await isBraveBrowser();
     if ((typeof isSecureContext !== "undefined" && !isSecureContext) || !bluetoothPolicyAllows()) {
       showBluetoothUnavailable("Bluetooth permission is blocked for this page");
@@ -7248,6 +7297,25 @@ if (root) {
   });
   smartCubeDisconnect.addEventListener("click", () => {
     void smartCubeManager?.disconnect();
+  });
+  smartCubeReplayPlay.addEventListener("click", () => {
+    const replay = smartCubeReplayControlsApi;
+    if (!replay) return;
+    if (replay.getReplayState().status === "playing") replay.pause();
+    else replay.play();
+    renderSmartCubeReplay();
+  });
+  smartCubeReplayStep.addEventListener("click", () => {
+    smartCubeReplayControlsApi?.step();
+    renderSmartCubeReplay();
+  });
+  smartCubeReplaySeek.addEventListener("input", () => {
+    smartCubeReplayControlsApi?.seek(Number(smartCubeReplaySeek.value));
+    renderSmartCubeReplay();
+  });
+  smartCubeReplayRate.addEventListener("change", () => {
+    smartCubeReplayControlsApi?.setRate(Number(smartCubeReplayRate.value));
+    renderSmartCubeReplay();
   });
   smartCubeSound.addEventListener("click", () => {
     const enabled = !smartCubeAudio.isEnabled();

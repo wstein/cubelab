@@ -801,6 +801,19 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(viewport, /setDeviceOrientation\(orientation/);
 });
 
+test("smart-cube replay is dev-gated and exposes deterministic transport controls", () => {
+  assert.match(viewportComponent, /data-smart-cube-replay-controls/);
+  assert.match(viewportComponent, /data-smart-cube-replay-play/);
+  assert.match(viewportComponent, /data-smart-cube-replay-step/);
+  assert.match(viewportComponent, /data-smart-cube-replay-seek/);
+  assert.match(viewportComponent, /data-smart-cube-replay-rate/);
+  assert.match(client, /new URLSearchParams\(window\.location\.search\)\.has\("dev"\)/);
+  assert.match(client, /replayTapeNameFromSearch\(window\.location\.search\)/);
+  assert.match(client, /createReplaySmartCubeManager\(await loadReplayTape\(replayName\)\)/);
+  assert.match(client, /smartCubeReplayControlsApi\?\.seek/);
+  assert.match(client, /smartCubeReplayControlsApi\?\.setRate/);
+});
+
 test("the viewport compacts within a narrow studio column", () => {
   assert.match(styles, /\.viewport-panel[\s\S]*container-type: inline-size/);
   assert.match(styles, /\.smart-cube-dock[\s\S]*flex-wrap: wrap/);
