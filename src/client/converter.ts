@@ -7585,13 +7585,22 @@ if (root) {
       protocolName: "Diagnostic capture",
       capabilities: {orientation: false, battery: false, facelets: false, hardware: false, reset: false, led: false},
     };
+    // Gen4 only confirms gyro support when its first 0xEC packet arrives. A
+    // diagnostic header is exported after that packet, so retain the observed
+    // capability instead of reporting the pre-stream connection snapshot.
+    const observedOrientation = smartCubeDiagnosticTrace.some(({event, detail}) =>
+      event === "received event" && detail.type === "orientation",
+    );
+    const diagnosticDevice = observedOrientation && !device.capabilities.orientation
+      ? {...device, capabilities: {...device.capabilities, orientation: true}}
+      : device;
     const origin = Date.parse(smartCubeDiagnosticTrace[0]?.at ?? new Date().toISOString());
     const report = {
       schema: "cubelab-smart-cube-tape-v1",
       profile: "diagnostic",
       capturedAt: new Date(origin).toISOString(),
       header: {
-        device,
+        device: diagnosticDevice,
         syncMode: smartCubeSyncMode,
         orientationTracking: smartCubeOrientationTracking,
         recording: smartCubeRecording,

@@ -11,6 +11,7 @@ const timerPage = await readFile(new URL("../src/pages/timer.astro", import.meta
 const mockPage = await readFile(new URL("../src/pages/dev/mock.astro", import.meta.url), "utf8");
 const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
 const client = await readFile(new URL("../src/client/converter.ts", import.meta.url), "utf8");
+const bluetoothClient = await readFile(new URL("../src/client/smart-cube/bluetooth.ts", import.meta.url), "utf8");
 const manualState = await readFile(new URL("../src/client/manual-state.ts", import.meta.url), "utf8");
 const timerWorkspace = await readFile(new URL("../src/client/timer/workspace.ts", import.meta.url), "utf8");
 const solverWorker = await readFile(new URL("../src/client/workers/solver.worker.ts", import.meta.url), "utf8");
@@ -769,7 +770,9 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(client, /data-smart-cube-mac-recovery/);
   assert.match(client, /macAddressProvider: promptForEncryptedCubeMac/);
   assert.match(client, /promptForEncryptedCubeMac = async/);
-  assert.match(client, /if \(!isFallbackCall\) return null/);
+  assert.match(client, /if \(!isFallbackCall\) return recoverGanI4MacFromAdvertisements\(device\);/);
+  assert.match(bluetoothClient, /const recoveredGanI4Mac = options\.enableAddressSearch/);
+  assert.match(client, /device: diagnosticDevice/);
   assert.match(client, /enable-experimental-web-platform-features/);
   assert.match(client, /assessSmartCubeMove/);
   assert.match(client, /assessSmartCubeRecovery/);
