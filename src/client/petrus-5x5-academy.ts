@@ -71,35 +71,32 @@ export const inspectPetrus5x5State = (state: unknown): Petrus5x5Status | null =>
   if (result.TAG !== "Ok") {
     return null;
   }
-  const inspection = result._0;
+  return mapPetrus5x5Inspection(result._0);
+};
 
+const mapPetrus5x5Inspection = (
+  inspection: ReturnType<typeof BlockDetector5x5.inspectPetrus5x5>["_0"],
+): Petrus5x5Status => {
   let phaseNumber: Petrus5x5Phase = 1;
-  let phaseTitle = "Build the 2×2×2 Corner Block";
 
   switch (inspection.currentPhase) {
     case "Phase1_Block222":
       phaseNumber = 1;
-      phaseTitle = "Build the 2×2×2 Corner Block";
       break;
     case "Phase2_Block223":
       phaseNumber = 2;
-      phaseTitle = "Expand to a 2×2×3 Block";
       break;
     case "Phase3_EdgeOrientation":
       phaseNumber = 3;
-      phaseTitle = "Orient Outer Midges (EO)";
       break;
     case "Phase4_WingPairingF2L":
       phaseNumber = 4;
-      phaseTitle = "Wing Pairing & F2L Completion";
       break;
     case "Phase5_LastLayer":
       phaseNumber = 5;
-      phaseTitle = "Last Layer Finish & Parity";
       break;
     case "PhaseSolved":
       phaseNumber = 6;
-      phaseTitle = "Cube Solved";
       break;
   }
 
@@ -113,7 +110,7 @@ export const inspectPetrus5x5State = (state: unknown): Petrus5x5Status | null =>
   return {
     ok: true,
     phaseNumber,
-    phaseTitle,
+    phaseTitle: phaseNumber === 6 ? "Cube Solved" : petrus5x5PhaseDefinitions[phaseNumber - 1].title,
     bestAnchor: BlockDetector5x5.anchorName(inspection.bestAnchor),
     block222Progress: {
       piecesSolved: inspection.block222.piecesSolved,
@@ -145,6 +142,56 @@ export const planPetrus5x5Guide = (state: unknown) => {
     return null;
   }
   return result._0;
+};
+
+type Petrus5x5Evaluation = {
+  status: Petrus5x5Status | null;
+  guide: ReturnType<typeof planPetrus5x5Guide>;
+};
+
+export const evaluatePetrus5x5State = (state: unknown): Petrus5x5Evaluation => {
+  const result = PetrusSolver555.evaluatePetrusStep5x5(state);
+  return result.TAG === "Ok"
+    ? {status: mapPetrus5x5Inspection(result._0.inspection), guide: result._0.guide}
+    : {status: null, guide: null};
+};
+
+const petrus5x5StateKey = (state: unknown): string | null => {
+  if (typeof state !== "object" || state === null) return null;
+  const cube = state as {size?: unknown; facelets?: unknown};
+  if (cube.size !== 5 || !Array.isArray(cube.facelets) || cube.facelets.length !== 6) return null;
+  let key = "";
+  // for...of visits sparse entries, unlike Array.every; build identity in the same pass.
+  for (const face of cube.facelets) {
+    if (!Array.isArray(face) || face.length !== 25) return null;
+    for (const sticker of face) {
+      if (typeof sticker !== "string" || sticker.length !== 1 || !"ULFRBD".includes(sticker)) return null;
+      key += sticker;
+    }
+  }
+  return key;
+};
+
+/** One content-addressed entry per Academy instance; never retain state history. */
+export const createPetrus5x5EvaluationCache = (
+  evaluate = evaluatePetrus5x5State,
+) => {
+  let cached: {key: string; value: Petrus5x5Evaluation} | null = null;
+  return {
+    evaluate(state: unknown, active: boolean): Petrus5x5Evaluation | null {
+      const key = active ? petrus5x5StateKey(state) : null;
+      if (key === null) {
+        cached = null;
+        return null;
+      }
+      // Content identity also detects in-place edits and equivalent new objects.
+      if (cached?.key !== key) {
+        cached = {key, value: structuredClone(evaluate(state))};
+      }
+      // Callers may annotate results without changing subsequent cached reads.
+      return structuredClone(cached.value);
+    },
+  };
 };
 
 export const petrus5x5CubieFocus = (status: Petrus5x5Status): CubieFocus[] => {

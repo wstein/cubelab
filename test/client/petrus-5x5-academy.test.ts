@@ -1,4 +1,4 @@
-import {describe, expect, test} from "bun:test";
+import {describe, expect, test, vi} from "vitest";
 import * as StateTypes from "../../src/State/StateTypes.res.mjs";
 import * as MoveExecutor from "../../src/Move/MoveExecutor.res.mjs";
 import * as MoveParser from "../../src/Move/MoveParser.res.mjs";
@@ -7,6 +7,8 @@ import {
   petrus5x5CubieFocus,
   petrus5x5PhaseDefinitions,
   planPetrus5x5Guide,
+  createPetrus5x5EvaluationCache,
+  evaluatePetrus5x5State,
 } from "../../src/client/petrus-5x5-academy";
 
 const parseAlg = (notation: string) => {
@@ -16,6 +18,76 @@ const parseAlg = (notation: string) => {
 };
 
 describe("5×5 Petrus Academy Client Bridge", () => {
+  test("rejects sparse facelet arrays before evaluation and clears the cached state", () => {
+    const solved = StateTypes.solved(5);
+    if (solved.TAG !== "Ok") throw new Error("Expected solved state");
+    const evaluate = vi.fn(() => ({status: null, guide: null}));
+    const cache = createPetrus5x5EvaluationCache(evaluate);
+    cache.evaluate(solved._0, true);
+
+    // Deliberately malformed input: Array.every skips these missing entries.
+    const missingSticker = structuredClone(solved._0);
+    delete missingSticker.facelets[0][0];
+    for (const state of [{size: 5, facelets: new Array(6)}, missingSticker]) {
+      expect(cache.evaluate(state, true)).toBeNull();
+    }
+    expect(evaluate).toHaveBeenCalledTimes(1);
+    cache.evaluate(solved._0, true);
+    expect(evaluate).toHaveBeenCalledTimes(2);
+  });
+
+  test("skips inactive panels and reuses only the latest complete state by content", () => {
+    const solved = StateTypes.solved(5);
+    if (solved.TAG !== "Ok") throw new Error("Expected solved state");
+    const state = solved._0;
+    const evaluate = vi.fn((state) => ({status: inspectPetrus5x5State(state), guide: null}));
+    const cache = createPetrus5x5EvaluationCache(evaluate);
+
+    expect(cache.evaluate(state, false)).toBeNull();
+    expect(evaluate).not.toHaveBeenCalled();
+    cache.evaluate(state, true);
+    cache.evaluate(structuredClone(state), true);
+    expect(evaluate).toHaveBeenCalledTimes(1);
+
+    // Mutating the same object must invalidate the cached state identity.
+    const original = state.facelets[0][0];
+    state.facelets[0][0] = "R";
+    cache.evaluate(state, true);
+    expect(evaluate).toHaveBeenCalledTimes(2);
+    state.facelets[0][0] = original;
+    cache.evaluate(state, true);
+    expect(evaluate).toHaveBeenCalledTimes(3); // No retained state history.
+    cache.evaluate(state, false);
+    cache.evaluate(state, true);
+    expect(evaluate).toHaveBeenCalledTimes(4);
+  });
+
+  test("isolates cached results and skips evaluation for malformed input", () => {
+    const solved = StateTypes.solved(5);
+    if (solved.TAG !== "Ok") throw new Error("Expected solved state");
+    const status = inspectPetrus5x5State(solved._0)!;
+    const evaluate = vi.fn(() => ({status, guide: null}));
+    const cache = createPetrus5x5EvaluationCache(evaluate);
+    const first = cache.evaluate(solved._0, true)!;
+    first.status!.eoStatus.badSlots.push(11);
+    status.eoStatus.badSlots.push(10);
+    expect(cache.evaluate(solved._0, true)!.status!.eoStatus.badSlots).toEqual([]);
+    expect(cache.evaluate({size: 5, facelets: []}, true)).toBeNull();
+    expect(evaluate).toHaveBeenCalledTimes(1);
+  });
+
+  test("combined evaluation matches the public standalone inspector and planner", () => {
+    const solved = StateTypes.solved(5);
+    if (solved.TAG !== "Ok") throw new Error("Expected solved state");
+    const turned = MoveExecutor.applyAlg(solved._0, parseAlg("R U R'"));
+    if (turned.TAG !== "Ok") throw new Error("Expected replayed state");
+    for (const state of [solved._0, turned._0]) {
+      expect(evaluatePetrus5x5State(state)).toEqual({
+        status: inspectPetrus5x5State(state), guide: planPetrus5x5Guide(state),
+      });
+    }
+  });
+
   test("defines 5 pedagogical curriculum phases", () => {
     expect(petrus5x5PhaseDefinitions.length).toBe(5);
     expect(petrus5x5PhaseDefinitions[0].title).toContain("2×2×2");
