@@ -130,6 +130,20 @@
       hidden
     >Disconnect</button>
   </div>
+  <aside class="smart-cube-qa-panel" data-smart-cube-qa-panel hidden aria-label="Mock device QA panel">
+    <strong>Mock device</strong>
+    <span data-smart-cube-qa-session>No session selected</span>
+    <button type="button" class="viewport-control" data-smart-cube-choose-session>Choose session…</button>
+    <div data-smart-cube-qa-log class="smart-cube-qa-log" aria-live="polite"></div>
+    <div data-smart-cube-qa-diff>Derived diff: <span data-smart-cube-qa-diff-value>none</span></div>
+  </aside>
+  <dialog data-smart-cube-tape-picker aria-label="Choose mock session">
+    <form method="dialog">
+      <h2>Choose mock session</h2>
+      <div data-smart-cube-tape-picker-list></div>
+      <button type="submit" class="viewport-control">Cancel</button>
+    </form>
+  </dialog>
   <div class="viewport-stage" data-viewport-stage>
     <canvas
       class="cube-canvas"

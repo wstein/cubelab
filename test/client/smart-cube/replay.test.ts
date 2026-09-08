@@ -4,6 +4,7 @@ import fixture from "../../fixtures/smart-cube/gocube-yxz-sample.json";
 import {replayTape} from "../../helpers/replay-tape";
 import {
   createReplaySmartCubeManager,
+  createMockDeviceManager,
   createSmartCubeTapeRecorder,
   loadReplayTape,
   replayTapeNameFromSearch,
@@ -58,6 +59,19 @@ describe("smart-cube replay tape", () => {
       events: [{offsetMs: 0}, {offsetMs: 41}],
       commands: [{offsetMs: 18}],
     });
+  });
+
+  test("mock manager opens a picker instead of touching Bluetooth and delegates replay controls", async () => {
+    const pickTape = vi.fn(async () => tape);
+    const manager = createMockDeviceManager({catalogue: [{name: "sample", tape}], pickTape});
+    const received: string[] = [];
+    manager.subscribeEvents((event) => received.push(event.type));
+
+    await manager.connect();
+    expect(pickTape).toHaveBeenCalledOnce();
+    expect(manager.getState()).toMatchObject({phase: "connected", device: tape.header.device});
+    manager.step();
+    expect(received).toEqual(["hardware"]);
   });
 
   test("only enables a named replay behind the explicit dev flag", () => {

@@ -5,6 +5,7 @@ import CubeViewport from "../Components/CubeViewport.astro";
 interface Props {
   initialTab?: "converter" | "academy" | "workbench" | "patterns" | "timer";
   initialPlayer?: boolean;
+  initialMock?: boolean;
   pageTitle?: string;
   metaDescription?: string;
 }
@@ -12,6 +13,7 @@ interface Props {
 const {
   initialTab = "converter",
   initialPlayer = false,
+  initialMock = false,
   pageTitle = "CubeLab — Interactive Cube Studio & Algorithmic Suite",
   metaDescription = "Convert Rubik's Cube states between facelets, ASCII nets, colour notation, cubie coordinates, Singmaster cycle notation, and Orbit64.",
 } = Astro.props;
@@ -77,6 +79,7 @@ const cards = [
     <meta name="viewport" content="width=device-width" />
     <meta name="description" content={metaDescription} />
     <meta name="theme-color" content="#111827" />
+    {initialMock && <meta name="robots" content="noindex" />}
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>{pageTitle}</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -85,7 +88,7 @@ const cards = [
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   </head>
   <body class={initialPlayer ? "player-page" : undefined}>
-    <main class="container" data-converter data-initial-tab={initialTab}>
+    <main class="container" data-converter data-initial-tab={initialTab} data-mock={initialMock ? "true" : undefined}>
       <header class="site-header">
         <div class="brand-lockup">
           <span class="badge-tag">2×2×2 — 5×5×5</span>

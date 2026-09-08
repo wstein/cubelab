@@ -1,6 +1,7 @@
 export {createSmartCubeManager, isWebBluetoothAvailable, normalizeTransportEvent} from "./bluetooth";
 export {
   createReplaySmartCubeManager,
+  createMockDeviceManager,
   createSmartCubeTapeRecorder,
   loadReplayTape,
   replayTapeNameFromSearch,
@@ -13,6 +14,9 @@ export type {
   ReplayState,
   ReplayStatus,
   ReplayTapeLoaderDependencies,
+  MockDeviceManager,
+  MockDeviceManagerOptions,
+  MockTapeCatalogueEntry,
   SmartCubeTape,
   SmartCubeTapeCommand,
   SmartCubeTapeEntry,

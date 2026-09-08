@@ -479,6 +479,11 @@ if (root) {
   const smartCubeReplaySeek = root.querySelector<HTMLInputElement>("[data-smart-cube-replay-seek]")!;
   const smartCubeReplayPosition = root.querySelector<HTMLOutputElement>("[data-smart-cube-replay-position]")!;
   const smartCubeReplayRate = root.querySelector<HTMLSelectElement>("[data-smart-cube-replay-rate]")!;
+  const smartCubeQaSession = root.querySelector<HTMLElement>("[data-smart-cube-qa-session]")!;
+  const smartCubeQaPanel = root.querySelector<HTMLElement>("[data-smart-cube-qa-panel]")!;
+  const smartCubeChooseSession = root.querySelector<HTMLButtonElement>("[data-smart-cube-choose-session]")!;
+  const smartCubeTapePicker = root.querySelector<HTMLDialogElement>("[data-smart-cube-tape-picker]")!;
+  const smartCubeTapePickerList = root.querySelector<HTMLElement>("[data-smart-cube-tape-picker-list]")!;
   const timerCover = root.querySelector<HTMLButtonElement>("[data-timer-cover]")!;
   const timerHud = root.querySelector<HTMLElement>("[data-timer-hud]")!;
   const timerHudPhase = root.querySelector<HTMLElement>("[data-timer-hud-phase]")!;
@@ -2417,6 +2422,8 @@ if (root) {
     finish: (note?: string) => unknown;
   } | null = null;
   const smartCubeDevEnabled = new URLSearchParams(window.location.search).has("dev");
+  const smartCubeMockMode = root.dataset.mock === "true";
+  smartCubeQaPanel.hidden = !smartCubeMockMode;
   const requestedReplayName = smartCubeDevEnabled
     ? new URLSearchParams(window.location.search).get("replay")
     : null;
@@ -5189,9 +5196,12 @@ if (root) {
       const timing = streamReadyMs === undefined
         ? ""
         : ` · stream ready ${Math.round(streamReadyMs)}ms`;
-      smartCubeStatus.textContent = smartCubeReplayControlsApi
+      smartCubeStatus.textContent = smartCubeMockMode
+        ? `Mock · ${connectionState.device.name} · Replay`
+        : smartCubeReplayControlsApi
         ? `${connectionState.device.brandName} · ${connectionState.device.name} · Replay${timing}`
         : `${connectionState.device.brandName} · ${connectionState.device.name} · Live sync${timing}`;
+      if (smartCubeMockMode) smartCubeQaSession.textContent = `${connectionState.device.name} · loaded`;
       const supportsOrientation = connectionState.device.capabilities.orientation;
       const supportsFacelets = connectionState.device.capabilities.facelets;
       const supportsReset = connectionState.device.capabilities.reset;
@@ -5490,12 +5500,31 @@ if (root) {
     }
   };
 
+  const pickMockTape = <T extends {name: string; tape: unknown}>(catalogue: readonly T[]): Promise<unknown> =>
+    new Promise((resolve, reject) => {
+      smartCubeTapePickerList.replaceChildren();
+      catalogue.forEach((entry) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "viewport-control";
+        button.textContent = entry.name;
+        button.addEventListener("click", () => {
+          smartCubeTapePicker.close();
+          resolve(entry.tape);
+        }, {once: true});
+        smartCubeTapePickerList.append(button);
+      });
+      smartCubeTapePicker.addEventListener("close", () => reject(new DOMException("Mock tape selection cancelled", "AbortError")), {once: true});
+      smartCubeTapePicker.showModal();
+    });
+
   const loadSmartCubeManager = async (): Promise<SmartCubeManager> => {
     if (smartCubeManager) return smartCubeManager;
     if (!smartCubeManagerLoading) {
       smartCubeManagerLoading = import("./smart-cube/index")
         .then(async ({
           createReplaySmartCubeManager,
+          createMockDeviceManager,
           createSmartCubeManager,
           createSmartCubeTapeRecorder,
           loadReplayTape,
@@ -5505,9 +5534,18 @@ if (root) {
           // Capability is checked once, inside the explicit Connect gesture. Avoid
           // repeatedly touching navigator.bluetooth in permission-blocked embeds.
           const replayName = replayTapeNameFromSearch(window.location.search);
-          const manager = replayName
-            ? createReplaySmartCubeManager(await loadReplayTape(replayName))
-            : createSmartCubeManager({isBluetoothAvailable: () => true});
+          const manager = smartCubeMockMode
+            ? await (async () => {
+              const catalogueRows = await fetch("/smart-cube/tapes/index.json").then((response) => {
+                if (!response.ok) throw new Error("Mock tape catalogue could not be loaded");
+                return response.json() as Promise<Array<{name: string}>>;
+              });
+              const catalogue = await Promise.all(catalogueRows.map(async ({name}) => ({name, tape: await loadReplayTape(name)})));
+              return createMockDeviceManager({catalogue, pickTape: pickMockTape});
+            })()
+            : replayName
+              ? createReplaySmartCubeManager(await loadReplayTape(replayName))
+              : createSmartCubeManager({isBluetoothAvailable: () => true});
           smartCubeReplayControlsApi = "getReplayState" in manager ? manager : null;
           manager.subscribeState(renderSmartCubeConnection);
           manager.subscribeCommands((command) => {
@@ -7274,7 +7312,7 @@ if (root) {
   };
   smartCubeConnect.addEventListener("click", async () => {
     void smartCubeAudio.unlock();
-    if (smartCubeReplayRequested) {
+    if (smartCubeReplayRequested || smartCubeMockMode) {
       try {
         const manager = await loadSmartCubeManager();
         await manager.connect();
@@ -7357,6 +7395,11 @@ if (root) {
   });
   smartCubeDisconnect.addEventListener("click", () => {
     void smartCubeManager?.disconnect();
+  });
+  smartCubeChooseSession.addEventListener("click", () => {
+    void smartCubeManager?.reconnect().catch((reason) => {
+      smartCubeStatus.textContent = reason instanceof Error ? reason.message : String(reason);
+    });
   });
   smartCubeReplayPlay.addEventListener("click", () => {
     const replay = smartCubeReplayControlsApi;

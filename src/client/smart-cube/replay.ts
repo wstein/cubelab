@@ -77,6 +77,13 @@ export type ReplaySmartCubeManager = SmartCubeManager & {
   getIssuedCommands: () => readonly SmartCubeCommand[];
 };
 
+export type MockTapeCatalogueEntry = {name: string; tape: SmartCubeTape};
+export type MockDeviceManagerOptions = {
+  catalogue: readonly MockTapeCatalogueEntry[];
+  pickTape: (catalogue: readonly MockTapeCatalogueEntry[]) => Promise<SmartCubeTape>;
+};
+export type MockDeviceManager = ReplaySmartCubeManager & {getSelectedTape: () => SmartCubeTape | null};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -161,7 +168,7 @@ export const validateSmartCubeTape = (value: unknown): SmartCubeTape => {
   return value as unknown as SmartCubeTape;
 };
 
-/** Loads a validated tape from the capture cache, then the dev scratch drop zone. */
+/** Loads a validated tape from the capture cache, then the bundled QA catalogue. */
 export const loadReplayTape = async (
   name: string,
   dependencies: ReplayTapeLoaderDependencies = {},
@@ -171,7 +178,7 @@ export const loadReplayTape = async (
   const stored = storage.getItem(replayTapeStorageKey(name));
   if (stored !== null) return validateSmartCubeTape(JSON.parse(stored));
   if (dependencies.fetchTape) return validateSmartCubeTape(await dependencies.fetchTape(name));
-  const response = await fetch(`/scratch/tapes/${encodeURIComponent(name)}.json`);
+  const response = await fetch(`/smart-cube/tapes/${encodeURIComponent(name)}.json`);
   if (!response.ok) throw new Error(`Replay tape ${name} could not be loaded (${response.status})`);
   return validateSmartCubeTape(await response.json());
 };
@@ -353,5 +360,72 @@ export const createReplaySmartCubeManager = (source: SmartCubeTape | unknown): R
       if (status === "playing") scheduleNext();
     },
     getIssuedCommands: () => issuedCommands,
+  };
+};
+
+/**
+ * A picker-backed manager for the mock page. It deliberately owns no Bluetooth
+ * code: choosing a tape is its equivalent of the platform device chooser.
+ */
+export const createMockDeviceManager = ({catalogue, pickTape}: MockDeviceManagerOptions): MockDeviceManager => {
+  let state = disconnectedState();
+  let inner: ReplaySmartCubeManager | null = null;
+  let selectedTape: SmartCubeTape | null = null;
+  const stateListeners = new Set<(state: SmartCubeConnectionState) => void>();
+  const eventListeners = new Set<(event: SmartCubeEvent) => void>();
+  const commandListeners = new Set<(command: SmartCubeCommand) => void>();
+  const publishState = (next: SmartCubeConnectionState) => {
+    state = next;
+    stateListeners.forEach((listener) => listener(state));
+  };
+  const requireInner = () => {
+    if (!inner) throw new Error("No mock tape is selected");
+    return inner;
+  };
+  const connect = async (): Promise<SmartCubeDevice> => {
+    if (inner) await inner.disconnect();
+    const tape = validateSmartCubeTape(await pickTape(catalogue));
+    selectedTape = tape;
+    const replay = createReplaySmartCubeManager(tape);
+    inner = replay;
+    replay.subscribeState(publishState);
+    replay.subscribeEvents((event) => eventListeners.forEach((listener) => listener(event)));
+    replay.subscribeCommands((command) => commandListeners.forEach((listener) => listener(command)));
+    return replay.connect();
+  };
+  return {
+    getState: () => state,
+    connect: async (_options?: SmartCubeConnectOptions) => connect(),
+    reconnect: connect,
+    disconnect: async () => {
+      if (inner) await inner.disconnect();
+      inner = null;
+      selectedTape = null;
+      if (state.phase !== "disconnected") publishState(disconnectedState());
+    },
+    refresh: () => requireInner().refresh(),
+    resetCubeState: () => requireInner().resetCubeState(),
+    flashLed: (colour, durationMs) => requireInner().flashLed(colour, durationMs),
+    subscribeState(listener) {
+      stateListeners.add(listener);
+      listener(state);
+      return () => stateListeners.delete(listener);
+    },
+    subscribeEvents(listener) {
+      eventListeners.add(listener);
+      return () => eventListeners.delete(listener);
+    },
+    subscribeCommands(listener) {
+      commandListeners.add(listener);
+      return () => commandListeners.delete(listener);
+    },
+    getReplayState: () => requireInner().getReplayState(),
+    play: () => requireInner().play(),
+    pause: () => requireInner().pause(),
+    seek: (offsetMs) => requireInner().seek(offsetMs),
+    step: () => requireInner().step(),
+    setRate: (rate) => requireInner().setRate(rate),
+    getIssuedCommands: () => inner?.getIssuedCommands() ?? [],
+    getSelectedTape: () => selectedTape,
   };
 };

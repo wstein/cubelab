@@ -8,6 +8,8 @@ const academyPage = await readFile(new URL("../src/pages/academy.astro", import.
 const workbenchPage = await readFile(new URL("../src/pages/workbench.astro", import.meta.url), "utf8");
 const patternsPage = await readFile(new URL("../src/pages/patterns.astro", import.meta.url), "utf8");
 const timerPage = await readFile(new URL("../src/pages/timer.astro", import.meta.url), "utf8");
+const mockPage = await readFile(new URL("../src/pages/dev/mock.astro", import.meta.url), "utf8");
+const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
 const client = await readFile(new URL("../src/client/converter.ts", import.meta.url), "utf8");
 const manualState = await readFile(new URL("../src/client/manual-state.ts", import.meta.url), "utf8");
 const timerWorkspace = await readFile(new URL("../src/client/timer/workspace.ts", import.meta.url), "utf8");
@@ -24,7 +26,6 @@ const viewportComponent = await readFile(
   "utf8",
 );
 const manifest = await readFile(new URL("../public/manifest.webmanifest", import.meta.url), "utf8");
-const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
 const pwa = await readFile(new URL("../src/client/pwa.ts", import.meta.url), "utf8");
 const styles = await readFile(new URL("../src/styles/global.css", import.meta.url), "utf8");
 
@@ -822,6 +823,18 @@ test("smart-cube tape capture stays dev-only and records both manager streams", 
   assert.match(client, /replayTapeStorageKey\(name\)/);
   assert.match(client, /anchor\.download = `\$\{name\}\.json`/);
   assert.match(client, /smartCubeCapture\.hidden = !smartCubeDevEnabled/);
+});
+
+test("the mock-device route reuses index mode and stays outside the app shell", () => {
+  assert.match(mockPage, /<Index[\s\S]*initialMock=\{true\}[\s\S]*initialPlayer=\{true\}/);
+  assert.match(page, /initialMock\?: boolean/);
+  assert.match(page, /name="robots" content="noindex"/);
+  assert.match(page, /data-mock=/);
+  assert.match(viewportComponent, /data-smart-cube-qa-panel/);
+  assert.match(viewportComponent, /data-smart-cube-tape-picker/);
+  assert.match(client, /createMockDeviceManager/);
+  assert.match(client, /smartCubeMockMode/);
+  assert.doesNotMatch(serviceWorker, /\/dev\/mock/);
 });
 
 test("the viewport compacts within a narrow studio column", () => {
