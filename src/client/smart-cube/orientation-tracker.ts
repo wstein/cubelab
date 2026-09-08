@@ -201,9 +201,12 @@ export const observeThresholdOrientation = (
   const nearest = closestCardinalOrientation(delta);
   if (nearest.index === 0) return {tracker, tokens: []};
   const cardinal = orientations[nearest.index]!.quaternion;
-  const orientation = normalize(tracker.deltaFrame === "world"
-    ? multiplyQuaternions(cardinal, tracker.orientation)
-    : multiplyQuaternions(tracker.orientation, cardinal));
+  // The viewport renders `committedOrientation × liveWorldDelta`. When its
+  // world baseline advances by a new cardinal delta, the committed term must
+  // append that delta on the right. Prepending happens to work for repeated
+  // turns around one axis, but jumps after a GAN Z regrip is followed by X:
+  // those world rotations do not commute.
+  const orientation = normalize(multiplyQuaternions(tracker.orientation, cardinal));
   return {
     tracker: {
       ...tracker,

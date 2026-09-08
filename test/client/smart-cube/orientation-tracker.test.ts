@@ -10,6 +10,7 @@ import {
   observeThresholdOrientation,
   settleStableOrientation,
 } from "../../../src/client/smart-cube/orientation-tracker";
+import {multiplyQuaternions} from "../../../src/client/cube-gl";
 
 const identity = {x: 0, y: 0, z: 0, w: 1};
 const x = (degrees: number) => ({x: Math.sin(degrees * Math.PI / 360), y: 0, z: 0, w: Math.cos(degrees * Math.PI / 360)});
@@ -138,6 +139,22 @@ describe("stable smart-cube orientation tracker", () => {
     expect(tokens).toEqual(["x'", "x'", "x'", "x'"]);
     // A full 360° turn is identity up to quaternion double-cover (w may be -1).
     expect(Math.abs(tracker.orientation.w)).toBeCloseTo(1);
+  });
+
+  test("threshold: appends mixed world-frame regrips in viewport render order", () => {
+    const tracker = createStableOrientationTracker(identity, "viewport", "world");
+    const first = observeThresholdOrientation(tracker, x(90), "viewport", 65);
+    // A world-space Y after X is represented by Y × X in the sensor packet.
+    const yQuarter = {x: 0, y: Math.SQRT1_2, z: 0, w: Math.SQRT1_2};
+    const secondCurrent = multiplyQuaternions(yQuarter, x(90));
+    const second = observeThresholdOrientation(first.tracker, secondCurrent, "viewport", 65);
+
+    // Rendering applies correction × live delta, so committed regrips append
+    // as X × Y. Prepending Y × X is the cross-axis discontinuity seen on GAN.
+    expect(second.tracker.orientation).toEqual(multiplyQuaternions(
+      first.tracker.orientation,
+      yQuarter,
+    ));
   });
 
   test("nearest regrip axis: picks the closest of the six quarter-turn directions", () => {
