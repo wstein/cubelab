@@ -10,6 +10,7 @@ import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as Primitive_int from "@rescript/runtime/lib/es6/Primitive_int.js";
 import * as ThreePhase4x4 from "./ThreePhase4x4.res.mjs";
 import * as Belt_SortArray from "@rescript/runtime/lib/es6/Belt_SortArray.js";
+import * as Primitive_option from "@rescript/runtime/lib/es6/Primitive_option.js";
 
 let xCentres = [
   6,
@@ -127,6 +128,10 @@ let wingCycleNotations = [
   "2R U R' U' 2R'",
   "2R U2 2R'"
 ];
+
+let ollParityNotation = "2R U2 2L F2 2L' F2 2R2 U2 2R U2 2L' U2 2R' U2 2R2";
+
+let pllParityNotation = "Rw2 F2 U2 2R U2 Rw' U2 2L U2 Rw U2 F2 Rw2";
 
 function charAt(value, index) {
   return value.slice(index, index + 1 | 0);
@@ -278,6 +283,25 @@ function parse(notation) {
   if (alg.TAG === "Ok") {
     return alg._0;
   }
+}
+
+function edgeFlipSlots(error) {
+  return Primitive_option.fromNullable((function(error) {
+    if (typeof error !== "object" || error === null) return null;
+    if (error.TAG !== "SolvabilityViolation" || typeof error._0 !== "object" || error._0 === null) return null;
+    var violation = error._0;
+    return violation.TAG === "EdgeFlip" && Array.isArray(violation.affectedSlots)
+      ? violation.affectedSlots.filter(function(slot) { return typeof slot === "number"; })
+      : null;
+  })(error));
+}
+
+function hasPermutationParityMismatch(error) {
+  return (function(error) {
+    if (typeof error !== "object" || error === null || error.TAG !== "SolvabilityViolation") return false;
+    return error._0 === "PermutationParityMismatch"
+      || (typeof error._0 === "object" && error._0 !== null && error._0.TAG === "PermutationParityMismatch");
+  })(error);
 }
 
 function planOneByThreeBar(state, initial) {
@@ -1251,11 +1275,136 @@ function reduce5x5(state) {
         compact: reducedCompact
       }
     };
+  }
+  let error$1 = error._0;
+  let slots = edgeFlipSlots(error$1);
+  if (slots !== undefined) {
+    return {
+      TAG: "Error",
+      _0: {
+        message: `5×5 OLL parity detected: ` + slots.length.toString() + ` reduced dedge orientation error. Apply the replay-verified OLL-parity repair.`
+      }
+    };
+  } else if (hasPermutationParityMismatch(error$1)) {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "5×5 PLL parity detected: a reduced dedge pair is swapped. Apply the replay-verified PLL-parity repair."
+      }
+    };
   } else {
     return {
       TAG: "Error",
       _0: {
-        message: `5×5 reduced-state parity/solvability diagnostic: ` + PieceReducer.describeError(error._0)
+        message: `5×5 reduced-state parity/solvability diagnostic: ` + PieceReducer.describeError(error$1)
+      }
+    };
+  }
+}
+
+function planOLLParityRepair5x5(state) {
+  let error = reduce5x5(state);
+  if (error.TAG === "Ok") {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "No 5×5 OLL parity repair is needed."
+      }
+    };
+  }
+  let error$1 = error._0;
+  if (!error$1.message.startsWith("5×5 OLL parity detected:")) {
+    return {
+      TAG: "Error",
+      _0: error$1
+    };
+  }
+  let alg = parse(ollParityNotation);
+  if (alg === undefined) {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The 5×5 OLL-parity repair could not be parsed."
+      }
+    };
+  }
+  let replay = MoveExecutor.applyAlg(state, alg);
+  if (replay.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The 5×5 OLL-parity repair could not be replayed."
+      }
+    };
+  }
+  let match = reduce5x5(replay._0);
+  if (match.TAG === "Ok") {
+    return {
+      TAG: "Ok",
+      _0: {
+        alg: alg,
+        algorithm: MoveTransform.serialize(alg)
+      }
+    };
+  } else {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The 5×5 OLL-parity repair did not produce a legal reduced 3×3 state."
+      }
+    };
+  }
+}
+
+function planPLLParityRepair5x5(state) {
+  let error = reduce5x5(state);
+  if (error.TAG === "Ok") {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "No 5×5 PLL parity repair is needed."
+      }
+    };
+  }
+  let error$1 = error._0;
+  if (!error$1.message.startsWith("5×5 PLL parity detected:")) {
+    return {
+      TAG: "Error",
+      _0: error$1
+    };
+  }
+  let alg = parse(pllParityNotation);
+  if (alg === undefined) {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The 5×5 PLL-parity repair could not be parsed."
+      }
+    };
+  }
+  let replay = MoveExecutor.applyAlg(state, alg);
+  if (replay.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The 5×5 PLL-parity repair could not be replayed."
+      }
+    };
+  }
+  let match = reduce5x5(replay._0);
+  if (match.TAG === "Ok") {
+    return {
+      TAG: "Ok",
+      _0: {
+        alg: alg,
+        algorithm: MoveTransform.serialize(alg)
+      }
+    };
+  } else {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The 5×5 PLL-parity repair did not produce a legal reduced 3×3 state."
       }
     };
   }
@@ -1272,6 +1421,8 @@ export {
   barCommutators,
   barSetupTurns,
   wingCycleNotations,
+  ollParityNotation,
+  pllParityNotation,
   charAt,
   faceAt,
   compactFacelets,
@@ -1280,6 +1431,8 @@ export {
   progressFor,
   inspectReduction5x5,
   parse,
+  edgeFlipSlots,
+  hasPermutationParityMismatch,
   planOneByThreeBar,
   planBoundedBarSetup,
   findOneByThreeBar5x5,
@@ -1290,5 +1443,7 @@ export {
   planNextCentre5x5,
   planNextWingPair5x5,
   reduce5x5,
+  planOLLParityRepair5x5,
+  planPLLParityRepair5x5,
 }
 /* centreSearchMoves Not a pure module */

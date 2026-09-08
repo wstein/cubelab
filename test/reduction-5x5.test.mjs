@@ -5,7 +5,7 @@ import * as MoveParser from "../src/Move/MoveParser.res.mjs";
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as Orbit64Codec from "../src/State/Orbit64Codec.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
-import {findOneByThreeBar5x5, inspectReduction5x5, planNextCentre5x5, planNextWingPair5x5, reduce5x5, solveXCentreCycle5x5} from "../src/Solver/Reduction5x5.res.mjs";
+import {findOneByThreeBar5x5, inspectReduction5x5, planOLLParityRepair5x5, planPLLParityRepair5x5, planNextCentre5x5, planNextWingPair5x5, reduce5x5, solveXCentreCycle5x5} from "../src/Solver/Reduction5x5.res.mjs";
 
 test("inspects fixed-core 5×5 centre and wing milestones", () => {
   const solved = StateTypes.solved(5);
@@ -22,6 +22,14 @@ test("projects a fully reduced 5×5 only after physical 3×3 validation", () => 
   const reduced = reduce5x5(solved._0);
   expect(reduced.TAG).toBe("Ok");
   if (reduced.TAG === "Ok") expect(reduced._0.state.size).toBe(3);
+});
+
+test("refuses a 5×5 parity repair when the reduced state has no parity case", () => {
+  const solved = StateTypes.solved(5);
+  expect(solved.TAG).toBe("Ok");
+  if (solved.TAG !== "Ok") return;
+  expect(planOLLParityRepair5x5(solved._0)).toMatchObject({TAG: "Error", _0: {message: "No 5×5 OLL parity repair is needed."}});
+  expect(planPLLParityRepair5x5(solved._0)).toMatchObject({TAG: "Error", _0: {message: "No 5×5 PLL parity repair is needed."}});
 });
 
 test("returns a replay-verified inner-slice centre improvement", () => {

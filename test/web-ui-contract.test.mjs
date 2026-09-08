@@ -220,6 +220,7 @@ test("Academy exposes the milestone-first 5×5 reduction inspector", () => {
   assert.match(client, /planNextWingPair5x5/);
   assert.match(page, /data-reduction-5x5-academy-find-cycle/);
   assert.match(page, /data-reduction-5x5-academy-find-bar/);
+  assert.match(page, /data-reduction-5x5-academy-repair-parity/);
   assert.match(client, /createReduction5x5CycleSolverClient/);
   assert.match(client, /createReduction5x5BarSolverClient/);
   assert.match(client, /Stop centre-cycle search/);
@@ -228,6 +229,7 @@ test("Academy exposes the milestone-first 5×5 reduction inspector", () => {
   assert.match(client, /2R U 2R' U'/);
   assert.match(client, /2L' U L U' 2L/);
   assert.match(client, /OLL parity: 2R U2 2L F2/);
+  assert.match(client, /planOLLParityRepair5x5/);
   assert.match(solverWorker, /solve5x5CentreCycle/);
   assert.match(solverWorker, /solve5x5CentreBar/);
   assert.match(solverWorker, /reduction5x5CycleProgress/);

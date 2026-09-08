@@ -13,7 +13,7 @@ import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as HamiltonMacro from "../Move/HamiltonMacro.res.mjs";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
 import {inspectReduction4x4, planNextCentreBlock4x4, planNextWingPair4x4, planOLLParityRepair4x4, planPLLParityRepair4x4, reduce4x4} from "../Solver/Reduction4x4.res.mjs";
-import {inspectReduction5x5, planNextCentre5x5, planNextWingPair5x5, reduce5x5} from "../Solver/Reduction5x5.res.mjs";
+import {inspectReduction5x5, planOLLParityRepair5x5, planPLLParityRepair5x5, planNextCentre5x5, planNextWingPair5x5, reduce5x5} from "../Solver/Reduction5x5.res.mjs";
 import {
   createOptimal2x2SolverClient,
   createRandom2x2ScrambleClient,
@@ -402,6 +402,7 @@ if (root) {
     guide: root.querySelector<HTMLElement>("[data-reduction-5x5-academy-guide]")!,
     findBar: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-find-bar]")!,
     findCycle: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-find-cycle]")!,
+    repairParity: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-repair-parity]")!,
     applyCentre: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-apply-centre]")!,
     applyWing: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-apply-wing]")!,
   };
@@ -3071,6 +3072,8 @@ if (root) {
     academy.applyCentre.disabled = true;
     academy.findBar.hidden = true;
     academy.findCycle.hidden = true;
+    academy.repairParity.hidden = true;
+    academy.repairParity.disabled = true;
     academy.applyWing.hidden = true;
     academy.applyWing.disabled = true;
     if (size !== 5) {
@@ -3146,10 +3149,18 @@ if (root) {
     if (progress.stage === "handoff") {
       const reduced = reduce5x5(recognized.state);
       academy.guide.hidden = false;
+      const parityKind = reduced.TAG === "Error" && reduced._0.message.startsWith("5×5 PLL parity detected:")
+        ? "PLL"
+        : reduced.TAG === "Error" && reduced._0.message.startsWith("5×5 OLL parity detected:")
+          ? "OLL"
+          : null;
       academy.guide.textContent = reduced.TAG === "Ok"
         ? "Reduced 3×3 projection is physically valid. The replay-verified 5×5 finisher is the next increment."
         : reduced._0.message;
       academy.guide.classList.toggle("error", reduced.TAG === "Error");
+      academy.repairParity.hidden = parityKind === null;
+      academy.repairParity.disabled = parityKind === null;
+      academy.repairParity.textContent = parityKind === null ? "Apply parity repair" : `Apply ${parityKind}-parity repair`;
     }
   };
 
@@ -5582,6 +5593,16 @@ if (root) {
     const guide = planNextWingPair5x5(activeRecognized.state);
     if (guide.TAG !== "Ok") return;
     store.patch({moves: [movesInput.value.trim(), guide._0.algorithm].filter(Boolean).join(" ")});
+  });
+
+  reduction5x5Academy.repairParity.addEventListener("click", () => {
+    if (size !== 5 || activeRecognized === null) return;
+    const reduced = reduce5x5(activeRecognized.state);
+    const repair = reduced.TAG === "Error" && reduced._0.message.startsWith("5×5 PLL parity detected:")
+      ? planPLLParityRepair5x5(activeRecognized.state)
+      : planOLLParityRepair5x5(activeRecognized.state);
+    if (repair.TAG !== "Ok") return;
+    store.patch({moves: [movesInput.value.trim(), repair._0.algorithm].filter(Boolean).join(" ")});
   });
 
   reduction4x4Academy.applyGuide.addEventListener("click", () => {

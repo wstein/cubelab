@@ -150,6 +150,12 @@ normalised to CubeLab notation: `2R`/`2L` mean the adjacent inner slices where
 some beginner guides write `r`/`l`. The route includes the centre pair and
 dedge setup, plus OLL/PLL parity sequences, but only offers an automatic
 application after the relevant replay-verified planner identifies the case.
+At the reduced-state handoff it classifies an edge-orientation violation as OLL
+parity and a permutation-parity mismatch as PLL parity. The corresponding
+button replays the displayed 5×5 sequence against the original state and stays
+hidden unless that replay yields a physically valid reduced 3×3. The L2C/L2E
+endgame emphasis in the Cubing Cheat Sheet is reflected in the buffered centre
+cycles and centre-preserving wing planner.
 
 Both phases of the reused three-phase diagnostic have independent 30,000-node
 budgets; a budget miss is a normal bounded failure, never an open-ended search.

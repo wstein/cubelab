@@ -12,6 +12,7 @@ type inspection = {
 }
 type guide = {alg: alg, algorithm: string, before: int, after: int, kind: string, barsBefore: int, barsAfter: int, completedBefore: int, completedAfter: int}
 type reduced = {state: cubeState, compact: string}
+type parityRepair = {alg: alg, algorithm: string}
 type progress = {x: int, plus: int, faces: int, wings: int, score: int}
 type centreCandidate = {state: cubeState, alg: alg, lastFace: string, score: int}
 
@@ -25,6 +26,8 @@ let centreSearchMoves = ["U", "U'", "U2", "R", "R'", "R2", "F", "F'", "F2", "D",
 let barCommutators = ["Rw U Rw'", "Rw U' Rw'", "2R U 2R'", "2R U' 2R'", "Rw U Rw' U'", "2R U 2R' U'"]
 let barSetupTurns = ["U", "U'", "U2"]
 let wingCycleNotations = ["2R U R' U' 2R'", "2R U2 2R'"]
+let ollParityNotation = "2R U2 2L F2 2L' F2 2R2 U2 2R U2 2L' U2 2R' U2 2R2"
+let pllParityNotation = "Rw2 F2 U2 2R U2 Rw' U2 2L U2 Rw U2 F2 Rw2"
 
 let charAt = (value, index) => value->String.slice(~start=index, ~end=index + 1)
 let faceAt = (value, index) => value->String.slice(~start=index * 25, ~end=index * 25 + 25)
@@ -101,6 +104,25 @@ let parse = notation =>
   | Ok(alg) => Some(alg)
   | Error(_) => None
   }
+
+let edgeFlipSlots = (error: 'a): option<array<int>> => {
+  let raw: Nullable.t<array<int>> = %raw(`function(error) {
+    if (typeof error !== "object" || error === null) return null;
+    if (error.TAG !== "SolvabilityViolation" || typeof error._0 !== "object" || error._0 === null) return null;
+    var violation = error._0;
+    return violation.TAG === "EdgeFlip" && Array.isArray(violation.affectedSlots)
+      ? violation.affectedSlots.filter(function(slot) { return typeof slot === "number"; })
+      : null;
+  }`)(error)
+  Nullable.toOption(raw)
+}
+
+let hasPermutationParityMismatch = (error: 'a): bool =>
+  %raw(`function(error) {
+    if (typeof error !== "object" || error === null || error.TAG !== "SolvabilityViolation") return false;
+    return error._0 === "PermutationParityMismatch"
+      || (typeof error._0 === "object" && error._0 !== null && error._0.TAG === "PermutationParityMismatch");
+  }`)(error)
 
 /** Standard 5×5 centre insertion families, rotated through all cube frames.
  * These are intentionally short, human-readable commutators rather than a
@@ -551,10 +573,49 @@ let reduce5x5 = (state: cubeState): result<reduced, reductionError> =>
         | Error(_) => Error({message: "The projected 3×3 does not have the required colour inventory."})
         | Ok(reduced) => switch PieceReducer.reduce(reduced) {
           | Ok(_) => Ok({state: reduced, compact: reducedCompact.contents})
-          | Error(error) => Error({message: `5×5 reduced-state parity/solvability diagnostic: ${PieceReducer.describeError(error)}`})
+          | Error(error) => switch edgeFlipSlots(error) {
+            | Some(slots) => Error({message: `5×5 OLL parity detected: ${slots->Array.length->Int.toString} reduced dedge orientation error. Apply the replay-verified OLL-parity repair.`})
+            | None => if hasPermutationParityMismatch(error) {
+              Error({message: "5×5 PLL parity detected: a reduced dedge pair is swapped. Apply the replay-verified PLL-parity repair."})
+            } else {
+              Error({message: `5×5 reduced-state parity/solvability diagnostic: ${PieceReducer.describeError(error)}`})
+            }
+            }
           }
         }
       }
     }
+    }
+  }
+
+let planOLLParityRepair5x5 = (state: cubeState): result<parityRepair, reductionError> =>
+  switch reduce5x5(state) {
+  | Ok(_) => Error({message: "No 5×5 OLL parity repair is needed."})
+  | Error(error) if !String.startsWith(error.message, "5×5 OLL parity detected:") => Error(error)
+  | Error(_) => switch parse(ollParityNotation) {
+    | None => Error({message: "The 5×5 OLL-parity repair could not be parsed."})
+    | Some(alg) => switch MoveExecutor.applyAlg(state, alg) {
+      | Ok(replay) => switch reduce5x5(replay) {
+        | Ok(_) => Ok({alg, algorithm: MoveTransform.serialize(alg)})
+        | Error(_) => Error({message: "The 5×5 OLL-parity repair did not produce a legal reduced 3×3 state."})
+        }
+      | Error(_) => Error({message: "The 5×5 OLL-parity repair could not be replayed."})
+      }
+    }
+  }
+
+let planPLLParityRepair5x5 = (state: cubeState): result<parityRepair, reductionError> =>
+  switch reduce5x5(state) {
+  | Ok(_) => Error({message: "No 5×5 PLL parity repair is needed."})
+  | Error(error) if !String.startsWith(error.message, "5×5 PLL parity detected:") => Error(error)
+  | Error(_) => switch parse(pllParityNotation) {
+    | None => Error({message: "The 5×5 PLL-parity repair could not be parsed."})
+    | Some(alg) => switch MoveExecutor.applyAlg(state, alg) {
+      | Ok(replay) => switch reduce5x5(replay) {
+        | Ok(_) => Ok({alg, algorithm: MoveTransform.serialize(alg)})
+        | Error(_) => Error({message: "The 5×5 PLL-parity repair did not produce a legal reduced 3×3 state."})
+        }
+      | Error(_) => Error({message: "The 5×5 PLL-parity repair could not be replayed."})
+      }
     }
   }
