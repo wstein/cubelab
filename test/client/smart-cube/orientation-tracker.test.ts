@@ -141,7 +141,7 @@ describe("stable smart-cube orientation tracker", () => {
     expect(Math.abs(tracker.orientation.w)).toBeCloseTo(1);
   });
 
-  test("threshold: appends mixed world-frame regrips in viewport render order", () => {
+  test("threshold: separates mixed world-frame physical pose from viewport correction", () => {
     const tracker = createStableOrientationTracker(identity, "viewport", "world");
     const first = observeThresholdOrientation(tracker, x(90), "viewport", 65);
     // A world-space Y after X is represented by Y × X in the sensor packet.
@@ -149,10 +149,14 @@ describe("stable smart-cube orientation tracker", () => {
     const secondCurrent = multiplyQuaternions(yQuarter, x(90));
     const second = observeThresholdOrientation(first.tracker, secondCurrent, "viewport", 65);
 
-    // Rendering applies correction × live delta, so committed regrips append
-    // as X × Y. Prepending Y × X is the cross-axis discontinuity seen on GAN.
+    // Physical R/U/F ownership follows the world pose Y × X, while rendering
+    // applies correction × live delta, so its correction is X × Y.
     expect(second.tracker.orientation).toEqual(multiplyQuaternions(
+      yQuarter,
       first.tracker.orientation,
+    ));
+    expect(second.tracker.viewportOrientation).toEqual(multiplyQuaternions(
+      first.tracker.viewportOrientation,
       yQuarter,
     ));
   });

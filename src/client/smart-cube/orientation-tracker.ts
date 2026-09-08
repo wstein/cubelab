@@ -25,7 +25,10 @@ export type StableOrientationTracker = {
   baseline: OrientationQuaternion;
   frame: OrientationCoordinateFrame;
   deltaFrame: "local" | "world";
+  /** Physical cube pose: used to keep R/U/F colours attached to centres. */
   orientation: OrientationQuaternion;
+  /** Baseline-relative pose: used only as the continuous viewport correction. */
+  viewportOrientation: OrientationQuaternion;
   candidate: {index: number; samples: number} | null;
 };
 
@@ -142,6 +145,7 @@ export const createStableOrientationTracker = (
   frame,
   deltaFrame,
   orientation: {x: 0, y: 0, z: 0, w: 1},
+  viewportOrientation: {x: 0, y: 0, z: 0, w: 1},
   candidate: null,
 });
 
@@ -171,8 +175,9 @@ export const observeStableOrientation = (
   const orientation = normalize(tracker.deltaFrame === "world"
     ? multiplyQuaternions(cardinal, tracker.orientation)
     : multiplyQuaternions(tracker.orientation, cardinal));
+  const viewportOrientation = normalize(multiplyQuaternions(tracker.viewportOrientation, cardinal));
   return {
-    tracker: {...tracker, baseline: current, frame, orientation, candidate: null},
+    tracker: {...tracker, baseline: current, frame, orientation, viewportOrientation, candidate: null},
     tokens: orientations[nearest.index]!.tokens,
   };
 };
@@ -201,18 +206,20 @@ export const observeThresholdOrientation = (
   const nearest = closestCardinalOrientation(delta);
   if (nearest.index === 0) return {tracker, tokens: []};
   const cardinal = orientations[nearest.index]!.quaternion;
-  // The viewport renders `committedOrientation × liveWorldDelta`. When its
-  // world baseline advances by a new cardinal delta, the committed term must
-  // append that delta on the right. Prepending happens to work for repeated
-  // turns around one axis, but jumps after a GAN Z regrip is followed by X:
-  // those world rotations do not commute.
-  const orientation = normalize(multiplyQuaternions(tracker.orientation, cardinal));
+  // A world pose prepends its newest turn (physical centre colours), whereas
+  // the renderer applies correction × live baseline-relative delta and must
+  // append. They coincide for one axis but diverge after mixed GAN regrips.
+  const orientation = normalize(tracker.deltaFrame === "world"
+    ? multiplyQuaternions(cardinal, tracker.orientation)
+    : multiplyQuaternions(tracker.orientation, cardinal));
+  const viewportOrientation = normalize(multiplyQuaternions(tracker.viewportOrientation, cardinal));
   return {
     tracker: {
       ...tracker,
       baseline: projectedQuarterTurnBaseline(tracker.baseline, current, tracker.deltaFrame),
       frame,
       orientation,
+      viewportOrientation,
       candidate: null,
     },
     tokens: orientations[nearest.index]!.tokens.map(clockwiseNotationToken),
@@ -290,6 +297,10 @@ export const settleStableOrientation = (
       orientation: normalize(tracker.deltaFrame === "world"
         ? multiplyQuaternions(orientations[nearest.index]!.quaternion, tracker.orientation)
         : multiplyQuaternions(tracker.orientation, orientations[nearest.index]!.quaternion)),
+      viewportOrientation: normalize(multiplyQuaternions(
+        tracker.viewportOrientation,
+        orientations[nearest.index]!.quaternion,
+      )),
       candidate: null,
     },
     tokens: orientations[nearest.index]!.tokens,

@@ -1003,6 +1003,7 @@ export type CubeViewport = {
     virtualOrientation: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
     currentOrientation?: OrientationQuaternion,
+    glyphOrientation?: OrientationQuaternion,
   ) => void;
   reconcileDeviceOrientation: (
     orientation: OrientationQuaternion,
@@ -2596,8 +2597,14 @@ export const createCubeViewport = (
       requestRender();
       return alignment;
     },
-    rebaseDeviceOrientation(baseline, virtualOrientation, coordinateFrame = "viewport", currentOrientation = baseline) {
-      rebaseGlyphRufOrientation(virtualOrientation);
+    rebaseDeviceOrientation(
+      baseline,
+      virtualOrientation,
+      coordinateFrame = "viewport",
+      currentOrientation = baseline,
+      glyphOrientation = virtualOrientation,
+    ) {
+      rebaseGlyphRufOrientation(glyphOrientation);
       // The detector advances its baseline to a synthetic cardinal 90° pose
       // as soon as a raw packet crosses its early (~60°) threshold.  Keep the
       // actual packet as the current live orientation: its residual against

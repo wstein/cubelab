@@ -45,7 +45,7 @@ describe("cube viewport math", () => {
   test("rebases a confirmed virtual regrip into the viewport's persistent orientation", () => {
     expect(viewportSource).toMatch(/rebaseDeviceOrientation/);
     expect(viewportSource).toMatch(/deviceOrientationCorrection = normalizedQuaternion\(virtualOrientation\)/);
-    expect(viewportSource).toMatch(/rebaseGlyphRufOrientation\(virtualOrientation\)/);
+    expect(viewportSource).toMatch(/rebaseGlyphRufOrientation\(glyphOrientation\)/);
     expect(viewportSource).not.toMatch(/label: "-x"|label: "-y"|label: "-z"/);
   });
 

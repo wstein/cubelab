@@ -2593,7 +2593,9 @@ if (root) {
     );
     if (alignment) {
       discreteTracker.orientation = alignment;
+      discreteTracker.viewportOrientation = alignment;
       fixpointTracker.orientation = alignment;
+      fixpointTracker.viewportOrientation = alignment;
     }
     smartCubeDiscreteOrientationTracker = discreteTracker;
     smartCubeVirtualFixpointTracker = fixpointTracker;
@@ -5470,9 +5472,10 @@ if (root) {
                 // viewport current orientation so the final 20–30° remains
                 // continuous instead of snapping at every regrip.
                 observed.tracker.baseline,
-                observed.tracker.orientation,
+                observed.tracker.viewportOrientation,
                 event.coordinateFrame,
                 event.quaternion,
+                observed.tracker.orientation,
               );
             }
             traceSmartCubeStabilization("virtual regrip", {
