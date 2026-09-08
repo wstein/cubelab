@@ -48,9 +48,10 @@ describe("cube viewport math", () => {
     expect(viewportSource).not.toMatch(/label: "-x"|label: "-y"|label: "-z"/);
   });
 
-  test("keeps the orientation marker attached to the live cube frame", () => {
+  test("keeps glyph geometry live while committing R/U/F labels atomically", () => {
     expect(viewportSource).toMatch(/orientation: relativeOrientation/);
-    expect(viewportSource).toMatch(/colourOrientation: normalizedQuaternion\(relativeOrientation/);
+    expect(viewportSource).toMatch(/colourOrientation: glyphRufOrientation/);
+    expect(viewportSource).toMatch(/nextColourOrientation: normalizedQuaternion\(virtualOrientation\)/);
     expect(viewportSource).toMatch(/drawMotionOverlay\(width, height, glyphMatrices, glyphFrame\.colourOrientation, glyphScale\)/);
     expect(viewportSource).toMatch(/drawOrientationAxes\(axisMatrices, width, height/);
     expect(viewportSource).not.toMatch(/const virtualAxisMatrices = cameraMatrices\(/);
@@ -67,7 +68,7 @@ describe("cube viewport math", () => {
     const half = Math.SQRT1_2;
     expect(orientationAxisFaces()).toEqual({x: "R", y: "U", z: "F"});
     expect(orientationAxisFaces({x: 0, y: half, z: 0, w: half})).toEqual({x: "F", y: "U", z: "L"});
-    expect(viewportSource).toMatch(/glyphReorientation = \{startedAt: performance\.now\(\), previous: lastGlyphFrame\}/);
+    expect(viewportSource).toMatch(/glyphRufOrientation = glyphReorientation\.nextColourOrientation/);
     expect(viewportSource).toMatch(/label: "x", point: pointForFace\(axisFaces\.x\), colour: colourForFace\(axisFaces\.x\)/);
     expect(viewportSource).toMatch(/label: "y", point: pointForFace\(axisFaces\.y\), colour: colourForFace\(axisFaces\.y\)/);
     expect(viewportSource).toMatch(/label: "z", point: pointForFace\(axisFaces\.z\), colour: colourForFace\(axisFaces\.z\)/);

@@ -1120,7 +1120,9 @@ export const createCubeViewport = (
   let glyphReorientation: {
     startedAt: number;
     previous: NonNullable<typeof lastGlyphFrame>;
+    nextColourOrientation: OrientationQuaternion;
   } | null = null;
+  let glyphRufOrientation: OrientationQuaternion = {x: 0, y: 0, z: 0, w: 1};
   canvas.dataset.autoOrbitState = "off";
   const overlay = overlayCanvas.getContext("2d");
 
@@ -2045,19 +2047,30 @@ export const createCubeViewport = (
       cameraDistance,
       relativeOrientation,
     );
-    // The glyph follows every live cube-orientation packet. Its labels and
-    // paints are remapped from the same orientation so it continues to show
-    // the physical centres at screen Right/Up/Front throughout a regrip.
+    // Geometry follows every live cube-orientation packet. R/U/F assignment
+    // is committed only by the regrip detector, preventing its labels and
+    // colours from flipping at the earlier 45° nearest-face boundary.
     const targetGlyphFrame = {
       orientation: relativeOrientation,
-      colourOrientation: normalizedQuaternion(relativeOrientation ?? {x: 0, y: 0, z: 0, w: 1}),
+      colourOrientation: glyphRufOrientation,
     };
     let glyphFrame = targetGlyphFrame;
     let glyphScale = 1;
     if (glyphReorientation) {
       const progress = Math.min(1, Math.max(0, (now - glyphReorientation.startedAt) / 180));
       glyphScale = progress < 0.5 ? 1 - progress * 2 : (progress - 0.5) * 2;
-      if (progress < 0.5) glyphFrame = glyphReorientation.previous;
+      if (progress < 0.5) {
+        glyphFrame = {
+          orientation: relativeOrientation,
+          colourOrientation: glyphReorientation.previous.colourOrientation,
+        };
+      } else {
+        glyphRufOrientation = glyphReorientation.nextColourOrientation;
+        glyphFrame = {
+          orientation: relativeOrientation,
+          colourOrientation: glyphRufOrientation,
+        };
+      }
       if (progress >= 1) glyphReorientation = null;
     }
     lastGlyphFrame = glyphFrame;
@@ -2474,6 +2487,8 @@ export const createCubeViewport = (
         isGyroDrifting = false;
         deviceOrientationCorrection = null;
         deviceOrientationIsVirtualRegrip = false;
+        glyphRufOrientation = {x: 0, y: 0, z: 0, w: 1};
+        glyphReorientation = null;
         deviceOrientationCorrectionGeneration += 1;
         deviceOrientationFrame = "viewport";
         delete canvas.dataset.deviceOrientation;
@@ -2491,6 +2506,8 @@ export const createCubeViewport = (
         isGyroDrifting = false;
         deviceOrientationCorrection = null;
         deviceOrientationIsVirtualRegrip = false;
+        glyphRufOrientation = {x: 0, y: 0, z: 0, w: 1};
+        glyphReorientation = null;
         deviceOrientationCorrectionGeneration += 1;
       }
       deviceOrientationFrame = coordinateFrame;
@@ -2557,7 +2574,13 @@ export const createCubeViewport = (
     },
     rebaseDeviceOrientation(orientation, virtualOrientation, coordinateFrame = "viewport") {
       if (lastGlyphFrame) {
-        glyphReorientation = {startedAt: performance.now(), previous: lastGlyphFrame};
+        glyphReorientation = {
+          startedAt: performance.now(),
+          previous: lastGlyphFrame,
+          nextColourOrientation: normalizedQuaternion(virtualOrientation),
+        };
+      } else {
+        glyphRufOrientation = normalizedQuaternion(virtualOrientation);
       }
       const normalized = normalizedQuaternion(orientation);
       deviceOrientationBase = normalized;
@@ -2590,6 +2613,8 @@ export const createCubeViewport = (
       isGyroDrifting = false;
       deviceOrientationCorrection = null;
       deviceOrientationIsVirtualRegrip = false;
+      glyphRufOrientation = {x: 0, y: 0, z: 0, w: 1};
+      glyphReorientation = null;
       deviceOrientationCorrectionGeneration += 1;
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
