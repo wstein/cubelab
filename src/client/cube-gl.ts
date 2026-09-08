@@ -311,6 +311,23 @@ export const wholeCubeTurnQuaternion = (turn: TurnTransform | null): Orientation
   });
 };
 
+/**
+ * The HUD is a cube-frame reference, viewed against the screen rather than
+ * another physical object.  It therefore counter-rotates the cube's complete
+ * effective pose: R/L stays x, U/D stays y, and F/B stays z without swapping
+ * those axes after a whole-cube regrip.
+ */
+export const glyphOrientationForCube = (
+  cubeOrientation: OrientationQuaternion | null | undefined,
+  wholeCubeTurn: OrientationQuaternion | null = null,
+): OrientationQuaternion | undefined => {
+  if (!cubeOrientation && !wholeCubeTurn) return undefined;
+  const effectiveOrientation = wholeCubeTurn
+    ? multiplyQuaternions(cubeOrientation ?? {x: 0, y: 0, z: 0, w: 1}, wholeCubeTurn)
+    : cubeOrientation!;
+  return inverseQuaternion(effectiveOrientation);
+};
+
 export const turnPreviewTransform = (
   turn: TurnTransform,
   degrees = 4,
@@ -2012,16 +2029,12 @@ export const createCubeViewport = (
       cameraDistance,
       relativeOrientation,
     );
-    // Full-cube x/y/z playback is applied in the vertex shader, so compose
-    // the same in-flight turn into the canvas glyph explicitly. Face turns
-    // remain local and deliberately leave the orientation marker unchanged.
+    // Full-cube x/y/z playback is applied in the vertex shader. The glyph is
+    // the inverse cube-frame reference, so invert the complete pose after
+    // composing the in-flight whole-cube turn. Face turns remain local and
+    // deliberately leave the orientation marker unchanged.
     const wholeCubeAnimation = wholeCubeTurnQuaternion(activeTurn);
-    const glyphOrientation = wholeCubeAnimation
-      ? multiplyQuaternions(
-        relativeOrientation ?? {x: 0, y: 0, z: 0, w: 1},
-        wholeCubeAnimation,
-      )
-      : relativeOrientation;
+    const glyphOrientation = glyphOrientationForCube(relativeOrientation, wholeCubeAnimation);
     const glyphMatrices = cameraMatrices(
       aspect,
       yaw,

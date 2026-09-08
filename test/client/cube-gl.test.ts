@@ -16,6 +16,7 @@ import {
   transformTurnPoint,
   focusCameraTarget,
   gestureAlignmentDelta,
+  glyphOrientationForCube,
   magneticOrientationDetent,
   matrixFromQuaternion,
   multiplyQuaternions,
@@ -47,8 +48,9 @@ describe("cube viewport math", () => {
     expect(viewportSource).not.toMatch(/label: "-x"|label: "-y"|label: "-z"/);
   });
 
-  test("rotates the orientation marker with the displayed cube", () => {
+  test("counter-rotates the orientation marker against the displayed cube", () => {
     expect(viewportSource).toMatch(/const wholeCubeAnimation = wholeCubeTurnQuaternion\(activeTurn\)/);
+    expect(viewportSource).toMatch(/glyphOrientationForCube\(relativeOrientation, wholeCubeAnimation\)/);
     expect(viewportSource).toMatch(/drawMotionOverlay\(width, height, glyphMatrices\)/);
     expect(viewportSource).toMatch(/drawOrientationAxes\(axisMatrices, width, height/);
     expect(viewportSource).not.toMatch(/const virtualAxisMatrices = cameraMatrices\(/);
@@ -59,6 +61,25 @@ describe("cube viewport math", () => {
     expect(rotation?.y).toBeCloseTo(Math.SQRT1_2);
     expect(rotation?.w).toBeCloseTo(Math.SQRT1_2);
     expect(wholeCubeTurnQuaternion({axis: [0, 1, 0], min: 0.4, max: 1.6, angle: Math.PI / 2})).toBeNull();
+  });
+
+  test("counter-rotates glyph axes without changing their x/y/z identity", () => {
+    const half = Math.SQRT1_2;
+    const cubeY = {x: 0, y: half, z: 0, w: half};
+    const glyphY = glyphOrientationForCube(cubeY);
+    expect(glyphY?.x).toBeCloseTo(0);
+    expect(glyphY?.y).toBeCloseTo(-half);
+    expect(glyphY?.z).toBeCloseTo(0);
+    expect(glyphY?.w).toBeCloseTo(half);
+
+    const glyphWithTurn = glyphOrientationForCube(
+      {x: 0, y: 0, z: 0, w: 1},
+      {x: 0, y: 0, z: half, w: half},
+    );
+    expect(glyphWithTurn?.x).toBeCloseTo(0);
+    expect(glyphWithTurn?.y).toBeCloseTo(0);
+    expect(glyphWithTurn?.z).toBeCloseTo(-half);
+    expect(glyphWithTurn?.w).toBeCloseTo(half);
   });
 
   test("keeps glyph colours attached to physical cube centres", () => {
