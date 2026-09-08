@@ -22,6 +22,7 @@ import {
   multiplyQuaternions,
   nearestCardinalQuaternion,
   orientationInViewportFrame,
+  orientationAxisFaces,
   orientationCorrectionForTarget,
   orientationDistanceRadians,
   quaternionAxisAngle,
@@ -51,7 +52,7 @@ describe("cube viewport math", () => {
   test("counter-rotates only explicit whole-cube marker moves", () => {
     expect(viewportSource).toMatch(/const wholeCubeAnimation = wholeCubeTurnQuaternion\(activeTurn\)/);
     expect(viewportSource).toMatch(/deviceOrientationIsVirtualRegrip \? deviceOrientationCorrection : null/);
-    expect(viewportSource).toMatch(/drawMotionOverlay\(width, height, glyphMatrices\)/);
+    expect(viewportSource).toMatch(/drawMotionOverlay\(width, height, glyphMatrices, glyphFrame\.colourOrientation, glyphScale\)/);
     expect(viewportSource).toMatch(/drawOrientationAxes\(axisMatrices, width, height/);
     expect(viewportSource).not.toMatch(/const virtualAxisMatrices = cameraMatrices\(/);
   });
@@ -92,11 +93,14 @@ describe("cube viewport math", () => {
     expect(glyphWithTurn?.w).toBeCloseTo(half);
   });
 
-  test("keeps glyph colours attached to physical cube centres", () => {
-    expect(viewportSource).toMatch(/label: "x", point: \[1, 0, 0\], colour: colourForFace\("R"\)/);
-    expect(viewportSource).toMatch(/label: "y", point: \[0, 1, 0\], colour: colourForFace\("U"\)/);
-    expect(viewportSource).toMatch(/label: "z", point: \[0, 0, 1\], colour: colourForFace\("F"\)/);
-    expect(viewportSource).not.toMatch(/orientationAxisFaces/);
+  test("preserves x/y/z labels while refreshing glyph centre colours", () => {
+    const half = Math.SQRT1_2;
+    expect(orientationAxisFaces()).toEqual({x: "R", y: "U", z: "F"});
+    expect(orientationAxisFaces({x: 0, y: half, z: 0, w: half})).toEqual({x: "F", y: "U", z: "L"});
+    expect(viewportSource).toMatch(/glyphReorientation = \{startedAt: performance\.now\(\), previous: lastGlyphFrame\}/);
+    expect(viewportSource).toMatch(/label: "x", point: \[1, 0, 0\], colour: colourForFace\(axisFaces\.x\)/);
+    expect(viewportSource).toMatch(/label: "y", point: \[0, 1, 0\], colour: colourForFace\(axisFaces\.y\)/);
+    expect(viewportSource).toMatch(/label: "z", point: \[0, 0, 1\], colour: colourForFace\(axisFaces\.z\)/);
   });
 
   test("rotates a flicked face into virtual Right before resolving Up", () => {

@@ -828,6 +828,14 @@ export const cardinalOrientationFaces = (orientation: OrientationQuaternion): st
   }).join("");
 };
 
+/** Centre colours at the current world x/y/z directions; labels never change. */
+export const orientationAxisFaces = (
+  orientation: OrientationQuaternion = {x: 0, y: 0, z: 0, w: 1},
+): {x: string; y: string; z: string} => {
+  const faces = cardinalOrientationFaces(orientation);
+  return {x: faces[1]!, y: faces[0]!, z: faces[2]!};
+};
+
 export const relativeQuaternion = (
   base: OrientationQuaternion,
   current: OrientationQuaternion,
@@ -1123,6 +1131,14 @@ export const createCubeViewport = (
   let gyroDriftOffset: OrientationQuaternion = {x: 0, y: 0, z: 0, w: 1};
   let lastGyroDriftTime: number | null = null;
   let isGyroDrifting = false;
+  let lastGlyphFrame: {
+    orientation: OrientationQuaternion | undefined;
+    colourOrientation: OrientationQuaternion;
+  } | null = null;
+  let glyphReorientation: {
+    startedAt: number;
+    previous: NonNullable<typeof lastGlyphFrame>;
+  } | null = null;
   canvas.dataset.autoOrbitState = "off";
   const overlay = overlayCanvas.getContext("2d");
 
@@ -1194,13 +1210,15 @@ export const createCubeViewport = (
     matrices: { modelView: Mat4; projection: Mat4 },
     width: number,
     height: number,
+    colourOrientation: OrientationQuaternion,
+    scale = 1,
   ) => {
-    if (!overlay) return;
+    if (!overlay || scale <= 0.001) return;
     const bounds = canvas.getBoundingClientRect();
     const dpr = width / Math.max(1, bounds.width);
     const centerX = width - 47 * dpr;
     const centerY = 47 * dpr;
-    const radius = 21 * dpr;
+    const radius = 21 * dpr * scale;
     const origin = projectPoint([0, 0, 0], matrices.modelView, matrices.projection, width, height);
     // These are the same U/R/F/D/L/B paints used by CubeGeometry. The F/B
     // colors reverse with the Japanese palette, just like the rendered cube.
@@ -1212,13 +1230,13 @@ export const createCubeViewport = (
     const colourForFace = (face: string): string => (
       face === "F" ? front : face === "B" ? back : faceColours[face as "U" | "R" | "D" | "L"]
     );
-    // The geometry is rotated by the cube's live matrix, so these paints must
-    // stay on their physical centre axes rather than being remapped to world
-    // directions after a virtual regrip.
+    // Axis names remain body axes (R/L=x, U/D=y, F/B=z), while their centre
+    // paints are refreshed from the normalized virtual frame after a regrip.
+    const axisFaces = orientationAxisFaces(colourOrientation);
     const axisSpecs: Array<{label: string; point: [number, number, number]; colour: string}> = [
-      {label: "x", point: [1, 0, 0], colour: colourForFace("R")},
-      {label: "y", point: [0, 1, 0], colour: colourForFace("U")},
-      {label: "z", point: [0, 0, 1], colour: colourForFace("F")},
+      {label: "x", point: [1, 0, 0], colour: colourForFace(axisFaces.x)},
+      {label: "y", point: [0, 1, 0], colour: colourForFace(axisFaces.y)},
+      {label: "z", point: [0, 0, 1], colour: colourForFace(axisFaces.z)},
     ];
     const axes = axisSpecs.map((axis) => {
       const endpoint = projectPoint(axis.point, matrices.modelView, matrices.projection, width, height);
@@ -1229,9 +1247,10 @@ export const createCubeViewport = (
     });
 
     overlay.save();
+    overlay.globalAlpha = scale;
     overlay.fillStyle = "rgba(8, 15, 30, 0.68)";
     overlay.beginPath();
-    overlay.arc(centerX, centerY, 31 * dpr, 0, Math.PI * 2);
+    overlay.arc(centerX, centerY, 31 * dpr * scale, 0, Math.PI * 2);
     overlay.fill();
     overlay.lineCap = "round";
     // Farther axes first makes the marker read as a tiny 3D object.
@@ -1554,6 +1573,8 @@ export const createCubeViewport = (
     width: number,
     height: number,
     axisMatrices: { modelView: Mat4; projection: Mat4 },
+    glyphColourOrientation: OrientationQuaternion,
+    glyphScale: number,
   ) => {
     if (!overlay) return;
     if (overlayCanvas.width !== width || overlayCanvas.height !== height) {
@@ -1561,7 +1582,7 @@ export const createCubeViewport = (
       overlayCanvas.height = height;
     }
     overlay.clearRect(0, 0, width, height);
-    drawOrientationAxes(axisMatrices, width, height);
+    drawOrientationAxes(axisMatrices, width, height, glyphColourOrientation, glyphScale);
     if (!focus && !turnGuide && !milestone) {
       delete overlayCanvas.dataset.motionVisible;
       return;
@@ -2035,17 +2056,29 @@ export const createCubeViewport = (
     // live IMU orientation forward and synchronized with the displayed cube.
     // Face turns remain local and leave the orientation marker unchanged.
     const wholeCubeAnimation = wholeCubeTurnQuaternion(activeTurn);
-    const glyphOrientation = glyphOrientationForCube(
-      detentedOrientation,
-      deviceOrientationIsVirtualRegrip ? deviceOrientationCorrection : null,
-      wholeCubeAnimation,
-    );
+    const targetGlyphFrame = {
+      orientation: glyphOrientationForCube(
+        detentedOrientation,
+        deviceOrientationIsVirtualRegrip ? deviceOrientationCorrection : null,
+        wholeCubeAnimation,
+      ),
+      colourOrientation: normalizedQuaternion(relativeOrientation ?? {x: 0, y: 0, z: 0, w: 1}),
+    };
+    let glyphFrame = targetGlyphFrame;
+    let glyphScale = 1;
+    if (glyphReorientation) {
+      const progress = Math.min(1, Math.max(0, (now - glyphReorientation.startedAt) / 180));
+      glyphScale = progress < 0.5 ? 1 - progress * 2 : (progress - 0.5) * 2;
+      if (progress < 0.5) glyphFrame = glyphReorientation.previous;
+      if (progress >= 1) glyphReorientation = null;
+    }
+    lastGlyphFrame = glyphFrame;
     const glyphMatrices = cameraMatrices(
       aspect,
       yaw,
       pitch,
       cameraDistance,
-      glyphOrientation,
+      glyphFrame.orientation,
     );
     gl.uniformMatrix4fv(modelView, false, matrices.modelView);
     gl.uniformMatrix4fv(projection, false, matrices.projection);
@@ -2066,7 +2099,7 @@ export const createCubeViewport = (
     gl.uniform3fv(guideAxis, guideTransform?.axis ?? [1, 0, 0]);
     gl.uniform2f(guideRange, guideTransform?.min ?? 0, guideTransform?.max ?? 0);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
-    drawMotionOverlay(width, height, glyphMatrices);
+    drawMotionOverlay(width, height, glyphMatrices, glyphFrame.colourOrientation, glyphScale);
 
     const adjustedResidual = detentedOrientation
       ? regripGaugeDeviation(detentedOrientation, deviceOrientationLockTarget)
@@ -2082,7 +2115,7 @@ export const createCubeViewport = (
     canvas.dataset.webgl = "ready";
     canvas.dataset.cameraYaw = yaw.toFixed(6);
     canvas.dataset.cameraPitch = pitch.toFixed(6);
-    if (focus || turnGuide || milestone || isGyroDrifting) requestRender();
+    if (focus || turnGuide || milestone || isGyroDrifting || glyphReorientation) requestRender();
   };
 
   const requestRender = () => {
@@ -2535,6 +2568,9 @@ export const createCubeViewport = (
       return alignment;
     },
     rebaseDeviceOrientation(orientation, virtualOrientation, coordinateFrame = "viewport") {
+      if (lastGlyphFrame) {
+        glyphReorientation = {startedAt: performance.now(), previous: lastGlyphFrame};
+      }
       const normalized = normalizedQuaternion(orientation);
       deviceOrientationBase = normalized;
       deviceOrientation = normalized;
