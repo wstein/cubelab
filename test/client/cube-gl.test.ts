@@ -49,9 +49,9 @@ describe("cube viewport math", () => {
     expect(viewportSource).not.toMatch(/label: "-x"|label: "-y"|label: "-z"/);
   });
 
-  test("counter-rotates only explicit whole-cube marker moves", () => {
+  test("keeps the orientation marker screen-aligned with whole-cube moves", () => {
     expect(viewportSource).toMatch(/const wholeCubeAnimation = wholeCubeTurnQuaternion\(activeTurn\)/);
-    expect(viewportSource).toMatch(/deviceOrientationIsVirtualRegrip \? deviceOrientationCorrection : null/);
+    expect(viewportSource).toMatch(/glyphOrientationForCube\(relativeOrientation, wholeCubeAnimation\)/);
     expect(viewportSource).toMatch(/drawMotionOverlay\(width, height, glyphMatrices, glyphFrame\.colourOrientation, glyphScale\)/);
     expect(viewportSource).toMatch(/drawOrientationAxes\(axisMatrices, width, height/);
     expect(viewportSource).not.toMatch(/const virtualAxisMatrices = cameraMatrices\(/);
@@ -64,7 +64,7 @@ describe("cube viewport math", () => {
     expect(wholeCubeTurnQuaternion({axis: [0, 1, 0], min: 0.4, max: 1.6, angle: Math.PI / 2})).toBeNull();
   });
 
-  test("counter-rotates explicit x/y/z moves but retains live gyro orientation", () => {
+  test("keeps explicit x/y/z moves and live gyro in the cube's screen frame", () => {
     const half = Math.SQRT1_2;
     const liveY = {x: 0, y: half, z: 0, w: half};
     const glyphLiveY = glyphOrientationForCube(liveY);
@@ -73,23 +73,19 @@ describe("cube viewport math", () => {
     expect(glyphLiveY?.z).toBeCloseTo(0);
     expect(glyphLiveY?.w).toBeCloseTo(half);
 
-    const glyphRegripY = glyphOrientationForCube(
-      {x: 0, y: 0, z: 0, w: 1},
-      liveY,
-    );
+    const glyphRegripY = glyphOrientationForCube(liveY);
     expect(glyphRegripY?.x).toBeCloseTo(0);
-    expect(glyphRegripY?.y).toBeCloseTo(-half);
+    expect(glyphRegripY?.y).toBeCloseTo(half);
     expect(glyphRegripY?.z).toBeCloseTo(0);
     expect(glyphRegripY?.w).toBeCloseTo(half);
 
     const glyphWithTurn = glyphOrientationForCube(
       {x: 0, y: 0, z: 0, w: 1},
-      null,
       {x: 0, y: 0, z: half, w: half},
     );
     expect(glyphWithTurn?.x).toBeCloseTo(0);
     expect(glyphWithTurn?.y).toBeCloseTo(0);
-    expect(glyphWithTurn?.z).toBeCloseTo(-half);
+    expect(glyphWithTurn?.z).toBeCloseTo(half);
     expect(glyphWithTurn?.w).toBeCloseTo(half);
   });
 
@@ -98,6 +94,7 @@ describe("cube viewport math", () => {
     expect(orientationAxisFaces()).toEqual({x: "R", y: "U", z: "F"});
     expect(orientationAxisFaces({x: 0, y: half, z: 0, w: half})).toEqual({x: "F", y: "U", z: "L"});
     expect(viewportSource).toMatch(/glyphReorientation = \{startedAt: performance\.now\(\), previous: lastGlyphFrame\}/);
+    expect(viewportSource).toMatch(/glyphColourOrientation = normalizedQuaternion\(virtualOrientation\)/);
     expect(viewportSource).toMatch(/label: "x", point: \[1, 0, 0\], colour: colourForFace\(axisFaces\.x\)/);
     expect(viewportSource).toMatch(/label: "y", point: \[0, 1, 0\], colour: colourForFace\(axisFaces\.y\)/);
     expect(viewportSource).toMatch(/label: "z", point: \[0, 0, 1\], colour: colourForFace\(axisFaces\.z\)/);

@@ -14,7 +14,7 @@ export type RegripProfileRegistry = {
 
 export const defaultRegripProfile: RegripProfile = {
   label: "Default",
-  regripThresholdDegrees: 65,
+  regripThresholdDegrees: 60,
 };
 
 const KNOWN_BRANDS: SmartCubeBrand[] = ["gan", "giiker", "gocube", "moyu"];

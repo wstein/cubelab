@@ -3,12 +3,12 @@
   "version": 1,
   "default": {
     "label": "Default",
-    "regripThresholdDegrees": 65
+    "regripThresholdDegrees": 60
   },
   "profiles": {
     "gocube": {
       "label": "GoCube",
-      "regripThresholdDegrees": 65
+      "regripThresholdDegrees": 60
     }
   }
 }

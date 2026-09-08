@@ -148,7 +148,7 @@ export const observeStableOrientation = (
  * Emits a regrip as soon as the cumulative rotation from the last accepted
  * pose crosses a threshold, with no dwell and no tight alignment gate. Every
  * pair of the 24 legal poses is exactly 90° apart, so a threshold comfortably
- * past the 45° Voronoi boundary between neighbours (65° by default) already
+ * past the 45° Voronoi boundary between neighbours (60° by default) already
  * guarantees nearest-cardinal picks the correct neighbour over identity,
  * however imprecisely the hand actually lands — precision only has to be
  * good enough to tell two 90°-apart poses apart, not to hit one exactly.
@@ -159,7 +159,7 @@ export const observeThresholdOrientation = (
   tracker: StableOrientationTracker,
   current: OrientationQuaternion,
   frame: OrientationCoordinateFrame,
-  minimumRotationDegrees = 65,
+  minimumRotationDegrees = 60,
 ): RegripObservation => {
   if (tracker.frame !== frame) return {tracker: createStableOrientationTracker(current, frame, tracker.deltaFrame), tokens: []};
   const delta = deviceOrientationDelta(tracker.baseline, current, frame, tracker.deltaFrame);

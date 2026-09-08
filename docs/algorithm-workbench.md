@@ -203,7 +203,7 @@ cardinal detent:
 - Outside the 35° well, motion remains strictly 1:1 with the sensor.
 The detent and drift compensation run continuously whether or not the diagnostics HUD is enabled.
 
-Regrip events use a separate 65° threshold from the last confirmed raw baseline. Crossing
+Regrip events use a separate 60° threshold from the last confirmed raw baseline. Crossing
 it selects the nearest cardinal cube pose, emits clockwise `x/y/z` notation (the positive
 sensor quaternion direction is counter-clockwise), and immediately rebases. There is no
 capture-circle correction or lockout, so reversals and mixed-axis regrips remain valid.
@@ -217,10 +217,10 @@ quaternion and degrees, accumulated drift offset degrees and quaternion, and ins
 magnetic detent pull.
 
 Live regrip detection (`observeThresholdOrientation`) fires as soon as the cumulative
-rotation from the last confirmed pose crosses `regripThresholdDegrees` (65° by default,
+rotation from the last confirmed pose crosses `regripThresholdDegrees` (60° by default,
 see the profile below) — no dwell, no tight alignment gate. Every pair of the cube's 24
 legal poses is exactly 90° apart with a 45° Voronoi boundary between neighbours, so once
-a delta is past 65° it is
+a delta is past 60° it is
 already unambiguously closer to the correct neighbour than to any other pose, however
 imprecisely the hand actually lands — precision only has to be good enough to tell two
 90°-apart poses apart, not to hit one exactly. An earlier version required three
@@ -239,7 +239,7 @@ of an unbounded chance of missing the regrip entirely.
 `public/smart-cube/regrip-profile.v1.json`, keyed by brand the same way the removed
 motion-profile registry was, and validated by
 `src/client/smart-cube/regrip-profile.ts` (`parseRegripProfileRegistry`). It loads once
-per connection and falls back to the built-in default (65°) if the fetch fails or the
+per connection and falls back to the built-in default (60°) if the fetch fails or the
 file is malformed — a bad or missing profile degrades to the hardcoded value rather than
 breaking detection. This is deliberately **not** the same tuning knob as the old deleted
 ring-buffer motion profile: that one configured a continuous correction system that no
@@ -309,9 +309,9 @@ motion.
 
 At rest, the residual is 0° with the needle at the centre. As the cube rotates toward a
 new regrip, the needle extends toward the raw direction and the dashed ring marks the
-confirm threshold (65°). Crossing it advances the lock-in by the full cardinal 90° step;
-it does **not** reset the detector's raw sample into the gauge. Thus an `x` sample at 65°
-immediately becomes an `x'` residual of 25° (`65° − 90°`). The virtual correction then
+confirm threshold (60°). Crossing it advances the lock-in by the full cardinal 90° step;
+it does **not** reset the detector's raw sample into the gauge. Thus an `x` sample at 60°
+immediately becomes an `x'` residual of 30° (`60° − 90°`). The virtual correction then
 drifts that residual to zero at the 2°/s offset rate. The detector still rebases to
 the raw triggering sample internally, solely to prevent repeated threshold events; that
 rolling detector baseline is never used for the gauge.

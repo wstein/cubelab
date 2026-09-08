@@ -312,20 +312,18 @@ export const wholeCubeTurnQuaternion = (turn: TurnTransform | null): Orientation
 };
 
 /**
- * The glyph follows the live IMU pose exactly. Only an explicit whole-cube
- * x/y/z move counter-rotates its matching axis: confirmed virtual regrips
- * supply `virtualRegrip`, while Play mode supplies `wholeCubeTurn`. This
- * preserves R/L→x, U/D→y, and F/B→z without inverting ordinary gyro motion.
+ * The glyph uses the cube's effective orientation, so its arrows point toward
+ * the same screen-facing cube faces. Explicit x/y/z moves are normalized by
+ * the regrip detector before this function receives them; face turns remain
+ * local and do not affect the marker.
  */
 export const glyphOrientationForCube = (
-  liveOrientation: OrientationQuaternion | null | undefined,
-  virtualRegrip: OrientationQuaternion | null = null,
+  cubeOrientation: OrientationQuaternion | null | undefined,
   wholeCubeTurn: OrientationQuaternion | null = null,
 ): OrientationQuaternion | undefined => {
-  if (!liveOrientation && !virtualRegrip && !wholeCubeTurn) return undefined;
-  let glyphOrientation = liveOrientation ?? {x: 0, y: 0, z: 0, w: 1};
-  if (virtualRegrip) glyphOrientation = multiplyQuaternions(inverseQuaternion(virtualRegrip), glyphOrientation);
-  if (wholeCubeTurn) glyphOrientation = multiplyQuaternions(glyphOrientation, inverseQuaternion(wholeCubeTurn));
+  if (!cubeOrientation && !wholeCubeTurn) return undefined;
+  let glyphOrientation = cubeOrientation ?? {x: 0, y: 0, z: 0, w: 1};
+  if (wholeCubeTurn) glyphOrientation = multiplyQuaternions(glyphOrientation, wholeCubeTurn);
   return normalizedQuaternion(glyphOrientation);
 };
 
@@ -578,7 +576,7 @@ export const orientationCorrectionForTarget = (
 
 /**
  * Gives the signed residual from the virtual, drift-corrected IMU pose to its
- * current cardinal lock. A 65° x regrip into a 90° x lock is therefore x' 25°.
+ * current cardinal lock. A 60° x regrip into a 90° x lock is therefore x' 30°.
  */
 export const regripGaugeDeviation = (
   driftCorrectedOrientation: OrientationQuaternion,
@@ -1139,6 +1137,7 @@ export const createCubeViewport = (
     startedAt: number;
     previous: NonNullable<typeof lastGlyphFrame>;
   } | null = null;
+  let glyphColourOrientation: OrientationQuaternion = {x: 0, y: 0, z: 0, w: 1};
   canvas.dataset.autoOrbitState = "off";
   const overlay = overlayCanvas.getContext("2d");
 
@@ -1833,7 +1832,7 @@ export const createCubeViewport = (
    * Fixed 2D HUD for gyro regrip detection: shows the rotation distance in
    * degrees from the current active lock-in position (URFDLB cardinal pose)
    * toward the next 90° regrip position, with a dashed ring at the confirm
-   * threshold (65°) and the active lock-in pose displayed above.
+   * threshold (60°) and the active lock-in pose displayed above.
    */
   const drawRegripGauge = (width: number, height: number) => {
     if (!overlay || !regripGauge) return;
@@ -2051,18 +2050,14 @@ export const createCubeViewport = (
       cameraDistance,
       relativeOrientation,
     );
-    // Full-cube x/y/z playback is applied in the vertex shader. Counter-rotate
-    // only this explicit move (and a confirmed virtual regrip), leaving the
-    // live IMU orientation forward and synchronized with the displayed cube.
-    // Face turns remain local and leave the orientation marker unchanged.
+    // Full-cube x/y/z playback is applied in the vertex shader, so apply that
+    // same transform to the glyph. Its centre colours are intentionally held
+    // at the last detector-confirmed virtual frame, never live-remapped while
+    // a physical regrip is still in progress.
     const wholeCubeAnimation = wholeCubeTurnQuaternion(activeTurn);
     const targetGlyphFrame = {
-      orientation: glyphOrientationForCube(
-        detentedOrientation,
-        deviceOrientationIsVirtualRegrip ? deviceOrientationCorrection : null,
-        wholeCubeAnimation,
-      ),
-      colourOrientation: normalizedQuaternion(relativeOrientation ?? {x: 0, y: 0, z: 0, w: 1}),
+      orientation: glyphOrientationForCube(relativeOrientation, wholeCubeAnimation),
+      colourOrientation: glyphColourOrientation,
     };
     let glyphFrame = targetGlyphFrame;
     let glyphScale = 1;
@@ -2486,6 +2481,7 @@ export const createCubeViewport = (
         isGyroDrifting = false;
         deviceOrientationCorrection = null;
         deviceOrientationIsVirtualRegrip = false;
+        glyphColourOrientation = {x: 0, y: 0, z: 0, w: 1};
         deviceOrientationCorrectionGeneration += 1;
         deviceOrientationFrame = "viewport";
         delete canvas.dataset.deviceOrientation;
@@ -2503,6 +2499,7 @@ export const createCubeViewport = (
         isGyroDrifting = false;
         deviceOrientationCorrection = null;
         deviceOrientationIsVirtualRegrip = false;
+        glyphColourOrientation = {x: 0, y: 0, z: 0, w: 1};
         deviceOrientationCorrectionGeneration += 1;
       }
       deviceOrientationFrame = coordinateFrame;
@@ -2585,6 +2582,7 @@ export const createCubeViewport = (
       }
       deviceOrientationCorrection = normalizedQuaternion(virtualOrientation);
       deviceOrientationIsVirtualRegrip = true;
+      glyphColourOrientation = normalizedQuaternion(virtualOrientation);
       deviceOrientationCorrectionGeneration += 1;
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();

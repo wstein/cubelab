@@ -50,5 +50,6 @@ describe("regrip profile registry", () => {
 
   test("falls back to the built-in default when no registry is available", () => {
     expect(regripProfileFor(null, "gocube")).toEqual(defaultRegripProfile);
+    expect(defaultRegripProfile.regripThresholdDegrees).toBe(60);
   });
 });
