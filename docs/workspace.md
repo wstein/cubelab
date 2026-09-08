@@ -130,6 +130,10 @@ on a 5×5 and remains on the bar/commutator route until its dedicated solver is
 implemented. Table construction is never started while the page is rendering or
 responding to input.
 
+Before that bounded diagnostic, the immediate guide tries rotated standard
+`Rw`/`2R` 1×3 centre-bar commutators and their inverses, accepting only a
+replay-verified increase in core-aligned bars.
+
 Both phases of the reused three-phase diagnostic have independent 30,000-node
 budgets; a budget miss is a normal bounded failure, never an open-ended search.
 

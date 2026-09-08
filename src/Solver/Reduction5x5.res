@@ -22,6 +22,7 @@ let middleEdges = [2, 14, 22, 10]
 let reducedIndices = [0, 2, 4, 10, 12, 14, 20, 22, 24]
 let centreMoves = ["2U", "2U'", "2U2", "2R", "2R'", "2R2", "2F", "2F'", "2F2", "2D", "2D'", "2D2", "2L", "2L'", "2L2", "2B", "2B'", "2B2"]
 let centreSearchMoves = ["U", "U'", "U2", "R", "R'", "R2", "F", "F'", "F2", "D", "D'", "D2", "L", "L'", "L2", "B", "B'", "B2", ...centreMoves]
+let barCommutators = ["Rw U Rw'", "Rw U' Rw'", "2R U 2R'", "2R U' 2R'", "Rw U Rw' U'", "2R U 2R' U'"]
 let wingCycleNotations = ["2R U R' U' 2R'", "2R U2 2R'"]
 
 let charAt = (value, index) => value->String.slice(~start=index, ~end=index + 1)
@@ -99,6 +100,43 @@ let parse = notation =>
   | Ok(alg) => Some(alg)
   | Error(_) => None
   }
+
+/** Standard 5×5 centre insertion families, rotated through all cube frames.
+ * These are intentionally short, human-readable commutators rather than a
+ * global reduction search. */
+let planOneByThreeBar = (state: cubeState, initial: progress): option<guide> => {
+  let beforeBars = switch centreBarScore(state) { | Some(value) => value | None => 0 }
+  let best = ref(None)
+  barCommutators->Array.forEach(notation => {
+    switch parse(notation) {
+    | None => ()
+    | Some(seed) => {
+      for xTurns in 0 to 3 {
+        for yTurns in 0 to 3 {
+          for zTurns in 0 to 3 {
+            let rotated = seed
+              ->MoveTransform.rotate(~axis=X, ~turns=xTurns)
+              ->MoveTransform.rotate(~axis=Y, ~turns=yTurns)
+              ->MoveTransform.rotate(~axis=Z, ~turns=zTurns)
+            [rotated, MoveTransform.invert(rotated)]->Array.forEach(alg =>
+              switch MoveExecutor.applyAlg(state, alg) {
+              | Error(_) => ()
+              | Ok(replay) => switch (progressFor(replay), centreBarScore(replay)) {
+                | (Some(after), Some(barsAfter)) if barsAfter > beforeBars => {
+                  let guide = {alg, algorithm: MoveTransform.serialize(alg), before: initial.score, after: after.score, kind: "bar", barsBefore: beforeBars, barsAfter, completedBefore: initial.x + initial.plus, completedAfter: after.x + after.plus}
+                  switch best.contents { | None => best := Some(guide) | Some(current) if guide.barsAfter > current.barsAfter || (guide.barsAfter == current.barsAfter && guide.after > current.after) => best := Some(guide) | Some(_) => () }
+                  }
+                | _ => ()
+                }
+              }
+            )
+          }
+        }
+      }
+    }
+  }})
+  best.contents
+}
 
 /** Runs only in the solver worker. The diagonal X-centres are isomorphic to
  * the 24 centres of a 4×4, so the exact three-phase coordinate can supply a
@@ -224,7 +262,19 @@ let planNextCentre5x5 = (state: cubeState): result<guide, reductionError> =>
       let ranked = next.contents->Belt.SortArray.stableSortBy((left, right) => right.score - left.score)
       frontier := ranked->Array.slice(~start=0, ~end=min(900, ranked->Array.length))
     }
-    switch best.contents { | Some(guide) => Ok(guide) | None => switch bestBar.contents { | Some(guide) => Ok(guide) | None => switch planNextCentreOrbit(state, initial) { | Some(guide) => Ok(guide) | None => Error({message: "No bounded centre improvement, bar setup, or orbit completion is available. The full centre-cycle solver runs separately from the page."}) } } }
+    switch best.contents {
+    | Some(guide) => Ok(guide)
+    | None => switch bestBar.contents {
+      | Some(guide) => Ok(guide)
+      | None => switch planOneByThreeBar(state, initial) {
+        | Some(guide) => Ok(guide)
+        | None => switch planNextCentreOrbit(state, initial) {
+          | Some(guide) => Ok(guide)
+          | None => Error({message: "No replay-verified 1×3 bar insertion is available for this state."})
+          }
+        }
+      }
+    }
   }
   }
 

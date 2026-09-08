@@ -108,6 +108,15 @@ let centreSearchMoves = Belt_Array.concatMany([
   centreMoves
 ]);
 
+let barCommutators = [
+  "Rw U Rw'",
+  "Rw U' Rw'",
+  "2R U 2R'",
+  "2R U' 2R'",
+  "Rw U Rw' U'",
+  "2R U 2R' U'"
+];
+
 let wingCycleNotations = [
   "2R U R' U' 2R'",
   "2R U2 2R'"
@@ -263,6 +272,72 @@ function parse(notation) {
   if (alg.TAG === "Ok") {
     return alg._0;
   }
+}
+
+function planOneByThreeBar(state, initial) {
+  let value = centreBarScore(state);
+  let beforeBars = value !== undefined ? value : 0;
+  let best = {
+    contents: undefined
+  };
+  barCommutators.forEach(notation => {
+    let seed = parse(notation);
+    if (seed === undefined) {
+      return;
+    }
+    for (let xTurns = 0; xTurns <= 3; ++xTurns) {
+      for (let yTurns = 0; yTurns <= 3; ++yTurns) {
+        for (let zTurns = 0; zTurns <= 3; ++zTurns) {
+          let rotated = MoveTransform.rotate(MoveTransform.rotate(MoveTransform.rotate(seed, "X", xTurns), "Y", yTurns), "Z", zTurns);
+          [
+            rotated,
+            MoveTransform.invert(rotated)
+          ].forEach(alg => {
+            let replay = MoveExecutor.applyAlg(state, alg);
+            if (replay.TAG !== "Ok") {
+              return;
+            }
+            let replay$1 = replay._0;
+            let match = progressFor(replay$1);
+            let match$1 = centreBarScore(replay$1);
+            if (match === undefined) {
+              return;
+            }
+            if (match$1 === undefined) {
+              return;
+            }
+            if (match$1 <= beforeBars) {
+              return;
+            }
+            let guide_algorithm = MoveTransform.serialize(alg);
+            let guide_before = initial.score;
+            let guide_after = match.score;
+            let guide_completedBefore = initial.x + initial.plus | 0;
+            let guide_completedAfter = match.x + match.plus | 0;
+            let guide = {
+              alg: alg,
+              algorithm: guide_algorithm,
+              before: guide_before,
+              after: guide_after,
+              kind: "bar",
+              barsBefore: beforeBars,
+              barsAfter: match$1,
+              completedBefore: guide_completedBefore,
+              completedAfter: guide_completedAfter
+            };
+            let current = best.contents;
+            if (current !== undefined && !(match$1 > current.barsAfter || match$1 === current.barsAfter && guide_after > current.after)) {
+              return;
+            } else {
+              best.contents = guide;
+              return;
+            }
+          });
+        }
+      }
+    }
+  });
+  return best.contents;
 }
 
 function solveXCentreCycle5x5(state) {
@@ -588,17 +663,24 @@ function planNextCentre5x5(state) {
       _0: guide$1
     };
   }
-  let guide$2 = planNextCentreOrbit(state, initial);
+  let guide$2 = planOneByThreeBar(state, initial);
   if (guide$2 !== undefined) {
     return {
       TAG: "Ok",
       _0: guide$2
     };
+  }
+  let guide$3 = planNextCentreOrbit(state, initial);
+  if (guide$3 !== undefined) {
+    return {
+      TAG: "Ok",
+      _0: guide$3
+    };
   } else {
     return {
       TAG: "Error",
       _0: {
-        message: "No bounded centre improvement, bar setup, or orbit completion is available. The full centre-cycle solver runs separately from the page."
+        message: "No replay-verified 1×3 bar insertion is available for this state."
       }
     };
   }
@@ -804,6 +886,7 @@ export {
   reducedIndices,
   centreMoves,
   centreSearchMoves,
+  barCommutators,
   wingCycleNotations,
   charAt,
   faceAt,
@@ -813,6 +896,7 @@ export {
   progressFor,
   inspectReduction5x5,
   parse,
+  planOneByThreeBar,
   solveXCentreCycle5x5,
   solvePlusCentreCycle5x5,
   planNextCentreOrbit,
