@@ -298,12 +298,12 @@ function solveXCentreCycle5x5(state) {
     });
   });
   let centres = output.contents.join("");
-  let solution = ThreePhase4x4.solveCentreReduction(centres, 10, 14, 48);
+  let solution = ThreePhase4x4.solveCentreReduction(centres, 6, 8, 4);
   if (solution.TAG !== "Ok") {
     return {
       TAG: "Error",
       _0: {
-        message: "The exact X-centre cycle search did not find a bounded reduction."
+        message: "No safe bounded X-centre cycle was found. Use the bar guide for the next teachable setup."
       }
     };
   }

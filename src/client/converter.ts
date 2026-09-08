@@ -3107,7 +3107,7 @@ if (root) {
           academy.guide.classList.add("error");
           academy.findCycle.hidden = false;
           academy.findCycle.disabled = reduction5x5CycleBusy;
-          academy.findCycle.textContent = reduction5x5CycleBusy ? "Stop centre-cycle search" : "Find full X/+ centre cycle";
+          academy.findCycle.textContent = reduction5x5CycleBusy ? "Stop centre-cycle search" : "Try bounded X-centre cycle";
         }
       }
     }
@@ -5488,7 +5488,7 @@ if (root) {
       reduction5x5CycleClient.terminate();
       reduction5x5CycleClient = newReduction5x5CycleClient();
       reduction5x5CycleBusy = false;
-      reduction5x5Academy.findCycle.textContent = "Find full X/+ centre cycle";
+      reduction5x5Academy.findCycle.textContent = "Try bounded X-centre cycle";
       reduction5x5Academy.guide.textContent = "Centre-cycle search stopped.";
       return;
     }
@@ -5498,7 +5498,7 @@ if (root) {
     reduction5x5CycleBusy = true;
     reduction5x5Academy.findCycle.hidden = false;
     reduction5x5Academy.findCycle.textContent = "Stop centre-cycle search";
-    reduction5x5Academy.guide.textContent = "Preparing exact 24-piece X/+ centre tables…";
+    reduction5x5Academy.guide.textContent = "Preparing bounded X-centre tables…";
     try {
       const guide = await reduction5x5CycleClient.solve(state);
       if (request !== reduction5x5CycleRequest || FaceletCodec.render(activeRecognized?.state ?? state) !== key) return;
@@ -5513,7 +5513,7 @@ if (root) {
     } finally {
       if (request === reduction5x5CycleRequest) {
         reduction5x5CycleBusy = false;
-        reduction5x5Academy.findCycle.textContent = "Find full X/+ centre cycle";
+        reduction5x5Academy.findCycle.textContent = "Try bounded X-centre cycle";
       }
     }
   });

@@ -114,8 +114,10 @@ let solveXCentreCycle5x5 = (state: cubeState): result<guide, reductionError> =>
       [6, 8, 18, 16]->Array.forEach(index => output := Array.concat(output.contents, [charAt(face, index)]))
     })
     let centres = output.contents->Array.join("")
-    switch ThreePhase4x4.solveCentreReduction(centres, 10, 14, 48) {
-    | Error(_) => Error({message: "The exact X-centre cycle search did not find a bounded reduction."})
+    // This is a bounded diagnostic only: ThreePhase4x4's phase-two heuristic
+    // is not exact under its restricted move set, so deeper limits can explode.
+    switch ThreePhase4x4.solveCentreReduction(centres, 6, 8, 4) {
+    | Error(_) => Error({message: "No safe bounded X-centre cycle was found. Use the bar guide for the next teachable setup."})
     | Ok(solution) => {
       let notation = Array.concat(solution.phase1Notations, solution.phase2Notations)->Array.join(" ")
       switch parse(notation) {

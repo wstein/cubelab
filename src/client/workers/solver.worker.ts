@@ -13,7 +13,7 @@ import {
 } from "../two-by-two-academy";
 import {inspectReduction4x4, isMonochromeSolved4x4, reduce4x4} from "../../Solver/Reduction4x4.res.mjs";
 import {measureReduction4x4Moves, solveFullReduction4x4} from "../../Solver/FullReduction4x4.res.mjs";
-import {solvePlusCentreCycle5x5, solveXCentreCycle5x5} from "../../Solver/Reduction5x5.res.mjs";
+import {solveXCentreCycle5x5} from "../../Solver/Reduction5x5.res.mjs";
 
 type TutorialMethod = "beginner" | "advancedLbl" | "beginnerCfop" | "fullCfop" | "advancedCfop" | "petrus" | "enhancedPetrus";
 type WorkerRequest =
@@ -272,14 +272,13 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
       return;
     }
     if (request.type === "solve5x5CentreCycle") {
-      self.postMessage({id: request.id, type: "reduction5x5CycleProgress", stage: "Preparing exact 24-piece X/+ centre tables…"});
+      self.postMessage({id: request.id, type: "reduction5x5CycleProgress", stage: "Preparing bounded X-centre tables…"});
       const guide = solveXCentreCycle5x5(request.state);
-      const resolved = guide.TAG === "Ok" ? guide : solvePlusCentreCycle5x5(request.state);
-      if (resolved.TAG === "Error") {
-        self.postMessage({id: request.id, ok: false, error: resolved._0.message});
+      if (guide.TAG === "Error") {
+        self.postMessage({id: request.id, ok: false, error: guide._0.message});
         return;
       }
-      self.postMessage({id: request.id, ok: true, solution: resolved._0});
+      self.postMessage({id: request.id, ok: true, solution: guide._0});
       return;
     }
     if (request.type !== "solveTutorial") return;
