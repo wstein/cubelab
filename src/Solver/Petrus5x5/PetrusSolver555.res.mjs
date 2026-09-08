@@ -29,7 +29,7 @@ function phaseToName(phase) {
   }
 }
 
-let candidateBlockMoves = [
+let candidateBlockTurns = [
   "U",
   "U'",
   "U2",
@@ -48,13 +48,34 @@ let candidateBlockMoves = [
   "2F",
   "2F'",
   "2F2",
+  "D",
+  "D'",
+  "D2",
+  "L",
+  "L'",
+  "L2",
+  "B",
+  "B'",
+  "B2",
+  "2D",
+  "2D'",
+  "2D2",
+  "2L",
+  "2L'",
+  "2L2",
+  "2B",
+  "2B'",
+  "2B2"
+];
+
+let candidateBlockMoves = candidateBlockTurns.concat([
   "R U R'",
   "R U' R'",
   "F' U F",
   "F' U' F",
   "U R U' R'",
   "U' F' U F"
-];
+]);
 
 let candidateEoTriggers = [
   "F R U R' F'",
@@ -67,24 +88,6 @@ let candidateEoTriggers = [
   "U2 F R U R' F'"
 ];
 
-let candidateL2EPairing = [
-  "Rw' U2 Rw' U2 B2 Rw' B2 Rw' F2 Lw2 F2 Rw U2 Rw2",
-  "Uw' R U R' F R' F' R Uw",
-  "Dw' R U R' F R' F' R Dw",
-  "2R U2 2R' U2 2R' U2 2R U2 2R'"
-];
-
-let candidateParityAlgs = [
-  [
-    "OLL Parity",
-    "Rw U2 x Rw U2 Rw U2 Rw' U2 Lw U2 Rw' U2 Rw U2 Rw' U2 Rw'"
-  ],
-  [
-    "PLL Parity",
-    "2R2 U2 2R2 u2 2R2 u2 U2"
-  ]
-];
-
 function compile(notations) {
   return notations.map(notation => [
     notation,
@@ -95,6 +98,8 @@ function compile(notations) {
 let blockCandidates = compile(candidateBlockMoves);
 
 let eoCandidates = compile(candidateEoTriggers);
+
+let setupCandidates = blockCandidates.slice(0, candidateBlockTurns.length);
 
 function findImprovingCandidate(state, edgeOrientation, initialScore, scoreReplay) {
   let best = {
@@ -123,6 +128,39 @@ function findImprovingCandidate(state, edgeOrientation, initialScore, scoreRepla
       return;
     }
   });
+  if (!edgeOrientation && best.contents === undefined) {
+    setupCandidates.forEach(param => {
+      let setupAlg = param[1];
+      if (setupAlg === undefined) {
+        return;
+      }
+      let setupNotation = param[0];
+      let setup = MoveExecutor.applyAlg(state, setupAlg);
+      if (setup.TAG !== "Ok") {
+        return;
+      }
+      let setup$1 = setup._0;
+      setupCandidates.forEach(param => {
+        let parsed = param[1];
+        if (parsed === undefined) {
+          return;
+        }
+        let replay = MoveExecutor.applyAlg(setup$1, parsed);
+        if (replay.TAG !== "Ok") {
+          return;
+        }
+        let score = scoreReplay(replay._0);
+        if (score > bestScore.contents) {
+          bestScore.contents = score;
+          best.contents = [
+            setupNotation + ` ` + param[0],
+            score
+          ];
+          return;
+        }
+      });
+    });
+  }
   return best.contents;
 }
 
@@ -141,12 +179,49 @@ function findBlock222Guide(state, anchor, initial) {
 }
 
 function findEOGuide(state, anchor, initial) {
-  return Stdlib_Option.map(findImprovingCandidate(state, true, -initial.badCount | 0, replay => -BlockDetector5x5.inspectEO(replay).badCount | 0), param => {
+  return Stdlib_Option.map(findImprovingCandidate(state, true, -initial.badCount | 0, replay => {
+    if (BlockDetector5x5.inspectBlock222(replay, anchor).isComplete && BlockDetector5x5.inspectBlock223(replay, anchor).isComplete) {
+      return -BlockDetector5x5.inspectEO(replay).badCount | 0;
+    } else {
+      return -12;
+    }
+  }), param => {
     let notation = param[0];
     return {
       phase: "Phase3_EdgeOrientation",
       title: "Edge Orientation (EO)",
       instruction: `Execute EO trigger ` + notation + ` to orient edges (bad edges remaining: ` + (-param[1] | 0).toString() + `).`,
+      alg: Stdlib_Option.getOr(parseAlg(notation), []),
+      algorithm: notation,
+      anchor: anchor
+    };
+  });
+}
+
+function unavailableGuide(phase, title, anchor) {
+  return {
+    phase: phase,
+    title: title,
+    instruction: "No verified improving guide is available for this state. Continue manually or use the reduction solver; no automatic move will be applied.",
+    alg: [],
+    algorithm: "",
+    anchor: anchor
+  };
+}
+
+function findBlock223Guide(state, anchor, initial) {
+  return Stdlib_Option.map(findImprovingCandidate(state, false, initial.piecesSolved, replay => {
+    if (BlockDetector5x5.inspectBlock222(replay, anchor).isComplete) {
+      return BlockDetector5x5.inspectBlock223(replay, anchor).piecesSolved;
+    } else {
+      return -1;
+    }
+  }), param => {
+    let notation = param[0];
+    return {
+      phase: "Phase2_Block223",
+      title: "2×2×3 Block Expansion",
+      instruction: `Execute ` + notation + ` to expand anchor ` + BlockDetector5x5.anchorName(anchor) + ` (` + param[1].toString() + `/` + initial.totalPieces.toString() + ` pieces), preserving the completed corner block.`,
       alg: Stdlib_Option.getOr(parseAlg(notation), []),
       algorithm: notation,
       anchor: anchor
@@ -165,86 +240,47 @@ function planFromInspection(state, inspection) {
           TAG: "Ok",
           _0: guide
         };
+      } else {
+        return {
+          TAG: "Ok",
+          _0: unavailableGuide("Phase1_Block222", "2×2×2 Block Building", anchor)
+        };
       }
-      let notation = "U R U' R'";
-      let alg = Stdlib_Option.getOr(parseAlg(notation), []);
-      return {
-        TAG: "Ok",
-        _0: {
-          phase: "Phase1_Block222",
-          title: "2×2×2 Block Building",
-          instruction: `Assemble the 19-piece corner block at ` + BlockDetector5x5.anchorName(anchor) + `. Slices 2U, 2R, 2F and faces U, R, F are free.`,
-          alg: alg,
-          algorithm: notation,
-          anchor: anchor
-        }
-      };
     case "Phase2_Block223" :
-      let notation$1 = "U R U' R'";
-      let alg$1 = Stdlib_Option.getOr(parseAlg(notation$1), []);
-      return {
-        TAG: "Ok",
-        _0: {
-          phase: "Phase2_Block223",
-          title: "2×2×3 Block Expansion",
-          instruction: `Extend the block along the ` + (
-            inspection.block223.axis === "AxisX" ? "X" : (
-                inspection.block223.axis === "AxisY" ? "Y" : "Z"
-              )
-          ) + ` axis to 27 pieces.`,
-          alg: alg$1,
-          algorithm: notation$1,
-          anchor: anchor
-        }
-      };
-    case "Phase3_EdgeOrientation" :
-      let guide$1 = findEOGuide(state, anchor, inspection.eo);
+      let guide$1 = findBlock223Guide(state, anchor, inspection.block223);
       if (guide$1 !== undefined) {
         return {
           TAG: "Ok",
           _0: guide$1
         };
+      } else {
+        return {
+          TAG: "Ok",
+          _0: unavailableGuide("Phase2_Block223", "2×2×3 Block Expansion", anchor)
+        };
       }
-      let notation$2 = "F R U R' F'";
-      let alg$2 = Stdlib_Option.getOr(parseAlg(notation$2), []);
-      return {
-        TAG: "Ok",
-        _0: {
-          phase: "Phase3_EdgeOrientation",
-          title: "Edge Orientation (EO)",
-          instruction: `Use the standard Petrus EO trigger ` + notation$2 + ` to orient bad midges (` + inspection.eo.badCount.toString() + ` bad edges).`,
-          alg: alg$2,
-          algorithm: notation$2,
-          anchor: anchor
-        }
-      };
+    case "Phase3_EdgeOrientation" :
+      let guide$2 = findEOGuide(state, anchor, inspection.eo);
+      if (guide$2 !== undefined) {
+        return {
+          TAG: "Ok",
+          _0: guide$2
+        };
+      } else {
+        return {
+          TAG: "Ok",
+          _0: unavailableGuide("Phase3_EdgeOrientation", "Edge Orientation (EO)", anchor)
+        };
+      }
     case "Phase4_WingPairingF2L" :
-      let notation$3 = "Rw' U2 Rw' U2 B2 Rw' B2 Rw' F2 Lw2 F2 Rw U2 Rw2";
-      let alg$3 = Stdlib_Option.getOr(parseAlg(notation$3), []);
       return {
         TAG: "Ok",
-        _0: {
-          phase: "Phase4_WingPairingF2L",
-          title: "Wing Pairing & F2L",
-          instruction: `Pair remaining wing dedges using slice-and-replace (` + inspection.wingsPaired.toString() + `/24 wings paired).`,
-          alg: alg$3,
-          algorithm: notation$3,
-          anchor: anchor
-        }
+        _0: unavailableGuide("Phase4_WingPairingF2L", "Wing Pairing & F2L", anchor)
       };
     case "Phase5_LastLayer" :
-      let notation$4 = "R U R' U R U2 R'";
-      let alg$4 = Stdlib_Option.getOr(parseAlg(notation$4), []);
       return {
         TAG: "Ok",
-        _0: {
-          phase: "Phase5_LastLayer",
-          title: "Last Layer Finish",
-          instruction: "All edges are oriented! Finish the last layer using COLL and EPLL, and repair parity if needed.",
-          alg: alg$4,
-          algorithm: notation$4,
-          anchor: anchor
-        }
+        _0: unavailableGuide("Phase5_LastLayer", "Last Layer Finish", anchor)
       };
     case "PhaseSolved" :
       return {
@@ -305,14 +341,15 @@ function planPetrusStep5x5(state) {
 export {
   parseAlg,
   phaseToName,
+  candidateBlockTurns,
   candidateBlockMoves,
   candidateEoTriggers,
-  candidateL2EPairing,
-  candidateParityAlgs,
   findImprovingCandidate,
   findBlock222Guide,
   findEOGuide,
+  unavailableGuide,
+  findBlock223Guide,
   evaluatePetrusStep5x5,
   planPetrusStep5x5,
 }
-/* blockCandidates Not a pure module */
+/* candidateBlockMoves Not a pure module */

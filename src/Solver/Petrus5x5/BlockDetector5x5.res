@@ -98,7 +98,9 @@ let isCubieSolved = (state: cubeState, anchor: anchorCorner, x: int, y: int, z: 
   int,
 ) => {
   let (xc, yc, zc) = anchorCoords(anchor)
-  let (fx, fy, fz) = anchorFaces(anchor)
+  // anchorFaces uses teaching order (vertical, front/back, left/right).
+  // Cubie coordinates use x=left/right, y=vertical, z=front/back.
+  let (fy, fz, fx) = anchorFaces(anchor)
   let solved = ref(true)
   let faceletsCount = ref(0)
 
@@ -184,7 +186,7 @@ let bestAnchor222 = (state: cubeState): (anchorCorner, block222Progress) => {
 }
 
 /**
- * Generates the 27 cubie coordinates for a 2×2×3 block expansion along an axis.
+ * Generates the 24 visible cubie coordinates for the current block expansion.
  */
 let cubiesFor223 = (anchor: anchorCorner, axis: expansionAxis): array<gridPos> => {
   let (xc, yc, zc) = anchorCoords(anchor)
@@ -391,7 +393,7 @@ let inspectPetrus5x5 = (state: cubeState): result<petrusInspection5x5, string> =
     } else if !block223.isComplete {
       (
         Phase2_Block223,
-        `Expand to a 2×2×3 block along the slab (${block223.piecesSolved->Int.toString}/27 pieces locked).`,
+        `Expand to a 2×2×3 block along the slab (${block223.piecesSolved->Int.toString}/${block223.totalPieces->Int.toString} pieces locked).`,
         cubiesFor223(bestAnchor, block223.axis),
       )
     } else if !eo.isComplete {
@@ -407,15 +409,18 @@ let inspectPetrus5x5 = (state: cubeState): result<petrusInspection5x5, string> =
         [],
       )
     } else {
-      let outer = extractOuter3x3(state)
-      let isSolved = outer.facelets->Array.everyWithIndex((facelets, fIdx) => {
+      let isSolved = state.facelets->Array.everyWithIndex((facelets, fIdx) => {
         let expected = Belt.Array.getUnsafe(storageOrder, fIdx)
         facelets->Array.every(c => c == expected)
       })
       if isSolved {
         (PhaseSolved, "The 5×5×5 cube is completely solved!", [])
       } else {
-        (Phase5_LastLayer, "Finish the last layer with COLL/EPLL and resolve any parity.", [])
+        (
+          Phase5_LastLayer,
+          "Complete the remaining centres and layers before declaring the cube solved.",
+          [],
+        )
       }
     }
 

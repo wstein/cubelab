@@ -47,3 +47,15 @@ Final verification on 2026-09-08:
 - Team code review covered document order, asynchronous cache identity/cancellation, worker lifecycle and pending-request cleanup, and browser assertions. `git diff --check` passed before commits.
 
 The layout, lazy-worker, guide-cache, and pending-request-cleanup regressions each had an observed failing test before their fixes. No broad curriculum changes or unrelated smart-cube edits are included in this increment.
+
+## Stuck 5×5 Petrus guide: correctness follow-up
+
+The reported 150-facelet snapshot reproduced a cycle: two improving suggestions were followed by the unchecked fallback `U R U' R'`, whose six repetitions returned to the same state. Separately, block scoring bound vertical/depth/horizontal faces to X/Y/Z axes in the wrong order. An independent physical-sticker check identifies UBR (8/19), not the previously reported UFL, as the best anchor for this snapshot.
+
+Automatic guides now require replay-verified improvement. All outer faces and adjacent inner slices are considered, with a bounded two-move setup search when direct block candidates fail. Expansion preserves the corner block; EO guidance preserves both completed blocks. Unchecked phase fallbacks are removed. The guide remains visible when no verified continuation is found, but has neither a Suggested algorithm nor an Apply button. This is an explicit search/curriculum limit, not a claim that the cube is unsolvable. Full-cube sticker completion is required before reporting solved.
+
+The search streams candidates rather than retaining a search tree: at most 1,374 candidate replays per block request, constant live replay-state storage, and cached parsed moves. The existing one-entry UI cache still avoids repeated planning for unchanged states. For the reported snapshot, the corrected planner advances through `B'`, `2B2`, `2F2 R`, and `U' B` (8→9→10→11→12 pieces), then honestly reports its bounded-search limit. Local Node samples took roughly 1–4 ms for direct searches and 10–16 ms for the two-move search; these are diagnostic samples, not browser latency guarantees.
+
+Regression coverage includes the exact snapshot, independent geometry, repeated guide application, non-executable search exhaustion, and centre-only unsolved states. The browser search-exhaustion assertion was observed failing before the UI/core correction. This does not complete the experimental direct-block curriculum; the Reduction + Petrus implementation remains tracked in the universal plan.
+
+Follow-up verification: 624 tests passed across 63 suites; production build passed; all nine focused browser tests passed, including exact-snapshot Apply progress and visible search exhaustion. Independent team review found no blocking code issues. `git diff --check` passed. The old activation test was updated because a single outer turn previously received an unchecked last-layer placeholder; it now correctly expects non-executable guidance for that unsupported phase.

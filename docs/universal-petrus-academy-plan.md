@@ -337,3 +337,9 @@ Pre-commit verification: `bun run test` passed 601 tests across 61 suites; `bun 
 ## 14. Follow-up — guidance placement and big-cube startup
 
 The next requested increment moves current guidance and its actions above lesson details across all Academy sizes and addresses 4×4/5×5 startup delays. The investigation reproduced ten eager solver workers and hidden reduction panels performing synchronous center/wing searches. See [Academy guidance placement and big-cube loading](academy-performance.md) for the root-cause evidence, TDD regressions, implementation boundaries, and verification record. This follow-up does not imply completion of the mechanics/curriculum redesign.
+
+## 15. Follow-up — looping experimental 5×5 guidance
+
+A reported snapshot exposed the unchecked block fallback cycle and incorrect coordinate-to-face scoring. Both are corrected with independent geometry and replay regressions. Block search now considers all outer and adjacent inner faces, with a bounded two-move setup pass. Expansion/EO preserve completed block milestones; unsupported or exhausted phases return explicit non-executable guidance. Solved requires all stickers solved. See [the reproduction and resource bounds](academy-performance.md#stuck-5×5-petrus-guide-correctness-follow-up).
+
+This deliberately changes behavior, unlike increment A's equivalence refactor. The benchmark fingerprint is now `6791789f30119a763e8f1e4e942ee46706530676ccabe2d11e5232183d5c44d7`; a local warmed sample measured 21 ms for 1,200 inspections and 504 ms for 1,200 plans. These samples do not establish general latency or memory guarantees. Complete direct-block solving, correct phase/curriculum prerequisites, and general Reduction + Petrus remain unfinished; stopping honestly is not a universal-solver implementation.

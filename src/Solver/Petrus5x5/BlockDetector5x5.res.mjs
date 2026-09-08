@@ -227,9 +227,9 @@ function getSticker(state, face, row, col) {
 function isCubieSolved(state, anchor, x, y, z) {
   let match = anchorCoords(anchor);
   let match$1 = anchorFaces(anchor);
-  let fz = match$1[2];
-  let fy = match$1[1];
-  let fx = match$1[0];
+  let fx = match$1[2];
+  let fz = match$1[1];
+  let fy = match$1[0];
   let solved = true;
   let faceletsCount = 0;
   if (x === match[0]) {
@@ -874,8 +874,7 @@ function inspectPetrus5x5(state) {
             []
           ];
         } else {
-          let outer = extractOuter3x3(state);
-          let isSolved = outer.facelets.every((facelets, fIdx) => {
+          let isSolved = state.facelets.every((facelets, fIdx) => {
             let expected = StateTypes.storageOrder[fIdx];
             return facelets.every(c => c === expected);
           });
@@ -885,7 +884,7 @@ function inspectPetrus5x5(state) {
               []
             ] : [
               "Phase5_LastLayer",
-              "Finish the last layer with COLL/EPLL and resolve any parity.",
+              "Complete the remaining centres and layers before declaring the cube solved.",
               []
             ];
         }
@@ -899,7 +898,7 @@ function inspectPetrus5x5(state) {
     } else {
       match$1 = [
         "Phase2_Block223",
-        `Expand to a 2×2×3 block along the slab (` + block223.piecesSolved.toString() + `/27 pieces locked).`,
+        `Expand to a 2×2×3 block along the slab (` + block223.piecesSolved.toString() + `/` + block223.totalPieces.toString() + ` pieces locked).`,
         cubiesFor223(bestAnchor, block223.axis)
       ];
     }

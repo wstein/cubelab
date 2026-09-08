@@ -14,7 +14,7 @@ export const petrus5x5PhaseDefinitions: readonly Petrus5x5PhaseDefinition[] = [
   {
     number: 1,
     title: "Build the 2×2×2 Corner Block",
-    instruction: "Anchor on the corner with the most solved pieces and assemble the 19-piece composite block. Faces U, R, F and inner slices 2U, 2R, 2F are completely free.",
+    instruction: "Anchor on the corner with the most solved pieces and assemble the 19-piece composite block. Available moves depend on the anchor; automatic guides are checked for progress.",
   },
   {
     number: 2,

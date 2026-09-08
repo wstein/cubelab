@@ -3297,7 +3297,7 @@ if (root) {
         status.block222Progress.isComplete,
         status.phaseNumber === 1,
         [
-          "Faces U, R, F and inner slices 2U, 2R, 2F are completely free to turn.",
+          "Available moves depend on the anchor; automatic guides are replayed and checked for progress.",
           "Assemble center quadrants first, then pair flanking wings with midges.",
           "Recommended anchor: " + status.bestAnchor + ".",
         ]
@@ -3310,7 +3310,7 @@ if (root) {
         status.block223Progress.isComplete,
         status.phaseNumber === 2,
         [
-          "Turns in ⟨U, R, 2U, 2R⟩ remain available without breaking the 2×2×2 block.",
+          "Automatic expansion guides must preserve the completed corner block.",
           "Add the center 1×3 bar, then join the edge cluster.",
         ]
       ),
@@ -3354,11 +3354,12 @@ if (root) {
     );
 
     const guide = evaluation!.guide;
-    if (guide !== null && guide.algorithm.length > 0) {
+    if (guide !== null) {
+      const actionable = guide.algorithm.length > 0;
       academy.guide.hidden = false;
-      academy.guide.textContent = `${guide.title}: ${guide.instruction} (Suggested: ${guide.algorithm})`;
-      academy.step.hidden = false;
-      academy.step.disabled = false;
+      academy.guide.textContent = `${guide.title}: ${guide.instruction}${actionable ? ` (Suggested: ${guide.algorithm})` : ""}`;
+      academy.step.hidden = !actionable;
+      academy.step.disabled = !actionable;
     }
   };
 

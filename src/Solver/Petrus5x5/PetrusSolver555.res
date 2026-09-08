@@ -22,7 +22,7 @@ let phaseToName = (phase: petrusPhase): string =>
   | PhaseSolved => "Solved"
   }
 
-let candidateBlockMoves = [
+let candidateBlockTurns = [
   "U",
   "U'",
   "U2",
@@ -41,13 +41,35 @@ let candidateBlockMoves = [
   "2F",
   "2F'",
   "2F2",
-  "R U R'",
-  "R U' R'",
-  "F' U F",
-  "F' U' F",
-  "U R U' R'",
-  "U' F' U F",
+  "D",
+  "D'",
+  "D2",
+  "L",
+  "L'",
+  "L2",
+  "B",
+  "B'",
+  "B2",
+  "2D",
+  "2D'",
+  "2D2",
+  "2L",
+  "2L'",
+  "2L2",
+  "2B",
+  "2B'",
+  "2B2",
 ]
+
+let candidateBlockMoves =
+  candidateBlockTurns->Array.concat([
+    "R U R'",
+    "R U' R'",
+    "F' U F",
+    "F' U' F",
+    "U R U' R'",
+    "U' F' U F",
+  ])
 
 let candidateEoTriggers = [
   "F R U R' F'",
@@ -60,25 +82,13 @@ let candidateEoTriggers = [
   "U2 F R U R' F'",
 ]
 
-let candidateL2EPairing = [
-  "Rw' U2 Rw' U2 B2 Rw' B2 Rw' F2 Lw2 F2 Rw U2 Rw2",
-  "Uw' R U R' F R' F' R Uw",
-  "Dw' R U R' F R' F' R Dw",
-  "2R U2 2R' U2 2R' U2 2R U2 2R'",
-]
-
-let candidateParityAlgs = [
-  // 5x5 OLL Parity (midge flip):
-  ("OLL Parity", "Rw U2 x Rw U2 Rw U2 Rw' U2 Lw U2 Rw' U2 Rw U2 Rw' U2 Rw'"),
-  // 5x5 PLL Parity (midge swap):
-  ("PLL Parity", "2R2 U2 2R2 u2 2R2 u2 U2"),
-]
-
 // Parse fixed candidates once. Cached ASTs never escape through returned guides.
 let findImprovingCandidate = {
   let compile = notations => notations->Array.map(notation => (notation, parseAlg(notation)))
   let blockCandidates = compile(candidateBlockMoves)
   let eoCandidates = compile(candidateEoTriggers)
+  let setupCandidates =
+    blockCandidates->Array.slice(~start=0, ~end=candidateBlockTurns->Array.length)
   (
     state: cubeState,
     ~edgeOrientation: bool,
@@ -108,6 +118,38 @@ let findImprovingCandidate = {
         }
       }
     })
+
+    // Only search setups at a local maximum. Stream one setup state and one
+    // replay at a time: no frontier, transposition table, or retained states.
+    // At most 42 direct + 36 setup + 1296 pair replays per block request.
+    if !edgeOrientation && best.contents == None {
+      setupCandidates->Array.forEach(((setupNotation, setupAlg)) => {
+        switch setupAlg {
+        | None => ()
+        | Some(alg) =>
+          switch MoveExecutor.applyAlg(state, alg) {
+          | Error(_) => ()
+          | Ok(setup) =>
+            setupCandidates->Array.forEach(((notation, parsed)) => {
+              switch parsed {
+              | None => ()
+              | Some(alg) =>
+                switch MoveExecutor.applyAlg(setup, alg) {
+                | Error(_) => ()
+                | Ok(replay) => {
+                    let score = scoreReplay(replay)
+                    if score > bestScore.contents {
+                      bestScore := score
+                      best := Some((`${setupNotation} ${notation}`, score))
+                    }
+                  }
+                }
+              }
+            })
+          }
+        }
+      })
+    }
     best.contents
   }
 }
@@ -142,7 +184,15 @@ let findEOGuide = (state: cubeState, anchor: anchorCorner, initial: eoStatus): o
     state,
     ~edgeOrientation=true,
     ~initialScore=-initial.badCount,
-    ~scoreReplay=replay => -BlockDetector5x5.inspectEO(replay).badCount,
+    ~scoreReplay=replay =>
+      if (
+        BlockDetector5x5.inspectBlock222(replay, anchor).isComplete &&
+        BlockDetector5x5.inspectBlock223(replay, anchor).isComplete
+      ) {
+        -BlockDetector5x5.inspectEO(replay).badCount
+      } else {
+        -12
+      },
   )->Option.map(((notation, score)) => {
     phase: Phase3_EdgeOrientation,
     title: "Edge Orientation (EO)",
@@ -153,6 +203,37 @@ let findEOGuide = (state: cubeState, anchor: anchorCorner, initial: eoStatus): o
   })
 
 type evaluation = {inspection: petrusInspection5x5, guide: petrusGuide}
+
+let unavailableGuide = (phase, title, anchor): petrusGuide => {
+  phase,
+  title,
+  instruction: "No verified improving guide is available for this state. Continue manually or use the reduction solver; no automatic move will be applied.",
+  alg: [],
+  algorithm: "",
+  anchor,
+}
+
+let findBlock223Guide = (state, anchor, initial: block223Progress) =>
+  findImprovingCandidate(
+    state,
+    ~edgeOrientation=false,
+    ~initialScore=initial.piecesSolved,
+    ~scoreReplay=replay =>
+      if BlockDetector5x5.inspectBlock222(replay, anchor).isComplete {
+        BlockDetector5x5.inspectBlock223(replay, anchor).piecesSolved
+      } else {
+        -1
+      },
+  )->Option.map(((notation, solved)) => {
+    phase: Phase2_Block223,
+    title: "2×2×3 Block Expansion",
+    instruction: `Execute ${notation} to expand anchor ${BlockDetector5x5.anchorName(
+        anchor,
+      )} (${solved->Int.toString}/${initial.totalPieces->Int.toString} pieces), preserving the completed corner block.`,
+    alg: parseAlg(notation)->Option.getOr([]),
+    algorithm: notation,
+    anchor,
+  })
 
 /** Inspects and plans together so callers can render exactly the state evaluated. */
 let evaluatePetrusStep5x5 = {
@@ -166,78 +247,21 @@ let evaluatePetrusStep5x5 = {
     | Phase1_Block222 =>
       switch findBlock222Guide(state, anchor, inspection.block222) {
       | Some(guide) => Ok(guide)
-      | None => {
-          // Fallback heuristic guide
-          let notation = "U R U' R'"
-          let alg = parseAlg(notation)->Option.getOr([])
-          Ok({
-            phase: Phase1_Block222,
-            title: "2×2×2 Block Building",
-            instruction: `Assemble the 19-piece corner block at ${BlockDetector5x5.anchorName(
-                anchor,
-              )}. Slices 2U, 2R, 2F and faces U, R, F are free.`,
-            alg,
-            algorithm: notation,
-            anchor,
-          })
-        }
+      | None => Ok(unavailableGuide(Phase1_Block222, "2×2×2 Block Building", anchor))
       }
-    | Phase2_Block223 => {
-        let notation = "U R U' R'"
-        let alg = parseAlg(notation)->Option.getOr([])
-        Ok({
-          phase: Phase2_Block223,
-          title: "2×2×3 Block Expansion",
-          instruction: `Extend the block along the ${inspection.block223.axis == AxisX
-              ? "X"
-              : inspection.block223.axis == AxisY
-              ? "Y"
-              : "Z"} axis to 27 pieces.`,
-          alg,
-          algorithm: notation,
-          anchor,
-        })
+    | Phase2_Block223 =>
+      switch findBlock223Guide(state, anchor, inspection.block223) {
+      | Some(guide) => Ok(guide)
+      | None => Ok(unavailableGuide(Phase2_Block223, "2×2×3 Block Expansion", anchor))
       }
     | Phase3_EdgeOrientation =>
       switch findEOGuide(state, anchor, inspection.eo) {
       | Some(guide) => Ok(guide)
-      | None => {
-          let notation = "F R U R' F'"
-          let alg = parseAlg(notation)->Option.getOr([])
-          Ok({
-            phase: Phase3_EdgeOrientation,
-            title: "Edge Orientation (EO)",
-            instruction: `Use the standard Petrus EO trigger ${notation} to orient bad midges (${inspection.eo.badCount->Int.toString} bad edges).`,
-            alg,
-            algorithm: notation,
-            anchor,
-          })
-        }
+      | None => Ok(unavailableGuide(Phase3_EdgeOrientation, "Edge Orientation (EO)", anchor))
       }
-    | Phase4_WingPairingF2L => {
-        let notation = "Rw' U2 Rw' U2 B2 Rw' B2 Rw' F2 Lw2 F2 Rw U2 Rw2"
-        let alg = parseAlg(notation)->Option.getOr([])
-        Ok({
-          phase: Phase4_WingPairingF2L,
-          title: "Wing Pairing & F2L",
-          instruction: `Pair remaining wing dedges using slice-and-replace (${inspection.wingsPaired->Int.toString}/24 wings paired).`,
-          alg,
-          algorithm: notation,
-          anchor,
-        })
-      }
-    | Phase5_LastLayer => {
-        let notation = "R U R' U R U2 R'"
-        let alg = parseAlg(notation)->Option.getOr([])
-        Ok({
-          phase: Phase5_LastLayer,
-          title: "Last Layer Finish",
-          instruction: "All edges are oriented! Finish the last layer using COLL and EPLL, and repair parity if needed.",
-          alg,
-          algorithm: notation,
-          anchor,
-        })
-      }
+    | Phase4_WingPairingF2L =>
+      Ok(unavailableGuide(Phase4_WingPairingF2L, "Wing Pairing & F2L", anchor))
+    | Phase5_LastLayer => Ok(unavailableGuide(Phase5_LastLayer, "Last Layer Finish", anchor))
     | PhaseSolved =>
       Ok({
         phase: PhaseSolved,
