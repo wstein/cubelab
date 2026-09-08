@@ -2419,6 +2419,7 @@ if (root) {
   let smartCubeTapeRecorder: {
     recordEvent: (event: SmartCubeEvent) => void;
     recordCommand: (command: import("./smart-cube/types").SmartCubeCommand) => void;
+    recordDerived: (trigger: string, input: Record<string, unknown>, output: Record<string, unknown>) => void;
     finish: (note?: string) => unknown;
   } | null = null;
   const smartCubeDevEnabled = new URLSearchParams(window.location.search).has("dev");
@@ -2466,6 +2467,11 @@ if (root) {
     smartCubeCopyTrace.disabled = !smartCubeDiagnosticsEnabled || smartCubeDiagnosticTrace.length === 0;
   };
   const traceSmartCubeStabilization = (event: string, detail: Record<string, unknown>) => {
+    const trigger = event === "virtual regrip" ? "virtual-regrip"
+      : event === "gyro view recentered (button)" ? "gyro-recenter"
+      : event === "gyro orientation" ? "orientation-snapshot"
+      : null;
+    if (trigger) smartCubeTapeRecorder?.recordDerived(trigger, {}, detail);
     if (!smartCubeDiagnosticsEnabled) return;
     smartCubeDiagnosticTrace.push({at: new Date().toISOString(), event, detail});
     if (smartCubeDiagnosticTrace.length > 500) smartCubeDiagnosticTrace.shift();

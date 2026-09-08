@@ -47,6 +47,7 @@ export type ReplayTapeLoaderDependencies = {
 export type SmartCubeTapeRecorder = {
   recordEvent: (event: SmartCubeEvent) => void;
   recordCommand: (command: SmartCubeCommand) => void;
+  recordDerived: (trigger: string, input: Record<string, unknown>, output: Record<string, unknown>) => void;
   finish: (note?: string) => SmartCubeTape;
 };
 
@@ -227,6 +228,7 @@ export const createSmartCubeTapeRecorder = (
   return {
     recordEvent: (event) => timeline.push({offsetMs: offsetMs(), kind: "input", event}),
     recordCommand: (command) => timeline.push({offsetMs: offsetMs(), kind: "command", command}),
+    recordDerived: (trigger, input, output) => timeline.push({offsetMs: offsetMs(), kind: "derived", trigger, in: input, out: output}),
     finish: (note) => ({
       schema: SMART_CUBE_TAPE_SCHEMA,
       profile: "full",
