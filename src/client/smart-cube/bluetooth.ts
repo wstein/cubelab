@@ -322,6 +322,16 @@ export const createSmartCubeManager = (
       // Initial reports and the connection flash are best-effort: some models
       // advertise a command before their firmware is ready to answer it.
       await refresh().catch(() => {});
+      // GAN i4 commonly drops the battery reply when it is requested alongside
+      // its initial fragmented hardware and facelet replies. Retry just that
+      // lightweight query once the Gen4 stream is established.
+      if (transport.protocol.id === "gan-gen4" && transport.capabilities.battery) {
+        globalThis.setTimeout(() => {
+          if (connection !== transport || state.phase !== "connected") return;
+          publishCommand({timestamp: Date.now(), type: "REQUEST_BATTERY"});
+          void transport.sendCommand({type: "REQUEST_BATTERY"}).catch(() => {});
+        }, 750);
+      }
       if (device.capabilities.led) await flashLed("green", 300).catch(() => {});
       return device;
     } catch (error) {

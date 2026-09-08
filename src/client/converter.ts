@@ -5243,6 +5243,7 @@ if (root) {
       const supportsOrientation = connectionState.device.capabilities.orientation;
       const supportsFacelets = connectionState.device.capabilities.facelets;
       const supportsReset = connectionState.device.capabilities.reset;
+      const supportsBattery = connectionState.device.capabilities.battery;
       smartCubeRecordCapability.hidden = false;
       smartCubeRecordCapability.textContent = supportsFacelets
         ? supportsOrientation
@@ -5251,6 +5252,8 @@ if (root) {
         : supportsOrientation
           ? "Record · moves + gyro"
           : "Record · moves only";
+      smartCubeBattery.hidden = !supportsBattery;
+      if (supportsBattery && (!wasConnected || !smartCubeBattery.textContent)) smartCubeBattery.textContent = "🔋 checking…";
       smartCubeSync.hidden = !supportsFacelets;
       smartCubeSync.disabled = !supportsFacelets;
       smartCubeResetState.hidden = !supportsReset;
