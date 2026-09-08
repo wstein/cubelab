@@ -225,6 +225,9 @@ test("Academy exposes the milestone-first 5×5 reduction inspector", () => {
   assert.match(client, /Stop centre-cycle search/);
   assert.doesNotMatch(client, /Use the 1×3 bar guide/);
   assert.match(page, /Find 1×3 bar commutator/);
+  assert.match(client, /2R U 2R' U'/);
+  assert.match(client, /2L' U L U' 2L/);
+  assert.match(client, /OLL parity: 2R U2 2L F2/);
   assert.match(solverWorker, /solve5x5CentreCycle/);
   assert.match(solverWorker, /solve5x5CentreBar/);
   assert.match(solverWorker, /reduction5x5CycleProgress/);

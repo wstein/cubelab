@@ -144,6 +144,13 @@ Near the centre endgame, the planner evaluates buffered eight-move
 whole 3×3 centre face, improves the exact centre score, or completes an orbit;
 it is not limited to the coarser whole-X/+ orbit counter.
 
+The 5×5 Academy’s beginner route follows the standard reduction order
+(centres, paired wings, reduced 3×3, then parity). Its teaching sequences are
+normalised to CubeLab notation: `2R`/`2L` mean the adjacent inner slices where
+some beginner guides write `r`/`l`. The route includes the centre pair and
+dedge setup, plus OLL/PLL parity sequences, but only offers an automatic
+application after the relevant replay-verified planner identifies the case.
+
 Both phases of the reused three-phase diagnostic have independent 30,000-node
 budgets; a budget miss is a normal bounded failure, never an open-ended search.
 
