@@ -51,6 +51,24 @@ export type SmartCubeTapeRecorder = {
   finish: (note?: string) => SmartCubeTape;
 };
 
+export type SmartCubeDerivedObservation = {
+  trigger: string;
+  in: Record<string, unknown>;
+  out: Record<string, unknown>;
+};
+
+export type SmartCubeDerivedDiff = {
+  index: number;
+  expected: SmartCubeDerivedObservation | null;
+  actual: SmartCubeDerivedObservation | null;
+};
+
+export type SmartCubeDerivedComparator = {
+  observe: (actual: SmartCubeDerivedObservation) => void;
+  reset: () => void;
+  getDiff: () => readonly SmartCubeDerivedDiff[];
+};
+
 export const replayTapeStorageKey = (name: string): string => `cubelab.smartCube.tape.${name}`;
 
 /** Returns a safe replay name only when the explicitly opt-in dev flag is set. */
@@ -243,6 +261,41 @@ const disconnectedState = (): SmartCubeConnectionState => ({
 
 const inputEntries = (tape: SmartCubeTape): Array<{offsetMs: number; event: SmartCubeEvent}> =>
   tape.timeline.flatMap((entry) => entry.kind === "input" ? [{offsetMs: entry.offsetMs, event: entry.event}] : []);
+
+const stableJson = (value: unknown): string => {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (isRecord(value)) return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
+  return JSON.stringify(value);
+};
+
+/**
+ * Compares replay-time downstream decisions against derived checkpoints stored
+ * in a tape. Inputs are intentionally compared too: a matching output reached
+ * from a different tracker frame is not a regression match.
+ */
+export const createSmartCubeDerivedComparator = (source: SmartCubeTape | unknown): SmartCubeDerivedComparator => {
+  const tape = validateSmartCubeTape(source);
+  const expected = tape.timeline
+    .filter((entry): entry is Extract<SmartCubeTapeTimelineEntry, {kind: "derived"}> => entry.kind === "derived")
+    .map(({trigger, in: input, out}) => ({trigger, in: input, out}));
+  let actual: SmartCubeDerivedObservation[] = [];
+  return {
+    observe: (entry) => { actual.push(entry); },
+    reset: () => { actual = []; },
+    getDiff: () => {
+      const length = Math.max(expected.length, actual.length);
+      return Array.from({length}, (_, index) => {
+        const wanted = expected[index] ?? null;
+        const received = actual[index] ?? null;
+        if (wanted && received
+          && wanted.trigger === received.trigger
+          && stableJson(wanted.in) === stableJson(received.in)
+          && stableJson(wanted.out) === stableJson(received.out)) return null;
+        return {index, expected: wanted, actual: received};
+      }).filter((entry): entry is SmartCubeDerivedDiff => entry !== null);
+    },
+  };
+};
 
 /**
  * An in-memory SmartCubeManager backed by a validated capture tape. It has no

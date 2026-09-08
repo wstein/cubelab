@@ -5,6 +5,7 @@ import {replayTape} from "../../helpers/replay-tape";
 import {
   createReplaySmartCubeManager,
   createMockDeviceManager,
+  createSmartCubeDerivedComparator,
   createSmartCubeTapeRecorder,
   loadReplayTape,
   replayTapeNameFromSearch,
@@ -89,6 +90,19 @@ describe("smart-cube replay tape", () => {
       note: "replay regression",
       timeline: [{offsetMs: 0, kind: "input"}, {offsetMs: 18, kind: "command"}, {offsetMs: 41, kind: "input"}],
     });
+  });
+
+  test("diffs replayed derived checkpoints including their tracker inputs", () => {
+    const comparator = createSmartCubeDerivedComparator({...tape, timeline: [
+      ...tape.timeline,
+      {offsetMs: 41, kind: "derived" as const, trigger: "virtual-regrip", in: {frame: "gocube-wire"}, out: {notationTokens: ["y"]}},
+    ]});
+    comparator.observe({trigger: "virtual-regrip", in: {frame: "gocube-wire"}, out: {notationTokens: ["y"]}});
+    expect(comparator.getDiff()).toEqual([]);
+    comparator.observe({trigger: "gyro-recenter", in: {}, out: {source: "button"}});
+    expect(comparator.getDiff()).toMatchObject([{index: 1, expected: null, actual: {trigger: "gyro-recenter"}}]);
+    comparator.reset();
+    expect(comparator.getDiff()).toMatchObject([{index: 0, expected: {trigger: "virtual-regrip"}, actual: null}]);
   });
 
   test("mock manager opens a picker instead of touching Bluetooth and delegates replay controls", async () => {

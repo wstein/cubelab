@@ -2,6 +2,7 @@ export {createSmartCubeManager, isWebBluetoothAvailable, normalizeTransportEvent
 export {
   createReplaySmartCubeManager,
   createMockDeviceManager,
+  createSmartCubeDerivedComparator,
   createSmartCubeTapeRecorder,
   loadReplayTape,
   replayTapeNameFromSearch,
@@ -20,6 +21,9 @@ export type {
   SmartCubeTape,
   SmartCubeTapeHeader,
   SmartCubeTapeRecorder,
+  SmartCubeDerivedComparator,
+  SmartCubeDerivedDiff,
+  SmartCubeDerivedObservation,
   SmartCubeTapeTimelineEntry,
 } from "./replay";
 export {resolveSmartCubeDriver, smartCubeDrivers} from "./drivers";

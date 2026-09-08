@@ -483,6 +483,7 @@ if (root) {
   const smartCubeQaSession = root.querySelector<HTMLElement>("[data-smart-cube-qa-session]")!;
   const smartCubeQaPanel = root.querySelector<HTMLElement>("[data-smart-cube-qa-panel]")!;
   const smartCubeQaLog = root.querySelector<HTMLElement>("[data-smart-cube-qa-log]")!;
+  const smartCubeQaDiffValue = root.querySelector<HTMLElement>("[data-smart-cube-qa-diff-value]")!;
   const smartCubeChooseSession = root.querySelector<HTMLButtonElement>("[data-smart-cube-choose-session]")!;
   const smartCubeTapePicker = root.querySelector<HTMLDialogElement>("[data-smart-cube-tape-picker]")!;
   const smartCubeTapePickerList = root.querySelector<HTMLElement>("[data-smart-cube-tape-picker-list]")!;
@@ -2424,6 +2425,11 @@ if (root) {
     recordDerived: (trigger: string, input: Record<string, unknown>, output: Record<string, unknown>) => void;
     finish: (note?: string) => unknown;
   } | null = null;
+  let smartCubeDerivedComparator: {
+    observe: (entry: {trigger: string; in: Record<string, unknown>; out: Record<string, unknown>}) => void;
+    reset: () => void;
+    getDiff: () => readonly unknown[];
+  } | null = null;
   const smartCubeDevEnabled = new URLSearchParams(window.location.search).has("dev");
   const smartCubeMockMode = root.dataset.mock === "true";
   smartCubeQaPanel.hidden = !smartCubeMockMode;
@@ -2482,7 +2488,19 @@ if (root) {
       : event.startsWith("gyro view recentered (") ? "gyro-recenter"
       : event === "gyro orientation" ? "orientation-snapshot"
       : null;
-    if (trigger) smartCubeTapeRecorder?.recordDerived(trigger, {}, detail);
+    if (trigger) {
+      const input = event === "virtual regrip"
+        ? {coordinateFrame: detail.coordinateFrame}
+        : event === "gyro orientation"
+          ? {coordinateFrame: detail.coordinateFrame, rawQuaternion: detail.rawQuaternion}
+          : {coordinates: detail.coordinates};
+      smartCubeTapeRecorder?.recordDerived(trigger, input, detail);
+      smartCubeDerivedComparator?.observe({trigger, in: input, out: detail});
+      if (smartCubeMockMode && smartCubeDerivedComparator) {
+        const differences = smartCubeDerivedComparator.getDiff();
+        smartCubeQaDiffValue.textContent = differences.length === 0 ? "match" : `${differences.length} mismatch${differences.length === 1 ? "" : "es"}`;
+      }
+    }
     if (!smartCubeDiagnosticsEnabled) return;
     smartCubeDiagnosticTrace.push({at: new Date().toISOString(), event, detail});
     if (smartCubeDiagnosticTrace.length > 500) smartCubeDiagnosticTrace.shift();
@@ -5554,6 +5572,7 @@ if (root) {
         .then(async ({
           createReplaySmartCubeManager,
           createMockDeviceManager,
+          createSmartCubeDerivedComparator,
           createSmartCubeManager,
           createSmartCubeTapeRecorder,
           loadReplayTape,
@@ -5586,8 +5605,20 @@ if (root) {
             latestSmartCubeOrientation = null;
             smartCubeDiscreteOrientationTracker = null;
             smartCubeVirtualFixpointTracker = null;
+            smartCubeDerivedComparator?.reset();
+            if (smartCubeMockMode) smartCubeQaDiffValue.textContent = "Awaiting replay";
           });
-          manager.subscribeState(renderSmartCubeConnection);
+          manager.subscribeState((connectionState) => {
+            if (smartCubeMockMode && connectionState.phase === "connected" && "getSelectedTape" in manager) {
+              const tape = manager.getSelectedTape();
+              smartCubeDerivedComparator = tape ? createSmartCubeDerivedComparator(tape) : null;
+              smartCubeQaDiffValue.textContent = tape?.timeline.some((entry) => entry.kind === "derived")
+                ? "Awaiting replay"
+                : "No derived checkpoints";
+              smartCubeQaLog.replaceChildren();
+            }
+            renderSmartCubeConnection(connectionState);
+          });
           manager.subscribeCommands((command) => {
             traceSmartCubeStabilization("sent command", command);
             smartCubeTapeRecorder?.recordCommand(command);
