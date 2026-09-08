@@ -621,6 +621,8 @@ if (root) {
   let reduction5x5CycleRequest = 0;
   let reduction5x5CycleGuide: any = null;
   let reduction5x5CycleKey = "";
+  let reduction5x5ImmediateGuide: any = null;
+  let reduction5x5ImmediateGuideKey = "";
   let reduction5x5BarBusy = false;
   let reduction5x5BarRequest = 0;
   let reduction5x5BarGuide: any = null;
@@ -3101,6 +3103,9 @@ if (root) {
     );
     if (progress.stage === "centres") {
       const guide = planNextCentre5x5(recognized.state);
+      const key = FaceletCodec.render(recognized.state);
+      reduction5x5ImmediateGuide = guide.TAG === "Ok" ? guide._0 : null;
+      reduction5x5ImmediateGuideKey = key;
       academy.guide.hidden = false;
       if (guide.TAG === "Ok") {
         academy.guide.textContent = guide._0.kind === "bar"
@@ -3111,7 +3116,6 @@ if (root) {
         academy.applyCentre.hidden = false;
         academy.applyCentre.disabled = false;
       } else {
-        const key = FaceletCodec.render(recognized.state);
         if (reduction5x5BarGuide !== null && reduction5x5BarKey === key) {
           academy.guide.textContent = `Replay-verified 1×3 bar commutator: ${reduction5x5BarGuide.algorithm} · core-aligned bars ${reduction5x5BarGuide.barsBefore} → ${reduction5x5BarGuide.barsAfter}.`;
           academy.guide.classList.remove("error");
@@ -5506,11 +5510,13 @@ if (root) {
   reduction5x5Academy.applyCentre.addEventListener("click", () => {
     if (size !== 5 || activeRecognized === null) return;
     const key = FaceletCodec.render(activeRecognized.state);
-    const guide = reduction5x5BarGuide !== null && reduction5x5BarKey === key
+    const guide = reduction5x5ImmediateGuide !== null && reduction5x5ImmediateGuideKey === key
+      ? {TAG: "Ok", _0: reduction5x5ImmediateGuide}
+      : reduction5x5BarGuide !== null && reduction5x5BarKey === key
       ? {TAG: "Ok", _0: reduction5x5BarGuide}
       : reduction5x5CycleGuide !== null && reduction5x5CycleKey === key
       ? {TAG: "Ok", _0: reduction5x5CycleGuide}
-      : planNextCentre5x5(activeRecognized.state);
+      : {TAG: "Error"};
     if (guide.TAG === "Ok") store.patch({moves: [movesInput.value.trim(), guide._0.algorithm].filter(Boolean).join(" ")});
   });
 
