@@ -353,6 +353,93 @@ function solveXCentreCycle5x5(state) {
   }
 }
 
+function solvePlusCentreCycle5x5(state) {
+  let initial = progressFor(state);
+  if (initial === undefined) {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The 5×5 centre-cycle solver requires a complete state."
+      }
+    };
+  }
+  let compact = FaceletCodec.render(state);
+  let output = {
+    contents: []
+  };
+  [
+    0,
+    3,
+    2,
+    5,
+    1,
+    4
+  ].forEach(faceIndex => {
+    let face = faceAt(compact, faceIndex);
+    [
+      7,
+      13,
+      17,
+      11
+    ].forEach(index => {
+      output.contents = output.contents.concat([charAt(face, index)]);
+    });
+  });
+  let solution = ThreePhase4x4.solveCentreReduction(output.contents.join(""), 10, 14, 48);
+  if (solution.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The exact +-centre cycle search did not find a bounded reduction."
+      }
+    };
+  }
+  let solution$1 = solution._0;
+  let notation = solution$1.phase1Notations.concat(solution$1.phase2Notations).join(" ");
+  let alg = parse(notation);
+  if (alg === undefined) {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The +-centre solver generated invalid 5×5 notation."
+      }
+    };
+  }
+  let replay = MoveExecutor.applyAlg(state, alg);
+  if (replay.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The +-centre cycle could not be replayed on the 5×5 state."
+      }
+    };
+  }
+  let after = progressFor(replay._0);
+  if (after !== undefined && after.plus > initial.plus) {
+    return {
+      TAG: "Ok",
+      _0: {
+        alg: alg,
+        algorithm: MoveTransform.serialize(alg),
+        before: initial.score,
+        after: after.score,
+        kind: "cycle",
+        barsBefore: 0,
+        barsAfter: 0,
+        completedBefore: initial.x + initial.plus | 0,
+        completedAfter: after.x + after.plus | 0
+      }
+    };
+  } else {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The mapped +-centre cycle did not improve the 5×5 +-centre orbit."
+      }
+    };
+  }
+}
+
 function planNextCentreOrbit(state, initial) {
   let completedBefore = initial.x + initial.plus | 0;
   let best = {
@@ -805,6 +892,7 @@ export {
   inspectReduction5x5,
   parse,
   solveXCentreCycle5x5,
+  solvePlusCentreCycle5x5,
   planNextCentreOrbit,
   planNextCentre5x5,
   planNextWingPair5x5,

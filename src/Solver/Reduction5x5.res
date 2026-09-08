@@ -133,6 +133,38 @@ let solveXCentreCycle5x5 = (state: cubeState): result<guide, reductionError> =>
   }
   }
 
+/** The orthogonal +-centres are the second 24-piece regular orbit. Their
+ * top/right/bottom/left ordering is the rotation-equivariant counterpart of
+ * the 4×4 centre slot order; replay verification below is the safety gate. */
+let solvePlusCentreCycle5x5 = (state: cubeState): result<guide, reductionError> =>
+  switch progressFor(state) {
+  | None => Error({message: "The 5×5 centre-cycle solver requires a complete state."})
+  | Some(initial) => {
+    let compact = FaceletCodec.render(state)
+    let output = ref([])
+    [0, 3, 2, 5, 1, 4]->Array.forEach(faceIndex => {
+      let face = faceAt(compact, faceIndex)
+      [7, 13, 17, 11]->Array.forEach(index => output := Array.concat(output.contents, [charAt(face, index)]))
+    })
+    switch ThreePhase4x4.solveCentreReduction(output.contents->Array.join(""), 10, 14, 48) {
+    | Error(_) => Error({message: "The exact +-centre cycle search did not find a bounded reduction."})
+    | Ok(solution) => {
+      let notation = Array.concat(solution.phase1Notations, solution.phase2Notations)->Array.join(" ")
+      switch parse(notation) {
+      | None => Error({message: "The +-centre solver generated invalid 5×5 notation."})
+      | Some(alg) => switch MoveExecutor.applyAlg(state, alg) {
+        | Error(_) => Error({message: "The +-centre cycle could not be replayed on the 5×5 state."})
+        | Ok(replay) => switch progressFor(replay) {
+          | Some(after) if after.plus > initial.plus => Ok({alg, algorithm: MoveTransform.serialize(alg), before: initial.score, after: after.score, kind: "cycle", barsBefore: 0, barsAfter: 0, completedBefore: initial.x + initial.plus, completedAfter: after.x + after.plus})
+          | _ => Error({message: "The mapped +-centre cycle did not improve the 5×5 +-centre orbit."})
+          }
+        }
+      }
+    }
+  }
+  }
+  }
+
 /** When individual sticker placement is locally flat, prefer completing one
  * whole X- or +-centre orbit. This keeps the tutorial moving through its
  * actual milestone, instead of requiring an arbitrary manual setup. */
