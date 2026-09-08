@@ -136,8 +136,9 @@ Format rules:
 - `derived` entries record `{ trigger, in, out }` — the trigger name, the inputs
   CubeLab acted on, and the decision it produced. They document the past run;
   they are never fed back into the pipeline.
-- Unknown fields are ignored by the validator (forward-compatible). A missing
-  `profile` defaults to `"full"`.
+- `schema` and `profile` are required; unknown fields are ignored. The feature
+  is unshipped, so there is no legacy tape shape to accept — `validateSmartCubeTape`
+  rejects anything that is not `cubelab-smart-cube-tape-v1`.
 
 ### Derived trigger catalogue
 
@@ -169,7 +170,8 @@ The Diagnostics dock button keeps its behaviour: opt-in, `localStorage`, cleared
 on toggle-off, nothing auto-uploaded. Changes:
 
 - "Copy cube trace" emits `cubelab-smart-cube-tape-v1` with `profile:
-  "diagnostic"` instead of the old `cubelab-smart-cube-diagnostic-v1` shape.
+  "diagnostic"`. The old `cubelab-smart-cube-diagnostic-v1` shape is dropped
+  outright — no migration, no dual read.
 - The existing `virtual regrip`, `gyro orientation`, and `gyro view recentered`
   trace entries become `derived` entries under the catalogue names; the
   remaining triggers are added.
@@ -282,7 +284,7 @@ into the QA panel described above. The dock status line reads
 |---|---|---|
 | **QA scenarios** | `public/smart-cube/tapes/*.json`, listed by `index.json` | Checked-in, curated. `index.json` rows: `{ name, note, brand, durationMs, eventCount, profile }` — enough to render without fetching each tape. |
 | **My captures** | `localStorage` keys `cubelab.smartCube.tape.*` | Produced by **Capture session**. |
-| **Imported customer traces** | Paste or file-drop of a "Copy cube trace" payload | Ingested through `upgradeTrace()` + `validateSmartCubeTape`. Stored under `cubelab.smartCube.tape.imported.*` with a visible **Clear imported** action. |
+| **Imported customer traces** | Paste or file-drop of a "Copy cube trace" payload | Validated with `validateSmartCubeTape` (the Diagnostics button already emits the tape schema). Stored under `cubelab.smartCube.tape.imported.*` with a visible **Clear imported** action. |
 
 Each row: note · brand · duration · event count · profile badge. Footer:
 **Import file…** and **Paste trace…**. Selecting a row resolves `connect()`.
@@ -342,25 +344,23 @@ assertions. `test/fixtures/smart-cube/` is the promoted, permanent subset of
 - The customer-facing Diagnostics button, its opt-in, and its
   "never auto-upload" guarantee are unchanged.
 
-## Migration
+## No migration
 
-- Contract test (`test/web-ui-contract.test.mjs`) asserts the string
-  `cubelab-smart-cube-diagnostic-v1`; update to `cubelab-smart-cube-tape-v1` and
-  add `profile` / `?dev`-gating assertions.
-- `upgradeTrace()` converts `cubelab-smart-cube-diagnostic-v1` →
-  `…-tape-v1`: `events[]` → `timeline[]` with `kind` inferred (`sent command` →
-  `command`, `virtual regrip` / `gyro *` → `derived`, everything else →
-  `input`), `at` ISO → `offsetMs` deltas, `profile: "diagnostic"`. Kept until no
-  un-upgraded traces are expected in support.
+The feature is unshipped and traces already in the wild do not matter. There is
+no `upgradeTrace()`, no dual-format read, no version negotiation. The diagnostic
+writer is rewritten to emit `cubelab-smart-cube-tape-v1` directly, and the
+contract test (`test/web-ui-contract.test.mjs`) is updated in the same change:
+swap the `cubelab-smart-cube-diagnostic-v1` assertion for the new schema string
+and add `profile` / `?dev`-gating assertions.
 
 ## Build sequence
 
 1. **Serve path** — bundled tapes from `public/smart-cube/tapes/` + `index.json`;
    `loadReplayTape` fetches there, not `/scratch/`.
-2. **Schema `profile`** — add the field (default `"full"`), extend
-   `validateSmartCubeTape`, bound the entry count.
-3. **Unify the diagnostic writer** — emit `cubelab-smart-cube-tape-v1` /
-   `profile: "diagnostic"`; add `upgradeTrace()`; grow the buffer.
+2. **Schema `profile`** — add the required field, extend `validateSmartCubeTape`
+   (reject anything not `cubelab-smart-cube-tape-v1`), bound the entry count.
+3. **Rewrite the diagnostic writer** — emit `cubelab-smart-cube-tape-v1` /
+   `profile: "diagnostic"` directly; drop the old schema; grow the buffer.
 4. **Derived sink** — one `recordDerived(trigger, in, out)` routed through the
    existing `traceSmartCubeStabilization` call sites; `timeline` gains `derived`
    and `state` entries; recorder writes one ordered `timeline[]`.
