@@ -99,6 +99,7 @@ import {
 import {
   evaluateAlgorithm,
   buildTimeline,
+  formatStep,
   describeTimelineGroup,
   isSingleStepExtension,
   MAX_PLAYBACK_STEPS,
@@ -288,6 +289,9 @@ if (root) {
   const lowercaseControls = root.querySelector<HTMLElement>("[data-lowercase-controls]")!;
   const canvas = root.querySelector<HTMLCanvasElement>("[data-cube-canvas]")!;
   const motionOverlay = root.querySelector<HTMLCanvasElement>("[data-motion-overlay]")!;
+  const previewHistory = root.querySelector<HTMLTextAreaElement>("[data-preview-history]")!;
+  const previewHistoryCopy = root.querySelector<HTMLButtonElement>("[data-preview-history-copy]")!;
+  const previewHistoryClear = root.querySelector<HTMLButtonElement>("[data-preview-history-clear]")!;
   const viewportFallback = root.querySelector<HTMLElement>("[data-viewport-fallback]")!;
   const playback = root.querySelector<HTMLElement>("[data-playback]")!;
   const moveRibbon = root.querySelector<HTMLElement>("[data-move-ribbon]")!;
@@ -864,6 +868,29 @@ if (root) {
       return copied;
     }
   };
+
+  const updatePreviewHistoryUi = () => {
+    const hasHistory = previewHistory.value.trim() !== "";
+    previewHistoryCopy.disabled = !hasHistory;
+    previewHistoryClear.disabled = !hasHistory;
+  };
+
+  const appendPreviewHistoryToken = (token: string) => {
+    previewHistory.value = appendRecordedMove(previewHistory.value, token);
+    updatePreviewHistoryUi();
+  };
+  updatePreviewHistoryUi();
+  previewHistory.addEventListener("input", updatePreviewHistoryUi);
+  previewHistoryCopy.addEventListener("click", async () => {
+    if (!(await copyText(previewHistory.value.trim()))) return;
+    previewHistoryCopy.textContent = "Copied";
+    window.setTimeout(() => { previewHistoryCopy.textContent = "Copy history"; }, 1_000);
+  });
+  previewHistoryClear.addEventListener("click", () => {
+    previewHistory.value = "";
+    updatePreviewHistoryUi();
+    previewHistory.focus();
+  });
 
   const applyExtremalBadge = (anchor: HTMLAnchorElement, name: string | null) => {
     const tag = name ? extremalStateFor(name) : null;
@@ -4010,6 +4037,7 @@ if (root) {
       }
     }
     if (generation !== playbackGeneration) return false;
+    appendPreviewHistoryToken(formatStep(animatedStep));
     renderTimelineIndex(bounded);
     return true;
   };
@@ -4163,6 +4191,7 @@ if (root) {
         / playbackSpeed);
     }
     if (generation !== playbackGeneration || hamiltonStream === null) return false;
+    appendPreviewHistoryToken(event.token);
     hamiltonStream.state = MoveExecutor.applyStep(hamiltonStream.state, step) as CubeState;
     hamiltonStream.quarterTurnsPlayed += event.token.endsWith("2") ? 2n : 1n;
     renderState(hamiltonStream.state, `Hamilton stream · ${hamiltonStream.node} · ${event.token}`);
@@ -4900,15 +4929,18 @@ if (root) {
     const move = record.move;
     // console.log("[SmartCube Move] Received physical face move from Bluetooth:", move);
     if (smartCubeSyncMode === "VirtualController") {
+      appendPreviewHistoryToken(move);
       await applyVirtualControllerMove(move);
       return;
     }
     if (smartCubeRecording) {
       const tapeMove = controllerMoveInViewportFrame(move, smartCubeRecordingFrame);
+      appendPreviewHistoryToken(tapeMove);
       appendSmartCubeRecordingToken(tapeMove);
       await animateSmartCubeRecordingToken(tapeMove);
       return;
     }
+    appendPreviewHistoryToken(move);
     // A fresh physical turn resumes the normal mirror after a recording
     // session deliberately left the recorded tape in view.
     smartCubeRecordingTapePresented = false;
@@ -5297,6 +5329,7 @@ if (root) {
           );
           smartCubeVirtualFixpointTracker = observed.tracker;
           if (observed.tokens.length > 0) {
+            observed.tokens.forEach(appendPreviewHistoryToken);
             // The viewport, continuous gauge baseline, and face-flick frame
             // must advance together. Otherwise two non-commuting regrips can
             // compose as z·y in the view but y·z in the virtual tracker.

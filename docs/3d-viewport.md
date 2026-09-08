@@ -219,6 +219,11 @@ When a physical smart cube (e.g. GoCube, GAN) with IMU hardware is connected, te
 - **Direction Alignment & Basis Mapping:** For hardware sensors that rotate against the hand (such as GoCube), the rotation direction is inverted and re-expressed in canonical viewport axes (using the measured $180^\circ$ $Y$-yaw change of basis `basis = -x, +y, -z`).
 - **Orientation marker:** the compact x/y/z overlay advances only with accepted virtual x/y/z regrips, never with raw in-between gyro motion. Its geometry and colours are remapped together, so each positive axis shows the centre colour currently assigned to that virtual direction.
 - **Threshold settling:** after a 65° regrip confirmation, the viewport holds the accepted cardinal pose through the remaining physical quarter-turn. The trigger sample therefore cannot leave a 20–40° display residual.
+
+The **3D move history** directly below the preview is a local, editable capture ledger. It
+records preview playback, physical/controller turns, and accepted virtual `x/y/z` regrips in
+their displayed frame. **Copy history** copies its current edited text; **Clear** affects only
+this ledger, never Setup, Moves, or the live cube state.
 - **Facelet Alignment:** Top White ($+Y$), Right Red ($+X$), and Front Green ($+Z$) remain 1:1 aligned during physical turns and whole-cube regrips across 0°, 90°, 180°, and 270°.
 
 In normal **physical mirror** mode, reported facelets also determine the displayed cube

@@ -487,6 +487,14 @@ test("Setup keeps optional tools behind an explicit expand control", () => {
   assert.ok(page.indexOf('data-practice-scramble', optionsStart) > optionsStart);
 });
 
+test("the interactive preview exposes an editable, copyable move history", () => {
+  assert.match(viewportComponent, /data-preview-history/);
+  assert.match(viewportComponent, /data-preview-history-copy/);
+  assert.match(viewportComponent, /data-preview-history-clear/);
+  assert.match(client, /appendPreviewHistoryToken/);
+  assert.match(client, /data-preview-history-copy/);
+});
+
 test("the Setup parser recognizes explicit SSE cubie-state cycles apart from algorithms", () => {
   assert.match(client, /looksLikeSseState/);
   assert.match(client, /parseSseState/);

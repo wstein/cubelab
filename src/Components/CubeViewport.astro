@@ -158,6 +158,23 @@
       </button>
     </div>
   </div>
+  <section class="preview-history" aria-label="Interactive preview move history">
+    <div class="preview-history-heading">
+      <label class="panel-label" for="preview-history">3D move history</label>
+      <span>Physical turns and detected x/y/z regrips</span>
+    </div>
+    <textarea
+      id="preview-history"
+      class="preview-history-input"
+      data-preview-history
+      rows="2"
+      spellcheck="false"
+      placeholder="Moves performed in the interactive preview appear here"></textarea>
+    <div class="preview-history-actions">
+      <button type="button" class="viewport-control" data-preview-history-copy disabled>Copy history</button>
+      <button type="button" class="viewport-control" data-preview-history-clear disabled>Clear</button>
+    </div>
+  </section>
   <section class="playback" data-playback aria-label="Algorithm playback" hidden>
     <span class="visually-hidden" data-coach-status aria-live="polite"></span>
     <div class="playback-heading">
