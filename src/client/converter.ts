@@ -7506,11 +7506,36 @@ if (root) {
       : `${smartCubeDeviceName} · Diagnostics capture disabled and local trace cleared.`;
   });
   smartCubeCopyTrace.addEventListener("click", async () => {
+    const device = smartCubeManager?.getState().device ?? {
+      name: smartCubeDeviceName,
+      macAddress: null,
+      brand: "gocube" as const,
+      brandName: "Unknown smart cube",
+      protocolId: "diagnostic",
+      protocolName: "Diagnostic capture",
+      capabilities: {orientation: false, battery: false, facelets: false, hardware: false, reset: false, led: false},
+    };
+    const origin = Date.parse(smartCubeDiagnosticTrace[0]?.at ?? new Date().toISOString());
     const report = {
-      schema: "cubelab-smart-cube-diagnostic-v1",
-      generatedAt: new Date().toISOString(),
-      device: {brand: smartCubeManager?.getState().device?.brand ?? "unknown"},
-      events: smartCubeDiagnosticTrace,
+      schema: "cubelab-smart-cube-tape-v1",
+      profile: "diagnostic",
+      capturedAt: new Date(origin).toISOString(),
+      header: {
+        device,
+        syncMode: smartCubeSyncMode,
+        orientationTracking: smartCubeOrientationTracking,
+        recording: smartCubeRecording,
+        route: activeTab === "academy" ? window.location.hash || null : null,
+        inputHash: window.location.hash,
+        settings: {autoOrbit, regripThresholdDegrees: 65},
+      },
+      timeline: smartCubeDiagnosticTrace.map(({at, event, detail}) => ({
+        offsetMs: Math.max(0, Math.round(Date.parse(at) - origin)),
+        kind: event === "received event" && detail.type !== "facelets" ? "input" as const : "derived" as const,
+        ...(event === "received event" && detail.type !== "facelets"
+          ? {event: detail}
+          : {trigger: event === "received event" ? "redacted-facelets" : event, in: {}, out: detail.type === "facelets" ? {faceletCount: typeof detail.facelets === "string" ? detail.facelets.length : 0} : detail}),
+      })),
     };
     const copied = await copyText(JSON.stringify(report, null, 2));
     if (copied) {
