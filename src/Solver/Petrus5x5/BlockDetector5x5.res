@@ -58,12 +58,14 @@ let cubiesFor222 = (anchor: anchorCorner): array<gridPos> => {
   let list = []
   rx->Array.forEach(x => {
     ry->Array.forEach(y => {
-      rz->Array.forEach(z => {
-        // Interior cubies not touching the outer shell are excluded
-        if x == xc || y == yc || z == zc {
-          list->Array.push((x, y, z))
-        }
-      })
+      rz->Array.forEach(
+        z => {
+          // Interior cubies not touching the outer shell are excluded
+          if x == xc || y == yc || z == zc {
+            list->Array.push((x, y, z))
+          }
+        },
+      )
     })
   })
   list
@@ -91,7 +93,10 @@ let getSticker = (state: cubeState, face: face, row: int, col: int): face => {
  * Tests whether a cubie at (x, y, z) has all of its exterior stickers matching
  * the expected reference colors for the faces meeting at the corner.
  */
-let isCubieSolved = (state: cubeState, anchor: anchorCorner, x: int, y: int, z: int): (bool, int) => {
+let isCubieSolved = (state: cubeState, anchor: anchorCorner, x: int, y: int, z: int): (
+  bool,
+  int,
+) => {
   let (xc, yc, zc) = anchorCoords(anchor)
   let (fx, fy, fz) = anchorFaces(anchor)
   let solved = ref(true)
@@ -128,25 +133,33 @@ let isCubieSolved = (state: cubeState, anchor: anchorCorner, x: int, y: int, z: 
 /**
  * Evaluates the 2×2×2 block progress for a given anchor corner.
  */
-let inspectBlock222 = (state: cubeState, anchor: anchorCorner): block222Progress => {
-  let cubies = cubiesFor222(anchor)
-  let solvedPieces = ref(0)
-  let solvedFacelets = ref(0)
+let inspectBlock222 = {
+  // Private, bounded geometry: public coordinate generators still return fresh arrays.
+  let geometries = allAnchors->Array.map(anchor => (anchor, cubiesFor222(anchor)))
+  (state: cubeState, anchor: anchorCorner): block222Progress => {
+    let cubies =
+      geometries
+      ->Array.find(((candidate, _)) => candidate == anchor)
+      ->Option.map(((_, cubies)) => cubies)
+      ->Option.getOr([])
+    let solvedPieces = ref(0)
+    let solvedFacelets = ref(0)
 
-  cubies->Array.forEach(((x, y, z)) => {
-    let (isSolved, count) = isCubieSolved(state, anchor, x, y, z)
-    if isSolved {
-      solvedPieces := solvedPieces.contents + 1
-      solvedFacelets := solvedFacelets.contents + count
+    cubies->Array.forEach(((x, y, z)) => {
+      let (isSolved, count) = isCubieSolved(state, anchor, x, y, z)
+      if isSolved {
+        solvedPieces := solvedPieces.contents + 1
+        solvedFacelets := solvedFacelets.contents + count
+      }
+    })
+
+    {
+      anchor,
+      piecesSolved: solvedPieces.contents,
+      totalPieces: 19,
+      faceletsSolved: solvedFacelets.contents,
+      isComplete: solvedPieces.contents == 19,
     }
-  })
-
-  {
-    anchor,
-    piecesSolved: solvedPieces.contents,
-    totalPieces: 19,
-    faceletsSolved: solvedFacelets.contents,
-    isComplete: solvedPieces.contents == 19,
   }
 }
 
@@ -158,10 +171,12 @@ let bestAnchor222 = (state: cubeState): (anchorCorner, block222Progress) => {
   let bestProgress = ref(inspectBlock222(state, DBL))
 
   allAnchors->Array.forEach(anchor => {
-    let progress = inspectBlock222(state, anchor)
-    if progress.piecesSolved > bestProgress.contents.piecesSolved {
-      best := anchor
-      bestProgress := progress
+    if anchor != DBL {
+      let progress = inspectBlock222(state, anchor)
+      if progress.piecesSolved > bestProgress.contents.piecesSolved {
+        best := anchor
+        bestProgress := progress
+      }
     }
   })
 
@@ -174,26 +189,43 @@ let bestAnchor222 = (state: cubeState): (anchorCorner, block222Progress) => {
 let cubiesFor223 = (anchor: anchorCorner, axis: expansionAxis): array<gridPos> => {
   let (xc, yc, zc) = anchorCoords(anchor)
   let rx = switch axis {
-  | AxisX => if xc == 0 { [0, 1, 2, 3] } else { [4, 3, 2, 1] }
+  | AxisX =>
+    if xc == 0 {
+      [0, 1, 2, 3]
+    } else {
+      [4, 3, 2, 1]
+    }
   | _ => axisRange(xc)
   }
   let ry = switch axis {
-  | AxisY => if yc == 0 { [0, 1, 2, 3] } else { [4, 3, 2, 1] }
+  | AxisY =>
+    if yc == 0 {
+      [0, 1, 2, 3]
+    } else {
+      [4, 3, 2, 1]
+    }
   | _ => axisRange(yc)
   }
   let rz = switch axis {
-  | AxisZ => if zc == 0 { [0, 1, 2, 3] } else { [4, 3, 2, 1] }
+  | AxisZ =>
+    if zc == 0 {
+      [0, 1, 2, 3]
+    } else {
+      [4, 3, 2, 1]
+    }
   | _ => axisRange(zc)
   }
 
   let list = []
   rx->Array.forEach(x => {
     ry->Array.forEach(y => {
-      rz->Array.forEach(z => {
-        if x == xc || y == yc || z == zc {
-          list->Array.push((x, y, z))
-        }
-      })
+      rz->Array.forEach(
+        z => {
+          if x == xc || y == yc || z == zc {
+            list->Array.push((x, y, z))
+          }
+        },
+      )
     })
   })
   list
@@ -202,33 +234,45 @@ let cubiesFor223 = (anchor: anchorCorner, axis: expansionAxis): array<gridPos> =
 /**
  * Inspects 2×2×3 expansion progress for an anchor corner across all 3 axes.
  */
-let inspectBlock223 = (state: cubeState, anchor: anchorCorner): block223Progress => {
+let inspectBlock223 = {
   let axes = [AxisX, AxisY, AxisZ]
-  let bestAxis = ref(AxisX)
-  let bestSolved = ref(0)
+  let geometries =
+    allAnchors->Array.map(anchor => (
+      anchor,
+      axes->Array.map(axis => (axis, cubiesFor223(anchor, axis))),
+    ))
+  (state: cubeState, anchor: anchorCorner): block223Progress => {
+    let expansions =
+      geometries
+      ->Array.find(((candidate, _)) => candidate == anchor)
+      ->Option.map(((_, expansions)) => expansions)
+      ->Option.getOr([])
+    let bestAxis = ref(AxisX)
+    let bestSolved = ref(0)
+    let total = ref(0)
 
-  axes->Array.forEach(axis => {
-    let cubies = cubiesFor223(anchor, axis)
-    let count = ref(0)
-    cubies->Array.forEach(((x, y, z)) => {
-      let (isSolved, _) = isCubieSolved(state, anchor, x, y, z)
-      if isSolved {
-        count := count.contents + 1
+    expansions->Array.forEach(((axis, cubies)) => {
+      total := cubies->Array.length
+      let count = ref(0)
+      cubies->Array.forEach(((x, y, z)) => {
+        let (isSolved, _) = isCubieSolved(state, anchor, x, y, z)
+        if isSolved {
+          count := count.contents + 1
+        }
+      })
+      if count.contents > bestSolved.contents {
+        bestSolved := count.contents
+        bestAxis := axis
       }
     })
-    if count.contents > bestSolved.contents {
-      bestSolved := count.contents
-      bestAxis := axis
-    }
-  })
 
-  let total = cubiesFor223(anchor, bestAxis.contents)->Array.length
-  {
-    anchor,
-    axis: bestAxis.contents,
-    piecesSolved: bestSolved.contents,
-    totalPieces: total,
-    isComplete: bestSolved.contents >= total,
+    {
+      anchor,
+      axis: bestAxis.contents,
+      piecesSolved: bestSolved.contents,
+      totalPieces: total.contents,
+      isComplete: bestSolved.contents >= total.contents,
+    }
   }
 }
 
@@ -339,7 +383,9 @@ let inspectPetrus5x5 = (state: cubeState): result<petrusInspection5x5, string> =
     let (currentPhase, desc, targetCubies) = if !block222.isComplete {
       (
         Phase1_Block222,
-        `Build the 19-piece 2×2×2 block at anchor ${anchorName(bestAnchor)} (${block222.piecesSolved->Int.toString}/19 pieces placed).`,
+        `Build the 19-piece 2×2×2 block at anchor ${anchorName(
+            bestAnchor,
+          )} (${block222.piecesSolved->Int.toString}/19 pieces placed).`,
         cubiesFor222(bestAnchor),
       )
     } else if !block223.isComplete {

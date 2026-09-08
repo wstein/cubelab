@@ -85,81 +85,76 @@ let candidateParityAlgs = [
   ]
 ];
 
-function findBlock222Guide(state, anchor, initial) {
+function compile(notations) {
+  return notations.map(notation => [
+    notation,
+    parseAlg(notation)
+  ]);
+}
+
+let blockCandidates = compile(candidateBlockMoves);
+
+let eoCandidates = compile(candidateEoTriggers);
+
+function findImprovingCandidate(state, edgeOrientation, initialScore, scoreReplay) {
   let best = {
     contents: undefined
   };
-  let bestSolved = {
-    contents: initial.piecesSolved
+  let bestScore = {
+    contents: initialScore
   };
-  candidateBlockMoves.forEach(notation => {
-    let alg = parseAlg(notation);
-    if (alg === undefined) {
+  let candidates = edgeOrientation ? eoCandidates : blockCandidates;
+  candidates.forEach(param => {
+    let parsed = param[1];
+    if (parsed === undefined) {
       return;
     }
-    let replay = MoveExecutor.applyAlg(state, alg);
+    let replay = MoveExecutor.applyAlg(state, parsed);
     if (replay.TAG !== "Ok") {
       return;
     }
-    let progress = BlockDetector5x5.inspectBlock222(replay._0, anchor);
-    if (progress.piecesSolved > bestSolved.contents) {
-      bestSolved.contents = progress.piecesSolved;
-      best.contents = {
-        phase: "Phase1_Block222",
-        title: "2×2×2 Block Building",
-        instruction: `Execute ` + notation + ` to assemble anchor ` + BlockDetector5x5.anchorName(anchor) + ` (` + progress.piecesSolved.toString() + `/19 pieces).`,
-        alg: alg,
-        algorithm: notation,
-        anchor: anchor
-      };
+    let score = scoreReplay(replay._0);
+    if (score > bestScore.contents) {
+      bestScore.contents = score;
+      best.contents = [
+        param[0],
+        score
+      ];
       return;
     }
   });
   return best.contents;
+}
+
+function findBlock222Guide(state, anchor, initial) {
+  return Stdlib_Option.map(findImprovingCandidate(state, false, initial.piecesSolved, replay => BlockDetector5x5.inspectBlock222(replay, anchor).piecesSolved), param => {
+    let notation = param[0];
+    return {
+      phase: "Phase1_Block222",
+      title: "2×2×2 Block Building",
+      instruction: `Execute ` + notation + ` to assemble anchor ` + BlockDetector5x5.anchorName(anchor) + ` (` + param[1].toString() + `/19 pieces).`,
+      alg: Stdlib_Option.getOr(parseAlg(notation), []),
+      algorithm: notation,
+      anchor: anchor
+    };
+  });
 }
 
 function findEOGuide(state, anchor, initial) {
-  let best = {
-    contents: undefined
-  };
-  let minBad = {
-    contents: initial.badCount
-  };
-  candidateEoTriggers.forEach(notation => {
-    let alg = parseAlg(notation);
-    if (alg === undefined) {
-      return;
-    }
-    let replay = MoveExecutor.applyAlg(state, alg);
-    if (replay.TAG !== "Ok") {
-      return;
-    }
-    let status = BlockDetector5x5.inspectEO(replay._0);
-    if (status.badCount < minBad.contents) {
-      minBad.contents = status.badCount;
-      best.contents = {
-        phase: "Phase3_EdgeOrientation",
-        title: "Edge Orientation (EO)",
-        instruction: `Execute EO trigger ` + notation + ` to orient edges (bad edges remaining: ` + status.badCount.toString() + `).`,
-        alg: alg,
-        algorithm: notation,
-        anchor: anchor
-      };
-      return;
-    }
+  return Stdlib_Option.map(findImprovingCandidate(state, true, -initial.badCount | 0, replay => -BlockDetector5x5.inspectEO(replay).badCount | 0), param => {
+    let notation = param[0];
+    return {
+      phase: "Phase3_EdgeOrientation",
+      title: "Edge Orientation (EO)",
+      instruction: `Execute EO trigger ` + notation + ` to orient edges (bad edges remaining: ` + (-param[1] | 0).toString() + `).`,
+      alg: Stdlib_Option.getOr(parseAlg(notation), []),
+      algorithm: notation,
+      anchor: anchor
+    };
   });
-  return best.contents;
 }
 
-function planPetrusStep5x5(state) {
-  let msg = BlockDetector5x5.inspectPetrus5x5(state);
-  if (msg.TAG !== "Ok") {
-    return {
-      TAG: "Error",
-      _0: msg._0
-    };
-  }
-  let inspection = msg._0;
+function planFromInspection(state, inspection) {
   let anchor = inspection.bestAnchor;
   let match = inspection.currentPhase;
   switch (match) {
@@ -266,6 +261,47 @@ function planPetrusStep5x5(state) {
   }
 }
 
+function evaluatePetrusStep5x5(state) {
+  let msg = BlockDetector5x5.inspectPetrus5x5(state);
+  if (msg.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: msg._0
+    };
+  }
+  let inspection = msg._0;
+  let msg$1 = planFromInspection(state, inspection);
+  if (msg$1.TAG === "Ok") {
+    return {
+      TAG: "Ok",
+      _0: {
+        inspection: inspection,
+        guide: msg$1._0
+      }
+    };
+  } else {
+    return {
+      TAG: "Error",
+      _0: msg$1._0
+    };
+  }
+}
+
+function planPetrusStep5x5(state) {
+  let msg = evaluatePetrusStep5x5(state);
+  if (msg.TAG === "Ok") {
+    return {
+      TAG: "Ok",
+      _0: msg._0.guide
+    };
+  } else {
+    return {
+      TAG: "Error",
+      _0: msg._0
+    };
+  }
+}
+
 export {
   parseAlg,
   phaseToName,
@@ -273,8 +309,10 @@ export {
   candidateEoTriggers,
   candidateL2EPairing,
   candidateParityAlgs,
+  findImprovingCandidate,
   findBlock222Guide,
   findEOGuide,
+  evaluatePetrusStep5x5,
   planPetrusStep5x5,
 }
-/* No side effect */
+/* blockCandidates Not a pure module */

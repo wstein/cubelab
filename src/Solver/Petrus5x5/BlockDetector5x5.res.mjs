@@ -2,6 +2,7 @@
 
 import * as StateTypes from "../../State/StateTypes.res.mjs";
 import * as PieceReducer from "../../State/PieceReducer.res.mjs";
+import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
 
 function anchorCoords(anchor) {
   switch (anchor) {
@@ -261,8 +262,13 @@ function isCubieSolved(state, anchor, x, y, z) {
   ];
 }
 
+let geometries = allAnchors.map(anchor => [
+  anchor,
+  cubiesFor222(anchor)
+]);
+
 function inspectBlock222(state, anchor) {
-  let cubies = cubiesFor222(anchor);
+  let cubies = Stdlib_Option.getOr(Stdlib_Option.map(geometries.find(param => param[0] === anchor), param => param[1]), []);
   let solvedPieces = {
     contents: 0
   };
@@ -294,6 +300,9 @@ function bestAnchor222(state) {
     contents: inspectBlock222(state, "DBL")
   };
   allAnchors.forEach(anchor => {
+    if (anchor === "DBL") {
+      return;
+    }
     let progress = inspectBlock222(state, anchor);
     if (progress.piecesSolved > bestProgress.contents.piecesSolved) {
       best.contents = anchor;
@@ -390,20 +399,34 @@ function cubiesFor223(anchor, axis) {
   return list;
 }
 
+let axes = [
+  "AxisX",
+  "AxisY",
+  "AxisZ"
+];
+
+let geometries$1 = allAnchors.map(anchor => [
+  anchor,
+  axes.map(axis => [
+    axis,
+    cubiesFor223(anchor, axis)
+  ])
+]);
+
 function inspectBlock223(state, anchor) {
-  let axes = [
-    "AxisX",
-    "AxisY",
-    "AxisZ"
-  ];
+  let expansions = Stdlib_Option.getOr(Stdlib_Option.map(geometries$1.find(param => param[0] === anchor), param => param[1]), []);
   let bestAxis = {
     contents: "AxisX"
   };
   let bestSolved = {
     contents: 0
   };
-  axes.forEach(axis => {
-    let cubies = cubiesFor223(anchor, axis);
+  let total = {
+    contents: 0
+  };
+  expansions.forEach(param => {
+    let cubies = param[1];
+    total.contents = cubies.length;
     let count = {
       contents: 0
     };
@@ -416,17 +439,16 @@ function inspectBlock223(state, anchor) {
     });
     if (count.contents > bestSolved.contents) {
       bestSolved.contents = count.contents;
-      bestAxis.contents = axis;
+      bestAxis.contents = param[0];
       return;
     }
   });
-  let total = cubiesFor223(anchor, bestAxis.contents).length;
   return {
     anchor: anchor,
     axis: bestAxis.contents,
     piecesSolved: bestSolved.contents,
-    totalPieces: total,
-    isComplete: bestSolved.contents >= total
+    totalPieces: total.contents,
+    isComplete: bestSolved.contents >= total.contents
   };
 }
 
@@ -922,4 +944,4 @@ export {
   countPairedWings,
   inspectPetrus5x5,
 }
-/* No side effect */
+/* geometries Not a pure module */

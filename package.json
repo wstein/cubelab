@@ -21,6 +21,7 @@
     "solver:generate-2x2": "rescript && bun scripts/generate-optimal-2x2-table.ts",
     "solver:generate-4x4-centres": "rescript && bun scripts/generate-three-phase-centre-table.ts",
     "solver:solve-4x4": "rescript && bun scripts/solve-4x4.ts",
+    "benchmark:petrus": "rescript && bun scripts/benchmark-petrus-5x5.ts",
     "benchmark:4x4": "bun scripts/benchmark-reduction-4x4.ts",
     "benchmark:4x4:release": "bun scripts/benchmark-reduction-4x4.ts --release"
   },
