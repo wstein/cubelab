@@ -46,6 +46,11 @@ describe("cube viewport math", () => {
     expect(viewportSource).not.toMatch(/label: "-x"|label: "-y"|label: "-z"/);
   });
 
+  test("keeps the orientation marker in the camera frame, outside live gyro rotation", () => {
+    expect(viewportSource).toMatch(/const cameraOnlyMatrices = cameraMatrices\(/);
+    expect(viewportSource).toMatch(/drawOrientationAxes\(cameraOnlyMatrices, width, height\)/);
+  });
+
   test("rotates a flicked face into virtual Right before resolving Up", () => {
     const identity = {x: 0, y: 0, z: 0, w: 1};
 

@@ -217,6 +217,7 @@ When a physical smart cube (e.g. GoCube, GAN) with IMU hardware is connected, te
 
 - **World Delta Pipeline:** The relative orientation delta between baseline and current pose is computed directly in raw $\mathrm{SO}(3)$ space (`current * base.conjugate()`), ensuring mathematical invariance regardless of the cube's resting pose.
 - **Direction Alignment & Basis Mapping:** For hardware sensors that rotate against the hand (such as GoCube), the rotation direction is inverted and re-expressed in canonical viewport axes (using the measured $180^\circ$ $Y$-yaw change of basis `basis = -x, +y, -z`).
+- **Orientation marker:** the compact x/y/z overlay is projected in the camera frame only. It is a stable reference while the cube itself follows gyro orientation.
 - **Facelet Alignment:** Top White ($+Y$), Right Red ($+X$), and Front Green ($+Z$) remain 1:1 aligned during physical turns and whole-cube regrips across 0°, 90°, 180°, and 270°.
 
 In normal **physical mirror** mode, reported facelets also determine the displayed cube

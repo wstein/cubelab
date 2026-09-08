@@ -1155,12 +1155,7 @@ export const createCubeViewport = (
     context.restore();
   };
 
-  /**
-   * Small world-axis marker. It deliberately uses the scene's model-view and
-   * projection matrices, rather than the camera yaw/pitch directly, so it
-   * continues to agree with the cube when a smart-cube gyro is driving the
-   * view as well.
-   */
+  /** Small camera-frame reference marker; it never inherits gyro cube turns. */
   const drawOrientationAxes = (
     matrices: { modelView: Mat4; projection: Mat4 },
     width: number,
@@ -1515,9 +1510,9 @@ export const createCubeViewport = (
   };
 
   const drawMotionOverlay = (
-    matrices: { modelView: Mat4; projection: Mat4 },
     width: number,
     height: number,
+    cameraOnlyMatrices: { modelView: Mat4; projection: Mat4 },
   ) => {
     if (!overlay) return;
     if (overlayCanvas.width !== width || overlayCanvas.height !== height) {
@@ -1525,7 +1520,7 @@ export const createCubeViewport = (
       overlayCanvas.height = height;
     }
     overlay.clearRect(0, 0, width, height);
-    drawOrientationAxes(matrices, width, height);
+    drawOrientationAxes(cameraOnlyMatrices, width, height);
     if (!focus && !turnGuide && !milestone) {
       delete overlayCanvas.dataset.motionVisible;
       return;
@@ -1981,13 +1976,15 @@ export const createCubeViewport = (
       : detentedOrientation;
     lastRenderedOrientation = relativeOrientation ?? null;
     const aspect = width / height;
+    const cameraDistance = safeCameraDistance(distance, aspect);
     const matrices = cameraMatrices(
       aspect,
       yaw,
       pitch,
-      safeCameraDistance(distance, aspect),
+      cameraDistance,
       relativeOrientation,
     );
+    const cameraOnlyMatrices = cameraMatrices(aspect, yaw, pitch, cameraDistance);
     gl.uniformMatrix4fv(modelView, false, matrices.modelView);
     gl.uniformMatrix4fv(projection, false, matrices.projection);
     gl.uniform1f(speedStyle, style === "Speed" ? 1 : 0);
@@ -2007,7 +2004,7 @@ export const createCubeViewport = (
     gl.uniform3fv(guideAxis, guideTransform?.axis ?? [1, 0, 0]);
     gl.uniform2f(guideRange, guideTransform?.min ?? 0, guideTransform?.max ?? 0);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
-    drawMotionOverlay(matrices, width, height);
+    drawMotionOverlay(width, height, cameraOnlyMatrices);
 
     const adjustedResidual = detentedOrientation
       ? regripGaugeDeviation(detentedOrientation, deviceOrientationLockTarget)
