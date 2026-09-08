@@ -142,6 +142,19 @@ let getComb = (arr: array<int>, r0: int, n: int) => {
   idx.contents
 }
 
+let getSComb = (arr: array<int>, n: int) => {
+  let idx = ref(0)
+  let r = ref(n / 2)
+  let lastVal = getU(arr, n - 1)
+  for i in n - 1 downto 0 {
+    if getU(arr, i) != lastVal {
+      idx := idx.contents + getU2(cnk, i, r.contents)
+      r := r.contents - 1
+    }
+  }
+  idx.contents
+}
+
 let setComb = (arr: array<int>, idx0: int, r0: int, n: int) => {
   let idx = ref(idx0)
   let r = ref(r0)

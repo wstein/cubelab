@@ -3,6 +3,7 @@ import * as CubieCube from "../../src/Solver/Cube555/CubieCube555.res.mjs";
 import * as Util from "../../src/Solver/Cube555/Util555.res.mjs";
 import * as Phase1Center from "../../src/Solver/Cube555/Phase1Center555.res.mjs";
 import * as Phase2Center from "../../src/Solver/Cube555/Phase2Center555.res.mjs";
+import * as Phase3Center from "../../src/Solver/Cube555/Phase3Center555.res.mjs";
 
 describe("CubieCube555 foundational logic", () => {
   it("initializes a solved 5x5 cubie cube", () => {
@@ -132,4 +133,34 @@ describe("Phase2Center555 coordinate reduction", () => {
     expect(center.eParity).toBe(0);
   });
 });
+
+describe("Phase3Center555 coordinate reduction", () => {
+  it("initializes Phase 3 centers and exposes 108 solved target states", () => {
+    const center = Phase3Center.make();
+    expect(Phase3Center.getCenter(center)).toBe(0);
+    expect(Phase3Center.solvedCenter).toHaveLength(108);
+
+    // All solved target centers must be within 0..1224
+    for (const target of Phase3Center.solvedCenter) {
+      expect(target).toBeGreaterThanOrEqual(0);
+      expect(target).toBeLessThan(1225);
+    }
+  });
+
+  it("roundtrips Phase 3 center indices within 0..1224", () => {
+    const center = Phase3Center.make();
+    Phase3Center.setCenter(center, 777);
+    expect(Phase3Center.getCenter(center)).toBe(777);
+  });
+
+  it("slice turns preserve Phase 3 state under 2-cycle properties", () => {
+    const center = Phase3Center.make();
+    // Move 18 is sliceUx2 in Phase 3
+    Phase3Center.doMove(center, 18);
+    // Double slice turn squared is identity
+    Phase3Center.doMove(center, 18);
+    expect(Phase3Center.getCenter(center)).toBe(0);
+  });
+});
+
 

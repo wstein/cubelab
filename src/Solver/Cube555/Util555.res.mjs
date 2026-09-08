@@ -134,6 +134,19 @@ function getComb(arr, r0, n) {
   return idx;
 }
 
+function getSComb(arr, n) {
+  let idx = 0;
+  let r = n / 2 | 0;
+  let lastVal = getU(arr, n - 1 | 0);
+  for (let i = n - 1 | 0; i >= 0; --i) {
+    if (getU(arr, i) !== lastVal) {
+      idx = idx + getU2(table, i, r) | 0;
+      r = r - 1 | 0;
+    }
+  }
+  return idx;
+}
+
 function setComb(arr, idx0, r0, n) {
   let idx = idx0;
   let r = r0;
@@ -335,6 +348,7 @@ export {
   swap4,
   swap4NoFlip,
   getComb,
+  getSComb,
   setComb,
   getParity,
   genSkipMoves,
