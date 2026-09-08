@@ -810,14 +810,6 @@ export const cardinalOrientationFaces = (orientation: OrientationQuaternion): st
   }).join("");
 };
 
-/** Centre colours assigned to the positive x (Right), y (Up), and z (Front) axes. */
-export const orientationAxisFaces = (
-  orientation: OrientationQuaternion = {x: 0, y: 0, z: 0, w: 1},
-): {x: string; y: string; z: string} => {
-  const faces = cardinalOrientationFaces(orientation);
-  return {x: faces[1]!, y: faces[0]!, z: faces[2]!};
-};
-
 export const relativeQuaternion = (
   base: OrientationQuaternion,
   current: OrientationQuaternion,
@@ -1184,7 +1176,6 @@ export const createCubeViewport = (
     matrices: { modelView: Mat4; projection: Mat4 },
     width: number,
     height: number,
-    virtualOrientation: OrientationQuaternion | null,
   ) => {
     if (!overlay) return;
     const bounds = canvas.getBoundingClientRect();
@@ -1200,14 +1191,16 @@ export const createCubeViewport = (
       : {U: "#f2f2f2", R: "#c4352e", F: "#218c4a", D: "#f5cc33", L: "#f07821", B: "#2959a8"};
     const front = palette === "Japanese" ? faceColours.B : faceColours.F;
     const back = palette === "Japanese" ? faceColours.F : faceColours.B;
-    const axisFaces = orientationAxisFaces(virtualOrientation ?? {x: 0, y: 0, z: 0, w: 1});
     const colourForFace = (face: string): string => (
       face === "F" ? front : face === "B" ? back : faceColours[face as "U" | "R" | "D" | "L"]
     );
+    // The geometry is rotated by the cube's live matrix, so these paints must
+    // stay on their physical centre axes rather than being remapped to world
+    // directions after a virtual regrip.
     const axisSpecs: Array<{label: string; point: [number, number, number]; colour: string}> = [
-      {label: "x", point: [1, 0, 0], colour: colourForFace(axisFaces.x)},
-      {label: "y", point: [0, 1, 0], colour: colourForFace(axisFaces.y)},
-      {label: "z", point: [0, 0, 1], colour: colourForFace(axisFaces.z)},
+      {label: "x", point: [1, 0, 0], colour: colourForFace("R")},
+      {label: "y", point: [0, 1, 0], colour: colourForFace("U")},
+      {label: "z", point: [0, 0, 1], colour: colourForFace("F")},
     ];
     const axes = axisSpecs.map((axis) => {
       const endpoint = projectPoint(axis.point, matrices.modelView, matrices.projection, width, height);
@@ -1543,7 +1536,6 @@ export const createCubeViewport = (
     width: number,
     height: number,
     axisMatrices: { modelView: Mat4; projection: Mat4 },
-    virtualOrientation: OrientationQuaternion | null,
   ) => {
     if (!overlay) return;
     if (overlayCanvas.width !== width || overlayCanvas.height !== height) {
@@ -1551,7 +1543,7 @@ export const createCubeViewport = (
       overlayCanvas.height = height;
     }
     overlay.clearRect(0, 0, width, height);
-    drawOrientationAxes(axisMatrices, width, height, virtualOrientation);
+    drawOrientationAxes(axisMatrices, width, height);
     if (!focus && !turnGuide && !milestone) {
       delete overlayCanvas.dataset.motionVisible;
       return;
@@ -2056,7 +2048,7 @@ export const createCubeViewport = (
     gl.uniform3fv(guideAxis, guideTransform?.axis ?? [1, 0, 0]);
     gl.uniform2f(guideRange, guideTransform?.min ?? 0, guideTransform?.max ?? 0);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
-    drawMotionOverlay(width, height, glyphMatrices, deviceOrientationCorrection);
+    drawMotionOverlay(width, height, glyphMatrices);
 
     const adjustedResidual = detentedOrientation
       ? regripGaugeDeviation(detentedOrientation, deviceOrientationLockTarget)

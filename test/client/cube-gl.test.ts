@@ -21,7 +21,6 @@ import {
   multiplyQuaternions,
   nearestCardinalQuaternion,
   orientationInViewportFrame,
-  orientationAxisFaces,
   orientationCorrectionForTarget,
   orientationDistanceRadians,
   quaternionAxisAngle,
@@ -50,7 +49,7 @@ describe("cube viewport math", () => {
 
   test("rotates the orientation marker with the displayed cube", () => {
     expect(viewportSource).toMatch(/const wholeCubeAnimation = wholeCubeTurnQuaternion\(activeTurn\)/);
-    expect(viewportSource).toMatch(/drawMotionOverlay\(width, height, glyphMatrices, deviceOrientationCorrection\)/);
+    expect(viewportSource).toMatch(/drawMotionOverlay\(width, height, glyphMatrices\)/);
     expect(viewportSource).toMatch(/drawOrientationAxes\(axisMatrices, width, height/);
     expect(viewportSource).not.toMatch(/const virtualAxisMatrices = cameraMatrices\(/);
   });
@@ -62,10 +61,11 @@ describe("cube viewport math", () => {
     expect(wholeCubeTurnQuaternion({axis: [0, 1, 0], min: 0.4, max: 1.6, angle: Math.PI / 2})).toBeNull();
   });
 
-  test("updates virtual axis colours from the virtual cube's centre colours", () => {
-    const z = {x: 0, y: 0, z: Math.SQRT1_2, w: Math.SQRT1_2};
-    expect(orientationAxisFaces({x: 0, y: 0, z: 0, w: 1})).toEqual({x: "R", y: "U", z: "F"});
-    expect(orientationAxisFaces(z)).toEqual({x: "D", y: "R", z: "F"});
+  test("keeps glyph colours attached to physical cube centres", () => {
+    expect(viewportSource).toMatch(/label: "x", point: \[1, 0, 0\], colour: colourForFace\("R"\)/);
+    expect(viewportSource).toMatch(/label: "y", point: \[0, 1, 0\], colour: colourForFace\("U"\)/);
+    expect(viewportSource).toMatch(/label: "z", point: \[0, 0, 1\], colour: colourForFace\("F"\)/);
+    expect(viewportSource).not.toMatch(/orientationAxisFaces/);
   });
 
   test("rotates a flicked face into virtual Right before resolving Up", () => {

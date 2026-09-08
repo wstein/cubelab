@@ -217,7 +217,7 @@ When a physical smart cube (e.g. GoCube, GAN) with IMU hardware is connected, te
 
 - **World Delta Pipeline:** The relative orientation delta between baseline and current pose is computed directly in raw $\mathrm{SO}(3)$ space (`current * base.conjugate()`), ensuring mathematical invariance regardless of the cube's resting pose.
 - **Direction Alignment & Basis Mapping:** For hardware sensors that rotate against the hand (such as GoCube), the rotation direction is inverted and re-expressed in canonical viewport axes (using the measured $180^\circ$ $Y$-yaw change of basis `basis = -x, +y, -z`).
-- **Orientation marker:** the compact x/y/z overlay uses the same live orientation as the displayed cube, including in-flight Play-mode `x/y/z` animations, while its colours are remapped from the accepted virtual frame. Each positive axis therefore moves with the cube and retains the centre colour assigned to that virtual direction.
+- **Orientation marker:** the compact x/y/z overlay uses the same live orientation as the displayed cube, including in-flight Play-mode `x/y/z` animations. Its colours stay attached to physical cube centres (`x=R`, `y=U`, `z=F`), so the glyph geometry and colours rotate together through virtual regrips.
 - **Continuous gyro after regrip:** accepting a virtual regrip changes the persistent virtual frame and axis glyph, but never freezes the physical gyro stream. The cube continues to follow every subsequent orientation packet.
 
 The **3D move history** directly below the preview is a local, editable capture ledger. It
