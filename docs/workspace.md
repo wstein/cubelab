@@ -132,7 +132,9 @@ responding to input.
 
 Before that bounded diagnostic, the immediate guide tries rotated standard
 `Rw`/`2R` 1×3 centre-bar commutators and their inverses, accepting only a
-replay-verified increase in core-aligned bars.
+replay-verified increase in core-aligned bars. A failed bounded X-centre
+search never points to a separate bar control: none exists, because the normal
+centre guide already attempts those commutators.
 
 Both phases of the reused three-phase diagnostic have independent 30,000-node
 budgets; a budget miss is a normal bounded failure, never an open-ended search.

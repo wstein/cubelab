@@ -155,7 +155,7 @@ let solveXCentreCycle5x5 = (state: cubeState): result<guide, reductionError> =>
     // This is a bounded diagnostic only: ThreePhase4x4's phase-two heuristic
     // is not exact under its restricted move set, so deeper limits can explode.
     switch ThreePhase4x4.solveCentreReduction(centres, 6, 6, 3) {
-    | Error(_) => Error({message: "No safe bounded X-centre cycle was found within the search budget. Use the 1×3 bar guide."})
+    | Error(_) => Error({message: "No safe bounded X-centre cycle was found within the search budget. Try another bounded X-centre search after changing the state."})
     | Ok(solution) => {
       let notation = Array.concat(solution.phase1Notations, solution.phase2Notations)->Array.join(" ")
       switch parse(notation) {
@@ -177,7 +177,7 @@ let solveXCentreCycle5x5 = (state: cubeState): result<guide, reductionError> =>
  * geometry does not share 4×4 inner-slice mechanics, so they use the teachable
  * bar and commutator guide. */
 let solvePlusCentreCycle5x5 = (_state: cubeState): result<guide, reductionError> =>
-  Error({message: "+-centres do not share 4×4 geometry. Use the teachable bar guide."})
+  Error({message: "+-centres do not share 4×4 geometry. Their guidance is provided by the replay-verified centre planner."})
 
 /** When individual sticker placement is locally flat, prefer completing one
  * whole X- or +-centre orbit. This keeps the tutorial moving through its

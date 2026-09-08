@@ -378,7 +378,7 @@ function solveXCentreCycle5x5(state) {
     return {
       TAG: "Error",
       _0: {
-        message: "No safe bounded X-centre cycle was found within the search budget. Use the 1×3 bar guide."
+        message: "No safe bounded X-centre cycle was found within the search budget. Try another bounded X-centre search after changing the state."
       }
     };
   }
@@ -432,7 +432,7 @@ function solvePlusCentreCycle5x5(_state) {
   return {
     TAG: "Error",
     _0: {
-      message: "+-centres do not share 4×4 geometry. Use the teachable bar guide."
+      message: "+-centres do not share 4×4 geometry. Their guidance is provided by the replay-verified centre planner."
     }
   };
 }

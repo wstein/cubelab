@@ -221,6 +221,7 @@ test("Academy exposes the milestone-first 5×5 reduction inspector", () => {
   assert.match(page, /data-reduction-5x5-academy-find-cycle/);
   assert.match(client, /createReduction5x5CycleSolverClient/);
   assert.match(client, /Stop centre-cycle search/);
+  assert.doesNotMatch(client, /Use the 1×3 bar guide/);
   assert.match(solverWorker, /solve5x5CentreCycle/);
   assert.match(solverWorker, /reduction5x5CycleProgress/);
   const reduction4x4Renderer = client.match(/const renderReduction4x4Academy = \([\s\S]*?if \(size !== 4\)/)?.[0] ?? "";
