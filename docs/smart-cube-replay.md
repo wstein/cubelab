@@ -1,14 +1,19 @@
-# Smart cube session replay
+# Smart cube session replay — the mock device
 
-Manual QA of the smart-cube integration currently needs a physical Bluetooth cube
-in hand: orientation tracking, regrip detection, gesture recenter, live-sync
-mirroring, and Academy coaching can only be exercised by turning a real device.
-That makes a reported bug hard to reproduce, hard to confirm fixed, and
-impossible to guard against regression.
+Manual QA of the smart-cube integration needs a physical Bluetooth cube in hand:
+orientation tracking, regrip detection, gesture recenter, live-sync mirroring,
+and Academy coaching can only be exercised by turning a real device. A reported
+bug is then hard to reproduce, hard to confirm fixed, and impossible to guard
+against regression.
 
-This document specifies **session replay**: a recorded tape of a real smart-cube
-session that a live *replay manager* and the vitest suite both consume, so a
-single capture serves three jobs:
+The **mock device** removes the cube from that loop. It is a third
+`SmartCubeManager` implementation whose "connect" opens a *tape picker* instead
+of the Web Bluetooth chooser, then replays a recorded session as if a real cube
+were streaming. Everything downstream — `handleSmartCubeEvent`, the orientation
+tracker, regrip detection, live-sync, the viewport, Academy timelines — treats
+the manager as an opaque event source and runs unmodified.
+
+One recorded **tape** serves three jobs:
 
 1. deterministic reproduction of a reported bug;
 2. validation that a fix actually resolves it;
@@ -20,17 +25,19 @@ single capture serves three jobs:
 |---|---|---|
 | 1 | What is a tape for? | Deterministic reproduction, fix validation, and fixture source — one artifact, all three. |
 | 2 | Playback model | Real-time playback **and** a paused time-slider with time-travel scrubbing plus single-step. |
-| 3 | Tape storage & format | A `scratch/` drop zone; one JSON format read by both the replay manager and vitest. |
-| 4 | Timing fidelity | Follows decision 2: real inter-packet delays during playback; the slider/step path is time-driven, and tests advance the clock synchronously. |
+| 3 | Storage & format | Bundled tapes served from `public/smart-cube/tapes/`; `scratch/tapes/` is the staging dir. One JSON format read by the mock device and vitest. |
+| 4 | Timing fidelity | Real inter-packet delays during playback; the slider/step path is time-driven; tests advance the clock synchronously. |
 | 5 | Command round-trips | Capture `sendCommand` calls (LED, reset, facelet/hardware requests) for fidelity. |
-| 6 | Privacy | A full tape is a solve recording (facelet states + hand motion). Full-profile capture is QA/dev-only, no upload path. Accepted. |
-| 7 | Gating | Full capture is behind a separate `?dev` flag, never the Diagnostics opt-in. |
+| 6 | Privacy | A full tape is a solve recording (facelet states + hand motion). Full capture and the mock device are QA/dev-only; no upload path. |
+| 7 | Gating | The mock device, full capture, and imported customer traces are all behind a separate `?dev` flag — never the Diagnostics opt-in. |
 | 8 | Customer trace vs dev tape | **One schema, two profiles.** The Diagnostics button emits the same format as `?dev` capture, only redacted. Any diagnostic trace a customer sends is a valid (degraded) replay tape. |
 | 9 | Contents | Not just raw API events + commands. The tape also records the **higher-level triggers CubeLab generated** — regrip x/y/z detection, gesture recenter, deviation recovery, live-sync decisions — as an expected-output baseline for error analysis and regression diffing. |
+| 10 | Entry point | A dedicated **mock page** at `/dev/mock/`, built as a mode of `index.astro` (like `player.astro`). The route is the gate — no `?dev` checks scattered through the dock, and it is kept out of nav, the sitemap, and the service-worker precache. `?dev&replay=<name>` on the normal page stays as a one-off shortcut. |
 
 ## One format, two profiles
 
-There is a single schema, `cubelab-smart-cube-tape-v1`. Two producers write it:
+A single schema, `cubelab-smart-cube-tape-v1`, with a `profile` field. Two
+producers write it:
 
 | | `profile: "diagnostic"` | `profile: "full"` |
 |---|---|---|
@@ -40,23 +47,22 @@ There is a single schema, `cubelab-smart-cube-tape-v1`. Two producers write it:
 | `facelets` event payload | redacted to `{ sha256, length }` | full sticker string |
 | Buffer | last N minutes (ring buffer, larger than today's 500 entries) | unbounded for the session |
 | Upload | never automatic; user pastes text | no network path at all |
-| Replayable | yes — orientation / regrip / gesture flows; state-dependent flows degrade | yes — everything |
+| Replayable by the mock device | yes — orientation / regrip / gesture flows; state-dependent panels degrade | yes — everything |
 
 Both profiles carry the full `header`, the full `input` event stream (subject to
 redaction/buffer above), all `command` entries, and **all `derived` trigger
 entries** — the derived layer is the diagnostic value and is never redacted.
 
-The replay manager and `replayTape` helper accept either profile. A
-`diagnostic` tape with redacted facelets simply cannot drive `live-sync`,
-`Sync state`, `Re-route`, or Academy mirroring; the replay UI flags those
-panels as "unavailable — redacted capture" rather than failing.
+A `diagnostic` tape with redacted facelets cannot drive `live-sync`,
+`Sync state`, `Re-route`, or Academy mirroring; the transport UI marks those
+panels "unavailable — redacted capture" rather than failing.
 
 ## Tape format
 
-One JSON document. Written to `scratch/tapes/<name>.json` (full profile) or
-produced as clipboard text (diagnostic profile). Promoted by hand to
-`test/fixtures/smart-cube/<name>.json` when it should become a permanent
-regression fixture.
+One JSON document. Bundled QA tapes live at `public/smart-cube/tapes/<name>.json`
+and are indexed by `public/smart-cube/tapes/index.json`. Captures land in
+`localStorage`. `scratch/tapes/` is a human staging dir; promotion to a permanent
+fixture is a copy into `public/smart-cube/tapes/` and `test/fixtures/smart-cube/`.
 
 ```jsonc
 {
@@ -78,9 +84,8 @@ regression fixture.
     "syncMode": "PhysicalMirror",        // or "VirtualController"
     "orientationTracking": true,
     "recording": false,                  // algorithm-recording tape state
-    "route": null,                       // Academy route / scramble loaded, if any
-    "inputHash": "",                     // URL hash at capture time
-    "settings": { "autoOrbit": false, "regripThresholdDegrees": 65 }
+    "inputHash": "",                     // URL hash at capture time (route + settings live here)
+    "startState": null                   // facelets to seed the virtual cube; null = solved
   },
 
   // One time-ordered timeline. Every entry has `offsetMs` (milliseconds from the
@@ -93,19 +98,19 @@ regression fixture.
   //   "derived" a higher-level trigger CubeLab generated from the inputs. NOT
   //             fed back; it is the expected-output baseline the replay diffs
   //             against for error analysis and regression detection.
+  //   "state"   a mid-session change to a header field (mode, tracking,
+  //             recording) so the replay does not diverge after a toggle.
   //
   // Original device timestamps stay inside `event` for fidelity but never
   // schedule playback.
   "timeline": [
     { "offsetMs": 0,   "kind": "input",   "event": { "type": "hardware", "timestamp": 1725787620000, "orientationSupported": true } },
     { "offsetMs": 5,   "kind": "command", "command": { "type": "REQUEST_HARDWARE", "timestamp": 1725787620005 } },
-    { "offsetMs": 5,   "kind": "command", "command": { "type": "REQUEST_BATTERY",  "timestamp": 1725787620005 } },
     { "offsetMs": 20,  "kind": "input",   "event": { "type": "facelets", "timestamp": 1725787620020, "facelets": "UUUUUUUUURRR…" } },
 
     { "offsetMs": 340, "kind": "input",   "event": { "type": "orientation", "timestamp": 1725787620340,
                                                      "quaternion": { "x": 0, "y": 0, "z": 0, "w": 1 },
                                                      "coordinateFrame": "gocube-wire" } },
-    // …several orientation packets as the hand rotates the cube…
     { "offsetMs": 690, "kind": "derived", "trigger": "virtual-regrip",
       "in":  { "coordinateFrame": "gocube-wire" },
       "out": { "notationTokens": ["y"], "sensorFrameTokens": ["y"] } },
@@ -115,7 +120,9 @@ regression fixture.
                                                      "localTimestamp": 512, "cubeTimestamp": 512 } },
     { "offsetMs": 512, "kind": "derived", "trigger": "live-sync-move",
       "in":  { "physical": "R" },
-      "out": { "expected": "R", "verdict": "accepted", "reduced": null } }
+      "out": { "expected": "R", "verdict": "accepted", "reduced": null } },
+
+    { "offsetMs": 4200, "kind": "state", "field": "syncMode", "value": "VirtualController" }
   ]
 }
 ```
@@ -124,19 +131,17 @@ Format rules:
 
 - `input.event` is exactly the normalized `SmartCubeEvent` union from
   `src/client/smart-cube/types.ts`. In `diagnostic` profile a `facelets` event's
-  payload is `{ sha256, length }` instead of `facelets`; every other event type
-  is carried verbatim.
-- `offsetMs` is non-decreasing. It is the only clock the replay manager reads.
+  payload is `{ sha256, length }`; every other event type is carried verbatim.
+- `offsetMs` is non-decreasing. It is the only clock the mock device reads.
 - `derived` entries record `{ trigger, in, out }` — the trigger name, the inputs
-  CubeLab acted on, and the decision it produced. They are documentation of the
-  past run, not instructions for the replay.
-- The `header` is the contract for "same starting state".
-- No wall-clock time inside the timeline drives anything. `capturedAt` is
-  metadata.
+  CubeLab acted on, and the decision it produced. They document the past run;
+  they are never fed back into the pipeline.
+- Unknown fields are ignored by the validator (forward-compatible). A missing
+  `profile` defaults to `"full"`.
 
 ### Derived trigger catalogue
 
-A stable, extensible set of `trigger` names. Each maps to an existing decision
+A stable, extensible set of `trigger` names, each mapping to an existing decision
 point in `src/client/converter.ts` / the smart-cube modules:
 
 | `trigger` | Fires when | `out` payload |
@@ -151,158 +156,246 @@ point in `src/client/converter.ts` / the smart-cube modules:
 | `recording-token` | A token is appended to the algorithm recording tape | `token`, `frameAxis` |
 | `controller-state` | Controller-mode virtual state is (re)assigned | `source`, `stateSummary` |
 
-Adding a trigger name is a minor, backward-compatible change: older replays just
+Adding a trigger name is a minor, backward-compatible change: older tapes just
 have fewer `derived` entries to diff.
 
 ## Capture
 
-### Diagnostic profile (existing button, extended)
+All capture is local. There is no network path in this feature.
 
-The Diagnostics dock button (`converter.ts:7315`) keeps its behaviour — opt-in,
-`localStorage`, cleared on toggle-off, nothing auto-uploaded. Changes:
+### Diagnostic profile — the Diagnostics button (existing, extended)
+
+The Diagnostics dock button keeps its behaviour: opt-in, `localStorage`, cleared
+on toggle-off, nothing auto-uploaded. Changes:
 
 - "Copy cube trace" emits `cubelab-smart-cube-tape-v1` with `profile:
   "diagnostic"` instead of the old `cubelab-smart-cube-diagnostic-v1` shape.
-- The trace already records `virtual regrip`, `gyro orientation`, and
-  `gyro view recentered`; those become `derived` entries under the names above,
-  and the remaining triggers in the catalogue are added.
-- `input` entries now cover the whole normalized stream (they largely do
-  already, via `traceReceivedSmartCubeEvent`), with `facelets` redacted to a
-  hash.
-- `command` entries are added (currently only `sent command` text is logged).
+- The existing `virtual regrip`, `gyro orientation`, and `gyro view recentered`
+  trace entries become `derived` entries under the catalogue names; the
+  remaining triggers are added.
+- `input` entries cover the whole normalized stream, with `facelets` redacted to
+  a hash.
+- `command` entries are added.
 - The ring buffer grows from 500 entries to a duration-based cap.
 
-### Full profile (`?dev`)
+### Full profile — the Capture session control (`?dev`)
 
-When `?dev` is present the dock shows a **Capture session** control next to
-Diagnostics, visually distinct (red record dot, not the neutral Diagnostics
-styling).
+When `?dev` is present the dock shows **● Capture session** next to Diagnostics,
+visually distinct (record dot, not the neutral Diagnostics styling).
 
-- Start: snapshot `header` from live manager state, mode, route, prefs; record
-  `performance.now()` as the clock origin.
-- While recording: every normalized event, every command, and every derived
-  trigger is appended with `offsetMs = round(performance.now() - origin)`. No
-  buffer cap.
-- Stop: download `scratch/tapes/<name>.json` and keep a copy in `localStorage`
-  under `cubelab.smartCube.tape.<name>` for immediate `?replay=` use.
+- Start: snapshot `header` from live manager state, mode, prefs, and the URL
+  hash; record `performance.now()` as the clock origin.
+- While recording: every normalized event, every command, every derived trigger,
+  and every header-field change is appended with
+  `offsetMs = round(performance.now() - origin)`. No buffer cap.
+- Stop: prompt for a name, write `localStorage[cubelab.smartCube.tape.<name>]`,
+  and download `<name>.json` for promotion to `scratch/tapes/`.
 - Persistent indicator while recording; a toast with entry count and duration on
   stop.
 
-Capture never uploads. There is no network path in this feature.
+## Mock device manager
 
-## Replay
+`createMockDeviceManager({ catalogue, pickTape })` in
+`src/client/smart-cube/replay.ts`, implementing the full `SmartCubeManager`
+interface plus the replay transport surface:
 
-### Live replay manager
+```
+connect()      → tape = await pickTape(catalogue)      // this is the "chooser"
+               → inner = createReplaySmartCubeManager(tape)
+               → forward inner state / events / commands to our listeners
+               → publishState({ phase: "connected", device: tape.header.device })
+disconnect()   → tear down inner, publish disconnected
+reconnect()    → re-open the picker
+refresh / resetCubeState / flashLed  → recorded on inner for parity assertion; no I/O
++ getReplayState / play / pause / seek / step / setRate  → delegate to inner
+```
 
-`createReplaySmartCubeManager(tape)` in `src/client/smart-cube/replay.ts`,
-implementing the full `SmartCubeManager` interface from `types.ts`:
+`createReplaySmartCubeManager(tape)` stays the pure engine (already implemented):
+an in-memory `SmartCubeManager` with no I/O, driven by a validated tape, so its
+event timing is reproducible in the app and under fake timers.
 
-- `connect()` resolves immediately with a `SmartCubeDevice` from
-  `tape.header.device`; `getState()` reports `connected`.
-- A scheduler walks the `input` entries, calling event listeners at each
-  `offsetMs`. Playback state: `playing`, `paused`, `seek(offsetMs)`, `step()`,
-  `rate` (0.25×–4×).
-  - **Playing**: `setTimeout` chains on real `offsetMs` deltas ÷ `rate`.
-  - **Paused + slider**: `seek(t)` replays deterministically. Downstream
-    detectors are stateful, so a backward seek re-runs from `offsetMs = 0`
-    through `t`; forward seek continues from the cursor. Same fold
-    `gocube-replay.test.ts` already performs.
-  - **Step**: emit exactly the next `input` entry, freeze the clock at its
-    `offsetMs`.
-- `command` and `derived` entries are not emitted to the app. Instead the
-  manager exposes `expectedAt(offsetMs)` so the replay UI and tests can compare
-  the tape's recorded decisions against what the live pipeline produces now.
-- `sendCommand` / `flashLed` / `resetCubeState` record the call in memory for
-  parity assertion; no I/O.
-- `disconnect()` stops the scheduler and emits a synthetic `disconnected`.
+Injection: `loadSmartCubeManager` (`converter.ts`) reads a `data-mock` flag set
+by the mock page. When present it builds `createMockDeviceManager`; the Web
+Bluetooth path is never touched. On the normal page `?dev&replay=<name>` still
+pre-selects a tape and skips the picker.
 
-Injection: `loadSmartCubeManager` (`converter.ts:5439`). With `?dev` and
-`?replay=<name>`, resolve the tape (localStorage key or fetched `scratch/` URL)
-and substitute the replay manager. Everything downstream runs unmodified.
+## The mock page
 
-### Regression diff
+`/dev/mock/` → `src/pages/dev/mock.astro`, a thin wrapper:
 
-Because the tape carries the `derived` layer, replay is also a differential
-test. As the live pipeline runs, each newly produced trigger is matched against
-the tape's `derived` entry at the same `offsetMs` / trigger name:
+```astro
+---
+import Index from "../index.astro";
+---
+<Index initialMock={true} initialPlayer={true}
+       pageTitle="CubeLab Mock Device"
+       metaDescription="QA-only smart-cube session replay stage." />
+```
+
+`index.astro` gains `initialMock?: boolean`, which renders a `<meta
+name="robots" content="noindex">`, sets `data-mock` on the controller root, and
+unhides the QA panel in `CubeViewport.astro`. The route is **not** added to the
+nav, `public/sw.js` precache, or any sitemap.
+
+Building on player mode gives a full-size viewport with no converter chrome.
+Crucially it reuses the entire real downstream pipeline — `handleSmartCubeEvent`,
+the orientation tracker, regrip detection, live-sync, Academy, the viewport
+wiring — because that is exactly what a replay must exercise. No parallel
+rendering or event-handling code.
+
+### QA panel
+
+Shown only in mock mode, beside the viewport:
+
+- **Session** — loaded tape name, `full` / `diagnostic` badge, device, duration,
+  event count; **Choose session…** / **Change session…** opens the picker.
+- **Transport** — play/pause, scrubber over tape duration, step-forward, rate
+  selector, `offsetMs` / entry index.
+- **Event log** — a scrolling list of `timeline` entries as they fire,
+  colour-coded by `kind` (`input` / `derived` / `state`), each row click-to-seek.
+- **Derived diff** — live-vs-recorded trigger mismatches, updated as playback
+  advances (see [Regression diff](#regression-diff)).
+
+### Playback
+
+- Playing: `setTimeout` chain on real `offsetMs` deltas ÷ `rate` (0.25×–4×).
+- Paused + slider: `seek(t)` replays deterministically. Downstream detectors are
+  stateful, so a **backward seek resets downstream state** — the mock device
+  re-seeds the virtual cube from `header.startState` (or solved) and drains the
+  move queue before re-emitting `input` entries from `offsetMs = 0` through `t`.
+  Forward seek continues from the cursor. This is the fold
+  `gocube-replay.test.ts` already performs, made safe for the app's non-idempotent
+  move pipeline.
+- Step: emit exactly the next `input` entry, freeze the clock at its `offsetMs`.
+- `command` / `derived` / `state` entries are not emitted to the app. The
+  manager exposes `expectedAt(offsetMs)` for the diff.
+
+The existing `data-smart-cube-replay-*` dock controls (`e6289d9`) are folded
+into the QA panel described above. The dock status line reads
+`Mock · GoCube_A1B2 · Replay (diagnostic)`.
+
+## Tape catalogue and picker
+
+`pickTape` opens a `<dialog>` listing every known tape, grouped by source:
+
+| Group | Source | Notes |
+|---|---|---|
+| **QA scenarios** | `public/smart-cube/tapes/*.json`, listed by `index.json` | Checked-in, curated. `index.json` rows: `{ name, note, brand, durationMs, eventCount, profile }` — enough to render without fetching each tape. |
+| **My captures** | `localStorage` keys `cubelab.smartCube.tape.*` | Produced by **Capture session**. |
+| **Imported customer traces** | Paste or file-drop of a "Copy cube trace" payload | Ingested through `upgradeTrace()` + `validateSmartCubeTape`. Stored under `cubelab.smartCube.tape.imported.*` with a visible **Clear imported** action. |
+
+Each row: note · brand · duration · event count · profile badge. Footer:
+**Import file…** and **Paste trace…**. Selecting a row resolves `connect()`.
+
+A `diagnostic` tape whose `facelets` are redacted is still listed; on selection
+the transport UI disables the state-dependent panels with an inline reason.
+
+## Regression diff
+
+Because the tape carries the `derived` layer, replay is a differential test. As
+the live pipeline runs, each newly produced trigger is matched against the
+tape's `derived` entry at the same `offsetMs` / trigger name:
 
 - **match** — silent.
-- **mismatch** — surfaced in the replay UI timeline and, in tests, a failed
+- **mismatch** — shown in the transport diff panel; in tests, a failed
   assertion showing recorded `out` vs live `out`.
-- **missing / extra** — a trigger the tape had that the live run didn't produce
-  (or vice versa) is flagged at its offset.
+- **missing / extra** — a trigger the tape had that the live run did not produce
+  (or vice versa), flagged at its offset.
 
-This is what "error analysis" needs: a customer's `diagnostic` tape shows a
+This is what error analysis needs: a customer's `diagnostic` tape shows a
 `virtual-regrip` that fired with the wrong tokens; replaying it against a
 candidate fix shows the trigger now producing the right tokens at that offset.
 
-### Replay UI
-
-Under `?replay`, the dock gains a transport strip: play/pause, a scrubber over
-tape duration, step-forward, current `offsetMs` / entry index, rate selector,
-and a diff panel listing derived-trigger mismatches. It reuses the algorithm
-tape scrubber's visual language where practical.
-
 ## vitest usage
 
-Same format, no live manager. A helper drives the tape synchronously:
+Same format, no mock manager. `test/helpers/replay-tape.ts` drives a tape
+synchronously against the real downstream wiring:
 
 ```ts
 import { replayTape } from "../../helpers/replay-tape";
 import tape from "../../fixtures/smart-cube/regrip-lost-after-720.json";
 
 test("regrip survives a 720° spin on GoCube", () => {
-  const session = replayTape(tape);   // builds the real downstream chain
+  const session = replayTape(tape);   // builds the real tracker/detector chain
   session.runToEnd();                 // advances the mock clock entry by entry
 
-  // Deterministic reproduction: raw outputs.
   expect(session.regripTokens).toEqual([ /* … */ ]);
-  expect(session.issuedCommands).toMatchObject(tape.timeline
-    .filter((e) => e.kind === "command").map((e) => e.command));
-
-  // Regression diff against the recorded derived layer.
-  expect(session.derivedDiff()).toEqual([]);   // no mismatches vs the tape
+  expect(session.issuedCommands).toMatchObject(
+    tape.timeline.filter((e) => e.kind === "command").map((e) => e.command),
+  );
+  expect(session.derivedDiff()).toEqual([]);   // no mismatch vs the recorded baseline
 });
 ```
 
-`replayTape` constructs the same tracker/detector wiring the app uses, feeds the
-`input` entries in order with the clock at each `offsetMs`, and exposes both the
-observable results and `derivedDiff()` against the tape's `derived` entries.
-`runTo(offsetMs)` and `step()` mirror the live manager for time-travel
+`runTo(offsetMs)` and `step()` mirror the mock device for time-travel
 assertions. `test/fixtures/smart-cube/` is the promoted, permanent subset of
-`scratch/tapes/`.
+`public/smart-cube/tapes/`.
+
+## Privacy
+
+- A `full` tape and any imported customer trace contain solve state and hand
+  motion. The mock device, `Capture session`, and trace import are `?dev`-only.
+- Nothing in this feature uploads. Capture writes `localStorage` and a local
+  download; import reads a pasted string or a local file.
+- Imported customer traces are namespaced (`…tape.imported.*`) and purgeable in
+  one click.
+- The customer-facing Diagnostics button, its opt-in, and its
+  "never auto-upload" guarantee are unchanged.
 
 ## Migration
 
-- The contract test (`test/web-ui-contract.test.mjs:723`) asserts the string
-  `cubelab-smart-cube-diagnostic-v1`; update it to
-  `cubelab-smart-cube-tape-v1` and add a `profile` assertion.
-- Old traces in the wild use the previous shape. A one-shot `upgradeTrace()`
-  converts `cubelab-smart-cube-diagnostic-v1` → `…-tape-v1` (`events[]` →
-  `timeline[]` with `kind` inferred, `at` ISO → `offsetMs` deltas). Kept until
-  no un-upgraded traces are expected in support.
+- Contract test (`test/web-ui-contract.test.mjs`) asserts the string
+  `cubelab-smart-cube-diagnostic-v1`; update to `cubelab-smart-cube-tape-v1` and
+  add `profile` / `?dev`-gating assertions.
+- `upgradeTrace()` converts `cubelab-smart-cube-diagnostic-v1` →
+  `…-tape-v1`: `events[]` → `timeline[]` with `kind` inferred (`sent command` →
+  `command`, `virtual regrip` / `gyro *` → `derived`, everything else →
+  `input`), `at` ISO → `offsetMs` deltas, `profile: "diagnostic"`. Kept until no
+  un-upgraded traces are expected in support.
 
 ## Build sequence
 
-1. `cubelab-smart-cube-tape-v1` type + validator + `upgradeTrace()`, in
-   `src/client/smart-cube/`.
-2. Derived-trigger emission: route the existing `traceSmartCubeStabilization`
-   call sites (and the new ones from the catalogue) through a single
-   `recordDerived(trigger, in, out)` sink.
-3. `replayTape` test helper + first fixture (port `gocube-yxz.json`).
-4. `createReplaySmartCubeManager` with play/pause/seek/step and `expectedAt`.
-5. `?replay=` wiring in `loadSmartCubeManager` behind `?dev`.
-6. Diagnostics button: emit the new schema (`profile: "diagnostic"`), grow the
-   buffer.
-7. **Capture session** control behind `?dev`, download + localStorage.
-8. Replay transport + diff UI in the dock.
-9. Contract-test updates for the `?dev` gating, schema string, and `profile`.
+1. **Serve path** — bundled tapes from `public/smart-cube/tapes/` + `index.json`;
+   `loadReplayTape` fetches there, not `/scratch/`.
+2. **Schema `profile`** — add the field (default `"full"`), extend
+   `validateSmartCubeTape`, bound the entry count.
+3. **Unify the diagnostic writer** — emit `cubelab-smart-cube-tape-v1` /
+   `profile: "diagnostic"`; add `upgradeTrace()`; grow the buffer.
+4. **Derived sink** — one `recordDerived(trigger, in, out)` routed through the
+   existing `traceSmartCubeStabilization` call sites; `timeline` gains `derived`
+   and `state` entries; recorder writes one ordered `timeline[]`.
+5. **The mock page** — `src/pages/dev/mock.astro`, `initialMock` prop on
+   `index.astro`, `data-mock` root flag, `noindex`, kept out of nav / `sw.js`.
+6. **`createMockDeviceManager`** wrapping `createReplaySmartCubeManager`, with
+   `pickTape`, backward-seek downstream reset, and `expectedAt` / `derivedDiff`;
+   `loadSmartCubeManager` selects it on `data-mock`.
+7. **Catalogue + picker `<dialog>`** (grouped sources, Import file / Paste trace,
+   Clear imported) and the **QA panel** (session info, transport, event log,
+   diff); fold in the existing `data-smart-cube-replay-*` controls.
+8. **Flagship test** — port `gocube-yxz.json` to the tape format, drive through
+   `replayTape` against the real detectors, assert tokens + `derivedDiff() === []`;
+   retire the bespoke fixture in `gocube-replay.test.ts`.
+9. **Contract-test updates** for `?dev` gating, schema string, and `profile`.
 
-## Relationship to the diagnostic trace
+## Current implementation status
 
-The diagnostic trace is no longer a separate format — it is `profile:
-"diagnostic"` of the replay tape. The customer-facing Diagnostics button, its
-opt-in, and its "never auto-upload" guarantee are unchanged. What changes is
-that the text a customer pastes into a bug report is now something QA can load
-directly into the replay tooling and step through, with the cube's own recorded
-x/y/z detections visible alongside the raw packets.
+Landed (`bf0bc3b`, `e6289d9`, `8fe23e6`):
+
+- `createReplaySmartCubeManager` — the pure in-memory engine, with
+  play/pause/seek/step/rate and `getIssuedCommands`. Solid.
+- `createSmartCubeTapeRecorder` — monotonic `offsetMs`, no wall-clock event
+  timestamps.
+- `validateSmartCubeTape`, `loadReplayTape`, `replayTapeNameFromSearch`
+  (`?dev`-gated, path-traversal guarded).
+- `test/helpers/replay-tape.ts`, `test/fixtures/smart-cube/gocube-yxz-sample.json`.
+- `?dev&replay=<name>` wiring and a raw `data-smart-cube-replay-*` transport
+  strip; `● Capture session` button.
+
+Not yet built (this document): the `profile` field and unified diagnostic
+schema (steps 2–3), the `timeline[]` / `derived` / `state` model and its sink
+(step 4), the `/dev/mock/` page (step 5), `createMockDeviceManager` (step 6),
+the catalogue + picker + QA panel (step 7), and the flagship regression test
+(step 8). Two defects in the landed code to fix along the way: `loadReplayTape`
+fetches `/scratch/tapes/…` which Astro does not serve (step 1), and a backward
+`seek` re-emits `move` events into the non-idempotent `smartCubeMoveQueue`
+(step 6).
