@@ -28,6 +28,24 @@ const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url)
 const pwa = await readFile(new URL("../src/client/pwa.ts", import.meta.url), "utf8");
 const styles = await readFile(new URL("../src/styles/global.css", import.meta.url), "utf8");
 
+test("every Academy puts its current guidance before the introduction and phase details", () => {
+  const panels = [...page.matchAll(/data-academy-method-panel="([^"]+)"/g)];
+  assert.equal(panels.length, 12);
+  for (const [index, match] of panels.entries()) {
+    const panel = page.slice(match.index, panels[index + 1]?.index ?? page.indexOf("</section>", match.index));
+    const current = panel.search(/data-[\w-]+-current/);
+    const intro = panel.indexOf('class="academy-intro"');
+    const phases = panel.search(/data-[\w-]+-phases/);
+    assert.ok(current >= 0 && current < intro && current < phases, `${match[1]}: current step precedes lesson details`);
+    const guide = panel.search(/data-[\w-]+-guide hidden/);
+    if (guide >= 0) {
+      assert.ok(guide < intro, `${match[1]}: next guide precedes introduction`);
+      const actions = panel.indexOf('class="academy-solution-actions"');
+      assert.ok(actions > guide && actions < intro, `${match[1]}: guide actions immediately available before lesson details`);
+    }
+  }
+});
+
 test("the static shell declares the reversible state-interchange cards", () => {
   assert.match(page, /key: "pieces"[\s\S]*sizes: "2,3"/);
   assert.match(page, /key: "orbit64"[\s\S]*sizes: "2,3,4,5"/);
