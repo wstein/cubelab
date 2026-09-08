@@ -123,7 +123,7 @@ let solveXCentreCycle5x5 = (state: cubeState): result<guide, reductionError> =>
       | Some(alg) => switch MoveExecutor.applyAlg(state, alg) {
         | Error(_) => Error({message: "The X-centre cycle could not be replayed on the 5×5 state."})
         | Ok(replay) => switch progressFor(replay) {
-          | Some(after) if after.x > initial.x => Ok({alg, algorithm: MoveTransform.serialize(alg), before: initial.score, after: after.score, kind: "cycle", barsBefore: 0, barsAfter: 0, completedBefore: initial.x + initial.plus, completedAfter: after.x + after.plus})
+          | Some(after) if after.x > initial.x => Ok({alg, algorithm: MoveTransform.serialize(alg), before: initial.score, after: after.score, kind: "xCycle", barsBefore: 0, barsAfter: 0, completedBefore: initial.x + initial.plus, completedAfter: after.x + after.plus})
           | _ => Error({message: "The mapped X-centre cycle did not improve the 5×5 X-centre orbit."})
           }
         }
@@ -155,7 +155,7 @@ let solvePlusCentreCycle5x5 = (state: cubeState): result<guide, reductionError> 
       | Some(alg) => switch MoveExecutor.applyAlg(state, alg) {
         | Error(_) => Error({message: "The +-centre cycle could not be replayed on the 5×5 state."})
         | Ok(replay) => switch progressFor(replay) {
-          | Some(after) if after.plus > initial.plus => Ok({alg, algorithm: MoveTransform.serialize(alg), before: initial.score, after: after.score, kind: "cycle", barsBefore: 0, barsAfter: 0, completedBefore: initial.x + initial.plus, completedAfter: after.x + after.plus})
+          | Some(after) if after.plus > initial.plus => Ok({alg, algorithm: MoveTransform.serialize(alg), before: initial.score, after: after.score, kind: "plusCycle", barsBefore: 0, barsAfter: 0, completedBefore: initial.x + initial.plus, completedAfter: after.x + after.plus})
           | _ => Error({message: "The mapped +-centre cycle did not improve the 5×5 +-centre orbit."})
           }
         }

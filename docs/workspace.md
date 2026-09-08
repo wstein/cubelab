@@ -123,7 +123,7 @@ projected state passes the 3×3 physical/parity check. The reduced 3×3 finish r
 explicitly locked until its dedicated 5×5 replay lifter is available.
 
 The Academy's synchronous centre hint is deliberately bounded. **Find full
-X-centre cycle** runs the exact 24-piece X-then-+-centre cycle solver in a dedicated worker,
+X/+ centre cycle** runs the exact 24-piece X-then-+-centre cycle solver in a dedicated worker,
 reports its table-preparation stage, and can stop immediately by terminating
 that worker. Table construction is never started while the page is rendering
 or responding to input.

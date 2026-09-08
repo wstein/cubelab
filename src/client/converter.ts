@@ -3018,7 +3018,7 @@ if (root) {
       } else {
         const key = FaceletCodec.render(recognized.state);
         if (reduction5x5CycleGuide !== null && reduction5x5CycleKey === key) {
-          academy.guide.textContent = `Replay-verified X-centre cycle: ${reduction5x5CycleGuide.algorithm}.`;
+          academy.guide.textContent = `Replay-verified ${reduction5x5CycleGuide.kind === "plusCycle" ? "+-centre" : "X-centre"} cycle: ${reduction5x5CycleGuide.algorithm}.`;
           academy.guide.classList.remove("error");
           academy.applyCentre.hidden = false;
           academy.applyCentre.disabled = false;
@@ -3027,7 +3027,7 @@ if (root) {
           academy.guide.classList.add("error");
           academy.findCycle.hidden = false;
           academy.findCycle.disabled = reduction5x5CycleBusy;
-          academy.findCycle.textContent = reduction5x5CycleBusy ? "Stop centre-cycle search" : "Find full X-centre cycle";
+          academy.findCycle.textContent = reduction5x5CycleBusy ? "Stop centre-cycle search" : "Find full X/+ centre cycle";
         }
       }
     }
@@ -5488,7 +5488,7 @@ if (root) {
       reduction5x5CycleClient.terminate();
       reduction5x5CycleClient = newReduction5x5CycleClient();
       reduction5x5CycleBusy = false;
-      reduction5x5Academy.findCycle.textContent = "Find full X-centre cycle";
+      reduction5x5Academy.findCycle.textContent = "Find full X/+ centre cycle";
       reduction5x5Academy.guide.textContent = "Centre-cycle search stopped.";
       return;
     }
@@ -5498,13 +5498,13 @@ if (root) {
     reduction5x5CycleBusy = true;
     reduction5x5Academy.findCycle.hidden = false;
     reduction5x5Academy.findCycle.textContent = "Stop centre-cycle search";
-    reduction5x5Academy.guide.textContent = "Preparing exact 24-piece X-centre tables…";
+    reduction5x5Academy.guide.textContent = "Preparing exact 24-piece X/+ centre tables…";
     try {
       const guide = await reduction5x5CycleClient.solve(state);
       if (request !== reduction5x5CycleRequest || FaceletCodec.render(activeRecognized?.state ?? state) !== key) return;
       reduction5x5CycleGuide = guide;
       reduction5x5CycleKey = key;
-      reduction5x5Academy.guide.textContent = `Replay-verified X-centre cycle: ${guide.algorithm}.`;
+      reduction5x5Academy.guide.textContent = `Replay-verified ${guide.kind === "plusCycle" ? "+-centre" : "X-centre"} cycle: ${guide.algorithm}.`;
       reduction5x5Academy.guide.classList.remove("error");
       reduction5x5Academy.applyCentre.hidden = false;
       reduction5x5Academy.applyCentre.disabled = false;
@@ -5513,7 +5513,7 @@ if (root) {
     } finally {
       if (request === reduction5x5CycleRequest) {
         reduction5x5CycleBusy = false;
-        reduction5x5Academy.findCycle.textContent = "Find full X-centre cycle";
+        reduction5x5Academy.findCycle.textContent = "Find full X/+ centre cycle";
       }
     }
   });
