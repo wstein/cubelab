@@ -1,12 +1,17 @@
 import {
-  connectSmartCube,
+  getRegisteredProtocols,
   type ConnectSmartCubeOptions as TransportConnectOptions,
   type SmartCubeConnection as TransportConnection,
   type SmartCubeEvent as TransportEvent,
 } from "smartcube-web-bluetooth";
 
 import {resolveSmartCubeDriver} from "./drivers";
-import {reverseGanMacAddress} from "./gan-mac";
+import {
+  connectFastGoCube,
+  GOCUBE_SERVICE_UUID,
+  isGoCubeDeviceName,
+} from "./fast-gocube";
+import {recoverGanI4MacFromAdvertisements, reverseGanMacAddress} from "./gan-mac";
 import type {
   SmartCubeCapabilities,
   SmartCubeCommand,
@@ -148,10 +153,96 @@ const transportOptions = (
   onStatus,
 });
 
-/** Use the vendor's picker, pre-GATT advertisement capture, and protocol routing. */
-export const smartCubeTransportConnector: TransportConnector = (
+/**
+ * Select once, then bypass generic advertisement collection for GoCube.
+ *
+ * `connectSmartCube()` unconditionally waits up to 2.5 seconds for an
+ * advertisement before resolving any profile. GoCube neither encrypts with a
+ * MAC nor needs that data, so that wait regressed its formerly direct GATT
+ * connection. Other vendors keep the generic package's protocol contracts;
+ * GAN i4 captures its MAC before it stops advertising.
+ */
+export const smartCubeTransportConnector: TransportConnector = async (
   options: TransportConnectOptions = {},
-): Promise<TransportConnection> => connectSmartCube(options);
+): Promise<TransportConnection> => {
+  const protocols = getRegisteredProtocols();
+  const filters: BluetoothLEScanFilter[] = [];
+  const serviceUuids = new Set<string>([GOCUBE_SERVICE_UUID]);
+  const manufacturerIds = new Set<number>();
+
+  for (const protocol of protocols) {
+    protocol.nameFilters?.forEach((filter) => filters.push(filter as BluetoothLEScanFilter));
+    protocol.optionalServices?.forEach((uuid) => serviceUuids.add(uuid));
+    protocol.optionalManufacturerData?.forEach((id) => manufacturerIds.add(id));
+  }
+  manufacturerIds.forEach((companyIdentifier) => {
+    filters.push({manufacturerData: [{companyIdentifier}]});
+  });
+  if (options.deviceName) filters.unshift({name: options.deviceName});
+
+  options.onStatus?.("Select your smart cube…");
+  const pickerStart = performance.now();
+  const device = await navigator.bluetooth.requestDevice(options.deviceSelection === "any"
+    ? {
+        acceptAllDevices: true,
+        optionalServices: [...serviceUuids],
+        optionalManufacturerData: [...manufacturerIds],
+      }
+    : {
+        filters,
+        optionalServices: [...serviceUuids],
+        optionalManufacturerData: [...manufacturerIds],
+      });
+  const pickerEnd = performance.now();
+
+  if (isGoCubeDeviceName(device.name ?? "")) {
+    return connectFastGoCube(device, {
+      onStatus: options.onStatus,
+      signal: options.signal,
+      tPickerStart: pickerStart,
+      tPickerEnd: pickerEnd,
+    });
+  }
+
+  const gatt = device.gatt;
+  if (!gatt) throw new Error("GATT is unavailable on the selected device");
+  const recoveredGanI4Mac = await recoverGanI4MacFromAdvertisements(device);
+  const macAddressProvider = recoveredGanI4Mac
+    ? async () => recoveredGanI4Mac
+    : options.macAddressProvider;
+  try {
+    options.onStatus?.("Connecting GATT…");
+    await gatt.connect();
+    options.onStatus?.("Resolving GATT profile…");
+    const services = await gatt.getPrimaryServices();
+    const connectedServiceUuids = new Set(services.map((service) => {
+      const uuid = service.uuid;
+      return /^[0-9a-f]{4}$/i.test(uuid)
+        ? `0000${uuid}-0000-1000-8000-00805f9b34fb`.toUpperCase()
+        : uuid.toUpperCase();
+    }));
+    const ranked = protocols.map((protocol) => ({
+      protocol,
+      score: protocol.gattAffinity(connectedServiceUuids, device),
+    }));
+    const bestScore = ranked.reduce((score, entry) => Math.max(score, entry.score), 0);
+    const best = ranked.filter((entry) => entry.score === bestScore);
+    const protocol = bestScore > 0
+      ? (best.find((entry) => entry.protocol.matchesDevice(device)) ?? best[0])?.protocol
+      : protocols.find((entry) => entry.matchesDevice(device));
+    if (!protocol) throw new Error("Selected device doesn't match a supported smart-cube profile");
+    return await protocol.connect(device, macAddressProvider, {
+      serviceUuids: connectedServiceUuids,
+      advertisementManufacturerData: null,
+      enableAddressSearch: options.enableAddressSearch === true,
+      onStatus: options.onStatus,
+      signal: options.signal,
+    });
+  } catch (error) {
+    if (gatt.connected) gatt.disconnect();
+    throw error;
+  }
+};
 
 export const createSmartCubeManager = (
   dependencies: Partial<SmartCubeManagerDependencies> = {},
