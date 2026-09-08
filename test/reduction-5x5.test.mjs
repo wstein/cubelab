@@ -5,7 +5,7 @@ import * as MoveParser from "../src/Move/MoveParser.res.mjs";
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as Orbit64Codec from "../src/State/Orbit64Codec.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
-import {findOneByThreeBar5x5, inspectReduction5x5, planOLLParityRepair5x5, planPLLParityRepair5x5, planNextCentre5x5, planNextWingPair5x5, reduce5x5, solveXCentreCycle5x5} from "../src/Solver/Reduction5x5.res.mjs";
+import {findL2CRelation5x5, findOneByThreeBar5x5, inspectReduction5x5, planOLLParityRepair5x5, planPLLParityRepair5x5, planNextCentre5x5, planNextWingPair5x5, reduce5x5, solveXCentreCycle5x5} from "../src/Solver/Reduction5x5.res.mjs";
 
 test("inspects fixed-core 5×5 centre and wing milestones", () => {
   const solved = StateTypes.solved(5);
@@ -116,6 +116,19 @@ test("uses a buffered centre 3-cycle when only a whole centre face can advance",
   const replay = MoveExecutor.applyAlg(state._0, guide._0.alg);
   expect(replay.TAG).toBe("Ok");
   if (replay.TAG === "Ok") expect(inspectReduction5x5(replay._0)).toMatchObject({TAG: "Ok", _0: {centreFacesComplete: 3}});
+});
+
+test("solves the reported last-two-centres relation with a restored wing buffer", () => {
+  const state = FaceletCodec.parse(5, "UDLBBBUUULFUUUFBUUUBBBRLRDDLDLRRRRBFRRRUURRRFUFBDLDRDUFUFFFUBFFFRFFFFLDLBUFLDUFRRDDDLUDDBDRDDDRDLUBFBUDURULLLRBLLLLFLLLDLDLBFULDFRDBBBFFBBDRRBBBRULRFB");
+  expect(state.TAG).toBe("Ok");
+  if (state.TAG !== "Ok") return;
+  const guide = findL2CRelation5x5(state._0);
+  expect(guide).toMatchObject({TAG: "Ok", _0: {algorithm: "2R' B U2 M U2 M' B' 2R", kind: "l2c", before: 46, after: 48}});
+  if (guide.TAG !== "Ok") return;
+  const replay = MoveExecutor.applyAlg(state._0, guide._0.alg);
+  expect(replay).toMatchObject({TAG: "Ok"});
+  if (replay.TAG === "Ok") expect(inspectReduction5x5(replay._0)).toMatchObject({TAG: "Ok", _0: {centreFacesComplete: 6, xCentresComplete: 6, plusCentresComplete: 6}});
+  expect(planNextCentre5x5(state._0)).toMatchObject({TAG: "Ok", _0: {algorithm: "2R' B U2 M U2 M' B' 2R", kind: "l2c", before: 46, after: 48}});
 });
 
 test("returns a centre-preserving slice-cycle wing improvement", () => {

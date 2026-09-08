@@ -157,6 +157,11 @@ hidden unless that replay yields a physically valid reduced 3×3. The L2C/L2E
 endgame emphasis in the Cubing Cheat Sheet is reflected in the buffered centre
 cycles and centre-preserving wing planner.
 
+For the protected L2C relation case, the planner tries a bounded pair of
+outer/inner setup turns around the `U2 M' U2 M` centre-permutation cycle and
+its directional variants, then restores the buffer. It accepts only a replay
+that preserves completed X-centres and advances the 3×3-centre handoff.
+
 Both phases of the reused three-phase diagnostic have independent 30,000-node
 budgets; a budget miss is a normal bounded failure, never an open-ended search.
 

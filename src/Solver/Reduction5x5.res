@@ -337,6 +337,42 @@ let findCentreCommutator = (state: cubeState, initial: progress): option<guide> 
   best.contents
 }
 
+/** Last-two-centres relation solver. The L2C slice cycle needs a temporary
+ * buffer: set up two outer/inner turns, cycle with M, then restore them. A
+ * candidate is accepted only when the buffer is restored well enough to keep
+ * all completed X-centres and the centre handoff strictly improves. */
+let findL2CRelation5x5 = (state: cubeState): result<guide, reductionError> =>
+  switch progressFor(state) {
+  | None => Error({message: "The L2C relation solver requires a complete 5×5 state."})
+  | Some(initial) => {
+    let setups = centreSearchMoves
+    let seeds = ["U2 M' U2 M", "U2 M U2 M'", "U2 M' U2' M", "U2 M U2' M'"]
+    let best = ref(None)
+    setups->Array.forEach(firstNotation => setups->Array.forEach(secondNotation => seeds->Array.forEach(seedNotation => {
+      switch (parse(firstNotation), parse(secondNotation), parse(seedNotation)) {
+      | (Some(first), Some(second), Some(seed)) => {
+        let alg = Array.concat(Array.concat(Array.concat(Array.concat(first, second), seed), MoveTransform.invert(second)), MoveTransform.invert(first))
+        switch MoveExecutor.applyAlg(state, alg) {
+        | Error(_) => ()
+        | Ok(replay) => switch progressFor(replay) {
+          | Some(after) if after.x >= initial.x && (after.score > initial.score || after.faces > initial.faces || after.plus > initial.plus) => {
+            let guide = {alg, algorithm: MoveTransform.serialize(alg), before: initial.score, after: after.score, kind: "l2c", barsBefore: 0, barsAfter: 0, completedBefore: initial.x + initial.plus, completedAfter: after.x + after.plus}
+            switch best.contents { | None => best := Some(guide) | Some(current) if guide.after > current.after || (guide.after == current.after && guide.completedAfter > current.completedAfter) => best := Some(guide) | Some(_) => () }
+            }
+          | _ => ()
+          }
+        }
+      }
+      | _ => ()
+      }
+    })))
+    switch best.contents {
+    | Some(guide) => Ok(guide)
+    | None => Error({message: "No replay-verified L2C relation cycle with a restored wing buffer is available."})
+    }
+  }
+  }
+
 /** Runs only in the solver worker. The diagonal X-centres are isomorphic to
  * the 24 centres of a 4×4, so the exact three-phase coordinate can supply a
  * replay-verified 5×5 centre cycle. */
@@ -482,12 +518,15 @@ let planNextCentre5x5 = (state: cubeState): result<guide, reductionError> =>
       | Some(guide) => Ok(guide)
       | None => switch findCentreCommutator(state, initial) {
         | Some(guide) => Ok(guide)
-        | None => switch planOneByThreeBar(state, initial) {
+        | None => switch findL2CRelation5x5(state) {
+          | Ok(guide) => Ok(guide)
+          | Error(_) => switch planOneByThreeBar(state, initial) {
           | Some(guide) => Ok(guide)
           | None => switch planNextCentreOrbit(state, initial) {
             | Some(guide) => Ok(guide)
             | None => Error({message: "No replay-verified 1×3 bar insertion or centre commutator is available for this state."})
             }
+          }
           }
         }
       }

@@ -708,6 +708,94 @@ function findCentreCommutator(state, initial) {
   return best.contents;
 }
 
+function findL2CRelation5x5(state) {
+  let initial = progressFor(state);
+  if (initial === undefined) {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "The L2C relation solver requires a complete 5×5 state."
+      }
+    };
+  }
+  let seeds = [
+    "U2 M' U2 M",
+    "U2 M U2 M'",
+    "U2 M' U2' M",
+    "U2 M U2' M'"
+  ];
+  let best = {
+    contents: undefined
+  };
+  centreSearchMoves.forEach(firstNotation => {
+    centreSearchMoves.forEach(secondNotation => {
+      seeds.forEach(seedNotation => {
+        let match = parse(firstNotation);
+        let match$1 = parse(secondNotation);
+        let match$2 = parse(seedNotation);
+        if (match === undefined) {
+          return;
+        }
+        if (match$1 === undefined) {
+          return;
+        }
+        if (match$2 === undefined) {
+          return;
+        }
+        let alg = match.concat(match$1).concat(match$2).concat(MoveTransform.invert(match$1)).concat(MoveTransform.invert(match));
+        let replay = MoveExecutor.applyAlg(state, alg);
+        if (replay.TAG !== "Ok") {
+          return;
+        }
+        let after = progressFor(replay._0);
+        if (after === undefined) {
+          return;
+        }
+        if (!(after.x >= initial.x && (after.score > initial.score || after.faces > initial.faces || after.plus > initial.plus))) {
+          return;
+        }
+        let guide_algorithm = MoveTransform.serialize(alg);
+        let guide_before = initial.score;
+        let guide_after = after.score;
+        let guide_completedBefore = initial.x + initial.plus | 0;
+        let guide_completedAfter = after.x + after.plus | 0;
+        let guide = {
+          alg: alg,
+          algorithm: guide_algorithm,
+          before: guide_before,
+          after: guide_after,
+          kind: "l2c",
+          barsBefore: 0,
+          barsAfter: 0,
+          completedBefore: guide_completedBefore,
+          completedAfter: guide_completedAfter
+        };
+        let current = best.contents;
+        if (current !== undefined && !(guide_after > current.after || guide_after === current.after && guide_completedAfter > current.completedAfter)) {
+          return;
+        } else {
+          best.contents = guide;
+          return;
+        }
+      });
+    });
+  });
+  let guide = best.contents;
+  if (guide !== undefined) {
+    return {
+      TAG: "Ok",
+      _0: guide
+    };
+  } else {
+    return {
+      TAG: "Error",
+      _0: {
+        message: "No replay-verified L2C relation cycle with a restored wing buffer is available."
+      }
+    };
+  }
+}
+
 function solveXCentreCycle5x5(state) {
   let initial = progressFor(state);
   if (initial === undefined) {
@@ -1070,18 +1158,25 @@ function planNextCentre5x5(state) {
       _0: guide$2
     };
   }
-  let guide$3 = planOneByThreeBar(state, initial);
-  if (guide$3 !== undefined) {
+  let guide$3 = findL2CRelation5x5(state);
+  if (guide$3.TAG === "Ok") {
     return {
       TAG: "Ok",
-      _0: guide$3
+      _0: guide$3._0
     };
   }
-  let guide$4 = planNextCentreOrbit(state, initial);
+  let guide$4 = planOneByThreeBar(state, initial);
   if (guide$4 !== undefined) {
     return {
       TAG: "Ok",
       _0: guide$4
+    };
+  }
+  let guide$5 = planNextCentreOrbit(state, initial);
+  if (guide$5 !== undefined) {
+    return {
+      TAG: "Ok",
+      _0: guide$5
     };
   } else {
     return {
@@ -1437,6 +1532,7 @@ export {
   planBoundedBarSetup,
   findOneByThreeBar5x5,
   findCentreCommutator,
+  findL2CRelation5x5,
   solveXCentreCycle5x5,
   solvePlusCentreCycle5x5,
   planNextCentreOrbit,
