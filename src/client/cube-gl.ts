@@ -878,10 +878,14 @@ export const deviceOrientationDelta = (
     );
   }
   if (frame === "gan-wire") {
+    // GAN i4's labelled world-frame capture establishes this proper basis:
+    // raw +Y/-Z/+X are the user's clockwise Right/Up/Front axes.  Keep this
+    // conversion after the world delta so virtual regrips follow the visible
+    // RUF faces instead of the cube's changing local axes.
     return normalizedQuaternion({
-      x: rawDelta.x,
+      x: -rawDelta.y,
       y: rawDelta.z,
-      z: -rawDelta.y,
+      z: -rawDelta.x,
       w: rawDelta.w,
     });
   }

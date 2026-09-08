@@ -89,15 +89,17 @@ describe("smart-cube gyro rotation feedback", () => {
 
   test("accurately verifies rotations in gan-wire frame across all axes", () => {
     const half = Math.sqrt(0.5);
-    // GAN wire: +X is Red (Right), +Y is Blue (Back), +Z is White (Up)
-    // 1. R rotation (around Red/+X_gan): x is negative for clockwise x
-    expect(assessGyroRotation(identity, {x: -half, y: 0, z: 0, w: half}, "gan-wire", "X", 1).matched)
+    // GAN i4 measured world basis: raw (x, y, z) -> user RUF (-y, z, -x).
+    // This labelled capture rotated CW red-X, green-Y, red-Z and reported
+    // world deltas +Y, -Z, +X respectively.
+    // 1. +Y_gan -> -X (clockwise x)
+    expect(assessGyroRotation(identity, {x: 0, y: half, z: 0, w: half}, "gan-wire", "X", 1).matched)
       .toBe(true);
-    // 2. U rotation (around White/+Z_gan): z is negative for clockwise y
+    // 2. -Z_gan -> -Y (clockwise y)
     expect(assessGyroRotation(identity, {x: 0, y: 0, z: -half, w: half}, "gan-wire", "Y", 1).matched)
       .toBe(true);
-    // 3. F rotation (around Green/-Y_gan): y is positive for clockwise z
-    expect(assessGyroRotation(identity, {x: 0, y: half, z: 0, w: half}, "gan-wire", "Z", 1).matched)
+    // 3. +X_gan -> -Z (clockwise z)
+    expect(assessGyroRotation(identity, {x: half, y: 0, z: 0, w: half}, "gan-wire", "Z", 1).matched)
       .toBe(true);
   });
 
