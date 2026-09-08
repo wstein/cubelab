@@ -10,9 +10,35 @@ function makeSolved() {
   let wEdge = Stdlib_Array.make(24, 0);
   let cp = Stdlib_Array.make(8, 0);
   let co = Stdlib_Array.make(8, 0);
+  let centerColors = [
+    0,
+    0,
+    0,
+    0,
+    3,
+    3,
+    3,
+    3,
+    2,
+    2,
+    2,
+    2,
+    5,
+    5,
+    5,
+    5,
+    1,
+    1,
+    1,
+    1,
+    4,
+    4,
+    4,
+    4
+  ];
   for (let i = 0; i <= 23; ++i) {
-    Util555.setU(tCenter, i, i / 4 | 0);
-    Util555.setU(xCenter, i, i / 4 | 0);
+    Util555.setU(tCenter, i, Util555.getU(centerColors, i));
+    Util555.setU(xCenter, i, Util555.getU(centerColors, i));
     Util555.setU(wEdge, i, i);
   }
   for (let i$1 = 0; i$1 <= 11; ++i$1) {

@@ -8,6 +8,7 @@ import * as Phase3Edge from "../../src/Solver/Cube555/Phase3Edge555.res.mjs";
 import * as Phase4Center from "../../src/Solver/Cube555/Phase4Center555.res.mjs";
 import * as Phase5Center from "../../src/Solver/Cube555/Phase5Center555.res.mjs";
 import * as PruningTable from "../../src/Solver/Cube555/PruningTable555.res.mjs";
+import * as Solver555 from "../../src/Solver/Cube555/Solver555.res.mjs";
 
 describe("CubieCube555 foundational logic", () => {
   it("initializes a solved 5x5 cubie cube", () => {
@@ -17,10 +18,18 @@ describe("CubieCube555 foundational logic", () => {
     expect(cube.mEdge).toHaveLength(12);
     expect(cube.wEdge).toHaveLength(24);
 
-    // Verify center faces 0..5
+    // Verify center faces in URFDLB slot order: U=0, D=3, F=2, B=5, R=1, L=4
+    const expectedColors = [
+      0, 0, 0, 0, // U
+      3, 3, 3, 3, // D
+      2, 2, 2, 2, // F
+      5, 5, 5, 5, // B
+      1, 1, 1, 1, // R
+      4, 4, 4, 4, // L
+    ];
     for (let i = 0; i < 24; i++) {
-      expect(cube.tCenter[i]).toBe(Math.floor(i / 4));
-      expect(cube.xCenter[i]).toBe(Math.floor(i / 4));
+      expect(cube.tCenter[i]).toBe(expectedColors[i]);
+      expect(cube.xCenter[i]).toBe(expectedColors[i]);
     }
   });
 
@@ -256,6 +265,41 @@ describe("PruningTable555 nibble packing and BFS generation", () => {
     expect(PruningTable.getDistance(table, 3)).toBe(3);
   });
 });
+
+describe("Solver555 phase inspection and facelet parsing", () => {
+  it("classifies a solved 5x5 cube as Phase 6 (reduction complete)", () => {
+    const cube = CubieCube.makeSolved();
+    const inspection = Solver555.inspectCube(cube);
+    expect(inspection.udCentersSolved).toBe(true);
+    expect(inspection.fbCentersSolved).toBe(true);
+    expect(inspection.allCentersSolved).toBe(true);
+    expect(inspection.edgesPaired).toBe(true);
+    expect(inspection.phaseDescription).toContain("Reduction complete");
+  });
+
+  it("detects Phase 1 when U/D centers are displaced by inner slice turn", () => {
+    const cube = CubieCube.makeSolved();
+    CubieCube.doMove(cube, Util.sliceRx1); // 2R turn displaces U/D centers
+    const inspection = Solver555.inspectCube(cube);
+    expect(inspection.udCentersSolved).toBe(false);
+    expect(inspection.phaseDescription).toContain("Phase 1");
+  });
+
+  it("parses canonical 150-facelet solved string into CubieCube555", () => {
+    const solvedFacelets =
+      "U".repeat(25) +
+      "R".repeat(25) +
+      "F".repeat(25) +
+      "D".repeat(25) +
+      "L".repeat(25) +
+      "B".repeat(25);
+    const parsed = Solver555.fromFaceletString(solvedFacelets);
+    expect(parsed).not.toBeNull();
+    const inspection = Solver555.inspectCube(parsed);
+    expect(inspection.allCentersSolved).toBe(true);
+  });
+});
+
 
 
 
