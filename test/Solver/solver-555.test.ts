@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import * as CubieCube from "../../src/Solver/Cube555/CubieCube555.res.mjs";
 import * as Util from "../../src/Solver/Cube555/Util555.res.mjs";
+import * as Phase1Center from "../../src/Solver/Cube555/Phase1Center555.res.mjs";
+import * as Phase2Center from "../../src/Solver/Cube555/Phase2Center555.res.mjs";
 
 describe("CubieCube555 foundational logic", () => {
   it("initializes a solved 5x5 cubie cube", () => {
@@ -74,3 +76,60 @@ describe("CubieCube555 foundational logic", () => {
     expect(recovered).toBe(0);
   });
 });
+
+describe("Phase1Center555 coordinate reduction", () => {
+  it("initializes to solved coordinates 0 for both T and X centers", () => {
+    const center = Phase1Center.make();
+    expect(Phase1Center.getTCenter(center)).toBe(0);
+    expect(Phase1Center.getXCenter(center)).toBe(0);
+  });
+
+  it("roundtrips arbitrary coordinates correctly", () => {
+    const center = Phase1Center.make();
+    Phase1Center.setTCenter(center, 42);
+    expect(Phase1Center.getTCenter(center)).toBe(42);
+
+    Phase1Center.setXCenter(center, 1337);
+    expect(Phase1Center.getXCenter(center)).toBe(1337);
+  });
+
+  it("restores coordinate after full 4 quarter turns", () => {
+    const center = Phase1Center.make();
+    // 4 quarter turns of R slice
+    for (let i = 0; i < 4; i++) {
+      Phase1Center.doMove(center, Util.sliceRx1);
+    }
+    expect(Phase1Center.getTCenter(center)).toBe(0);
+    expect(Phase1Center.getXCenter(center)).toBe(0);
+  });
+});
+
+describe("Phase2Center555 coordinate reduction", () => {
+  it("initializes Phase 2 centers to coordinate 0 and even parity", () => {
+    const center = Phase2Center.make();
+    expect(Phase2Center.getTCenter(center)).toBe(0);
+    expect(Phase2Center.getXCenter(center)).toBe(0);
+    expect(center.eParity).toBe(0);
+  });
+
+  it("roundtrips arbitrary Phase 2 coordinates within 0..12869", () => {
+    const center = Phase2Center.make();
+    Phase2Center.setTCenter(center, 4242);
+    expect(Phase2Center.getTCenter(center)).toBe(4242);
+
+    Phase2Center.setXCenter(center, 9999);
+    expect(Phase2Center.getXCenter(center)).toBe(9999);
+  });
+
+  it("applies valid Phase 2 moves and toggles parity accurately", () => {
+    const center = Phase2Center.make();
+    // Move 13 in Phase 2 is sliceRx1 which toggles parity (eParityDiff[13] === 1)
+    Phase2Center.doMove(center, 13);
+    expect(center.eParity).toBe(1);
+
+    // Another sliceRx1 toggles it again
+    Phase2Center.doMove(center, 13);
+    expect(center.eParity).toBe(0);
+  });
+});
+
