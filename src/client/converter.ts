@@ -488,6 +488,8 @@ if (root) {
   const smartCubeChooseSession = root.querySelector<HTMLButtonElement>("[data-smart-cube-choose-session]")!;
   const smartCubeTapePicker = root.querySelector<HTMLDialogElement>("[data-smart-cube-tape-picker]")!;
   const smartCubeTapePickerList = root.querySelector<HTMLElement>("[data-smart-cube-tape-picker-list]")!;
+  const smartCubeImportSession = root.querySelector<HTMLButtonElement>("[data-smart-cube-import-session]")!;
+  const smartCubeImportSessionFile = root.querySelector<HTMLInputElement>("[data-smart-cube-import-session-file]")!;
   const timerCover = root.querySelector<HTMLButtonElement>("[data-timer-cover]")!;
   const timerHud = root.querySelector<HTMLElement>("[data-timer-hud]")!;
   const timerHudPhase = root.querySelector<HTMLElement>("[data-timer-hud-phase]")!;
@@ -5539,6 +5541,42 @@ if (root) {
   const pickMockTape = <T extends {name: string; note?: string; brand?: string; durationMs?: number; profile?: string; load: () => Promise<unknown>}>(catalogue: readonly T[]): Promise<unknown> =>
     new Promise((resolve, reject) => {
       let selected = false;
+      let settled = false;
+      const cleanUp = () => {
+        smartCubeImportSession.removeEventListener("click", openImport);
+        smartCubeImportSessionFile.removeEventListener("change", importSession);
+        smartCubeTapePicker.removeEventListener("close", cancel);
+      };
+      const settle = (action: () => void) => {
+        if (settled) return;
+        settled = true;
+        selected = true;
+        cleanUp();
+        smartCubeTapePicker.close();
+        action();
+      };
+      const openImport = () => smartCubeImportSessionFile.click();
+      const importSession = async () => {
+        const file = smartCubeImportSessionFile.files?.[0];
+        smartCubeImportSessionFile.value = "";
+        if (!file) return;
+        try {
+          const tape = JSON.parse(await file.text());
+          settle(() => resolve(tape));
+        } catch (reason) {
+          if (reason instanceof SyntaxError) {
+            smartCubeQaDiffValue.textContent = "Invalid JSON session file";
+            return;
+          }
+          settle(() => reject(reason));
+        }
+      };
+      const cancel = () => {
+        if (!selected) {
+          cleanUp();
+          reject(new DOMException("Mock tape selection cancelled", "AbortError"));
+        }
+      };
       smartCubeTapePickerList.replaceChildren();
       catalogue.forEach((entry) => {
         const button = document.createElement("button");
@@ -5550,19 +5588,18 @@ if (root) {
         button.textContent = description ? `${entry.name} — ${description}` : entry.name;
         button.addEventListener("click", async () => {
           button.disabled = true;
-          selected = true;
-          smartCubeTapePicker.close();
           try {
-            resolve(await entry.load());
+            const tape = await entry.load();
+            settle(() => resolve(tape));
           } catch (reason) {
-            reject(reason);
+            settle(() => reject(reason));
           }
         }, {once: true});
         smartCubeTapePickerList.append(button);
       });
-      smartCubeTapePicker.addEventListener("close", () => {
-        if (!selected) reject(new DOMException("Mock tape selection cancelled", "AbortError"));
-      }, {once: true});
+      smartCubeImportSession.addEventListener("click", openImport);
+      smartCubeImportSessionFile.addEventListener("change", importSession);
+      smartCubeTapePicker.addEventListener("close", cancel);
       smartCubeTapePicker.showModal();
     });
 
