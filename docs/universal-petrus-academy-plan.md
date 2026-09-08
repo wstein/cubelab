@@ -333,3 +333,7 @@ The benchmark's inspection/guide fingerprint is unchanged from the pre-refactor 
 The fixed-capacity reuse and avoided duplicate calls are implemented. Active-panel cache misses still plan synchronously. Demand-driven workers, full resource accounting, cancellation targets, general reduction coverage, and the correctness/curriculum increments remain planned. The existing animation-frame-delayed input synchronization also needs a stale/double-Apply regression before claiming the stronger Apply contract in section 8.
 
 Pre-commit verification: `bun run test` passed 601 tests across 61 suites; `bun run build` passed with the existing large-chunk warning; the focused `petrus-5x5-activation.playwright.mjs` browser test passed; `git diff --check` passed. The benchmark command completed with the unchanged fingerprint above. These checks validate this increment, not the unimplemented release gates.
+
+## 14. Follow-up — guidance placement and big-cube startup
+
+The next requested increment moves current guidance and its actions above lesson details across all Academy sizes and addresses 4×4/5×5 startup delays. The investigation reproduced ten eager solver workers and hidden reduction panels performing synchronous center/wing searches. See [Academy guidance placement and big-cube loading](academy-performance.md) for the root-cause evidence, TDD regressions, implementation boundaries, and verification record. This follow-up does not imply completion of the mechanics/curriculum redesign.

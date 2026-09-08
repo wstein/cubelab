@@ -234,8 +234,10 @@ test("Academy exposes the milestone-first 5×5 reduction inspector", () => {
   assert.match(page, /data-academy-method="reduction5x5"/);
   assert.match(page, /data-reduction-5x5-academy-status/);
   assert.match(client, /inspectReduction5x5/);
-  assert.match(client, /planNextCentre5x5/);
-  assert.match(client, /planNextWingPair5x5/);
+  assert.match(solverWorker, /planNextCentre5x5/);
+  assert.match(solverWorker, /planNextWingPair5x5/);
+  assert.match(client, /createReductionGuideClient/);
+  assert.doesNotMatch(client, /planNextCentre5x5|planNextWingPair5x5/);
   assert.match(page, /data-reduction-5x5-academy-find-cycle/);
   assert.match(page, /data-reduction-5x5-academy-find-bar/);
   assert.match(page, /data-reduction-5x5-academy-find-l2e/);
@@ -622,7 +624,9 @@ test("the SPA workspace keeps one viewport beside four URL-addressable destinati
   assert.match(client, /tutorialPhaseMoveCount/);
   assert.match(client, /inspectReduction4x4/);
   assert.match(client, /renderReduction4x4Academy/);
-  assert.match(client, /planNextWingPair4x4/);
+  assert.match(solverWorker, /planNextCentreBlock4x4/);
+  assert.match(solverWorker, /planNextWingPair4x4/);
+  assert.doesNotMatch(client, /planNextCentreBlock4x4|planNextWingPair4x4/);
   assert.match(client, /Resolve the last two wing pairs/);
   assert.match(client, /OLL parity/);
   assert.match(client, /phase\.sequences/);

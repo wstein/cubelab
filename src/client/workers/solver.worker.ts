@@ -11,12 +11,13 @@ import {
   twoByTwoPetrusFrameLabel,
   twoByTwoPetrusPhaseDefinitions,
 } from "../two-by-two-academy";
-import {inspectReduction4x4, isMonochromeSolved4x4, reduce4x4} from "../../Solver/Reduction4x4.res.mjs";
+import {inspectReduction4x4, isMonochromeSolved4x4, reduce4x4, planNextCentreBlock4x4, planNextWingPair4x4} from "../../Solver/Reduction4x4.res.mjs";
 import {measureReduction4x4Moves, solveFullReduction4x4} from "../../Solver/FullReduction4x4.res.mjs";
-import {findL2ERelation5x5, findOneByThreeBar5x5, solveXCentreCycle5x5} from "../../Solver/Reduction5x5.res.mjs";
+import {findL2ERelation5x5, findOneByThreeBar5x5, solveXCentreCycle5x5, planNextCentre5x5, planNextWingPair5x5} from "../../Solver/Reduction5x5.res.mjs";
 
 type TutorialMethod = "beginner" | "advancedLbl" | "beginnerCfop" | "fullCfop" | "advancedCfop" | "petrus" | "enhancedPetrus";
 type WorkerRequest =
+  | {id: number; type: "planReductionGuide"; state: {size: 4 | 5; kind: "centre" | "wing"; state: unknown}}
   | {id: number; type: "solveTutorial"; method: TutorialMethod; state: unknown}
   | {id: number; type: "solveOptimal2x2"; state: unknown}
   | {id: number; type: "generateRandom2x2"; difficulty?: "any" | "3" | "4" | "5+"}
@@ -54,6 +55,15 @@ const cancelledTwoPhaseRequests = new Set<number>();
 self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
   const request = event.data;
   try {
+    if (request.type === "planReductionGuide") {
+      const {size, kind, state} = request.state;
+      const planner = size === 4
+        ? (kind === "centre" ? planNextCentreBlock4x4 : planNextWingPair4x4)
+        : (kind === "centre" ? planNextCentre5x5 : planNextWingPair5x5);
+      // Keep a bounded-search miss as an ordinary result for the Academy UI.
+      self.postMessage({id: request.id, ok: true, solution: planner(state)});
+      return;
+    }
     if (request.type === "cancelTwoPhase") {
       cancelledTwoPhaseRequests.add(request.id);
       return;

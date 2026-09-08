@@ -12,8 +12,9 @@ import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as MoveTransform from "../Move/MoveTransform.res.mjs";
 import * as HamiltonMacro from "../Move/HamiltonMacro.res.mjs";
 import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
-import {inspectReduction4x4, planNextCentreBlock4x4, planNextWingPair4x4, planOLLParityRepair4x4, planPLLParityRepair4x4, reduce4x4} from "../Solver/Reduction4x4.res.mjs";
-import {inspectReduction5x5, planOLLParityRepair5x5, planPLLParityRepair5x5, planNextCentre5x5, planNextWingPair5x5, reduce5x5} from "../Solver/Reduction5x5.res.mjs";
+import {inspectReduction4x4, planOLLParityRepair4x4, planPLLParityRepair4x4, reduce4x4} from "../Solver/Reduction4x4.res.mjs";
+import {inspectReduction5x5, planOLLParityRepair5x5, planPLLParityRepair5x5, reduce5x5} from "../Solver/Reduction5x5.res.mjs";
+import {createAcademyGuideCache} from "./academy-guide-cache";
 import {
   createPetrus5x5EvaluationCache,
   petrus5x5PhaseDefinitions,
@@ -24,6 +25,8 @@ import {
   createTwoByTwoAcademySolverClient,
   createTwoByTwoPetrusSolverClient,
   createReduction4x4SolverClient,
+  createLazyWorker,
+  createReductionGuideClient,
   createReduction5x5BarSolverClient,
   createReduction5x5CycleSolverClient,
   createReduction5x5L2ESolverClient,
@@ -616,16 +619,16 @@ if (root) {
   const isPetrusMethod = (method: TutorialMethod): boolean =>
     method === "petrus" || method === "enhancedPetrus";
   const solverClient = createSolverClient<CubeState, TutorialSolution>(
-    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+    createLazyWorker(() => new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"})),
   );
   const twoByTwoAcademySolverClient = createTwoByTwoAcademySolverClient<CubeState, TutorialSolution>(
-    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+    createLazyWorker(() => new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"})),
   );
   const twoByTwoPetrusSolverClient = createTwoByTwoPetrusSolverClient<CubeState, TutorialSolution>(
-    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+    createLazyWorker(() => new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"})),
   );
   const manualStateVerifier = createManualStateVerifierClient(
-    new Worker(new URL("./workers/manual-state.worker.ts", import.meta.url), {type: "module"}),
+    createLazyWorker(() => new Worker(new URL("./workers/manual-state.worker.ts", import.meta.url), {type: "module"})),
   );
   let twoPhaseSolveBusy = false;
   let optimal2x2SolveBusy = false;
@@ -661,7 +664,7 @@ if (root) {
   let reduction4x4SourceKey = "";
   let academySetupKey: string | null = null;
   const newTwoPhaseSolverClient = () => createTwoPhaseSolverClient<CubeState, TwoPhaseSolution>(
-    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+    createLazyWorker(() => new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"})),
     (stage) => {
       if (twoPhaseSolveBusy) {
         twoPhaseResult.textContent = twoPhaseBestMoveCount === null
@@ -688,37 +691,65 @@ if (root) {
   );
   let twoPhaseSolverClient = newTwoPhaseSolverClient();
   const newOptimal2x2SolverClient = () => createOptimal2x2SolverClient<CubeState, {alg: unknown; moveCount: number}>(
-    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+    createLazyWorker(() => new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"})),
     (stage) => {
       if (optimal2x2SolveBusy) optimal2x2Result.textContent = stage;
     },
   );
   let optimal2x2SolverClient = newOptimal2x2SolverClient();
   const random2x2ScrambleClient = createRandom2x2ScrambleClient<{alg: unknown; state: CubeState; coordinate: number; moveCount: number}>(
-    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+    createLazyWorker(() => new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"})),
   );
   const newReduction4x4SolverClient = () => createReduction4x4SolverClient<CubeState, {alg: unknown; stm: number; obtm: number}>(
-    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+    createLazyWorker(() => new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"})),
     (stage) => {
       if (reduction4x4SolveBusy) reduction4x4Result.textContent = stage;
     },
   );
   let reduction4x4SolverClient = newReduction4x4SolverClient();
   const newReduction5x5CycleClient = () => createReduction5x5CycleSolverClient<CubeState, any>(
-    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+    createLazyWorker(() => new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"})),
     (stage) => { if (reduction5x5CycleBusy) reduction5x5Academy.guide.textContent = stage; },
   );
   let reduction5x5CycleClient = newReduction5x5CycleClient();
   const newReduction5x5BarClient = () => createReduction5x5BarSolverClient<CubeState, any>(
-    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+    createLazyWorker(() => new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"})),
     (stage) => { if (reduction5x5BarBusy) reduction5x5Academy.guide.textContent = stage; },
   );
   let reduction5x5BarClient = newReduction5x5BarClient();
   const newReduction5x5L2EClient = () => createReduction5x5L2ESolverClient<CubeState, any>(
-    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+    createLazyWorker(() => new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"})),
     (stage) => { if (reduction5x5L2EBusy) reduction5x5Academy.guide.textContent = stage; },
   );
   let reduction5x5L2EClient = newReduction5x5L2EClient();
+  const newReductionGuideClient = () => createReductionGuideClient<CubeState, any>(
+    createLazyWorker(() => new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"})),
+  );
+  let reductionGuideClient = newReductionGuideClient();
+  const reductionGuideCache = createAcademyGuideCache<any>(
+    () => {
+      if (academySetupSourceKey() !== academySetupKey) return;
+      renderReduction4x4Academy(activeRecognized);
+      renderReduction5x5Academy(activeRecognized);
+    },
+    () => {
+      reductionGuideClient.terminate();
+      reductionGuideClient = newReductionGuideClient();
+    },
+    (error) => ({TAG: "Error", _0: {message: error instanceof Error ? error.message : "Guide search failed."}}),
+  );
+  const reductionGuideKey = (state: CubeState, kind: "centre" | "wing") =>
+    `${size}:${kind}:${FaceletCodec.render(state)}`;
+  const reductionGuide = (state: CubeState, kind: "centre" | "wing") =>
+    reductionGuideCache.get(reductionGuideKey(state, kind), () =>
+      reductionGuideClient.solve({size: size as 4 | 5, kind, state}),
+    ) ?? {TAG: "Pending", _0: {message: "Finding the next replay-verified guide…"}};
+  const clearHiddenReductionGuide = () => {
+    if (activeTab !== "academy" || !(
+      size === 4 && academyMethod === "reduction4x4"
+      || size === 5 && academyMethod === "reduction5x5"
+    )) reductionGuideCache.clear();
+  };
   const resetTwoPhaseRefinement = () => {
     // Setup defines every solver request. A Setup change makes any in-flight
     // search and its retained candidate unusable, so stop the dedicated worker
@@ -2917,6 +2948,7 @@ if (root) {
   };
 
   const renderReduction4x4Academy = (recognized: RecognizedInput | null) => {
+    if (activeTab !== "academy" || academyMethod !== "reduction4x4") return;
     const academy = reduction4x4Academy;
     academy.status.classList.remove("error");
     academy.guide.classList.remove("error");
@@ -2960,7 +2992,7 @@ if (root) {
       : null;
     const finishReady = reduced?.TAG === "Ok";
     const centreGuide = progress.stage === "centres"
-      ? planNextCentreBlock4x4(recognized.state)
+      ? reductionGuide(recognized.state, "centre")
       : null;
     const centreGuideStep = centreGuide?.TAG === "Ok"
       ? centreGuide._0.frameRepair
@@ -3065,11 +3097,11 @@ if (root) {
         academy.applyCentre.disabled = false;
       } else {
         academy.guide.textContent = guide._0.message;
-        academy.guide.classList.add("error");
+        academy.guide.classList.toggle("error", guide.TAG === "Error");
       }
     }
     if (progress.stage === "wings") {
-      const guide = planNextWingPair4x4(recognized.state);
+      const guide = reductionGuide(recognized.state, "wing");
       academy.guide.hidden = false;
       if (guide.TAG === "Ok") {
         academy.guide.textContent = `Next verified pair: ${guide._0.algorithm} · ${guide._0.before}/24 → ${guide._0.after}/24 wing rows. This sequence preserves all six centre blocks.`;
@@ -3077,7 +3109,7 @@ if (root) {
         academy.applyGuide.disabled = false;
       } else {
         academy.guide.textContent = guide._0.message;
-        academy.guide.classList.add("error");
+        academy.guide.classList.toggle("error", guide.TAG === "Error");
       }
     }
     if (parityKind !== null) {
@@ -3098,6 +3130,7 @@ if (root) {
   };
 
   const renderReduction5x5Academy = (recognized: RecognizedInput | null) => {
+    if (activeTab !== "academy" || academyMethod !== "reduction5x5") return;
     const academy = reduction5x5Academy;
     academy.status.classList.remove("error");
     academy.phases.replaceChildren();
@@ -3137,7 +3170,7 @@ if (root) {
       reductionAcademyPhase(3, "Solve the reduced 3×3 and parity", "Validate every wing against its fixed middle edge, then solve the projected 3×3. Apply a parity sequence only when replay verification identifies that exact case.", progress.stage === "handoff" ? "Milestones reached · validating projection" : "Locked", false, progress.stage === "handoff", ["OLL parity: 2R U2 2L F2 2L' F2 2R2 U2 2R U2 2L' U2 2R' U2 2R2.", "PLL parity: Rw2 F2 U2 2R U2 Rw' U2 2L U2 Rw U2 F2 Rw2.", "The inspector never labels a partly reduced 5×5 as a solved 3×3."]),
     );
     if (progress.stage === "centres") {
-      const guide = planNextCentre5x5(recognized.state);
+      const guide = reductionGuide(recognized.state, "centre");
       const key = FaceletCodec.render(recognized.state);
       reduction5x5ImmediateGuide = guide.TAG === "Ok" ? guide._0 : null;
       reduction5x5ImmediateGuideKey = key;
@@ -3163,18 +3196,18 @@ if (root) {
           academy.applyCentre.disabled = false;
         } else {
           academy.guide.textContent = guide._0.message;
-          academy.guide.classList.add("error");
-          academy.findBar.hidden = false;
+          academy.guide.classList.toggle("error", guide.TAG === "Error");
+          academy.findBar.hidden = guide.TAG !== "Error";
           academy.findBar.disabled = reduction5x5BarBusy;
           academy.findBar.textContent = reduction5x5BarBusy ? "Stop bar-commutator search" : "Find 1×3 bar commutator";
-          academy.findCycle.hidden = false;
+          academy.findCycle.hidden = guide.TAG !== "Error";
           academy.findCycle.disabled = reduction5x5CycleBusy;
           academy.findCycle.textContent = reduction5x5CycleBusy ? "Stop centre-cycle search" : "Try bounded X-centre cycle";
         }
       }
     }
     if (progress.stage === "wings") {
-      const guide = planNextWingPair5x5(recognized.state);
+      const guide = reductionGuide(recognized.state, "wing");
       academy.guide.hidden = false;
       if (guide.TAG === "Ok") {
         academy.guide.textContent = `Next replay-verified wing cycle: ${guide._0.algorithm} · ${guide._0.before}/24 → ${guide._0.after}/24 matched wing pairs; all six centres remain complete.`;
@@ -3187,8 +3220,8 @@ if (root) {
         academy.applyWing.disabled = false;
       } else {
         academy.guide.textContent = guide._0.message;
-        academy.guide.classList.add("error");
-        if (progress.wingPairsMatched === 22) {
+        academy.guide.classList.toggle("error", guide.TAG === "Error");
+        if (guide.TAG === "Error" && progress.wingPairsMatched === 22) {
           academy.findL2E.hidden = false;
           academy.findL2E.disabled = reduction5x5L2EBusy;
           academy.findL2E.textContent = reduction5x5L2EBusy ? "Stop last-two-edges search" : "Find last-two-edges relation";
@@ -3340,6 +3373,10 @@ if (root) {
   };
 
   const updateAcademySource = (recognized: RecognizedInput | null) => {
+    if (recognized === null || activeRecognized === null
+      || FaceletCodec.render(recognized.state) !== FaceletCodec.render(activeRecognized.state)) {
+      reductionGuideCache.clear();
+    }
     academyRequestGuard.invalidate();
     academySolveBusy = false;
     activeRecognized = recognized;
@@ -5540,6 +5577,8 @@ if (root) {
       panel.hidden = panel.dataset.academyMethodPanel !== academyMethod;
     });
     updateAcademyMethodControls();
+    if (conversionChanged) reductionGuideCache.clear();
+    clearHiddenReductionGuide();
     if (appStateApplied && academyMethodChanged) {
       academyRequestGuard.invalidate();
       academySolveBusy = false;
@@ -5549,14 +5588,15 @@ if (root) {
         const academy = academyForMethod(method);
         if (saved) presentTutorialSolution(saved.initialState, saved.solution, academy);
       }
-      renderReduction4x4Academy(activeRecognized);
     }
     updateAcademySolveButton();
     updateSmartCubeRecordingUi();
     if (appStateApplied && !conversionChanged && (academyMethodChanged || academyTabChanged)) {
-      if (activeTab === "academy" && academyMethod === "petrus5x5" && academySetupSourceKey() !== academySetupKey) {
+      if (activeTab === "academy" && academySetupSourceKey() !== academySetupKey) {
         synchronizeAcademySetup();
       } else {
+        renderReduction4x4Academy(activeRecognized);
+        renderReduction5x5Academy(activeRecognized);
         renderPetrus5x5Academy(activeRecognized);
       }
     }
@@ -5668,14 +5708,14 @@ if (root) {
   });
 
   reduction4x4Academy.applyCentre.addEventListener("click", () => {
-    if (size !== 4 || activeRecognized === null) return;
-    const guide = planNextCentreBlock4x4(activeRecognized.state);
-    if (guide.TAG !== "Ok") return;
+    if (size !== 4 || activeRecognized === null || academySetupSourceKey() !== academySetupKey) return;
+    const guide = reductionGuideCache.peek(reductionGuideKey(activeRecognized.state, "centre"));
+    if (guide?.TAG !== "Ok") return;
     store.patch({moves: [movesInput.value.trim(), guide._0.algorithm].filter(Boolean).join(" ")});
   });
 
   reduction5x5Academy.applyCentre.addEventListener("click", () => {
-    if (size !== 5 || activeRecognized === null) return;
+    if (size !== 5 || activeRecognized === null || academySetupSourceKey() !== academySetupKey) return;
     const key = FaceletCodec.render(activeRecognized.state);
     const guide = reduction5x5ImmediateGuide !== null && reduction5x5ImmediateGuideKey === key
       ? {TAG: "Ok", _0: reduction5x5ImmediateGuide}
@@ -5762,12 +5802,12 @@ if (root) {
   });
 
   reduction5x5Academy.applyWing.addEventListener("click", () => {
-    if (size !== 5 || activeRecognized === null) return;
+    if (size !== 5 || activeRecognized === null || academySetupSourceKey() !== academySetupKey) return;
     const key = FaceletCodec.render(activeRecognized.state);
     const guide = reduction5x5L2EGuide !== null && reduction5x5L2EKey === key
       ? {TAG: "Ok", _0: reduction5x5L2EGuide}
-      : planNextWingPair5x5(activeRecognized.state);
-    if (guide.TAG !== "Ok") return;
+      : reductionGuideCache.peek(reductionGuideKey(activeRecognized.state, "wing"));
+    if (guide?.TAG !== "Ok") return;
     store.patch({moves: [movesInput.value.trim(), guide._0.algorithm].filter(Boolean).join(" ")});
   });
 
@@ -5826,8 +5866,9 @@ if (root) {
   });
 
   reduction4x4Academy.applyGuide.addEventListener("click", () => {
-    if (size !== 4 || activeRecognized === null) return;
-    const guide = planNextWingPair4x4(activeRecognized.state);
+    if (size !== 4 || activeRecognized === null || academySetupSourceKey() !== academySetupKey) return;
+    const guide = reductionGuideCache.peek(reductionGuideKey(activeRecognized.state, "wing"));
+    if (guide === null) return;
     if (guide.TAG !== "Ok") {
       reduction4x4Academy.guide.hidden = false;
       reduction4x4Academy.guide.textContent = guide._0.message;

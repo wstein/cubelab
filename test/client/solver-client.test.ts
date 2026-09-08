@@ -1,6 +1,8 @@
 import {describe, expect, test} from "vitest";
 
 import {
+  createLazyWorker,
+  createReductionGuideClient,
   createOptimal2x2SolverClient,
   createRandom2x2ScrambleClient,
   createReduction4x4SolverClient,
@@ -38,6 +40,56 @@ class FakeWorker {
 }
 
 describe("solver worker client", () => {
+  test("starts a lazy worker only for the first request and reuses it", async () => {
+    const worker = new FakeWorker();
+    let starts = 0;
+    const lazy = createLazyWorker(() => { starts++; return worker as unknown as Worker; });
+    const client = createSolverClient(lazy);
+    expect(starts).toBe(0);
+    const first = client.solve("beginner", {});
+    const second = client.solve("petrus", {});
+    expect(starts).toBe(1);
+    worker.respond({id: 0, ok: true, solution: "first"});
+    worker.respond({id: 1, ok: true, solution: "second"});
+    await expect(first).resolves.toBe("first");
+    await expect(second).resolves.toBe("second");
+    client.terminate();
+    expect(worker.terminated).toBe(true);
+  });
+
+  test("terminating an unused lazy worker avoids startup and prevents later requests", async () => {
+    let starts = 0;
+    const lazy = createLazyWorker(() => { starts++; return new FakeWorker() as unknown as Worker; });
+    const client = createSolverClient(lazy);
+    client.terminate();
+    expect(starts).toBe(0);
+    await expect(client.solve("beginner", {})).rejects.toThrow("stopped");
+    expect(starts).toBe(0);
+  });
+
+  test("reports lazy worker startup failures to every pending request", async () => {
+    const client = createSolverClient(createLazyWorker(() => { throw new Error("startup denied"); }));
+    await expect(client.solve("beginner", {})).rejects.toThrow("could not start");
+    await expect(client.solve("beginner", {})).rejects.toThrow("could not start");
+    client.terminate();
+  });
+
+  test("does not retain requests rejected after termination for later cancellation", async () => {
+    const client = createTwoPhaseSolverClient(createLazyWorker(() => new FakeWorker() as unknown as Worker));
+    client.terminate();
+    await expect(client.solve({})).rejects.toThrow("stopped");
+    expect(() => client.cancel()).not.toThrow();
+  });
+
+  test("correlates background reduction guide results including unavailable guides", async () => {
+    const worker = new FakeWorker();
+    const client = createReductionGuideClient(worker as unknown as Worker);
+    const result = client.solve({size: 5, kind: "centre", state: {cube: "five"}});
+    expect(worker.requests).toEqual([{id: 0, type: "planReductionGuide", state: {size: 5, kind: "centre", state: {cube: "five"}}}]);
+    const unavailable = {TAG: "Error", _0: {message: "No bounded guide"}};
+    worker.respond({id: 0, ok: true, solution: unavailable});
+    await expect(result).resolves.toEqual(unavailable);
+  });
   test("correlates manual-state verification responses without blocking the caller", async () => {
     const worker = new FakeWorker();
     const client = createManualStateVerifierClient(worker as unknown as Worker);

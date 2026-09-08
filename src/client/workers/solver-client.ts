@@ -1,4 +1,42 @@
 export type TutorialSolverMethod = "beginner" | "advancedLbl" | "beginnerCfop" | "fullCfop" | "advancedCfop" | "petrus" | "enhancedPetrus";
+export type SolverWorker = {
+  addEventListener(type: string, listener: (event: any) => void): void;
+  postMessage(message: unknown): void;
+  terminate(): void;
+};
+
+/** Register clients immediately, but allocate a worker realm only when it has work. */
+export const createLazyWorker = (factory: () => Worker): SolverWorker => {
+  let worker: Worker | undefined;
+  let stopped = false;
+  const listeners: Array<{type: string; listener: (event: any) => void}> = [];
+  return {
+    addEventListener(type, listener) {
+      listeners.push({type, listener});
+      worker?.addEventListener(type, listener);
+    },
+    postMessage(message) {
+      if (stopped) throw new Error("The background solver was stopped.");
+      try {
+        if (!worker) {
+          worker = factory();
+          for (const {type, listener} of listeners) worker.addEventListener(type, listener);
+        }
+        worker.postMessage(message);
+      } catch {
+        // Deliver synchronous construction/clone failures through the same cleanup
+        // path as asynchronous worker errors, so pending requests cannot leak.
+        for (const {type, listener} of listeners) if (type === "error") listener(new Event("error"));
+      }
+    },
+    terminate() {
+      stopped = true;
+      worker?.terminate();
+      worker = undefined;
+      listeners.length = 0;
+    },
+  };
+};
 type WorkerSuccess<T> = {id: number; ok: true; solution: T};
 type WorkerFailure = {id: number; ok: false; error: string};
 type WorkerResponse<T> = WorkerSuccess<T> | WorkerFailure;
@@ -15,8 +53,23 @@ type Reduction5x5BarProgress = {id: number; type: "reduction5x5BarProgress"; sta
 type Reduction5x5L2EProgress = {id: number; type: "reduction5x5L2EProgress"; stage: string};
 export type TwoPhaseSearchOptions = {refine?: boolean; maximumDepth?: number};
 
+/** A synchronous transport failure must release the request before rejecting. */
+const postWorkerRequest = (
+  worker: SolverWorker,
+  pending: {delete(id: number): boolean},
+  id: number,
+  message: unknown,
+): void => {
+  try {
+    worker.postMessage(message);
+  } catch (error) {
+    pending.delete(id);
+    throw error;
+  }
+};
+
 /** Request/response boundary for expensive searches; the UI thread never waits for them. */
-export const createSolverClient = <TState, TSolution>(worker: Worker) => {
+export const createSolverClient = <TState, TSolution>(worker: SolverWorker) => {
   let nextId = 0;
   const pending = new Map<number, {resolve: (value: TSolution) => void; reject: (reason: Error) => void}>();
   worker.addEventListener("message", (event: MessageEvent<WorkerResponse<TSolution>>) => {
@@ -36,7 +89,7 @@ export const createSolverClient = <TState, TSolution>(worker: Worker) => {
       const id = nextId++;
       return new Promise((resolve, reject) => {
         pending.set(id, {resolve, reject});
-        worker.postMessage({id, type: "solveTutorial", method, state});
+        postWorkerRequest(worker, pending, id, {id, type: "solveTutorial", method, state});
       });
     },
     terminate(): void {
@@ -50,7 +103,7 @@ export const createSolverClient = <TState, TSolution>(worker: Worker) => {
 export type BatchVerifyProgress = {index: number; choices: string[]};
 
 /** Exact manual-state dot checks run off the interaction thread. */
-export const createManualStateVerifierClient = (worker: Worker) => {
+export const createManualStateVerifierClient = (worker: SolverWorker) => {
   let nextId = 0;
   const pending = new Map<number, {resolve: (value: string[]) => void; reject: (reason: Error) => void}>();
   const batchPending = new Map<number, {
@@ -93,7 +146,7 @@ export const createManualStateVerifierClient = (worker: Worker) => {
       const id = nextId++;
       return new Promise((resolve, reject) => {
         pending.set(id, {resolve, reject});
-        worker.postMessage({id, type: "verifyManualStateColours", size, draft, index});
+        postWorkerRequest(worker, pending, id, {id, type: "verifyManualStateColours", size, draft, index});
       });
     },
     verifyBatch(
@@ -118,7 +171,7 @@ export const createManualStateVerifierClient = (worker: Worker) => {
             reject(err);
           },
         });
-        worker.postMessage({id, type: "verifyManualStateBatch", size, draft, indices});
+        postWorkerRequest(worker, batchPending, id, {id, type: "verifyManualStateBatch", size, draft, indices});
       });
       return {
         promise,
@@ -140,7 +193,7 @@ export const createManualStateVerifierClient = (worker: Worker) => {
 
 /** Dedicated request contract for full-cube two-phase searches. */
 export const createTwoPhaseSolverClient = <TState, TSolution>(
-  worker: Worker,
+  worker: SolverWorker,
   onProgress?: (stage: string) => void,
   onCandidate?: (solution: TSolution) => void,
 ) => {
@@ -171,7 +224,7 @@ export const createTwoPhaseSolverClient = <TState, TSolution>(
       const id = nextId++;
       return new Promise((resolve, reject) => {
         pending.set(id, {resolve, reject});
-        worker.postMessage({id, type: "solveTwoPhase", state, ...options});
+        postWorkerRequest(worker, pending, id, {id, type: "solveTwoPhase", state, ...options});
       });
     },
     cancel(): void {
@@ -186,8 +239,8 @@ export const createTwoPhaseSolverClient = <TState, TSolution>(
 };
 
 /** Common client for worker solvers that report named preparation stages. */
-const createProgressSolverClient = <TState, TSolution, TRequest extends string, TProgress extends string>(
-  worker: Worker,
+const createProgressSolverClient = <TState, TSolution, TRequest extends string = string, TProgress extends string = string>(
+  worker: SolverWorker,
   requestType: TRequest,
   progressType: TProgress,
   startError: string,
@@ -217,7 +270,7 @@ const createProgressSolverClient = <TState, TSolution, TRequest extends string, 
       const id = nextId++;
       return new Promise((resolve, reject) => {
         pending.set(id, {resolve, reject});
-        worker.postMessage({id, type: requestType, state});
+        postWorkerRequest(worker, pending, id, {id, type: requestType, state});
       });
     },
     terminate(): void {
@@ -228,9 +281,19 @@ const createProgressSolverClient = <TState, TSolution, TRequest extends string, 
   };
 };
 
+/** Shared request contract for bounded 4×4/5×5 centre and wing guides. */
+export const createReductionGuideClient = <TState, TSolution>(worker: SolverWorker) =>
+  createProgressSolverClient<{size: 4 | 5; kind: "centre" | "wing"; state: TState}, TSolution>(
+    worker,
+    "planReductionGuide",
+    "reductionGuideProgress",
+    "The reduction guide worker could not start.",
+    "The reduction guide worker was stopped.",
+  );
+
 /** Dedicated request contract for table-backed optimal 2×2 searches. */
 export const createOptimal2x2SolverClient = <TState, TSolution>(
-  worker: Worker,
+  worker: SolverWorker,
   onProgress?: (stage: string) => void,
 ) => createProgressSolverClient<TState, TSolution>(
   worker,
@@ -243,7 +306,7 @@ export const createOptimal2x2SolverClient = <TState, TSolution>(
 
 /** Dedicated request contract for uniformly sampled, table-backed 2×2 practice states. */
 export const createRandom2x2ScrambleClient = <TSolution>(
-  worker: Worker,
+  worker: SolverWorker,
   onProgress?: (stage: string) => void,
 ) => {
   let nextId = 0;
@@ -269,7 +332,7 @@ export const createRandom2x2ScrambleClient = <TSolution>(
       const id = nextId++;
       return new Promise((resolve, reject) => {
         pending.set(id, {resolve, reject});
-        worker.postMessage({id, type: "generateRandom2x2", difficulty});
+        postWorkerRequest(worker, pending, id, {id, type: "generateRandom2x2", difficulty});
       });
     },
     terminate(): void {
@@ -282,7 +345,7 @@ export const createRandom2x2ScrambleClient = <TSolution>(
 
 /** Dedicated request contract for the staged 2×2 Beginner/Ortega Academy. */
 export const createTwoByTwoAcademySolverClient = <TState, TSolution>(
-  worker: Worker,
+  worker: SolverWorker,
   onProgress?: (stage: string) => void,
 ) => createProgressSolverClient<TState, TSolution>(
   worker,
@@ -295,7 +358,7 @@ export const createTwoByTwoAcademySolverClient = <TState, TSolution>(
 
 /** Dedicated request contract for the staged, frame-locked 2×2 Petrus-inspired Academy. */
 export const createTwoByTwoPetrusSolverClient = <TState, TSolution>(
-  worker: Worker,
+  worker: SolverWorker,
   onProgress?: (stage: string) => void,
 ) => createProgressSolverClient<TState, TSolution>(
   worker,
@@ -308,7 +371,7 @@ export const createTwoByTwoPetrusSolverClient = <TState, TSolution>(
 
 /** Dedicated request contract for a reduced 4×4's 3×3 finishing stage. */
 export const createReduction4x4SolverClient = <TState, TSolution>(
-  worker: Worker,
+  worker: SolverWorker,
   onProgress?: (stage: string) => void,
 ) => createProgressSolverClient<TState, TSolution>(
   worker,
@@ -321,7 +384,7 @@ export const createReduction4x4SolverClient = <TState, TSolution>(
 
 /** Bounded full 4×4 reduction; success is always replay-verified in the worker. */
 export const createFullReduction4x4SolverClient = <TState, TSolution>(
-  worker: Worker,
+  worker: SolverWorker,
   onProgress?: (stage: string) => void,
 ) => createProgressSolverClient<TState, TSolution>(
   worker,
@@ -335,7 +398,7 @@ export const createFullReduction4x4SolverClient = <TState, TSolution>(
 /** Exact 5×5 X-centre cycles run only in a dedicated worker, so table setup
  * can be cancelled by terminating that worker without blocking the page. */
 export const createReduction5x5CycleSolverClient = <TState, TSolution>(
-  worker: Worker,
+  worker: SolverWorker,
   onProgress?: (stage: string) => void,
 ) => createProgressSolverClient<TState, TSolution>(
   worker,
@@ -348,7 +411,7 @@ export const createReduction5x5CycleSolverClient = <TState, TSolution>(
 
 /** Broader 1×3 centre-bar commutator setups are cancellable worker work. */
 export const createReduction5x5BarSolverClient = <TState, TSolution>(
-  worker: Worker,
+  worker: SolverWorker,
   onProgress?: (stage: string) => void,
 ) => createProgressSolverClient<TState, TSolution>(
   worker,
@@ -361,7 +424,7 @@ export const createReduction5x5BarSolverClient = <TState, TSolution>(
 
 /** Last-two-edges setup search is intentionally off the rendering thread. */
 export const createReduction5x5L2ESolverClient = <TState, TSolution>(
-  worker: Worker,
+  worker: SolverWorker,
   onProgress?: (stage: string) => void,
 ) => createProgressSolverClient<TState, TSolution>(
   worker,
