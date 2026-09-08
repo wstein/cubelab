@@ -12,6 +12,7 @@ type Reduction4x4Progress = {id: number; type: "reduction4x4Progress"; stage: st
 type FullReduction4x4Progress = {id: number; type: "fullReduction4x4Progress"; stage: string};
 type Reduction5x5CycleProgress = {id: number; type: "reduction5x5CycleProgress"; stage: string};
 type Reduction5x5BarProgress = {id: number; type: "reduction5x5BarProgress"; stage: string};
+type Reduction5x5L2EProgress = {id: number; type: "reduction5x5L2EProgress"; stage: string};
 export type TwoPhaseSearchOptions = {refine?: boolean; maximumDepth?: number};
 
 /** Request/response boundary for expensive searches; the UI thread never waits for them. */
@@ -195,7 +196,7 @@ const createProgressSolverClient = <TState, TSolution, TRequest extends string, 
 ) => {
   let nextId = 0;
   const pending = new Map<number, {resolve: (value: TSolution) => void; reject: (reason: Error) => void}>();
-  worker.addEventListener("message", (event: MessageEvent<WorkerResponse<TSolution> | Optimal2x2Progress | Random2x2Progress | TwoByTwoAcademyProgress | TwoByTwoPetrusProgress | Reduction4x4Progress | FullReduction4x4Progress | Reduction5x5CycleProgress | Reduction5x5BarProgress>) => {
+  worker.addEventListener("message", (event: MessageEvent<WorkerResponse<TSolution> | Optimal2x2Progress | Random2x2Progress | TwoByTwoAcademyProgress | TwoByTwoPetrusProgress | Reduction4x4Progress | FullReduction4x4Progress | Reduction5x5CycleProgress | Reduction5x5BarProgress | Reduction5x5L2EProgress>) => {
     const response = event.data;
     if ("type" in response && response.type === progressType) {
       onProgress?.(response.stage);
@@ -355,5 +356,18 @@ export const createReduction5x5BarSolverClient = <TState, TSolution>(
   "reduction5x5BarProgress",
   "The 5×5 centre-bar worker could not start.",
   "The 5×5 centre-bar worker was stopped.",
+  onProgress,
+);
+
+/** Last-two-edges setup search is intentionally off the rendering thread. */
+export const createReduction5x5L2ESolverClient = <TState, TSolution>(
+  worker: Worker,
+  onProgress?: (stage: string) => void,
+) => createProgressSolverClient<TState, TSolution>(
+  worker,
+  "solve5x5L2E",
+  "reduction5x5L2EProgress",
+  "The 5×5 last-two-edges worker could not start.",
+  "The 5×5 last-two-edges worker was stopped.",
   onProgress,
 );

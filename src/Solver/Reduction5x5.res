@@ -644,7 +644,7 @@ let planNextWingPair5x5 = (state: cubeState): result<guide, reductionError> =>
     }
     switch best.contents {
     | Some(guide) => Ok(guide)
-    | None => findL2ERelation5x5(state)
+    | None => Error({message: "No centre-preserving wing improvement is available. Search the dedicated last-two-edges relation when exactly two wing pairs remain."})
     }
   }
   }

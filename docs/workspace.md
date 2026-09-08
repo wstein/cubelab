@@ -165,6 +165,10 @@ that preserves completed X-centres and advances the 3×3-centre handoff.
 The wing guide likewise tries setup–cycle–restore variants of its protected
 dedge cycles when a bare insertion cannot improve. It accepts only a replay
 that keeps all six centres complete and increases the matched-wing count.
+When exactly two wing pairs remain, **Find last-two-edges relation** runs the
+published L2E setup–interchange–restore search in its own cancellable worker.
+It never runs during rendering; an accepted guide must replay from the current
+state to 24/24 paired wings without disturbing any completed centre.
 
 Both phases of the reused three-phase diagnostic have independent 30,000-node
 budgets; a budget miss is a normal bounded failure, never an open-ended search.

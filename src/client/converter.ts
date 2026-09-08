@@ -22,6 +22,7 @@ import {
   createReduction4x4SolverClient,
   createReduction5x5BarSolverClient,
   createReduction5x5CycleSolverClient,
+  createReduction5x5L2ESolverClient,
   createManualStateVerifierClient,
   createSolverClient,
   createTwoPhaseSolverClient,
@@ -402,6 +403,7 @@ if (root) {
     guide: root.querySelector<HTMLElement>("[data-reduction-5x5-academy-guide]")!,
     findBar: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-find-bar]")!,
     findCycle: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-find-cycle]")!,
+    findL2E: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-find-l2e]")!,
     repairParity: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-repair-parity]")!,
     applyCentre: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-apply-centre]")!,
     applyWing: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-apply-wing]")!,
@@ -627,6 +629,10 @@ if (root) {
   let reduction5x5BarRequest = 0;
   let reduction5x5BarGuide: any = null;
   let reduction5x5BarKey = "";
+  let reduction5x5L2EBusy = false;
+  let reduction5x5L2ERequest = 0;
+  let reduction5x5L2EGuide: any = null;
+  let reduction5x5L2EKey = "";
   let optimal2x2Request = 0;
   let reduction4x4Request = 0;
   let nissSide: "normal" | "inverse" = "normal";
@@ -697,6 +703,11 @@ if (root) {
     (stage) => { if (reduction5x5BarBusy) reduction5x5Academy.guide.textContent = stage; },
   );
   let reduction5x5BarClient = newReduction5x5BarClient();
+  const newReduction5x5L2EClient = () => createReduction5x5L2ESolverClient<CubeState, any>(
+    new Worker(new URL("./workers/solver.worker.ts", import.meta.url), {type: "module"}),
+    (stage) => { if (reduction5x5L2EBusy) reduction5x5Academy.guide.textContent = stage; },
+  );
+  let reduction5x5L2EClient = newReduction5x5L2EClient();
   const resetTwoPhaseRefinement = () => {
     // Setup defines every solver request. A Setup change makes any in-flight
     // search and its retained candidate unusable, so stop the dedicated worker
@@ -3074,6 +3085,7 @@ if (root) {
     academy.applyCentre.disabled = true;
     academy.findBar.hidden = true;
     academy.findCycle.hidden = true;
+    academy.findL2E.hidden = true;
     academy.repairParity.hidden = true;
     academy.repairParity.disabled = true;
     academy.applyWing.hidden = true;
@@ -3145,9 +3157,19 @@ if (root) {
         academy.guide.textContent = `Next replay-verified wing cycle: ${guide._0.algorithm} · ${guide._0.before}/24 → ${guide._0.after}/24 matched wing pairs; all six centres remain complete.`;
         academy.applyWing.hidden = false;
         academy.applyWing.disabled = false;
+      } else if (reduction5x5L2EGuide !== null && reduction5x5L2EKey === FaceletCodec.render(recognized.state)) {
+        academy.guide.textContent = `Replay-verified last-two-edges relation: ${reduction5x5L2EGuide.algorithm} · ${reduction5x5L2EGuide.before}/24 → ${reduction5x5L2EGuide.after}/24 matched wing pairs; all six centres remain complete.`;
+        academy.guide.classList.remove("error");
+        academy.applyWing.hidden = false;
+        academy.applyWing.disabled = false;
       } else {
         academy.guide.textContent = guide._0.message;
         academy.guide.classList.add("error");
+        if (progress.wingPairsMatched === 22) {
+          academy.findL2E.hidden = false;
+          academy.findL2E.disabled = reduction5x5L2EBusy;
+          academy.findL2E.textContent = reduction5x5L2EBusy ? "Stop last-two-edges search" : "Find last-two-edges relation";
+        }
       }
     }
     if (progress.stage === "handoff") {
@@ -5596,9 +5618,49 @@ if (root) {
 
   reduction5x5Academy.applyWing.addEventListener("click", () => {
     if (size !== 5 || activeRecognized === null) return;
-    const guide = planNextWingPair5x5(activeRecognized.state);
+    const key = FaceletCodec.render(activeRecognized.state);
+    const guide = reduction5x5L2EGuide !== null && reduction5x5L2EKey === key
+      ? {TAG: "Ok", _0: reduction5x5L2EGuide}
+      : planNextWingPair5x5(activeRecognized.state);
     if (guide.TAG !== "Ok") return;
     store.patch({moves: [movesInput.value.trim(), guide._0.algorithm].filter(Boolean).join(" ")});
+  });
+
+  reduction5x5Academy.findL2E.addEventListener("click", async () => {
+    if (size !== 5 || activeRecognized === null) return;
+    if (reduction5x5L2EBusy) {
+      reduction5x5L2ERequest += 1;
+      reduction5x5L2EClient.terminate();
+      reduction5x5L2EClient = newReduction5x5L2EClient();
+      reduction5x5L2EBusy = false;
+      reduction5x5Academy.findL2E.textContent = "Find last-two-edges relation";
+      reduction5x5Academy.guide.textContent = "Last-two-edges search stopped.";
+      return;
+    }
+    const request = ++reduction5x5L2ERequest;
+    const state = activeRecognized.state;
+    const key = FaceletCodec.render(state);
+    reduction5x5L2EBusy = true;
+    reduction5x5Academy.findL2E.hidden = false;
+    reduction5x5Academy.findL2E.textContent = "Stop last-two-edges search";
+    reduction5x5Academy.guide.textContent = "Searching replay-verified last-two-edges setups…";
+    try {
+      const guide = await reduction5x5L2EClient.solve(state);
+      if (request !== reduction5x5L2ERequest || FaceletCodec.render(activeRecognized?.state ?? state) !== key) return;
+      reduction5x5L2EGuide = guide;
+      reduction5x5L2EKey = key;
+      reduction5x5Academy.guide.textContent = `Replay-verified last-two-edges relation: ${guide.algorithm} · ${guide.before}/24 → ${guide.after}/24 matched wing pairs; all six centres remain complete.`;
+      reduction5x5Academy.guide.classList.remove("error");
+      reduction5x5Academy.applyWing.hidden = false;
+      reduction5x5Academy.applyWing.disabled = false;
+    } catch (error) {
+      if (request === reduction5x5L2ERequest) reduction5x5Academy.guide.textContent = error instanceof Error ? error.message : "Last-two-edges search stopped.";
+    } finally {
+      if (request === reduction5x5L2ERequest) {
+        reduction5x5L2EBusy = false;
+        reduction5x5Academy.findL2E.textContent = "Find last-two-edges relation";
+      }
+    }
   });
 
   reduction5x5Academy.repairParity.addEventListener("click", () => {

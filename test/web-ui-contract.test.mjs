@@ -220,9 +220,11 @@ test("Academy exposes the milestone-first 5×5 reduction inspector", () => {
   assert.match(client, /planNextWingPair5x5/);
   assert.match(page, /data-reduction-5x5-academy-find-cycle/);
   assert.match(page, /data-reduction-5x5-academy-find-bar/);
+  assert.match(page, /data-reduction-5x5-academy-find-l2e/);
   assert.match(page, /data-reduction-5x5-academy-repair-parity/);
   assert.match(client, /createReduction5x5CycleSolverClient/);
   assert.match(client, /createReduction5x5BarSolverClient/);
+  assert.match(client, /createReduction5x5L2ESolverClient/);
   assert.match(client, /Stop centre-cycle search/);
   assert.doesNotMatch(client, /Use the 1×3 bar guide/);
   assert.match(page, /Find 1×3 bar commutator/);
@@ -233,6 +235,7 @@ test("Academy exposes the milestone-first 5×5 reduction inspector", () => {
   assert.match(client, /reduction5x5ImmediateGuideKey/);
   assert.match(solverWorker, /solve5x5CentreCycle/);
   assert.match(solverWorker, /solve5x5CentreBar/);
+  assert.match(solverWorker, /solve5x5L2E/);
   assert.match(solverWorker, /reduction5x5CycleProgress/);
   const reduction4x4Renderer = client.match(/const renderReduction4x4Academy = \([\s\S]*?if \(size !== 4\)/)?.[0] ?? "";
   assert.doesNotMatch(reduction4x4Renderer, /applyWing/);
