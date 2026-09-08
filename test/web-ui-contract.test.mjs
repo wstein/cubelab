@@ -223,8 +223,9 @@ test("Academy exposes the milestone-first 5×5 reduction inspector", () => {
   assert.match(client, /Stop centre-cycle search/);
   assert.match(solverWorker, /solve5x5CentreCycle/);
   assert.match(solverWorker, /reduction5x5CycleProgress/);
-  const reduction4x4Renderer = client.match(/const renderReduction4x4Academy = \([\s\S]*?^  };/m)?.[0] ?? "";
+  const reduction4x4Renderer = client.match(/const renderReduction4x4Academy = \([\s\S]*?if \(size !== 4\)/)?.[0] ?? "";
   assert.doesNotMatch(reduction4x4Renderer, /applyWing/);
+  assert.doesNotMatch(reduction4x4Renderer, /findCycle/);
 });
 
 test("the editor separates a synchronized setup from optional replay moves", () => {
