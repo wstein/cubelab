@@ -406,31 +406,11 @@ main[data-mock="true"] .smart-cube-dock {
   align-content: start;
 }
 
+/* The regular player controls and algorithm tape are superseded by the
+ * mock dock.  Leaving either visible steals canvas space and mixes two
+ * incompatible transports in one view. */
 main[data-mock="true"] .viewport-header,
-main[data-mock="true"] .playback {
-  position: absolute;
-  z-index: 4;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  border-radius: 0.7rem;
-  background: rgba(10, 15, 27, 0.66);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.26);
-  backdrop-filter: blur(14px);
-}
-
-main[data-mock="true"] .viewport-header {
-  top: 0.9rem;
-  right: 1rem;
-  padding: 0.45rem;
-}
-
-main[data-mock="true"] .viewport-header > :first-child {
-  display: none;
-}
-
-main[data-mock="true"] .viewport-header-actions {
-  flex-wrap: nowrap;
-}
-
+main[data-mock="true"] .playback,
 main[data-mock="true"] .viewport-footer,
 main[data-mock="true"] .preview-history {
   display: none;
