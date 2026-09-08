@@ -571,6 +571,39 @@ let planNextWingPair5x5 = (state: cubeState): result<guide, reductionError> =>
       }
       }
     })
+    if best.contents == None {
+      wingCycleNotations->Array.forEach(notation => switch parse(notation) {
+      | None => ()
+      | Some(seed) => {
+        for xTurns in 0 to 3 {
+          for yTurns in 0 to 3 {
+            for zTurns in 0 to 3 {
+              let rotated = seed
+                ->MoveTransform.rotate(~axis=X, ~turns=xTurns)
+                ->MoveTransform.rotate(~axis=Y, ~turns=yTurns)
+                ->MoveTransform.rotate(~axis=Z, ~turns=zTurns)
+              [rotated, MoveTransform.invert(rotated)]->Array.forEach(cycle => centreSearchMoves->Array.forEach(setupNotation => switch parse(setupNotation) {
+                | None => ()
+                | Some(setup) => {
+                  let alg = Array.concat(Array.concat(setup, cycle), MoveTransform.invert(setup))
+                  switch MoveExecutor.applyAlg(state, alg) {
+                  | Ok(replay) => switch progressFor(replay) {
+                    | Some(after) if after.faces == 6 && after.wings > initial.wings => {
+                      let candidate = {alg, algorithm: MoveTransform.serialize(alg), before: initial.wings, after: after.wings, kind: "wing", barsBefore: 0, barsAfter: 0, completedBefore: 0, completedAfter: 0}
+                      switch best.contents { | None => best := Some(candidate) | Some(current) if candidate.after > current.after => best := Some(candidate) | Some(_) => () }
+                      }
+                    | _ => ()
+                    }
+                  | Error(_) => ()
+                  }
+                }
+              }))
+            }
+          }
+        }
+      }
+      })
+    }
     switch best.contents { | Some(guide) => Ok(guide) | None => Error({message: "No centre-preserving wing improvement is available. Make a pairing setup, then request the next guide."}) }
   }
   }

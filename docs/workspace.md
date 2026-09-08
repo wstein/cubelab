@@ -162,6 +162,10 @@ outer/inner setup turns around the `U2 M' U2 M` centre-permutation cycle and
 its directional variants, then restores the buffer. It accepts only a replay
 that preserves completed X-centres and advances the 3×3-centre handoff.
 
+The wing guide likewise tries setup–cycle–restore variants of its protected
+dedge cycles when a bare insertion cannot improve. It accepts only a replay
+that keeps all six centres complete and increases the matched-wing count.
+
 Both phases of the reused three-phase diagnostic have independent 30,000-node
 budgets; a budget miss is a normal bounded failure, never an open-ended search.
 

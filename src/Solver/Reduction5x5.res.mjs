@@ -1272,6 +1272,65 @@ function planNextWingPair5x5(state) {
       }
     });
   });
+  if (best.contents === undefined) {
+    wingCycleNotations.forEach(notation => {
+      let seed = parse(notation);
+      if (seed === undefined) {
+        return;
+      }
+      for (let xTurns = 0; xTurns <= 3; ++xTurns) {
+        for (let yTurns = 0; yTurns <= 3; ++yTurns) {
+          for (let zTurns = 0; zTurns <= 3; ++zTurns) {
+            let rotated = MoveTransform.rotate(MoveTransform.rotate(MoveTransform.rotate(seed, "X", xTurns), "Y", yTurns), "Z", zTurns);
+            [
+              rotated,
+              MoveTransform.invert(rotated)
+            ].forEach(cycle => {
+              centreSearchMoves.forEach(setupNotation => {
+                let setup = parse(setupNotation);
+                if (setup === undefined) {
+                  return;
+                }
+                let alg = setup.concat(cycle).concat(MoveTransform.invert(setup));
+                let replay = MoveExecutor.applyAlg(state, alg);
+                if (replay.TAG !== "Ok") {
+                  return;
+                }
+                let after = progressFor(replay._0);
+                if (after === undefined) {
+                  return;
+                }
+                if (!(after.faces === 6 && after.wings > initial.wings)) {
+                  return;
+                }
+                let candidate_algorithm = MoveTransform.serialize(alg);
+                let candidate_before = initial.wings;
+                let candidate_after = after.wings;
+                let candidate = {
+                  alg: alg,
+                  algorithm: candidate_algorithm,
+                  before: candidate_before,
+                  after: candidate_after,
+                  kind: "wing",
+                  barsBefore: 0,
+                  barsAfter: 0,
+                  completedBefore: 0,
+                  completedAfter: 0
+                };
+                let current = best.contents;
+                if (current !== undefined && candidate_after <= current.after) {
+                  return;
+                } else {
+                  best.contents = candidate;
+                  return;
+                }
+              });
+            });
+          }
+        }
+      }
+    });
+  }
   let guide = best.contents;
   if (guide !== undefined) {
     return {
