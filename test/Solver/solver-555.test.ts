@@ -4,6 +4,8 @@ import * as Util from "../../src/Solver/Cube555/Util555.res.mjs";
 import * as Phase1Center from "../../src/Solver/Cube555/Phase1Center555.res.mjs";
 import * as Phase2Center from "../../src/Solver/Cube555/Phase2Center555.res.mjs";
 import * as Phase3Center from "../../src/Solver/Cube555/Phase3Center555.res.mjs";
+import * as Phase4Center from "../../src/Solver/Cube555/Phase4Center555.res.mjs";
+import * as Phase5Center from "../../src/Solver/Cube555/Phase5Center555.res.mjs";
 
 describe("CubieCube555 foundational logic", () => {
   it("initializes a solved 5x5 cubie cube", () => {
@@ -162,5 +164,38 @@ describe("Phase3Center555 coordinate reduction", () => {
     expect(Phase3Center.getCenter(center)).toBe(0);
   });
 });
+
+describe("Phase4Center555 coordinate reduction", () => {
+  it("initializes Phase 4 centers to coordinate 0", () => {
+    const center = Phase4Center.make();
+    expect(Phase4Center.getUDCenter(center)).toBe(0);
+    expect(Phase4Center.getRLCenter(center)).toBe(0);
+  });
+
+  it("roundtrips Phase 4 UDCenter and RLCenter coordinates", () => {
+    const center = Phase4Center.make();
+    Phase4Center.setUDCenter(center, 3500);
+    expect(Phase4Center.getUDCenter(center)).toBe(3500);
+
+    Phase4Center.setRLCenter(center, 1200);
+    expect(Phase4Center.getRLCenter(center)).toBe(1200);
+  });
+});
+
+describe("Phase5Center555 coordinate reduction", () => {
+  it("initializes Phase 5 centers to coordinate 0", () => {
+    const center = Phase5Center.make();
+    expect(Phase5Center.getRFLBCenter(center)).toBe(0);
+    expect(Phase5Center.getXCenter(center)).toBe(0);
+    expect(Phase5Center.getTCenter(center)).toBe(0);
+  });
+
+  it("roundtrips Phase 5 RFLBCenter coordinates (0..35)", () => {
+    const center = Phase5Center.make();
+    Phase5Center.setRFLBCenter(center, 25);
+    expect(Phase5Center.getRFLBCenter(center)).toBe(25);
+  });
+});
+
 
 
