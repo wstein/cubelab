@@ -5517,17 +5517,25 @@ if (root) {
     }
   };
 
-  const pickMockTape = <T extends {name: string; tape: unknown}>(catalogue: readonly T[]): Promise<unknown> =>
+  const pickMockTape = <T extends {name: string; note?: string; brand?: string; durationMs?: number; profile?: string; load: () => Promise<unknown>}>(catalogue: readonly T[]): Promise<unknown> =>
     new Promise((resolve, reject) => {
       smartCubeTapePickerList.replaceChildren();
       catalogue.forEach((entry) => {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "viewport-control";
-        button.textContent = entry.name;
-        button.addEventListener("click", () => {
+        const description = [entry.brand, entry.profile, entry.durationMs === undefined ? undefined : `${entry.durationMs} ms`, entry.note]
+          .filter((value): value is string => typeof value === "string")
+          .join(" · ");
+        button.textContent = description ? `${entry.name} — ${description}` : entry.name;
+        button.addEventListener("click", async () => {
+          button.disabled = true;
           smartCubeTapePicker.close();
-          resolve(entry.tape);
+          try {
+            resolve(await entry.load());
+          } catch (reason) {
+            reject(reason);
+          }
         }, {once: true});
         smartCubeTapePickerList.append(button);
       });
@@ -5555,9 +5563,9 @@ if (root) {
             ? await (async () => {
               const catalogueRows = await fetch("/smart-cube/tapes/index.json").then((response) => {
                 if (!response.ok) throw new Error("Mock tape catalogue could not be loaded");
-                return response.json() as Promise<Array<{name: string}>>;
+                return response.json() as Promise<Array<{name: string; note?: string; brand?: string; durationMs?: number; profile?: "full" | "diagnostic"}>>;
               });
-              const catalogue = await Promise.all(catalogueRows.map(async ({name}) => ({name, tape: await loadReplayTape(name)})));
+              const catalogue = catalogueRows.map((entry) => ({...entry, load: () => loadReplayTape(entry.name)}));
               return createMockDeviceManager({catalogue, pickTape: pickMockTape});
             })()
             : replayName

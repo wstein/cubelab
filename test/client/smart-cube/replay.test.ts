@@ -34,14 +34,6 @@ const tape: SmartCubeTape = {
     inputHash: "",
     settings: {autoOrbit: false, regripThresholdDegrees: 65},
   },
-  events: [
-    {offsetMs: 0, event: {type: "hardware", timestamp: 10, orientationSupported: true}},
-    {offsetMs: 12, event: {type: "battery", timestamp: 22, level: 87}},
-    {offsetMs: 40, event: {type: "move", timestamp: 50, move: "R", face: 1, direction: 0, localTimestamp: 40, cubeTimestamp: 40}},
-  ],
-  commands: [
-    {offsetMs: 5, command: {type: "REQUEST_HARDWARE", timestamp: 15}},
-  ],
   timeline: [
     {offsetMs: 0, kind: "input", event: {type: "hardware", timestamp: 10, orientationSupported: true}},
     {offsetMs: 5, kind: "command", command: {type: "REQUEST_HARDWARE", timestamp: 15}},
@@ -100,13 +92,15 @@ describe("smart-cube replay tape", () => {
   });
 
   test("mock manager opens a picker instead of touching Bluetooth and delegates replay controls", async () => {
-    const pickTape = vi.fn(async () => tape);
-    const manager = createMockDeviceManager({catalogue: [{name: "sample", tape}], pickTape});
+    const pickTape = vi.fn(async (catalogue: readonly {load: () => Promise<SmartCubeTape>}[]) => catalogue[0]!.load());
+    const load = vi.fn(async () => tape);
+    const manager = createMockDeviceManager({catalogue: [{name: "sample", load}], pickTape});
     const received: string[] = [];
     manager.subscribeEvents((event) => received.push(event.type));
 
     await manager.connect();
     expect(pickTape).toHaveBeenCalledOnce();
+    expect(load).toHaveBeenCalledOnce();
     expect(manager.getState()).toMatchObject({phase: "connected", device: tape.header.device});
     manager.step();
     expect(received).toEqual(["hardware"]);
@@ -145,6 +139,7 @@ describe("smart-cube replay tape", () => {
     expect(validateSmartCubeTape(tape)).toEqual(tape);
     expect(() => validateSmartCubeTape({...tape, timeline: [tape.timeline[2], tape.timeline[0]]}))
       .toThrow("timeline offsets must be non-decreasing");
+    expect(() => validateSmartCubeTape({...tape, events: []})).toThrow("legacy events and commands fields are unsupported");
   });
 
   test("plays normalized events on their relative clock and supports pause, seek, and step", async () => {

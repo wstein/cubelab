@@ -83,7 +83,14 @@ export type ReplaySmartCubeManager = SmartCubeManager & {
   getIssuedCommands: () => readonly SmartCubeCommand[];
 };
 
-export type MockTapeCatalogueEntry = {name: string; tape: SmartCubeTape};
+export type MockTapeCatalogueEntry = {
+  name: string;
+  note?: string;
+  brand?: string;
+  durationMs?: number;
+  profile?: SmartCubeTape["profile"];
+  load: () => Promise<SmartCubeTape>;
+};
 export type MockDeviceManagerOptions = {
   catalogue: readonly MockTapeCatalogueEntry[];
   pickTape: (catalogue: readonly MockTapeCatalogueEntry[]) => Promise<SmartCubeTape>;
@@ -154,6 +161,7 @@ export const validateSmartCubeTape = (value: unknown): SmartCubeTape => {
   assert(typeof value.header.orientationTracking === "boolean" && typeof value.header.recording === "boolean", "header tracking fields must be boolean");
   assert(isRecord(value.header.settings) && typeof value.header.settings.autoOrbit === "boolean" && isFiniteNumber(value.header.settings.regripThresholdDegrees), "header.settings is invalid");
   assert(value.profile === "full" || value.profile === "diagnostic", "profile is required and must be full or diagnostic");
+  assert(!("events" in value) && !("commands" in value), "legacy events and commands fields are unsupported");
   const profile = value.profile;
   if (Array.isArray(value.timeline)) {
     const timeline: SmartCubeTapeTimelineEntry[] = [];
