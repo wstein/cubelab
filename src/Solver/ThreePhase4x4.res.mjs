@@ -1362,14 +1362,18 @@ function solvePhase1Centres(centres, maximumDepth) {
   }
 }
 
-function searchPhase1Candidates(rank, depth, permutations, symmetryMap, symmetryTable, limit) {
+function searchPhase1Candidates(rank, depth, permutations, symmetryMap, symmetryTable, limit, nodeBudget) {
   let collected = {
     contents: []
   };
+  let visitedNodes = {
+    contents: 0
+  };
   let go = (currentRank, remaining, lastFaceId, moves) => {
-    if (collected.contents.length >= limit) {
+    if (collected.contents.length >= limit || visitedNodes.contents >= nodeBudget) {
       return;
     }
+    visitedNodes.contents = visitedNodes.contents + 1 | 0;
     if (currentRank === 0) {
       collected.contents = collected.contents.concat([moves]);
       return;
@@ -1385,7 +1389,7 @@ function searchPhase1Candidates(rank, depth, permutations, symmetryMap, symmetry
       return;
     }
     for (let moveIndex = 0; moveIndex <= 35; ++moveIndex) {
-      if (collected.contents.length < limit) {
+      if (collected.contents.length < limit && visitedNodes.contents < nodeBudget) {
         let faceId = centreMoveFaceIds[moveIndex];
         if (axisTransitionAllowed(lastFaceId, faceId)) {
           let next = transitionUdRank(currentRank, permutations[moveIndex]);
@@ -1439,7 +1443,11 @@ function phase2MovePermutations() {
   }
 }
 
-function searchPhase2Ranks(udRank, fbRank, depth, lastFaceId, permutations, symmetryMap, symmetryTable) {
+function searchPhase2Ranks(udRank, fbRank, depth, lastFaceId, permutations, symmetryMap, symmetryTable, visitedNodes, nodeBudget) {
+  if (visitedNodes.contents >= nodeBudget) {
+    return;
+  }
+  visitedNodes.contents = visitedNodes.contents + 1 | 0;
   if (udRank === 0 && fbRank === phase2TargetFbRank) {
     return [];
   }
@@ -1455,13 +1463,13 @@ function searchPhase2Ranks(udRank, fbRank, depth, lastFaceId, permutations, symm
   }
   let found;
   for (let moveIndex = 0, moveIndex_finish = phase2Moves.length; moveIndex < moveIndex_finish; ++moveIndex) {
-    if (found === undefined) {
+    if (found === undefined && visitedNodes.contents < nodeBudget) {
       let move = phase2Moves[moveIndex];
       if (axisTransitionAllowed(lastFaceId, move.faceId)) {
         let permutation = permutations[moveIndex];
         let nextUdRank = transitionUdRank(udRank, permutation);
         let nextFbRank = transitionUdRank(fbRank, permutation);
-        let tail = searchPhase2Ranks(nextUdRank, nextFbRank, depth - 1 | 0, move.faceId, permutations, symmetryMap, symmetryTable);
+        let tail = searchPhase2Ranks(nextUdRank, nextFbRank, depth - 1 | 0, move.faceId, permutations, symmetryMap, symmetryTable, visitedNodes, nodeBudget);
         if (tail !== undefined) {
           found = [moveIndex].concat(tail);
         }
@@ -1478,8 +1486,11 @@ function solvePhase2Ranks(udRank, fbRank, maximumDepth, permutations, symmetryMa
   }
   let found;
   let depth = minimumDepth._0;
-  while (found === undefined && depth <= maximumDepth) {
-    found = searchPhase2Ranks(udRank, fbRank, depth, -1, permutations, symmetryMap, symmetryTable);
+  let visitedNodes = {
+    contents: 0
+  };
+  while (found === undefined && depth <= maximumDepth && visitedNodes.contents < 30000) {
+    found = searchPhase2Ranks(udRank, fbRank, depth, -1, permutations, symmetryMap, symmetryTable, visitedNodes, 30000);
     if (found === undefined) {
       depth = depth + 1 | 0;
     }
@@ -1543,7 +1554,7 @@ function solveCentreReduction(centres, maximumPhase1Depth, maximumPhase2Depth, c
   };
   let phase1Depth = reason._0;
   while (found.contents === undefined && phase1Depth <= maximumPhase1Depth) {
-    let candidates = searchPhase1Candidates(udRank, phase1Depth, phase1Permutations, symmetryMap, symmetryTable, candidatesPerDepth);
+    let candidates = searchPhase1Candidates(udRank, phase1Depth, phase1Permutations, symmetryMap, symmetryTable, candidatesPerDepth, 30000);
     candidates.forEach(phase1Moves => {
       if (found.contents !== undefined) {
         return;

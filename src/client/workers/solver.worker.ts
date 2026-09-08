@@ -272,7 +272,7 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
       return;
     }
     if (request.type === "solve5x5CentreCycle") {
-      self.postMessage({id: request.id, type: "reduction5x5CycleProgress", stage: "Preparing bounded X-centre tables…"});
+      self.postMessage({id: request.id, type: "reduction5x5CycleProgress", stage: "Searching bounded X-centre cycle…"});
       const guide = solveXCentreCycle5x5(request.state);
       if (guide.TAG === "Error") {
         self.postMessage({id: request.id, ok: false, error: guide._0.message});

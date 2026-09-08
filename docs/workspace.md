@@ -130,6 +130,9 @@ on a 5×5 and remains on the bar/commutator route until its dedicated solver is
 implemented. Table construction is never started while the page is rendering or
 responding to input.
 
+Both phases of the reused three-phase diagnostic have independent 30,000-node
+budgets; a budget miss is a normal bounded failure, never an open-ended search.
+
 ## Manual state entry
 
 The editor keeps its private draft, hover target, keyboard cursor, and dot-verification

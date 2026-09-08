@@ -885,26 +885,29 @@ let searchPhase1Candidates = (
   symmetryMap: centreSymmetryMap,
   symmetryTable: array<int>,
   limit: int,
+  nodeBudget: int,
 ): array<array<int>> => {
   let collected = ref([])
+  let visitedNodes = ref(0)
   let rec go = (currentRank: int, remaining: int, lastFaceId: int, moves: array<int>) =>
-    if collected.contents->Array.length >= limit {
-      ()
-    } else if currentRank == 0 {
-      collected := collected.contents->Array.concat([moves])
-    } else if remaining == 0 {
+    if collected.contents->Array.length >= limit || visitedNodes.contents >= nodeBudget {
       ()
     } else {
-      switch udRankDistance(currentRank, symmetryMap, symmetryTable) {
-      | Error(_) => ()
-      | Ok(distance) if distance > remaining => ()
-      | Ok(_) =>
-        for moveIndex in 0 to 35 {
-          if collected.contents->Array.length < limit {
-            let faceId = Belt.Array.getUnsafe(centreMoveFaceIds, moveIndex)
-            if axisTransitionAllowed(lastFaceId, faceId) {
-              let next = transitionUdRank(currentRank, Belt.Array.getUnsafe(permutations, moveIndex))
-              go(next, remaining - 1, faceId, moves->Array.concat([moveIndex]))
+      visitedNodes := visitedNodes.contents + 1
+      if currentRank == 0 {
+        collected := collected.contents->Array.concat([moves])
+      } else if remaining != 0 {
+        switch udRankDistance(currentRank, symmetryMap, symmetryTable) {
+        | Error(_) => ()
+        | Ok(distance) if distance > remaining => ()
+        | Ok(_) =>
+          for moveIndex in 0 to 35 {
+            if collected.contents->Array.length < limit && visitedNodes.contents < nodeBudget {
+              let faceId = Belt.Array.getUnsafe(centreMoveFaceIds, moveIndex)
+              if axisTransitionAllowed(lastFaceId, faceId) {
+                let next = transitionUdRank(currentRank, Belt.Array.getUnsafe(permutations, moveIndex))
+                go(next, remaining - 1, faceId, moves->Array.concat([moveIndex]))
+              }
             }
           }
         }
@@ -946,40 +949,49 @@ let rec searchPhase2Ranks = (
   permutations: array<array<int>>,
   symmetryMap: centreSymmetryMap,
   symmetryTable: array<int>,
+  visitedNodes: ref<int>,
+  nodeBudget: int,
 ): option<array<int>> =>
-  if udRank == 0 && fbRank == phase2TargetFbRank {
-    Some([])
-  } else if depth == 0 {
+  if visitedNodes.contents >= nodeBudget {
     None
   } else {
-    switch phase2CombinedDistance(udRank, fbRank, symmetryMap, symmetryTable) {
-    | Error(_) => None
-    | Ok(distance) if distance > depth => None
-    | Ok(_) => {
-        let found = ref(None)
-        for moveIndex in 0 to phase2Moves->Array.length - 1 {
-          if found.contents == None {
-            let move = Belt.Array.getUnsafe(phase2Moves, moveIndex)
-            if axisTransitionAllowed(lastFaceId, move.faceId) {
-              let permutation = Belt.Array.getUnsafe(permutations, moveIndex)
-              let nextUdRank = transitionUdRank(udRank, permutation)
-              let nextFbRank = transitionUdRank(fbRank, permutation)
-              switch searchPhase2Ranks(
-                nextUdRank,
-                nextFbRank,
-                depth - 1,
-                move.faceId,
-                permutations,
-                symmetryMap,
-                symmetryTable,
-              ) {
-              | Some(tail) => found := Some([moveIndex]->Array.concat(tail))
-              | None => ()
+    visitedNodes := visitedNodes.contents + 1
+    if udRank == 0 && fbRank == phase2TargetFbRank {
+      Some([])
+    } else if depth == 0 {
+      None
+    } else {
+      switch phase2CombinedDistance(udRank, fbRank, symmetryMap, symmetryTable) {
+      | Error(_) => None
+      | Ok(distance) if distance > depth => None
+      | Ok(_) => {
+          let found = ref(None)
+          for moveIndex in 0 to phase2Moves->Array.length - 1 {
+            if found.contents == None && visitedNodes.contents < nodeBudget {
+              let move = Belt.Array.getUnsafe(phase2Moves, moveIndex)
+              if axisTransitionAllowed(lastFaceId, move.faceId) {
+                let permutation = Belt.Array.getUnsafe(permutations, moveIndex)
+                let nextUdRank = transitionUdRank(udRank, permutation)
+                let nextFbRank = transitionUdRank(fbRank, permutation)
+                switch searchPhase2Ranks(
+                  nextUdRank,
+                  nextFbRank,
+                  depth - 1,
+                  move.faceId,
+                  permutations,
+                  symmetryMap,
+                  symmetryTable,
+                  visitedNodes,
+                  nodeBudget,
+                ) {
+                | Some(tail) => found := Some([moveIndex]->Array.concat(tail))
+                | None => ()
+                }
               }
             }
           }
+          found.contents
         }
-        found.contents
       }
     }
   }
@@ -997,8 +1009,20 @@ let solvePhase2Ranks = (
   | Ok(minimumDepth) => {
       let found = ref(None)
       let depth = ref(minimumDepth)
-      while found.contents == None && depth.contents <= maximumDepth {
-        found := searchPhase2Ranks(udRank, fbRank, depth.contents, -1, permutations, symmetryMap, symmetryTable)
+      let visitedNodes = ref(0)
+      let nodeBudget = 30000
+      while found.contents == None && depth.contents <= maximumDepth && visitedNodes.contents < nodeBudget {
+        found := searchPhase2Ranks(
+          udRank,
+          fbRank,
+          depth.contents,
+          -1,
+          permutations,
+          symmetryMap,
+          symmetryTable,
+          visitedNodes,
+          nodeBudget,
+        )
         if found.contents == None {
           depth := depth.contents + 1
         }
@@ -1059,6 +1083,7 @@ let solveCentreReduction = (
               symmetryMap,
               symmetryTable,
               candidatesPerDepth,
+              30000,
             )
             candidates->Array.forEach(phase1Moves =>
               if found.contents == None {

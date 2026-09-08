@@ -5498,7 +5498,7 @@ if (root) {
     reduction5x5CycleBusy = true;
     reduction5x5Academy.findCycle.hidden = false;
     reduction5x5Academy.findCycle.textContent = "Stop centre-cycle search";
-    reduction5x5Academy.guide.textContent = "Preparing bounded X-centre tables…";
+    reduction5x5Academy.guide.textContent = "Searching bounded X-centre cycle…";
     try {
       const guide = await reduction5x5CycleClient.solve(state);
       if (request !== reduction5x5CycleRequest || FaceletCodec.render(activeRecognized?.state ?? state) !== key) return;

@@ -116,8 +116,8 @@ let solveXCentreCycle5x5 = (state: cubeState): result<guide, reductionError> =>
     let centres = output.contents->Array.join("")
     // This is a bounded diagnostic only: ThreePhase4x4's phase-two heuristic
     // is not exact under its restricted move set, so deeper limits can explode.
-    switch ThreePhase4x4.solveCentreReduction(centres, 6, 8, 4) {
-    | Error(_) => Error({message: "No safe bounded X-centre cycle was found. Use the bar guide for the next teachable setup."})
+    switch ThreePhase4x4.solveCentreReduction(centres, 6, 6, 3) {
+    | Error(_) => Error({message: "No safe bounded X-centre cycle was found within the search budget. Use the 1×3 bar guide."})
     | Ok(solution) => {
       let notation = Array.concat(solution.phase1Notations, solution.phase2Notations)->Array.join(" ")
       switch parse(notation) {
@@ -136,36 +136,10 @@ let solveXCentreCycle5x5 = (state: cubeState): result<guide, reductionError> =>
   }
 
 /** The orthogonal +-centres are the second 24-piece regular orbit. Their
- * top/right/bottom/left ordering is the rotation-equivariant counterpart of
- * the 4×4 centre slot order; replay verification below is the safety gate. */
-let solvePlusCentreCycle5x5 = (state: cubeState): result<guide, reductionError> =>
-  switch progressFor(state) {
-  | None => Error({message: "The 5×5 centre-cycle solver requires a complete state."})
-  | Some(initial) => {
-    let compact = FaceletCodec.render(state)
-    let output = ref([])
-    [0, 3, 2, 5, 1, 4]->Array.forEach(faceIndex => {
-      let face = faceAt(compact, faceIndex)
-      [7, 13, 17, 11]->Array.forEach(index => output := Array.concat(output.contents, [charAt(face, index)]))
-    })
-    switch ThreePhase4x4.solveCentreReduction(output.contents->Array.join(""), 10, 14, 48) {
-    | Error(_) => Error({message: "The exact +-centre cycle search did not find a bounded reduction."})
-    | Ok(solution) => {
-      let notation = Array.concat(solution.phase1Notations, solution.phase2Notations)->Array.join(" ")
-      switch parse(notation) {
-      | None => Error({message: "The +-centre solver generated invalid 5×5 notation."})
-      | Some(alg) => switch MoveExecutor.applyAlg(state, alg) {
-        | Error(_) => Error({message: "The +-centre cycle could not be replayed on the 5×5 state."})
-        | Ok(replay) => switch progressFor(replay) {
-          | Some(after) if after.plus > initial.plus => Ok({alg, algorithm: MoveTransform.serialize(alg), before: initial.score, after: after.score, kind: "plusCycle", barsBefore: 0, barsAfter: 0, completedBefore: initial.x + initial.plus, completedAfter: after.x + after.plus})
-          | _ => Error({message: "The mapped +-centre cycle did not improve the 5×5 +-centre orbit."})
-          }
-        }
-      }
-    }
-  }
-  }
-  }
+ * geometry does not share 4×4 inner-slice mechanics, so they use the teachable
+ * bar and commutator guide. */
+let solvePlusCentreCycle5x5 = (_state: cubeState): result<guide, reductionError> =>
+  Error({message: "+-centres do not share 4×4 geometry. Use the teachable bar guide."})
 
 /** When individual sticker placement is locally flat, prefer completing one
  * whole X- or +-centre orbit. This keeps the tutorial moving through its
