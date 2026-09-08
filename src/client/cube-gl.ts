@@ -1150,6 +1150,80 @@ export const createCubeViewport = (
     context.restore();
   };
 
+  /**
+   * Small world-axis marker. It deliberately uses the scene's model-view and
+   * projection matrices, rather than the camera yaw/pitch directly, so it
+   * continues to agree with the cube when a smart-cube gyro is driving the
+   * view as well.
+   */
+  const drawOrientationAxes = (
+    matrices: { modelView: Mat4; projection: Mat4 },
+    width: number,
+    height: number,
+  ) => {
+    if (!overlay) return;
+    const bounds = canvas.getBoundingClientRect();
+    const dpr = width / Math.max(1, bounds.width);
+    const centerX = width - 47 * dpr;
+    const centerY = 47 * dpr;
+    const radius = 21 * dpr;
+    const origin = projectPoint([0, 0, 0], matrices.modelView, matrices.projection, width, height);
+    // These are the same U/R/F/D/L/B paints used by CubeGeometry. The F/B
+    // colors reverse with the Japanese palette, just like the rendered cube.
+    const faceColours = style === "Speed"
+      ? {U: "#f5f5f2", R: "#eb4d4a", F: "#66cc57", D: "#facc2e", L: "#f58c26", B: "#479eF0"}
+      : {U: "#f2f2f2", R: "#c4352e", F: "#218c4a", D: "#f5cc33", L: "#f07821", B: "#2959a8"};
+    const front = palette === "Japanese" ? faceColours.B : faceColours.F;
+    const back = palette === "Japanese" ? faceColours.F : faceColours.B;
+    const axisSpecs: Array<{label: string; point: [number, number, number]; colour: string}> = [
+      {label: "x", point: [1, 0, 0], colour: faceColours.R},
+      {label: "-x", point: [-1, 0, 0], colour: faceColours.L},
+      {label: "y", point: [0, 1, 0], colour: faceColours.U},
+      {label: "-y", point: [0, -1, 0], colour: faceColours.D},
+      {label: "z", point: [0, 0, 1], colour: front},
+      {label: "-z", point: [0, 0, -1], colour: back},
+    ];
+    const axes = axisSpecs.map((axis) => {
+      const endpoint = projectPoint(axis.point, matrices.modelView, matrices.projection, width, height);
+      const dx = endpoint.x - origin.x;
+      const dy = endpoint.y - origin.y;
+      const length = Math.max(0.001, Math.hypot(dx, dy));
+      return {...axis, x: centerX + (dx / length) * radius, y: centerY + (dy / length) * radius, depth: endpoint.depth};
+    });
+
+    overlay.save();
+    overlay.fillStyle = "rgba(8, 15, 30, 0.68)";
+    overlay.beginPath();
+    overlay.arc(centerX, centerY, 31 * dpr, 0, Math.PI * 2);
+    overlay.fill();
+    overlay.lineCap = "round";
+    // Farther axes first makes the marker read as a tiny 3D object.
+    axes.sort((left, right) => right.depth - left.depth).forEach((axis) => {
+      overlay.strokeStyle = axis.colour;
+      overlay.lineWidth = 2.2 * dpr;
+      overlay.shadowColor = axis.colour;
+      overlay.shadowBlur = 5 * dpr;
+      overlay.beginPath();
+      overlay.moveTo(centerX, centerY);
+      overlay.lineTo(axis.x, axis.y);
+      overlay.stroke();
+      drawArrowhead(overlay, {x: centerX, y: centerY, depth: 0, inFront: true}, {x: axis.x, y: axis.y, depth: axis.depth, inFront: true}, 5 * dpr, axis.colour);
+      overlay.shadowBlur = 0;
+      overlay.fillStyle = axis.colour;
+      overlay.font = `700 ${10 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+      overlay.textAlign = "center";
+      overlay.textBaseline = "middle";
+      const labelX = centerX + (axis.x - centerX) * 1.22;
+      const labelY = centerY + (axis.y - centerY) * 1.22;
+      overlay.fillText(axis.label, labelX, labelY);
+    });
+    overlay.fillStyle = "rgba(226, 232, 240, 0.9)";
+    overlay.beginPath();
+    overlay.arc(centerX, centerY, 2.5 * dpr, 0, Math.PI * 2);
+    overlay.fill();
+    overlay.restore();
+  };
+
   const drawBadge = (
     context: CanvasRenderingContext2D,
     text: string,
@@ -1450,6 +1524,7 @@ export const createCubeViewport = (
       overlayCanvas.height = height;
     }
     overlay.clearRect(0, 0, width, height);
+    drawOrientationAxes(matrices, width, height);
     if (!focus && !turnGuide && !milestone) {
       delete overlayCanvas.dataset.motionVisible;
       return;
