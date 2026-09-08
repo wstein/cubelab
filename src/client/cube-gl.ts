@@ -693,6 +693,96 @@ export const multiplyQuaternions = (
   w: left.w * right.w - left.x * right.x - left.y * right.y - left.z * right.z,
 });
 
+type CardinalOrientation = {quaternion: OrientationQuaternion};
+
+const cardinalQuarter = (axis: "X" | "Y" | "Z", turns: 1 | -1): OrientationQuaternion => {
+  const half = Math.SQRT1_2 * turns;
+  return axis === "X"
+    ? {x: half, y: 0, z: 0, w: Math.SQRT1_2}
+    : axis === "Y"
+      ? {x: 0, y: half, z: 0, w: Math.SQRT1_2}
+      : {x: 0, y: 0, z: half, w: Math.SQRT1_2};
+};
+
+const sameOrientation = (left: OrientationQuaternion, right: OrientationQuaternion): boolean => {
+  const dot = Math.abs(left.x * right.x + left.y * right.y + left.z * right.z + left.w * right.w);
+  return dot > 1 - 1e-8;
+};
+
+const cardinalOrientations = (): CardinalOrientation[] => {
+  const all: CardinalOrientation[] = [{quaternion: {x: 0, y: 0, z: 0, w: 1}}];
+  const steps: Array<["X" | "Y" | "Z", 1 | -1]> = [
+    ["X", 1], ["X", -1], ["Y", 1], ["Y", -1], ["Z", 1], ["Z", -1],
+  ];
+  for (let index = 0; index < all.length; index += 1) {
+    const current = all[index]!;
+    for (const [axis, turns] of steps) {
+      const quaternion = normalizedQuaternion(multiplyQuaternions(current.quaternion, cardinalQuarter(axis, turns)));
+      if (!all.some((existing) => sameOrientation(existing.quaternion, quaternion))) all.push({quaternion});
+    }
+  }
+  return all;
+};
+
+const CARDINAL_ORIENTATIONS = cardinalOrientations();
+
+/** Returns the legal cube pose nearest to a possibly drifted orientation. */
+export const nearestCardinalQuaternion = (orientation: OrientationQuaternion): OrientationQuaternion => {
+  const normalized = normalizedQuaternion(orientation);
+  return CARDINAL_ORIENTATIONS.reduce((best, candidate) => {
+    const bestDot = Math.abs(normalized.x * best.x + normalized.y * best.y + normalized.z * best.z + normalized.w * best.w);
+    const candidateDot = Math.abs(
+      normalized.x * candidate.quaternion.x
+      + normalized.y * candidate.quaternion.y
+      + normalized.z * candidate.quaternion.z
+      + normalized.w * candidate.quaternion.w,
+    );
+    return candidateDot > bestDot ? candidate.quaternion : best;
+  }, CARDINAL_ORIENTATIONS[0]!.quaternion);
+};
+
+/**
+ * Captures an R-flick alignment in two explicit steps: rotate the virtual
+ * cube so its Right centre is correct, then choose Up from the
+ * offset-adjusted live pose in that rotated frame.
+ */
+export const virtualCubeAlignment = (
+  virtualOffset: OrientationQuaternion,
+  gyroDriftOffset: OrientationQuaternion,
+  rawOrientation: OrientationQuaternion,
+): OrientationQuaternion => nearestCardinalQuaternion(multiplyQuaternions(
+  multiplyQuaternions(gyroDriftOffset, rawOrientation),
+  virtualOffset,
+));
+
+const CARDINAL_BODY_FACES: Array<{face: string; normal: [number, number, number]}> = [
+  {face: "U", normal: [0, 1, 0]}, {face: "R", normal: [1, 0, 0]}, {face: "F", normal: [0, 0, 1]},
+  {face: "D", normal: [0, -1, 0]}, {face: "L", normal: [-1, 0, 0]}, {face: "B", normal: [0, 0, -1]},
+];
+const CARDINAL_WORLD_AXES: Array<[number, number, number]> = CARDINAL_BODY_FACES.map(({normal}) => normal);
+
+const rotateCardinalVector = (quaternion: OrientationQuaternion, vector: [number, number, number]): [number, number, number] => {
+  const {x: qx, y: qy, z: qz, w: qw} = normalizedQuaternion(quaternion);
+  const [vx, vy, vz] = vector;
+  const tx = 2 * (qy * vz - qz * vy);
+  const ty = 2 * (qz * vx - qx * vz);
+  const tz = 2 * (qx * vy - qy * vx);
+  return [vx + qw * tx + (qy * tz - qz * ty), vy + qw * ty + (qz * tx - qx * tz), vz + qw * tz + (qx * ty - qy * tx)];
+};
+
+/** Physical centre colours at world Up, Right, Front, Down, Left, Back. */
+export const cardinalOrientationFaces = (orientation: OrientationQuaternion): string => {
+  const inverse = normalizedQuaternion({x: -orientation.x, y: -orientation.y, z: -orientation.z, w: orientation.w});
+  return CARDINAL_WORLD_AXES.map((worldAxis) => {
+    const body = rotateCardinalVector(inverse, worldAxis);
+    return CARDINAL_BODY_FACES.reduce((best, candidate) => (
+      body[0] * candidate.normal[0] + body[1] * candidate.normal[1] + body[2] * candidate.normal[2]
+      > body[0] * best.normal[0] + body[1] * best.normal[1] + body[2] * best.normal[2]
+        ? candidate : best
+    ), CARDINAL_BODY_FACES[0]!).face;
+  }).join("");
+};
+
 export const relativeQuaternion = (
   base: OrientationQuaternion,
   current: OrientationQuaternion,
@@ -852,7 +942,8 @@ export type CubeViewport = {
     orientation: OrientationQuaternion,
     frame?: OrientationCoordinateFrame,
     animate?: boolean,
-  ) => void;
+    virtualOffset?: OrientationQuaternion,
+  ) => OrientationQuaternion;
   reconcileDeviceOrientation: (
     orientation: OrientationQuaternion,
     target: OrientationQuaternion,
@@ -2231,9 +2322,15 @@ export const createCubeViewport = (
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
     },
-    recenterDeviceOrientation(orientation, coordinateFrame = "viewport", animate = true) {
+    recenterDeviceOrientation(orientation, coordinateFrame = "viewport", animate = true, virtualOffset) {
       const normalized = normalizedQuaternion(orientation);
       const prevVisual = lastRenderedOrientation;
+      const rawOrientation = deviceOrientationBase && deviceOrientationFrame === coordinateFrame
+        ? deviceOrientationDelta(deviceOrientationBase, normalized, coordinateFrame, "world")
+        : {x: 0, y: 0, z: 0, w: 1};
+      const alignment = virtualOffset
+        ? virtualCubeAlignment(virtualOffset, gyroDriftOffset, rawOrientation)
+        : {x: 0, y: 0, z: 0, w: 1};
       deviceOrientationBase = normalized;
       deviceOrientation = normalized;
       deviceOrientationLockTarget = {x: 0, y: 0, z: 0, w: 1};
@@ -2242,10 +2339,21 @@ export const createCubeViewport = (
       isGyroDrifting = false;
       deviceOrientationFrame = coordinateFrame;
 
-      const correction = (animate && prevVisual) ? recenterOrientationCorrection(prevVisual) : null;
-      if (correction) {
+      const correction = virtualOffset
+        ? alignment
+        : (animate && prevVisual) ? recenterOrientationCorrection(prevVisual) : null;
+      if (correction && !virtualOffset) {
         deviceOrientationCorrection = correction;
         animateDeviceOrientationCorrectionTo({x: 0, y: 0, z: 0, w: 1}, 150);
+      } else if (correction) {
+        // A gesture alignment is the new persistent virtual frame, not a
+        // transitional visual correction to animate away.
+        if (deviceOrientationCorrectionFrame !== null) {
+          window.cancelAnimationFrame(deviceOrientationCorrectionFrame);
+          deviceOrientationCorrectionFrame = null;
+        }
+        deviceOrientationCorrection = correction;
+        deviceOrientationCorrectionGeneration += 1;
       } else {
         if (deviceOrientationCorrectionFrame !== null) {
           window.cancelAnimationFrame(deviceOrientationCorrectionFrame);
@@ -2257,6 +2365,7 @@ export const createCubeViewport = (
 
       canvas.dataset.deviceOrientation = "tracking";
       requestRender();
+      return alignment;
     },
     reconcileDeviceOrientation(orientation, target, coordinateFrame = "viewport") {
       const normalized = normalizedQuaternion(orientation);

@@ -5,6 +5,7 @@ import * as CubeGeometry from "../../src/Render/CubeGeometry.res.mjs";
 import * as StateTypes from "../../src/State/StateTypes.res.mjs";
 import {
   autoOrbitYawDelta,
+  cardinalOrientationFaces,
   cameraTween,
   cameraMatrices,
   clampedCanvasSize,
@@ -16,6 +17,7 @@ import {
   magneticOrientationDetent,
   matrixFromQuaternion,
   multiplyQuaternions,
+  nearestCardinalQuaternion,
   orientationInViewportFrame,
   orientationCorrectionForTarget,
   orientationDistanceRadians,
@@ -29,6 +31,7 @@ import {
   slerpQuaternion,
   smoothTrackedOrientation,
   standardStickerFinish,
+  virtualCubeAlignment,
   vboCapacityFloats,
 } from "../../src/client/cube-gl";
 import {cubieIsFrontFacing} from "../../src/client/motion-overlay";
@@ -36,6 +39,31 @@ import {cubieIsFrontFacing} from "../../src/client/motion-overlay";
 const viewportSource = await readFile(new URL("../../src/client/cube-gl.ts", import.meta.url), "utf8");
 
 describe("cube viewport math", () => {
+  test("aligns an R-flick virtual cube before choosing its offset-aware nearest Up", () => {
+    const identity = {x: 0, y: 0, z: 0, w: 1};
+    const x = (degrees: number) => ({
+      x: Math.sin(degrees * Math.PI / 360), y: 0, z: 0, w: Math.cos(degrees * Math.PI / 360),
+    });
+    const y = (degrees: number) => ({
+      x: 0, y: Math.sin(degrees * Math.PI / 360), z: 0, w: Math.cos(degrees * Math.PI / 360),
+    });
+
+    // The raw 44° pose is still nearest identity. A 5° live gyro offset puts
+    // the rendered pose on the x quarter-turn side of the 45° boundary. The
+    // virtual y pose is applied first (to keep its rotated Right centre), then
+    // the offset-aware current pose determines the new Up centre.
+    const aligned = virtualCubeAlignment(y(90), x(5), x(44));
+
+    const rotatedRight = cardinalOrientationFaces(y(90))[1]!;
+    const offsetAwareUp = cardinalOrientationFaces(nearestCardinalQuaternion(multiplyQuaternions(
+      multiplyQuaternions(x(5), x(44)),
+      y(90),
+    )))[0]!;
+    const faces = cardinalOrientationFaces(aligned);
+    expect(faces[1]).toBe(rotatedRight);
+    expect(faces[0]).toBe(offsetAwareUp);
+  });
+
   test("derives a display correction without changing the raw IMU pose", () => {
     const base = {x: 0, y: 0, z: 0, w: 1};
     const raw = {x: Math.sin(47 * Math.PI / 180), y: 0, z: 0, w: Math.cos(47 * Math.PI / 180)};

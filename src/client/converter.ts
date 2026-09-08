@@ -2421,20 +2421,33 @@ if (root) {
     if (!smartCubeOrientationTracking) return;
     const target = orientationOverride ?? latestSmartCubeOrientation;
     if (!target) return;
-    smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
+    // An R flick first preserves the already-rotated virtual Right frame;
+    // CubeViewport then selects Up from the offset-adjusted current pose.
+    const virtualOffset = source === "gesture"
+      ? smartCubeVirtualFixpointTracker?.orientation
+      : undefined;
+    const alignment = viewport?.recenterDeviceOrientation(
+      target.quaternion,
+      target.coordinateFrame,
+      true,
+      virtualOffset,
+    );
+    const discreteTracker = createStableOrientationTracker(
       target.quaternion,
       target.coordinateFrame,
       "world",
     );
-    smartCubeVirtualFixpointTracker = createStableOrientationTracker(
+    const fixpointTracker = createStableOrientationTracker(
       target.quaternion,
       target.coordinateFrame,
       "world",
     );
-    viewport?.recenterDeviceOrientation(
-      target.quaternion,
-      target.coordinateFrame,
-    );
+    if (alignment) {
+      discreteTracker.orientation = alignment;
+      fixpointTracker.orientation = alignment;
+    }
+    smartCubeDiscreteOrientationTracker = discreteTracker;
+    smartCubeVirtualFixpointTracker = fixpointTracker;
     updateSmartCubeRegripGauge(target.quaternion, target.coordinateFrame);
     traceSmartCubeStabilization(`gyro view recentered (${source})`, {
       coordinates: target.quaternion,
