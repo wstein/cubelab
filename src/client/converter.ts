@@ -2878,7 +2878,6 @@ if (root) {
     academy.guide.textContent = "";
     academy.applyCentre.hidden = true;
     academy.applyCentre.disabled = true;
-    academy.findCycle.hidden = true;
     academy.applyGuide.hidden = true;
     academy.applyGuide.disabled = true;
     academy.repairParity.hidden = true;
@@ -3070,6 +3069,7 @@ if (root) {
     academy.guide.classList.remove("error");
     academy.applyCentre.hidden = true;
     academy.applyCentre.disabled = true;
+    academy.findCycle.hidden = true;
     academy.applyWing.hidden = true;
     academy.applyWing.disabled = true;
     if (size !== 5) {
