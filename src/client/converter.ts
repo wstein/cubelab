@@ -15,6 +15,12 @@ import * as AlgorithmOptimizer from "../Solver/AlgorithmOptimizer.res.mjs";
 import {inspectReduction4x4, planNextCentreBlock4x4, planNextWingPair4x4, planOLLParityRepair4x4, planPLLParityRepair4x4, reduce4x4} from "../Solver/Reduction4x4.res.mjs";
 import {inspectReduction5x5, planOLLParityRepair5x5, planPLLParityRepair5x5, planNextCentre5x5, planNextWingPair5x5, reduce5x5} from "../Solver/Reduction5x5.res.mjs";
 import {
+  inspectPetrus5x5State,
+  petrus5x5CubieFocus,
+  petrus5x5PhaseDefinitions,
+  planPetrus5x5Guide,
+} from "./petrus-5x5-academy";
+import {
   createOptimal2x2SolverClient,
   createRandom2x2ScrambleClient,
   createTwoByTwoAcademySolverClient,
@@ -197,7 +203,7 @@ type RecognizedInput = {
   timeline?: AlgorithmTimeline;
   timelineKey?: string;
 };
-type TutorialMethod = Exclude<AcademyMethod, "reduction4x4" | "reduction5x5">;
+type TutorialMethod = Exclude<AcademyMethod, "reduction4x4" | "reduction5x5" | "petrus5x5">;
 type TutorialPhase = {
   number: number;
   title: string;
@@ -407,6 +413,13 @@ if (root) {
     repairParity: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-repair-parity]")!,
     applyCentre: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-apply-centre]")!,
     applyWing: root.querySelector<HTMLButtonElement>("[data-reduction-5x5-academy-apply-wing]")!,
+  };
+  const petrus5x5Academy = {
+    status: root.querySelector<HTMLElement>("[data-petrus-5x5-academy-status]")!,
+    current: root.querySelector<HTMLElement>("[data-petrus-5x5-academy-current]")!,
+    phases: root.querySelector<HTMLElement>("[data-petrus-5x5-academy-phases]")!,
+    guide: root.querySelector<HTMLElement>("[data-petrus-5x5-academy-guide]")!,
+    step: root.querySelector<HTMLButtonElement>("[data-petrus-5x5-academy-step]")!,
   };
   const autoOrbitButton = root.querySelector<HTMLButtonElement>("[data-auto-orbit]")!;
   const turnGuidesButton = root.querySelector<HTMLButtonElement>("[data-turn-guides]")!;
@@ -2758,8 +2771,8 @@ if (root) {
       const moveCount = savedTutorialSolutions.get(academy.method)?.solution.moveCount;
       return moveCount === undefined ? [] : [{label: academy.label, moveCount}];
     });
-    academyComparison.hidden = academyMethod === "reduction4x4" || academyMethod === "reduction5x5" || compared.length < 2;
-    if (academyMethod === "reduction4x4" || academyMethod === "reduction5x5" || compared.length < 2) {
+    academyComparison.hidden = academyMethod === "reduction4x4" || academyMethod === "reduction5x5" || academyMethod === "petrus5x5" || compared.length < 2;
+    if (academyMethod === "reduction4x4" || academyMethod === "reduction5x5" || academyMethod === "petrus5x5" || compared.length < 2) {
       academyComparison.textContent = "";
       return;
     }
@@ -2770,7 +2783,7 @@ if (root) {
   };
 
   const selectedTutorialMethod = (): TutorialMethod | null =>
-    academyMethod === "reduction4x4" || academyMethod === "reduction5x5" ? null : academyMethod;
+    academyMethod === "reduction4x4" || academyMethod === "reduction5x5" || academyMethod === "petrus5x5" ? null : academyMethod;
 
   const isSolvedState = (state: CubeState): boolean => {
     const solved = StateTypes.solved(state.size) as Result<CubeState, unknown>;
@@ -2807,14 +2820,14 @@ if (root) {
     `${input.value}\u0000${schemeSelect.value}\u0000${customScheme.value}`;
 
   const academySetupSourceKey = (): string =>
-    `${size}\u0000${lowercaseMode}\u0000${notationDialect}\u0000${schemeSelect.value}\u0000${customScheme.value}\u0000${input.value}\u0000${academyMethod === "reduction4x4" || academyMethod === "reduction5x5" ? movesInput.value : ""}`;
+    `${size}\u0000${lowercaseMode}\u0000${notationDialect}\u0000${schemeSelect.value}\u0000${customScheme.value}\u0000${input.value}\u0000${academyMethod === "reduction4x4" || academyMethod === "reduction5x5" || academyMethod === "petrus5x5" ? movesInput.value : ""}`;
 
   const synchronizeAcademySetup = () => {
     const key = academySetupSourceKey();
     if (key === academySetupKey) return;
     academySetupKey = key;
     const setup = parseState(input.value);
-    const source = academyMethod === "reduction4x4" || academyMethod === "reduction5x5"
+    const source = academyMethod === "reduction4x4" || academyMethod === "reduction5x5" || academyMethod === "petrus5x5"
       ? parseWorkspaceState(setup)
       : setup;
     updateAcademySource(source.TAG === "Ok" ? source._0 : null);
@@ -3190,8 +3203,116 @@ if (root) {
     }
   };
 
+  let petrus5x5GuideAlg: unknown = null;
+
+  const renderPetrus5x5Academy = (recognized: RecognizedInput | null) => {
+    const academy = petrus5x5Academy;
+    academy.status.classList.remove("error");
+    academy.phases.replaceChildren();
+    academy.current.hidden = true;
+    academy.guide.hidden = true;
+    academy.guide.classList.remove("error");
+    academy.step.hidden = true;
+    academy.step.disabled = true;
+    petrus5x5GuideAlg = null;
+
+    if (size !== 5) {
+      academy.status.textContent = "5×5 Petrus Academy is available for 5×5 states.";
+      return;
+    }
+    if (recognized === null) {
+      academy.status.textContent = "Enter a complete, physically valid 5×5 state to inspect Petrus block building.";
+      return;
+    }
+
+    const status = inspectPetrus5x5State(recognized.state);
+    if (status === null) {
+      academy.status.textContent = "Unable to inspect 5×5 Petrus geometry for this state.";
+      academy.status.classList.add("error");
+      return;
+    }
+
+    academy.status.textContent = `${status.bestAnchor} anchor · 2×2×2: ${status.block222Progress.piecesSolved}/19 · 2×2×3: ${status.block223Progress.piecesSolved}/24 · EO: ${status.eoStatus.badCount} bad · Wings: ${status.wingsPaired}/24.`;
+    academy.current.hidden = false;
+    academy.current.textContent = status.milestoneDescription;
+
+    academy.phases.append(
+      reductionAcademyPhase(
+        1,
+        "Build the 2×2×2 Corner Block",
+        "Anchor on the corner with the most solved pieces and assemble the 19-piece composite block with zero cube rotations.",
+        `${status.block222Progress.piecesSolved}/19 pieces · ${status.block222Progress.faceletsSolved}/27 facelets`,
+        status.block222Progress.isComplete,
+        status.phaseNumber === 1,
+        [
+          "Faces U, R, F and inner slices 2U, 2R, 2F are completely free to turn.",
+          "Assemble center quadrants first, then pair flanking wings with midges.",
+          "Recommended anchor: " + status.bestAnchor + ".",
+        ]
+      ),
+      reductionAcademyPhase(
+        2,
+        "Expand to a 2×2×3 Block",
+        "Extend the 2×2×2 block by adding a 1×3 center bar and edge pair along one face, expanding the block to 24 pieces.",
+        `${status.block223Progress.piecesSolved}/24 pieces · Axis ${status.block223Progress.axis}`,
+        status.block223Progress.isComplete,
+        status.phaseNumber === 2,
+        [
+          "Turns in ⟨U, R, 2U, 2R⟩ remain available without breaking the 2×2×2 block.",
+          "Add the center 1×3 bar, then join the edge cluster.",
+        ]
+      ),
+      reductionAcademyPhase(
+        3,
+        "Orient Outer Midges (EO)",
+        "Detect and orient all remaining outer edges. Once oriented, bad edges drop to 0 and the rest of the solve needs only rotationless ⟨U, R, 2U, 2R⟩ turns.",
+        `${status.eoStatus.orientedCount}/12 oriented · ${status.eoStatus.badCount} bad edges`,
+        status.eoStatus.isComplete,
+        status.phaseNumber === 3,
+        [
+          "Identify bad midges by their primary U/D or F/B facelet orientation.",
+          "Use short F/B triggers (e.g. F R U R' F' or F' U F) to flip bad edge pairs into good ones.",
+        ]
+      ),
+      reductionAcademyPhase(
+        4,
+        "Wing Pairing & F2L Completion",
+        "Pair the remaining wing edges into 3-edge dedges and insert F2L blocks into the remaining middle layer slots.",
+        `${status.wingsPaired}/24 paired wings`,
+        status.wingsPaired === 24,
+        status.phaseNumber === 4,
+        [
+          "Pre-pair wings using slice-and-replace so that F2L turns into standard 3×3 Petrus inserts.",
+          "Keep the lower F2L slots protected while cycling wings.",
+        ]
+      ),
+      reductionAcademyPhase(
+        5,
+        "Last Layer Finish & Parity",
+        "Solve the last layer with COLL and EPLL (all edges are already oriented). Repair 5×5 OLL or PLL parity if encountered.",
+        status.phaseNumber === 6 ? "Solved!" : "Ready for LL",
+        status.phaseNumber === 6,
+        status.phaseNumber === 5,
+        [
+          "Since edges are already oriented, skip OLL and go straight to COLL.",
+          "Cycle corners and edges with EPLL.",
+          "OLL parity: Rw U2 x Rw U2 Rw U2 Rw' U2 Lw U2 Rw' U2 Rw U2 Rw' U2 Rw'.",
+        ]
+      )
+    );
+
+    const guide = planPetrus5x5Guide(recognized.state);
+    if (guide !== null && guide.algorithm.length > 0) {
+      academy.guide.hidden = false;
+      academy.guide.textContent = `${guide.title}: ${guide.instruction} (Suggested: ${guide.algorithm})`;
+      academy.step.hidden = false;
+      academy.step.disabled = false;
+      petrus5x5GuideAlg = guide.alg;
+    }
+  };
+
   const updateAcademyMethodControls = () => {
-    const reductionMode = academyMethod === "reduction4x4" || academyMethod === "reduction5x5";
+    const reductionMode = academyMethod === "reduction4x4" || academyMethod === "reduction5x5" || academyMethod === "petrus5x5";
     const twoByTwoMode = academyMethod === "twoByTwoBeginner" || academyMethod === "twoByTwoPetrus";
     academySharedActions.forEach((control) => { control.hidden = reductionMode; });
     [academyInstantDrill, academyWcaDrill, academyLoadDrill, academyRandomDrill].forEach((control) => {
@@ -3220,6 +3341,7 @@ if (root) {
     });
     renderReduction4x4Academy(recognized);
     renderReduction5x5Academy(recognized);
+    renderPetrus5x5Academy(recognized);
     const diagnostic = academyTargetDiagnostic();
     const method = selectedTutorialMethod();
     if (diagnostic !== null && method !== null) {
@@ -5671,6 +5793,13 @@ if (root) {
       : planOLLParityRepair5x5(activeRecognized.state);
     if (repair.TAG !== "Ok") return;
     store.patch({moves: [movesInput.value.trim(), repair._0.algorithm].filter(Boolean).join(" ")});
+  });
+
+  petrus5x5Academy.step.addEventListener("click", () => {
+    if (size !== 5 || activeRecognized === null) return;
+    const guide = planPetrus5x5Guide(activeRecognized.state);
+    if (guide === null || guide.algorithm.length === 0) return;
+    store.patch({moves: [movesInput.value.trim(), guide.algorithm].filter(Boolean).join(" ")});
   });
 
   reduction4x4Academy.applyGuide.addEventListener("click", () => {

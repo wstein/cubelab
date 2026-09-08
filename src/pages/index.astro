@@ -1016,6 +1016,9 @@ s100"></textarea>
                   <button type="button" class="academy-method" data-academy-method="reduction5x5" aria-pressed="false">
                     <strong>🧠 5×5 Reduction</strong><span>3×3 centres · wings · handoff</span>
                   </button>
+                  <button type="button" class="academy-method" data-academy-method="petrus5x5" aria-pressed="false">
+                    <strong>🧱 5×5 Petrus</strong><span>19-pc block · EO · F2L</span>
+                  </button>
                 </div>
                 <button
                   type="button"
@@ -1443,6 +1446,15 @@ s100"></textarea>
               <div class="academy-phases" data-reduction-5x5-academy-phases></div>
               <div class="academy-current" data-reduction-5x5-academy-guide hidden></div>
               <div class="academy-solution-actions"><button type="button" class="transform-btn" data-reduction-5x5-academy-find-bar hidden>Find 1×3 bar commutator</button><button type="button" class="transform-btn" data-reduction-5x5-academy-find-cycle hidden>Try bounded X-centre cycle</button><button type="button" class="transform-btn" data-reduction-5x5-academy-find-l2e hidden>Find last-two-edges relation</button><button type="button" class="transform-btn" data-reduction-5x5-academy-apply-centre hidden>Apply next centre guide</button><button type="button" class="transform-btn" data-reduction-5x5-academy-apply-wing hidden>Apply next wing guide</button><button type="button" class="transform-btn" data-reduction-5x5-academy-repair-parity hidden>Apply parity repair</button></div>
+            </div>
+            <div data-academy-method-panel="petrus5x5" hidden>
+              <header class="feature-header academy-method-header"><div><span class="panel-label">19-piece anchor block · EO · wing pairing · COLL/EPLL</span><h3>5×5 Petrus Academy</h3></div></header>
+              <p class="academy-intro">Build outward from a 19-piece corner anchor block with zero cube rotations. Orient the remaining midges to restrict moves to ⟨U, R, 2U, 2R⟩, pair remaining wings, and finish with COLL/EPLL.</p>
+              <div class="academy-status" data-petrus-5x5-academy-status aria-live="polite">Enter a valid 5×5 state to inspect Petrus block building.</div>
+              <div class="academy-current" data-petrus-5x5-academy-current hidden></div>
+              <div class="academy-phases" data-petrus-5x5-academy-phases></div>
+              <div class="academy-current" data-petrus-5x5-academy-guide hidden></div>
+              <div class="academy-solution-actions"><button type="button" class="transform-btn" data-petrus-5x5-academy-step hidden>Apply next Petrus guide</button></div>
             </div>
           </section>
 
