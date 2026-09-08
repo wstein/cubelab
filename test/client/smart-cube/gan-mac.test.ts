@@ -1,6 +1,9 @@
 import {describe, expect, test} from "vitest";
 
-import {ganI4MacFromManufacturerData} from "../../../src/client/smart-cube/gan-mac";
+import {
+  ganI4MacFromManufacturerData,
+  recoverGanI4MacFromAdvertisements,
+} from "../../../src/client/smart-cube/gan-mac";
 
 describe("GAN i4 manufacturer-data MAC recovery", () => {
   test("reads the i4 address before its FF broadcast trailer", () => {
@@ -15,5 +18,13 @@ describe("GAN i4 manufacturer-data MAC recovery", () => {
   test("does not reinterpret an ordinary GAN advertisement", () => {
     const data = new DataView(Uint8Array.from([0, 0, 0, 1, 2, 3, 4, 5, 6]).buffer);
     expect(ganI4MacFromManufacturerData(data)).toBeNull();
+  });
+
+  test("does not wait for advertisements from a non-i4 cube", async () => {
+    const watchAdvertisements = () => Promise.reject(new Error("should not run"));
+    await expect(recoverGanI4MacFromAdvertisements({
+      name: "GAN356i",
+      watchAdvertisements,
+    } as unknown as BluetoothDevice)).resolves.toBeNull();
   });
 });

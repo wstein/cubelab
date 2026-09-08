@@ -12,6 +12,7 @@ import {
   type TimedGoCubeConnection,
 } from "./fast-gocube";
 import {resolveSmartCubeDriver} from "./drivers";
+import {recoverGanI4MacFromAdvertisements} from "./gan-mac";
 import type {
   SmartCubeCapabilities,
   SmartCubeCommand,
@@ -210,6 +211,16 @@ export const smartCubeTransportConnector: TransportConnector = async (
     });
   }
 
+  // A GAN i4 puts its encryption MAC before an FF broadcast trailer, unlike
+  // other GAN models. Capture that packet while it still advertises and before
+  // GATT connects; the generic library parser otherwise sees only the FFs.
+  const recoveredGanI4Mac = options.enableAddressSearch
+    ? await recoverGanI4MacFromAdvertisements(device)
+    : null;
+  const macAddressProvider = recoveredGanI4Mac
+    ? async () => recoveredGanI4Mac
+    : options.macAddressProvider;
+
   // The upstream convenience function opens its own chooser and then waits
   // for advertisements before connecting. We already have the user-selected
   // device, so resolve its GATT profile directly. This also prevents a
@@ -243,7 +254,7 @@ export const smartCubeTransportConnector: TransportConnector = async (
       throw new Error("Selected device doesn't match a supported smart-cube profile");
     }
 
-    const connection = await protocol.connect(device, options.macAddressProvider, {
+    const connection = await protocol.connect(device, macAddressProvider, {
       serviceUuids,
       advertisementManufacturerData: null,
       enableAddressSearch: options.enableAddressSearch === true,

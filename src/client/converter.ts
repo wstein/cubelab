@@ -160,7 +160,7 @@ import {
   type StableOrientationTracker,
 } from "./smart-cube/orientation-tracker";
 import {createGestureRecenterDetector} from "./smart-cube/gesture-recenter";
-import {ganI4MacFromManufacturerData} from "./smart-cube/gan-mac";
+import {recoverGanI4MacFromAdvertisements} from "./smart-cube/gan-mac";
 import {
   createSmartCubeAudioFeedback,
   readSmartCubeSoundPreference,
@@ -7373,34 +7373,8 @@ if (root) {
   const needsEncryptedMacRecovery = (reason: unknown) =>
     /unable to determine cube mac address|bluetooth mac address/i
       .test(reason instanceof Error ? reason.message : String(reason));
-  const discoverGanI4Mac = async (device: BluetoothDevice): Promise<string | null> => {
-    if (!/^GANi4(?:_|$)/i.test(device.name ?? "") || typeof device.watchAdvertisements !== "function") return null;
-    return new Promise((resolve) => {
-      let settled = false;
-      const finish = (mac: string | null) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timeout);
-        device.removeEventListener("advertisementreceived", onAdvertisement);
-        controller.abort();
-        resolve(mac);
-      };
-      const controller = new AbortController();
-      const onAdvertisement = (event: Event) => {
-        const manufacturerData = (event as BluetoothAdvertisingEvent).manufacturerData;
-        if (!manufacturerData) return;
-        for (const value of manufacturerData.values()) {
-          const mac = ganI4MacFromManufacturerData(value);
-          if (mac) return finish(mac);
-        }
-      };
-      const timeout = window.setTimeout(() => finish(null), 5000);
-      device.addEventListener("advertisementreceived", onAdvertisement);
-      device.watchAdvertisements({signal: controller.signal}).catch(() => finish(null));
-    });
-  };
   const promptForEncryptedCubeMac = async (device: BluetoothDevice, isFallbackCall?: boolean) => {
-    if (!isFallbackCall) return discoverGanI4Mac(device);
+    if (!isFallbackCall) return recoverGanI4MacFromAdvertisements(device);
     const usingBrave = await isBraveBrowser();
     const experimentalFeaturesUrl = usingBrave
       ? "brave://flags/#enable-experimental-web-platform-features"
