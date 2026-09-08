@@ -1126,6 +1126,19 @@ export const createCubeViewport = (
   canvas.dataset.autoOrbitState = "off";
   const overlay = overlayCanvas.getContext("2d");
 
+  const rebaseGlyphRufOrientation = (nextOrientation: OrientationQuaternion) => {
+    const normalized = normalizedQuaternion(nextOrientation);
+    if (lastGlyphFrame) {
+      glyphReorientation = {
+        startedAt: performance.now(),
+        previous: lastGlyphFrame,
+        nextColourOrientation: normalized,
+      };
+    } else {
+      glyphRufOrientation = normalized;
+    }
+  };
+
   const traceProjected = (
     context: CanvasRenderingContext2D,
     points: ProjectedPoint[],
@@ -2544,6 +2557,10 @@ export const createCubeViewport = (
       const correction = virtualOffset
         ? alignment
         : (animate && prevVisual) ? recenterOrientationCorrection(prevVisual) : null;
+      // A recenter replaces the live gyro baseline. Rebase the committed R/U/F
+      // glyph frame at the same moment; otherwise its old regrip mapping is
+      // drawn against the newly reset geometry and appears inverted.
+      rebaseGlyphRufOrientation(virtualOffset ? alignment : {x: 0, y: 0, z: 0, w: 1});
       if (correction && !virtualOffset) {
         deviceOrientationCorrection = correction;
         deviceOrientationIsVirtualRegrip = false;
@@ -2573,15 +2590,7 @@ export const createCubeViewport = (
       return alignment;
     },
     rebaseDeviceOrientation(orientation, virtualOrientation, coordinateFrame = "viewport") {
-      if (lastGlyphFrame) {
-        glyphReorientation = {
-          startedAt: performance.now(),
-          previous: lastGlyphFrame,
-          nextColourOrientation: normalizedQuaternion(virtualOrientation),
-        };
-      } else {
-        glyphRufOrientation = normalizedQuaternion(virtualOrientation);
-      }
+      rebaseGlyphRufOrientation(virtualOrientation);
       const normalized = normalizedQuaternion(orientation);
       deviceOrientationBase = normalized;
       deviceOrientation = normalized;

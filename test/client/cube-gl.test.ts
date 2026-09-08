@@ -45,13 +45,15 @@ describe("cube viewport math", () => {
   test("rebases a confirmed virtual regrip into the viewport's persistent orientation", () => {
     expect(viewportSource).toMatch(/rebaseDeviceOrientation/);
     expect(viewportSource).toMatch(/deviceOrientationCorrection = normalizedQuaternion\(virtualOrientation\)/);
+    expect(viewportSource).toMatch(/rebaseGlyphRufOrientation\(virtualOrientation\)/);
     expect(viewportSource).not.toMatch(/label: "-x"|label: "-y"|label: "-z"/);
   });
 
   test("keeps glyph geometry live while committing R/U/F labels atomically", () => {
     expect(viewportSource).toMatch(/orientation: relativeOrientation/);
     expect(viewportSource).toMatch(/colourOrientation: glyphRufOrientation/);
-    expect(viewportSource).toMatch(/nextColourOrientation: normalizedQuaternion\(virtualOrientation\)/);
+    expect(viewportSource).toMatch(/nextColourOrientation: normalized/);
+    expect(viewportSource).toMatch(/rebaseGlyphRufOrientation\(virtualOffset \? alignment : \{x: 0, y: 0, z: 0, w: 1\}\)/);
     expect(viewportSource).toMatch(/drawMotionOverlay\(width, height, glyphMatrices, glyphFrame\.colourOrientation, glyphScale\)/);
     expect(viewportSource).toMatch(/drawOrientationAxes\(axisMatrices, width, height/);
     expect(viewportSource).not.toMatch(/const virtualAxisMatrices = cameraMatrices\(/);
