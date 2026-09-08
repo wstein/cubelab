@@ -7,6 +7,7 @@ import * as Phase3Center from "../../src/Solver/Cube555/Phase3Center555.res.mjs"
 import * as Phase3Edge from "../../src/Solver/Cube555/Phase3Edge555.res.mjs";
 import * as Phase4Center from "../../src/Solver/Cube555/Phase4Center555.res.mjs";
 import * as Phase5Center from "../../src/Solver/Cube555/Phase5Center555.res.mjs";
+import * as PruningTable from "../../src/Solver/Cube555/PruningTable555.res.mjs";
 
 describe("CubieCube555 foundational logic", () => {
   it("initializes a solved 5x5 cubie cube", () => {
@@ -218,6 +219,44 @@ describe("Phase5Center555 coordinate reduction", () => {
     expect(Phase5Center.getRFLBCenter(center)).toBe(25);
   });
 });
+
+describe("PruningTable555 nibble packing and BFS generation", () => {
+  it("initializes table with unvisited sentinel 0x0f", () => {
+    const table = PruningTable.makeNibbleTable(10);
+    for (let i = 0; i < 10; i++) {
+      expect(PruningTable.getDistance(table, i)).toBe(0x0f);
+    }
+  });
+
+  it("sets and gets distances accurately for even and odd nibbles", () => {
+    const table = PruningTable.makeNibbleTable(10);
+    PruningTable.setDistance(table, 0, 5);
+    PruningTable.setDistance(table, 1, 9);
+    PruningTable.setDistance(table, 2, 0);
+    PruningTable.setDistance(table, 7, 12);
+
+    expect(PruningTable.getDistance(table, 0)).toBe(5);
+    expect(PruningTable.getDistance(table, 1)).toBe(9);
+    expect(PruningTable.getDistance(table, 2)).toBe(0);
+    expect(PruningTable.getDistance(table, 7)).toBe(12);
+  });
+
+  it("computes accurate BFS distances on a 4-state cycle", () => {
+    // State 0 -> 1 -> 2 -> 3 -> 0
+    const moveTable = [
+      [1], // from 0 -> 1
+      [2], // from 1 -> 2
+      [3], // from 2 -> 3
+      [0], // from 3 -> 0
+    ];
+    const table = PruningTable.buildBfsPruningTable(4, moveTable, [0], 10);
+    expect(PruningTable.getDistance(table, 0)).toBe(0);
+    expect(PruningTable.getDistance(table, 1)).toBe(1);
+    expect(PruningTable.getDistance(table, 2)).toBe(2);
+    expect(PruningTable.getDistance(table, 3)).toBe(3);
+  });
+});
+
 
 
 
