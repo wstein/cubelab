@@ -1,4 +1,6 @@
 export {createSmartCubeManager, isWebBluetoothAvailable, normalizeTransportEvent} from "./bluetooth";
+export {createRegripCoreSession} from "./regrip-core";
+export type {RegripCoreSessionOptions} from "./regrip-core";
 export {
   createReplaySmartCubeManager,
   createMockDeviceManager,
