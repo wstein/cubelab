@@ -51,6 +51,8 @@ export type SmartCubeOrientationEvent = EventBase & {
   angularVelocity?: {x: number; y: number; z: number};
   /** This packet was calibrated and gated by Regrip core. */
   source?: "regrip-core";
+  /** Original normalized transport pose, retained for diagnostics only. */
+  rawQuaternion?: {x: number; y: number; z: number; w: number};
 };
 
 /** A virtual whole-cube x/y/z turn confirmed by Regrip core's gyro pipeline. */

@@ -145,7 +145,7 @@ describe("Regrip core migration seam", () => {
     expect(regrips[0]?.notationToken).toMatch(/^[xyz]'?$/);
   });
 
-  test("keeps CubeLab's direct GoCube transport behind the core session", async () => {
+  test("feeds a direct GoCube transport through core stabilization before rendering", async () => {
     const mock = connection();
     mock.connection = {
       ...mock.connection,
@@ -156,7 +156,12 @@ describe("Regrip core migration seam", () => {
       isBluetoothAvailable: () => true,
       connectTransport: async () => mock.connection,
     });
-    const orientations: Array<{coordinateFrame: string}> = [];
+    const orientations: Array<{
+      coordinateFrame: string;
+      source?: string;
+      quaternion: {x: number; y: number; z: number; w: number};
+      rawQuaternion?: {x: number; y: number; z: number; w: number};
+    }> = [];
     manager.subscribeEvents((event) => {
       if (event.type === "orientation") orientations.push(event);
     });
@@ -168,6 +173,11 @@ describe("Regrip core migration seam", () => {
       quaternion: {x: 0.1, y: -0.3, z: -0.2, w: 0.9},
     });
 
-    expect(orientations.map(({coordinateFrame}) => coordinateFrame)).toEqual(["gocube-wire"]);
+    expect(orientations).toMatchObject([{
+      coordinateFrame: "viewport",
+      source: "regrip-core",
+      quaternion: {x: 0, y: 0, z: 0, w: 1},
+      rawQuaternion: {x: 0.1, y: 0.2, z: 0.3, w: 0.9},
+    }]);
   });
 });

@@ -5360,7 +5360,9 @@ if (root) {
           type: event.type,
           timestamp: event.timestamp,
           quaternion: event.quaternion,
+          rawQuaternion: event.rawQuaternion,
           coordinateFrame: event.coordinateFrame,
+          source: event.source,
           angularVelocity: event.angularVelocity,
         });
         return;
@@ -5576,7 +5578,8 @@ if (root) {
 
           traceSmartCubeStabilization("gyro orientation", {
             coordinateFrame: event.coordinateFrame,
-            rawQuaternion: event.quaternion,
+            rawQuaternion: event.rawQuaternion ?? event.quaternion,
+            stabilizedQuaternion: event.source === "regrip-core" ? event.quaternion : undefined,
             viewportQuaternion: vq,
             eulerDegrees: {pitchX: pitch, yawY: yaw, rollZ: roll},
             tracking: smartCubeOrientationTracking,

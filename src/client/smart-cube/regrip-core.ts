@@ -105,7 +105,17 @@ const normalizeCoreEvent = (
     case "GYRO": {
       const normalized = normalizeTransportEvent(event, protocolId);
       return normalized?.type === "orientation"
-        ? {...normalized, source: "regrip-core"}
+        ? {
+          ...normalized,
+          // Regrip core has already applied the profile sensor→body mapping,
+          // established a session calibration basis, and optionally stabilized
+          // the pose. The renderer must treat this as canonical viewport
+          // orientation rather than applying CubeLab's legacy wire transform.
+          quaternion: event.stabilized,
+          coordinateFrame: "viewport",
+          rawQuaternion: normalized.quaternion,
+          source: "regrip-core",
+        }
         : normalized;
     }
     case "REGRIP":
