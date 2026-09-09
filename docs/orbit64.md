@@ -36,3 +36,22 @@ against Flix's published 2×2, 3×3, 4×4, and 5×5 reference vectors.
 For odd cubes, CubeLab derives the stored 24-way frame from the six fixed
 centres and reapplies it on decode, so a whole-cube-rotated labelled state
 round-trips exactly. Even-cube centres encode their orientation directly.
+
+## cubing.js and smart-cube boundary
+
+`src/State/CubingAdapter.ts` bridges Orbit64's 3×3×3 facelet state to and from
+a real [cubing.js `KPattern`](https://js.cubing.net/cubing/kpuzzle/). The
+adapter does not reinterpret Orbit64 ranks: it first decodes the token to a
+framed state, crosses the published `U R F D L B` facelet boundary, and then
+maps the standard corner and midge positions to cubing.js's `CORNERS` and
+`EDGES` orbits. The six `CENTERS` pieces carry the same whole-cube pose.
+
+The reverse path derives the frame from `KPattern` centres, removes it, maps
+the canonical cubies through facelets, then reapplies the frame before encoding
+the Orbit64 token. It currently rejects non-3×3×3 patterns: 4×4×4 and 5×5×5
+need a separately published cubing.js wing/centre-orbit mapping rather than a
+guessed slot order.
+
+`test/cubing-adapter.test.mjs` checks named scrambles and every one of the 24
+right-handed odd-cube frames. Smart-cube protocols should use this adapter after
+their device-specific protocol has produced a cubing.js `KPattern` or facelets.
