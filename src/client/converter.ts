@@ -2434,6 +2434,11 @@ if (root) {
     getDiff: () => readonly unknown[];
   } | null = null;
   const smartCubeDevEnabled = new URLSearchParams(window.location.search).has("dev");
+  // The core-backed manager is opt-in while the downstream orientation and
+  // regrip consumers migrate. Keep it development-only so stable CubeLab
+  // sessions retain the legacy manager until GAN/GoCube parity is proven.
+  const smartCubeCoreRequested = smartCubeDevEnabled
+    && new URLSearchParams(window.location.search).has("core");
   const smartCubeMockMode = root.dataset.mock === "true";
   smartCubeQaPanel.hidden = !smartCubeMockMode;
   const appendSmartCubeQaEvent = (event: SmartCubeEvent) => {
@@ -5623,6 +5628,7 @@ if (root) {
           createReplaySmartCubeManager,
           createMockDeviceManager,
           createSmartCubeDerivedComparator,
+          createRegripCoreManager,
           createSmartCubeManager,
           createSmartCubeTapeRecorder,
           loadReplayTape,
@@ -5643,7 +5649,9 @@ if (root) {
             })()
             : replayName
               ? createReplaySmartCubeManager(await loadReplayTape(replayName))
-              : createSmartCubeManager({isBluetoothAvailable: () => true});
+              : smartCubeCoreRequested
+                ? createRegripCoreManager({isBluetoothAvailable: () => true})
+                : createSmartCubeManager({isBluetoothAvailable: () => true});
           smartCubeReplayControlsApi = "getReplayState" in manager ? manager : null;
           smartCubeReplayControlsApi?.subscribeReplayReset(() => {
             // A backward seek must start the real downstream chain from a clean
