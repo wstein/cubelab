@@ -154,6 +154,18 @@ const transportOptions = (
 });
 
 /**
+ * CubeLab's device-selection transport, including direct GoCube UART and GAN
+ * i4 MAC recovery. Both the legacy manager and the Regrip-core migration
+ * facade use this seam so protocol-specific connection behavior remains
+ * single-sourced during the staged migration.
+ */
+export const connectCubeLabTransport = (
+  options: SmartCubeConnectOptions = {},
+  onStatus: (message: string) => void = () => {},
+): Promise<TransportConnection> =>
+  smartCubeTransportConnector(transportOptions(options, onStatus));
+
+/**
  * Select once, then bypass generic advertisement collection for GoCube.
  *
  * `connectSmartCube()` unconditionally waits up to 2.5 seconds for an

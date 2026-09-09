@@ -5,7 +5,10 @@ import type {
   SmartCubeTransportConnection,
 } from "@wstein/regrip-core/bindings/smartCubeTransport";
 
-import {createRegripCoreSession} from "../../../src/client/smart-cube/regrip-core";
+import {
+  createRegripCoreManager,
+  createRegripCoreSession,
+} from "../../../src/client/smart-cube/regrip-core";
 
 const connection = (): {
   connection: SmartCubeTransportConnection;
@@ -79,5 +82,65 @@ describe("Regrip core migration seam", () => {
     await session.disconnect();
     expect(mock.disconnect).toHaveBeenCalledOnce();
     expect(session.getState().status).toBe("disconnected");
+  });
+
+  test("adapts a core-backed GAN connection to CubeLab's manager contract", async () => {
+    const mock = connection();
+    const manager = createRegripCoreManager({
+      isBluetoothAvailable: () => true,
+      connectTransport: async () => mock.connection,
+    });
+    const seen: string[] = [];
+    manager.subscribeEvents((event) => seen.push(event.type));
+
+    await expect(manager.connect()).resolves.toMatchObject({
+      name: "GANi4_A73F",
+      brand: "gan",
+      protocolId: "gan-gen4",
+    });
+    mock.events.next({
+      type: "MOVE",
+      timestamp: 2,
+      move: "R",
+      face: 1,
+      direction: 0,
+      localTimestamp: 2,
+      cubeTimestamp: 2,
+    });
+
+    expect(manager.getState()).toMatchObject({phase: "connected", device: {brand: "gan"}});
+    expect(seen).toEqual(["move"]);
+
+    await manager.resetCubeState();
+    expect(mock.sendCommand).toHaveBeenLastCalledWith({type: "REQUEST_RESET"});
+
+    await manager.disconnect();
+    expect(manager.getState().phase).toBe("disconnected");
+  });
+
+  test("keeps CubeLab's direct GoCube transport behind the core session", async () => {
+    const mock = connection();
+    mock.connection = {
+      ...mock.connection,
+      deviceName: "GoCube Edge",
+      protocol: {id: "gocube", name: "GoCube"},
+    };
+    const manager = createRegripCoreManager({
+      isBluetoothAvailable: () => true,
+      connectTransport: async () => mock.connection,
+    });
+    const orientations: Array<{coordinateFrame: string}> = [];
+    manager.subscribeEvents((event) => {
+      if (event.type === "orientation") orientations.push(event);
+    });
+
+    await expect(manager.connect()).resolves.toMatchObject({brand: "gocube"});
+    mock.events.next({
+      type: "GYRO",
+      timestamp: 1,
+      quaternion: {x: 0.1, y: -0.3, z: -0.2, w: 0.9},
+    });
+
+    expect(orientations.map(({coordinateFrame}) => coordinateFrame)).toEqual(["gocube-wire"]);
   });
 });
