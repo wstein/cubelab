@@ -256,6 +256,18 @@ if (root) {
     || new URL(window.location.href).searchParams.get("player") === "1";
   let timerArenaMode = false;
   const playerPageLink = root.querySelector<HTMLAnchorElement>("[data-player-page-link]")!;
+  const viewportMaximize = root.querySelector<HTMLButtonElement>("[data-viewport-maximize]")!;
+  const renderViewportMaximize = () => {
+    const maximized = document.fullscreenElement !== null;
+    viewportMaximize.setAttribute("aria-pressed", String(maximized));
+    viewportMaximize.classList.toggle("active", maximized);
+    viewportMaximize.innerHTML = maximized
+      ? '<span aria-hidden="true">⛶</span> Restore window'
+      : '<span aria-hidden="true">⛶</span> Maximize';
+    viewportMaximize.title = maximized
+      ? "Restore the CubeLab window"
+      : "Maximize CubeLab in this window";
+  };
   const renderPlayerPresentation = () => {
     document.body.classList.toggle("player-page", playerMode);
     document.body.dataset.theaterMode = timerArenaMode ? "timer" : "playback";
@@ -266,6 +278,7 @@ if (root) {
       : "Open the focused full-size player";
   };
   renderPlayerPresentation();
+  renderViewportMaximize();
   const input = root.querySelector<HTMLTextAreaElement>("[data-input]")!;
   const movesInput = root.querySelector<HTMLTextAreaElement>("[data-moves-input]")!;
   const manualStateOpen = root.querySelector<HTMLButtonElement>("[data-manual-state-open]")!;
@@ -6041,6 +6054,18 @@ if (root) {
   playerPageLink.addEventListener("click", (event) => {
     event.preventDefault();
     setPlayerMode(!playerMode);
+  });
+  viewportMaximize.addEventListener("click", () => {
+    const request = document.documentElement.requestFullscreen;
+    if (document.fullscreenElement !== null) {
+      void document.exitFullscreen().catch(() => {});
+    } else if (typeof request === "function") {
+      void request.call(document.documentElement).catch(() => {});
+    }
+  });
+  document.addEventListener("fullscreenchange", () => {
+    renderViewportMaximize();
+    viewport?.refresh();
   });
 
   root.querySelectorAll<HTMLButtonElement>("[data-academy-method]").forEach((button) => {

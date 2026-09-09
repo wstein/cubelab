@@ -67,12 +67,15 @@ test("the static shell declares the reversible state-interchange cards", () => {
 test("the dedicated player route reuses the full interactive viewport", () => {
   assert.match(playerPage, /initialPlayer=\{true\}/);
   assert.match(viewportComponent, /data-player-page-link/);
+  assert.match(viewportComponent, /data-viewport-maximize/);
   assert.match(client, /document\.body\.classList\.toggle\("player-page", playerMode\)/);
   assert.match(client, /const setPlayerMode = \(enabled: boolean, pushHistory = true\)/);
   assert.match(client, /window\.history\.pushState\(null, "",/);
   assert.match(client, /window\.addEventListener\("popstate"/);
   assert.match(client, /setPlayerMode\(false\)/);
   assert.match(client, /playerPageLink\.textContent = playerMode \? "Back to studio" : "Full-size player"/);
+  assert.match(client, /document\.documentElement\.requestFullscreen/);
+  assert.match(client, /fullscreenchange/);
   assert.doesNotMatch(client, /cubelab-player-handoff/);
   assert.match(viewport, /refresh: requestRender/);
   assert.match(viewport, /capturePng: \(\) => Promise<Blob \| null>/);
