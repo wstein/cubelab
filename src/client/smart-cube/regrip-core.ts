@@ -6,6 +6,7 @@ import {
 } from "@wstein/regrip-core/session/smartCubeSession";
 import type {SmartCubeTransportConnection} from "@wstein/regrip-core/bindings/smartCubeTransport";
 import type {SessionFeaturesPatch} from "@wstein/regrip-core/session/features";
+import * as VirtualCubeFrame from "@wstein/regrip-core/domain/VirtualCubeFrame.res.mjs";
 
 import {
   connectCubeLabTransport,
@@ -94,14 +95,30 @@ const deviceFor = (connection: SmartCubeTransportConnection): SmartCubeDevice =>
 const normalizeCoreEvent = (
   event: SmartCubeSessionEvent,
   protocolId: string,
+  solverFrame: VirtualCubeFrame.VirtualCubeFrame,
 ): SmartCubeEvent | null => {
   switch (event.type) {
-    case "MOVE":
     case "BATTERY":
-    case "FACELETS":
     case "HARDWARE":
     case "DISCONNECT":
       return normalizeTransportEvent(event, protocolId);
+    case "MOVE": {
+      const normalized = normalizeTransportEvent(event, protocolId);
+      return normalized?.type === "move"
+        ? {...normalized, solverMove: VirtualCubeFrame.translate(solverFrame, event.move), source: "regrip-core"}
+        : normalized;
+    }
+    case "FACELETS": {
+      const normalized = normalizeTransportEvent(event, protocolId);
+      return normalized?.type === "facelets"
+        ? {
+          ...normalized,
+          facelets: VirtualCubeFrame.reframeFacelets(solverFrame, event.facelets),
+          rawFacelets: event.facelets,
+          source: "regrip-core",
+        }
+        : normalized;
+    }
     case "GYRO": {
       const normalized = normalizeTransportEvent(event, protocolId);
       return normalized?.type === "orientation"
@@ -119,6 +136,7 @@ const normalizeCoreEvent = (
         : normalized;
     }
     case "REGRIP":
+      VirtualCubeFrame.applyRegrip(solverFrame, event.notationToken);
       return {
         type: "regrip",
         timestamp: event.timestamp,
@@ -154,6 +172,7 @@ export const createRegripCoreManager = (
   const stateListeners = new Set<(next: SmartCubeConnectionState) => void>();
   const eventListeners = new Set<(event: SmartCubeEvent) => void>();
   const commandListeners = new Set<(command: SmartCubeCommand) => void>();
+  const solverFrame = VirtualCubeFrame.make();
 
   const publishState = (next: SmartCubeConnectionState): void => {
     state = next;
@@ -211,6 +230,7 @@ export const createRegripCoreManager = (
       throw error;
     }
     if (session) await disconnect();
+    VirtualCubeFrame.reset(solverFrame);
     lastOptions = {...options};
     publishState({phase: "connecting", message: "Select your smart cube…", device: null, error: null});
     let connected: SmartCubeTransportConnection | null = null;
@@ -232,7 +252,7 @@ export const createRegripCoreManager = (
     session = core;
     unsubscribeState = core.subscribe(publishSessionState);
     unsubscribeEvents = core.subscribeEvents((event) => {
-      const normalized = normalizeCoreEvent(event, transport?.protocol.id ?? "");
+      const normalized = normalizeCoreEvent(event, transport?.protocol.id ?? "", solverFrame);
       if (normalized) eventListeners.forEach((listener) => listener(normalized));
     });
     try {

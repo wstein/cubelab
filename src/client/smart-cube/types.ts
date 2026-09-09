@@ -37,6 +37,9 @@ type EventBase = {
 export type SmartCubeMoveEvent = EventBase & {
   type: "move";
   move: string;
+  /** Solver-frame move supplied by Regrip core after virtual regrips. */
+  solverMove?: string;
+  source?: "regrip-core";
   face: number;
   direction: number;
   localTimestamp: number | null;
@@ -73,6 +76,9 @@ export type SmartCubeFaceletsEvent = EventBase & {
   type: "facelets";
   /** URFDLB order, nine stickers per face. */
   facelets: string;
+  /** Body-frame packet retained when `facelets` has been solver-reframed. */
+  rawFacelets?: string;
+  source?: "regrip-core";
 };
 
 export type SmartCubeHardwareEvent = EventBase & {

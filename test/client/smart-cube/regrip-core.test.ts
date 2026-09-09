@@ -4,6 +4,8 @@ import type {
   SmartCubeEvent,
   SmartCubeTransportConnection,
 } from "@wstein/regrip-core/bindings/smartCubeTransport";
+import * as VirtualCubeFrame from "@wstein/regrip-core/domain/VirtualCubeFrame.res.mjs";
+import type {RegripToken} from "@wstein/regrip-core/domain/CubeNotation.res.mjs";
 
 import {
   createRegripCoreManager,
@@ -125,8 +127,12 @@ describe("Regrip core migration seam", () => {
       connectTransport: async () => mock.connection,
     });
     const regrips: Array<{notationToken: string; sensorFrameToken: string}> = [];
+    const solverMoves: string[] = [];
+    const solverFacelets: string[] = [];
     manager.subscribeEvents((event) => {
       if (event.type === "regrip") regrips.push(event);
+      if (event.type === "move" && event.solverMove) solverMoves.push(event.solverMove);
+      if (event.type === "facelets") solverFacelets.push(event.facelets);
     });
 
     await manager.connect();
@@ -143,6 +149,23 @@ describe("Regrip core migration seam", () => {
 
     expect(regrips).toHaveLength(1);
     expect(regrips[0]?.notationToken).toMatch(/^[xyz]'?$/);
+
+    const frame = VirtualCubeFrame.make();
+    VirtualCubeFrame.applyRegrip(frame, regrips[0]!.notationToken as RegripToken);
+    const bodyFacelets = "URFDLB".repeat(9);
+    mock.events.next({
+      type: "MOVE",
+      timestamp: 3,
+      move: "F'",
+      face: 2,
+      direction: 1,
+      localTimestamp: 3,
+      cubeTimestamp: 3,
+    });
+    mock.events.next({type: "FACELETS", timestamp: 4, facelets: bodyFacelets});
+
+    expect(solverMoves).toEqual([VirtualCubeFrame.translate(frame, "F'")]);
+    expect(solverFacelets).toEqual([VirtualCubeFrame.reframeFacelets(frame, bodyFacelets)]);
   });
 
   test("feeds a direct GoCube transport through core stabilization before rendering", async () => {

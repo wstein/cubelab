@@ -2631,7 +2631,12 @@ if (root) {
 
   let smartCubeMovesInFlight = 0;
   let smartCubeMoveQueue = Promise.resolve();
-  type QueuedSmartCubeMove = {move: string; state: CubeState | null; omitPreviewHistory?: boolean};
+  type QueuedSmartCubeMove = {
+    move: string;
+    state: CubeState | null;
+    omitPreviewHistory?: boolean;
+    source?: "regrip-core";
+  };
   const smartCubePendingMoves: QueuedSmartCubeMove[] = [];
   let omitNextGestureTriggerMove: string | null = null;
   let suppressNextSmartCubeExtension = false;
@@ -5048,7 +5053,11 @@ if (root) {
       return;
     }
     if (smartCubeRecording) {
-      const tapeMove = controllerMoveInViewportFrame(move, smartCubeRecordingFrame);
+      // Core has already expressed this packet in the solver frame. Applying
+      // CubeLab's legacy recording-frame rotation again would double-rotate it.
+      const tapeMove = record.source === "regrip-core"
+        ? move
+        : controllerMoveInViewportFrame(move, smartCubeRecordingFrame);
       if (!record.omitPreviewHistory) appendPreviewHistoryToken(tapeMove);
       appendSmartCubeRecordingToken(tapeMove);
       await animateSmartCubeRecordingToken(tapeMove);
@@ -5406,9 +5415,15 @@ if (root) {
         // Turn acknowledgement is independent of coaching correctness: every
         // physical face turn gets the same cue when sound is enabled.
         smartCubeAudio.play("turn");
-        const omitPreviewHistory = omitNextGestureTriggerMove === event.move;
+        const move = event.solverMove ?? event.move;
+        const omitPreviewHistory = omitNextGestureTriggerMove === move;
         if (omitPreviewHistory) omitNextGestureTriggerMove = null;
-        const record: QueuedSmartCubeMove = {move: event.move, state: null, omitPreviewHistory};
+        const record: QueuedSmartCubeMove = {
+          move,
+          state: null,
+          omitPreviewHistory,
+          source: event.source,
+        };
         smartCubePendingMoves.push(record);
         smartCubeMovesInFlight += 1;
         smartCubeMoveQueue = smartCubeMoveQueue
@@ -5478,11 +5493,8 @@ if (root) {
           source: "regrip-core",
         });
         if (smartCubeRecording && smartCubeSyncMode === "PhysicalMirror") {
-          const axis = event.sensorFrameToken[0]!.toUpperCase() as "X" | "Y" | "Z";
-          const turns = event.sensorFrameToken.endsWith("'") ? -1 : 1;
           appendSmartCubeRecordingToken(event.notationToken);
           void animateSmartCubeRecordingToken(event.notationToken);
-          smartCubeRecordingFrame.push({axis, turns});
           smartCubeStatus.textContent = `${smartCubeDeviceName} · Recorded virtual regrip ${event.notationToken}`;
         }
         break;
