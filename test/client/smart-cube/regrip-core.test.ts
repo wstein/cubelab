@@ -118,6 +118,33 @@ describe("Regrip core migration seam", () => {
     expect(manager.getState().phase).toBe("disconnected");
   });
 
+  test("forwards one core-confirmed virtual regrip instead of a second detector event", async () => {
+    const mock = connection();
+    const manager = createRegripCoreManager({
+      isBluetoothAvailable: () => true,
+      connectTransport: async () => mock.connection,
+    });
+    const regrips: Array<{notationToken: string; sensorFrameToken: string}> = [];
+    manager.subscribeEvents((event) => {
+      if (event.type === "regrip") regrips.push(event);
+    });
+
+    await manager.connect();
+    mock.events.next({
+      type: "GYRO",
+      timestamp: 1,
+      quaternion: {x: 0, y: 0, z: 0, w: 1},
+    });
+    mock.events.next({
+      type: "GYRO",
+      timestamp: 2,
+      quaternion: {x: Math.sqrt(0.5), y: 0, z: 0, w: Math.sqrt(0.5)},
+    });
+
+    expect(regrips).toHaveLength(1);
+    expect(regrips[0]?.notationToken).toMatch(/^[xyz]'?$/);
+  });
+
   test("keeps CubeLab's direct GoCube transport behind the core session", async () => {
     const mock = connection();
     mock.connection = {

@@ -141,6 +141,9 @@ const validateEvent = (value: unknown, path: string): asserts value is SmartCube
       assert(typeof value.coordinateFrame === "string", `${path}.coordinateFrame must be a string`);
       return;
     }
+    case "regrip":
+      assert(typeof value.notationToken === "string" && typeof value.sensorFrameToken === "string", `${path} must be a core regrip`);
+      return;
     case "battery":
       assert(isFiniteNumber(value.level), `${path}.level must be a finite number`);
       return;

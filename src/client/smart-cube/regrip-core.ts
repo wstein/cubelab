@@ -97,16 +97,27 @@ const normalizeCoreEvent = (
 ): SmartCubeEvent | null => {
   switch (event.type) {
     case "MOVE":
-    case "GYRO":
     case "BATTERY":
     case "FACELETS":
     case "HARDWARE":
     case "DISCONNECT":
       return normalizeTransportEvent(event, protocolId);
+    case "GYRO": {
+      const normalized = normalizeTransportEvent(event, protocolId);
+      return normalized?.type === "orientation"
+        ? {...normalized, source: "regrip-core"}
+        : normalized;
+    }
     case "REGRIP":
+      return {
+        type: "regrip",
+        timestamp: event.timestamp,
+        notationToken: event.notationToken,
+        sensorFrameToken: event.sensorFrameToken,
+      };
     case "CUSTOM_TRIGGER":
       // CubeLab's legacy event union has no equivalent yet. The core session
-      // still owns these derived events; a later UI migration will expose them.
+      // still owns this derived event; a later UI migration will expose it.
       return null;
   }
 };
@@ -200,7 +211,13 @@ export const createRegripCoreManager = (
         device = deviceFor(connected);
         return connected;
       },
-      features: dependencies.features,
+      // CubeLab's legacy live path has always detected virtual regrips. Keep
+      // that behavior when testing the core facade, while allowing a caller
+      // to explicitly turn it off or tune its threshold.
+      features: {
+        ...dependencies.features,
+        regrip: {enabled: true, ...dependencies.features?.regrip},
+      },
     });
     session = core;
     unsubscribeState = core.subscribe(publishSessionState);

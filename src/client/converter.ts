@@ -5364,6 +5364,14 @@ if (root) {
           angularVelocity: event.angularVelocity,
         });
         return;
+      case "regrip":
+        traceSmartCubeStabilization("received event", {
+          type: event.type,
+          timestamp: event.timestamp,
+          notationToken: event.notationToken,
+          sensorFrameToken: event.sensorFrameToken,
+        });
+        return;
       case "facelets":
         // Capture that a state packet arrived without exporting cube state.
         traceSmartCubeStabilization("received event", {
@@ -5444,6 +5452,39 @@ if (root) {
         smartCubeBattery.hidden = false;
         smartCubeBattery.textContent = `🔋 ${Math.round(event.level)}%`;
         break;
+      case "regrip": {
+        appendPreviewHistoryToken(event.notationToken);
+        smartCubeAudio.play("turn");
+        // The core session is the sole regrip decision-maker in this path.
+        // Reset CubeLab's display-only trackers to the latest raw pose so its
+        // gauge cannot carry a stale legacy baseline into the next sample.
+        if (latestSmartCubeOrientation) {
+          smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
+            latestSmartCubeOrientation.quaternion,
+            latestSmartCubeOrientation.coordinateFrame,
+            "world",
+          );
+          smartCubeVirtualFixpointTracker = createStableOrientationTracker(
+            latestSmartCubeOrientation.quaternion,
+            latestSmartCubeOrientation.coordinateFrame,
+            "world",
+          );
+        }
+        traceSmartCubeStabilization("virtual regrip", {
+          notationTokens: [event.notationToken],
+          sensorFrameTokens: [event.sensorFrameToken],
+          source: "regrip-core",
+        });
+        if (smartCubeRecording && smartCubeSyncMode === "PhysicalMirror") {
+          const axis = event.sensorFrameToken[0]!.toUpperCase() as "X" | "Y" | "Z";
+          const turns = event.sensorFrameToken.endsWith("'") ? -1 : 1;
+          appendSmartCubeRecordingToken(event.notationToken);
+          void animateSmartCubeRecordingToken(event.notationToken);
+          smartCubeRecordingFrame.push({axis, turns});
+          smartCubeStatus.textContent = `${smartCubeDeviceName} · Recorded virtual regrip ${event.notationToken}`;
+        }
+        break;
+      }
       case "orientation": {
         latestSmartCubeOrientation = {
           quaternion: event.quaternion,
@@ -5466,7 +5507,7 @@ if (root) {
             event.coordinateFrame,
             "world",
           );
-        } else {
+        } else if (event.source !== "regrip-core") {
           const observed = observeThresholdOrientation(
             smartCubeVirtualFixpointTracker,
             event.quaternion,

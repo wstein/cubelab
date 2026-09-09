@@ -49,6 +49,17 @@ export type SmartCubeOrientationEvent = EventBase & {
   /** Coordinate system used by the quaternion before viewport calibration. */
   coordinateFrame: OrientationCoordinateFrame;
   angularVelocity?: {x: number; y: number; z: number};
+  /** This packet was calibrated and gated by Regrip core. */
+  source?: "regrip-core";
+};
+
+/** A virtual whole-cube x/y/z turn confirmed by Regrip core's gyro pipeline. */
+export type SmartCubeRegripEvent = EventBase & {
+  type: "regrip";
+  /** Clockwise solver-frame x/y/z notation. */
+  notationToken: string;
+  /** Corresponding calibrated sensor-frame x/y/z token. */
+  sensorFrameToken: string;
 };
 
 export type SmartCubeBatteryEvent = EventBase & {
@@ -81,6 +92,7 @@ export type SmartCubeEvent =
   | SmartCubeBatteryEvent
   | SmartCubeFaceletsEvent
   | SmartCubeHardwareEvent
+  | SmartCubeRegripEvent
   | SmartCubeDisconnectedEvent;
 
 /** A command CubeLab has handed to the connected cube transport. */
