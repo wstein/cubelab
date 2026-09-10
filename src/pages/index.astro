@@ -1485,6 +1485,13 @@ s100"></textarea>
                     </button>
                   </header>
                   <div class="card-body">
+                    {key === "net" && (
+                      <div
+                        class="converter-colour-net"
+                        data-converter-colour-net
+                        aria-label="Colour 2D cube net"
+                      ></div>
+                    )}
                     <pre class="code-display">
                       <code data-output={key}>—</code>
                     </pre>

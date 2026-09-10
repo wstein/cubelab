@@ -288,6 +288,7 @@ if (root) {
   const manualStateCopyMenu = root.querySelector<HTMLElement>("[data-manual-state-copy-menu]")!;
   const schemeSelect = root.querySelector<HTMLSelectElement>("[data-scheme]")!;
   const customScheme = root.querySelector<HTMLInputElement>("[data-custom-scheme]")!;
+  const converterColourNet = root.querySelector<HTMLElement>("[data-converter-colour-net]")!;
   const noteInput = root.querySelector<HTMLInputElement>("[data-note-input]")!;
   const status = root.querySelector<HTMLElement>("[data-status]")!;
   const setupOrientation = root.querySelector<HTMLElement>("[data-setup-orientation]")!;
@@ -2227,6 +2228,37 @@ if (root) {
     });
   };
 
+  const renderConverterColourNet = (state: CubeState) => {
+    const colours = ColorCodec.renderCompact(scheme(), state) as Result<string>;
+    if (colours.TAG === "Error") {
+      converterColourNet.hidden = true;
+      return;
+    }
+    const faceLength = size * size;
+    const serialFaces = ["U", "R", "F", "D", "L", "B"] as const;
+    const colourForFace = new Map(
+      serialFaces.map((face, index) => [face, colours._0.slice(index * faceLength, (index + 1) * faceLength)]),
+    );
+    converterColourNet.replaceChildren();
+    converterColourNet.style.setProperty("--converter-net-size", String(size));
+    faceletOrder.forEach((face) => {
+      const group = document.createElement("div");
+      group.className = "converter-colour-net-face";
+      group.dataset.face = face;
+      group.setAttribute("aria-label", `${face} face`);
+      const stickers = colourForFace.get(face) ?? "";
+      for (const colour of stickers) {
+        const sticker = document.createElement("i");
+        sticker.className = "converter-colour-net-sticker";
+        sticker.dataset.colour = colour;
+        sticker.setAttribute("aria-hidden", "true");
+        group.append(sticker);
+      }
+      converterColourNet.append(group);
+    });
+    converterColourNet.hidden = false;
+  };
+
   const updateCardVisibility = () => {
     root.querySelectorAll<HTMLElement>("[data-output-card]").forEach((card) => {
       const supportedSizes = card.dataset.sizes;
@@ -2312,6 +2344,7 @@ if (root) {
     viewport?.setScene(state, palette, cubeStyle);
     setOutput("facelets", FaceletCodec.render(state));
     setOutput("net", NetCodec.render(state));
+    renderConverterColourNet(state);
     const colours = ColorCodec.renderCompact(scheme(), state) as Result<string>;
     const colourNet = ColorCodec.renderNet(scheme(), state) as Result<string>;
     setOutput("colours", colours.TAG === "Ok" ? colours._0 : "—", colours.TAG === "Ok");
