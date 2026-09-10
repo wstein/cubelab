@@ -138,8 +138,11 @@ export const normalizeCoreEvent = (
       return {
         type: "facelets",
         timestamp: event.timestamp,
-        facelets: VirtualCubeFrame.reframeFacelets(solverFrame, event.facelets),
+        // The Three viewport follows the physical world gyro pose, so it must
+        // receive body facelets. The solver projection is metadata only.
+        facelets: event.facelets,
         rawFacelets: event.facelets,
+        solverFacelets: VirtualCubeFrame.reframeFacelets(solverFrame, event.facelets),
         source: "regrip-core",
       };
     }
@@ -154,15 +157,19 @@ export const normalizeCoreEvent = (
         source: "regrip-core",
       };
     }
-    case "REGRIP":
+    case "REGRIP": {
+      // The detector token is body-local. Display it in the current solver
+      // frame before composing that body rotation into future translations.
+      const solverToken = VirtualCubeFrame.solverToken(solverFrame, event.notationToken);
       VirtualCubeFrame.applyRegrip(solverFrame, event.notationToken);
       return {
         type: "regrip",
         timestamp: event.timestamp,
-        notationToken: event.notationToken,
+        notationToken: solverToken,
         sensorFrameToken: event.sensorFrameToken,
         source: "regrip-core",
       };
+    }
     case "CUSTOM_TRIGGER":
       // CubeLab's legacy event union has no equivalent yet. The core session
       // still owns this derived event; a later UI migration will expose it.

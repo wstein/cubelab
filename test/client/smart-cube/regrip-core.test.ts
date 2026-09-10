@@ -130,11 +130,15 @@ describe("Regrip core migration seam", () => {
     });
     const regrips: Array<{notationToken: string; sensorFrameToken: string}> = [];
     const solverMoves: string[] = [];
+    const receivedBodyFacelets: string[] = [];
     const solverFacelets: string[] = [];
     manager.subscribeEvents((event) => {
       if (event.type === "regrip") regrips.push(event);
       if (event.type === "move" && event.solverMove) solverMoves.push(event.solverMove);
-      if (event.type === "facelets") solverFacelets.push(event.facelets);
+      if (event.type === "facelets") {
+        receivedBodyFacelets.push(event.facelets);
+        if (event.solverFacelets) solverFacelets.push(event.solverFacelets);
+      }
     });
 
     await manager.connect();
@@ -167,6 +171,7 @@ describe("Regrip core migration seam", () => {
     mock.events.next({type: "FACELETS", timestamp: 4, facelets: bodyFacelets});
 
     expect(solverMoves).toEqual([VirtualCubeFrame.translate(frame, "F'")]);
+    expect(receivedBodyFacelets).toEqual([bodyFacelets]);
     expect(solverFacelets).toEqual([VirtualCubeFrame.reframeFacelets(frame, bodyFacelets)]);
   });
 
@@ -190,7 +195,8 @@ describe("Regrip core migration seam", () => {
       {type: "move", move: "B'", solverMove: "R'", source: "regrip-core"},
       {
         type: "facelets",
-        facelets: "UUBUUBLLBRRRRRRUUUFFUFFUFFLRRFDDFDDFLLDLLDLLDDBBDBBRBB",
+        facelets: "LLLUUFUUFRRURRURRFFFDFFDFFDDDBDDBRRRDLLDLLBLLBBBBBBUUU",
+        solverFacelets: "UUBUUBLLBRRRRRRUUUFFUFFUFFLRRFDDFDDFLLDLLDLLDDBBDBBRBB",
         source: "regrip-core",
       },
     ]);
@@ -222,6 +228,39 @@ describe("Regrip core migration seam", () => {
       }
     }
     expect(normalized).toEqual(["R", "B", "L", "F"]);
+  });
+
+  test("keeps body moves intact while their solver labels converge after y′ regrips", () => {
+    // Exact 07:26 capture: the player/viewport must receive R F L B, while
+    // history may label all four as the current virtual R face.
+    const frame = VirtualCubeFrame.make();
+    const bodyMoves: string[] = [];
+    const solverMoves: string[] = [];
+    for (const [index, bodyMove] of ["R", "F", "L", "B"].entries()) {
+      const normalized = normalizeCoreEvent({
+        type: "MOVE",
+        timestamp: index * 2,
+        move: bodyMove,
+        face: [1, 2, 4, 5][index]!,
+        direction: 0,
+        localTimestamp: null,
+        cubeTimestamp: null,
+      }, frame);
+      if (normalized?.type === "move") {
+        bodyMoves.push(normalized.move);
+        solverMoves.push(normalized.solverMove ?? normalized.move);
+      }
+      if (index < 3) {
+        normalizeCoreEvent({
+          type: "REGRIP",
+          timestamp: index * 2 + 1,
+          notationToken: "y'",
+          sensorFrameToken: "y",
+        }, frame);
+      }
+    }
+    expect(bodyMoves).toEqual(["R", "F", "L", "B"]);
+    expect(solverMoves).toEqual(["R", "R", "R", "R"]);
   });
 
   test("feeds a direct GoCube transport through core stabilization before rendering", async () => {

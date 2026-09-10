@@ -79,10 +79,12 @@ export type SmartCubeBatteryEvent = EventBase & {
 
 export type SmartCubeFaceletsEvent = EventBase & {
   type: "facelets";
-  /** URFDLB order, nine stickers per face. */
+  /** Body-frame URFDLB packet, used by the physical live viewport. */
   facelets: string;
-  /** Body-frame packet retained when `facelets` has been solver-reframed. */
+  /** Compatibility alias for the body-frame packet. */
   rawFacelets?: string;
+  /** Solver-frame state for history, export, and other notation-only views. */
+  solverFacelets?: string;
   source?: "regrip-core";
 };
 

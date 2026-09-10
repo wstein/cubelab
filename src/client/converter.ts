@@ -2537,7 +2537,10 @@ if (root) {
   let smartCubeMovesInFlight = 0;
   let smartCubeMoveQueue = Promise.resolve();
   type QueuedSmartCubeMove = {
+    /** Body-frame move: this is what the gyro-oriented 3D viewport animates. */
     move: string;
+    /** Solver-frame notation used only by history and recorded algorithms. */
+    solverMove?: string;
     state: CubeState | null;
     omitPreviewHistory?: boolean;
     source?: "regrip-core";
@@ -4942,6 +4945,7 @@ if (root) {
 
   const applySmartCubeMove = async (record: QueuedSmartCubeMove): Promise<void> => {
     const move = record.move;
+    const displayMove = record.solverMove ?? move;
     // console.log("[SmartCube Move] Received physical face move from Bluetooth:", move);
     if (smartCubeSyncMode === "VirtualController") {
       if (!record.omitPreviewHistory) appendPreviewHistoryToken(move);
@@ -4949,17 +4953,19 @@ if (root) {
       return;
     }
     if (smartCubeRecording) {
-      // Core has already expressed this packet in the solver frame. Applying
-      // CubeLab's legacy recording-frame rotation again would double-rotate it.
+      // Keep the body move used by the live viewport and recorded physical
+      // tape distinct from core's solver/history token. Applying solver moves
+      // to either physical path would compensate a gyro regrip twice.
       const tapeMove = record.source === "regrip-core"
         ? move
         : controllerMoveInViewportFrame(move, smartCubeRecordingFrame);
-      if (!record.omitPreviewHistory) appendPreviewHistoryToken(tapeMove);
+      const historyMove = record.source === "regrip-core" ? displayMove : tapeMove;
+      if (!record.omitPreviewHistory) appendPreviewHistoryToken(historyMove);
       appendSmartCubeRecordingToken(tapeMove);
       await animateSmartCubeRecordingToken(tapeMove);
       return;
     }
-    if (!record.omitPreviewHistory) appendPreviewHistoryToken(move);
+    if (!record.omitPreviewHistory) appendPreviewHistoryToken(displayMove);
     // A fresh physical turn resumes the normal mirror after a recording
     // session deliberately left the recorded tape in view.
     smartCubeRecordingTapePresented = false;
@@ -5219,11 +5225,13 @@ if (root) {
         // Turn acknowledgement is independent of coaching correctness: every
         // physical face turn gets the same cue when sound is enabled.
         smartCubeAudio.play("turn");
-        const move = event.solverMove ?? event.move;
-        const omitPreviewHistory = omitNextGestureTriggerMove === move;
+        const move = event.move;
+        const solverMove = event.solverMove ?? move;
+        const omitPreviewHistory = omitNextGestureTriggerMove === solverMove;
         if (omitPreviewHistory) omitNextGestureTriggerMove = null;
         const record: QueuedSmartCubeMove = {
           move,
+          solverMove,
           state: null,
           omitPreviewHistory,
           source: event.source,
