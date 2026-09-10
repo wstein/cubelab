@@ -2768,6 +2768,7 @@ if (root) {
         viewport?.setState(displayed, viewportPalette());
         refreshTutorialFocus();
       }
+      restoreIdleTurnGuide();
     };
     if (mode === "restore" && hoverPreviewCursor !== null && hoverPreviewCursor !== activeIndex) {
       void animateHoverPreviewTo(activeIndex, generation).then(finishRestore);
@@ -2800,6 +2801,24 @@ if (root) {
       }
     }
     return result;
+  };
+
+  // The toggle should describe a visible resting state as well as hover and
+  // playback. At rest, guide the next playable move in the tape.
+  const restoreIdleTurnGuide = () => {
+    if (!turnGuides || activeTurnGuide || playbackDirection !== 0 || !activeTimeline) return;
+    for (let index = activeIndex; index < activeTimeline.steps.length; index++) {
+      const entry = activeTimeline.steps[index];
+      if (!entry?.step || entry.kind === "pause") continue;
+      viewport?.setTurnGuide({
+        step: entry.step,
+        label: activeTimeline.labels[index] ?? "",
+        past: pastMoveTokens(index, 8),
+        upcoming: upcomingMoveTokens(index, 12),
+      });
+      return;
+    }
+    viewport?.setTurnGuide(null);
   };
 
   const syncMoveRibbon = (timelineIndex = activeIndex) => {
@@ -3972,6 +3991,7 @@ if (root) {
     refreshTutorialFocus();
     updatePlaybackUi();
     syncMoveRibbon(activeIndex);
+    restoreIdleTurnGuide();
   };
 
   const setSmartCubeTimelineIndex = (index: number) => {
@@ -3980,6 +4000,7 @@ if (root) {
     refreshTutorialFocus();
     updatePlaybackUi();
     syncMoveRibbon(activeIndex);
+    restoreIdleTurnGuide();
   };
 
   const transitionTo = async (
@@ -5786,9 +5807,8 @@ if (root) {
     turnGuidesButton.classList.toggle("active", turnGuides);
     turnGuidesButton.setAttribute("aria-pressed", String(turnGuides));
     if (turnGuidesChanged) {
-      viewport?.setTurnGuide(
-        turnGuides && activeTurnGuide ? activeTurnGuide : null,
-      );
+      if (turnGuides && !activeTurnGuide) restoreIdleTurnGuide();
+      else viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
     }
     if (autoOrbitChanged && !smartCubeOrientationTracking) {
       setAutoOrbitEnabled(state.autoOrbit, false);

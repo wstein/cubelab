@@ -855,6 +855,13 @@ test("the viewport exposes a persistent opt-out for single-move turn guides", ()
   assert.doesNotMatch(client, /turnGuidesChanged && !turnGuides\) clearTurnGuide/);
 });
 
+test("an enabled turn-guide toggle retains the next playable tape move at rest", () => {
+  assert.match(client, /const restoreIdleTurnGuide = \(\) =>/);
+  assert.match(client, /for \(let index = activeIndex; index < activeTimeline\.steps\.length; index\+\+\)/);
+  assert.match(client, /restoreIdleTurnGuide\(\);/);
+  assert.match(client, /if \(turnGuides && !activeTurnGuide\) restoreIdleTurnGuide\(\)/);
+});
+
 test("move hover previews the exact pre-move state with four degrees of displacement", () => {
   assert.match(client, /activeTimeline\?\.states\?\.\[moveIndex\]/);
   assert.match(client, /planHoverPreview\(activeTimeline\.steps, cursor, target\)/);
