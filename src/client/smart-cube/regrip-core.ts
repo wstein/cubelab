@@ -97,7 +97,12 @@ const deviceFor = (connection: SmartCubeTransportConnection): SmartCubeDevice =>
   };
 };
 
-const normalizeCoreEvent = (
+/**
+ * Converts core packets into CubeLab's solver frame. A REGRIP mutates the
+ * frame before later MOVE/FACELETS packets are normalized; it never denotes a
+ * logical sticker permutation in this adapter.
+ */
+export const normalizeCoreEvent = (
   event: SmartCubeSessionEvent,
   solverFrame: VirtualCubeFrame.VirtualCubeFrame,
 ): SmartCubeEvent | null => {
@@ -156,6 +161,7 @@ const normalizeCoreEvent = (
         timestamp: event.timestamp,
         notationToken: event.notationToken,
         sensorFrameToken: event.sensorFrameToken,
+        source: "regrip-core",
       };
     case "CUSTOM_TRIGGER":
       // CubeLab's legacy event union has no equivalent yet. The core session

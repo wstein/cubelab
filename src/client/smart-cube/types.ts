@@ -61,10 +61,15 @@ export type SmartCubeOrientationEvent = EventBase & {
 /** A virtual whole-cube x/y/z turn confirmed by Regrip core's gyro pipeline. */
 export type SmartCubeRegripEvent = EventBase & {
   type: "regrip";
-  /** Clockwise solver-frame x/y/z notation. */
+  /**
+   * Clockwise solver-frame x/y/z notation. This changes the view/solver
+   * frame; it is deliberately not a logical cube-state move.
+   */
   notationToken: string;
   /** Corresponding calibrated sensor-frame x/y/z token. */
   sensorFrameToken: string;
+  /** Regrip core has already applied this frame change to later packets. */
+  source?: "regrip-core";
 };
 
 export type SmartCubeBatteryEvent = EventBase & {

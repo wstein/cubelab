@@ -13,6 +13,11 @@ CubeLab is a UI consumer of two shared layers:
 contract. It does not parse Bluetooth packets, perform direct GATT operations,
 or make an orientation decision.
 
+Core `REGRIP` events are view-frame metadata. The core applies them before
+projecting subsequent `MOVE` and `FACELETS` packets into the solver frame, so
+CubeLab must not apply the displayed `x`/`y`/`z` token to its logical cube or
+recording state a second time. It may display the token and animate the view.
+
 GAN and GoCube are the current live migration targets. The browser chooser must
 still be opened from a user gesture. A GAN MAC fallback prompt is provided by
 `smartcube-web-bluetooth`, so every host follows the same recovery path.

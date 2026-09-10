@@ -956,7 +956,8 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
   assert.match(client, /const animateSmartCubeRecordingToken = \(token: string\): Promise<void>/);
   assert.match(client, /await animateSmartCubeRecordingToken\(tapeMove\)/);
   assert.match(client, /MoveExecutor\.applyStep\(smartCubeRecordingState, step\)/);
-  assert.match(client, /Recorded virtual regrip \$\{event\.notationToken\}/);
+  assert.match(client, /Virtual regrip \$\{event\.notationToken\}/);
+  assert.match(client, /event\.source !== "regrip-core"/);
   assert.match(client, /Record · verified \+ gyro/);
   const recordingBranch = client.indexOf("if (smartCubeRecording) {", client.indexOf("const applySmartCubeMove"));
   const recordingStopPlayback = client.indexOf("stopPlayback();", recordingBranch);

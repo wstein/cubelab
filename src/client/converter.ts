@@ -5272,15 +5272,22 @@ if (root) {
         appendPreviewHistoryToken(event.notationToken);
         smartCubeAudio.play("turn");
         // The core session is the sole regrip decision-maker and frame owner.
+        // Its solver moves and facelets have already been projected through
+        // this regrip. Recording the visible `y` as an algorithm move as well
+        // would apply it a second time to CubeLab's recording state.
         traceSmartCubeStabilization("virtual regrip", {
           notationTokens: [event.notationToken],
           sensorFrameTokens: [event.sensorFrameToken],
           source: "regrip-core",
         });
         if (smartCubeRecording && smartCubeSyncMode === "PhysicalMirror") {
-          appendSmartCubeRecordingToken(event.notationToken);
-          void animateSmartCubeRecordingToken(event.notationToken);
-          smartCubeStatus.textContent = `${smartCubeDeviceName} · Recorded virtual regrip ${event.notationToken}`;
+          if (event.source !== "regrip-core") {
+            appendSmartCubeRecordingToken(event.notationToken);
+            void animateSmartCubeRecordingToken(event.notationToken);
+          }
+          smartCubeStatus.textContent = event.source === "regrip-core"
+            ? `${smartCubeDeviceName} · Virtual regrip ${event.notationToken}`
+            : `${smartCubeDeviceName} · Recorded virtual regrip ${event.notationToken}`;
         }
         const pending = smartCubeRotationWait;
         const step = pending && activeTimeline?.steps[pending.action.timelineIndex]?.step;

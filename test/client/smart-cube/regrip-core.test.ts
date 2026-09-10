@@ -6,10 +6,12 @@ import type {
 } from "@wstein/regrip-core/bindings/smartCubeTransport";
 import * as VirtualCubeFrame from "@wstein/regrip-core/domain/VirtualCubeFrame.res.mjs";
 import type {RegripToken} from "@wstein/regrip-core/domain/CubeNotation.res.mjs";
+import type {SmartCubeSessionEvent} from "@wstein/regrip-core/session/smartCubeSession";
 
 import {
   createRegripCoreManager,
   createRegripCoreSession,
+  normalizeCoreEvent,
 } from "../../../src/client/smart-cube/regrip-core";
 
 const connection = (): {
@@ -166,6 +168,32 @@ describe("Regrip core migration seam", () => {
 
     expect(solverMoves).toEqual([VirtualCubeFrame.translate(frame, "F'")]);
     expect(solverFacelets).toEqual([VirtualCubeFrame.reframeFacelets(frame, bodyFacelets)]);
+  });
+
+  test("keeps R, y, physical B′ in one solver state frame", () => {
+    // Regression capture: GoCube emitted R, then core confirmed y, then the
+    // body-fixed encoder emitted B′. The visible history is R y R′, while y
+    // is frame metadata—not a second logical state permutation.
+    const frame = VirtualCubeFrame.make();
+    const events = [
+      {type: "MOVE", timestamp: 872736, move: "R", face: 1, direction: 0, localTimestamp: 872736, cubeTimestamp: null},
+      {type: "REGRIP", timestamp: 873728, notationToken: "y", sensorFrameToken: "y'"},
+      {type: "MOVE", timestamp: 874808, move: "B'", face: 5, direction: 1, localTimestamp: 874808, cubeTimestamp: null},
+      {type: "FACELETS", timestamp: 874808, facelets: "LLLUUFUUFRRURRURRFFFDFFDFFDDDBDDBRRRDLLDLLBLLBBBBBBUUU"},
+    ] as SmartCubeSessionEvent[];
+
+    const normalized = events.map((event) => normalizeCoreEvent(event, frame));
+
+    expect(normalized).toMatchObject([
+      {type: "move", move: "R", solverMove: "R", source: "regrip-core"},
+      {type: "regrip", notationToken: "y", sensorFrameToken: "y'", source: "regrip-core"},
+      {type: "move", move: "B'", solverMove: "R'", source: "regrip-core"},
+      {
+        type: "facelets",
+        facelets: "UUBUUBLLBRRRRRRUUUFFUFFUFFLRRFDDFDDFLLDLLDLLDDBBDBBRBB",
+        source: "regrip-core",
+      },
+    ]);
   });
 
   test("feeds a direct GoCube transport through core stabilization before rendering", async () => {
