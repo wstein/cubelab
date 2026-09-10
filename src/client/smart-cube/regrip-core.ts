@@ -4,17 +4,13 @@ import {
   type SmartCubeSessionEvent,
   type SmartCubeSessionState,
 } from "@wstein/regrip-core/session/smartCubeSession";
-import type {SmartCubeTransportConnection} from "@wstein/regrip-core/bindings/smartCubeTransport";
+import {
+  connectSmartCube,
+  type SmartCubeConnection,
+} from "smartcube-web-bluetooth";
 import type {SessionFeaturesPatch} from "@wstein/regrip-core/session/features";
 import * as VirtualCubeFrame from "@wstein/regrip-core/domain/VirtualCubeFrame.res.mjs";
 
-import {
-  connectCubeLabTransport,
-  isWebBluetoothAvailable,
-  normalizeTransportEvent,
-} from "./bluetooth";
-import {resolveSmartCubeDriver} from "./drivers";
-import {reverseGanMacAddress} from "./gan-mac";
 import type {
   SmartCubeCommand,
   SmartCubeConnectOptions,
@@ -24,14 +20,13 @@ import type {
   SmartCubeManager,
 } from "./types";
 
+type SmartCubeTransportConnection = SmartCubeConnection;
+
 /**
- * Temporary GAN/GoCube migration seam.
+ * CubeLab's UI adapter over Regrip core and smartcube-web-bluetooth.
  *
- * CubeLab retains its established chooser, direct GoCube UART path, and GAN i4
- * MAC recovery. The returned core session owns only normalized lifecycle,
- * profile, gyro, virtual-regrip, and replay behavior. The existing
- * `createSmartCubeManager()` remains the default UI transport until parity is
- * proven per protocol family.
+ * The library owns Bluetooth selection, connection, MAC recovery, packet
+ * decoding, and device commands. Core owns profiles and all orientation logic.
  */
 export type RegripCoreSessionOptions = {
   connect?: () => Promise<SmartCubeTransportConnection>;
@@ -42,7 +37,7 @@ export const createRegripCoreSession = (
   options: RegripCoreSessionOptions = {},
 ): SmartCubeSession =>
   createSmartCubeSession({
-    connect: options.connect ?? connectCubeLabTransport,
+    connect: options.connect ?? connectSmartCube,
     features: options.features,
   });
 
@@ -66,19 +61,29 @@ const unavailableState = (): SmartCubeConnectionState => ({
   error: null,
 });
 
+const connectWithLibrary = (options: SmartCubeConnectOptions): Promise<SmartCubeConnection> =>
+  connectSmartCube({
+    deviceName: options.deviceName,
+    deviceSelection: options.acceptAnyDevice ? "any" : "filtered",
+    enableAddressSearch: options.enableAddressSearch,
+    macAddressProvider: options.macAddressProvider,
+    signal: options.signal,
+  });
+
+const isWebBluetoothAvailable = (): boolean =>
+  typeof navigator !== "undefined" && "bluetooth" in navigator;
+
 const deviceFor = (connection: SmartCubeTransportConnection): SmartCubeDevice => {
-  const driver = resolveSmartCubeDriver(connection.protocol.id, connection.deviceName);
-  if (!driver || (driver.brand !== "gan" && driver.brand !== "gocube")) {
+  const protocolId = connection.protocol.id.toLowerCase();
+  const brand = protocolId.startsWith("gan") ? "gan" : protocolId === "gocube" ? "gocube" : null;
+  if (!brand) {
     throw new Error(`Regrip core migration supports GAN and GoCube only: ${connection.protocol.id}`);
   }
-  const displayMac = connection.protocol.id === "gan-gen4" && /^GANi4(?:_|$)/i.test(connection.deviceName)
-    ? reverseGanMacAddress(connection.deviceMAC) ?? connection.deviceMAC
-    : connection.deviceMAC;
   return {
     name: connection.deviceName,
-    macAddress: displayMac || null,
-    brand: driver.brand,
-    brandName: driver.brandName,
+    macAddress: connection.deviceMAC || null,
+    brand,
+    brandName: brand === "gan" ? "GAN" : "GoCube",
     protocolId: connection.protocol.id,
     protocolName: connection.protocol.name,
     capabilities: {
@@ -87,53 +92,62 @@ const deviceFor = (connection: SmartCubeTransportConnection): SmartCubeDevice =>
       facelets: connection.capabilities.facelets,
       hardware: connection.capabilities.hardware,
       reset: connection.capabilities.reset,
-      led: false,
+      led: connection.capabilities.vendorCommands?.includes("FLASH_BACKLIGHT") === true,
     },
   };
 };
 
 const normalizeCoreEvent = (
   event: SmartCubeSessionEvent,
-  protocolId: string,
   solverFrame: VirtualCubeFrame.VirtualCubeFrame,
 ): SmartCubeEvent | null => {
   switch (event.type) {
     case "BATTERY":
+      return {type: "battery", timestamp: event.timestamp, level: Math.min(100, Math.max(0, event.batteryLevel))};
     case "HARDWARE":
+      return {
+        type: "hardware",
+        timestamp: event.timestamp,
+        hardwareName: event.hardwareName,
+        hardwareVersion: event.hardwareVersion,
+        softwareVersion: event.softwareVersion,
+        productDate: event.productDate,
+        orientationSupported: event.gyroSupported,
+      };
     case "DISCONNECT":
-      return normalizeTransportEvent(event, protocolId);
+      return {type: "disconnected", timestamp: event.timestamp};
     case "MOVE": {
-      const normalized = normalizeTransportEvent(event, protocolId);
-      return normalized?.type === "move"
-        ? {...normalized, solverMove: VirtualCubeFrame.translate(solverFrame, event.move), source: "regrip-core"}
-        : normalized;
+      return {
+        type: "move",
+        timestamp: event.timestamp,
+        move: event.move,
+        solverMove: VirtualCubeFrame.translate(solverFrame, event.move),
+        source: "regrip-core",
+        face: event.face,
+        direction: event.direction,
+        localTimestamp: event.localTimestamp,
+        cubeTimestamp: event.cubeTimestamp,
+      };
     }
     case "FACELETS": {
-      const normalized = normalizeTransportEvent(event, protocolId);
-      return normalized?.type === "facelets"
-        ? {
-          ...normalized,
-          facelets: VirtualCubeFrame.reframeFacelets(solverFrame, event.facelets),
-          rawFacelets: event.facelets,
-          source: "regrip-core",
-        }
-        : normalized;
+      return {
+        type: "facelets",
+        timestamp: event.timestamp,
+        facelets: VirtualCubeFrame.reframeFacelets(solverFrame, event.facelets),
+        rawFacelets: event.facelets,
+        source: "regrip-core",
+      };
     }
     case "GYRO": {
-      const normalized = normalizeTransportEvent(event, protocolId);
-      return normalized?.type === "orientation"
-        ? {
-          ...normalized,
-          // Regrip core has already applied the profile sensor→body mapping,
-          // established a session calibration basis, and optionally stabilized
-          // the pose. The renderer must treat this as canonical viewport
-          // orientation rather than applying CubeLab's legacy wire transform.
-          quaternion: event.stabilized,
-          coordinateFrame: "viewport",
-          rawQuaternion: normalized.quaternion,
-          source: "regrip-core",
-        }
-        : normalized;
+      return {
+        type: "orientation",
+        timestamp: event.timestamp,
+        quaternion: event.stabilized,
+        coordinateFrame: "viewport",
+        angularVelocity: event.velocity,
+        rawQuaternion: event.quaternion,
+        source: "regrip-core",
+      };
     }
     case "REGRIP":
       VirtualCubeFrame.applyRegrip(solverFrame, event.notationToken);
@@ -160,7 +174,7 @@ const normalizeCoreEvent = (
 export const createRegripCoreManager = (
   dependencies: Partial<RegripCoreManagerDependencies> = {},
 ): SmartCubeManager => {
-  const connectTransport = dependencies.connectTransport ?? ((options) => connectCubeLabTransport(options));
+  const connectTransport = dependencies.connectTransport ?? connectWithLibrary;
   const bluetoothAvailable = dependencies.isBluetoothAvailable ?? isWebBluetoothAvailable;
   let state = bluetoothAvailable() ? disconnectedState() : unavailableState();
   let session: SmartCubeSession | null = null;
@@ -251,7 +265,7 @@ export const createRegripCoreManager = (
     session = core;
     unsubscribeState = core.subscribe(publishSessionState);
     unsubscribeEvents = core.subscribeEvents((event) => {
-      const normalized = normalizeCoreEvent(event, transport?.protocol.id ?? "", solverFrame);
+      const normalized = normalizeCoreEvent(event, solverFrame);
       if (normalized) eventListeners.forEach((listener) => listener(normalized));
     });
     try {
@@ -286,15 +300,14 @@ export const createRegripCoreManager = (
       await send("REQUEST_RESET");
     },
     flashLed: async (colour, durationMs) => {
-      const active = transport as (SmartCubeTransportConnection & {
-        flashLed?: (colour: "amber" | "green", durationMs: number) => Promise<void>;
-      }) | null;
-      if (!active?.flashLed) {
-        throw new Error("Connected cube does not expose verified LED feedback");
+      const active = requireSession().getState().connection;
+      const type = colour === "green" ? "FLASH_BACKLIGHT" : "SLOW_FLASH_BACKLIGHT";
+      if (!active?.capabilities.vendorCommands?.includes(type)) {
+        throw new Error("Connected cube does not expose a supported light command");
       }
       const normalizedDuration = Math.max(50, Math.min(5000, Math.round(durationMs)));
       publishCommand({timestamp: Date.now(), type: "FLASH_LED", colour, durationMs: normalizedDuration});
-      await active.flashLed(colour, normalizedDuration);
+      await requireSession().sendVendorCommand({vendor: "gocube", type});
     },
     subscribeState(listener) {
       stateListeners.add(listener);

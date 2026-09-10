@@ -144,7 +144,6 @@ import {
   type SyncMode,
 } from "./smart-cube/live-sync";
 import {createGestureRecenterDetector} from "./smart-cube/gesture-recenter";
-import {recoverGanI4MacFromAdvertisements, reverseGanMacAddress} from "./smart-cube/gan-mac";
 import {
   createSmartCubeAudioFeedback,
   readSmartCubeSoundPreference,
@@ -469,7 +468,6 @@ if (root) {
   const smartCubeDiagnostics = root.querySelector<HTMLButtonElement>("[data-smart-cube-diagnostics]")!;
   const smartCubeCopyTrace = root.querySelector<HTMLButtonElement>("[data-smart-cube-copy-trace]")!;
   const smartCubeController = root.querySelector<HTMLButtonElement>("[data-smart-cube-controller]")!;
-  const smartCubeMacRecovery = root.querySelector<HTMLButtonElement>("[data-smart-cube-mac-recovery]")!;
   const smartCubeDisconnect = root.querySelector<HTMLButtonElement>("[data-smart-cube-disconnect]")!;
   const smartCubeCapture = root.querySelector<HTMLButtonElement>("[data-smart-cube-capture]")!;
   const smartCubeReplayControls = root.querySelector<HTMLElement>("[data-smart-cube-replay-controls]")!;
@@ -2448,7 +2446,6 @@ if (root) {
   const smartCubeReplayRequested = requestedReplayName !== null && /^[a-z0-9][a-z0-9_-]*$/i.test(requestedReplayName)
     ? requestedReplayName
     : null;
-  let smartCubeMacRecoveryAvailable = false;
   let smartCubeConnected = false;
   let smartCubeDeviceName = "Smart cube";
   let smartCubeLedFeedback = false;
@@ -5106,8 +5103,6 @@ if (root) {
       smartCubeController.disabled = false;
       smartCubeCapture.hidden = !smartCubeDevEnabled || smartCubeReplayControlsApi !== null;
       smartCubeCapture.disabled = !smartCubeDevEnabled || smartCubeReplayControlsApi !== null;
-      smartCubeMacRecoveryAvailable = false;
-      smartCubeMacRecovery.hidden = true;
       setSmartCubeOrientationTracking(supportsOrientation);
       updateSmartCubeMistakeUi();
     } else {
@@ -5131,8 +5126,6 @@ if (root) {
       smartCubeController.hidden = true;
       smartCubeCapture.hidden = true;
       smartCubeTapeRecorder = null;
-      smartCubeMacRecovery.hidden = !smartCubeMacRecoveryAvailable;
-      smartCubeMacRecovery.disabled = connectionState.phase === "connecting";
       setSmartCubeControllerMode(false);
       smartCubeBattery.hidden = true;
       if (connectionState.phase !== "connecting") {
@@ -7257,27 +7250,6 @@ if (root) {
     }
     return detail;
   };
-  const needsEncryptedMacRecovery = (reason: unknown) =>
-    /unable to determine cube mac address|bluetooth mac address/i
-      .test(reason instanceof Error ? reason.message : String(reason));
-  const promptForEncryptedCubeMac = async (device: BluetoothDevice, isFallbackCall?: boolean) => {
-    if (!isFallbackCall) return recoverGanI4MacFromAdvertisements(device);
-    const usingBrave = await isBraveBrowser();
-    const experimentalFeaturesUrl = usingBrave
-      ? "brave://flags/#enable-experimental-web-platform-features"
-      : "chrome://flags/#enable-experimental-web-platform-features";
-    const value = window.prompt(
-      `${device.name ?? "This encrypted cube"} did not expose its Bluetooth MAC address. `
-        + `Enter it as aa:bb:cc:dd:ee:ff, or Cancel. For automatic detection, enable `
-        + `${experimentalFeaturesUrl} and restart the browser.`,
-    );
-    const mac = value?.trim() || null;
-    // Keep the prompt human-facing (advertised MAC order), while compensating
-    // for the current GAN package's unconditional salt-byte reversal on i4.
-    return mac && /^GANi4(?:_|$)/i.test(device.name ?? "")
-      ? reverseGanMacAddress(mac) ?? mac
-      : mac;
-  };
   smartCubeConnect.addEventListener("click", async () => {
     void smartCubeAudio.unlock();
     if (smartCubeReplayRequested || smartCubeMockMode) {
@@ -7314,8 +7286,6 @@ if (root) {
     store.patch({size: 3});
     try {
       const manager = await loadSmartCubeManager();
-      smartCubeMacRecoveryAvailable = false;
-      smartCubeMacRecovery.hidden = true;
       smartCubeStateSyncPending = true;
       // GAN i4 MAC recovery is a no-op for every other device and runs before
       // its GATT connection, so an i4 enters its encrypted path directly.
@@ -7327,37 +7297,8 @@ if (root) {
       }
       smartCubeDock.hidden = false;
       smartCubeDock.dataset.phase = "error";
-      smartCubeMacRecoveryAvailable = needsEncryptedMacRecovery(reason);
-      smartCubeMacRecovery.hidden = !smartCubeMacRecoveryAvailable;
-      smartCubeStatus.textContent = smartCubeMacRecoveryAvailable
-        ? "This encrypted cube needs MAC recovery. Use Encrypted-cube recovery to retry."
-        : describeBluetoothFailure(reason, usingBrave);
-      smartCubeStatus.title = smartCubeStatus.textContent;
-    }
-  });
-  smartCubeMacRecovery.addEventListener("click", async () => {
-    if (!smartCubeMacRecoveryAvailable) return;
-    void smartCubeAudio.unlock();
-    smartCubeMacRecovery.disabled = true;
-    try {
-      const manager = await loadSmartCubeManager();
-      smartCubeStateSyncPending = true;
-      await manager.connect({
-        enableAddressSearch: true,
-        macAddressProvider: promptForEncryptedCubeMac,
-      });
-    } catch (reason) {
-      const usingBrave = await isBraveBrowser();
-      if (bluetoothChooserWasCancelled(reason)) {
-        await smartCubeManager?.disconnect();
-        return;
-      }
-      smartCubeDock.hidden = false;
-      smartCubeDock.dataset.phase = "error";
       smartCubeStatus.textContent = describeBluetoothFailure(reason, usingBrave);
       smartCubeStatus.title = smartCubeStatus.textContent;
-    } finally {
-      smartCubeMacRecovery.disabled = false;
     }
   });
   smartCubeDisconnect.addEventListener("click", () => {

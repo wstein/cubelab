@@ -1,4 +1,3 @@
-export {createSmartCubeManager, isWebBluetoothAvailable, normalizeTransportEvent} from "./bluetooth";
 export {createRegripCoreManager, createRegripCoreSession} from "./regrip-core";
 export type {
   RegripCoreManagerDependencies,

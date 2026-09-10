@@ -200,7 +200,7 @@ describe("Regrip core migration seam", () => {
       coordinateFrame: "viewport",
       source: "regrip-core",
       quaternion: {x: 0, y: 0, z: 0, w: 1},
-      rawQuaternion: {x: 0.1, y: 0.2, z: 0.3, w: 0.9},
+      rawQuaternion: {x: 0.1, y: -0.3, z: -0.2, w: 0.9},
     }]);
   });
 });
