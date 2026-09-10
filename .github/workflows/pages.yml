@@ -2,7 +2,7 @@ name: Publish GitHub Pages
 
 on:
   push:
-    branches: [feat/layout]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
