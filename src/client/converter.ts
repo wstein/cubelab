@@ -143,6 +143,7 @@ import {
   type SmartCubeMoveAssessment,
   type SyncMode,
 } from "./smart-cube/live-sync";
+import {reduceSmartCubeMirrorInput} from "./smart-cube/live-state";
 import {createGestureRecenterDetector} from "./smart-cube/gesture-recenter";
 import {
   createSmartCubeAudioFeedback,
@@ -2541,7 +2542,6 @@ if (root) {
     move: string;
     /** Solver-frame notation used only by history and recorded algorithms. */
     solverMove?: string;
-    state: CubeState | null;
     omitPreviewHistory?: boolean;
     source?: "regrip-core";
   };
@@ -4763,11 +4763,17 @@ if (root) {
 
   const commitSmartCubeMoveState = (record: QueuedSmartCubeMove) => {
     const base = smartCubeRenderedState ?? smartCubeLiveState;
-    const step = smartCubeStep(record.move);
-    const state = record.state ?? (base && step ? MoveExecutor.applyStep(base, step) as CubeState : null);
+    const state = reduceSmartCubeMirrorInput(
+      base,
+      {kind: "move", move: record.move},
+      (previous, move) => {
+        const step = smartCubeStep(move);
+        return step ? MoveExecutor.applyStep(previous, step) as CubeState : previous;
+      },
+    );
     if (!state) return;
     smartCubeRenderedState = state;
-    if (!record.state) smartCubeLiveState = state;
+    smartCubeLiveState = state;
     if (smartCubeCoachingFrameActive) return;
     renderState(state, `${smartCubeDeviceName} · Live physical state`);
     updatePatternDetection({state, label: `${smartCubeDeviceName} · Live physical state`});
@@ -5232,7 +5238,6 @@ if (root) {
         const record: QueuedSmartCubeMove = {
           move,
           solverMove,
-          state: null,
           omitPreviewHistory,
           source: event.source,
         };
@@ -5260,16 +5265,26 @@ if (root) {
             smartCubeStatus.textContent = diagnostic;
             break;
           }
-          smartCubeLiveState = parsed._0;
-          const pending = [...smartCubePendingMoves].reverse().find((move) => move.state === null);
-          if (pending) pending.state = parsed._0;
-          else smartCubeRenderedState = parsed._0;
           if (smartCubeStateSyncPending) {
             smartCubeStateSyncPending = false;
             mirrorSmartCubeFaceletsToInput(event.facelets);
             smartCubeStatus.textContent = `${smartCubeDeviceName} · State synced`;
           }
-          if (smartCubeMovesInFlight === 0 && !smartCubeRecording) renderSmartCubeLiveState();
+          // Preserve wire order. A snapshot can arrive while one or more turn
+          // animations are pending; binding it to the newest pending move
+          // retroactively applies it after the wrong turn and makes x/y/z
+          // regrips appear compensated twice (or not at all).
+          smartCubeMoveQueue = smartCubeMoveQueue.then(() => {
+            const state = reduceSmartCubeMirrorInput<CubeState>(
+              smartCubeRenderedState ?? smartCubeLiveState,
+              {kind: "snapshot", state: parsed._0},
+              (previous) => previous,
+            );
+            if (!state) return;
+            smartCubeLiveState = state;
+            smartCubeRenderedState = state;
+            if (smartCubeMovesInFlight === 0 && !smartCubeRecording) renderSmartCubeLiveState();
+          });
           updateSmartCubeMistakeUi();
         } else if (smartCubeStateSyncPending) {
           smartCubeStateSyncPending = false;
