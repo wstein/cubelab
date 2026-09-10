@@ -5253,6 +5253,7 @@ if (root) {
           timestamp: event.timestamp,
           notationToken: event.notationToken,
           sensorFrameToken: event.sensorFrameToken,
+          solverNotationToken: event.solverNotationToken,
         });
         return;
       case "facelets":
@@ -5381,7 +5382,7 @@ if (root) {
           && pending.generation === playbackGeneration
         ) {
           const expectedToken = `${step.move._0.toLowerCase()}${step.turns < 0 ? "'" : ""}`;
-          if (event.notationToken === expectedToken) {
+          if ((event.solverNotationToken ?? event.notationToken) === expectedToken) {
             pending.completedQuarterTurns += 1;
             if (pending.completedQuarterTurns < Math.abs(step.turns)) {
               smartCubeStatus.textContent = `${smartCubeDeviceName} · ${pending.action.token} halfway`;

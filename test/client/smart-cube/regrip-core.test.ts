@@ -128,7 +128,11 @@ describe("Regrip core migration seam", () => {
       isBluetoothAvailable: () => true,
       connectTransport: async () => mock.connection,
     });
-    const regrips: Array<{notationToken: string; sensorFrameToken: string}> = [];
+    const regrips: Array<{
+      notationToken: string;
+      sensorFrameToken: string;
+      solverNotationToken?: string;
+    }> = [];
     const solverMoves: string[] = [];
     const receivedBodyFacelets: string[] = [];
     const solverFacelets: string[] = [];
@@ -228,6 +232,25 @@ describe("Regrip core migration seam", () => {
       }
     }
     expect(normalized).toEqual(["R", "B", "L", "F"]);
+  });
+
+  test("keeps body-local x/z regrips visible while retaining solver notation", () => {
+    const frame = VirtualCubeFrame.make();
+    const y = normalizeCoreEvent({
+      type: "REGRIP",
+      timestamp: 1,
+      notationToken: "y",
+      sensorFrameToken: "y",
+    }, frame);
+    const x = normalizeCoreEvent({
+      type: "REGRIP",
+      timestamp: 2,
+      notationToken: "x",
+      sensorFrameToken: "x",
+    }, frame);
+
+    expect(y).toMatchObject({type: "regrip", notationToken: "y", solverNotationToken: "y"});
+    expect(x).toMatchObject({type: "regrip", notationToken: "x", solverNotationToken: "z"});
   });
 
   test("keeps body moves intact while their solver labels converge after y′ regrips", () => {

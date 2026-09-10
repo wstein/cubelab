@@ -158,15 +158,17 @@ export const normalizeCoreEvent = (
       };
     }
     case "REGRIP": {
-      // The detector token is body-local. Display it in the current solver
-      // frame before composing that body rotation into future translations.
+      // Keep the detected body token visible. Translating it for the 3D
+      // history would make a physical x appear as z after a y regrip. The
+      // solver token remains available exclusively for algorithm matching.
       const solverToken = VirtualCubeFrame.solverToken(solverFrame, event.notationToken);
       VirtualCubeFrame.applyRegrip(solverFrame, event.notationToken);
       return {
         type: "regrip",
         timestamp: event.timestamp,
-        notationToken: solverToken,
+        notationToken: event.notationToken,
         sensorFrameToken: event.sensorFrameToken,
+        solverNotationToken: solverToken,
         source: "regrip-core",
       };
     }
@@ -268,8 +270,8 @@ export const createRegripCoreManager = (
         device = deviceFor(connected);
         return connected;
       },
-      // CubeLab's renderer consumes solver-frame events from this facade, so
-      // virtual regrips are enabled for every live core session by default.
+      // Core owns regrip detection and solver-frame projection; the renderer
+      // receives body-frame display events from this facade.
       features: {
         ...dependencies.features,
         regrip: {enabled: true, ...dependencies.features?.regrip},

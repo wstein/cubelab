@@ -62,12 +62,14 @@ export type SmartCubeOrientationEvent = EventBase & {
 export type SmartCubeRegripEvent = EventBase & {
   type: "regrip";
   /**
-   * Clockwise solver-frame x/y/z notation. This changes the view/solver
-   * frame; it is deliberately not a logical cube-state move.
+   * Body-local x/y/z notation for the visible cube and 3D move history. It is
+   * deliberately not a logical cube-state move.
    */
   notationToken: string;
   /** Corresponding calibrated sensor-frame x/y/z token. */
   sensorFrameToken: string;
+  /** Solver-frame token used only for coached algorithm matching. */
+  solverNotationToken?: string;
   /** Regrip core has already applied this frame change to later packets. */
   source?: "regrip-core";
 };

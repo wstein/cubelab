@@ -50,7 +50,7 @@ describe("cube viewport math", () => {
     expect(viewportSource).toMatch(/colourOrientation: glyphRufOrientation/);
     expect(viewportSource).toMatch(/nextColourOrientation: normalized/);
     expect(viewportSource).toMatch(/rebaseGlyphRufOrientation\(virtualOffset \? alignment : \{x: 0, y: 0, z: 0, w: 1\}\)/);
-    expect(viewportSource).toMatch(/drawMotionOverlay\(width, height, glyphMatrices, glyphFrame\.colourOrientation, glyphScale\)/);
+    expect(viewportSource).toMatch(/drawMotionOverlay\(\s*width,\s*height,\s*matrices,\s*glyphMatrices,/);
     expect(viewportSource).toMatch(/drawOrientationAxes\(axisMatrices, width, height/);
     expect(viewportSource).not.toMatch(/const virtualAxisMatrices = cameraMatrices\(/);
   });
