@@ -995,6 +995,10 @@ export const createCubeViewport = (
   let magneticDetentPullDegrees = 0;
   let turnFrame: number | null = null;
   let turnGeneration = 0;
+  // Smart-cube moves are serialized by awaiting animateTurn(). A cancelled
+  // animation must therefore settle its waiter, otherwise one render/state
+  // update can permanently block every later physical turn behind it.
+  let settleActiveTurn: (() => void) | null = null;
   let autoOrbit = false;
   let autoOrbitFrame: number | null = null;
   let autoOrbitPreviousTime: number | null = null;
@@ -2150,6 +2154,9 @@ export const createCubeViewport = (
     activeTurn = null;
     delete canvas.dataset.animating;
     delete canvas.dataset.turnPreviewDegrees;
+    const settle = settleActiveTurn;
+    settleActiveTurn = null;
+    settle?.();
     requestRender();
   };
 
@@ -2197,9 +2204,14 @@ export const createCubeViewport = (
     const safeDuration = Math.max(1, duration);
     canvas.dataset.animating = "true";
     return new Promise((resolve) => {
+      const settle = () => {
+        if (settleActiveTurn === settle) settleActiveTurn = null;
+        resolve();
+      };
+      settleActiveTurn = settle;
       const tick = (now: number) => {
         if (disposed || generation !== turnGeneration) {
-          resolve();
+          settle();
           return;
         }
         const progress = Math.min(1, (now - started) / safeDuration);
@@ -2213,7 +2225,7 @@ export const createCubeViewport = (
           activeTurn = null;
           delete canvas.dataset.animating;
           requestRender();
-          resolve();
+          settle();
         }
       };
       turnFrame = window.requestAnimationFrame(tick);
