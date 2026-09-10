@@ -17,10 +17,6 @@ const timerWorkspace = await readFile(new URL("../src/client/timer/workspace.ts"
 const solverWorker = await readFile(new URL("../src/client/workers/solver.worker.ts", import.meta.url), "utf8");
 const manualStateWorker = await readFile(new URL("../src/client/workers/manual-state.worker.ts", import.meta.url), "utf8");
 const viewport = await readFile(new URL("../src/client/cube-gl.ts", import.meta.url), "utf8");
-const orientationVerifier = await readFile(
-  new URL("../src/client/smart-cube/orientation-verifier.ts", import.meta.url),
-  "utf8",
-);
 const store = await readFile(new URL("../src/client/store.ts", import.meta.url), "utf8");
 const viewportComponent = await readFile(
   new URL("../src/Components/CubeViewport.astro", import.meta.url),
@@ -498,7 +494,8 @@ test("the interactive preview exposes an editable, copyable move history", () =>
   assert.match(viewportComponent, /data-preview-history-clear/);
   assert.match(client, /appendPreviewHistoryToken/);
   assert.match(client, /data-preview-history-copy/);
-  assert.match(client, /observed\.tokens\.forEach\(appendPreviewHistoryToken\)/);
+  assert.match(client, /case "regrip": \{/);
+  assert.match(client, /appendPreviewHistoryToken\(event\.notationToken\)/);
   assert.match(client, /removeTrailingPreviewHistoryTokens\(\[event\.move1, event\.move2\]\)/);
 });
 
@@ -730,7 +727,7 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.doesNotMatch(client, /cubelab-smart-cube-diagnostic-v1/);
   assert.match(client, /traceSmartCubeStabilization\("gyro orientation"/);
   assert.match(client, /traceSmartCubeStabilization\("virtual regrip"/);
-  assert.match(client, /viewport\?\.rebaseDeviceOrientation\([\s\S]*observed\.tracker\.baseline[\s\S]*event\.quaternion/);
+  assert.match(client, /source: "regrip-core"/);
   assert.match(client, /traceSmartCubeStabilization\("received event"/);
   assert.match(client, /manager\.subscribeCommands\(\(command\) =>/);
   assert.match(client, /traceSmartCubeStabilization\("sent command"/);
@@ -750,17 +747,9 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   );
   assert.match(client, /manager\.subscribeEvents\(handleSmartCubeEvent\)/);
   assert.match(client, /recenterDeviceOrientation/);
-  assert.match(client, /createStableOrientationTracker/);
   assert.match(client, /reconcileDeviceOrientation/);
-  assert.match(client, /observeThresholdOrientation/);
-  const virtualLockIndex = client.indexOf("viewport.setVirtualOrientationLock(lock)");
-  assert.ok(
-    virtualLockIndex
-      < client.indexOf("if (!smartCubeDiagnosticsEnabled || !eventTracker)", virtualLockIndex),
-    "magnetic detents must remain active when the diagnostic HUD is off",
-  );
-  assert.match(client, /Recorded virtual regrip/);
-  assert.match(client, /smartCubeDiscreteOrientationTracker\s*=\s*createStableOrientationTracker/);
+  assert.match(viewport, /Regrip core owns calibration, magnetic detents, and drift compensation/);
+  assert.match(client, /regrip detected/);
   assert.match(client, /appendRecordedMove/);
   assert.match(client, /mirrorSmartCubeFaceletsToInput\(event\.facelets\)/);
   assert.match(client, /const facelets = toSpacedFacelets\(rawFacelets, 3\)/);
@@ -788,12 +777,11 @@ test("the viewport exposes a lazy multi-vendor smart-cube dock", () => {
   assert.match(viewport, /turnGuideTone/);
   assert.match(client, /viewport\?\.setDeviceOrientation/);
   assert.match(client, /const waitForSmartCubeMove/);
-  assert.match(client, /assessGyroRotation/);
+  assert.match(client, /source: "regrip-core"/);
   assert.match(client, /demonstrateSmartCubeRotation\(action, generation\)/);
   assert.match(client, /smartCubeCoachingFrameActive && activeTimeline\?\.states/);
   assert.match(client, /smartCubeHalfTurnProgress\?\.receivedMoves/);
   assert.match(client, /dataset\.halfTurnProgress = "true"/);
-  assert.match(orientationVerifier, /halfTurn[\s\S]*Math\.abs\(signedDegrees\) >= 135/);
   assert.match(client, /Next physical move:/);
   assert.match(client, /playbackGuide\.addEventListener\("click"[\s\S]*waitForSmartCubeMove\(\)/);
   assert.match(client, /applyWaitingTimelineMove/);
@@ -971,14 +959,13 @@ test("the viewport exposes bounded tape controls for exact algorithm states", ()
     client,
     /smartCubeOrientationTracking\s*&& !smartCubeRecording\s*&& !smartCubeRecordingTapePresented/,
   );
-  assert.match(client, /const tapeMove = controllerMoveInViewportFrame\(move, smartCubeRecordingFrame\)/);
+  assert.match(client, /record\.source === "regrip-core"/);
   assert.match(client, /appendSmartCubeRecordingToken\(tapeMove\)/);
   assert.match(client, /const advanceSmartCubeRecordingState = \(token: string\)/);
   assert.match(client, /const animateSmartCubeRecordingToken = \(token: string\): Promise<void>/);
   assert.match(client, /await animateSmartCubeRecordingToken\(tapeMove\)/);
-  assert.match(client, /void animateSmartCubeRecordingToken\(token\)/);
   assert.match(client, /MoveExecutor\.applyStep\(smartCubeRecordingState, step\)/);
-  assert.match(client, /Recorded virtual regrip/);
+  assert.match(client, /Recorded virtual regrip \$\{event\.notationToken\}/);
   assert.match(client, /Record · verified \+ gyro/);
   const recordingBranch = client.indexOf("if (smartCubeRecording) {", client.indexOf("const applySmartCubeMove"));
   const recordingStopPlayback = client.indexOf("stopPlayback();", recordingBranch);

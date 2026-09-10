@@ -542,49 +542,6 @@ export const quaternionAxisAngle = (
   };
 };
 
-/**
- * Produces the display-only adjustment that makes a raw IMU delta agree with
- * a settled cardinal cube pose. The raw sample remains untouched.
- */
-export const orientationCorrectionForTarget = (
-  base: OrientationQuaternion,
-  current: OrientationQuaternion,
-  target: OrientationQuaternion,
-  coordinateFrame: OrientationCoordinateFrame = "viewport",
-): OrientationQuaternion => {
-  const raw = deviceOrientationDelta(base, current, coordinateFrame, "world");
-  return normalizedQuaternion(
-    multiplyQuaternions(normalizedQuaternion(target), inverseQuaternion(raw)),
-  );
-};
-
-/**
- * Gives the signed residual from the virtual, drift-corrected IMU pose to its
- * current cardinal lock. A 60° x regrip into a 90° x lock is therefore x' 30°.
- */
-export const regripGaugeDeviation = (
-  driftCorrectedOrientation: OrientationQuaternion,
-  lockTarget: OrientationQuaternion,
-): OrientationQuaternion => normalizedQuaternion(
-  multiplyQuaternions(inverseQuaternion(lockTarget), driftCorrectedOrientation),
-);
-
-const regripGaugeLabelForAxis = (axis: [number, number, number]): string | null => {
-  const candidates: Array<{axis: [number, number, number]; label: string}> = [
-    {axis: [1, 0, 0], label: "x"},
-    {axis: [-1, 0, 0], label: "x'"},
-    {axis: [0, 1, 0], label: "y"},
-    {axis: [0, -1, 0], label: "y'"},
-    {axis: [0, 0, 1], label: "z"},
-    {axis: [0, 0, -1], label: "z'"},
-  ];
-  const nearest = candidates.reduce((best, candidate) => {
-    const alignment = axis[0] * candidate.axis[0] + axis[1] * candidate.axis[1] + axis[2] * candidate.axis[2];
-    return alignment > best.alignment ? {...candidate, alignment} : best;
-  }, {...candidates[0]!, alignment: -Infinity});
-  return nearest.alignment > 0.1 ? nearest.label : null;
-};
-
 /** Interpolates along the shortest arc from one orientation to another. */
 export const slerpQuaternion = (
   from: OrientationQuaternion,
@@ -604,70 +561,6 @@ export const slerpQuaternion = (
     z: from.z * fromWeight + to.z * toWeight,
     w: from.w * fromWeight + to.w * toWeight,
   });
-};
-
-/**
- * A zero-latency magnetic detent for live gyro rendering. Outside the well
- * the raw orientation passes through unchanged; within it a strong continuous pull
- * removes tremor, while near the centre (<= snapDegrees) it locks fully onto the
- * cardinal pose.
- */
-export const magneticOrientationDetent = (
-  raw: OrientationQuaternion,
-  cardinalTarget: OrientationQuaternion,
-  radiusDegrees = 35,
-  snapDegrees = 4,
-): OrientationQuaternion => {
-  const distance = orientationDistanceRadians(raw, cardinalTarget);
-  const radius = radiusDegrees * Math.PI / 180;
-  if (distance >= radius) return raw;
-  const snapRadius = snapDegrees * Math.PI / 180;
-  if (distance <= snapRadius) return cardinalTarget;
-  const normalizedDistance = (distance - snapRadius) / Math.max(radius - snapRadius, 1e-8);
-  return slerpQuaternion(
-    raw,
-    cardinalTarget,
-    Math.sqrt(Math.max(0, 1 - normalizedDistance * normalizedDistance)),
-  );
-};
-
-/**
- * Slews a persistent gyro drift offset toward the cardinal lock at a bounded
- * rate (default ~2°/s). When inside the magnetic well, ongoing sensor drift
- * and resting hand deviations are smoothly absorbed until the virtual cube
- * reaches exact 0° alignment.
- */
-export const stepGyroDriftOffset = (
-  currentOffset: OrientationQuaternion,
-  rawOrientation: OrientationQuaternion,
-  lockTarget: OrientationQuaternion,
-  deltaTimeSeconds: number,
-  driftRateDegreesPerSecond = 2,
-  wellRadiusDegrees = 35,
-): {offset: OrientationQuaternion; distanceToLock: number; isDrifting: boolean} => {
-  const normOffset = normalizedQuaternion(currentOffset);
-  const normRaw = normalizedQuaternion(rawOrientation);
-  const normTarget = normalizedQuaternion(lockTarget);
-  const adjusted = normalizedQuaternion(multiplyQuaternions(normOffset, normRaw));
-  const distance = orientationDistanceRadians(adjusted, normTarget);
-  const wellRadius = wellRadiusDegrees * Math.PI / 180;
-
-  if (distance >= wellRadius || distance < 1e-6 || deltaTimeSeconds <= 0) {
-    return {offset: normOffset, distanceToLock: distance, isDrifting: false};
-  }
-
-  const maxAngleStep = (driftRateDegreesPerSecond * Math.PI / 180) * deltaTimeSeconds;
-  const fraction = Math.min(1, maxAngleStep / distance);
-  const nextAdjusted = slerpQuaternion(adjusted, normTarget, fraction);
-  const nextOffset = normalizedQuaternion(
-    multiplyQuaternions(nextAdjusted, inverseQuaternion(normRaw)),
-  );
-  const nextDistance = orientationDistanceRadians(nextAdjusted, normTarget);
-  return {
-    offset: nextOffset,
-    distanceToLock: nextDistance,
-    isDrifting: nextDistance > 1e-5,
-  };
 };
 
 /** Locks sub-threshold IMU jitter and softens larger moves along the shortest quaternion path. */
@@ -2019,39 +1912,14 @@ export const createCubeViewport = (
     const rawOrientation = deviceOrientationBase && deviceOrientation
       ? deviceOrientationDelta(deviceOrientationBase, deviceOrientation, deviceOrientationFrame, "world")
       : undefined;
-    if (rawOrientation) {
-      if (lastGyroDriftTime !== null) {
-        const dt = Math.min(0.1, Math.max(0, (now - lastGyroDriftTime) / 1000));
-        const driftStep = stepGyroDriftOffset(
-          gyroDriftOffset,
-          rawOrientation,
-          deviceOrientationLockTarget,
-          dt,
-          2,
-          35,
-        );
-        gyroDriftOffset = driftStep.offset;
-        isGyroDrifting = driftStep.isDrifting;
-      }
-      lastGyroDriftTime = now;
-    } else {
-      lastGyroDriftTime = null;
-      isGyroDrifting = false;
-    }
-    const driftAdjustedOrientation = rawOrientation
-      ? normalizedQuaternion(multiplyQuaternions(gyroDriftOffset, rawOrientation))
-      : undefined;
-    // A confirmed virtual regrip owns the persistent correction and axis
-    // frame, not the physical gyro stream.  Quantizing the latter here made
-    // every delta within the 45° completion tail disappear indefinitely.
-    const detentedOrientation = driftAdjustedOrientation
-      ? deviceOrientationIsVirtualRegrip
-        ? driftAdjustedOrientation
-        : magneticOrientationDetent(driftAdjustedOrientation, deviceOrientationLockTarget)
-      : driftAdjustedOrientation;
-    magneticDetentPullDegrees = rawOrientation && detentedOrientation
-      ? orientationDistanceRadians(rawOrientation, detentedOrientation) * 180 / Math.PI
-      : 0;
+    // Regrip core owns calibration, magnetic detents, and drift compensation.
+    // The viewport is deliberately a renderer: applying its former magnet or
+    // drift filter here would distort an already stabilized core pose.
+    const detentedOrientation = rawOrientation;
+    magneticDetentPullDegrees = 0;
+    gyroDriftOffset = {x: 0, y: 0, z: 0, w: 1};
+    lastGyroDriftTime = null;
+    isGyroDrifting = false;
     canvas.dataset.magneticDetentPullDegrees = magneticDetentPullDegrees.toFixed(3);
     const driftOffsetDeg = orientationDistanceRadians({x: 0, y: 0, z: 0, w: 1}, gyroDriftOffset) * 180 / Math.PI;
     canvas.dataset.gyroDriftOffsetDegrees = driftOffsetDeg.toFixed(3);
@@ -2123,16 +1991,7 @@ export const createCubeViewport = (
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
     drawMotionOverlay(width, height, glyphMatrices, glyphFrame.colourOrientation, glyphScale);
 
-    const adjustedResidual = detentedOrientation
-      ? regripGaugeDeviation(detentedOrientation, deviceOrientationLockTarget)
-      : null;
-    const {axis: adjAxis, radians: adjRadians} = adjustedResidual
-      ? quaternionAxisAngle(adjustedResidual)
-      : {axis: [0, 0, 0] as [number, number, number], radians: 0};
-    const adjDegrees = adjRadians * 180 / Math.PI;
-    const adjLabel = regripGaugeLabelForAxis(adjAxis);
-
-    stepRegripGaugeDisplay(adjDegrees, adjLabel);
+    stepRegripGaugeDisplay(0, null);
     drawRegripGauge(width, height);
     canvas.dataset.webgl = "ready";
     canvas.dataset.cameraYaw = yaw.toFixed(6);

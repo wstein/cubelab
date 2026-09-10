@@ -154,8 +154,8 @@ const normalizeCoreEvent = (
  * Adapts Regrip core's session to CubeLab's established manager contract.
  *
  * This keeps the UI and its replay/recording surfaces stable while the GAN and
- * GoCube live paths move to one normalized session implementation. It is opt
- * in until the legacy orientation consumers have been migrated to core events.
+ * GoCube live paths use one normalized session implementation. Core events are
+ * the sole orientation, regrip, magnetic-detent, and drift-compensation authority.
  */
 export const createRegripCoreManager = (
   dependencies: Partial<RegripCoreManagerDependencies> = {},
@@ -241,9 +241,8 @@ export const createRegripCoreManager = (
         device = deviceFor(connected);
         return connected;
       },
-      // CubeLab's legacy live path has always detected virtual regrips. Keep
-      // that behavior when testing the core facade, while allowing a caller
-      // to explicitly turn it off or tune its threshold.
+      // CubeLab's renderer consumes solver-frame events from this facade, so
+      // virtual regrips are enabled for every live core session by default.
       features: {
         ...dependencies.features,
         regrip: {enabled: true, ...dependencies.features?.regrip},

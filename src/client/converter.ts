@@ -81,20 +81,13 @@ import {
 import {relativeAcademyState, type PieceState} from "./academy-target";
 import {
   createCubeViewport,
-  deviceOrientationDelta,
   focusCameraTarget,
-  multiplyQuaternions,
-  normalizedQuaternion,
   orientationInViewportFrame,
-  quaternionAxisAngle,
-  regripGaugeDeviation,
   turnTransform,
   type CubieFocus,
   type CubePalette,
   type CubeStyle,
   type MoveStep,
-  type OrientationCoordinateFrame,
-  type OrientationQuaternion,
 } from "./cube-gl";
 import {
   evaluateAlgorithm,
@@ -150,15 +143,6 @@ import {
   type SmartCubeMoveAssessment,
   type SyncMode,
 } from "./smart-cube/live-sync";
-import {assessGyroRotation, detectGyroQuarterRotation} from "./smart-cube/orientation-verifier";
-import {
-  cardinalOrientationFaces,
-  createStableOrientationTracker,
-  nearestRegripAxis,
-  nearestCardinalOrientation,
-  observeThresholdOrientation,
-  type StableOrientationTracker,
-} from "./smart-cube/orientation-tracker";
 import {createGestureRecenterDetector} from "./smart-cube/gesture-recenter";
 import {recoverGanI4MacFromAdvertisements, reverseGanMacAddress} from "./smart-cube/gan-mac";
 import {
@@ -2447,11 +2431,6 @@ if (root) {
     getDiff: () => readonly unknown[];
   } | null = null;
   const smartCubeDevEnabled = new URLSearchParams(window.location.search).has("dev");
-  // The core-backed manager is opt-in while the downstream orientation and
-  // regrip consumers migrate. Keep it development-only so stable CubeLab
-  // sessions retain the legacy manager until GAN/GoCube parity is proven.
-  const smartCubeCoreRequested = smartCubeDevEnabled
-    && new URLSearchParams(window.location.search).has("core");
   const smartCubeMockMode = root.dataset.mock === "true";
   smartCubeQaPanel.hidden = !smartCubeMockMode;
   const appendSmartCubeQaEvent = (event: SmartCubeEvent) => {
@@ -2490,9 +2469,6 @@ if (root) {
   let smartCubeRecordingFrame: Array<{axis: "X" | "Y" | "Z"; turns: number}> = [];
   let smartCubeRecordingAnimation = Promise.resolve();
   let smartCubeRecordingAnimationGeneration = 0;
-  let smartCubeRecordingOrientationTracker: StableOrientationTracker | null = null;
-  let smartCubeDiscreteOrientationTracker: StableOrientationTracker | null = null;
-  let smartCubeVirtualFixpointTracker: StableOrientationTracker | null = null;
   let smartCubeDiagnosticsEnabled = window.localStorage.getItem("cubelab.smartCube.diagnostics") === "1";
   const smartCubeDiagnosticTrace: Array<{
     at: string;
@@ -2527,43 +2503,7 @@ if (root) {
     if (smartCubeDiagnosticTrace.length > 500) smartCubeDiagnosticTrace.shift();
     updateSmartCubeDiagnosticsUi();
   };
-  // Debug-only HUD: raw displacement from the last confirmed regrip, while
-  // the viewport independently selects its nearest magnetic cardinal detent.
-  const updateSmartCubeRegripGauge = (
-    current?: OrientationQuaternion,
-    frame?: OrientationCoordinateFrame,
-  ) => {
-    if (!viewport) return;
-    const eventTracker = smartCubeVirtualFixpointTracker;
-    const continuousTracker = smartCubeDiscreteOrientationTracker;
-    if (!continuousTracker || !current || !frame) {
-      viewport.setRegripGauge(null);
-      return;
-    }
-    const continuousDelta = deviceOrientationDelta(
-      continuousTracker.baseline,
-      current,
-      frame,
-      continuousTracker.deltaFrame,
-    );
-    const lock = nearestCardinalOrientation(continuousDelta);
-    // This is live rendering state, not diagnostics: it must be updated even
-    // when the gauge HUD is disabled.
-    viewport.setVirtualOrientationLock(lock);
-    if (!smartCubeDiagnosticsEnabled || !eventTracker) {
-      viewport.setRegripGauge(null);
-      return;
-    }
-    const rawDelta = deviceOrientationDelta(eventTracker.baseline, current, frame, eventTracker.deltaFrame);
-    const {axis, radians} = quaternionAxisAngle(rawDelta);
-    viewport.setRegripGauge({
-      degrees: radians * 180 / Math.PI,
-      label: nearestRegripAxis(axis),
-      activeLockin: cardinalOrientationFaces(lock),
-      rawDegrees: radians * 180 / Math.PI,
-      rawOrientation: current,
-    });
-  };
+  const updateSmartCubeRegripGauge = () => viewport?.setRegripGauge(null);
   // During a recording session the physical cube is an input device. Keep a
   // separate virtual state so incoming facelet packets cannot repaint the
   // tape's Setup + Moves state over the viewport.
@@ -2577,50 +2517,18 @@ if (root) {
   const recenterSmartCubeGyroView = (
     source: "button" | "gesture" = "button",
     orientationOverride?: Pick<SmartCubeOrientationEvent, "quaternion" | "coordinateFrame">,
-    flickedFace?: string,
   ) => {
     if (!smartCubeOrientationTracking) return;
     const target = orientationOverride ?? latestSmartCubeOrientation;
     if (!target) return;
-    // A face flick first rotates its physical face into virtual Right; the
-    // viewport then selects Up from the offset-adjusted current pose.
-    const gestureTracker = source === "gesture" ? smartCubeVirtualFixpointTracker : null;
-    const virtualOffset = gestureTracker
-      ? gestureTracker.orientation
-      : undefined;
-    const gestureBaseline = gestureTracker?.frame === target.coordinateFrame
-      ? gestureTracker.baseline
-      : undefined;
-    const alignment = viewport?.recenterDeviceOrientation(
+    viewport?.recenterDeviceOrientation(
       target.quaternion,
       target.coordinateFrame,
       true,
-      virtualOffset,
-      flickedFace,
-      gestureBaseline,
     );
-    const discreteTracker = createStableOrientationTracker(
-      target.quaternion,
-      target.coordinateFrame,
-      "world",
-    );
-    const fixpointTracker = createStableOrientationTracker(
-      target.quaternion,
-      target.coordinateFrame,
-      "world",
-    );
-    if (alignment) {
-      discreteTracker.orientation = alignment;
-      discreteTracker.viewportOrientation = alignment;
-      fixpointTracker.orientation = alignment;
-      fixpointTracker.viewportOrientation = alignment;
-    }
-    smartCubeDiscreteOrientationTracker = discreteTracker;
-    smartCubeVirtualFixpointTracker = fixpointTracker;
-    updateSmartCubeRegripGauge(target.quaternion, target.coordinateFrame);
+    updateSmartCubeRegripGauge();
     traceSmartCubeStabilization(`gyro view recentered (${source})`, {
       coordinates: target.quaternion,
-      target: smartCubeDiscreteOrientationTracker.orientation,
     });
     smartCubeStatus.textContent = source === "gesture"
       ? `${smartCubeDeviceName} · Gyro view centered (face flick gesture)`
@@ -2645,8 +2553,7 @@ if (root) {
   let smartCubeRotationWait: {
     action: ExpectedSmartCubeAction & {kind: "rotation"};
     generation: number;
-    baseline: {quaternion: OrientationQuaternion; coordinateFrame: OrientationCoordinateFrame} | null;
-    partialTurn: -1 | 0 | 1;
+    completedQuarterTurns: number;
   } | null = null;
   let smartCubeHalfTurnProgress: SmartCubeHalfTurnProgress | null = null;
   let smartCubeRecovery: SmartCubeRecoveryState | null = null;
@@ -2674,8 +2581,7 @@ if (root) {
         .find((record) => record.move === event.move1);
       if (firstTriggerMove) firstTriggerMove.omitPreviewHistory = true;
       omitNextGestureTriggerMove = event.move2;
-      const flickedFace = ["U", "R", "F", "D", "L", "B"][event.face] ?? "R";
-      recenterSmartCubeGyroView("gesture", event.restingOrientation ?? undefined, flickedFace);
+      recenterSmartCubeGyroView("gesture", event.restingOrientation ?? undefined);
     },
   });
 
@@ -3875,8 +3781,7 @@ if (root) {
     if (smartCubeRotationWait && activeTimeline) {
       const rotationStep = activeTimeline.steps[smartCubeRotationWait.action.timelineIndex]?.step;
       if (rotationStep?.move.TAG === "Rotation" && Math.abs(rotationStep.turns) % 4 === 2) {
-        const quarterTurn = smartCubeRotationWait.partialTurn
-          || (rotationStep.turns < 0 ? -1 : 1);
+        const quarterTurn = rotationStep.turns < 0 ? -1 : 1;
         const quarterLabel = `${rotationStep.move._0.toLowerCase()}${quarterTurn < 0 ? "'" : ""}`;
         const progressButton = moveRibbon.querySelector<HTMLButtonElement>(
           `[data-move-index="${smartCubeRotationWait.action.timelineIndex + 1}"]`,
@@ -3952,7 +3857,6 @@ if (root) {
       smartCubeRecordingState = null;
       smartCubeRecordingTapePresented = false;
       smartCubeRecordingFrame = [];
-      smartCubeRecordingOrientationTracker = null;
       cancelSmartCubeRecordingAnimation();
       smartCubeRecordingTapeDirty = false;
     }
@@ -3979,7 +3883,6 @@ if (root) {
       smartCubeRecordingState = null;
       smartCubeRecordingTapePresented = false;
       smartCubeRecordingFrame = [];
-      smartCubeRecordingOrientationTracker = null;
       cancelSmartCubeRecordingAnimation();
       smartCubeStatus.textContent = "Smart-cube recording stopped: Moves reached the 20,000-character limit.";
       updateSmartCubeRecordingUi();
@@ -4577,17 +4480,14 @@ if (root) {
         viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
       }
       const generation = playbackGeneration;
-      const baseline = smartCubeOrientationTracking ? latestSmartCubeOrientation : null;
-      smartCubeRotationWait = {action, generation, baseline, partialTurn: 0};
-      if (baseline) {
-        // console.log(`[SmartCube Gyro] Waiting for rotation: ${action.token}`, {
-        //   axis: step?.move.TAG === "Rotation" ? step.move._0 : undefined,
-        //   turns: step?.turns,
-        //   baseline: baseline.quaternion,
-        //   coordinateFrame: baseline.coordinateFrame,
-        // });
+      smartCubeRotationWait = {
+        action,
+        generation,
+        completedQuarterTurns: 0,
+      };
+      if (smartCubeOrientationTracking) {
         smartCubeStatus.textContent = `${smartCubeDeviceName} · Waiting for ${action.token} regrip`;
-        coachStatus.textContent = `Rotate the physical cube ${action.token}. Gyro feedback will continue automatically.`;
+        coachStatus.textContent = `Rotate the physical cube ${action.token}. Regrip core will continue automatically.`;
       } else {
         smartCubeStatus.textContent = `${smartCubeDeviceName} · Showing ${action.token} regrip`;
         coachStatus.textContent = `No active gyro. Demonstrating ${action.token} at half the selected move speed.`;
@@ -4893,7 +4793,6 @@ if (root) {
       smartCubeRecordingState = null;
       smartCubeRecordingTapePresented = false;
       smartCubeRecordingFrame = [];
-      smartCubeRecordingOrientationTracker = null;
       cancelSmartCubeRecordingAnimation();
       smartCubeRecordingTapeDirty = false;
     }
@@ -5105,96 +5004,6 @@ if (root) {
     renderSmartCubeLiveState();
   };
 
-  const applySmartCubeGyroRotation = async (event: SmartCubeOrientationEvent) => {
-    const pending = smartCubeRotationWait;
-    if (!pending?.baseline || pending.generation !== playbackGeneration || !activeTimeline?.states) {
-      return;
-    }
-    if (pending.baseline.coordinateFrame !== event.coordinateFrame) return;
-    const step = activeTimeline.steps[pending.action.timelineIndex]?.step;
-    if (!step || step.move.TAG !== "Rotation") return;
-    const assessment = assessGyroRotation(
-      pending.baseline.quaternion,
-      event.quaternion,
-      event.coordinateFrame,
-      step.move._0,
-      step.turns,
-      "world",
-    );
-
-    // Diagnostic logging for gyro tracking & verification:
-    // if (Math.abs(assessment.signedDegrees) >= 15 || assessment.matched || assessment.partial) {
-    //   console.log(
-    //     `[SmartCube Gyro] Assessment: action=${pending.action.token} axis=${step.move._0} turns=${step.turns} ` +
-    //     `frame=${event.coordinateFrame} align=${(assessment.axisAlignment * 100).toFixed(1)}% ` +
-    //     `deg=${assessment.signedDegrees.toFixed(1)}° matched=${assessment.matched} partial=${assessment.partial} ` +
-    //     `rawQ=(${event.quaternion.x.toFixed(3)}, ${event.quaternion.y.toFixed(3)}, ${event.quaternion.z.toFixed(3)}, ${event.quaternion.w.toFixed(3)})`
-    //   );
-    // }
-
-    if (!assessment.matched) {
-      if (assessment.partial) {
-        if (pending.partialTurn === 0) {
-          pending.partialTurn = assessment.signedDegrees < 0 ? 1 : -1;
-          const quarterStep: MoveStep = {...step, turns: pending.partialTurn};
-          const quarterLabel = `${step.move._0.toLowerCase()}${pending.partialTurn < 0 ? "'" : ""}`;
-          // console.log(`[SmartCube Gyro] Half-turn progress detected: ${quarterLabel} for ${pending.action.token}`);
-          const token = moveRibbon.querySelector<HTMLButtonElement>(
-            `[data-move-index="${pending.action.timelineIndex + 1}"]`,
-          );
-          if (token) {
-            token.textContent = `${quarterLabel} ${quarterLabel}`;
-            token.dataset.halfTurnProgress = "true";
-          }
-          activeTurnGuide = {
-            step: quarterStep,
-            label: quarterLabel,
-            past: pastMoveTokens(pending.action.timelineIndex, 60),
-            upcoming: upcomingMoveTokens(pending.action.timelineIndex, 60),
-          };
-          viewport?.setTurnPreview(turnTransform(size, quarterStep));
-          viewport?.setTurnGuide(turnGuides ? activeTurnGuide : null);
-          smartCubeStatus.textContent = `${smartCubeDeviceName} · ${pending.action.token} halfway`;
-          coachStatus.textContent = `${quarterLabel} detected. Repeat it to complete ${pending.action.token}.`;
-        }
-        return;
-      }
-      // A regrip around another axis is allowed in solve mode. Treat its new
-      // pose as the checkpoint for the still-pending lesson rotation without
-      // creating a slip, recovery sequence, sound, or warning.
-      const rebase = detectGyroQuarterRotation(
-        pending.baseline.quaternion,
-        event.quaternion,
-        event.coordinateFrame,
-        "world",
-      );
-      if (rebase && rebase.axis !== step.move._0) {
-        // console.log(`[SmartCube Gyro] Detected off-axis regrip around ${rebase.axis} (${rebase.turns > 0 ? "clockwise" : "counter-clockwise"}). Rebasing baseline.`);
-        pending.baseline = {
-          quaternion: event.quaternion,
-          coordinateFrame: event.coordinateFrame,
-        };
-        pending.partialTurn = 0;
-      }
-      return;
-    }
-
-    // console.log(`[SmartCube Gyro] Rotation completed and verified for ${pending.action.token}!`);
-    smartCubeRotationWait = null;
-    clearTurnGuide();
-    // Solve mode deliberately does not live-track the observed pose. Animate
-    // the recognized logical regrip once, then advance like a matched face move.
-    viewport?.setDeviceOrientation(null);
-    const transform = turnTransform(size, step);
-    if (transform && viewport) await viewport.animateTurn(transform, 120);
-    if (pending.generation !== playbackGeneration) return;
-    renderTimelineIndex(pending.action.timelineIndex + 1);
-    signalSmartCubeFeedback("correct");
-    smartCubeStatus.textContent = `${smartCubeDeviceName} · ${pending.action.token} regrip detected`;
-    coachStatus.textContent = `${pending.action.token} detected by gyro. Continuing.`;
-    waitForSmartCubeMove();
-  };
-
   const setSmartCubeOrientationTracking = (enabled: boolean) => {
     const wasTracking = smartCubeOrientationTracking;
     smartCubeOrientationTracking = enabled && smartCubeConnected && !smartCubeOrientation.hidden;
@@ -5206,8 +5015,6 @@ if (root) {
       autoOrbitButton.disabled = true;
       settingsAutoOrbit.disabled = true;
     } else {
-      smartCubeDiscreteOrientationTracker = null;
-      smartCubeVirtualFixpointTracker = null;
       autoOrbitButton.disabled = !viewport;
       settingsAutoOrbit.disabled = !viewport;
       setAutoOrbitEnabled(autoOrbit, false);
@@ -5216,7 +5023,7 @@ if (root) {
     syncSmartCubeTrackedOrientation();
     smartCubeGestureRecenter.enabled = smartCubeOrientationTracking && !smartCubeRecording;
     if (!smartCubeOrientationTracking) smartCubeGestureRecenter.reset();
-    if (wasTracking && !smartCubeOrientationTracking && smartCubeRotationWait?.baseline) {
+    if (wasTracking && !smartCubeOrientationTracking && smartCubeRotationWait) {
       waitForSmartCubeMove();
     }
   };
@@ -5309,7 +5116,6 @@ if (root) {
         smartCubeRecordingState = null;
         smartCubeRecordingTapePresented = false;
         smartCubeRecordingFrame = [];
-        smartCubeRecordingOrientationTracker = null;
         cancelSmartCubeRecordingAnimation();
         smartCubeRecordingTapeDirty = false;
       }
@@ -5472,21 +5278,7 @@ if (root) {
       case "regrip": {
         appendPreviewHistoryToken(event.notationToken);
         smartCubeAudio.play("turn");
-        // The core session is the sole regrip decision-maker in this path.
-        // Reset CubeLab's display-only trackers to the latest raw pose so its
-        // gauge cannot carry a stale legacy baseline into the next sample.
-        if (latestSmartCubeOrientation) {
-          smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
-            latestSmartCubeOrientation.quaternion,
-            latestSmartCubeOrientation.coordinateFrame,
-            "world",
-          );
-          smartCubeVirtualFixpointTracker = createStableOrientationTracker(
-            latestSmartCubeOrientation.quaternion,
-            latestSmartCubeOrientation.coordinateFrame,
-            "world",
-          );
-        }
+        // The core session is the sole regrip decision-maker and frame owner.
         traceSmartCubeStabilization("virtual regrip", {
           notationTokens: [event.notationToken],
           sensorFrameTokens: [event.sensorFrameToken],
@@ -5496,6 +5288,36 @@ if (root) {
           appendSmartCubeRecordingToken(event.notationToken);
           void animateSmartCubeRecordingToken(event.notationToken);
           smartCubeStatus.textContent = `${smartCubeDeviceName} · Recorded virtual regrip ${event.notationToken}`;
+        }
+        const pending = smartCubeRotationWait;
+        const step = pending && activeTimeline?.steps[pending.action.timelineIndex]?.step;
+        if (
+          pending
+          && step?.move.TAG === "Rotation"
+          && pending.generation === playbackGeneration
+        ) {
+          const expectedToken = `${step.move._0.toLowerCase()}${step.turns < 0 ? "'" : ""}`;
+          if (event.notationToken === expectedToken) {
+            pending.completedQuarterTurns += 1;
+            if (pending.completedQuarterTurns < Math.abs(step.turns)) {
+              smartCubeStatus.textContent = `${smartCubeDeviceName} · ${pending.action.token} halfway`;
+              break;
+            }
+            smartCubeRotationWait = null;
+            clearTurnGuide();
+            viewport?.setDeviceOrientation(null);
+            const transform = turnTransform(size, step);
+            if (transform && viewport) {
+              void viewport.animateTurn(transform, 120).then(() => {
+                if (pending.generation !== playbackGeneration) return;
+                renderTimelineIndex(pending.action.timelineIndex + 1);
+                signalSmartCubeFeedback("correct");
+                smartCubeStatus.textContent = `${smartCubeDeviceName} · ${pending.action.token} regrip detected`;
+                coachStatus.textContent = `${pending.action.token} detected by Regrip core. Continuing.`;
+                waitForSmartCubeMove();
+              });
+            }
+          }
         }
         break;
       }
@@ -5508,70 +5330,7 @@ if (root) {
         if (smartCubeOrientationTracking && !smartCubeRecording && !smartCubeRecordingTapePresented) {
           viewport?.setDeviceOrientation(event.quaternion, event.coordinateFrame);
         }
-        if (smartCubeDiscreteOrientationTracker === null) {
-          smartCubeDiscreteOrientationTracker = createStableOrientationTracker(
-            event.quaternion,
-            event.coordinateFrame,
-            "world",
-          );
-        }
-        if (smartCubeVirtualFixpointTracker === null) {
-          smartCubeVirtualFixpointTracker = createStableOrientationTracker(
-            event.quaternion,
-            event.coordinateFrame,
-            "world",
-          );
-        } else if (event.source !== "regrip-core") {
-          const observed = observeThresholdOrientation(
-            smartCubeVirtualFixpointTracker,
-            event.quaternion,
-            event.coordinateFrame,
-          );
-          smartCubeVirtualFixpointTracker = observed.tracker;
-          if (observed.tokens.length > 0) {
-            observed.tokens.forEach(appendPreviewHistoryToken);
-            // Detected x/y/z regrips are turns too, even though the hardware
-            // emits them through orientation packets rather than move packets.
-            observed.tokens.forEach(() => smartCubeAudio.play("turn"));
-            // The viewport, continuous gauge baseline, and face-flick frame
-            // must advance together. Otherwise two non-commuting regrips can
-            // compose as z·y in the view but y·z in the virtual tracker.
-            smartCubeDiscreteOrientationTracker = observed.tracker;
-            if (smartCubeOrientationTracking && !smartCubeRecording && !smartCubeRecordingTapePresented) {
-              viewport?.rebaseDeviceOrientation(
-                // The tracker projects the early (~60°) threshold packet onto
-                // its inferred 90° cardinal boundary. Keep that as the next
-                // detector baseline, but retain the raw packet as the live
-                // viewport current orientation so the final 20–30° remains
-                // continuous instead of snapping at every regrip.
-                observed.tracker.baseline,
-                observed.tracker.viewportOrientation,
-                event.coordinateFrame,
-                event.quaternion,
-                observed.tracker.orientation,
-              );
-            }
-            traceSmartCubeStabilization("virtual regrip", {
-              notationTokens: observed.tokens,
-              sensorFrameTokens: observed.frameTokens,
-              coordinateFrame: event.coordinateFrame,
-            });
-            if (smartCubeRecording && smartCubeSyncMode === "PhysicalMirror") {
-              observed.tokens.forEach((token, index) => {
-                // `token` is clockwise cube notation; frameToken is the
-                // sensor/cardinal pose used to remap later physical faces.
-                const frameToken = observed.frameTokens?.[index] ?? token;
-                const axis = frameToken[0]!.toUpperCase() as "X" | "Y" | "Z";
-                const turns = frameToken.endsWith("'") ? -1 : 1;
-                appendSmartCubeRecordingToken(token);
-                void animateSmartCubeRecordingToken(token);
-                smartCubeRecordingFrame.push({axis, turns});
-              });
-              smartCubeStatus.textContent = `${smartCubeDeviceName} · Recorded virtual regrip ${observed.tokens.join(" ")}`;
-            }
-          }
-        }
-        updateSmartCubeRegripGauge(event.quaternion, event.coordinateFrame);
+        updateSmartCubeRegripGauge();
         // Smart cube hardware face encoders are physically fixed to their turn indices
         // (U, R, F, D, L, B). Rotating the cube in hand rotates the 3D viewport view
         // via setDeviceOrientation, while face turn packets remain fixed to their physical faces.
@@ -5604,11 +5363,6 @@ if (root) {
           //   `euler(pitchX=${pitch.toFixed(1)}°, yawY=${yaw.toFixed(1)}°, rollZ=${roll.toFixed(1)}°) ` +
           //   `tracking=${smartCubeOrientationTracking} waitingForRegrip=${Boolean(smartCubeRotationWait)}`
           // );
-        }
-        if (smartCubeOrientationTracking && !smartCubeRecording && !smartCubeRecordingTapePresented) {
-          void applySmartCubeGyroRotation(event).catch((reason) => {
-            smartCubeStatus.textContent = reason instanceof Error ? reason.message : String(reason);
-          });
         }
         break;
       }
@@ -5698,7 +5452,6 @@ if (root) {
           createMockDeviceManager,
           createSmartCubeDerivedComparator,
           createRegripCoreManager,
-          createSmartCubeManager,
           createSmartCubeTapeRecorder,
           loadReplayTape,
           replayTapeNameFromSearch,
@@ -5718,9 +5471,7 @@ if (root) {
             })()
             : replayName
               ? createReplaySmartCubeManager(await loadReplayTape(replayName))
-              : smartCubeCoreRequested
-                ? createRegripCoreManager({isBluetoothAvailable: () => true})
-                : createSmartCubeManager({isBluetoothAvailable: () => true});
+              : createRegripCoreManager({isBluetoothAvailable: () => true});
           smartCubeReplayControlsApi = "getReplayState" in manager ? manager : null;
           smartCubeReplayControlsApi?.subscribeReplayReset(() => {
             // A backward seek must start the real downstream chain from a clean
@@ -5730,8 +5481,6 @@ if (root) {
             smartCubeHalfTurnProgress = null;
             clearSmartCubeRecovery();
             latestSmartCubeOrientation = null;
-            smartCubeDiscreteOrientationTracker = null;
-            smartCubeVirtualFixpointTracker = null;
             smartCubeDerivedComparator?.reset();
             if (smartCubeMockMode) smartCubeQaDiffValue.textContent = "Awaiting replay";
           });
@@ -8616,8 +8365,6 @@ if (root) {
       // state. Do not immediately replace it with the physical mirror.
       smartCubeRecordingTapePresented = true;
       smartCubeRecordingFrame = [];
-      smartCubeRecordingOrientationTracker = null;
-      smartCubeVirtualFixpointTracker = null;
       cancelSmartCubeRecordingAnimation();
       smartCubeRecordingTapeDirty = false;
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Recording stopped; captured turns were appended to Moves.`;
@@ -8639,8 +8386,6 @@ if (root) {
       smartCubeRecordingTapeDirty = false;
       smartCubeRecordingTapePresented = false;
       smartCubeRecordingFrame = [];
-      smartCubeRecordingOrientationTracker = null;
-      smartCubeVirtualFixpointTracker = null;
       cancelSmartCubeRecordingAnimation();
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Recording physical turns into Moves.`;
       syncSmartCubeTrackedOrientation();

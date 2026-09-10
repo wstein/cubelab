@@ -16,18 +16,14 @@ import {
   transformTurnPoint,
   focusCameraTarget,
   gestureAlignmentDelta,
-  magneticOrientationDetent,
   matrixFromQuaternion,
   multiplyQuaternions,
   nearestCardinalQuaternion,
   orientationInViewportFrame,
   orientationAxisFaces,
-  orientationCorrectionForTarget,
   orientationDistanceRadians,
   quaternionAxisAngle,
   recenterOrientationCorrection,
-  regripGaugeDeviation,
-  stepGyroDriftOffset,
   pngBlobFromDataUrl,
   relativeQuaternion,
   safeCameraDistance,
@@ -115,18 +111,6 @@ describe("cube viewport math", () => {
     expect(faces[0]).toBe(offsetAwareUp);
   });
 
-  test("derives a display correction without changing the raw IMU pose", () => {
-    const base = {x: 0, y: 0, z: 0, w: 1};
-    const raw = {x: Math.sin(47 * Math.PI / 180), y: 0, z: 0, w: Math.cos(47 * Math.PI / 180)};
-    const target = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
-    const correction = orientationCorrectionForTarget(base, raw, target);
-    const corrected = multiplyQuaternions(correction, raw);
-    expect(corrected.x).toBeCloseTo(target.x);
-    expect(corrected.y).toBeCloseTo(target.y);
-    expect(corrected.z).toBeCloseTo(target.z);
-    expect(corrected.w).toBeCloseTo(target.w);
-  });
-
   test("treats a cardinal regrip as too far away for face-turn stabilization", () => {
     const identity = {x: 0, y: 0, z: 0, w: 1};
     const x = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
@@ -172,67 +156,6 @@ describe("cube viewport math", () => {
     expect(autoOrbitYawDelta(25)).toBeCloseTo(0.006);
     expect(autoOrbitYawDelta(1_000)).toBeCloseTo(0.012);
     expect(autoOrbitYawDelta(-10)).toBe(0);
-  });
-
-  test("keeps live gyro 1:1 outside the 35-degree magnetic detent and strongly pulls inside it", () => {
-    const identity = {x: 0, y: 0, z: 0, w: 1};
-    const x = (degrees: number) => ({x: Math.sin(degrees * Math.PI / 360), y: 0, z: 0, w: Math.cos(degrees * Math.PI / 360)});
-    expect(magneticOrientationDetent(x(36), identity)).toEqual(x(36));
-    expect(orientationDistanceRadians(magneticOrientationDetent(x(0), identity), identity)).toBeCloseTo(0);
-    // Within the 4-degree decisive snap zone, detent locks fully to cardinal target
-    expect(orientationDistanceRadians(magneticOrientationDetent(x(3), identity), identity)).toBeCloseTo(0);
-    expect(orientationDistanceRadians(magneticOrientationDetent(x(9), identity), identity)).toBeLessThan(1 * Math.PI / 180);
-    expect(orientationDistanceRadians(magneticOrientationDetent(x(20), identity), identity)).toBeLessThan(5 * Math.PI / 180);
-    expect(orientationDistanceRadians(magneticOrientationDetent(x(25), identity), identity)).toBeLessThan(8 * Math.PI / 180);
-  });
-
-  test("keeps gyro deltas live after a confirmed virtual regrip", () => {
-    expect(viewportSource).toMatch(/deviceOrientationIsVirtualRegrip\s*\?\s*driftAdjustedOrientation/);
-    expect(viewportSource).not.toMatch(/settledRegripOrientation/);
-  });
-
-  test("slews gyro drift offset toward cardinal magnets at 2 deg/s inside well", () => {
-    const identity = {x: 0, y: 0, z: 0, w: 1};
-    const x = (degrees: number) => ({x: Math.sin(degrees * Math.PI / 360), y: 0, z: 0, w: Math.cos(degrees * Math.PI / 360)});
-    const initialRaw = x(10); // 10 degrees off lock
-    const step1 = stepGyroDriftOffset(identity, initialRaw, identity, 1.0, 2, 35);
-    expect(step1.isDrifting).toBe(true);
-    // After 1s at 2 deg/s, distanceToLock should be ~8 degrees
-    expect(step1.distanceToLock * 180 / Math.PI).toBeCloseTo(8, 1);
-
-    // After 5 seconds total (at 2 deg/s), 10 degrees is completely absorbed into lock
-    let current = identity;
-    for (let s = 0; s < 5; s++) {
-      current = stepGyroDriftOffset(current, initialRaw, identity, 1.0, 2, 35).offset;
-    }
-    const finalStep = stepGyroDriftOffset(current, initialRaw, identity, 0.1, 2, 35);
-    expect(finalStep.distanceToLock * 180 / Math.PI).toBeCloseTo(0, 1);
-
-    // Outside the 35° well, drift does not adjust the offset
-    const outsideRaw = x(40);
-    const outsideStep = stepGyroDriftOffset(identity, outsideRaw, identity, 1.0, 2, 35);
-    expect(outsideStep.offset).toEqual(identity);
-    expect(outsideStep.isDrifting).toBe(false);
-  });
-
-  test("shows the residual after a threshold regrip until virtual drift reaches the cardinal lock", () => {
-    const rawAtThreshold = {x: Math.sin(65 * Math.PI / 360), y: 0, z: 0, w: Math.cos(65 * Math.PI / 360)};
-    const cardinalLock = {x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2};
-    const residual = quaternionAxisAngle(regripGaugeDeviation(rawAtThreshold, cardinalLock));
-    expect(residual.radians).toBeCloseTo(25 * Math.PI / 180, 8);
-    expect(residual.axis).toEqual([-1, 0, 0]);
-
-    const offset = orientationCorrectionForTarget(
-      {x: 0, y: 0, z: 0, w: 1},
-      rawAtThreshold,
-      cardinalLock,
-    );
-    expect(orientationDistanceRadians(regripGaugeDeviation(multiplyQuaternions(offset, rawAtThreshold), cardinalLock), {
-      x: 0,
-      y: 0,
-      z: 0,
-      w: 1,
-    })).toBeCloseTo(0, 8);
   });
 
   test("feeds the virtual lock and gauge directly from the raw IMU sample", () => {
