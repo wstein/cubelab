@@ -109,6 +109,8 @@ import {
 import {
   createStore,
   hashForPath,
+  pathWithDeploymentBase,
+  pathWithoutDeploymentBase,
   pathForTab,
   readHash,
   readLocation,
@@ -236,7 +238,7 @@ type ReductionAcademyElements = {
 const root = document.querySelector<HTMLElement>("[data-converter]");
 
 if (root) {
-  let playerMode = window.location.pathname === "/player"
+  let playerMode = pathWithoutDeploymentBase(window.location.pathname) === "/player"
     || new URL(window.location.href).searchParams.get("player") === "1";
   let timerArenaMode = false;
   const playerPageLink = root.querySelector<HTMLAnchorElement>("[data-player-page-link]")!;
@@ -854,12 +856,12 @@ if (root) {
       // /player has no workspace pathname, so retain #tab there; returning to
       // a workspace removes that redundant tab while preserving all state.
       const hash = enabled ? writeHash(state) : hashForPath(state, path);
-      window.history.pushState(null, "", `${path}${hash}`);
+      window.history.pushState(null, "", `${pathWithDeploymentBase(path)}${hash}`);
     }
     viewport?.refresh();
   };
   window.addEventListener("popstate", () => {
-    setPlayerMode(window.location.pathname === "/player", false);
+    setPlayerMode(pathWithoutDeploymentBase(window.location.pathname) === "/player", false);
   });
   const setTimerArenaMode = (enabled: boolean) => {
     timerArenaMode = enabled;

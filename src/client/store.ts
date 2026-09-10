@@ -50,6 +50,35 @@ export const defaultAppState: AppState = {
   note: "",
 };
 
+/** Astro's project-Pages base, normalized to "" locally or "/cubelab" in production. */
+export const deploymentBasePath = (() => {
+  const base = import.meta.env.BASE_URL ?? "/";
+  const trimmed = base.replace(/^\/+|\/+$/g, "");
+  return trimmed === "" ? "" : `/${trimmed}`;
+})();
+
+/** Turns a logical CubeLab route into a browser path below the deployment base. */
+export const pathWithDeploymentBase = (
+  pathname: string,
+  basePath = deploymentBasePath,
+): string => {
+  const logical = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  const base = basePath.replace(/\/+$/, "");
+  return base === "" ? logical : `${base}${logical}`;
+};
+
+/** Removes the project-Pages deployment base before matching CubeLab routes. */
+export const pathWithoutDeploymentBase = (
+  pathname: string,
+  basePath = deploymentBasePath,
+): string => {
+  const path = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  const base = basePath.replace(/\/+$/, "");
+  if (base === "" || (path !== base && !path.startsWith(`${base}/`))) return path;
+  const remainder = path.slice(base.length);
+  return remainder === "" ? "/" : remainder.startsWith("/") ? remainder : `/${remainder}`;
+};
+
 type Listener = (state: AppState) => void;
 
 export type AppStore = {
@@ -218,10 +247,13 @@ export const pathForTab = (tab: ActiveTab): string => {
   }
 };
 
-export const readLocation = (location: {pathname?: string; hash?: string; search?: string}): AppState => {
+export const readLocation = (
+  location: {pathname?: string; hash?: string; search?: string},
+  basePath = deploymentBasePath,
+): AppState => {
   const hash = location.hash ?? "";
   const state = readHash(hash);
-  const clean = (location.pathname ?? "").replace(/\/+$/, "");
+  const clean = pathWithoutDeploymentBase(location.pathname ?? "", basePath).replace(/\/+$/, "");
   // A clean route is the explicit workspace selection. Legacy root links still
   // use #tab, but a conflicting hash cannot make /timer render Academy. The
   // root path itself is not a "clean route" for this purpose: tabForPath("/")
@@ -242,16 +274,22 @@ export const hashForPath = (state: AppState, pathname: string): string => {
   return encoded === "" ? "" : `#${encoded}`;
 };
 
-export const synchronizeHash = (store: AppStore, target: Window, delay = 300): (() => void) => {
+export const synchronizeHash = (
+  store: AppStore,
+  target: Window,
+  delay = 300,
+  basePath = deploymentBasePath,
+): (() => void) => {
   let timeout: number | null = null;
   let readingNavigation = false;
   let previousState = store.get();
 
   const sync = (state: AppState, push: boolean) => {
-    const isPlayer = target.location.pathname.replace(/\/+$/, "") === "/player";
+    const logicalPath = pathWithoutDeploymentBase(target.location.pathname, basePath);
+    const isPlayer = logicalPath.replace(/\/+$/, "") === "/player";
     const targetPath = isPlayer ? "/player" : pathForTab(state.activeTab);
     const hash = isPlayer ? writeHash(state) : hashForPath(state, targetPath);
-    const targetUrl = `${targetPath}${target.location.search}${hash}`;
+    const targetUrl = `${pathWithDeploymentBase(targetPath, basePath)}${target.location.search}${hash}`;
     const currentUrl = `${target.location.pathname}${target.location.search}${target.location.hash}`;
     if (currentUrl !== targetUrl) {
       if (push) {

@@ -7,6 +7,8 @@ import {
   hashForPath,
   readHash,
   readLocation,
+  pathWithDeploymentBase,
+  pathWithoutDeploymentBase,
   synchronizeHash,
   tabForPath,
   writeHash,
@@ -148,6 +150,14 @@ describe("application state store", () => {
     expect(pathForTab("converter")).toBe("/");
   });
 
+  test("keeps route navigation below a project Pages deployment base", () => {
+    expect(pathWithDeploymentBase("/", "/cubelab")).toBe("/cubelab/");
+    expect(pathWithDeploymentBase("/academy", "/cubelab/")).toBe("/cubelab/academy");
+    expect(pathWithoutDeploymentBase("/cubelab/academy", "/cubelab")).toBe("/academy");
+    expect(pathWithoutDeploymentBase("/cubelab/", "/cubelab")).toBe("/");
+    expect(readLocation({pathname: "/cubelab/timer"}, "/cubelab").activeTab).toBe("timer");
+  });
+
   test("derives active workspace from location pathname when hash does not specify one", () => {
     expect(readLocation({pathname: "/timer"}).activeTab).toBe("timer");
     expect(readLocation({pathname: "/academy"}).activeTab).toBe("academy");
@@ -203,6 +213,27 @@ describe("application state store", () => {
       {kind: "push", url: "/academy"},
       {kind: "replace", url: "/academy#alg=R+U"},
     ]);
+    stop();
+  });
+
+  test("does not drop the project Pages base while synchronizing a connected cube state", () => {
+    const calls: Array<{kind: "push" | "replace"; url: string}> = [];
+    const target = {
+      location: {pathname: "/cubelab/", search: "", hash: ""},
+      history: {
+        pushState: (_state: unknown, _title: string, url: string) => calls.push({kind: "push", url}),
+        replaceState: (_state: unknown, _title: string, url: string) => calls.push({kind: "replace", url}),
+      },
+      setTimeout: (callback: () => void) => { callback(); return 1; },
+      clearTimeout: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    } as unknown as Window;
+    const store = createStore(defaultAppState);
+    const stop = synchronizeHash(store, target, 0, "/cubelab");
+    store.patch({input: "UDUDUDUDU"});
+
+    expect(calls).toEqual([{kind: "replace", url: "/cubelab/#alg=UDUDUDUDU"}]);
     stop();
   });
 });
