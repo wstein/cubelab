@@ -36,7 +36,7 @@
     "cubing": "^0.63.4",
     "rescript": "12.3.1",
     "rxjs": "^7.8.2",
-    "smartcube-web-bluetooth": "file:../smartcube-web-bluetooth"
+    "smartcube-web-bluetooth": "github:wstein/smartcube-web-bluetooth#ec75768"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
