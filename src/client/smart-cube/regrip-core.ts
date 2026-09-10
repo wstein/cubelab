@@ -23,6 +23,20 @@ import type {
 type SmartCubeTransportConnection = SmartCubeConnection;
 
 /**
+ * Regrip core's calibrated body basis has +Z pointing opposite the WebGL
+ * viewport's object basis. A 180° Y basis change preserves Y turns while
+ * reversing X and Z, matching the cube's visible R/U/F directions.
+ */
+export const coreBodyOrientationInViewportFrame = (
+  quaternion: {x: number; y: number; z: number; w: number},
+): {x: number; y: number; z: number; w: number} => ({
+  x: quaternion.x === 0 ? 0 : -quaternion.x,
+  y: quaternion.y,
+  z: quaternion.z === 0 ? 0 : -quaternion.z,
+  w: quaternion.w,
+});
+
+/**
  * CubeLab's UI adapter over Regrip core and smartcube-web-bluetooth.
  *
  * The library owns Bluetooth selection, connection, MAC recovery, packet
@@ -150,7 +164,7 @@ export const normalizeCoreEvent = (
       return {
         type: "orientation",
         timestamp: event.timestamp,
-        quaternion: event.stabilized,
+        quaternion: coreBodyOrientationInViewportFrame(event.stabilized),
         coordinateFrame: "viewport",
         angularVelocity: event.velocity,
         rawQuaternion: event.quaternion,

@@ -11,6 +11,7 @@ import type {SmartCubeSessionEvent} from "@wstein/regrip-core/session/smartCubeS
 import {
   createRegripCoreManager,
   createRegripCoreSession,
+  coreBodyOrientationInViewportFrame,
   normalizeCoreEvent,
 } from "../../../src/client/smart-cube/regrip-core";
 
@@ -47,6 +48,16 @@ const connection = (): {
 };
 
 describe("Regrip core migration seam", () => {
+  test("maps core body X/Z pose directions into CubeLab's viewport basis", () => {
+    const half = Math.sqrt(0.5);
+    expect(coreBodyOrientationInViewportFrame({x: half, y: 0, z: 0, w: half}))
+      .toEqual({x: -half, y: 0, z: 0, w: half});
+    expect(coreBodyOrientationInViewportFrame({x: 0, y: half, z: 0, w: half}))
+      .toEqual({x: 0, y: half, z: 0, w: half});
+    expect(coreBodyOrientationInViewportFrame({x: 0, y: 0, z: half, w: half}))
+      .toEqual({x: 0, y: 0, z: -half, w: half});
+  });
+
   test("runs a CubeLab-provided GAN/GoCube transport through the core session", async () => {
     const mock = connection();
     const session = createRegripCoreSession({connect: async () => mock.connection});
