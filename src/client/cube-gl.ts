@@ -1486,6 +1486,7 @@ export const createCubeViewport = (
   const drawMotionOverlay = (
     width: number,
     height: number,
+    matrices: { modelView: Mat4; projection: Mat4 },
     axisMatrices: { modelView: Mat4; projection: Mat4 },
     glyphColourOrientation: OrientationQuaternion,
     glyphScale: number,
@@ -1993,7 +1994,14 @@ export const createCubeViewport = (
     gl.uniform3fv(guideAxis, guideTransform?.axis ?? [1, 0, 0]);
     gl.uniform2f(guideRange, guideTransform?.min ?? 0, guideTransform?.max ?? 0);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
-    drawMotionOverlay(width, height, glyphMatrices, glyphFrame.colourOrientation, glyphScale);
+    drawMotionOverlay(
+      width,
+      height,
+      matrices,
+      glyphMatrices,
+      glyphFrame.colourOrientation,
+      glyphScale,
+    );
 
     stepRegripGaugeDisplay(0, null);
     drawRegripGauge(width, height);

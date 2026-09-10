@@ -901,6 +901,7 @@ test("the viewport layers a projected motion HUD over the persistent WebGL canva
   assert.match(viewportComponent, /data-motion-overlay/);
   assert.match(client, /querySelector<HTMLCanvasElement>\("\[data-motion-overlay\]"\)/);
   assert.match(viewport, /drawMotionOverlay/);
+  assert.match(viewport, /drawMotionOverlay\(\s*width,\s*height,\s*matrices,\s*glyphMatrices,/);
   assert.match(viewport, /quadraticCurveTo/);
   assert.match(viewport, /turnSurfaceArrowPaths/);
   assert.match(viewport, /sourceVisible && targetVisible/);
