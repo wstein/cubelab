@@ -1,0 +1,7 @@
+# ReScript compiler output is committed for browser consumption but is not
+# hand-maintained source. Keep it out of GitHub language statistics and fold
+# it by default in pull-request diffs.
+*.res.mjs linguist-generated=true
+
+# Generated pattern catalogue.
+src/client/patterns.generated.ts linguist-generated=true
