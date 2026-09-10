@@ -196,6 +196,34 @@ describe("Regrip core migration seam", () => {
     ]);
   });
 
+  test("maps a body-fixed R through repeated y′ regrips", () => {
+    // A user turning the same physical red face after each y′ regrip must see
+    // the virtual red, blue, orange, then green faces turn: R B L F.
+    const frame = VirtualCubeFrame.make();
+    const normalized: string[] = [];
+    for (let index = 0; index < 4; index += 1) {
+      const move = normalizeCoreEvent({
+        type: "MOVE",
+        timestamp: index * 2,
+        move: "R",
+        face: 1,
+        direction: 0,
+        localTimestamp: null,
+        cubeTimestamp: null,
+      }, frame);
+      if (move?.type === "move") normalized.push(move.solverMove ?? move.move);
+      if (index < 3) {
+        normalizeCoreEvent({
+          type: "REGRIP",
+          timestamp: index * 2 + 1,
+          notationToken: "y'",
+          sensorFrameToken: "y'",
+        }, frame);
+      }
+    }
+    expect(normalized).toEqual(["R", "B", "L", "F"]);
+  });
+
   test("feeds a direct GoCube transport through core stabilization before rendering", async () => {
     const mock = connection();
     mock.connection = {

@@ -5157,6 +5157,11 @@ if (root) {
           type: event.type,
           timestamp: event.timestamp,
           move: event.move,
+          // The body-fixed packet is useful for transport debugging, while
+          // solverMove is the face the virtual cube actually animates after
+          // cumulative core regrips. Keep both in a diagnostic capture.
+          solverMove: event.solverMove,
+          source: event.source,
           face: event.face,
           direction: event.direction,
           localTimestamp: event.localTimestamp,
