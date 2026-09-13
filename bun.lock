@@ -393,7 +393,7 @@
 
     "@webgpu/types": ["@webgpu/types@0.1.72", "", {}, "sha512-0cF7RFM2edNoiIS1ODJp0/Gzv4/xSXhwoR0YCza+OWpJWtn4wmo9DvK91aLlH9+uUnwIriP7ZiC3WitmyhuzBw=="],
 
-    "@wstein/regrip-core": ["@wstein/regrip-core@vendor/wstein-regrip-core-0.1.2.tgz", { "dependencies": { "@rescript/runtime": "^12.3.1" }, "peerDependencies": { "rxjs": "^7.8.2", "smartcube-web-bluetooth": "^4.0.0" } }, "sha512-7m+hzt6AQkMW4/VvfK2MzzbGEB7a+94JotZX7NeFhN9KGA3uZybR8S2k57LG/jQTHQnl0iiXuCfQctc/iUy+MA=="],
+    "@wstein/regrip-core": ["@wstein/regrip-core@vendor/wstein-regrip-core-0.1.2.tgz", { "dependencies": { "@rescript/runtime": "^12.3.1" }, "peerDependencies": { "rxjs": "^7.8.2", "smartcube-web-bluetooth": "^4.0.0" } }, "sha512-m2/sFCzeY/tR91JquS9zLbGLWvX22kiR3AwiXOj7G1egR6nGeGONZrqOj6GD6h1gJMY9U9/cWLQe91bKYBoEPg=="],
 
     "aes-js": ["aes-js@3.1.2", "", {}, "sha512-e5pEa2kBnBOgR4Y/p20pskXI74UEz7de8ZGVo58asOtvSVG5YAbJeELPZxOmt+Bnz3rX753YKhfIn4X4l1PPRQ=="],
 
