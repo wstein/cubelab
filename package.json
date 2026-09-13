@@ -17,6 +17,7 @@
     "astro:preview": "astro preview",
     "build": "rescript && astro build",
     "preview": "astro preview",
+    "regrip-core:update": "bun scripts/update-regrip-core.mjs",
     "patterns:import": "bun scripts/import-flix-patterns.ts",
     "solver:generate-2x2": "rescript && bun scripts/generate-optimal-2x2-table.ts",
     "solver:generate-4x4-centres": "rescript && bun scripts/generate-three-phase-centre-table.ts",
