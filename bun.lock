@@ -5,12 +5,12 @@
     "": {
       "name": "cubelab",
       "dependencies": {
-        "@wstein/regrip-core": "file:vendor/wstein-regrip-core-0.1.2.tgz",
+        "@wstein/regrip-core": "file:./vendor/wstein-regrip-core-0.1.2.tgz",
         "astro": "^7.2.10",
         "cubing": "^0.63.4",
         "rescript": "12.3.1",
         "rxjs": "^7.8.2",
-        "smartcube-web-bluetooth": "github:wstein/smartcube-web-bluetooth#fd5da70",
+        "smartcube-web-bluetooth": "git+https://github.com/wstein/smartcube-web-bluetooth.git#fd5da70",
       },
       "devDependencies": {
         "@playwright/test": "^1.62.1",
@@ -28,7 +28,7 @@
     "smartcube-web-bluetooth",
   ],
   "overrides": {
-    "smartcube-web-bluetooth": "github:wstein/smartcube-web-bluetooth#fd5da70",
+    "smartcube-web-bluetooth": "git+https://github.com/wstein/smartcube-web-bluetooth.git#fd5da70",
   },
   "packages": {
     "@astrojs/compiler-binding": ["@astrojs/compiler-binding@0.4.0", "", { "optionalDependencies": { "@astrojs/compiler-binding-darwin-arm64": "0.4.0", "@astrojs/compiler-binding-darwin-x64": "0.4.0", "@astrojs/compiler-binding-linux-arm64-gnu": "0.4.0", "@astrojs/compiler-binding-linux-arm64-musl": "0.4.0", "@astrojs/compiler-binding-linux-x64-gnu": "0.4.0", "@astrojs/compiler-binding-linux-x64-musl": "0.4.0", "@astrojs/compiler-binding-wasm32-wasi": "0.4.0", "@astrojs/compiler-binding-win32-arm64-msvc": "0.4.0", "@astrojs/compiler-binding-win32-x64-msvc": "0.4.0" } }, "sha512-x2RjDUuWfwLNtc3mjAdSRInwqh/rqbLar9cm/5FOMbHvmYZB7yfKewzSclAxWjIZsypJDXv1lhaP2WG+P8TK3g=="],
