@@ -9,7 +9,7 @@ import {
   type SmartCubeConnection,
 } from "smartcube-web-bluetooth";
 import type {SessionFeaturesPatch} from "@wstein/regrip-core/session/features";
-import * as VirtualCubeFrame from "@wstein/regrip-core/domain/VirtualCubeFrame.res.mjs";
+import * as VirtualCubeFrame from "@wstein/regrip-core/domain/VirtualCubeFrame";
 
 import type {
   SmartCubeCommand,
@@ -34,6 +34,14 @@ export const coreBodyOrientationInViewportFrame = (
   y: quaternion.y,
   z: quaternion.z === 0 ? 0 : -quaternion.z,
   w: quaternion.w,
+});
+
+export type CoreSolverFrame = {
+  current: VirtualCubeFrame.t;
+};
+
+export const createCoreSolverFrame = (): CoreSolverFrame => ({
+  current: VirtualCubeFrame.make(),
 });
 
 /**
@@ -118,7 +126,7 @@ const deviceFor = (connection: SmartCubeTransportConnection): SmartCubeDevice =>
  */
 export const normalizeCoreEvent = (
   event: SmartCubeSessionEvent,
-  solverFrame: VirtualCubeFrame.VirtualCubeFrame,
+  solverFrame: CoreSolverFrame,
 ): SmartCubeEvent | null => {
   switch (event.type) {
     case "BATTERY":
@@ -140,7 +148,7 @@ export const normalizeCoreEvent = (
         type: "move",
         timestamp: event.timestamp,
         move: event.move,
-        solverMove: VirtualCubeFrame.translate(solverFrame, event.move),
+        solverMove: VirtualCubeFrame.translate(solverFrame.current, event.move),
         source: "regrip-core",
         face: event.face,
         direction: event.direction,
@@ -156,7 +164,7 @@ export const normalizeCoreEvent = (
         // receive body facelets. The solver projection is metadata only.
         facelets: event.facelets,
         rawFacelets: event.facelets,
-        solverFacelets: VirtualCubeFrame.reframeFacelets(solverFrame, event.facelets),
+        solverFacelets: VirtualCubeFrame.reframeFacelets(solverFrame.current, event.facelets),
         source: "regrip-core",
       };
     }
@@ -175,8 +183,8 @@ export const normalizeCoreEvent = (
       // Keep the detected body token visible. Translating it for the 3D
       // history would make a physical x appear as z after a y regrip. The
       // solver token remains available exclusively for algorithm matching.
-      const solverToken = VirtualCubeFrame.solverToken(solverFrame, event.notationToken);
-      VirtualCubeFrame.applyRegrip(solverFrame, event.notationToken);
+      const solverToken = VirtualCubeFrame.solverToken(solverFrame.current, event.notationToken);
+      solverFrame.current = VirtualCubeFrame.applyRegrip(solverFrame.current, event.notationToken);
       return {
         type: "regrip",
         timestamp: event.timestamp,
@@ -215,7 +223,7 @@ export const createRegripCoreManager = (
   const stateListeners = new Set<(next: SmartCubeConnectionState) => void>();
   const eventListeners = new Set<(event: SmartCubeEvent) => void>();
   const commandListeners = new Set<(command: SmartCubeCommand) => void>();
-  const solverFrame = VirtualCubeFrame.make();
+  const solverFrame = createCoreSolverFrame();
 
   const publishState = (next: SmartCubeConnectionState): void => {
     state = next;
@@ -273,7 +281,7 @@ export const createRegripCoreManager = (
       throw error;
     }
     if (session) await disconnect();
-    VirtualCubeFrame.reset(solverFrame);
+    solverFrame.current = VirtualCubeFrame.reset(solverFrame.current);
     lastOptions = {...options};
     publishState({phase: "connecting", message: "Select your smart cube…", device: null, error: null});
     let connected: SmartCubeTransportConnection | null = null;

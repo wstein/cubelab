@@ -5,12 +5,12 @@
     "": {
       "name": "cubelab",
       "dependencies": {
-        "@wstein/regrip-core": "file:vendor/regrip-core/packages/core",
+        "@wstein/regrip-core": "file:vendor/wstein-regrip-core-0.1.2.tgz",
         "astro": "^7.2.10",
         "cubing": "^0.63.4",
         "rescript": "12.3.1",
         "rxjs": "^7.8.2",
-        "smartcube-web-bluetooth": "github:wstein/smartcube-web-bluetooth#ec75768",
+        "smartcube-web-bluetooth": "github:wstein/smartcube-web-bluetooth#fd5da70",
       },
       "devDependencies": {
         "@playwright/test": "^1.62.1",
@@ -27,6 +27,9 @@
   "trustedDependencies": [
     "smartcube-web-bluetooth",
   ],
+  "overrides": {
+    "smartcube-web-bluetooth": "github:wstein/smartcube-web-bluetooth#fd5da70",
+  },
   "packages": {
     "@astrojs/compiler-binding": ["@astrojs/compiler-binding@0.4.0", "", { "optionalDependencies": { "@astrojs/compiler-binding-darwin-arm64": "0.4.0", "@astrojs/compiler-binding-darwin-x64": "0.4.0", "@astrojs/compiler-binding-linux-arm64-gnu": "0.4.0", "@astrojs/compiler-binding-linux-arm64-musl": "0.4.0", "@astrojs/compiler-binding-linux-x64-gnu": "0.4.0", "@astrojs/compiler-binding-linux-x64-musl": "0.4.0", "@astrojs/compiler-binding-wasm32-wasi": "0.4.0", "@astrojs/compiler-binding-win32-arm64-msvc": "0.4.0", "@astrojs/compiler-binding-win32-x64-msvc": "0.4.0" } }, "sha512-x2RjDUuWfwLNtc3mjAdSRInwqh/rqbLar9cm/5FOMbHvmYZB7yfKewzSclAxWjIZsypJDXv1lhaP2WG+P8TK3g=="],
 
@@ -390,7 +393,7 @@
 
     "@webgpu/types": ["@webgpu/types@0.1.72", "", {}, "sha512-0cF7RFM2edNoiIS1ODJp0/Gzv4/xSXhwoR0YCza+OWpJWtn4wmo9DvK91aLlH9+uUnwIriP7ZiC3WitmyhuzBw=="],
 
-    "@wstein/regrip-core": ["@wstein/regrip-core@file:vendor/regrip-core/packages/core", { "peerDependencies": { "rxjs": "^7.8.2", "smartcube-web-bluetooth": "*" }, "optionalPeers": ["rxjs", "smartcube-web-bluetooth"] }],
+    "@wstein/regrip-core": ["@wstein/regrip-core@vendor/wstein-regrip-core-0.1.2.tgz", { "dependencies": { "@rescript/runtime": "^12.3.1" }, "peerDependencies": { "rxjs": "^7.8.2", "smartcube-web-bluetooth": "^4.0.0" } }, "sha512-7m+hzt6AQkMW4/VvfK2MzzbGEB7a+94JotZX7NeFhN9KGA3uZybR8S2k57LG/jQTHQnl0iiXuCfQctc/iUy+MA=="],
 
     "aes-js": ["aes-js@3.1.2", "", {}, "sha512-e5pEa2kBnBOgR4Y/p20pskXI74UEz7de8ZGVo58asOtvSVG5YAbJeELPZxOmt+Bnz3rX753YKhfIn4X4l1PPRQ=="],
 
@@ -688,7 +691,7 @@
 
     "sisteransi": ["sisteransi@1.0.5", "", {}, "sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg=="],
 
-    "smartcube-web-bluetooth": ["smartcube-web-bluetooth@github:wstein/smartcube-web-bluetooth#ec75768", { "dependencies": { "@types/web-bluetooth": "^0.0.20", "aes-js": "^3.1.2", "lz-string": "^1.5.0", "rxjs": "^7.8.2" } }, "wstein-smartcube-web-bluetooth-ec75768", "sha512-mCjTxfmtq6rUfxHv3vUZkFH3xiXDqgSzkwT0KnYPFY4ZFaeC6QwPelm3Hbiuxyoz9PmpE0EvNSbPyNf6pqE3pg=="],
+    "smartcube-web-bluetooth": ["smartcube-web-bluetooth@github:wstein/smartcube-web-bluetooth#fd5da70", { "dependencies": { "@types/web-bluetooth": "^0.0.20", "aes-js": "^3.1.2", "lz-string": "^1.5.0", "rxjs": "^7.8.2" } }, "wstein-smartcube-web-bluetooth-fd5da70", "sha512-c1GZkjeOuaIRpfMDNLpNPtWqUt6XRLDh0eSMxAO0krMqeGuYh2/bHibnIE1FiW3a9ohh5NbsqtQwFUbjdjMRHg=="],
 
     "smol-toml": ["smol-toml@1.8.0", "", {}, "sha512-kCZr2V3ch9i00x8zXRhjUNVcjG9ijES5dDudkXvUVCT5QlJNQWElSJdZqyPemffHoLNUYwOcou0Fy+ojN0uHSQ=="],
 

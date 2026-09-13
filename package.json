@@ -31,12 +31,12 @@
   "author": "",
   "license": "AGPL-3.0-or-later",
   "dependencies": {
-    "@wstein/regrip-core": "file:vendor/regrip-core/packages/core",
+    "@wstein/regrip-core": "file:vendor/wstein-regrip-core-0.1.2.tgz",
     "astro": "^7.2.10",
     "cubing": "^0.63.4",
     "rescript": "12.3.1",
     "rxjs": "^7.8.2",
-    "smartcube-web-bluetooth": "github:wstein/smartcube-web-bluetooth#ec75768"
+    "smartcube-web-bluetooth": "github:wstein/smartcube-web-bluetooth#fd5da70"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
@@ -50,5 +50,8 @@
   },
   "trustedDependencies": [
     "smartcube-web-bluetooth"
-  ]
+  ],
+  "overrides": {
+    "smartcube-web-bluetooth": "github:wstein/smartcube-web-bluetooth#fd5da70"
+  }
 }
