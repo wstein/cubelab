@@ -1,3 +1,0 @@
-[submodule "regrip-core"]
-	path = vendor/regrip-core
-	url = https://github.com/wstein/regrip.git
