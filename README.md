@@ -8,6 +8,9 @@ The web interface uses static Astro markup, a small Vanilla DOM controller,
 and a render-on-demand native WebGL preview. It has no React, virtual DOM,
 client-island, or 3D framework runtime dependency.
 
+See [architecture.md](architecture.md) for component boundaries, smart-cube
+support status, privacy guarantees, and deployment gates.
+
 Implemented state codecs:
 
 - compact URFDLB facelets;
