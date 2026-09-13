@@ -4,13 +4,14 @@ import type {
   SmartCubeEvent,
   SmartCubeTransportConnection,
 } from "@wstein/regrip-core/bindings/smartCubeTransport";
-import * as VirtualCubeFrame from "@wstein/regrip-core/domain/VirtualCubeFrame.res.mjs";
-import type {RegripToken} from "@wstein/regrip-core/domain/CubeNotation.res.mjs";
+import * as VirtualCubeFrame from "@wstein/regrip-core/domain/VirtualCubeFrame";
+import type {regripToken as RegripToken} from "@wstein/regrip-core/domain/CubeNotation";
 import type {SmartCubeSessionEvent} from "@wstein/regrip-core/session/smartCubeSession";
 
 import {
   createRegripCoreManager,
   createRegripCoreSession,
+  createCoreSolverFrame,
   coreBodyOrientationInViewportFrame,
   normalizeCoreEvent,
 } from "../../../src/client/smart-cube/regrip-core";
@@ -99,6 +100,47 @@ describe("Regrip core migration seam", () => {
     expect(session.getState().status).toBe("disconnected");
   });
 
+  test.each([
+    {
+      label: "GAN 12 ui Gen2",
+      deviceName: "GAN12uiFp-753",
+      protocol: {id: "gan-gen2", name: "GAN Gen2"},
+      profileId: "gan-gen2",
+      gyroscope: false,
+    },
+    {
+      label: "GAN i4 Gen4",
+      deviceName: "GANi4_A26E",
+      protocol: {id: "gan-gen4", name: "GAN Gen4"},
+      profileId: "gan-gen4",
+      gyroscope: true,
+    },
+  ])("resolves the captured $label identity through CubeLab's core seam", async ({
+    deviceName,
+    protocol,
+    profileId,
+    gyroscope,
+  }) => {
+    const mock = connection();
+    mock.connection.deviceName = deviceName;
+    mock.connection.protocol = protocol;
+    mock.connection.capabilities = {...mock.connection.capabilities, gyroscope};
+    const session = createRegripCoreSession({connect: async () => mock.connection});
+
+    await session.connect();
+
+    expect(session.getState()).toMatchObject({
+      status: "connected",
+      profile: {id: profileId},
+      connection: {
+        deviceName,
+        protocol,
+        capabilities: {gyroscope},
+      },
+    });
+    await session.disconnect();
+  });
+
   test("adapts a core-backed GAN connection to CubeLab's manager contract", async () => {
     const mock = connection();
     const manager = createRegripCoreManager({
@@ -171,8 +213,8 @@ describe("Regrip core migration seam", () => {
     expect(regrips).toHaveLength(1);
     expect(regrips[0]?.notationToken).toMatch(/^[xyz]'?$/);
 
-    const frame = VirtualCubeFrame.make();
-    VirtualCubeFrame.applyRegrip(frame, regrips[0]!.notationToken as RegripToken);
+    let frame = VirtualCubeFrame.make();
+    frame = VirtualCubeFrame.applyRegrip(frame, regrips[0]!.notationToken as RegripToken);
     const bodyFacelets = "URFDLB".repeat(9);
     mock.events.next({
       type: "MOVE",
@@ -194,7 +236,7 @@ describe("Regrip core migration seam", () => {
     // Regression capture: GoCube emitted R, then core confirmed y, then the
     // body-fixed encoder emitted B′. The visible history is R y R′, while y
     // is frame metadata—not a second logical state permutation.
-    const frame = VirtualCubeFrame.make();
+    const frame = createCoreSolverFrame();
     const events = [
       {type: "MOVE", timestamp: 872736, move: "R", face: 1, direction: 0, localTimestamp: 872736, cubeTimestamp: null},
       {type: "REGRIP", timestamp: 873728, notationToken: "y", sensorFrameToken: "y'"},
@@ -220,7 +262,7 @@ describe("Regrip core migration seam", () => {
   test("maps a body-fixed R through repeated y′ regrips", () => {
     // A user turning the same physical red face after each y′ regrip must see
     // the virtual red, blue, orange, then green faces turn: R B L F.
-    const frame = VirtualCubeFrame.make();
+    const frame = createCoreSolverFrame();
     const normalized: string[] = [];
     for (let index = 0; index < 4; index += 1) {
       const move = normalizeCoreEvent({
@@ -246,7 +288,7 @@ describe("Regrip core migration seam", () => {
   });
 
   test("keeps body-local x/z regrips visible while retaining solver notation", () => {
-    const frame = VirtualCubeFrame.make();
+    const frame = createCoreSolverFrame();
     const y = normalizeCoreEvent({
       type: "REGRIP",
       timestamp: 1,
@@ -267,7 +309,7 @@ describe("Regrip core migration seam", () => {
   test("keeps body moves intact while their solver labels converge after y′ regrips", () => {
     // Exact 07:26 capture: the player/viewport must receive R F L B, while
     // history may label all four as the current virtual R face.
-    const frame = VirtualCubeFrame.make();
+    const frame = createCoreSolverFrame();
     const bodyMoves: string[] = [];
     const solverMoves: string[] = [];
     for (const [index, bodyMove] of ["R", "F", "L", "B"].entries()) {
@@ -331,5 +373,33 @@ describe("Regrip core migration seam", () => {
       quaternion: {x: 0, y: 0, z: 0, w: 1},
       rawQuaternion: {x: 0.1, y: -0.3, z: -0.2, w: 0.9},
     }]);
+  });
+
+  test("routes GoCube light feedback through the advertised vendor command", async () => {
+    const mock = connection();
+    const sendVendorCommand = vi.fn().mockResolvedValue(undefined);
+    mock.connection = {
+      ...mock.connection,
+      deviceName: "GoCube",
+      protocol: {id: "gocube", name: "GoCube"},
+      capabilities: {
+        ...mock.connection.capabilities,
+        vendorCommands: ["FLASH_BACKLIGHT", "SLOW_FLASH_BACKLIGHT"],
+      },
+      sendVendorCommand,
+    };
+    const manager = createRegripCoreManager({
+      isBluetoothAvailable: () => true,
+      connectTransport: async () => mock.connection,
+    });
+
+    await manager.connect();
+    await manager.flashLed("green", 250);
+    await manager.flashLed("amber", 250);
+
+    expect(sendVendorCommand.mock.calls).toEqual([
+      [{vendor: "gocube", type: "FLASH_BACKLIGHT"}],
+      [{vendor: "gocube", type: "SLOW_FLASH_BACKLIGHT"}],
+    ]);
   });
 });
