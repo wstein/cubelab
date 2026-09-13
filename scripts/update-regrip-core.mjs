@@ -39,7 +39,7 @@ const parseArguments = () => {
     const key = process.argv[index];
     const value = process.argv[index + 1];
     if (!key?.startsWith("--") || value === undefined) {
-      fail("usage: bun run regrip-core:update -- --tag core-vX.Y.Z --sha256 <64 hex characters>");
+      fail("usage: npm run regrip-core:update -- --tag core-vX.Y.Z --sha256 <64 hex characters>");
     }
     values.set(key, value);
   }
@@ -91,18 +91,18 @@ try {
   packageManifest.dependencies["@wstein/regrip-core"] = releaseUrl;
   writeFileSync(packagePath, `${JSON.stringify(packageManifest, null, 2)}\n`);
 
-  command("bun", ["install", "--force"], {inherit: true});
+  command("npm", ["install", "--package-lock-only"], {inherit: true});
 
   const expectedSha512 = digest("sha512", downloadedPath, "base64");
-  const lockfile = readFileSync("bun.lock", "utf8");
+  const lockfile = readFileSync("package-lock.json", "utf8");
   if (!lockfile.includes(`sha512-${expectedSha512}`)) {
-    fail("bun.lock does not contain the downloaded artifact's SHA-512 integrity value");
+    fail("package-lock.json does not contain the downloaded artifact's SHA-512 integrity value");
   }
 
   console.log(`Updated @wstein/regrip-core to ${version}`);
   console.log(`Release URL: ${releaseUrl}`);
   console.log(`Artifact SHA-256: ${actualSha256}`);
-  console.log("Review the diff, run bun run test and bun run build, then commit the update.");
+  console.log("Review the diff, run npm test and npm run build, then commit the update.");
 } finally {
   rmSync(temporaryDirectory, {recursive: true, force: true});
 }

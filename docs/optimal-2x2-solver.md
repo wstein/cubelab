@@ -22,7 +22,7 @@ the original state before being sent to the UI.
 Regenerate the checked-in asset after changing its contract:
 
 ```sh
-bun run solver:generate-2x2
+npm run solver:generate-2x2
 ```
 
 Tests cover table size, schema and checksum validation, first-use loading, and

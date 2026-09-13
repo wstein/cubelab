@@ -284,9 +284,9 @@ An ordinary reduction fallback that destroys the original block is allowed only 
 
 ### 11.1 Test runner and migration
 
-Use the repository's main `bun run test` command, which compiles ReScript and runs Vitest. The accompanying refactor migrates the two Petrus suites from `bun:test` to `vitest` and explicitly includes `test/Solver/petrus-5x5.test.ts` in discovery. Broaden the pattern only after migrating the remaining unrelated Bun-only solver suite. Keep one documented runner for Petrus tests; do not assume `bun test` and `bun run test` are interchangeable.
+Use the repository's main `npm test` command, which compiles ReScript and runs Vitest. The accompanying refactor migrates the two Petrus suites from `bun:test` to `vitest` and explicitly includes `test/Solver/petrus-5x5.test.ts` in discovery. Broaden the pattern only after migrating the remaining unrelated Bun-only solver suite. Keep one documented runner for Petrus tests.
 
-During implementation, run `bun run res:build` before targeted Vitest suites that import generated `.res.mjs` files. Rebuild generated modules through the compiler, never edit them manually. Verify production integration with `bun run build` and the relevant Playwright Academy cases. Avoid a fixed test-count promise.
+During implementation, run `npm run res:build` before targeted Vitest suites that import generated `.res.mjs` files. Rebuild generated modules through the compiler, never edit them manually. Verify production integration with `npm run build` and the relevant Playwright Academy cases. Avoid a fixed test-count promise.
 
 ### 11.2 Required evidence
 
@@ -318,7 +318,7 @@ The general automatic solver milestone is complete only after backend coverage, 
 - Added a one-entry, per-panel cache keyed by all 150 facelets. It recognizes reconstructed equivalent states, invalidates in-place changes, releases its entry when inactive/invalid, and protects cached results from caller mutation.
 - Skipped Petrus work while its panel is inactive; refreshed correctly on activation with existing workspace moves. Reused phase definitions for repeated titles/instructions.
 - Registered the Petrus core suite with Vitest and migrated both Petrus suites to that runner. Added core mutation-isolation/equivalence tests, client cache regressions, and a focused browser activation/refresh test.
-- Added `bun run benchmark:petrus`, which compiles before measuring six fixed legal states with bounded warmup and 1,200 calls per operation.
+- Added `npm run benchmark:petrus`, which compiles before measuring six fixed legal states with bounded warmup and 1,200 calls per operation.
 
 ### TDD and review evidence
 
@@ -332,7 +332,7 @@ The benchmark's inspection/guide fingerprint is unchanged from the pre-refactor 
 
 The fixed-capacity reuse and avoided duplicate calls are implemented. Active-panel cache misses still plan synchronously. Demand-driven workers, full resource accounting, cancellation targets, general reduction coverage, and the correctness/curriculum increments remain planned. The existing animation-frame-delayed input synchronization also needs a stale/double-Apply regression before claiming the stronger Apply contract in section 8.
 
-Pre-commit verification: `bun run test` passed 601 tests across 61 suites; `bun run build` passed with the existing large-chunk warning; the focused `petrus-5x5-activation.playwright.mjs` browser test passed; `git diff --check` passed. The benchmark command completed with the unchanged fingerprint above. These checks validate this increment, not the unimplemented release gates.
+Pre-commit verification: `npm test` passed 601 tests across 61 suites; `npm run build` passed with the existing large-chunk warning; the focused `petrus-5x5-activation.playwright.mjs` browser test passed; `git diff --check` passed. The benchmark command completed with the unchanged fingerprint above. These checks validate this increment, not the unimplemented release gates.
 
 ## 14. Follow-up — guidance placement and big-cube startup
 

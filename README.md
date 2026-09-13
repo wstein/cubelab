@@ -156,19 +156,19 @@ order. Parsers validate exact sticker counts and canonical net geometry.
 ## Installation
 
 ```sh
-bun install
+npm ci
 ```
 
 ## Build
 
-- Production build: `bun run build`
-- ReScript build: `bun run res:build`
-- ReScript watch mode: `bun run res:dev`
-- Production preview: `bun run preview`
+- Production build: `npm run build`
+- ReScript build: `npm run res:build`
+- ReScript watch mode: `npm run res:dev`
+- Production preview: `npm run preview`
 
 ## Chrome DevTools workspace
 
-During `bun run dev`, CubeLab serves Chrome's automatic-workspace manifest at
+During `npm run dev`, CubeLab serves Chrome's automatic-workspace manifest at
 `/.well-known/appspecific/com.chrome.devtools.json`. Open the local site in Chrome
 DevTools and approve its prompt to connect this checkout; edits in DevTools then save
 directly to the project files. Astro generates the manifest at runtime so it always
@@ -177,22 +177,22 @@ reports the current absolute checkout path.
 ## Quality checks
 
 ```sh
-bun run format:check
-bun run lint
-bun run test
+npm run format:check
+npm run lint
+npm test
 ```
 
 The browser smoke test requires Playwright's Chromium binary once per machine:
 
 ```sh
-bunx playwright install chromium
-bun run test:browser
+npx playwright install chromium
+npm run test:browser
 ```
 
 Set `PLAYWRIGHT_PORT` when port 4321 is already in use, for example:
 
 ```sh
-PLAYWRIGHT_PORT=4322 bun run test:browser
+PLAYWRIGHT_PORT=4322 npm run test:browser
 ```
 # License
 

@@ -62,15 +62,15 @@ the same tag commit for provenance and review.
 3. Run:
 
    ```sh
-   bun run regrip-core:update -- --tag core-vX.Y.Z --sha256 <sha256>
+   npm run regrip-core:update -- --tag core-vX.Y.Z --sha256 <sha256>
    ```
 
 4. Review the tarball, dependency, lockfile, and submodule changes.
-5. Run `bun run test` and `bun run build` before committing.
+5. Run `npm test` and `npm run build` before committing.
 
 The updater resolves the tag to its exact commit, selects a successful workflow
 for that commit, downloads the versioned artifact, verifies its checksum and
-package manifest, advances the provenance submodule, refreshes `bun.lock`, and
+package manifest and refreshes `package-lock.json`.
 checks the lockfile integrity value.
 
 ## Deployment gates

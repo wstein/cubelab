@@ -39,8 +39,8 @@ Worker lifecycle and asynchronous guide tests cover lazy startup, reuse, startup
 
 Final verification on 2026-09-08:
 
-- `bun run test`: 617 tests passed across 63 suites.
-- `bun run build`: production build passed.
+- `npm test`: 617 tests passed across 63 suites.
+- `npm run build`: production build passed.
 - Isolated production preview on port 4339: all seven loading/guide/Petrus browser tests passed. The two guide tests also passed after strengthening Apply checks to require the exact displayed algorithm.
 - The initial-load browser assertions now observe zero unused solver workers on both big-cube converter URLs. Active lessons create a guide worker when needed.
 - Six additional existing smoke tests: three passed; three failed on existing URL/status expectations. All three failures reproduced unchanged against archived commit `4aae23e` on isolated port 4340: two expect the old `tab=academy&method=beginner` URL and one expects a status without the existing `+ moves` suffix. These failures are not attributed to this refactor.

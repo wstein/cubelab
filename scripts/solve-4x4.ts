@@ -4,7 +4,7 @@ import {solveFullReduction4x4} from "../src/Solver/FullReduction4x4.res.mjs";
 const [facelets] = process.argv.slice(2);
 
 if (facelets === undefined || process.argv.length !== 3) {
-  throw new Error("Usage: bun run solver:solve-4x4 <96 URFDLB facelets>");
+  throw new Error("Usage: npm run solver:solve-4x4 <96 URFDLB facelets>");
 }
 
 const parsed = FaceletCodec.parse(4, facelets);

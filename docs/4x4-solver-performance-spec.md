@@ -59,7 +59,7 @@ than relying on sampling.
 The harness must reject an incomplete corpus and must record a solver/table
 version with every run, making regressions bisectable.
 
-`bun run benchmark:4x4` and `bun run benchmark:4x4:release` are the CI and
+`npm run benchmark:4x4` and `npm run benchmark:4x4:release` are the CI and
 release entry points. The committed scaffold intentionally exits with an error
 until a compliant corpus has been generated; an empty corpus must not produce
 misleading performance numbers.

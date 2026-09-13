@@ -69,7 +69,7 @@ that are maximally distant from solved under a specific move-counting metric.
 
 Extremal-state badges are looked up by pattern name via `extremalStateFor`, exposed
 through `patternsForSize(size, query, extremalOnly)`'s third parameter, and are
-independent of the flix-cubesolve import — `bun run patterns:import` never touches
+independent of the flix-cubesolve import — `npm run patterns:import` never touches
 `extremal-states.ts`.
 
 ## Recognition and solution guarantees
@@ -104,7 +104,7 @@ accepted on 3×3.
 With the sibling repository at `../flix-cubesolve`, regenerate the catalog with:
 
 ```sh
-bun run patterns:import
+npm run patterns:import
 ```
 
 The importer parses each source record, normalizes only the replay copy, applies the
