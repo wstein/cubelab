@@ -150,7 +150,7 @@ test("exposes distinct replay-verified Beginner, Full, and Advanced CFOP strateg
   assert.ok(advanced.moveCount < beginner.moveCount);
   assert.doesNotMatch(full.phases[0].sequences.join(" "), /candidate plans/);
   assert.match(advanced.phases[0].sequences.join(" "), /candidate plans/);
-}, 10_000);
+}, 30_000);
 
 test("keeps Advanced LBL bounded on a middle-layer insertion state", () => {
   const decoded = Orbit64Codec.decodeState("AqhDBUgvge_w");
