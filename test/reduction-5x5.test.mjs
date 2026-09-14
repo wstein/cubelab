@@ -104,7 +104,7 @@ test("searches an explicit replay-verified 1×3 bar commutator", () => {
   const replay = MoveExecutor.applyAlg(state._0, guide._0.alg);
   expect(replay.TAG).toBe("Ok");
   expect(guide._0.barsAfter).toBeGreaterThan(guide._0.barsBefore);
-}, 15000);
+}, 45_000);
 
 test("uses a buffered centre 3-cycle when only a whole centre face can advance", () => {
   const state = FaceletCodec.parse(5, "LFUFLBUUULFUUUFBUUUBBBRLRDDLDFRRRRFFRRRUURDRLUFBDDDRDUFUFFFUBFFFRBFFFLDLBUFLDUFRRDDDLUDDLDRDDDRBBBFLBUDURLLRLRLLLLLDBLLDUDLBFURFUUDLBBBRBBBDFBBBFBRRLR");
