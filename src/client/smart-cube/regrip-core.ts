@@ -326,10 +326,18 @@ export const createRegripCoreManager = (
       : Promise.reject(new Error("No previous smart cube connection")),
     disconnect,
     refresh: async () => {
-      const capabilities = requireSession().getState().connection?.capabilities;
+      const active = requireSession();
+      const capabilities = active.getState().connection?.capabilities;
       if (capabilities?.hardware) await send("REQUEST_HARDWARE");
       if (capabilities?.battery) await send("REQUEST_BATTERY");
-      if (capabilities?.facelets) await send("REQUEST_FACELETS");
+      if (capabilities?.facelets) {
+        // A raw REQUEST_FACELETS is deduplicated by Regrip Core when the cube
+        // has not changed. Its sync API marks this request as authoritative,
+        // publishes that otherwise-identical snapshot, and resolves only once
+        // the response reaches this adapter.
+        publishCommand({timestamp: Date.now(), type: "REQUEST_FACELETS"});
+        await active.syncFacelets();
+      }
     },
     resetCubeState: async () => {
       const capabilities = requireSession().getState().connection?.capabilities;

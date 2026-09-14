@@ -175,6 +175,36 @@ describe("Regrip core migration seam", () => {
     expect(manager.getState().phase).toBe("disconnected");
   });
 
+  test("forces and awaits an unchanged physical snapshot when Sync state is requested", async () => {
+    const mock = connection();
+    const manager = createRegripCoreManager({
+      isBluetoothAvailable: () => true,
+      connectTransport: async () => mock.connection,
+    });
+    const snapshots: string[] = [];
+    manager.subscribeEvents((event) => {
+      if (event.type === "facelets") snapshots.push(event.facelets);
+    });
+
+    await manager.connect();
+    const facelets = "URFDLB".repeat(9);
+
+    const first = manager.refresh();
+    await vi.waitFor(() => expect(mock.sendCommand).toHaveBeenLastCalledWith({type: "REQUEST_FACELETS"}));
+    mock.events.next({type: "FACELETS", timestamp: 1, serial: 7, facelets});
+    await expect(first).resolves.toBeUndefined();
+
+    const second = manager.refresh();
+    await vi.waitFor(() => expect(mock.sendCommand).toHaveBeenLastCalledWith({type: "REQUEST_FACELETS"}));
+    // The packet is byte-for-byte identical. syncFacelets() forces it through
+    // the core snapshot deduper so the UI can complete a second Sync state.
+    mock.events.next({type: "FACELETS", timestamp: 2, serial: 7, facelets});
+    await expect(second).resolves.toBeUndefined();
+
+    expect(snapshots).toEqual([facelets, facelets]);
+    await manager.disconnect();
+  });
+
   test("forwards one core-confirmed virtual regrip instead of a second detector event", async () => {
     const mock = connection();
     const manager = createRegripCoreManager({
