@@ -29,8 +29,8 @@ selects Ruwix suffix-layer mode.
 
 The Settings dialog also offers two opt-in import dialects. **Twizzle / cubing.js**
 recognizes the experimental caret-NISS leaf `^(...)`, leaving ordinary parentheses as
-normal grouping. **SSE 3×3 (Superset ENG)** maps Randelshofer's 3×3-only `T`, `M`,
-`S`, and `C` prefixed turns to Cube Rosetta's standard wide, slice, paired-face, and
+normal grouping. **SSE 2×2–5×5 (Superset ENG)** maps Randelshofer's size-specific `T`, `N`,
+`V`, `M`, `W`, `S`, and `C` prefixes to Cube Rosetta's standard layer, slice, paired-face, and
 rotation moves. SSE also permits compact adjacent move sequences such as `CD2MR2MD`;
 its `·` visual separator is accepted as whitespace. The other dialects retain their
 whitespace requirement. A pasted SSE middle dot is unambiguous and is detected for that
@@ -53,7 +53,7 @@ state at tape position zero.
 
 The six badges cover WCA Article 12 move-token spelling, normative SiGN/LGN grammar,
 documented cubing.js/Twizzle input, conventions described by the SpeedSolving Wiki,
-Ruwix Advanced notation, and Randelshofer's SSE / CubeTwister 3×3 source. A green
+Ruwix Advanced notation, and Randelshofer's SSE / CubeTwister 2×2–5×5 source. A green
 badge means that the original source fits the cited profile; a red badge exposes the
 specific incompatible features in its tooltip. SSE's middle-dot catalogue separator and
 metric suffixes are deliberately SSE-only, so they make the five other badges red rather
@@ -134,7 +134,7 @@ site.
 | [SpeedCubeDB](https://speedcubedb.com/p/4x4/OLLParity) | Community SiGN-like algorithms for multiple cube sizes | Partial | Some 4×4 pages use `M`; Cube Rosetta rejects `M/E/S` outside 3×3 because even cubes have no unique middle slice. |
 | [alg.cubing.net](https://alg.cubing.net/) | Its [bundled parser identifies itself as SiGNw](https://github.com/cubing/alg.cubing.net/blob/main/src/alg.cubing.net/twisty.js/alg/README.md) plus editor nodes | Core covered | Internal pause nodes and Cube Rosetta block-comment nodes are covered as state-neutral input. Preserved newline/editor nodes remain outside the current AST. |
 | [Twizzle / cubing.js](https://js.cubing.net/cubing/alg/) | LGN-derived general algorithm AST | Core grammar, pause leaves, and opt-in experimental caret-NISS covered | Select **Twizzle / cubing.js** to use [experimental caret-NISS](https://github.com/cubing/cubing.js/blob/main/src/cubing/alg/parseAlg.ts) (`^(U L)`); ordinary groups retain their normal meaning. Block comments are a Cube Rosetta extension. Puzzle-specific Square-1, Clock, and Megaminx moves remain outside Cube Rosetta's NxN scope. |
-| [Randelshofer SSE 3×3](https://www.randelshofer.ch/rubik/patterns/doc/supersetENG_3x3.html) | Superset ENG 3×3 layer/rotation prefixes and cubie-state cycles | Partial, explicit SSE 3×3 dialect plus pasteable 2×2/3×3 state output | `TR`, `MR`, `SR`, and `CR` families (including inverse/half turns and `-` inverse suffixes) are supported. Setup accepts and Converter emits corner/edge permutation cycles with orientation. Marked-centre rotations parse as inert metadata until centre-orientation rendering exists. |
+| [Randelshofer SSE 2×2–5×5](https://www.randelshofer.ch/rubik/professor/doc/supersetENG_5x5.html) | Superset ENG size-specific layer/rotation prefixes and cubie-state cycles | Partial, explicit SSE 2×2–5×5 dialect plus pasteable 2×2/3×3 state output | The documented `T`, `N`, `V`, `M`, `W`, `S`, and `C` families are accepted on their applicable sizes, including layer ranges and `-` inverse suffixes. Setup accepts and Converter emits corner/edge permutation cycles with orientation. Marked-centre rotations parse as inert metadata until centre-orientation rendering exists. |
 | [ACube 4](https://github.com/josef-jelinek/acube) | 3×3 positional/cycle state input and turn-list spelling | Covered for complete states and executable turns | Setup imports exact positional states, cycles, and `+`/`-` orientation terms; Converter emits the complete unfolded positional form. ACube partial constraints (`?`, `@`, and bracketed ignored pieces) intentionally remain unresolved because CubeLab requires one physical state. In the ACube dialect, lowercase `e/s/m` map to `y'/z/x'`; `R*` allowed-turn lists are solver configuration, not algorithms. |
 | [CubeDB](https://cubedb.net/) | cubing.js-style algorithms with an optional “old notation (`r = 2R`)” mode | Covered with an explicit setting | Select legacy inner-slice mode for old-notation algorithms; modern SiGN remains the default. |
 | [Ruwix / Roofpig widget](https://ruwix.com/widget/3d/) | Standard cube moves plus Roofpig extensions | Partial | Camera rotations (`R>`, `R>>`), combined moves (`F'+B`), and aliases such as superscript `²` or `Z` are not implemented. |
