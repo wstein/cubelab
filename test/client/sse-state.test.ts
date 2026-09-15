@@ -78,5 +78,6 @@ test("imports SSE's numbered 5×5 wings and centres", () => {
   if (imported.TAG === "Ok") {
     expect(imported._0.state.size).toBe(5);
     expect(imported._0.ignoredCentreOrientations).toContain("++r7");
+    expect(FaceletCodec.render(imported._0.state)).toBe("UUUUUFFFFFUUUUUFFUFFUFUFURURURUURUURRRRRUUUUURRRRRFRFRFFRFRRFRFFFFRFRRFRFRFDBDBDBBDBDDDDBDBBDBDDBDBDLDLDLDDLDLLLLDLDDLDLLDLDLBBBBBLLLLLBBBBBLLBLLBLBLB");
   }
 });

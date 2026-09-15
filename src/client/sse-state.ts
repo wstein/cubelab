@@ -61,6 +61,17 @@ export const looksLikeSseState = (input: string): boolean =>
   /\(\s*(?:\+\+|\+|-)?[ulfrbd]/.test(input);
 
 const largeEdgeLabels = ["ur", "uf", "ul", "ub", "dr", "df", "dl", "db", "fr", "fl", "bl", "br"];
+// CubeTwister's Professor Cube part-to-sticker table. Its numbered centres
+// are two distinct orbits (diagonal 1–4 and edge 5–8), not a simple ring.
+const professorCentres: Record<string, number[]> = {
+  r: [18, 16, 6, 8, 13, 17, 11, 7], u: [6, 8, 18, 16, 11, 7, 13, 17],
+  f: [16, 6, 8, 18, 17, 11, 7, 13], l: [8, 18, 16, 6, 7, 13, 17, 11],
+  d: [8, 18, 16, 6, 7, 13, 17, 11], b: [6, 8, 18, 16, 11, 7, 13, 17],
+};
+const professorWings: Record<string, Record<string, number>> = {
+  ur1: {r: 3, u: 9}, rf1: {r: 15, f: 19}, dr1: {r: 23, d: 19}, bu1: {u: 1, b: 3}, rb1: {r: 19, b: 15}, bd1: {d: 21, b: 23}, ul1: {u: 5, l: 1}, lb1: {l: 15, b: 19}, dl1: {l: 21, d: 15}, fu1: {u: 21, f: 1}, lf1: {f: 15, l: 19}, fd1: {f: 21, d: 1},
+  ur2: {r: 1, u: 19}, rf2: {r: 5, f: 9}, dr2: {r: 21, d: 9}, bu2: {u: 3, b: 1}, rb2: {r: 9, b: 5}, bd2: {d: 23, b: 21}, ul2: {u: 15, l: 3}, lb2: {l: 5, b: 9}, dl2: {l: 23, d: 5}, fu2: {u: 23, f: 3}, lf2: {f: 5, l: 9}, fd2: {f: 23, d: 3},
+};
 const faceNormal = (face: string): [number, number, number] => ({u: [0, 1, 0], d: [0, -1, 0], f: [0, 0, 1], b: [0, 0, -1], r: [1, 0, 0], l: [-1, 0, 0]} as Record<string, [number, number, number]>)[face]!;
 
 const parseLargePart = (source: string): LargePart => {
@@ -112,7 +123,7 @@ const centreCoordinate = (size: number, part: LargePart): [number, number, numbe
   let row: number;
   let col: number;
   if (size === 5) {
-    const ring: Array<[number, number]> = [[0, 0], [0, 1], [0, 2], [1, 2], [2, 2], [2, 1], [2, 0], [1, 0]];
+    const ring: Array<[number, number]> = [[0, 0], [0, 1], [0, 2], [1, 0], [1, 2], [2, 0], [2, 1], [2, 2]];
     [row, col] = ring[part.index - 1] ?? (() => { throw new Error(`'${part.faces}${part.index}' does not name a valid centre.`); })();
   } else {
     if (part.index < 1 || part.index > inner * inner) throw new Error(`'${part.faces}${part.index}' does not name a valid centre.`);
@@ -130,6 +141,17 @@ const centreCoordinate = (size: number, part: LargePart): [number, number, numbe
 };
 
 const largeLocations = (size: number, part: LargePart): Array<[string, number]> => {
+  if (size === 5 && part.kind === "centre") {
+    const index = professorCentres[part.faces]?.[part.index - 1];
+    if (index === undefined) throw new Error(`'${part.faces}${part.index}' does not name a valid centre.`);
+    return [[part.faces, index]];
+  }
+  if (size === 5 && part.kind === "edge") {
+    const wing = professorWings[`${part.faces}${part.index}`];
+    if (wing) return [...part.faces].map((face) => [face, wing[face]!]);
+    const reversed = professorWings[`${[...part.faces].reverse().join("")}${3 - part.index}`];
+    if (reversed) return [...part.faces].map((face) => [face, reversed[face]!]);
+  }
   const coordinate = part.kind === "corner"
     ? (() => { throw new Error("Large-cube SSE corner cycles are not yet supported."); })()
     : part.kind === "edge" ? edgeCoordinate(size, part) : centreCoordinate(size, part);
@@ -160,13 +182,14 @@ const parseLargeSseState = (input: string, size: 4 | 5): Result<SseStateImport, 
         if (kind === "centre" && part.prefix !== "") ignoredCentreOrientations.push(`${part.prefix}${key}`);
         return largeLocations(size, part);
       });
+      const before = facelets.map((face) => [...face]);
       for (let i = 0; i < locations.length; i += 1) {
         const source = locations[i]!;
         const destination = locations[(i + 1) % locations.length]!;
         if (source.length !== destination.length) throw new Error("Each SSE cycle must contain matching cube parts.");
         source.forEach(([sourceFace, sourceIndex], sticker) => {
           const [destinationFace, destinationIndex] = destination[sticker]!;
-          facelets[faceOffset[destinationFace]!]![destinationIndex] = facelets[faceOffset[sourceFace]!]![sourceIndex]!;
+          facelets[faceOffset[destinationFace]!]![destinationIndex] = before[faceOffset[sourceFace]!]![sourceIndex]!;
         });
       }
     }
