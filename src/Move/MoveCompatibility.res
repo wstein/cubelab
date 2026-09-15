@@ -311,7 +311,7 @@ let evaluate = (
     addReason(speedsolvingReasons, "SSE layer prefixes are outside the documented Wiki subset.")
     addReason(ruwixReasons, "SSE T/M/S/C prefixes are not Ruwix Advanced source notation.")
   } else {
-    addReason(sseReasons, "This source was not parsed as SSE 3×3 / CubeTwister notation.")
+    addReason(sseReasons, "This source was not parsed as SSE 2×2–5×5 / CubeTwister notation.")
   }
 
   if notationDialect == Acube {

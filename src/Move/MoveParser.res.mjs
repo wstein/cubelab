@@ -73,6 +73,18 @@ function skipTrivia(parser) {
           exit = 1;
           break;
         case "·" :
+        case "↗" :
+          exit = 2;
+          break;
+        default:
+          continuing = false;
+      }
+      switch (exit) {
+        case 1 :
+          consumed = true;
+          parser.cursor = parser.cursor + 1 | 0;
+          break;
+        case 2 :
           if (parser.notationDialect === "Sse") {
             consumed = true;
             parser.cursor = parser.cursor + 1 | 0;
@@ -80,12 +92,6 @@ function skipTrivia(parser) {
             continuing = false;
           }
           break;
-        default:
-          continuing = false;
-      }
-      if (exit === 1) {
-        consumed = true;
-        parser.cursor = parser.cursor + 1 | 0;
       }
     } else {
       continuing = false;
@@ -675,17 +681,51 @@ function sseRotation(face) {
   }
 }
 
+function sseRange(parser, from_, to_, start) {
+  if (from_ < 1 || to_ < from_ || to_ > parser.size) {
+    fail(parser, `This SSE layer range is not available on a ` + parser.size.toString() + `×` + parser.size.toString() + `×` + parser.size.toString() + ` cube.`, start, undefined);
+  }
+  return {
+    from_: from_,
+    to_: to_
+  };
+}
+
+function sseNumberOrRange(parser, start) {
+  let first = parsePositiveInt(parser);
+  if (first === undefined) {
+    return;
+  }
+  if (!Primitive_object.equal(peek(parser), "-")) {
+    return [
+      first,
+      undefined
+    ];
+  }
+  parser.cursor = parser.cursor + 1 | 0;
+  let last = parsePositiveInt(parser);
+  if (last !== undefined) {
+    return [
+      first,
+      last
+    ];
+  } else {
+    return fail(parser, "An SSE layer range requires a final layer number.", start, undefined);
+  }
+}
+
 function parseSseUnit(parser) {
   let start = parser.cursor;
   let prefix = Stdlib_Option.getOrThrow(consume(parser), undefined);
-  if (parser.size !== 3) {
-    fail(parser, "SSE 3×3 notation is available only for 3×3×3.", start, undefined);
-  }
+  let indices = sseNumberOrRange(parser, start);
   let face = faceForSse(parser, start);
   let turns = parseSuffix(parser, true);
   let desc;
   switch (prefix) {
     case "C" :
+      if (indices !== undefined) {
+        fail(parser, "SSE cube rotations do not take a layer number.", start, undefined);
+      }
       let match = sseRotation(face);
       desc = {
         TAG: "Move",
@@ -697,17 +737,90 @@ function parseSseUnit(parser) {
       };
       break;
     case "M" :
-      let match$1 = sseMidMove(face);
+      if (parser.size < 3) {
+        fail(parser, "SSE mid-layer twists are available only for 3×3×3 through 5×5×5.", start, undefined);
+      }
+      let depth = indices !== undefined ? (
+          indices[1] !== undefined ? fail(parser, "SSE mid-layer twists use one depth, not a layer range.", start, undefined) : indices[0]
+        ) : 1;
+      if (depth > (parser.size - 2 | 0) || (parser.size - depth | 0) % 2 !== 0) {
+        fail(parser, "An SSE mid-layer twist must be centred on the cube.", start, undefined);
+      }
+      if (parser.size === 3 && depth === 1) {
+        let match$1 = sseMidMove(face);
+        desc = {
+          TAG: "Move",
+          _0: {
+            TAG: "SliceTurn",
+            _0: match$1[0]
+          },
+          _1: turns * match$1[1] | 0
+        };
+      } else {
+        let from_ = ((parser.size - depth | 0) / 2 | 0) + 1 | 0;
+        desc = {
+          TAG: "Move",
+          _0: {
+            TAG: "FaceTurn",
+            _0: face,
+            _1: sseRange(parser, from_, (from_ + depth | 0) - 1 | 0, start)
+          },
+          _1: turns
+        };
+      }
+      break;
+    case "N" :
+      if (parser.size !== 5) {
+        fail(parser, "SSE numbered-layer twists are available only for 5×5×5.", start, undefined);
+      }
+      let match$2;
+      if (indices !== undefined) {
+        let last = indices[1];
+        let first = indices[0];
+        match$2 = last !== undefined ? [
+            first,
+            last
+          ] : [
+            first,
+            first
+          ];
+      } else {
+        match$2 = [
+          2,
+          2
+        ];
+      }
       desc = {
         TAG: "Move",
         _0: {
-          TAG: "SliceTurn",
-          _0: match$1[0]
+          TAG: "FaceTurn",
+          _0: face,
+          _1: sseRange(parser, match$2[0], match$2[1], start)
         },
-        _1: turns * match$1[1] | 0
+        _1: turns
       };
       break;
     case "S" :
+      if (parser.size < 3) {
+        fail(parser, "SSE slice twists are available only for 3×3×3 through 5×5×5.", start, undefined);
+      }
+      let match$3;
+      if (indices !== undefined) {
+        let last$1 = indices[1];
+        let value = indices[0];
+        match$3 = last$1 !== undefined ? [
+            value - 1 | 0,
+            (parser.size - last$1 | 0) + 1 | 0
+          ] : [
+            value,
+            value
+          ];
+      } else {
+        match$3 = [
+          1,
+          1
+        ];
+      }
       let opposite = oppositeFace(face);
       desc = {
         TAG: "Group",
@@ -718,10 +831,7 @@ function parseSseUnit(parser) {
               _0: {
                 TAG: "FaceTurn",
                 _0: face,
-                _1: {
-                  from_: 1,
-                  to_: 1
-                }
+                _1: sseRange(parser, 1, match$3[0], start)
               },
               _1: turns
             },
@@ -736,10 +846,7 @@ function parseSseUnit(parser) {
               _0: {
                 TAG: "FaceTurn",
                 _0: opposite,
-                _1: {
-                  from_: 1,
-                  to_: 1
-                }
+                _1: sseRange(parser, 1, match$3[1], start)
               },
               _1: -turns | 0
             },
@@ -753,15 +860,52 @@ function parseSseUnit(parser) {
       };
       break;
     case "T" :
+      if (parser.size < 3) {
+        fail(parser, "SSE tier twists are available only for 3×3×3 through 5×5×5.", start, undefined);
+      }
+      let depth$1 = indices !== undefined ? (
+          indices[1] !== undefined ? fail(parser, "SSE tier twists use one depth, not a layer range.", start, undefined) : indices[0]
+        ) : 2;
       desc = {
         TAG: "Move",
         _0: {
           TAG: "FaceTurn",
           _0: face,
-          _1: {
-            from_: 1,
-            to_: 2
-          }
+          _1: sseRange(parser, 1, depth$1, start)
+        },
+        _1: turns
+      };
+      break;
+    case "V" :
+      if (parser.size !== 5) {
+        fail(parser, "SSE void twists are available only for 5×5×5.", start, undefined);
+      }
+      let depth$2 = indices !== undefined ? (
+          indices[1] !== undefined ? fail(parser, "SSE void twists use one depth, not a layer range.", start, undefined) : indices[0]
+        ) : 2;
+      desc = {
+        TAG: "Move",
+        _0: {
+          TAG: "FaceTurn",
+          _0: face,
+          _1: sseRange(parser, 2, depth$2 + 1 | 0, start)
+        },
+        _1: turns
+      };
+      break;
+    case "W" :
+      if (parser.size < 4) {
+        fail(parser, "SSE wide-layer twists are available only for 4×4×4 and 5×5×5.", start, undefined);
+      }
+      if (indices !== undefined) {
+        fail(parser, "SSE wide-layer twists do not take a layer number.", start, undefined);
+      }
+      desc = {
+        TAG: "Move",
+        _0: {
+          TAG: "FaceTurn",
+          _0: face,
+          _1: sseRange(parser, 2, parser.size - 1 | 0, start)
         },
         _1: turns
       };
@@ -1086,8 +1230,11 @@ function parseUnit(parser) {
       return parseTimedPause(parser);
     case "C" :
     case "M" :
+    case "N" :
     case "S" :
     case "T" :
+    case "V" :
+    case "W" :
       exit = 2;
       break;
     case "[" :
@@ -1309,6 +1456,8 @@ export {
   sseMidMove,
   oppositeFace,
   sseRotation,
+  sseRange,
+  sseNumberOrRange,
   parseSseUnit,
   parseBlockComment,
   isSseMetric,

@@ -44,9 +44,11 @@ let skipTrivia = parser => {
         consumed := true
         parser.cursor = parser.cursor + 1
       }
-    | Some("·") if parser.notationDialect == Sse => {
-        // SSE uses a middle dot as a visual sequence delimiter. Unlike CubeLab's
-        // whitespace-delimited `.` pause leaf, it has no playback timing meaning.
+    | Some("·" | "↗") if parser.notationDialect == Sse => {
+      // SSE uses a middle dot as a visual sequence delimiter. Unlike CubeLab's
+      // whitespace-delimited `.` pause leaf, it has no playback timing meaning.
+      // `↗` is likewise accepted as a harmless visual turn marker in copied
+      // catalogue lines.
         consumed := true
         parser.cursor = parser.cursor + 1
       }
@@ -428,30 +430,120 @@ let sseRotation = face =>
   | StateTypes.B => (Z, -1)
   }
 
+let sseRange = (parser, from_, to_, ~start) => {
+  if from_ < 1 || to_ < from_ || to_ > parser.size {
+    fail(
+      parser,
+      `This SSE layer range is not available on a ${parser.size->Int.toString}×${parser.size->Int.toString}×${parser.size->Int.toString} cube.`,
+      ~start,
+    )
+  }
+  {from_, to_}
+}
+
+let sseNumberOrRange = (parser, ~start) => {
+  switch parsePositiveInt(parser) {
+  | None => None
+  | Some(first) =>
+    if peek(parser) == Some("-") {
+      parser.cursor = parser.cursor + 1
+      switch parsePositiveInt(parser) {
+      | Some(last) => Some((first, Some(last)))
+      | None => fail(parser, "An SSE layer range requires a final layer number.", ~start)
+      }
+    } else {
+      Some((first, None))
+    }
+  }
+}
+
 let parseSseUnit = parser => {
   let start = parser.cursor
   let prefix = consume(parser)->Option.getOrThrow
-  if parser.size != 3 {
-    fail(parser, "SSE 3×3 notation is available only for 3×3×3.", ~start)
-  }
+  let indices = sseNumberOrRange(parser, ~start)
   let face = faceForSse(parser, ~start)
   let turns = parseSuffix(parser, ~allowZero=true)
   let desc = switch prefix {
-  | "T" => Move(FaceTurn(face, {from_: 1, to_: 2}), turns)
+  | "T" => {
+      if parser.size < 3 {
+        fail(parser, "SSE tier twists are available only for 3×3×3 through 5×5×5.", ~start)
+      }
+      let depth = switch indices {
+      | None => 2
+      | Some((value, None)) => value
+      | Some(_) => fail(parser, "SSE tier twists use one depth, not a layer range.", ~start)
+      }
+      Move(FaceTurn(face, sseRange(parser, 1, depth, ~start)), turns)
+    }
+  | "N" => {
+      if parser.size != 5 {
+        fail(parser, "SSE numbered-layer twists are available only for 5×5×5.", ~start)
+      }
+      let (from_, to_) = switch indices {
+      | None => (2, 2)
+      | Some((first, None)) => (first, first)
+      | Some((first, Some(last))) => (first, last)
+      }
+      Move(FaceTurn(face, sseRange(parser, from_, to_, ~start)), turns)
+    }
+  | "V" => {
+      if parser.size != 5 {
+        fail(parser, "SSE void twists are available only for 5×5×5.", ~start)
+      }
+      let depth = switch indices {
+      | None => 2
+      | Some((value, None)) => value
+      | Some(_) => fail(parser, "SSE void twists use one depth, not a layer range.", ~start)
+      }
+      Move(FaceTurn(face, sseRange(parser, 2, depth + 1, ~start)), turns)
+    }
   | "M" => {
-      let (slice, factor) = sseMidMove(face)
-      Move(SliceTurn(slice), turns * factor)
+      if parser.size < 3 {
+        fail(parser, "SSE mid-layer twists are available only for 3×3×3 through 5×5×5.", ~start)
+      }
+      let depth = switch indices {
+      | None => 1
+      | Some((value, None)) => value
+      | Some(_) => fail(parser, "SSE mid-layer twists use one depth, not a layer range.", ~start)
+      }
+      if depth > parser.size - 2 || (parser.size - depth)->Int.mod(2) != 0 {
+        fail(parser, "An SSE mid-layer twist must be centred on the cube.", ~start)
+      }
+      if parser.size == 3 && depth == 1 {
+        let (slice, factor) = sseMidMove(face)
+        Move(SliceTurn(slice), turns * factor)
+      } else {
+        let from_ = (parser.size - depth) / 2 + 1
+        Move(FaceTurn(face, sseRange(parser, from_, from_ + depth - 1, ~start)), turns)
+      }
+    }
+  | "W" => {
+      if parser.size < 4 {
+        fail(parser, "SSE wide-layer twists are available only for 4×4×4 and 5×5×5.", ~start)
+      }
+      if indices != None {
+        fail(parser, "SSE wide-layer twists do not take a layer number.", ~start)
+      }
+      Move(FaceTurn(face, sseRange(parser, 2, parser.size - 1, ~start)), turns)
     }
   | "S" => {
+      if parser.size < 3 {
+        fail(parser, "SSE slice twists are available only for 3×3×3 through 5×5×5.", ~start)
+      }
+      let (nearDepth, farDepth) = switch indices {
+      | None => (1, 1)
+      | Some((value, None)) => (value, value)
+      | Some((first, Some(last))) => (first - 1, parser.size - last + 1)
+      }
       let opposite = oppositeFace(face)
       Group(
         [
           {
-            desc: Move(FaceTurn(face, {from_: 1, to_: 1}), turns),
+            desc: Move(FaceTurn(face, sseRange(parser, 1, nearDepth, ~start)), turns),
             loc: {start, end_: parser.cursor},
           },
           {
-            desc: Move(FaceTurn(opposite, {from_: 1, to_: 1}), -turns),
+            desc: Move(FaceTurn(opposite, sseRange(parser, 1, farDepth, ~start)), -turns),
             loc: {start, end_: parser.cursor},
           },
         ],
@@ -459,6 +551,9 @@ let parseSseUnit = parser => {
       )
     }
   | "C" => {
+      if indices != None {
+        fail(parser, "SSE cube rotations do not take a layer number.", ~start)
+      }
       let (axis, factor) = sseRotation(face)
       Move(Rotation(axis), turns * factor)
     }
@@ -696,7 +791,7 @@ and parseUnit = parser => {
     parseBlockComment(parser)
   } else {
     switch peek(parser) {
-    | Some("T" | "M" | "S" | "C") if parser.notationDialect == Sse => parseSseUnit(parser)
+    | Some("T" | "N" | "V" | "M" | "W" | "S" | "C") if parser.notationDialect == Sse => parseSseUnit(parser)
     | Some(".") => {
         parser.cursor = parser.cursor + 1
         {desc: Pause, loc: {start, end_: parser.cursor}}

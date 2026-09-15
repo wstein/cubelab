@@ -153,9 +153,23 @@ test("maps SSE 3×3 tier, mid-layer, slice, and cube turns to equivalent CubeLab
   assert.equal(FaceletCodec.render(sseState._0), FaceletCodec.render(modernState._0));
   assert.equal(MoveTransform.serialize(sse), "Rw M' E' S (R L') (U D') (F B') x y z R'");
 
-  const wrongSize = MoveParser.parseWithOptions(4, "Wide", "Sse", "TR");
-  assert.equal(wrongSize.TAG, "Error");
-  assert.match(wrongSize._0.message, /only for 3×3×3/);
+});
+
+test("maps SSE's size-specific 2×2–5×5 layer prefixes to CubeLab layer ranges", () => {
+  const input = "D2 F2 L' SF2 L D' WR' D' F2 D↗ WR D' T3B TU T3B TL2 TF' TD' TL MD2 TB TU2 TL2 TF MR2 TU TF'";
+  const sse = parseWithOptions(5, "Wide", "Sse", input);
+  const modern = parse(5, "D2 F2 L' (F2 B2) L D' 2-4Rw' D' F2 D 2-4Rw D' 3Bw 2Uw 3Bw 2Lw2 2Fw' 2Dw' 2Lw 3D2 2Bw 2Uw2 2Lw2 2Fw 3R2 2Uw 2Fw'");
+  const sseState = MoveExecutor.applyAlg(StateTypes.solved(5)._0, sse);
+  const modernState = MoveExecutor.applyAlg(StateTypes.solved(5)._0, modern);
+  assert.equal(sseState.TAG, "Ok");
+  assert.equal(modernState.TAG, "Ok");
+  assert.equal(FaceletCodec.render(sseState._0), FaceletCodec.render(modernState._0));
+
+  const numbered = parseWithOptions(5, "Wide", "Sse", "N3R N2-3U V3F M3L WU S2R S2-3B CR");
+  assert.ok(numbered.length > 0);
+  assert.equal(MoveParser.parseWithOptions(2, "Wide", "Sse", "CR").TAG, "Ok");
+  assert.match(MoveParser.parseWithOptions(2, "Wide", "Sse", "TR")._0.message, /only for 3×3×3 through 5×5×5/);
+  assert.match(MoveParser.parseWithOptions(4, "Wide", "Sse", "N2R")._0.message, /only for 5×5×5/);
 });
 
 test("maps ACube's e, s, and m whole-cube rotations to conventional axes", () => {
