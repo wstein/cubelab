@@ -8,6 +8,8 @@ type Part = {prefix: "" | "+" | "-" | "++"; label: string; slot: number; kind: P
 
 export type SseStateImport = {state: CubeState; ignoredCentreOrientations: string[]};
 
+type LargePart = {prefix: "" | "+" | "-" | "++"; faces: string; index: number; kind: "corner" | "edge" | "centre"};
+
 const cornerLabels = ["urf", "ufl", "ulb", "ubr", "dfr", "dlf", "dbl", "drb"];
 const edgeLabels = ["ur", "uf", "ul", "ub", "dr", "df", "dl", "db", "fr", "fl", "bl", "br"];
 const centreLabels = ["u", "l", "f", "r", "b", "d"];
@@ -58,13 +60,130 @@ const prefixOrientation = (part: Part): number => {
 export const looksLikeSseState = (input: string): boolean =>
   /\(\s*(?:\+\+|\+|-)?[ulfrbd]/.test(input);
 
+const largeEdgeLabels = ["ur", "uf", "ul", "ub", "dr", "df", "dl", "db", "fr", "fl", "bl", "br"];
+const faceNormal = (face: string): [number, number, number] => ({u: [0, 1, 0], d: [0, -1, 0], f: [0, 0, 1], b: [0, 0, -1], r: [1, 0, 0], l: [-1, 0, 0]} as Record<string, [number, number, number]>)[face]!;
+
+const parseLargePart = (source: string): LargePart => {
+  const match = /^(\+\+|\+|-)?([ulfrbd]{1,3})(\d+)?$/.exec(source);
+  if (!match) throw new Error(`'${source}' is not an SSE cubie location.`);
+  const faces = match[2]!;
+  if (new Set(faces).size !== faces.length) throw new Error(`'${source}' repeats a face letter.`);
+  const kind = faces.length === 3 ? "corner" : faces.length === 2 ? "edge" : "centre";
+  const index = Number(match[3] ?? "0");
+  if (kind === "corner" && index !== 0) throw new Error("SSE corner locations do not take a number.");
+  if (kind !== "corner" && index === 0) throw new Error(`'${source}' requires a numbered ${kind} location on this cube.`);
+  return {prefix: (match[1] ?? "") as LargePart["prefix"], faces, index, kind};
+};
+
+const faceletIndex = (size: number, face: string, gx: number, gy: number, gz: number): number => {
+  const last = size - 1;
+  const [row, col] = face === "u" ? [gz, gx]
+    : face === "d" ? [last - gz, gx]
+    : face === "f" ? [last - gy, gx]
+    : face === "b" ? [last - gy, last - gx]
+    : face === "r" ? [last - gy, last - gz]
+    : [last - gy, gz];
+  return row * size + col;
+};
+
+const exposed = (face: string, gx: number, gy: number, gz: number, last: number): boolean => {
+  const [x, y, z] = faceNormal(face);
+  return (x === 1 && gx === last) || (x === -1 && gx === 0)
+    || (y === 1 && gy === last) || (y === -1 && gy === 0)
+    || (z === 1 && gz === last) || (z === -1 && gz === 0);
+};
+
+const edgeCoordinate = (size: number, part: LargePart): [number, number, number] => {
+  const canonicalIndex = largeEdgeLabels.findIndex((label) => [...label].sort().join("") === [...part.faces].sort().join(""));
+  if (canonicalIndex < 0) throw new Error(`'${part.faces}' does not name a valid edge location.`);
+  const canonical = largeEdgeLabels[canonicalIndex]!;
+  const candidates: Array<[number, number, number]> = [];
+  for (let gx = 0; gx < size; gx += 1) for (let gy = 0; gy < size; gy += 1) for (let gz = 0; gz < size; gz += 1) {
+    const boundaryCount = [gx, gy, gz].filter((value) => value === 0 || value === size - 1).length;
+    if (boundaryCount === 2 && exposed(canonical[0]!, gx, gy, gz, size - 1) && exposed(canonical[1]!, gx, gy, gz, size - 1)) candidates.push([gx, gy, gz]);
+  }
+  const offset = part.faces === canonical ? part.index - 1 : candidates.length - part.index;
+  if (offset < 0 || offset >= candidates.length) throw new Error(`'${part.faces}${part.index}' does not name a valid edge wing.`);
+  return candidates[offset]!;
+};
+
+const centreCoordinate = (size: number, part: LargePart): [number, number, number] => {
+  const inner = size - 2;
+  let row: number;
+  let col: number;
+  if (size === 5) {
+    const ring: Array<[number, number]> = [[0, 0], [0, 1], [0, 2], [1, 2], [2, 2], [2, 1], [2, 0], [1, 0]];
+    [row, col] = ring[part.index - 1] ?? (() => { throw new Error(`'${part.faces}${part.index}' does not name a valid centre.`); })();
+  } else {
+    if (part.index < 1 || part.index > inner * inner) throw new Error(`'${part.faces}${part.index}' does not name a valid centre.`);
+    row = Math.floor((part.index - 1) / inner);
+    col = (part.index - 1) % inner;
+  }
+  const last = size - 1;
+  const face = part.faces;
+  return face === "u" ? [col + 1, last, row + 1]
+    : face === "d" ? [col + 1, 0, last - row - 1]
+    : face === "f" ? [col + 1, last - row - 1, last]
+    : face === "b" ? [last - col - 1, last - row - 1, 0]
+    : face === "r" ? [last, last - row - 1, last - col - 1]
+    : [0, last - row - 1, col + 1];
+};
+
+const largeLocations = (size: number, part: LargePart): Array<[string, number]> => {
+  const coordinate = part.kind === "corner"
+    ? (() => { throw new Error("Large-cube SSE corner cycles are not yet supported."); })()
+    : part.kind === "edge" ? edgeCoordinate(size, part) : centreCoordinate(size, part);
+  return [...part.faces].map((face) => [face, faceletIndex(size, face, ...coordinate)]);
+};
+
+/** Applies SSE's numbered wing and centre cycles directly to 4×4/5×5 facelets. */
+const parseLargeSseState = (input: string, size: 4 | 5): Result<SseStateImport, string> => {
+  const cycles = [...input.matchAll(/\(([^()]*)\)/g)];
+  if (cycles.length === 0) return {TAG: "Error", _0: "Expected at least one SSE permutation cycle."};
+  if (input.replace(/\(([^()]*)\)/g, "").trim() !== "") return {TAG: "Error", _0: "Unexpected SSE state input."};
+  try {
+    const facelets = ["U", "L", "F", "R", "B", "D"].map((face) => Array.from({length: size * size}, () => face));
+    const faceOffset: Record<string, number> = {u: 0, l: 1, f: 2, r: 3, b: 4, d: 5};
+    const used = new Set<string>();
+    const ignoredCentreOrientations: string[] = [];
+    for (const cycleMatch of cycles) {
+      const parts = cycleMatch[1]!.split(",").map((value) => parseLargePart(value.trim()));
+      if (parts.length === 0 || cycleMatch[1]!.trim() === "") throw new Error("SSE cycles may not be empty.");
+      const kind = parts[0]!.kind;
+      if (!parts.every((part) => part.kind === kind)) throw new Error("Each SSE cycle must contain only corners, edges, or centres.");
+      if (kind === "corner") throw new Error("Large-cube SSE corner cycles are not yet supported.");
+      if (kind !== "centre" && parts.slice(1).some((part) => part.prefix !== "")) throw new Error("An SSE orientation prefix is allowed only on the first part of a cycle.");
+      const locations = parts.map((part) => {
+        const key = `${part.faces}${part.index}`;
+        if (used.has(key)) throw new Error(`'${key}' appears in more than one SSE cycle.`);
+        used.add(key);
+        if (kind === "centre" && part.prefix !== "") ignoredCentreOrientations.push(`${part.prefix}${key}`);
+        return largeLocations(size, part);
+      });
+      for (let i = 0; i < locations.length; i += 1) {
+        const source = locations[i]!;
+        const destination = locations[(i + 1) % locations.length]!;
+        if (source.length !== destination.length) throw new Error("Each SSE cycle must contain matching cube parts.");
+        source.forEach(([sourceFace, sourceIndex], sticker) => {
+          const [destinationFace, destinationIndex] = destination[sticker]!;
+          facelets[faceOffset[destinationFace]!]![destinationIndex] = facelets[faceOffset[sourceFace]!]![sourceIndex]!;
+        });
+      }
+    }
+    return {TAG: "Ok", _0: {state: {size, facelets}, ignoredCentreOrientations}};
+  } catch (reason) {
+    return {TAG: "Error", _0: reason instanceof Error ? reason.message : String(reason)};
+  }
+};
+
 /**
  * Parses CubeTwister / Randelshofer SSE permutation cycles into validated
  * 2×2 or 3×3 cubie coordinates. A 2×2 has corners only; centre rotations are
  * syntactically retained as warnings for 3×3 because colour-only facelets
  * cannot represent a logo's orientation.
  */
-export const parseSseState = (input: string, size: 2 | 3 = 3): Result<SseStateImport, string> => {
+export const parseSseState = (input: string, size: 2 | 3 | 4 | 5 = 3): Result<SseStateImport, string> => {
+  if (size === 4 || size === 5) return parseLargeSseState(input, size);
   const cycles = [...input.matchAll(/\(([^()]*)\)/g)];
   if (cycles.length === 0) return {TAG: "Error", _0: "Expected at least one SSE permutation cycle."};
   const remainder = input.replace(/\(([^()]*)\)/g, "").trim();
