@@ -2047,7 +2047,7 @@ if (root) {
   // assign it a move meaning. Recognize it for copy/pasted SSE catalogue lines
   // without changing the user's persistent dialect selection.
   const dialectForPastedInput = (value: string): NotationDialect =>
-    size === 3 && value.includes("·") ? "Sse" : notationDialect;
+    size >= 2 && size <= 5 && value.includes("·") ? "Sse" : notationDialect;
 
   const parseAlgorithm = (value: string): Result<RecognizedInput> => {
     const effectiveDialect = dialectForPastedInput(value);
@@ -3562,7 +3562,7 @@ if (root) {
     cubingJs: "The original source is portable to the documented cubing.js/Twizzle algorithm grammar.",
     speedsolving: "The original source uses conventions documented by the SpeedSolving Wiki profile.",
     ruwix: "The original source uses move forms documented by Ruwix Advanced notation.",
-    sse: "The original source fits Randelshofer's SSE 3×3 / CubeTwister notation.",
+    sse: "The original source fits Randelshofer's SSE 2×2–5×5 / CubeTwister notation.",
     acube: "The original source fits ACube 4's 3×3 turn notation.",
   };
 
