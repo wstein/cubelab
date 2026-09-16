@@ -743,8 +743,8 @@ function parseSseUnit(parser) {
       let depth = indices !== undefined ? (
           indices[1] !== undefined ? fail(parser, "SSE mid-layer twists use one depth, not a layer range.", start, undefined) : indices[0]
         ) : 1;
-      if (depth > (parser.size - 2 | 0) || (parser.size - depth | 0) % 2 !== 0) {
-        fail(parser, "An SSE mid-layer twist must be centred on the cube.", start, undefined);
+      if (depth > (parser.size - 2 | 0)) {
+        fail(parser, "An SSE mid-layer twist may not include an outer layer.", start, undefined);
       }
       if (parser.size === 3 && depth === 1) {
         let match$1 = sseMidMove(face);

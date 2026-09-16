@@ -183,6 +183,33 @@ test("maps the Workbench SSE wide, numbered, and middle-layer sequence", () => {
   assert.equal(FaceletCodec.render(sseState._0), FaceletCodec.render(modernState._0));
 });
 
+test("maps every listed Revenge Cube 2 Dots SSE sequence", () => {
+  const algorithms = [
+    "(MB2 MR2)2",
+    "U' (MB2 MR2)2 U",
+    "U2 WR MD2 WR' U' WR MD2 WR' U'",
+    "MR' F' MR MB2 MR' F MR MB2",
+    "(ML2 D' MR2 D)2",
+  ];
+  const states = algorithms.map((input) => {
+    const parsed = parseWithOptions(4, "Wide", "Sse", input);
+    const applied = MoveExecutor.applyAlg(StateTypes.solved(4)._0, parsed);
+    assert.equal(applied.TAG, "Ok");
+    return FaceletCodec.render(applied._0);
+  });
+  assert.equal(states[2], states[3]);
+  assert.equal(states[3], states[4]);
+
+  const ml = parseWithOptions(4, "Wide", "Sse", "ML2")[0];
+  const mr = parseWithOptions(4, "Wide", "Sse", "MR2")[0];
+  assert.deepEqual(ml.desc._0._1, {from_: 2, to_: 2});
+  assert.deepEqual(mr.desc._0._1, {from_: 2, to_: 2});
+
+  const modern = MoveExecutor.applyAlg(StateTypes.solved(4)._0, parse(4, "(2L2 D' 2R2 D)2"));
+  assert.equal(modern.TAG, "Ok");
+  assert.equal(states[4], FaceletCodec.render(modern._0));
+});
+
 test("maps ACube's e, s, and m whole-cube rotations to conventional axes", () => {
   const acube = parseWithOptions(3, "Wide", "Acube", "m e s m' e' s'");
   const modern = parse(3, "x' y' z x y z'");

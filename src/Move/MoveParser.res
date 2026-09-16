@@ -506,8 +506,8 @@ let parseSseUnit = parser => {
       | Some((value, None)) => value
       | Some(_) => fail(parser, "SSE mid-layer twists use one depth, not a layer range.", ~start)
       }
-      if depth > parser.size - 2 || (parser.size - depth)->Int.mod(2) != 0 {
-        fail(parser, "An SSE mid-layer twist must be centred on the cube.", ~start)
+      if depth > parser.size - 2 {
+        fail(parser, "An SSE mid-layer twist may not include an outer layer.", ~start)
       }
       if parser.size == 3 && depth == 1 {
         let (slice, factor) = sseMidMove(face)
