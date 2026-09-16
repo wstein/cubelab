@@ -993,10 +993,12 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   justify-content: space-between;
   gap: 0.8rem;
   width: 100%;
+  overflow-x: auto;
 }
 
 .manual-state-representation-switch {
   display: flex;
+  flex-shrink: 0;
   gap: 0.4rem;
   align-self: flex-start;
 }
@@ -1009,8 +1011,13 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 
 .manual-state-rotation-controls {
   display: flex;
+  flex-shrink: 0;
   gap: 0.4rem;
   align-items: center;
+}
+
+.manual-state-controls-bar .transform-btn {
+  white-space: nowrap;
 }
 
 .manual-state-rotation-controls[hidden] {
@@ -1058,6 +1065,69 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="B"] {
   transform: translateY(calc(-100% - var(--manual-state-face-gap)));
+}
+
+/* Open cube: front/left/up form a solid corner; back/right/down hinge
+   outward. Coordinates use a two-face-wide, 2.4-face-high canvas. Affine
+   transforms preserve the actual sticker buttons and their hit targets. */
+.manual-state-net[data-representation="open-cube"] {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem;
+}
+
+.manual-state-net[data-representation="open-cube"] .manual-state-net-faces {
+  display: block;
+  position: relative;
+  width: min(100%, 30rem);
+  aspect-ratio: 2 / 2.4;
+}
+
+.manual-state-net[data-representation="open-cube"] .manual-state-face {
+  position: absolute;
+  width: 50%;
+  height: calc(100% / 2.4);
+  box-sizing: border-box;
+  padding: 0.12rem;
+  border-radius: 0.2rem;
+  background: var(--border-subtle);
+  transform-origin: top left;
+}
+
+.manual-state-net[data-representation="open-cube"] .manual-state-face[data-face="F"] {
+  left: 27.5%;
+  top: calc(100% * 0.85 / 2.4);
+}
+
+.manual-state-net[data-representation="open-cube"] .manual-state-face[data-face="L"] {
+  left: 0;
+  top: calc(100% * 0.45 / 2.4);
+  transform: matrix(0.55, 0.4, 0, 1, 0, 0);
+}
+
+.manual-state-net[data-representation="open-cube"] .manual-state-face[data-face="U"] {
+  left: 0;
+  top: calc(100% * 0.45 / 2.4);
+  transform: matrix(1, 0, 0.55, 0.4, 0, 0);
+}
+
+/* Back's top edge joins Up's top edge, with reversed column order. */
+.manual-state-net[data-representation="open-cube"] .manual-state-face[data-face="B"] {
+  left: 50%;
+  top: calc(100% * 0.45 / 2.4);
+  transform: matrix(-1, 0, 0.55, -0.4, 0, 0);
+}
+
+.manual-state-net[data-representation="open-cube"] .manual-state-face[data-face="R"] {
+  left: 77.5%;
+  top: calc(100% * 0.85 / 2.4);
+  transform: matrix(0.4, -0.55, 0, 1, 0, 0);
+}
+
+.manual-state-net[data-representation="open-cube"] .manual-state-face[data-face="D"] {
+  left: 27.5%;
+  top: calc(100% * 1.85 / 2.4);
+  transform: matrix(1, 0, -0.55, 0.4, 0, 0);
 }
 
 /* 3D view: David DeSandro true 3D cube with exploded hidden faces (L, B, D in Orient 0). */

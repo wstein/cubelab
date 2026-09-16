@@ -536,7 +536,7 @@ if (root) {
   // button happened to retain browser focus after using the palette or view
   // controls. It makes keyboard painting predictable in every representation.
   let manualStateCursorIndex: number | null = null;
-  let manualStateRepresentation: "standard" | "attached" | "isometric" = "attached";
+  let manualStateRepresentation: "standard" | "attached" | "open-cube" | "isometric" = "attached";
   let manualStateOrientation: 0 | 1 | 2 | 3 = 0;
   let manualStateIsRotating = false;
   let manualStateDotGeneration = 0;
@@ -1932,7 +1932,7 @@ if (root) {
     });
   });
 
-  const setManualStateRepresentation = (representation: "standard" | "attached" | "isometric") => {
+  const setManualStateRepresentation = (representation: "standard" | "attached" | "open-cube" | "isometric") => {
     if (representation === manualStateRepresentation) return;
     manualStateIsRotating = false;
     delete manualStateNet.dataset.animState;
@@ -1961,7 +1961,7 @@ if (root) {
   };
   manualStateRepresentationButtons.forEach((button) => {
     button.addEventListener("click", () => {
-      setManualStateRepresentation(button.dataset.manualStateRepresentation as "standard" | "attached" | "isometric");
+      setManualStateRepresentation(button.dataset.manualStateRepresentation as "standard" | "attached" | "open-cube" | "isometric");
     });
   });
 
