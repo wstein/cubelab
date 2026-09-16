@@ -81,3 +81,10 @@ test("imports SSE's numbered 5×5 wings and centres", () => {
     expect(FaceletCodec.render(imported._0.state)).toBe("UUUUUFFFFFUUUUUFFUFFUFUFURURURUURUURRRRRUUUUURRRRRFRFRFFRFRRFRFFFFRFRRFRFRFDBDBDBBDBDDDDBDBBDBDDBDBDLDLDLDDLDLLLLDLDDLDLLDLDLBBBBBLLLLLBBBBBLLBLLBLBLB");
   }
 });
+
+test("imports 5×5 SSE corners, middges, and fixed centres", () => {
+  const input = "(ur1,dl1) (rf1,lb1) (dr1,ul1) (bu1,fd1) (rb1,lf1) (bd1,fu1) (ur2,dl2) (rf2,lb2) (dr2,ul2) (bu2,fd2) (rb2,lf2) (bd2,fu2) (r,-f,++u) (l,+b,++d) (r1,+f2,++u3,++r3,-f4,u1) (f1,+u2,+r2,++f3,-u4,-r4) (l1,-b4,++d3,++l3,+b2,d1) (b1,-d4,-l4,++b3,+d2,+l2) (r5,b5,++u7,-l8,-f8,+d6) (u5,+l6,+f6,-d8,++r7,++b7) (f5,d5,+r6,-b8,-u8,++l7) (l5,++f7,++d7,-r8,+b6,+u6)";
+  const imported = parseSseState(input, 5);
+  expect(imported.TAG).toBe("Ok");
+  if (imported.TAG === "Ok") expect(imported._0.state.size).toBe(5);
+});

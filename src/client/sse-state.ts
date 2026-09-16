@@ -72,6 +72,9 @@ const professorWings: Record<string, Record<string, number>> = {
   ur1: {r: 3, u: 9}, rf1: {r: 15, f: 19}, dr1: {r: 23, d: 19}, bu1: {u: 1, b: 3}, rb1: {r: 19, b: 15}, bd1: {d: 21, b: 23}, ul1: {u: 5, l: 1}, lb1: {l: 15, b: 19}, dl1: {l: 21, d: 15}, fu1: {u: 21, f: 1}, lf1: {f: 15, l: 19}, fd1: {f: 21, d: 1},
   ur2: {r: 1, u: 19}, rf2: {r: 5, f: 9}, dr2: {r: 21, d: 9}, bu2: {u: 3, b: 1}, rb2: {r: 9, b: 5}, bd2: {d: 23, b: 21}, ul2: {u: 15, l: 3}, lb2: {l: 5, b: 9}, dl2: {l: 23, d: 5}, fu2: {u: 23, f: 3}, lf2: {f: 5, l: 9}, fd2: {f: 23, d: 3},
 };
+const professorMidges: Record<string, Record<string, number>> = {
+  ur: {r: 2, u: 14}, rf: {r: 10, f: 14}, dr: {r: 22, d: 14}, bu: {u: 2, b: 2}, rb: {r: 14, b: 10}, bd: {d: 22, b: 22}, ul: {u: 10, l: 2}, lb: {l: 10, b: 14}, dl: {l: 22, d: 10}, fu: {u: 22, f: 2}, lf: {f: 10, l: 14}, fd: {f: 22, d: 2},
+};
 const faceNormal = (face: string): [number, number, number] => ({u: [0, 1, 0], d: [0, -1, 0], f: [0, 0, 1], b: [0, 0, -1], r: [1, 0, 0], l: [-1, 0, 0]} as Record<string, [number, number, number]>)[face]!;
 
 const parseLargePart = (source: string): LargePart => {
@@ -82,7 +85,6 @@ const parseLargePart = (source: string): LargePart => {
   const kind = faces.length === 3 ? "corner" : faces.length === 2 ? "edge" : "centre";
   const index = Number(match[3] ?? "0");
   if (kind === "corner" && index !== 0) throw new Error("SSE corner locations do not take a number.");
-  if (kind !== "corner" && index === 0) throw new Error(`'${source}' requires a numbered ${kind} location on this cube.`);
   return {prefix: (match[1] ?? "") as LargePart["prefix"], faces, index, kind};
 };
 
@@ -140,20 +142,34 @@ const centreCoordinate = (size: number, part: LargePart): [number, number, numbe
     : [0, last - row - 1, col + 1];
 };
 
+const cornerCoordinate = (size: number, part: LargePart): [number, number, number] => {
+  const candidates: Array<[number, number, number]> = [];
+  for (const gx of [0, size - 1]) for (const gy of [0, size - 1]) for (const gz of [0, size - 1]) {
+    if ([...part.faces].every((face) => exposed(face, gx, gy, gz, size - 1))) candidates.push([gx, gy, gz]);
+  }
+  if (candidates.length !== 1) throw new Error(`'${part.faces}' does not name a valid corner location.`);
+  return candidates[0]!;
+};
+
 const largeLocations = (size: number, part: LargePart): Array<[string, number]> => {
   if (size === 5 && part.kind === "centre") {
+    if (part.index === 0) return [[part.faces, 12]];
     const index = professorCentres[part.faces]?.[part.index - 1];
     if (index === undefined) throw new Error(`'${part.faces}${part.index}' does not name a valid centre.`);
     return [[part.faces, index]];
   }
   if (size === 5 && part.kind === "edge") {
+    if (part.index === 0) {
+      const midge = professorMidges[part.faces] ?? professorMidges[[...part.faces].reverse().join("")];
+      if (midge) return [...part.faces].map((face) => [face, midge[face]!]);
+    }
     const wing = professorWings[`${part.faces}${part.index}`];
     if (wing) return [...part.faces].map((face) => [face, wing[face]!]);
     const reversed = professorWings[`${[...part.faces].reverse().join("")}${3 - part.index}`];
     if (reversed) return [...part.faces].map((face) => [face, reversed[face]!]);
   }
   const coordinate = part.kind === "corner"
-    ? (() => { throw new Error("Large-cube SSE corner cycles are not yet supported."); })()
+    ? cornerCoordinate(size, part)
     : part.kind === "edge" ? edgeCoordinate(size, part) : centreCoordinate(size, part);
   return [...part.faces].map((face) => [face, faceletIndex(size, face, ...coordinate)]);
 };
@@ -173,7 +189,6 @@ const parseLargeSseState = (input: string, size: 4 | 5): Result<SseStateImport, 
       if (parts.length === 0 || cycleMatch[1]!.trim() === "") throw new Error("SSE cycles may not be empty.");
       const kind = parts[0]!.kind;
       if (!parts.every((part) => part.kind === kind)) throw new Error("Each SSE cycle must contain only corners, edges, or centres.");
-      if (kind === "corner") throw new Error("Large-cube SSE corner cycles are not yet supported.");
       if (kind !== "centre" && parts.slice(1).some((part) => part.prefix !== "")) throw new Error("An SSE orientation prefix is allowed only on the first part of a cycle.");
       const locations = parts.map((part) => {
         const key = `${part.faces}${part.index}`;
