@@ -889,9 +889,10 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-dialog {
-  width: fit-content;
-  max-width: min(96vw, calc(100vw - 2rem));
-  max-height: calc(100vh - 2rem);
+  width: min(90rem, calc(100vw - 2rem));
+  height: min(60rem, calc(100dvh - 2rem));
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100dvh - 2rem);
   margin: auto;
   inset: 0;
   overflow-y: auto;
@@ -938,7 +939,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   flex-direction: column;
   gap: 0.6rem;
   flex: 1 1 auto;
-  min-width: 12rem;
+  min-width: 0;
 }
 
 .manual-state-intro {
@@ -956,26 +957,26 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-main {
-  flex: 1 1 39rem;
-  max-width: 39rem;
+  flex: 1 1 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 
-/* High-order faces need room for individually legible stickers rather than
-   shrinking their 4×4/5×5 grids into a field of colour dots. The dialog is
-   content-sized, so widening only this column lets the tools column retain
-   its compact, stable width. */
-.manual-state-dialog[data-manual-state-size="4"] .manual-state-main {
-  flex-basis: 48rem;
-  max-width: 48rem;
+/* Keep the drawing area stable across views and puzzle sizes. Its query
+   units let the perspective layouts fit both the width and height. */
+.manual-state-stage {
+  container-type: size;
+  height: clamp(18rem, calc(100dvh - 17rem), 40rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.manual-state-dialog[data-manual-state-size="5"] .manual-state-main {
-  flex-basis: 55rem;
-  max-width: 55rem;
+.manual-state-stage .manual-state-net {
+  flex-shrink: 0;
+  max-width: min(100%, 128cqh);
 }
 
 .manual-state-net {
@@ -1079,7 +1080,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .manual-state-net[data-representation="open-cube"] .manual-state-net-faces {
   display: block;
   position: relative;
-  width: min(100%, 30rem);
+  width: min(100%, 30rem, 80cqh);
   aspect-ratio: 2 / 2.4;
 }
 
@@ -1132,51 +1133,52 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 
 /* 3D view: David DeSandro true 3D cube with exploded hidden faces (L, B, D in Orient 0). */
 .manual-state-net[data-representation="isometric"] {
+  --manual-state-unit: min(1rem, 1.45cqw, 2.35cqh);
   --attached-face-gap: var(--manual-state-face-gap);
-  --attached-fold-gap: 0.2rem;
-  --manual-state-cube-size: 10.5rem;
+  --attached-fold-gap: calc(0.2 * var(--manual-state-unit));
+  --manual-state-cube-size: calc(10.5 * var(--manual-state-unit));
   --manual-state-half-size: calc(var(--manual-state-cube-size) / 2);
-  --manual-state-explode-dist: 11.2rem;
-  --manual-state-explode-left: 8.8rem;
-  --manual-state-explode-right: 13.2rem;
-  --manual-state-explode-vertical: 9.8rem;
-  --manual-state-3d-offset: -1.8rem;
+  --manual-state-explode-dist: calc(11.2 * var(--manual-state-unit));
+  --manual-state-explode-left: calc(8.8 * var(--manual-state-unit));
+  --manual-state-explode-right: calc(13.2 * var(--manual-state-unit));
+  --manual-state-explode-vertical: calc(9.8 * var(--manual-state-unit));
+  --manual-state-3d-offset: calc(-1.8 * var(--manual-state-unit));
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 32.5rem;
+  min-height: calc(32.5 * var(--manual-state-unit));
   overflow: visible;
-  padding: 1rem 1rem 2rem;
+  padding: calc(1 * var(--manual-state-unit)) calc(1 * var(--manual-state-unit)) calc(2 * var(--manual-state-unit));
 }
 
 .manual-state-dialog[data-manual-state-size="2"] .manual-state-net[data-representation="isometric"] {
-  --manual-state-cube-size: 9rem;
-  --manual-state-explode-dist: 9.8rem;
-  --manual-state-explode-left: 7.5rem;
-  --manual-state-explode-right: 11.3rem;
-  --manual-state-explode-vertical: 8.4rem;
-  --manual-state-3d-offset: -1.5rem;
-  min-height: 29rem;
+  --manual-state-cube-size: calc(9 * var(--manual-state-unit));
+  --manual-state-explode-dist: calc(9.8 * var(--manual-state-unit));
+  --manual-state-explode-left: calc(7.5 * var(--manual-state-unit));
+  --manual-state-explode-right: calc(11.3 * var(--manual-state-unit));
+  --manual-state-explode-vertical: calc(8.4 * var(--manual-state-unit));
+  --manual-state-3d-offset: calc(-1.5 * var(--manual-state-unit));
+  min-height: calc(29 * var(--manual-state-unit));
 }
 
 .manual-state-dialog[data-manual-state-size="4"] .manual-state-net[data-representation="isometric"] {
-  --manual-state-cube-size: 12.2rem;
-  --manual-state-explode-dist: 13.1rem;
-  --manual-state-explode-left: 10.2rem;
-  --manual-state-explode-right: 15.3rem;
-  --manual-state-explode-vertical: 11.4rem;
-  --manual-state-3d-offset: -2rem;
-  min-height: 36rem;
+  --manual-state-cube-size: calc(12.2 * var(--manual-state-unit));
+  --manual-state-explode-dist: calc(13.1 * var(--manual-state-unit));
+  --manual-state-explode-left: calc(10.2 * var(--manual-state-unit));
+  --manual-state-explode-right: calc(15.3 * var(--manual-state-unit));
+  --manual-state-explode-vertical: calc(11.4 * var(--manual-state-unit));
+  --manual-state-3d-offset: calc(-2 * var(--manual-state-unit));
+  min-height: calc(36 * var(--manual-state-unit));
 }
 
 .manual-state-dialog[data-manual-state-size="5"] .manual-state-net[data-representation="isometric"] {
-  --manual-state-cube-size: 14rem;
-  --manual-state-explode-dist: 15rem;
-  --manual-state-explode-left: 11.7rem;
-  --manual-state-explode-right: 17.6rem;
-  --manual-state-explode-vertical: 13.0rem;
-  --manual-state-3d-offset: -2.3rem;
-  min-height: 39.5rem;
+  --manual-state-cube-size: calc(14 * var(--manual-state-unit));
+  --manual-state-explode-dist: calc(15 * var(--manual-state-unit));
+  --manual-state-explode-left: calc(11.7 * var(--manual-state-unit));
+  --manual-state-explode-right: calc(17.6 * var(--manual-state-unit));
+  --manual-state-explode-vertical: calc(13.0 * var(--manual-state-unit));
+  --manual-state-3d-offset: calc(-2.3 * var(--manual-state-unit));
+  min-height: calc(39.5 * var(--manual-state-unit));
 }
 
 /* In isometric, the net faces wrapper is the 3D cube container */
@@ -1948,14 +1950,12 @@ textarea.manual-state-notation-input {
 
 .manual-state-footer > * { flex: 1 1 0; min-width: 0; }
 
-@media (max-width: 560px) {
+@media (max-width: 760px) {
+  .manual-state-header { flex-wrap: wrap; gap: 0.5rem; }
+  .manual-state-stage { height: min(30rem, 110vw); }
+  .manual-state-main { flex-basis: auto; }
   .manual-state-layout { align-items: flex-start; justify-content: flex-start; flex-direction: column; }
   .manual-state-main, .manual-state-tools { width: 100%; max-width: none; }
-  .manual-state-dialog[data-manual-state-size="4"] .manual-state-main,
-  .manual-state-dialog[data-manual-state-size="5"] .manual-state-main {
-    flex-basis: auto;
-    max-width: none;
-  }
   .manual-state-net { grid-template-columns: repeat(4, minmax(2.8rem, 1fr)); width: 100%; }
   .manual-state-tools { width: 100%; }
 }
