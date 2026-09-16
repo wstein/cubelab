@@ -1,4 +1,5 @@
 import * as FaceletCodec from "../State/FaceletCodec.res.mjs";
+import * as StateTypes from "../State/StateTypes.res.mjs";
 import type {CubeState} from "./cube-gl";
 
 type Result<T, E> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: E};
@@ -86,6 +87,7 @@ const centreSamples = (state: CubeState): string => {
 export const renderLargeCubeState = (state: CubeState, format: LargeStateFormat): Result<string, string> => {
   if (state.size !== 4 && state.size !== 5) return {TAG: "Error", _0: "Large-cube state notation is available only for 4×4×4 and 5×5×5."};
   const {cp, co} = cornerCoordinates(state);
+  if (format === "singmaster") return renderLargeStickerCycles(state);
   const heading = `Cube Rosetta ${formatName[format]} ${state.size}×${state.size} v1`;
   const inventory = format === "singmaster"
     ? `corners: cp ${cp}; co ${co}\nwings: ${edgeSamples(state)}\ncentres: ${centreSamples(state)}`
@@ -93,10 +95,67 @@ export const renderLargeCubeState = (state: CubeState, format: LargeStateFormat)
   return {TAG: "Ok", _0: `${heading}\n${inventory}\nstate: ${FaceletCodec.render(state)}`};
 };
 
+const stateLocations = (size: number): string[] => faces.flatMap((face) =>
+  Array.from({length: size * size}, (_, index) => `${face}${index + 1}`));
+const locationIndex = (size: number, token: string): number => {
+  const match = /^([URFDLB])(\d+)$/.exec(token);
+  if (!match) return -1;
+  const face = faces.indexOf(match[1]!);
+  const index = Number(match[2]) - 1;
+  return face < 0 || index < 0 || index >= size * size ? -1 : face * size * size + index;
+};
+const flatFacelets = (state: CubeState): string[] => faces.flatMap((face) => state.facelets[storageIndex[face]]!);
+
+/** A complete large-cube cycle convention over numbered sticker locations. */
+const renderLargeStickerCycles = (state: CubeState): Result<string, string> => {
+  const size = state.size;
+  const values = flatFacelets(state);
+  const locations = stateLocations(size);
+  const sources = new Map<string, number[]>();
+  locations.forEach((location, index) => {
+    // In a solved cube each sticker's identity is its face colour; consume
+    // same-colour identities in row-major order, making centres deterministic.
+    const colour = location[0]!;
+    if (!sources.has(colour)) sources.set(colour, []);
+    sources.get(colour)!.push(index);
+  });
+  const cursor = new Map<string, number>();
+  const destinationForSource = Array.from({length: values.length}, (_, index) => index);
+  values.forEach((colour, destination) => {
+    const offset = cursor.get(colour) ?? 0;
+    const source = sources.get(colour)![offset]!;
+    cursor.set(colour, offset + 1);
+    destinationForSource[source] = destination;
+  });
+  const visited = new Set<number>();
+  const cycles: string[] = [];
+  destinationForSource.forEach((next, start) => {
+    if (visited.has(start) || next === start) return;
+    const members = [start]; visited.add(start);
+    let current = next;
+    while (current !== start) { members.push(current); visited.add(current); current = destinationForSource[current]!; }
+    cycles.push(`(${members.map((index) => locations[index]!).join(",")})`);
+  });
+  return {TAG: "Ok", _0: `Cube Rosetta Singmaster sticker cycles ${size}×${size} v1\n${cycles.join(" ")}`};
+};
+
 export const looksLikeLargeCubeState = (input: string): boolean =>
-  /^Cube Rosetta (?:CP\/CO coordinates|SSE cubie state|Singmaster large cycles) [45]×[45] v1\b/m.test(input.trim());
+  /^Cube Rosetta (?:CP\/CO coordinates|SSE cubie state|Singmaster (?:large|sticker) cycles) [45]×[45] v1\b/m.test(input.trim());
 
 export const parseLargeCubeState = (input: string, size: 4 | 5): Result<CubeState, string> => {
+  if (new RegExp(`^Cube Rosetta Singmaster sticker cycles ${size}×${size} v1`, "m").test(input)) {
+    const solved = StateTypes.solved(size)._0 as CubeState;
+    const facelets = solved.facelets.map((face) => [...face]);
+    const flat = flatFacelets({size, facelets});
+    for (const match of input.matchAll(/\(([^()]*)\)/g)) {
+      const members = match[1]!.split(",").map((token) => locationIndex(size, token.trim()));
+      if (members.length < 2 || members.some((index) => index < 0) || new Set(members).size !== members.length) return {TAG: "Error", _0: "Invalid large-cube sticker cycle."};
+      const before = [...flat];
+      members.forEach((from, index) => { flat[members[(index + 1) % members.length]!] = before[from]!; });
+    }
+    faces.forEach((face, faceIndex) => { facelets[storageIndex[face]] = flat.slice(faceIndex * size * size, (faceIndex + 1) * size * size); });
+    return {TAG: "Ok", _0: {size, facelets}};
+  }
   const heading = new RegExp(`^Cube Rosetta (?:CP/CO coordinates|SSE cubie state|Singmaster large cycles) ${size}×${size} v1\\s*$`, "m");
   if (!heading.test(input)) return {TAG: "Error", _0: `Expected a Cube Rosetta ${size}×${size} large-cube v1 state.`};
   const payload = /^state:\s*([URFDLB\s]+)\s*$/mi.exec(input)?.[1];

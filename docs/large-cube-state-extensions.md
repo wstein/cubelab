@@ -16,9 +16,11 @@ state: UUUUU…
 
 `wings` and `centres` are a readable numbered positional inventory. `state:`
 is the canonical, authoritative facelet payload; it preserves every sticker
-without inventing identities for interchangeable pieces. The SSE and
-Singmaster large-cube cards use the same lossless envelope with their own
-header. Setup accepts all three headers for the matching cube size.
+without inventing identities for interchangeable pieces. The SSE large-cube
+card uses the same lossless envelope. The Singmaster card instead uses actual
+cycles over numbered sticker locations (`U1` through `B16` or `B25`); equal-
+colour sticker identities are assigned deterministically in row-major order.
+Setup accepts all three headers for the matching cube size.
 
 The 2×2×2 and 3×3×3 cards remain their existing standard CP/CO, SSE, and
 Singmaster formats.

@@ -24,8 +24,11 @@ test("losslessly round-trips the Cube Rosetta large-cube cards", () => {
       expect(rendered.TAG).toBe("Ok");
       if (rendered.TAG === "Error") continue;
       expect(rendered._0).toContain(`Cube Rosetta`);
-      expect(rendered._0).toContain("cp");
-      expect(rendered._0).toContain("state:");
+      if (format === "singmaster") expect(rendered._0).toMatch(/\([URFDLB]\d+/);
+      else {
+        expect(rendered._0).toContain("cp");
+        expect(rendered._0).toContain("state:");
+      }
       const parsed = parseLargeCubeState(rendered._0, size);
       expect(parsed.TAG).toBe("Ok");
       if (parsed.TAG === "Ok") expect(FaceletCodec.render(parsed._0)).toBe(FaceletCodec.render(state));
