@@ -956,6 +956,8 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   gap: clamp(1.1rem, 2.5vw, 1.5rem);
 }
 
+[data-manual-state-size="4"] .manual-state-main,
+[data-manual-state-size="5"] .manual-state-main,
 .manual-state-main {
   flex: 1 1 0;
   min-width: 0;
