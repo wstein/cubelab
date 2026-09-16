@@ -9,13 +9,14 @@ CubeLab imports the complete, concrete 3×3 states written by
 Setup accepts both documented ACube state forms:
 
 - Positional notation: twelve edges followed by eight corners, for example the
-  solved state `UF UL UB UR DF DR DB DL FR FL BR BL URB UFR UBL ULF DRF DFL DLB DBR`.
+  solved state `UF UR UB UL DF DR DB DL FR FL BR BL UFR URB UBL ULF DRF DFL DLB DBR`.
 - Cycle notation and standalone orientation terms, for example
   `(UL UR) (UFR URB)` and `UFR- URB+ UL- UF-`.
 
-Cubie names are case-insensitive on import. Cycles run left to right exactly as
-ACube documents them; an oriented cubie spelling such as `FRU` is retained as
-the corresponding cubie orientation.
+Cubie names are case-insensitive on import. Positional tokens are direct
+sticker spellings in each slot's listed order (for example `FUL`), rather than
+CubeLab's internal CP/CO labels. Cycles run left to right exactly as ACube
+documents them.
 
 For every valid 3×3 state, the Converter emits ACube's unfolded positional form:
 twelve edges followed by eight corners. This output is complete and pasteable into

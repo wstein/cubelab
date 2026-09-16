@@ -7,8 +7,12 @@ type Constraint = {cp: Array<number | null>; co: Array<number | null>; ep: Array
 
 const corners = ["urf", "ufl", "ulb", "ubr", "dfr", "dlf", "dbl", "drb"];
 const edges = ["ur", "uf", "ul", "ub", "dr", "df", "dl", "db", "fr", "fl", "bl", "br"];
-const positionalEdges = ["uf", "ul", "ub", "ur", "df", "dr", "db", "dl", "fr", "fl", "br", "bl"];
-const positionalCorners = ["urb", "urf", "ubl", "ulf", "drf", "dfl", "dlb", "dbr"];
+// ACube 4 positional states enumerate the U layer clockwise from UF, then
+// the D layer, followed by the four middle edges.  Corners use the same
+// clockwise U/D ordering.  This is deliberately not the internal Kociemba
+// slot order used by PieceReducer.
+const positionalEdges = ["uf", "ur", "ub", "ul", "df", "dr", "db", "dl", "fr", "fl", "br", "bl"];
+const positionalCorners = ["ufr", "urb", "ubl", "ulf", "drf", "dfl", "dlb", "dbr"];
 const edgeSets: Record<string, string[]> = {
   E: ["fr", "fl", "br", "bl"], S: ["ur", "ul", "dr", "dl"], M: ["uf", "ub", "df", "db"],
   U: ["uf", "ub", "ur", "ul"], D: ["df", "db", "dr", "dl"], F: ["uf", "df", "fr", "fl"],
@@ -16,10 +20,13 @@ const edgeSets: Record<string, string[]> = {
 };
 
 const labels = (kind: Kind) => kind === "corner" ? corners : edges;
+const positionalLabels = (kind: Kind) => kind === "corner" ? positionalCorners : positionalEdges;
 const slotFor = (kind: Kind, name: string) => {
   const wanted = [...name].sort().join("");
   return labels(kind).findIndex((candidate) => [...candidate].sort().join("") === wanted);
 };
+const positionalLabelFor = (kind: Kind, slot: number): string =>
+  positionalLabels(kind).find((label) => slotFor(kind, label) === slot)!;
 const identity = (length: number) => Array.from({length}, (_, index) => index);
 const blank = (): Constraint => ({cp: identity(8), co: Array(8).fill(0), ep: identity(12), eo: Array(12).fill(0)});
 
@@ -96,7 +103,7 @@ const parseCycles = (input: string): Constraint => {
   return result;
 };
 
-const parsePositionalToken = (token: string, kind: Kind): {piece: number | null; orientation: number | null} => {
+const parsePositionalToken = (token: string, kind: Kind, position: string): {piece: number | null; orientation: number | null} => {
   const match = /^(@)?([+\-])?([UDFBLR?]+)$/i.exec(token);
   if (!match) throw new Error(`'${token}' is not an ACube positional token.`);
   const orientationUnknown = match[1] === "@";
@@ -106,15 +113,15 @@ const parsePositionalToken = (token: string, kind: Kind): {piece: number | null;
   const value = part(body);
   if (value.kind !== kind) throw new Error(`'${token}' is not an ACube ${kind}.`);
   if (match[2]) throw new Error(`'${token}' may use '+' or '-' only with an unknown cubie.`);
-  return {piece: value.slot, orientation: orientationUnknown ? null : value.orientation};
+  return {piece: value.slot, orientation: orientationUnknown ? null : acubeOrientation(kind, slotFor(kind, position), value.slot, body.toUpperCase())};
 };
 
 const parsePositional = (input: string): Constraint => {
   const tokens = input.trim().split(/[\s,]+/).filter(Boolean);
   if (tokens.length !== 20) throw new Error("ACube positional states require 12 edges followed by 8 corners.");
   const result: Constraint = {cp: Array(8).fill(null), co: Array(8).fill(null), ep: Array(12).fill(null), eo: Array(12).fill(null)};
-  positionalEdges.forEach((position, index) => { const value = parsePositionalToken(tokens[index]!, "edge"); const slot = slotFor("edge", position); result.ep[slot] = value.piece; result.eo[slot] = value.orientation; });
-  positionalCorners.forEach((position, index) => { const value = parsePositionalToken(tokens[index + 12]!, "corner"); const slot = slotFor("corner", position); result.cp[slot] = value.piece; result.co[slot] = value.orientation; });
+  positionalEdges.forEach((position, index) => { const value = parsePositionalToken(tokens[index]!, "edge", position); const slot = slotFor("edge", position); result.ep[slot] = value.piece; result.eo[slot] = value.orientation; });
+  positionalCorners.forEach((position, index) => { const value = parsePositionalToken(tokens[index + 12]!, "corner", position); const slot = slotFor("corner", position); result.cp[slot] = value.piece; result.co[slot] = value.orientation; });
   return result;
 };
 
@@ -190,19 +197,64 @@ export const materializeAcubeConstraint = (constraint: Constraint, seed = "acube
   } catch (reason) { return {TAG: "Error", _0: reason instanceof Error ? reason.message : String(reason)}; }
 };
 
-const rotate = (value: string, amount: number) => value.slice(amount) + value.slice(0, amount);
+const storageIndex: Record<string, number> = {u: 0, l: 1, f: 2, r: 3, b: 4, d: 5};
+
+const faceletIndex = (face: string, gx: number, gy: number, gz: number): number => {
+  const last = 2;
+  const [row, col] = face === "u" ? [gz, gx]
+    : face === "d" ? [last - gz, gx]
+    : face === "f" ? [last - gy, gx]
+    : face === "b" ? [last - gy, last - gx]
+    : face === "r" ? [last - gy, last - gz]
+    : [last - gy, gz];
+  return row * 3 + col;
+};
+
+/** ACube positional tokens list the sticker colours in the position name's order. */
+const directToken = (state: CubeState, position: string): string => {
+  const lower = position.toLowerCase();
+  const gx = lower.includes("r") ? 2 : lower.includes("l") ? 0 : 1;
+  const gy = lower.includes("u") ? 2 : lower.includes("d") ? 0 : 1;
+  const gz = lower.includes("f") ? 2 : lower.includes("b") ? 0 : 1;
+  return [...lower].map((face) => state.facelets[storageIndex[face]!]![faceletIndex(face, gx, gy, gz)]!).join("").toUpperCase();
+};
+
+const directProbe = (kind: Kind, target: number, piece: number, orientation: number): string => {
+  const cp = identity(8), co = Array(8).fill(0), ep = identity(12), eo = Array(12).fill(0);
+  if (kind === "corner") {
+    [cp[target], cp[piece]] = [cp[piece]!, cp[target]!];
+    if (target === piece) cp[target] = piece;
+    co[target] = orientation;
+    const balancing = target === 7 ? 6 : 7;
+    co[balancing] = (3 - orientation) % 3;
+    if (target !== piece) [ep[0], ep[1]] = [ep[1]!, ep[0]!];
+  } else {
+    [ep[target], ep[piece]] = [ep[piece]!, ep[target]!];
+    if (target === piece) ep[target] = piece;
+    eo[target] = orientation;
+    const balancing = target === 11 ? 10 : 11;
+    eo[balancing] = orientation;
+    if (target !== piece) [cp[0], cp[1]] = [cp[1]!, cp[0]!];
+  }
+  const reconstructed = PieceReducer.reconstruct({size: 3, cp, co, ep, eo}) as Result<CubeState, unknown>;
+  if (reconstructed.TAG === "Error") throw new Error("Could not construct an ACube orientation probe.");
+  return directToken(reconstructed._0, positionalLabelFor(kind, target));
+};
+
+/** Translate ACube's direct sticker spelling into CubeLab's CP/CO coordinate. */
+const acubeOrientation = (kind: Kind, target: number, piece: number, token: string): number => {
+  const modulus = kind === "corner" ? 3 : 2;
+  for (let orientation = 0; orientation < modulus; orientation += 1) {
+    if (directProbe(kind, target, piece, orientation) === token) return orientation;
+  }
+  throw new Error(`'${token}' has an invalid ACube ${kind} orientation at ${positionalLabelFor(kind, target).toUpperCase()}.`);
+};
 
 /** Renders a materialized state in ACube's documented 12-edge, 8-corner order. */
 export const renderAcubeState = (state: CubeState): Result<string, string> => {
   const reduced = PieceReducer.reduce(state) as Result<{cp: number[]; co: number[]; ep: number[]; eo: number[]}, unknown>;
   if (reduced.TAG === "Error") return {TAG: "Error", _0: PieceReducer.describeError(reduced._0) as string};
-  const edgesOut = positionalEdges.map((position) => {
-    const slot = slotFor("edge", position);
-    return rotate(edges[reduced._0.ep[slot]!]!.toUpperCase(), reduced._0.eo[slot]!);
-  });
-  const cornersOut = positionalCorners.map((position) => {
-    const slot = slotFor("corner", position);
-    return rotate(corners[reduced._0.cp[slot]!]!.toUpperCase(), reduced._0.co[slot]!);
-  });
+  const edgesOut = positionalEdges.map((position) => directToken(state, position));
+  const cornersOut = positionalCorners.map((position) => directToken(state, position));
   return {TAG: "Ok", _0: [...edgesOut, ...cornersOut].join(" ")};
 };

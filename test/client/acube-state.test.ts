@@ -8,16 +8,6 @@ import * as StateTypes from "../../src/State/StateTypes.res.mjs";
 import {looksLikeAcubeState, parseAcubeState} from "../../src/client/acube-state";
 import {countAcubeCompletions, isFixedAcubeConstraint, materializeAcubeConstraint, parseAcubeConstraint, renderAcubeState} from "../../src/client/acube-engine";
 
-const cornerLabels = ["URF", "UFL", "ULB", "UBR", "DFR", "DLF", "DBL", "DRB"];
-const edgeLabels = ["UR", "UF", "UL", "UB", "DR", "DF", "DL", "DB", "FR", "FL", "BL", "BR"];
-const acubeEdgePositions = ["UF", "UL", "UB", "UR", "DF", "DR", "DB", "DL", "FR", "FL", "BR", "BL"];
-const acubeCornerPositions = ["URB", "URF", "UBL", "ULF", "DRF", "DFL", "DLB", "DBR"];
-
-const slotFor = (labels: string[], label: string): number =>
-  labels.findIndex((candidate) => [...candidate].sort().join("") === [...label].sort().join(""));
-
-const rotate = (label: string, amount: number): string => label.slice(amount) + label.slice(0, amount);
-
 const stateAfter = (algorithm: string) => {
   const parsed = MoveParser.parse(3, algorithm);
   expect(parsed.TAG).toBe("Ok");
@@ -26,29 +16,37 @@ const stateAfter = (algorithm: string) => {
   return applied._0;
 };
 
-const acubePositional = (state: unknown): string => {
-  const pieces = PieceReducer.reduce(state)._0;
-  const edges = acubeEdgePositions.map((position) => {
-    const slot = slotFor(edgeLabels, position);
-    return rotate(edgeLabels[pieces.ep[slot]], pieces.eo[slot]);
-  });
-  const corners = acubeCornerPositions.map((position) => {
-    const slot = slotFor(cornerLabels, position);
-    return rotate(cornerLabels[pieces.cp[slot]], pieces.co[slot]);
-  });
-  return [...edges, ...corners].join(" ");
-};
-
 test("imports ACube's documented positional state order", () => {
-  const solved = "UF UL UB UR DF DR DB DL FR FL BR BL URB UFR UBL ULF DRF DFL DLB DBR";
+  const solved = "UF UR UB UL DF DR DB DL FR FL BR BL UFR URB UBL ULF DRF DFL DLB DBR";
   const imported = parseAcubeState(solved);
+  if (imported.TAG === "Error") throw new Error(imported._0);
   expect(imported.TAG).toBe("Ok");
   expect(FaceletCodec.render(imported._0.state)).toBe(FaceletCodec.render(StateTypes.solved(3)._0));
 
   const scrambled = stateAfter("R U F2 L' D B");
-  const roundTrip = parseAcubeState(acubePositional(scrambled));
+  const rendered = renderAcubeState(scrambled);
+  expect(rendered.TAG).toBe("Ok");
+  if (rendered.TAG === "Error") throw new Error(rendered._0);
+  const roundTrip = parseAcubeState(rendered._0);
   expect(roundTrip.TAG).toBe("Ok");
   expect(FaceletCodec.render(roundTrip._0.state)).toBe(FaceletCodec.render(scrambled));
+});
+
+test("imports ACube's published Cube in a Cube and Anaconda positional states", () => {
+  const cubeInCube = "UF UR FL FD BR BU DB DL FR RD LU BL UFR FUL FLD FDR BUR BRD DLB BLU";
+  const anaconda = "FR FU UB UL DF DR BL BD RU FL BR LD FRU FUL FLD FDR BUR BRD BDL BLU";
+  const cube = parseAcubeState(cubeInCube);
+  const snake = parseAcubeState(anaconda);
+  expect(cube.TAG).toBe("Ok");
+  expect(snake.TAG).toBe("Ok");
+  expect(renderAcubeState(stateAfter("F L F U' R U F2 L2 U' L' B D' B' L2 U"))).toEqual({TAG: "Ok", _0: cubeInCube});
+  expect(renderAcubeState(stateAfter("L U B' U' R L' B R' F B' D R D' F'"))).toEqual({TAG: "Ok", _0: anaconda});
+  if (cube.TAG === "Ok") {
+    expect(FaceletCodec.render(cube._0.state)).toBe(FaceletCodec.render(stateAfter("F L F U' R U F2 L2 U' L' B D' B' L2 U")));
+  }
+  if (snake.TAG === "Ok") {
+    expect(FaceletCodec.render(snake._0.state)).toBe(FaceletCodec.render(stateAfter("L U B' U' R L' B R' F B' D R D' F'")));
+  }
 });
 
 test("imports ACube cycles and standalone orientation terms", () => {
