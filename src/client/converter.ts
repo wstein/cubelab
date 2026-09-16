@@ -42,6 +42,7 @@ import {computed, signal} from "./signal";
 import {looksLikeAcubeState, parseAcubeState} from "./acube-state";
 import {countAcubeCompletions, materializeAcubeConstraint, parseAcubeConstraint, renderAcubeState} from "./acube-engine";
 import {looksLikeSseState, parseSseState, renderSseState} from "./sse-state";
+import {looksLikeLargeCubeState, parseLargeCubeState, renderLargeCubeState} from "./large-cube-state";
 import {
   looksLikeSingmasterCycleState,
   parseSingmasterCycleState,
@@ -2079,6 +2080,12 @@ if (root) {
     if (compact === "") {
       return recognize(StateTypes.solved(size) as Result<CubeState>, "Solved default");
     }
+    if ((size === 4 || size === 5) && looksLikeLargeCubeState(compact)) {
+      const large = parseLargeCubeState(compact, size);
+      return large.TAG === "Ok"
+        ? {TAG: "Ok", _0: {state: large._0, label: "Cube Rosetta large-cube state"}}
+        : large;
+    }
     if ((size === 2 || size === 3) && compact.startsWith("cp:")) {
       const pieces = PieceReducer.parseState(size, compact) as Result<CubeState, unknown>;
       return pieces.TAG === "Ok"
@@ -2404,6 +2411,12 @@ if (root) {
       }
     }
     if (size === 4 || size === 5) {
+      const coordinates = renderLargeCubeState(state, "coordinates");
+      setOutput("pieces", coordinates.TAG === "Ok" ? coordinates._0 : `Unavailable — ${coordinates._0}`, coordinates.TAG === "Ok");
+      const sse = renderSseState(state);
+      setOutput("sse", sse.TAG === "Ok" ? sse._0 : `Unavailable — ${sse._0}`, sse.TAG === "Ok");
+      const singmaster = renderSingmasterCycleState(state);
+      setOutput("singmaster", singmaster.TAG === "Ok" ? singmaster._0 : `Unavailable — ${singmaster._0}`, singmaster.TAG === "Ok");
       const orbit = Orbit64Codec.encodeState(state);
       setOutput(
         "orbit64",

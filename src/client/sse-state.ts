@@ -1,5 +1,6 @@
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import type {CubeState} from "./cube-gl";
+import {looksLikeLargeCubeState, parseLargeCubeState, renderLargeCubeState} from "./large-cube-state";
 
 type Result<T, E> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: E};
 
@@ -58,7 +59,7 @@ const prefixOrientation = (part: Part): number => {
 
 /** Whether the text is intended as SSE cubie-state input rather than an algorithm. */
 export const looksLikeSseState = (input: string): boolean =>
-  /\(\s*(?:\+\+|\+|-)?[ulfrbd]/.test(input);
+  looksLikeLargeCubeState(input) || /\(\s*(?:\+\+|\+|-)?[ulfrbd]/.test(input);
 
 const largeEdgeLabels = ["ur", "uf", "ul", "ub", "dr", "df", "dl", "db", "fr", "fl", "bl", "br"];
 // CubeTwister's Professor Cube part-to-sticker table. Its numbered centres
@@ -221,6 +222,12 @@ const parseLargeSseState = (input: string, size: 4 | 5): Result<SseStateImport, 
  * cannot represent a logo's orientation.
  */
 export const parseSseState = (input: string, size: 2 | 3 | 4 | 5 = 3): Result<SseStateImport, string> => {
+  if ((size === 4 || size === 5) && looksLikeLargeCubeState(input)) {
+    const parsed = parseLargeCubeState(input, size);
+    return parsed.TAG === "Ok"
+      ? {TAG: "Ok", _0: {state: parsed._0, ignoredCentreOrientations: []}}
+      : parsed;
+  }
   if (size === 4 || size === 5) return parseLargeSseState(input, size);
   const cycles = [...input.matchAll(/\(([^()]*)\)/g)];
   if (cycles.length === 0) return {TAG: "Error", _0: "Expected at least one SSE permutation cycle."};
@@ -297,7 +304,8 @@ export const parseSseState = (input: string, size: 2 | 3 | 4 | 5 = 3): Result<Ss
 
 /** Renders a 2×2 or 3×3 state as SSE cycles with orientation-bearing cubie spellings. */
 export const renderSseState = (state: CubeState): Result<string, string> => {
-  if (state.size !== 2 && state.size !== 3) return {TAG: "Error", _0: "SSE state output is available only for 2×2×2 and 3×3×3."};
+  if (state.size === 4 || state.size === 5) return renderLargeCubeState(state, "sse");
+  if (state.size !== 2 && state.size !== 3) return {TAG: "Error", _0: "SSE state output is available only for 2×2×2 through 5×5×5."};
   const reduced = PieceReducer.reduce(state) as Result<{cp: number[]; co: number[]; ep: number[]; eo: number[]}, unknown>;
   if (reduced.TAG === "Error") return {TAG: "Error", _0: PieceReducer.describeError(reduced._0) as string};
   const cycles = (permutation: number[], orientations: number[], labels: string[]) => {

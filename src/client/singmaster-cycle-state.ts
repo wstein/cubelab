@@ -1,5 +1,6 @@
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import type {CubeState} from "./cube-gl";
+import {looksLikeLargeCubeState, parseLargeCubeState, renderLargeCubeState} from "./large-cube-state";
 
 type Result<T, E> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: E};
 
@@ -45,10 +46,12 @@ const parseToken = (source: string): Token => {
  * than an algorithm or another parenthesised format (e.g. SSE, which always
  * uses lowercase cubie letters). */
 export const looksLikeSingmasterCycleState = (input: string): boolean =>
-  /\(\s*[URFDLB]{2,3}[+-]?\s*[,)]/.test(input);
+  looksLikeLargeCubeState(input) || /\(\s*[URFDLB]{2,3}[+-]?\s*[,)]/.test(input);
 
 /** Parses Singmaster permutation cycles into a validated 2×2 or 3×3 state. */
-export const parseSingmasterCycleState = (input: string, size: 2 | 3 = 3): Result<CubeState, string> => {
+export const parseSingmasterCycleState = (input: string, size: 2 | 3 | 4 | 5 = 3): Result<CubeState, string> => {
+  if ((size === 4 || size === 5) && looksLikeLargeCubeState(input)) return parseLargeCubeState(input, size);
+  if (size !== 2 && size !== 3) return {TAG: "Error", _0: "Singmaster cycle notation is available only for 2×2×2 through 5×5×5."};
   const cycleMatches = [...input.matchAll(/\(([^()]*)\)/g)];
   if (cycleMatches.length === 0) return {TAG: "Error", _0: "Expected at least one Singmaster permutation cycle."};
   const remainder = input.replace(/\(([^()]*)\)/g, "").trim();
@@ -113,6 +116,7 @@ export const parseSingmasterCycleState = (input: string, size: 2 | 3 = 3): Resul
  * cube (no cycles, no twists) renders as "", matching every other Setup
  * format's convention that a blank field means solved. */
 export const renderSingmasterCycleState = (state: CubeState): Result<string, string> => {
+  if (state.size === 4 || state.size === 5) return renderLargeCubeState(state, "singmaster");
   if (state.size !== 2 && state.size !== 3) {
     return {TAG: "Error", _0: "Singmaster cycle notation is available only for 2×2×2 and 3×3×3."};
   }
