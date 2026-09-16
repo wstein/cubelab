@@ -241,9 +241,9 @@ wrapping across a 3×3's face boundaries so the cursor keeps moving in the same 
 direction rather than stopping at an edge (2×2 has no such wrap and stops there); U, R, F,
 D, L, or B paints the focused sticker directly; E erases it.
 
-The **Flat net**, **Folded net**, **Open cube**, and **3D view** are selectable layouts of the same editor, so only one
-is shown at a time. Folded net keeps Front square, folds Up and Right away in perspective, and
-leaves Left, Down, and Back visibly attached. Open cube shows Front, Left, and Up as a solid
+The **Flat view**, **Folded view**, **Open view**, and **3D view** are selectable layouts of the same editor, so only one
+is shown at a time. Folded view keeps Front square, folds Up and Right away in perspective, and
+leaves Left, Down, and Back visibly attached. Open view shows Front, Left, and Up as a solid
 corner, with Back hinged above, Right opened to the right, and Down opened below. 3D view projects all non-frontal faces into their
 respective 3D planes (Left and Right vertical, Up and Down horizontal) in an exploded axonometric layout.
 Because the layouts share the same sticker buttons, they always retain identical colour dots, click/drag paint,
