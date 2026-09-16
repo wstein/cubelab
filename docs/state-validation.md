@@ -13,7 +13,7 @@ not an algorithm. Uppercase position names distinguish them from SSE's lowercase
 records an edge flip. CubeLab checks the reconstructed state with `PieceReducer`, so invalid
 orientation or permutation parity is rejected rather than silently loaded.
 
-## SSE cubie-state cycles (2×2 and 3×3)
+## SSE cubie-state cycles (2×2–5×5)
 
 An SSE cycle is a state declaration, not an algorithm. For example,
 `(ulb,urf) (ul,ur)` swaps one corner pair and one edge pair; on a 3×3 the two swaps
@@ -22,11 +22,17 @@ corner-only cycles such as `(ufl,ubr) (dlf,drb) (dfr,dbl)` even though the three
 corner swaps are odd. The face-letter order of each location carries orientation, and
 a leading `+` or `-` adjusts an edge flip or corner twist. CubeLab converts these cycles
 to cubie coordinates, reconstructs facelets, and runs the same reachability validation
-described below. Edge and marked-centre SSE parts are deliberately 3×3-only.
+described below for 2×2 and 3×3.
 
 For a valid 2×2 or 3×3 state, the Converter can also emit a pasteable SSE spelling. It keeps a
 cubie's orientation in that cubie's cycle spelling (and uses a first-part prefix when a
 cycle needs one), so no cubie is repeated in a separate orientation cycle.
+
+For 4×4 and 5×5, native numbered wing and centre cycles map directly to
+facelets. Export preserves sticker orientation through part spelling and
+closing prefixes, keeping centre orbits and 5×5 middle edges separate. These
+conversions check part inventories, not full large-cube reachability. See
+[copy/paste examples](large-cube-state-extensions.md).
 
 `(+r)`, `(-u)`, and `(++r)` marked-centre rotations are accepted, but CubeLab's current
 colour-only facelet model cannot render a centre logo orientation. The parsed Setup label

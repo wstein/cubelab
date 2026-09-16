@@ -1,6 +1,6 @@
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import type {CubeState} from "./cube-gl";
-import {looksLikeLargeCubeState, parseLargeCubeState, renderLargeCubeState} from "./large-cube-state";
+import {looksLikeLargeCubeState, parseLargeCubeState} from "./large-cube-state";
 
 type Result<T, E> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: E};
 
@@ -107,42 +107,6 @@ const exposed = (face: string, gx: number, gy: number, gz: number, last: number)
     || (z === 1 && gz === last) || (z === -1 && gz === 0);
 };
 
-const edgeCoordinate = (size: number, part: LargePart): [number, number, number] => {
-  const canonicalIndex = largeEdgeLabels.findIndex((label) => [...label].sort().join("") === [...part.faces].sort().join(""));
-  if (canonicalIndex < 0) throw new Error(`'${part.faces}' does not name a valid edge location.`);
-  const canonical = largeEdgeLabels[canonicalIndex]!;
-  const candidates: Array<[number, number, number]> = [];
-  for (let gx = 0; gx < size; gx += 1) for (let gy = 0; gy < size; gy += 1) for (let gz = 0; gz < size; gz += 1) {
-    const boundaryCount = [gx, gy, gz].filter((value) => value === 0 || value === size - 1).length;
-    if (boundaryCount === 2 && exposed(canonical[0]!, gx, gy, gz, size - 1) && exposed(canonical[1]!, gx, gy, gz, size - 1)) candidates.push([gx, gy, gz]);
-  }
-  const offset = part.faces === canonical ? part.index - 1 : candidates.length - part.index;
-  if (offset < 0 || offset >= candidates.length) throw new Error(`'${part.faces}${part.index}' does not name a valid edge wing.`);
-  return candidates[offset]!;
-};
-
-const centreCoordinate = (size: number, part: LargePart): [number, number, number] => {
-  const inner = size - 2;
-  let row: number;
-  let col: number;
-  if (size === 5) {
-    const ring: Array<[number, number]> = [[0, 0], [0, 1], [0, 2], [1, 0], [1, 2], [2, 0], [2, 1], [2, 2]];
-    [row, col] = ring[part.index - 1] ?? (() => { throw new Error(`'${part.faces}${part.index}' does not name a valid centre.`); })();
-  } else {
-    if (part.index < 1 || part.index > inner * inner) throw new Error(`'${part.faces}${part.index}' does not name a valid centre.`);
-    row = Math.floor((part.index - 1) / inner);
-    col = (part.index - 1) % inner;
-  }
-  const last = size - 1;
-  const face = part.faces;
-  return face === "u" ? [col + 1, last, row + 1]
-    : face === "d" ? [col + 1, 0, last - row - 1]
-    : face === "f" ? [col + 1, last - row - 1, last]
-    : face === "b" ? [last - col - 1, last - row - 1, 0]
-    : face === "r" ? [last, last - row - 1, last - col - 1]
-    : [0, last - row - 1, col + 1];
-};
-
 const cornerCoordinate = (size: number, part: LargePart): [number, number, number] => {
   const candidates: Array<[number, number, number]> = [];
   for (const gx of [0, size - 1]) for (const gy of [0, size - 1]) for (const gz of [0, size - 1]) {
@@ -153,6 +117,17 @@ const cornerCoordinate = (size: number, part: LargePart): [number, number, numbe
 };
 
 const largeLocations = (size: number, part: LargePart): Array<[string, number]> => {
+  if (size === 4 && part.kind !== "corner") {
+    const limit = part.kind === "centre" ? 4 : 2;
+    if (part.index < 1 || part.index > limit) throw new Error(`'${largePartText(part)}' does not name a valid 4×4 part.`);
+    // RevengeCube's numbered parts match ProfessorCube with the middle row
+    // and column removed (CubeTwister's stickerToPartMap tables).
+    return largeLocations(5, part).map(([face, index]) => {
+      const row = Math.floor(index / 5);
+      const col = index % 5;
+      return [face, (row > 2 ? row - 1 : row) * 4 + (col > 2 ? col - 1 : col)];
+    });
+  }
   if (size === 5 && part.kind === "centre") {
     if (part.index === 0) return [[part.faces, 12]];
     const index = professorCentres[part.faces]?.[part.index - 1];
@@ -169,10 +144,112 @@ const largeLocations = (size: number, part: LargePart): Array<[string, number]> 
     const reversed = professorWings[`${[...part.faces].reverse().join("")}${3 - part.index}`];
     if (reversed) return [...part.faces].map((face) => [face, reversed[face]!]);
   }
-  const coordinate = part.kind === "corner"
-    ? cornerCoordinate(size, part)
-    : part.kind === "edge" ? edgeCoordinate(size, part) : centreCoordinate(size, part);
+  if (part.kind !== "corner") throw new Error(`'${largePartText(part)}' does not name a valid SSE part.`);
+  const coordinate = cornerCoordinate(size, part);
   return [...part.faces].map((face) => [face, faceletIndex(size, face, ...coordinate)]);
+};
+
+const largeFaceOffset: Record<string, number> = {u: 0, l: 1, f: 2, r: 3, b: 4, d: 5};
+const largePartText = (part: LargePart): string => `${part.faces}${part.index || ""}`;
+const largeLocationKey = (locations: Array<[string, number]>): string =>
+  locations.map(([face, index]) => `${face}${index}`).sort().join("/");
+
+// Prefixes affect only the closing arrow of a cycle, in canonical face order.
+const closingLocations = (size: number, part: LargePart, shift: number): Array<[string, number]> => {
+  const locations = largeLocations(size, part);
+  if (part.kind === "centre" || shift === 0) return locations;
+  const labels = part.kind === "corner" ? cornerLabels : edgeLabels;
+  const canonical = labels[slotFor(part.kind, part.faces)]!;
+  return locations.map(([face]) => {
+    const target = canonical[(canonical.indexOf(face) + shift) % canonical.length]!;
+    return locations.find(([candidate]) => candidate === target)!;
+  });
+};
+
+/** Colour-identical parts receive deterministic identities within their orbit. */
+const renderLargeSseState = (state: CubeState): Result<string, string> => {
+  try {
+    const size = state.size;
+    if (state.facelets.length !== 6 || state.facelets.some((face) => face.length !== size * size)) {
+      throw new Error("Invalid SSE facelet dimensions.");
+    }
+    const part = (faces: string, index = 0): LargePart => ({
+      faces, index, prefix: "", kind: faces.length === 3 ? "corner" : faces.length === 2 ? "edge" : "centre",
+    });
+    const groups: LargePart[][] = [
+      cornerLabels.map((faces) => part(faces)),
+      largeEdgeLabels.flatMap((faces) => [part(faces, 1), part(faces, 2)]),
+      centreLabels.flatMap((face) => [1, 2, 3, 4].map((index) => part(face, index))),
+    ];
+    if (size === 5) groups.push(
+      largeEdgeLabels.map((faces) => part(faces)),
+      centreLabels.map((face) => part(face)),
+      centreLabels.flatMap((face) => [5, 6, 7, 8].map((index) => part(face, index))),
+    );
+    const colourAt = ([face, index]: [string, number]): string => {
+      const colour = state.facelets[largeFaceOffset[face]!]![index]!;
+      if (!/^[ULFRBD]$/.test(colour)) throw new Error("Invalid SSE sticker colour.");
+      return colour.toLowerCase();
+    };
+    const signature = (colours: string[]) => [...colours].sort().join("");
+    const output: string[] = [];
+    for (const parts of groups) {
+      const locations = parts.map((entry) => largeLocations(size, entry));
+      const colours = locations.map((entry) => entry.map(colourAt));
+      const available = new Set(parts.map((_, index) => index));
+      const sourceFor = parts.map(() => -1);
+      // Keep already-solved parts fixed before allocating indistinguishable parts.
+      parts.forEach((entry, index) => {
+        if (colours[index]!.join("") === entry.faces) {
+          sourceFor[index] = index;
+          available.delete(index);
+        }
+      });
+      parts.forEach((_, destination) => {
+        if (sourceFor[destination] !== -1) return;
+        const source = [...available].find((index) => signature([...parts[index]!.faces]) === signature(colours[destination]!));
+        if (source === undefined) throw new Error("SSE state has an invalid part inventory within an orbit.");
+        sourceFor[destination] = source;
+        available.delete(source);
+      });
+      const destinationFor = parts.map(() => -1);
+      sourceFor.forEach((source, destination) => { destinationFor[source] = destination; });
+      const spell = (source: LargePart, destination: number): LargePart => {
+        const target = parts[destination]!;
+        const faces = [...source.faces].map((colour) => target.faces[colours[destination]!.indexOf(colour)]!).join("");
+        // Reversing a wing's face spelling also reverses its number.
+        const index = target.kind === "edge" && target.index !== 0 && faces !== target.faces ? 3 - target.index : target.index;
+        const result = {...target, faces, index};
+        if (largeLocationKey(largeLocations(size, result)) !== largeLocationKey(locations[destination]!)) {
+          throw new Error("Could not spell SSE destination part.");
+        }
+        if (target.kind === "corner") orientationFor(parsePart(source.faces), parsePart(faces));
+        return result;
+      };
+      const visited = new Set<number>();
+      for (let start = 0; start < parts.length; start += 1) {
+        if (visited.has(start)) continue;
+        const spellings = [parts[start]!];
+        visited.add(start);
+        let current = start;
+        while (destinationFor[current] !== start) {
+          current = destinationFor[current]!;
+          spellings.push(spell(spellings[spellings.length - 1]!, current));
+          visited.add(current);
+        }
+        const closing = largeLocations(size, spell(spellings[spellings.length - 1]!, start));
+        const shift = Array.from({length: parts[start]!.faces.length}, (_, index) => index).find((index) =>
+          JSON.stringify(closingLocations(size, parts[start]!, index)) === JSON.stringify(closing));
+        if (shift === undefined) throw new Error("Invalid SSE closing orientation.");
+        if (spellings.length === 1 && shift === 0) continue;
+        const prefix = shift === 0 ? "" : shift === 1 ? "+" : "-";
+        output.push(`(${prefix}${spellings.map(largePartText).join(",")})`);
+      }
+    }
+    return {TAG: "Ok", _0: output.join(" ") || "(urf)"};
+  } catch (reason) {
+    return {TAG: "Error", _0: reason instanceof Error ? reason.message : String(reason)};
+  }
 };
 
 /** Applies SSE's numbered wing and centre cycles directly to 4×4/5×5 facelets. */
@@ -191,17 +268,21 @@ const parseLargeSseState = (input: string, size: 4 | 5): Result<SseStateImport, 
       const kind = parts[0]!.kind;
       if (!parts.every((part) => part.kind === kind)) throw new Error("Each SSE cycle must contain only corners, edges, or centres.");
       if (kind !== "centre" && parts.slice(1).some((part) => part.prefix !== "")) throw new Error("An SSE orientation prefix is allowed only on the first part of a cycle.");
+      if (kind !== "centre" && parts[0]!.prefix === "++") throw new Error("'++' is valid only for marked centres.");
       const locations = parts.map((part) => {
-        const key = `${part.faces}${part.index}`;
+        const result = largeLocations(size, part);
+        const key = largeLocationKey(result);
         if (used.has(key)) throw new Error(`'${key}' appears in more than one SSE cycle.`);
         used.add(key);
-        if (kind === "centre" && part.prefix !== "") ignoredCentreOrientations.push(`${part.prefix}${key}`);
-        return largeLocations(size, part);
+        if (kind === "centre" && part.prefix !== "") ignoredCentreOrientations.push(`${part.prefix}${largePartText(part)}`);
+        return result;
       });
       const before = facelets.map((face) => [...face]);
       for (let i = 0; i < locations.length; i += 1) {
         const source = locations[i]!;
-        const destination = locations[(i + 1) % locations.length]!;
+        const first = parts[0]!;
+        const shift = first.prefix === "+" ? 1 : first.prefix === "-" ? (kind === "corner" ? 2 : 1) : 0;
+        const destination = i + 1 === locations.length ? closingLocations(size, first, shift) : locations[i + 1]!;
         if (source.length !== destination.length) throw new Error("Each SSE cycle must contain matching cube parts.");
         source.forEach(([sourceFace, sourceIndex], sticker) => {
           const [destinationFace, destinationIndex] = destination[sticker]!;
@@ -302,9 +383,9 @@ export const parseSseState = (input: string, size: 2 | 3 | 4 | 5 = 3): Result<Ss
   }
 };
 
-/** Renders a 2×2 or 3×3 state as SSE cycles with orientation-bearing cubie spellings. */
+/** Renders 2×2–5×5 SSE cycles with orientation-bearing cubie spellings. */
 export const renderSseState = (state: CubeState): Result<string, string> => {
-  if (state.size === 4 || state.size === 5) return renderLargeCubeState(state, "sse");
+  if (state.size === 4 || state.size === 5) return renderLargeSseState(state);
   if (state.size !== 2 && state.size !== 3) return {TAG: "Error", _0: "SSE state output is available only for 2×2×2 through 5×5×5."};
   const reduced = PieceReducer.reduce(state) as Result<{cp: number[]; co: number[]; ep: number[]; eo: number[]}, unknown>;
   if (reduced.TAG === "Error") return {TAG: "Error", _0: PieceReducer.describeError(reduced._0) as string};

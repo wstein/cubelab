@@ -88,3 +88,74 @@ test("imports 5×5 SSE corners, middges, and fixed centres", () => {
   expect(imported.TAG).toBe("Ok");
   if (imported.TAG === "Ok") expect(imported._0.state.size).toBe(5);
 });
+
+for (const size of [4, 5] as const) {
+  test(`native ${size}×${size} scramble fixture matches executed moves`, () => {
+    const fixture = "(+urf) (-ufl,ulb,ubr,bdr,dfr) (ur1,br1,dr1,fr1,uf1,ul1,ub1) (ur2,br2,dr2,fr2,uf2,ul2,ub2)"
+      + (size === 5 ? " (ur,br,dr,fr,uf,ul,ub)" : "");
+    const expected = stateAfter("R U", size);
+    expect(parseSseState(fixture, size)).toEqual({TAG: "Ok", _0: {state: expected, ignoredCentreOrientations: []}});
+    expect(renderSseState(expected)).toEqual({TAG: "Ok", _0: fixture});
+  });
+
+  test(`native ${size}×${size} SSE preserves stickers through seeded scramble prefixes`, () => {
+    let seed = 421;
+    let state = StateTypes.solved(size)._0;
+    const moves = ["R", "U'", "F2", "Lw", "2B'", "Dw2", "x", "y'", ...(size === 5 ? ["3R", "3F'"] : [])];
+    for (let step = 0; step < 80; step += 1) {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      state = MoveExecutor.applyAlg(state, MoveParser.parse(size, moves[seed % moves.length])._0)._0;
+      const rendered = renderSseState(state);
+      if (rendered.TAG === "Error") throw new Error(rendered._0);
+      const parsed = parseSseState(rendered._0, size);
+      if (parsed.TAG === "Error") throw new Error(parsed._0);
+      expect(parsed._0.state).toEqual(state);
+    }
+  });
+
+  test(`native ${size}×${size} SSE exports solved, scramble, centre-only and wing-only states`, () => {
+    const fixtures = [
+      StateTypes.solved(size)._0,
+      stateAfter("R U F2 L' D B Rw U2 Fw' x", size),
+      ...["(r1,u2,f3)", "(ur1,rf1,fu1)", "(+urf) (-ufl)", "(+ur1) (+uf2)",
+        ...(size === 5 ? ["(r5,u6,f7) (r,u,f)", "(+ur) (+uf)"] : []),
+      ].map((input) => {
+        const parsed = parseSseState(input, size);
+        if (parsed.TAG === "Error") throw new Error(parsed._0);
+        return parsed._0.state;
+      }),
+    ];
+    for (const state of fixtures) {
+      const rendered = renderSseState(state);
+      if (rendered.TAG === "Error") throw new Error(rendered._0);
+      expect(rendered._0).toMatch(/^(\([+\-ulfrbd0-9,]+\)\s*)+$/);
+      const parsed = parseSseState(rendered._0, size);
+      if (parsed.TAG === "Error") throw new Error(`${rendered._0}: ${parsed._0}`);
+      expect(parsed._0.state).toEqual(state);
+      expect(renderSseState(parsed._0.state)).toEqual(rendered);
+    }
+  });
+
+  test(`large ${size}×${size} prefixes agree with small-cube corner orientations`, () => {
+    const large = parseSseState("(+urf) (-ufl)", size);
+    const small = parseSseState("(+urf) (-ufl)", 2);
+    if (large.TAG === "Error" || small.TAG === "Error") throw new Error("Import failed");
+    const corners = [0, size - 1, size * (size - 1), size * size - 1];
+    expect(large._0.state.facelets.map((face) => corners.map((index) => face[index])))
+      .toEqual(small._0.state.facelets);
+    expect(parseSseState("(ur1) (ru2)", size).TAG).toBe("Error");
+  });
+}
+
+test("4×4 numbered parts use CubeTwister's RevengeCube sticker positions", () => {
+  const parsed = parseSseState("(ur1,rf1) (r1,u1)", 4);
+  if (parsed.TAG === "Error") throw new Error(parsed._0);
+  const expected = StateTypes.solved(4)._0;
+  expected.facelets[3][2] = "F";
+  expected.facelets[2][11] = "R";
+  expected.facelets[3][8] = "U";
+  expected.facelets[0][7] = "R";
+  expected.facelets[3][10] = "U";
+  expected.facelets[0][5] = "R";
+  expect(parsed._0.state).toEqual(expected);
+});
