@@ -45,6 +45,9 @@ const cornerCoordinates = (state: CubeState): {cp: string; co: string} => {
   return {cp: cp.join(" "), co: co.join(" ")};
 };
 
+const cornerSamples = (state: CubeState): string =>
+  corners.map((position) => `${position}:${cornerColours(state, position)}`).join(" ");
+
 const edgeSamples = (state: CubeState): string => {
   const n = state.size;
   const slots: string[] = [];
@@ -89,9 +92,9 @@ export const renderLargeCubeState = (state: CubeState, format: LargeStateFormat)
   const {cp, co} = cornerCoordinates(state);
   if (format === "singmaster") return renderLargeStickerCycles(state);
   const heading = `Cube Rosetta ${formatName[format]} ${state.size}×${state.size} v1`;
-  const inventory = format === "singmaster"
-    ? `corners: cp ${cp}; co ${co}\nwings: ${edgeSamples(state)}\ncentres: ${centreSamples(state)}`
-    : `cp: ${cp}; co: ${co}\nwings: ${edgeSamples(state)}\ncentres: ${centreSamples(state)}`;
+  const inventory = `cp: ${cp}; co: ${co}\ncorners: ${cornerSamples(state)}\nwings: ${edgeSamples(state)}\ncentres: ${centreSamples(state)}`;
+  // CP/CO's inventory is self-contained. SSE retains a facelet payload until
+  // its published numbered-part spelling can be rendered without ambiguity.
   return {TAG: "Ok", _0: `${heading}\n${inventory}\nstate: ${FaceletCodec.render(state)}`};
 };
 
@@ -155,6 +158,48 @@ export const parseLargeCubeState = (input: string, size: 4 | 5): Result<CubeStat
     }
     faces.forEach((face, faceIndex) => { facelets[storageIndex[face]] = flat.slice(faceIndex * size * size, (faceIndex + 1) * size * size); });
     return {TAG: "Ok", _0: {size, facelets}};
+  }
+  if (new RegExp(`^Cube Rosetta CP/CO coordinates ${size}×${size} v1`, "m").test(input)) {
+    const payload = /^state:\s*([URFDLB\s]+)\s*$/mi.exec(input)?.[1];
+    if (payload) {
+      const parsed = FaceletCodec.parse(size, payload) as Result<CubeState, unknown>;
+      return parsed.TAG === "Ok" ? parsed : {TAG: "Error", _0: "The CP/CO large-cube state payload is invalid."};
+    }
+    const line = (name: string) => new RegExp(`^${name}:\\s*(.+)$`, "m").exec(input)?.[1];
+    const cornersLine = line("corners"), wingsLine = line("wings"), centresLine = line("centres");
+    if (!cornersLine || !wingsLine || !centresLine) return {TAG: "Error", _0: "CP/CO large-cube state needs corners, wings, and centres inventories."};
+    const solved = StateTypes.solved(size)._0 as CubeState;
+    const facelets = solved.facelets.map((face) => [...face]);
+    const put = (face: string, index: number, colour: string) => { facelets[storageIndex[face]]![index] = colour; };
+    const entries = (source: string) => source.split(/\s+/).map((entry) => entry.split(":"));
+    try {
+      for (const [position, colours] of entries(cornersLine)) {
+        if (!position || !colours || position.length !== 3 || colours.length !== 3) throw new Error();
+        const lower = position.toLowerCase(); const last = size - 1;
+        const gx = lower.includes("r") ? last : 0, gy = lower.includes("u") ? last : 0, gz = lower.includes("f") ? last : 0;
+        [...lower].forEach((face, index) => put(face.toUpperCase(), faceletIndex(size, face, gx, gy, gz), colours[index]!.toUpperCase()));
+      }
+      for (const [position, colours] of entries(wingsLine)) {
+        const match = /^([URFDLB]{2})(\d+)$/.exec(position ?? "");
+        if (!match || !colours || colours.length !== 2) throw new Error();
+        const edge = match[1]!.toLowerCase(), along = Number(match[2]);
+        if (along < 1 || along >= size - 1) throw new Error();
+        const last = size - 1;
+        const gx = edge.includes("r") ? last : edge.includes("l") ? 0 : along;
+        const gy = edge.includes("u") ? last : edge.includes("d") ? 0 : along;
+        const gz = edge.includes("f") ? last : edge.includes("b") ? 0 : along;
+        [...edge].forEach((face, index) => put(face.toUpperCase(), faceletIndex(size, face, gx, gy, gz), colours[index]!.toUpperCase()));
+      }
+      for (const [position, colour] of entries(centresLine)) {
+        const match = /^([URFDLB])(\d+)$/.exec(position ?? "");
+        if (!match || !colour || colour.length !== 1) throw new Error();
+        const face = match[1]!.toLowerCase(), ordinal = Number(match[2]) - 1, inner = size - 2;
+        if (ordinal < 0 || ordinal >= inner * inner) throw new Error();
+        put(face.toUpperCase(), (Math.floor(ordinal / inner) + 1) * size + ordinal % inner + 1, colour.toUpperCase());
+      }
+    } catch { return {TAG: "Error", _0: "Invalid CP/CO large-cube positional inventory."}; }
+    const checked = FaceletCodec.parse(size, FaceletCodec.render({size, facelets})) as Result<CubeState, unknown>;
+    return checked.TAG === "Ok" ? checked : {TAG: "Error", _0: "Invalid CP/CO large-cube sticker inventory."};
   }
   const heading = new RegExp(`^Cube Rosetta (?:CP/CO coordinates|SSE cubie state|Singmaster large cycles) ${size}×${size} v1\\s*$`, "m");
   if (!heading.test(input)) return {TAG: "Error", _0: `Expected a Cube Rosetta ${size}×${size} large-cube v1 state.`};

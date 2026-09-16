@@ -30,6 +30,7 @@ test("losslessly round-trips the Cube Rosetta large-cube cards", () => {
         expect(rendered._0).toContain("state:");
       }
       const parsed = parseLargeCubeState(rendered._0, size);
+      if (parsed.TAG === "Error") throw new Error(`${format}/${size}: ${parsed._0}`);
       expect(parsed.TAG).toBe("Ok");
       if (parsed.TAG === "Ok") expect(FaceletCodec.render(parsed._0)).toBe(FaceletCodec.render(state));
     }
