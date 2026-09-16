@@ -172,6 +172,17 @@ test("maps SSE's size-specific 2×2–5×5 layer prefixes to CubeLab layer range
   assert.match(MoveParser.parseWithOptions(4, "Wide", "Sse", "N2R")._0.message, /only for 5×5×5/);
 });
 
+test("maps the Workbench SSE wide, numbered, and middle-layer sequence", () => {
+  const input = "WD' WR' WD NR' MR NL NU2 ND2 NF2 NB2";
+  const sse = parseWithOptions(5, "Wide", "Sse", input);
+  const modern = parse(5, "2-4Dw' 2-4Rw' 2-4Dw 2R' 3R 2L 2U2 2D2 2F2 2B2");
+  const sseState = MoveExecutor.applyAlg(StateTypes.solved(5)._0, sse);
+  const modernState = MoveExecutor.applyAlg(StateTypes.solved(5)._0, modern);
+  assert.equal(sseState.TAG, "Ok");
+  assert.equal(modernState.TAG, "Ok");
+  assert.equal(FaceletCodec.render(sseState._0), FaceletCodec.render(modernState._0));
+});
+
 test("maps ACube's e, s, and m whole-cube rotations to conventional axes", () => {
   const acube = parseWithOptions(3, "Wide", "Acube", "m e s m' e' s'");
   const modern = parse(3, "x' y' z x y z'");

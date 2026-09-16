@@ -18,6 +18,7 @@ import {
   tutorialSequenceDescription,
   timelineHoverEnabled,
 } from "../../src/client/playback";
+import {dialectForAlgorithmInput} from "../../src/client/notation-dialect";
 
 describe("algorithm playback timeline", () => {
   test("keeps a zero-step tape position for canonical state input", () => {
@@ -115,6 +116,27 @@ describe("algorithm playback timeline", () => {
     expect(FaceletCodec.render(result._0.finalState)).toBe(
       FaceletCodec.render(result._0.states?.at(-1)),
     );
+  });
+
+  test("detects native SSE prefixes in Workbench algorithms", () => {
+    const input = "WD' WR' WD NR' MR NL NU2 ND2 NF2 NB2";
+    const detected = dialectForAlgorithmInput(5, "Modern", input);
+    expect(detected).toBe("Sse");
+    const result = evaluateAlgorithm(5, "Wide", detected, input);
+    const explicit = evaluateAlgorithm(5, "Wide", "Sse", input);
+    expect(result.TAG).toBe("Ok");
+    expect(result).toEqual(explicit);
+    if (result.TAG === "Ok") expect(result._0.labels).toHaveLength(10);
+  });
+
+  test("detects only SSE move families available on each cube size", () => {
+    for (const [size, input] of [[2, "CR"], [3, "MR"], [4, "WR"], [5, "NR"]] as const) {
+      const dialect = dialectForAlgorithmInput(size, "Modern", input);
+      expect(dialect).toBe("Sse");
+      expect(evaluateAlgorithm(size, "Wide", dialect, input).TAG).toBe("Ok");
+    }
+    expect(dialectForAlgorithmInput(5, "Modern", "M R W U S F")).toBe("Modern");
+    expect(dialectForAlgorithmInput(5, "Modern", "R U // try WR next")).toBe("Modern");
   });
 
   test("retains expanded pauses as state-neutral playback steps", () => {

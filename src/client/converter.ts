@@ -42,6 +42,7 @@ import {computed, signal} from "./signal";
 import {looksLikeAcubeState, parseAcubeState} from "./acube-state";
 import {countAcubeCompletions, materializeAcubeConstraint, parseAcubeConstraint, renderAcubeState} from "./acube-engine";
 import {looksLikeSseState, parseSseState, renderSseState} from "./sse-state";
+import {dialectForAlgorithmInput} from "./notation-dialect";
 import {looksLikeLargeCubeState, parseLargeCubeState, renderLargeCubeState} from "./large-cube-state";
 import {
   looksLikeSingmasterCycleState,
@@ -2044,11 +2045,10 @@ if (root) {
     setupCanonicalise.hidden = isCanonical;
   };
 
-  // The SSE middle dot is unambiguous: CubeLab's other input dialects do not
-  // assign it a move meaning. Recognize it for copy/pasted SSE catalogue lines
-  // without changing the user's persistent dialect selection.
+  // SSE delimiters and prefixed moves are unambiguous in CubeLab's other
+  // dialects. Detect pasted SSE without changing the persistent selection.
   const dialectForPastedInput = (value: string): NotationDialect =>
-    size >= 2 && size <= 5 && value.includes("·") ? "Sse" : notationDialect;
+    dialectForAlgorithmInput(size, notationDialect, value);
 
   const parseAlgorithm = (value: string): Result<RecognizedInput> => {
     const effectiveDialect = dialectForPastedInput(value);
@@ -2159,7 +2159,7 @@ if (root) {
       const parsed = MoveParser.parseWithOptions(
         size,
         lowercaseMode,
-        notationDialect,
+        dialectForPastedInput(notation.join(" ")),
         notation.join(" "),
       ) as Result<unknown[], {message?: string}>;
       return parsed.TAG === "Ok"
@@ -6284,7 +6284,7 @@ if (root) {
       const parsed = MoveParser.parseWithOptions(
         size,
         lowercaseMode,
-        notationDialect,
+        dialectForPastedInput(movesInput.value),
         movesInput.value,
       ) as Result<unknown[], {message: string}>;
       if (parsed.TAG === "Error") return;
@@ -6354,7 +6354,7 @@ if (root) {
     const parsed = MoveParser.parseWithOptions(
       size,
       lowercaseMode,
-      notationDialect,
+      dialectForPastedInput(movesInput.value),
       movesInput.value,
     ) as Result<unknown[], {message: string}>;
     if (parsed.TAG === "Error") return;

@@ -11,6 +11,7 @@ const timerPage = await readFile(new URL("../src/pages/timer.astro", import.meta
 const mockPage = await readFile(new URL("../src/pages/dev/mock.astro", import.meta.url), "utf8");
 const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
 const client = await readFile(new URL("../src/client/converter.ts", import.meta.url), "utf8");
+const notationDialect = await readFile(new URL("../src/client/notation-dialect.ts", import.meta.url), "utf8");
 const manualState = await readFile(new URL("../src/client/manual-state.ts", import.meta.url), "utf8");
 const timerWorkspace = await readFile(new URL("../src/client/timer/workspace.ts", import.meta.url), "utf8");
 const solverWorker = await readFile(new URL("../src/client/workers/solver.worker.ts", import.meta.url), "utf8");
@@ -523,8 +524,13 @@ test("the Workbench materializes ACube constraint families as concrete Setup sta
 
 test("the Setup parser auto-detects the unambiguous SSE middle-dot delimiter", () => {
   assert.match(client, /dialectForPastedInput/);
-  assert.match(client, /value\.includes\("·"\) \? "Sse"/);
+  assert.match(notationDialect, /source\.includes\("·"\)/);
   assert.match(client, /Algorithm · SSE/);
+});
+
+test("the Workbench auto-detects native SSE prefixed moves", () => {
+  assert.match(notationDialect, /ssePrefixedMove/);
+  assert.match(client, /dialectForPastedInput\(movesInput\.value\)/);
 });
 
 test("controller-mode turns advance an active coached tape in the viewport frame", () => {
