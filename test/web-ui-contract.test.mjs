@@ -448,6 +448,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /const canRotateView = manualStateRepresentation === "dual-3d" \|\| manualStateRepresentation === "isometric"/);
   assert.match(client, /manualStateRotationGroup\.hidden = !canRotateView/);
   assert.match(client, /manualStateFlipButton\.hidden = manualStateRepresentation !== "isometric"/);
+  assert.match(client, /renderManualStateSummary\(manualSize, displayEntered, displayTotal, perColourPlaced\);\s*renderManualStatePaletteLabels\(\);\s*if \(manualStateBuiltSize/);
   assert.match(page, /data-manual-state-shortcut-rotate[\s\S]*data-manual-state-shortcut-flip/);
   assert.match(client, /manualStateViewDestination\(manualSize, source, yQuarterTurns, manualStateFlipped\)/);
   assert.match(client, /manualStateOrientedArrowTarget\(manualSize, index, direction\)/);

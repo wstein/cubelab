@@ -590,6 +590,7 @@ if (root) {
   let updateManualStateSmartCubeControl = () => {};
   let importManualStateSmartCube = (_state: CubeState) => {};
   let updateManualStateMetrics: (manualSize: ManualStateSize) => void = () => {};
+  let renderManualStatePaletteLabels = () => {};
   // Built once per manual-state size and reused across renders: recreating
   // every sticker button on every single paint or erase click would force a
   // full style/layout recompute and flicker.
@@ -1761,6 +1762,7 @@ if (root) {
       button.setAttribute("aria-pressed", String(selected));
     });
     renderManualStateSummary(manualSize, displayEntered, displayTotal, perColourPlaced);
+    renderManualStatePaletteLabels();
     if (manualStateBuiltSize !== manualSize) {
       buildManualStateGrid(manualSize);
       manualStateBuiltSize = manualSize;
@@ -1858,7 +1860,7 @@ if (root) {
     }
   };
 
-  const renderManualStatePaletteLabels = () => {
+  renderManualStatePaletteLabels = () => {
     const manualSize = size as ManualStateSize;
     const faceNames: Record<ManualStateFace, string> = {
       U: "Up", D: "Down", R: "Right", L: "Left", F: "Front", B: "Back",
