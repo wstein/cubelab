@@ -1569,17 +1569,20 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   z-index: 1;
 }
 
-/* The hovered/focused sticker itself gets a bright ring; the rest of its
-   physical piece (its corner or edge mates elsewhere in the net, which the
-   wrapped Back face can put far away visually) gets a dimmer amber one, so a
-   piece's stickers can be traced without folding the net in your head. */
+/* The hovered sticker and its cubie mates use a dark inner separator before
+   their semantic outer ring. This keeps cyan and amber visible on already
+   coloured stickers, including white, yellow, orange, and blue. */
 .manual-state-sticker[data-piece-hover="self"] {
-  box-shadow: 0 0 0 2px #f4f7fc;
-  z-index: 1;
+  box-shadow:
+    inset 0 0 0 2px #0f172a,
+    0 0 0 2px #67e8f9;
+  z-index: 2;
 }
 .manual-state-sticker[data-piece-hover="mate"] {
-  box-shadow: 0 0 0 2px #ffc94a;
-  z-index: 1;
+  box-shadow:
+    inset 0 0 0 2px #0f172a,
+    0 0 0 2px #ffc94a;
+  z-index: 2;
 }
 .manual-state-sticker[data-auto="true"] {
   transform: scale(0.85);
@@ -1594,7 +1597,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
     inset 0 0 0 2px #f8fafc,
     inset 0 0 0 4px #0f172a,
     0 0 0 2px #67e8f9;
-  z-index: 2;
+  z-index: 3;
 }
 
 .manual-state-sticker[data-centre="true"] {
