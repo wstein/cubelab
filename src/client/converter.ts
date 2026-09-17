@@ -1192,10 +1192,9 @@ if (root) {
     });
   };
 
-  // A face-centre never has a chosen colour; it is fixed by emptyManualState
-  // and disabled on the flat net. Any of the other entry points below (the
-  // preview cubes, the keyboard shortcut) need the same guard since they are
-  // not disabled <button> elements.
+  // A face-centre never has a chosen colour; it is fixed by emptyManualState.
+  // It remains selectable for inspection and keyboard navigation, while the
+  // mutation paths below all share this guard to keep its colour immutable.
   const isManualStateCentre = (index: number): boolean =>
     isManualStateFixedCentre(size as ManualStateSize, index);
 
@@ -1534,10 +1533,6 @@ if (root) {
         sticker.dataset.manualStateIndex = String(index);
         const centre = isManualStateFixedCentre(manualSize, index);
         sticker.dataset.centre = String(centre);
-        if (centre) {
-          sticker.tabIndex = -1;
-          sticker.setAttribute("aria-disabled", "true");
-        }
         group.append(sticker);
         manualStateStickerElements[index] = sticker;
       }
@@ -1621,9 +1616,8 @@ if (root) {
     return visible[manualStateOrientation];
   };
 
-  const isManualStateStickerInteractive = (index: number): boolean => {
-    return !isManualStateCentre(index);
-  };
+  const isManualStateStickerInteractive = (index: number): boolean =>
+    Number.isInteger(index) && index >= 0 && index < manualStateDraft.length;
 
   const syncManualStateInteraction = () => {
     const visibleFaces = new Set(manualStateVisibleFaces());
@@ -1725,27 +1719,22 @@ if (root) {
         } else {
           delete sticker.dataset.dead;
         }
+        sticker.tabIndex = 0;
+        sticker.removeAttribute("aria-disabled");
         if (centre) {
-          sticker.tabIndex = -1;
-          sticker.setAttribute("aria-disabled", "true");
-          sticker.title = "Double-click to select colour";
-          delete sticker.dataset.pieceHover;
-        } else if (index === manualStateHoverIndex) {
-          sticker.tabIndex = 0;
-          sticker.removeAttribute("aria-disabled");
+          sticker.title = "Fixed centre; double-click to select colour";
+        } else {
           sticker.removeAttribute("title");
+        }
+        if (index === manualStateHoverIndex) {
           sticker.dataset.pieceHover = "self";
         } else if (hoverMates.includes(index)) {
-          sticker.tabIndex = 0;
-          sticker.removeAttribute("aria-disabled");
           sticker.dataset.pieceHover = "mate";
         } else {
-          sticker.tabIndex = 0;
-          sticker.removeAttribute("aria-disabled");
           delete sticker.dataset.pieceHover;
         }
-        // Fixed centres are non-editable, non-selectable reference tiles;
-        // isManualStateCentre guards every mutating and interaction path.
+        // Fixed centres are selectable reference tiles; isManualStateCentre
+        // guards every mutating path while cursor/focus remain available.
         sticker.setAttribute("aria-label", `${manualStateFaceName[face]} sticker ${localIndex + 1}${centre ? ", fixed centre" : value === null ? ", blank" : `, ${manualStateFaceName[value]}${manualStateAutoIndices.has(index) ? ", filled automatically; click to fix" : ""}`}`);
         if (value !== null) {
           manualStateUnverifiedDots.delete(index);
@@ -1859,10 +1848,10 @@ if (root) {
     manualStateGrid.querySelectorAll<HTMLElement>("[data-piece-hover]").forEach((el) => {
       delete el.dataset.pieceHover;
     });
-    if (manualStateHoverIndex === null || isManualStateCentre(manualStateHoverIndex)) return;
+    if (manualStateHoverIndex === null) return;
     const mates = manualStatePieceMates(manualSize, manualStateHoverIndex);
     const self = manualStateStickerElements[manualStateHoverIndex];
-    if (self && self.dataset.centre !== "true") {
+    if (self) {
       self.dataset.pieceHover = "self";
     }
     mates.forEach((mate) => {
@@ -1877,13 +1866,6 @@ if (root) {
       const sticker = (event.target as Element).closest("[data-manual-state-index]");
       if (!sticker) return;
       const index = Number(sticker.dataset.manualStateIndex);
-      if (isManualStateCentre(index)) {
-        if (manualStateHoverIndex !== null) {
-          setManualStateHoverIndex(null);
-          updateManualStatePieceHighlight();
-        }
-        return;
-      }
       if (manualStateHoverIndex === index) return;
       setManualStateHoverIndex(index);
       updateManualStatePieceHighlight();

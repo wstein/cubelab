@@ -1688,12 +1688,18 @@ test("paints a specific dot's colour on click and loads a filled sticker's colou
   await sticker8.click();
   await expect(sticker8).toHaveAttribute("data-face", "R");
 
-  // A fixed centre is a real <button> too, not a native disabled one — that
-  // would also suppress its double-click, not just click/drag paint.
+  // A fixed centre participates in normal selection and hover, but painting
+  // it remains a no-op and double-click still picks up its canonical colour.
   const rCentre = net.locator('[data-manual-state-index="13"]');
   await expect(rCentre).toHaveAttribute("data-face", "R");
   await dialog.locator('[data-manual-state-colour="U"]').click();
-  await rCentre.dblclick({force: true});
+  await rCentre.click();
+  await expect(rCentre).toHaveAttribute("data-cursor", "true");
+  await expect(rCentre).toBeFocused();
+  await expect(rCentre).toHaveAttribute("data-face", "R");
+  await rCentre.hover();
+  await expect(rCentre).toHaveAttribute("data-piece-hover", "self");
+  await rCentre.dblclick();
   await expect(dialog.locator('[data-manual-state-colour="R"]')).toHaveAttribute("aria-pressed", "true");
   await expect(rCentre).toHaveAttribute("data-face", "R");
 });

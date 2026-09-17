@@ -1758,20 +1758,6 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   z-index: 3;
 }
 
-.manual-state-sticker[data-centre="true"] {
-  cursor: default;
-  user-select: none;
-}
-
-.manual-state-sticker[data-centre="true"]:hover,
-.manual-state-sticker[data-centre="true"]:focus,
-.manual-state-sticker[data-centre="true"]:focus-visible,
-.manual-state-sticker[data-centre="true"][data-piece-hover] {
-  border-color: var(--border-subtle);
-  box-shadow: none;
-  outline: none;
-}
-
 .manual-state-sticker[data-face="U"], .manual-state-colour[data-manual-state-colour="U"] { background: #f8fafc; }
 .manual-state-sticker[data-face="R"], .manual-state-colour[data-manual-state-colour="R"] { background: #ef4444; }
 .manual-state-sticker[data-face="F"], .manual-state-colour[data-manual-state-colour="F"] { background: #22c55e; }
