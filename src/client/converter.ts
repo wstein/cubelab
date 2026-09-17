@@ -1482,6 +1482,7 @@ if (root) {
     entered: number,
     total: number,
     perColourPlaced: Record<ManualStateFace, number>,
+    completionDiagnostic: string | null,
   ) => {
     manualStateSummary.replaceChildren(
       manualStateSummaryRow("Entered", `${entered}/${total}`, (entered / total) * 100, "#63b3ff"),
@@ -1540,12 +1541,14 @@ if (root) {
     remainingBar.append(remainingFill);
     remainingRow.append(remainingLabels, remainingBar);
     manualStateSummary.append(divider, remainingRow);
-    if (manualStateDeadIndices.size > 0) {
+    const diagnostic = completionDiagnostic
+      ?? (manualStateDeadIndices.size > 0 ? "Dead end: tile has no legal colours" : null);
+    if (diagnostic !== null) {
       const deadRow = document.createElement("div");
       deadRow.className = "manual-state-dead-row";
       const deadMsg = document.createElement("span");
       deadMsg.className = "manual-state-dead-message";
-      deadMsg.textContent = "Dead end: tile has no legal colours";
+      deadMsg.textContent = diagnostic;
       const undoBtn = document.createElement("button");
       undoBtn.type = "button";
       undoBtn.className = "manual-state-undo-btn";
@@ -1753,7 +1756,7 @@ if (root) {
       button.classList.toggle("active", selected);
       button.setAttribute("aria-pressed", String(selected));
     });
-    renderManualStateSummary(manualSize, displayEntered, displayTotal, perColourPlaced);
+    renderManualStateSummary(manualSize, displayEntered, displayTotal, perColourPlaced, diagnostic);
     renderManualStatePaletteLabels();
     if (manualStateBuiltSize !== manualSize) {
       buildManualStateGrid(manualSize);
@@ -1831,7 +1834,7 @@ if (root) {
       }
     });
     if (manualSize <= 3 && manualStateDeadIndices.size > 0) {
-      renderManualStateSummary(manualSize, displayEntered, displayTotal, perColourPlaced);
+      renderManualStateSummary(manualSize, displayEntered, displayTotal, perColourPlaced, diagnostic);
     }
     if (manualSize >= 4) {
       dotTrace.log({
@@ -1892,7 +1895,7 @@ if (root) {
     manualStateDraft.forEach((value) => {
       if (value !== null) perColourPlaced[value] += 1;
     });
-    renderManualStateSummary(manualSize, displayEntered, displayTotal, perColourPlaced);
+    renderManualStateSummary(manualSize, displayEntered, displayTotal, perColourPlaced, diagnostic);
     renderManualStatePaletteLabels();
   };
 

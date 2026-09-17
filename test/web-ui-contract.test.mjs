@@ -305,6 +305,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /if \(manualStateDirtyDots === null \|\| manualStateDirtyDots\.size > 0\) \{[\s\S]{0,300}manualStateDotGeneration \+= 1;/);
   assert.match(client, /if \(!needsDots\) \{\s*if \(manualStateUnverifiedDots\.has\(index\)\) pendingDots\.push\(\{index, element: dots\}\);/);
   assert.match(client, /if \(manualSize <= 3\) \{[\s\S]{0,300}allowedManualStateColours[\s\S]{0,300}else \{[\s\S]{0,300}locallyAllowedManualStateColours[\s\S]{0,300}pendingDots\.push/);
+  assert.match(client, /const diagnostic = completionDiagnostic[\s\S]{0,200}Dead end: tile has no legal colours/);
   assert.match(client, /verifyManualStateDots\(manualSize, pendingDots\)/);
   // A dotless tile means the draft has no completion; it must never be silent.
   assert.match(client, /dotTrace\.deadTile\(manualSize, snapshot, next\.index, "verify"\)/);
@@ -448,7 +449,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /const canRotateView = manualStateRepresentation === "dual-3d" \|\| manualStateRepresentation === "isometric"/);
   assert.match(client, /manualStateRotationGroup\.hidden = !canRotateView/);
   assert.match(client, /manualStateFlipButton\.hidden = manualStateRepresentation !== "isometric"/);
-  assert.match(client, /renderManualStateSummary\(manualSize, displayEntered, displayTotal, perColourPlaced\);\s*renderManualStatePaletteLabels\(\);\s*if \(manualStateBuiltSize/);
+  assert.match(client, /renderManualStateSummary\(manualSize, displayEntered, displayTotal, perColourPlaced, diagnostic\);\s*renderManualStatePaletteLabels\(\);\s*if \(manualStateBuiltSize/);
   assert.match(page, /data-manual-state-shortcut-rotate[\s\S]*data-manual-state-shortcut-flip/);
   assert.match(client, /manualStateViewDestination\(manualSize, source, yQuarterTurns, manualStateFlipped\)/);
   assert.match(client, /manualStateOrientedArrowTarget\(manualSize, index, direction\)/);
