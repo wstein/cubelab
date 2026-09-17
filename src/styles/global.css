@@ -1168,6 +1168,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   width: calc(39 * var(--manual-state-unit));
   height: calc(22 * var(--manual-state-unit));
   transform-style: preserve-3d;
+  pointer-events: none;
 }
 
 .manual-state-net[data-representation="dual-3d"] .manual-state-face {
@@ -1182,6 +1183,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   border-radius: 0.35rem;
   background: #0f172a;
   backface-visibility: hidden;
+  pointer-events: auto;
   transform-origin: center;
   transition: transform 380ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }

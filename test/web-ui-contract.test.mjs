@@ -384,6 +384,8 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /\.manual-state-net\[data-representation="attached"\] \{/);
   assert.match(styles, /\.manual-state-net\[data-representation="attached"\] \.manual-state-face/);
   assert.match(styles, /\.manual-state-net\[data-representation="dual-3d"\] \{/);
+  assert.match(styles, /data-representation="dual-3d"\][^}]*\.manual-state-net-faces\s*\{[^}]*pointer-events:\s*none/);
+  assert.match(styles, /data-representation="dual-3d"\][^}]*\.manual-state-face\s*\{[^}]*pointer-events:\s*auto/);
   assert.match(styles, /data-representation="dual-3d"[\s\S]*rotateX\(var\(--manual-state-dual-pitch\)\)[\s\S]*rotateY\(calc\(-35deg \+ var\(--manual-state-dual-yaw, 0deg\)\)\)/);
   assert.match(styles, /data-face="U"[\s\S]*rotateX\(90deg\)[\s\S]*data-face="D"[\s\S]*rotateX\(-90deg\)/);
   assert.match(styles, /--manual-state-dual-pitch: -35\.264deg;[\s\S]*--manual-state-dual-pitch: 35\.264deg;/);

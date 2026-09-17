@@ -38,6 +38,14 @@ test("Dual 3D shows interactive upper and lower cube corners", async ({page}) =>
   );
   expect(selfInsetLayers).toBe(2);
 
+  // These six outer stickers tilt behind the stage's Z=0 plane. Exercise
+  // Chromium's real hit test so the stage can never mask them again.
+  for (const index of [17, 38, 0, 29, 45, 24]) {
+    const outerSticker = net.locator(`[data-manual-state-index="${index}"]`);
+    await outerSticker.hover();
+    await expect(outerSticker).toHaveAttribute("data-piece-hover", "self");
+  }
+
   const front = net.locator('.manual-state-face[data-face="F"]');
   const initialTransform = await front.evaluate((element) => getComputedStyle(element).transform);
   await page.locator('[data-manual-state-rotate="cw"]').click();
