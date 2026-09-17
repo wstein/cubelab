@@ -415,6 +415,8 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /paintRoot\.addEventListener\("dblclick",[\s\S]*manualStateRawStickerAt/);
   assert.match(client, /sticker\.title = "Double-click to select colour"/);
   assert.match(styles, /\.manual-state-sticker\[data-auto="true"\]\s*\{[\s\S]*transform:\s*scale\(/);
+  assert.match(styles, /data-face="L"[^}]*data-auto="true"[\s\S]*data-face="B"[^}]*data-auto="true"[\s\S]*scaleX\(-1\) scale\(0\.85\)/);
+  assert.match(styles, /data-face="D"[^}]*data-auto="true"[\s\S]*scaleY\(-1\) scale\(0\.85\)/);
   assert.doesNotMatch(styles, /\.manual-state-sticker\[data-auto="true"\]::after/);
   assert.match(client, /if \(key === "C"\) \{[\s\S]*event\.stopPropagation\(\);[\s\S]*return;/);
   assert.match(page, /data-manual-state-rotation-group/);

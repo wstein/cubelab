@@ -68,6 +68,24 @@ test("state editor keeps every cube view centered in the compact layout", async 
     }
   }
 
+  const isometricAutoScales = await dialog.evaluate((element) => [...element.querySelectorAll(".manual-state-face")].map((face) => {
+    const sticker = face.querySelector(".manual-state-sticker");
+    sticker.style.transition = "none";
+    sticker.dataset.auto = "true";
+    const transform = new DOMMatrix(getComputedStyle(sticker).transform);
+    delete sticker.dataset.auto;
+    sticker.style.removeProperty("transition");
+    return {
+      face: face.dataset.face,
+      x: Math.abs(transform.a),
+      y: Math.abs(transform.d),
+    };
+  }));
+  for (const scale of isometricAutoScales) {
+    expect(scale.x, `${scale.face} auto sticker x scale`).toBeCloseTo(0.85, 2);
+    expect(scale.y, `${scale.face} auto sticker y scale`).toBeCloseTo(0.85, 2);
+  }
+
   await page.setViewportSize({width: 700, height: 900});
   const overflow = await dialog.evaluate((element) => element.scrollWidth - element.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
