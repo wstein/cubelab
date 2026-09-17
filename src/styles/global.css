@@ -1205,11 +1205,6 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   touch-action: none;
 }
 
-/* Unpainted stickers in 3D are solid opaque tiles, never translucent */
-.manual-state-net[data-representation="isometric"] .manual-state-sticker[data-face="unknown"] {
-  background: #1e293b;
-}
-
 /* Base 3D placement for the 6 faces (DeSandro) */
 .manual-state-net[data-representation="isometric"] .manual-state-face[data-face="F"] {
   transform: rotateY(0deg) translateZ(var(--manual-state-half-size));
@@ -1620,7 +1615,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .manual-state-sticker[data-face="B"], .manual-state-colour[data-manual-state-colour="B"] { background: #3b82f6; }
 
 .manual-state-sticker[data-face="unknown"] {
-  background: rgba(148, 163, 184, 0.08);
+  background: #1e293b;
   color: var(--text-muted);
 }
 
