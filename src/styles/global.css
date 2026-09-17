@@ -979,6 +979,14 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   justify-content: center;
 }
 
+/* The exploded 3D envelope is nearly square, so let it use the dialog's
+   available height on desktop instead of freezing at the flat-net limit. */
+@media (min-width: 761px) {
+  .manual-state-main:has(.manual-state-net[data-representation="isometric"]) .manual-state-stage {
+    height: clamp(18rem, calc(100dvh - 17rem), 72rem);
+  }
+}
+
 .manual-state-stage .manual-state-net {
   flex-shrink: 0;
   max-width: min(100%, 128cqh);
@@ -1254,7 +1262,8 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 /* Use the same full-size 3D envelope for every puzzle size. The stage
    scales the whole layout to fit, keeping smaller puzzles just as legible. */
 .manual-state-net[data-representation="isometric"] {
-  --manual-state-unit: min(1rem, 1.45cqw, 2.35cqh);
+  /* The complete exploded view occupies about 39 × 42 units. */
+  --manual-state-unit: min(2.3cqw, 2.15cqh);
   --attached-face-gap: var(--manual-state-face-gap);
   --attached-fold-gap: calc(0.2 * var(--manual-state-unit));
   --manual-state-cube-size: calc(14 * var(--manual-state-unit));

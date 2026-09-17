@@ -55,11 +55,17 @@ test("state editor keeps every cube view centered in the compact layout", async 
       return {
         x: (bounds.left + bounds.right - stage.left - stage.right) / 2,
         y: (bounds.top + bounds.bottom - stage.top - stage.bottom) / 2,
+        widthFill: (bounds.right - bounds.left) / stage.width,
+        heightFill: (bounds.bottom - bounds.top) / stage.height,
       };
     });
     const centeringTolerance = representation === "attached" ? 6 : 32;
     expect(Math.abs(offset.x), `${representation} horizontal offset`).toBeLessThan(centeringTolerance);
     expect(Math.abs(offset.y), `${representation} vertical offset`).toBeLessThan(centeringTolerance);
+    if (representation === "isometric") {
+      expect(offset.widthFill, "isometric stage width occupancy").toBeGreaterThan(0.68);
+      expect(offset.heightFill, "isometric stage height occupancy").toBeGreaterThan(0.84);
+    }
   }
 
   await page.setViewportSize({width: 700, height: 900});
