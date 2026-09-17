@@ -1730,8 +1730,6 @@ if (root) {
     manualStatePalette.querySelectorAll<HTMLButtonElement>("[data-manual-state-colour]").forEach((button) => {
       const face = button.dataset.manualStateColour as ManualStateFace;
       button.setAttribute("aria-pressed", String(manualStateColour === face));
-      const left = button.querySelector<HTMLElement>("[data-manual-state-colour-left]");
-      if (left) left.textContent = manualStateShiftPressed ? "Reset" : `${manualSize * manualSize - perColourPlaced[face]} left`;
     });
     manualStateEraser.setAttribute("aria-pressed", String(manualStateColour === null));
     manualStateEraser.classList.toggle("active", manualStateColour === null);
@@ -1849,16 +1847,25 @@ if (root) {
 
   const renderManualStatePaletteLabels = () => {
     const manualSize = size as ManualStateSize;
+    const faceNames: Record<ManualStateFace, string> = {
+      U: "Up", D: "Down", R: "Right", L: "Left", F: "Front", B: "Back",
+    };
     const perColourPlaced: Record<ManualStateFace, number> = {U: 0, D: 0, R: 0, L: 0, F: 0, B: 0};
     manualStateDraft.forEach((value) => {
       if (value !== null) perColourPlaced[value] += 1;
     });
     manualStatePalette.querySelectorAll<HTMLButtonElement>("[data-manual-state-colour]").forEach((button) => {
       const face = button.dataset.manualStateColour as ManualStateFace;
+      const remaining = manualSize * manualSize - perColourPlaced[face];
       const left = button.querySelector<HTMLElement>("[data-manual-state-colour-left]");
-      if (left) {
-        left.textContent = manualStateShiftPressed ? "Reset" : `${manualSize * manualSize - perColourPlaced[face]} left`;
-      }
+      if (left) left.textContent = `${remaining} left`;
+      button.dataset.clearColour = String(manualStateShiftPressed);
+      button.setAttribute("aria-label", manualStateShiftPressed
+        ? `Clear all ${faceNames[face]} stickers`
+        : faceNames[face]);
+      button.title = manualStateShiftPressed
+        ? `Shift-click to clear all ${faceNames[face]} stickers`
+        : `${remaining} ${faceNames[face]} sticker${remaining === 1 ? "" : "s"} left`;
     });
   };
 

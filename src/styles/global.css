@@ -2024,6 +2024,12 @@ textarea.manual-state-notation-input {
   white-space: nowrap;
 }
 
+.manual-state-colour[data-clear-colour="true"] .manual-state-colour-left::before {
+  content: "⌫ ";
+  font-family: var(--font-sans);
+  opacity: 0.72;
+}
+
 .manual-state-colour[aria-pressed="true"] {
   border-color: #67e8f9;
   box-shadow: 0 0 0 2px rgba(103, 232, 249, 0.2);

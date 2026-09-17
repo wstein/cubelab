@@ -363,6 +363,10 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /manualStateRepresentation === "dual-3d"[\s\S]*--manual-state-dual-yaw/);
   assert.match(styles, /\.manual-state-tool\[data-manual-state-eraser\]\[aria-pressed="true"\]/);
   assert.match(styles, /\.manual-state-tool\[data-manual-state-eraser\]\.shift-active/);
+  assert.match(styles, /\.manual-state-colour\[data-clear-colour="true"\][\s\S]*content: "⌫ "/);
+  assert.match(client, /button\.dataset\.clearColour = String\(manualStateShiftPressed\)/);
+  assert.match(client, /left\.textContent = `\$\{remaining\} left`/);
+  assert.doesNotMatch(client, /manualStateShiftPressed \? "Reset"/);
   assert.match(client, /resetManualStateColour/);
   assert.doesNotMatch(client, /manualStateSummaryRow\("Known"/);
   assert.match(client, /isManualStateCoreCentre\(manualSize, index\)/);

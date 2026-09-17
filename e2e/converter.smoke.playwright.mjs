@@ -1707,7 +1707,7 @@ test("paints a specific dot's colour on click and loads a filled sticker's colou
   await expect(rCentre).toHaveAttribute("data-face", "unknown");
 });
 
-test("holding shift highlights erase button and changes palette text to Reset, and shift-clicking a color resets all stickers of that color", async ({page}) => {
+test("holding shift marks colour clearing without hiding counts, and shift-clicking clears that colour", async ({page}) => {
   await page.goto("/");
   await page.locator("[data-manual-state-open]").click();
   const dialog = page.locator("[data-manual-state-dialog]");
@@ -1733,18 +1733,23 @@ test("holding shift highlights erase button and changes palette text to Reset, a
   await sticker1.click();
   await expect(sticker1).toHaveAttribute("data-face", "B");
 
-  // Pressing Shift highlights the Eraser button and changes text in the colorpad to "Reset"
+  // Pressing Shift highlights the Eraser and exposes the clear-colour action,
+  // while preserving the useful remaining-colour counts.
   await page.keyboard.down("Shift");
   await expect(eraser).toHaveClass(/shift-active/);
   const rButton = dialog.locator('[data-manual-state-colour="R"] [data-manual-state-colour-left]');
   const bButton = dialog.locator('[data-manual-state-colour="B"] [data-manual-state-colour-left]');
-  await expect(rButton).toHaveText("Reset");
-  await expect(bButton).toHaveText("Reset");
+  await expect(rButton).toHaveText("6 left");
+  await expect(bButton).toHaveText("8 left");
+  await expect(dialog.locator('[data-manual-state-colour="R"]')).toHaveAttribute("data-clear-colour", "true");
+  await expect(dialog.locator('[data-manual-state-colour="R"]')).toHaveAttribute("aria-label", "Clear all Right stickers");
 
-  // Releasing Shift restores normal label and removes highlight
+  // Releasing Shift removes the clear affordance without changing the count.
   await page.keyboard.up("Shift");
   await expect(eraser).not.toHaveClass(/shift-active/);
-  await expect(rButton).not.toHaveText("Reset");
+  await expect(rButton).toHaveText("6 left");
+  await expect(dialog.locator('[data-manual-state-colour="R"]')).toHaveAttribute("data-clear-colour", "false");
+  await expect(dialog.locator('[data-manual-state-colour="R"]')).toHaveAttribute("aria-label", "Right");
 
   // Shift-clicking a colour resets every sticker of that colour, including a core centre.
   await dialog.locator('[data-manual-state-colour="R"]').click({modifiers: ["Shift"]});
