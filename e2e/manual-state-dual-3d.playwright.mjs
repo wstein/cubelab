@@ -20,11 +20,20 @@ test("Dual 3D shows interactive upper and lower cube corners", async ({page}) =>
   expect((faces.U.top + faces.U.bottom) / 2).toBeLessThan((faces.F.top + faces.F.bottom) / 2);
   expect((faces.D.top + faces.D.bottom) / 2).toBeGreaterThan((faces.B.top + faces.B.bottom) / 2);
 
-  const backSticker = net.locator('.manual-state-face[data-face="B"] .manual-state-sticker').first();
-  await backSticker.dispatchEvent("mouseover");
-  await expect(backSticker).toHaveAttribute("data-piece-hover", "self");
+  // The three stickers meeting at the lower view's inner corner must all be
+  // DBL. D is visually turned 180deg because it is presented as a floor.
+  const downInnerCorner = net.locator('.manual-state-face[data-face="D"] .manual-state-sticker').nth(2);
+  const backInnerCorner = net.locator('.manual-state-face[data-face="B"] .manual-state-sticker').last();
+  const leftInnerCorner = net.locator('.manual-state-face[data-face="L"] .manual-state-sticker').nth(6);
+  await expect(downInnerCorner).toHaveAttribute("data-manual-state-index", "33");
+  await expect(backInnerCorner).toHaveAttribute("data-manual-state-index", "53");
+  await expect(leftInnerCorner).toHaveAttribute("data-manual-state-index", "42");
+  await downInnerCorner.dispatchEvent("mouseover");
+  await expect(downInnerCorner).toHaveAttribute("data-piece-hover", "self");
+  await expect(backInnerCorner).toHaveAttribute("data-piece-hover", "mate");
+  await expect(leftInnerCorner).toHaveAttribute("data-piece-hover", "mate");
   await expect(net.locator('[data-piece-hover="mate"]')).toHaveCount(2);
-  const selfInsetLayers = await backSticker.evaluate((element) =>
+  const selfInsetLayers = await downInnerCorner.evaluate((element) =>
     (getComputedStyle(element).boxShadow.match(/inset/g) ?? []).length,
   );
   expect(selfInsetLayers).toBe(2);

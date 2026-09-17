@@ -1540,16 +1540,33 @@ if (root) {
   const arrangeManualStateView = (manualSize: ManualStateSize) => {
     if (manualStateStickerElements.length === 0) return;
     const frame = manualStateRepresentation === "isometric"
-      ? `${manualSize}:canonical`
-      : `${manualSize}:${manualStateOrientation}:${manualStateFlipped}`;
+      ? `${manualSize}:isometric:canonical`
+      : `${manualSize}:${manualStateRepresentation}:${manualStateOrientation}:${manualStateFlipped}`;
     if (frame === manualStateArrangedFrame) return;
     const perFace = manualSize * manualSize;
     const destinations: HTMLButtonElement[] = [];
     const yQuarterTurns = (4 - manualStateOrientation) % 4;
     manualStateStickerElements.forEach((sticker, source) => {
-      const destination = manualStateRepresentation === "isometric"
+      let destination = manualStateRepresentation === "isometric"
         ? source
         : manualStateViewDestination(manualSize, source, yQuarterTurns, manualStateFlipped);
+      // The complementary cube presents D as a floor beneath its B/L walls.
+      // Its near edge is therefore D's bottom row, not the top row used by
+      // the flat net, and the inner vertex is on the displayed right. Turn
+      // D by 180deg in its own plane so the shared inner corner is DBL on all
+      // three planes; this is presentation-only and leaves canonical draft
+      // indices untouched.
+      if (manualStateRepresentation === "dual-3d") {
+        const destinationFace = Math.floor(destination / perFace);
+        if (faceletOrder[destinationFace] === "D") {
+          const local = destination % perFace;
+          const row = Math.floor(local / manualSize);
+          const column = local % manualSize;
+          destination = destinationFace * perFace
+            + (manualSize - 1 - row) * manualSize
+            + (manualSize - 1 - column);
+        }
+      }
       destinations[destination] = sticker;
     });
     faceletOrder.forEach((face, faceIndex) => {
