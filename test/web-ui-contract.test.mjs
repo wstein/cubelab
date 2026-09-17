@@ -378,6 +378,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /\.manual-state-face\[data-interactive="false"\]\s*\{[\s\S]*pointer-events:\s*none/);
   assert.match(styles, /\.manual-state-sticker\[data-cursor="true"\]\s*\{[\s\S]*box-shadow:\s*inset 0 0 0 2px #63b3ff/);
   assert.match(styles, /--manual-state-face-gap: 0\.3rem;[\s\S]*gap: var\(--manual-state-face-gap\);/);
+  assert.match(styles, /data-representation="open-cube"[\s\S]*padding: calc\(var\(--manual-state-face-gap\) \* 0\.5\);/);
   assert.match(styles, /--attached-face-gap: var\(--manual-state-face-gap\);/);
   assert.match(styles, /--attached-fold-gap: 0\.2rem;/);
   assert.match(styles, /--attached-depth-ratio: 0\.6667;/);
