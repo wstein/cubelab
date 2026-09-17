@@ -1860,6 +1860,8 @@ if (root) {
     }
     manualStateNet.style.setProperty("--manual-state-yaw", `${manualStateYaw}deg`);
     manualStateNet.style.setProperty("--manual-state-flip", `${manualStateFlip}deg`);
+    manualStateNet.style.setProperty("--manual-state-dual-yaw", "0deg");
+    manualStateNet.style.setProperty("--manual-state-dual-flip", "0deg");
     manualStateGrid.style.removeProperty("--manual-state-yaw");
     manualStateGrid.style.removeProperty("--manual-state-flip");
     if (immediate) {
@@ -1879,12 +1881,40 @@ if (root) {
       ? (manualStateOrientation + 3) % 4
       : (manualStateOrientation + 1) % 4) as 0 | 1 | 2 | 3;
 
-    if (manualStateRepresentation !== "isometric") {
+    if (manualStateRepresentation !== "isometric" && manualStateRepresentation !== "dual-3d") {
       manualStateOrientation = nextOrientation;
       manualStateYaw += direction === "cw" ? -90 : 90;
       manualStateNet.dataset.orientation = String(nextOrientation);
       arrangeManualStateView(size as ManualStateSize);
       syncManualStateInteraction();
+      return;
+    }
+
+    if (manualStateRepresentation === "dual-3d") {
+      if (prefersReducedMotion) {
+        manualStateOrientation = nextOrientation;
+        manualStateYaw += direction === "cw" ? -90 : 90;
+        manualStateNet.dataset.orientation = String(nextOrientation);
+        arrangeManualStateView(size as ManualStateSize);
+        syncManualStateInteraction();
+        return;
+      }
+      manualStateIsRotating = true;
+      try {
+        manualStateNet.style.setProperty("--manual-state-dual-yaw", direction === "cw" ? "-90deg" : "90deg");
+        await new Promise((resolve) => setTimeout(resolve, 380));
+        manualStateNet.dataset.animState = "resetting";
+        manualStateOrientation = nextOrientation;
+        manualStateYaw += direction === "cw" ? -90 : 90;
+        manualStateNet.dataset.orientation = String(nextOrientation);
+        arrangeManualStateView(size as ManualStateSize);
+        syncManualStateInteraction();
+        manualStateNet.style.setProperty("--manual-state-dual-yaw", "0deg");
+        void manualStateNet.offsetHeight;
+      } finally {
+        delete manualStateNet.dataset.animState;
+        manualStateIsRotating = false;
+      }
       return;
     }
 
@@ -1925,7 +1955,7 @@ if (root) {
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const nextFlipped = !manualStateFlipped;
 
-    if (manualStateRepresentation !== "isometric") {
+    if (manualStateRepresentation !== "isometric" && manualStateRepresentation !== "dual-3d") {
       manualStateFlipped = nextFlipped;
       manualStateFlip = nextFlipped ? 180 : 0;
       if (nextFlipped) {
@@ -1935,6 +1965,39 @@ if (root) {
       }
       arrangeManualStateView(size as ManualStateSize);
       syncManualStateInteraction();
+      return;
+    }
+
+    if (manualStateRepresentation === "dual-3d") {
+      if (prefersReducedMotion) {
+        manualStateFlipped = nextFlipped;
+        manualStateFlip = nextFlipped ? 180 : 0;
+        if (nextFlipped) manualStateNet.dataset.flipped = "true";
+        else delete manualStateNet.dataset.flipped;
+        arrangeManualStateView(size as ManualStateSize);
+        syncManualStateInteraction();
+        return;
+      }
+      manualStateIsRotating = true;
+      try {
+        manualStateNet.style.setProperty("--manual-state-dual-flip", "90deg");
+        await new Promise((resolve) => setTimeout(resolve, 360));
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        manualStateNet.style.setProperty("--manual-state-dual-flip", "180deg");
+        await new Promise((resolve) => setTimeout(resolve, 360));
+        manualStateNet.dataset.animState = "resetting";
+        manualStateFlipped = nextFlipped;
+        manualStateFlip = nextFlipped ? 180 : 0;
+        if (nextFlipped) manualStateNet.dataset.flipped = "true";
+        else delete manualStateNet.dataset.flipped;
+        arrangeManualStateView(size as ManualStateSize);
+        syncManualStateInteraction();
+        manualStateNet.style.setProperty("--manual-state-dual-flip", "0deg");
+        void manualStateNet.offsetHeight;
+      } finally {
+        delete manualStateNet.dataset.animState;
+        manualStateIsRotating = false;
+      }
       return;
     }
 

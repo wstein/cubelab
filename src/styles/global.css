@@ -1184,24 +1184,40 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   background: #0f172a;
   backface-visibility: hidden;
   transform-origin: center;
+  transition: transform 380ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.manual-state-net[data-representation="dual-3d"][data-anim-state="resetting"] .manual-state-face {
+  transition: none;
 }
 
 .manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="F"],
 .manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="B"] {
   transform: translateX(var(--manual-state-cube-offset))
-    rotateX(-35.264deg) rotateY(-35deg) translateZ(var(--manual-state-half-size));
+    rotateX(-35.264deg)
+    rotateY(calc(-35deg + var(--manual-state-dual-yaw, 0deg)))
+    rotateX(var(--manual-state-dual-flip, 0deg))
+    translateZ(var(--manual-state-half-size));
 }
 
 .manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="R"],
 .manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="L"] {
   transform: translateX(var(--manual-state-cube-offset))
-    rotateX(-35.264deg) rotateY(-35deg) rotateY(90deg) translateZ(var(--manual-state-half-size));
+    rotateX(-35.264deg)
+    rotateY(calc(-35deg + var(--manual-state-dual-yaw, 0deg)))
+    rotateX(var(--manual-state-dual-flip, 0deg))
+    rotateY(90deg)
+    translateZ(var(--manual-state-half-size));
 }
 
 .manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="U"],
 .manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="D"] {
   transform: translateX(var(--manual-state-cube-offset))
-    rotateX(-35.264deg) rotateY(-35deg) rotateX(90deg) translateZ(var(--manual-state-half-size));
+    rotateX(-35.264deg)
+    rotateY(calc(-35deg + var(--manual-state-dual-yaw, 0deg)))
+    rotateX(var(--manual-state-dual-flip, 0deg))
+    rotateX(90deg)
+    translateZ(var(--manual-state-half-size));
 }
 
 .manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="U"],

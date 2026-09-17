@@ -347,6 +347,9 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /\.manual-state-key-emphasis \{[\s\S]*font-weight: 800;/);
   assert.match(styles, /\.manual-state-tools \{[\s\S]*flex: 0 1 18rem;/);
   assert.match(styles, /\.manual-state-net\[data-representation="attached"\] \{[\s\S]*transform: translate\(4\.1667%, -5\.5556%\);/);
+  assert.match(styles, /\.manual-state-net\[data-representation="dual-3d"\] \.manual-state-face \{[\s\S]*transition: transform 380ms/);
+  assert.match(client, /manualStateRepresentation === "dual-3d"[\s\S]*--manual-state-dual-yaw/);
+  assert.match(client, /manualStateRepresentation === "dual-3d"[\s\S]*--manual-state-dual-flip/);
   assert.match(styles, /\.manual-state-tool\[data-manual-state-eraser\]\[aria-pressed="true"\]/);
   assert.match(styles, /\.manual-state-tool\[data-manual-state-eraser\]\.shift-active/);
   assert.match(client, /resetManualStateColour/);
@@ -381,7 +384,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /\.manual-state-net\[data-representation="attached"\] \{/);
   assert.match(styles, /\.manual-state-net\[data-representation="attached"\] \.manual-state-face/);
   assert.match(styles, /\.manual-state-net\[data-representation="dual-3d"\] \{/);
-  assert.match(styles, /data-representation="dual-3d"[\s\S]*rotateX\(-35\.264deg\) rotateY\(-35deg\)/);
+  assert.match(styles, /data-representation="dual-3d"[\s\S]*rotateX\(-35\.264deg\)[\s\S]*rotateY\(calc\(-35deg \+ var\(--manual-state-dual-yaw, 0deg\)\)\)/);
   assert.match(styles, /\.manual-state-net\[data-representation="isometric"\] \{/);
   assert.match(styles, /\.manual-state-net\[data-representation="isometric"\] \.manual-state-face/);
   assert.match(styles, /\.manual-state-face\[data-interactive="false"\]\s*\{[\s\S]*pointer-events:\s*none/);
