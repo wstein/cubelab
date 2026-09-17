@@ -346,6 +346,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /\.manual-state-face-key \{[\s\S]*grid-template-columns: repeat\(6, 0\.62rem\);/);
   assert.match(styles, /\.manual-state-key-emphasis \{[\s\S]*font-weight: 800;/);
   assert.match(styles, /\.manual-state-tools \{[\s\S]*flex: 0 1 18rem;/);
+  assert.match(styles, /\.manual-state-net\[data-representation="attached"\] \{[\s\S]*transform: translate\(4\.1667%, -5\.5556%\);/);
   assert.match(styles, /\.manual-state-tool\[data-manual-state-eraser\]\[aria-pressed="true"\]/);
   assert.match(styles, /\.manual-state-tool\[data-manual-state-eraser\]\.shift-active/);
   assert.match(client, /resetManualStateColour/);

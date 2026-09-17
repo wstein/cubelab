@@ -991,6 +991,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   grid-template-rows: repeat(3, auto);
   gap: var(--manual-state-face-gap);
   width: 100%;
+  transition: transform 160ms ease;
 }
 
 .manual-state-controls-bar {
@@ -1054,6 +1055,11 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   --attached-diagonal-shift: calc(var(--manual-state-face-gap) * 0.2929);
   --attached-depth-ratio: 0.6667;
   overflow: visible;
+  /* Folding shortens the four-column cross to 3⅔ visible face widths and
+     moves its visible vertical midpoint down by ⅙ face. Offset the original
+     4 × 3 grid box so the transformed stickers, not the hidden box, remain
+     centred in the stage. */
+  transform: translate(4.1667%, -5.5556%);
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face {
