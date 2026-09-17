@@ -369,6 +369,9 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.doesNotMatch(client, /manualStateShiftPressed \? "Reset"/);
   assert.match(client, /resetManualStateColour/);
   assert.doesNotMatch(client, /manualStateSummaryRow\("Known"/);
+  assert.match(client, /largeManualStateProgress\(manualSize, manualStateDraft\)/);
+  assert.match(manualState, /export const largeManualStateProgress/);
+  assert.match(manualState, /\["xCentres", "plusCentres", "coreCentres"\]/);
   assert.match(client, /isManualStateCoreCentre\(manualSize, index\)/);
   assert.match(manualState, /const validCentreFrames:[\s\S]*faceletOrder\.flatMap/);
   assert.match(manualState, /if \(!canCompleteCentreFrame\(size, draft\)\) return false/);

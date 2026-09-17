@@ -58,6 +58,7 @@ import {
   fillLocallyForcedManualStateColours,
   isManualStateColourAllowedByScarcity,
   isManualStateCoreCentre,
+  largeManualStateProgress,
   locallyAllowedManualStateColours,
   manualStateCornerSlots,
   manualStateEdgeSlots,
@@ -1503,6 +1504,18 @@ if (root) {
       const edgeSlots = manualStateEdgeSlots();
       const edges = edgeSlots.filter((slot) => slot.every((i) => manualStateDraft[i] !== null)).length;
       manualStateSummary.append(manualStateSummaryRow("Edges", `${edges}/12`, (edges / 12) * 100, "#f0c419"));
+    }
+    if (manualSize >= 4) {
+      const labels = {corners: "Corners", centres: "Centres", wings: "Wings", midges: "Midges"} as const;
+      const colours = {corners: "#f0c419", centres: "#4ade80", wings: "#fb923c", midges: "#a78bfa"} as const;
+      largeManualStateProgress(manualSize, manualStateDraft).forEach((metric) => {
+        manualStateSummary.append(manualStateSummaryRow(
+          labels[metric.name],
+          `${metric.completed}/${metric.total}`,
+          metric.total === 0 ? 0 : (metric.completed / metric.total) * 100,
+          colours[metric.name],
+        ));
+      });
     }
     const remaining = total - entered;
     // Keep the final 0-left row visible: stable summary geometry makes the

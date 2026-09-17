@@ -321,6 +321,42 @@ const orbitsBySize: Record<ManualStateSize, ManualStateOrbit[]> = {
 
 export const manualStateOrbits = (size: ManualStateSize): ManualStateOrbit[] => orbitsBySize[size];
 
+export type LargeManualStateProgressMetric = {
+  name: "corners" | "centres" | "wings" | "midges";
+  completed: number;
+  total: number;
+};
+
+/** User-facing progress for the distinct physical piece families of a big
+ * cube. Centres are sticker pieces, while corners, wings, and midges count as
+ * complete only after every visible sticker of that cubie has been entered. */
+export const largeManualStateProgress = (
+  size: 4 | 5,
+  draft: ManualStateDraft,
+): LargeManualStateProgressMetric[] => {
+  const orbits = manualStateOrbits(size);
+  const metric = (
+    name: LargeManualStateProgressMetric["name"],
+    orbitNames: string[],
+  ): LargeManualStateProgressMetric => {
+    const slots = orbits
+      .filter((orbit) => orbitNames.includes(orbit.name))
+      .flatMap((orbit) => orbit.slots);
+    return {
+      name,
+      completed: slots.filter((slot) => slot.every((index) => draft[index] !== null)).length,
+      total: slots.length,
+    };
+  };
+  const progress = [
+    metric("corners", ["corners"]),
+    metric("centres", size === 4 ? ["centres"] : ["xCentres", "plusCentres", "coreCentres"]),
+    metric("wings", ["wings"]),
+  ];
+  if (size === 5) progress.push(metric("midges", ["midges"]));
+  return progress;
+};
+
 /**
  * Synchronous scarcity check: checks if this sticker's orbit can accept
  * `colour` without violating the orbit's quota or starving other orbits that

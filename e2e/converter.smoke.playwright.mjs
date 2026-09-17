@@ -1635,6 +1635,31 @@ test("shows counted colour pads, a live summary card, and rings a hovered sticke
   await expect(dialog.locator("[data-piece-hover]")).toHaveCount(0);
 });
 
+test("shows structured corner, centre, wing, and midge progress on large cubes", async ({page}) => {
+  const summaryValues = (dialog) => dialog.locator("[data-manual-state-summary] .manual-state-summary-row")
+    .evaluateAll((rows) => Object.fromEntries(rows.map((row) => {
+      const labels = [...row.querySelectorAll(".manual-state-summary-labels span")];
+      return [labels[0]?.textContent, labels[1]?.textContent];
+    })));
+
+  for (const [size, blank, solved] of [
+    [4,
+      {Entered: "0/96", Corners: "0/8", Centres: "0/24", Wings: "0/24", Remaining: "96 left"},
+      {Entered: "96/96", Corners: "8/8", Centres: "24/24", Wings: "24/24", Remaining: "0 left"}],
+    [5,
+      {Entered: "0/150", Corners: "0/8", Centres: "0/54", Wings: "0/24", Midges: "0/12", Remaining: "150 left"},
+      {Entered: "150/150", Corners: "8/8", Centres: "54/54", Wings: "24/24", Midges: "12/12", Remaining: "0 left"}],
+  ]) {
+    await page.goto(`/#size=${size}`);
+    await page.locator("[data-manual-state-open]").click();
+    const dialog = page.locator("[data-manual-state-dialog]");
+    await expect.poll(() => summaryValues(dialog)).toEqual(blank);
+    await dialog.locator("[data-manual-state-solved]").click();
+    await expect.poll(() => summaryValues(dialog)).toEqual(solved);
+    await page.keyboard.press("Escape");
+  }
+});
+
 test("paints a specific dot's colour on click and loads a filled sticker's colour on double-click", async ({page}) => {
   await page.goto("/");
   await page.locator("[data-manual-state-open]").click();

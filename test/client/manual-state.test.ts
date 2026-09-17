@@ -12,6 +12,7 @@ import {
   fillForcedManualStateColours,
   fillForcedManualStateColours2,
   fillLocallyForcedManualStateColours,
+  largeManualStateProgress,
   locallyAllowedManualStateColours,
   manualStateCornerSlots,
   manualStateEdgeSlots,
@@ -183,6 +184,40 @@ describe("3×3 manual state constraints", () => {
 });
 
 describe("4×4 and 5×5 manual state entry", () => {
+  test("reports completed large-cube piece families from entered stickers", () => {
+    for (const size of [4, 5] as const) {
+      expect(largeManualStateProgress(size, emptyManualState(size))).toEqual(size === 4
+        ? [
+          {name: "corners", completed: 0, total: 8},
+          {name: "centres", completed: 0, total: 24},
+          {name: "wings", completed: 0, total: 24},
+        ]
+        : [
+          {name: "corners", completed: 0, total: 8},
+          {name: "centres", completed: 0, total: 54},
+          {name: "wings", completed: 0, total: 24},
+          {name: "midges", completed: 0, total: 12},
+        ]);
+      expect(largeManualStateProgress(size, solvedManualState(size)).every((metric) =>
+        metric.completed === metric.total
+      )).toBe(true);
+    }
+
+    const draft = emptyManualState(5);
+    const orbits = manualStateOrbits(5);
+    orbits.find((orbit) => orbit.name === "corners")!.slots[0].forEach((index) => { draft[index] = "U"; });
+    orbits.find((orbit) => orbit.name === "wings")!.slots[0].forEach((index) => { draft[index] = "R"; });
+    orbits.find((orbit) => orbit.name === "midges")!.slots[0].forEach((index) => { draft[index] = "F"; });
+    orbits.find((orbit) => orbit.name === "xCentres")!.slots.slice(0, 2).forEach((slot) => { draft[slot[0]] = "D"; });
+    orbits.find((orbit) => orbit.name === "coreCentres")!.slots[0].forEach((index) => { draft[index] = "L"; });
+    expect(largeManualStateProgress(5, draft)).toEqual([
+      {name: "corners", completed: 1, total: 8},
+      {name: "centres", completed: 3, total: 54},
+      {name: "wings", completed: 1, total: 24},
+      {name: "midges", completed: 1, total: 12},
+    ]);
+  });
+
   test("auto-fills every uniquely implied big-cube sticker", () => {
     for (const size of [4, 5] as const) {
       const draft = solvedManualState(size);
