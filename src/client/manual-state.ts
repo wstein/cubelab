@@ -182,6 +182,26 @@ const canCompleteCentreFrame = (size: ManualStateSize, draft: ManualStateDraft):
   ));
 };
 
+/** Express the whole draft in every centre frame compatible with its entered
+ * core stickers. Piece constraints are defined in canonical URFDLB colours;
+ * checking them against the raw colours would treat the centre frame as an
+ * unrelated constraint and advertise orientations that the entered outer
+ * pieces cannot actually use. */
+const centreNormalizedDrafts = (size: ManualStateSize, draft: ManualStateDraft): ManualStateDraft[] => {
+  const indices = coreCentreIndices(size);
+  if (indices.length === 0) return [draft];
+  return validCentreFrames
+    .filter((frame) => indices.every((index, position) =>
+      draft[index] === null || draft[index] === frame[position]
+    ))
+    .map((frame) => {
+      const canonicalColour = new Map<ManualStateFace, ManualStateFace>(
+        frame.map((colour, position) => [colour, faceletOrder[position]]),
+      );
+      return draft.map((colour) => colour === null ? null : canonicalColour.get(colour)!);
+    });
+};
+
 /** Outer corner and wing stickers for an arbitrary order in URFDLB order. */
 const buildOuterPieceSlots = (size: 4 | 5): number[][] => {
   const n = size - 1;
@@ -708,17 +728,19 @@ const colourCounts = (draft: ManualStateDraft): Record<ManualStateFace, number> 
 export const canCompleteManualState = (size: ManualStateSize, draft: ManualStateDraft): boolean => {
   if (draft.length !== manualStateStickerCount(size)) return false;
   if (!canCompleteCentreFrame(size, draft)) return false;
-  if (size >= 4) {
-    const counts = colourCounts(draft);
-    const quota = size * size;
-    if (!Object.values(counts).every((count) => count <= quota)) return false;
-    if (!highOrderPieceKindsBySize[size].every((kind) => canAssignKind(draft, kind, counts, quota))) return false;
-    return size !== 4 || canComplete4x4Wings(draft);
-  }
-  const corner = feasibleSignatures(draft, kindsForSize(size)[0]);
-  if (size === 2) return corner[0][0] || corner[0][1];
-  const edge = feasibleSignatures(draft, edges);
-  return corner[0][0] && edge[0][0] || corner[0][1] && edge[0][1];
+  return centreNormalizedDrafts(size, draft).some((normalized) => {
+    if (size >= 4) {
+      const counts = colourCounts(normalized);
+      const quota = size * size;
+      if (!Object.values(counts).every((count) => count <= quota)) return false;
+      if (!highOrderPieceKindsBySize[size].every((kind) => canAssignKind(normalized, kind, counts, quota))) return false;
+      return size !== 4 || canComplete4x4Wings(normalized);
+    }
+    const corner = feasibleSignatures(normalized, kindsForSize(size)[0]);
+    if (size === 2) return corner[0][0] || corner[0][1];
+    const edge = feasibleSignatures(normalized, edges);
+    return corner[0][0] && edge[0][0] || corner[0][1] && edge[0][1];
+  });
 };
 
 /** The colours that may be placed at an index without dead-ending the draft. */

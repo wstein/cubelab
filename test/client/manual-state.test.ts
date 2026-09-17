@@ -99,6 +99,21 @@ describe("3×3 manual state constraints", () => {
     expect(canCompleteManualState(3, rotated)).toBe(true);
   });
 
+  test("narrows core-centre dots using the entered outer-piece frame", () => {
+    const draft = solvedManualState(3);
+    const centres = [4, 13, 22, 31, 40, 49];
+    centres.forEach((index) => { draft[index] = null; });
+    // Match the reported editor state: solved outer pieces with Yellow fixed
+    // at Front. The opposite centre is forced to White, while each of the
+    // four side positions has only its orientation-compatible colour pair.
+    draft[22] = "D";
+    expect(allowedManualStateColours(3, draft, 4)).toEqual(["R", "L"]);
+    expect(allowedManualStateColours(3, draft, 13)).toEqual(["F", "B"]);
+    expect(allowedManualStateColours(3, draft, 31)).toEqual(["R", "L"]);
+    expect(allowedManualStateColours(3, draft, 40)).toEqual(["F", "B"]);
+    expect(allowedManualStateColours(3, draft, 49)).toEqual(["U"]);
+  });
+
   test("rejects an otherwise-complete state with a single edge swap", () => {
     const draft = solvedManualState(3);
     // Swap UR and UF as whole, unoriented edge cubies. Corner parity remains
