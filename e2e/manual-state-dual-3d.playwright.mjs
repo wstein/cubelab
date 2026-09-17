@@ -61,9 +61,5 @@ test("Dual 3D shows interactive upper and lower cube corners", async ({page}) =>
   await expect(net).toHaveAttribute("data-orientation", "3", {timeout: 1_000});
   await expect(net).toHaveCSS("--manual-state-dual-yaw", "-90deg");
   await expect(upperRig.locator('[data-manual-state-index="13"]')).toHaveAttribute("data-face", "R");
-
-  await page.locator('[data-manual-state-rotate="flip"]').click();
-  await expect(net).toHaveCSS("--manual-state-dual-flip", "180deg");
-  await expect(net).toHaveAttribute("data-flipped", "true", {timeout: 1_500});
-  await expect(net).toHaveCSS("--manual-state-dual-flip", "180deg");
+  await expect(page.locator('[data-manual-state-rotate="flip"]')).toBeHidden();
 });

@@ -1842,7 +1842,7 @@ s100"></textarea>
                 <button type="button" class="transform-btn" data-manual-state-representation="dual-3d" aria-pressed="false">Dual 3D</button>
                 <button type="button" class="transform-btn" data-manual-state-representation="isometric" aria-pressed="false">3D view</button>
               </div>
-              <div class="manual-state-rotation-controls" data-manual-state-rotation-group role="group" aria-label="Cube view orientation">
+              <div class="manual-state-rotation-controls" data-manual-state-rotation-group role="group" aria-label="Cube view orientation" hidden>
                 <button type="button" class="transform-btn" data-manual-state-rotate="cw" aria-label="Rotate y (clockwise)" title="Rotate y (])">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
                   Rotate y
@@ -1915,8 +1915,8 @@ s100"></textarea>
                 <div class="manual-state-shortcut-actions">
                   <div><span class="manual-state-key manual-state-key-emphasis">E</span>erase</div>
                   <div><span class="manual-state-key manual-state-key-emphasis">← ↑ ↓ →</span></div>
-                  <div><span class="manual-state-key manual-state-key-emphasis">[ ]</span>rotate 3D</div>
-                  <div><span class="manual-state-key manual-state-key-emphasis">X</span>flip 3D</div>
+                  <div data-manual-state-shortcut-rotate><span class="manual-state-key manual-state-key-emphasis">[ ]</span>rotate 3D</div>
+                  <div data-manual-state-shortcut-flip><span class="manual-state-key manual-state-key-emphasis">X</span>flip 3D</div>
                 </div>
               </div>
             </div>

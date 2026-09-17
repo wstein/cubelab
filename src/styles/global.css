@@ -1208,7 +1208,6 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform: translateX(var(--manual-state-cube-offset))
     rotateX(var(--manual-state-dual-pitch))
     rotateY(calc(var(--manual-state-dual-camera-yaw) + var(--manual-state-dual-yaw, 0deg)))
-    rotateX(var(--manual-state-dual-flip, 0deg))
     translateZ(var(--manual-state-half-size));
 }
 
@@ -1216,7 +1215,6 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform: translateX(var(--manual-state-cube-offset))
     rotateX(var(--manual-state-dual-pitch))
     rotateY(calc(var(--manual-state-dual-camera-yaw) + var(--manual-state-dual-yaw, 0deg)))
-    rotateX(var(--manual-state-dual-flip, 0deg))
     rotateY(180deg)
     translateZ(var(--manual-state-half-size));
 }
@@ -1225,7 +1223,6 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform: translateX(var(--manual-state-cube-offset))
     rotateX(var(--manual-state-dual-pitch))
     rotateY(calc(var(--manual-state-dual-camera-yaw) + var(--manual-state-dual-yaw, 0deg)))
-    rotateX(var(--manual-state-dual-flip, 0deg))
     rotateY(90deg)
     translateZ(var(--manual-state-half-size));
 }
@@ -1234,7 +1231,6 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform: translateX(var(--manual-state-cube-offset))
     rotateX(var(--manual-state-dual-pitch))
     rotateY(calc(var(--manual-state-dual-camera-yaw) + var(--manual-state-dual-yaw, 0deg)))
-    rotateX(var(--manual-state-dual-flip, 0deg))
     rotateY(-90deg)
     translateZ(var(--manual-state-half-size));
 }
@@ -1243,7 +1239,6 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform: translateX(var(--manual-state-cube-offset))
     rotateX(var(--manual-state-dual-pitch))
     rotateY(calc(var(--manual-state-dual-camera-yaw) + var(--manual-state-dual-yaw, 0deg)))
-    rotateX(var(--manual-state-dual-flip, 0deg))
     rotateX(90deg)
     translateZ(var(--manual-state-half-size));
 }
@@ -1252,7 +1247,6 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform: translateX(var(--manual-state-cube-offset))
     rotateX(var(--manual-state-dual-pitch))
     rotateY(calc(var(--manual-state-dual-camera-yaw) + var(--manual-state-dual-yaw, 0deg)))
-    rotateX(var(--manual-state-dual-flip, 0deg))
     rotateX(-90deg)
     translateZ(var(--manual-state-half-size));
 }

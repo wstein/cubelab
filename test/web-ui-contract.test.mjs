@@ -349,7 +349,6 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /\.manual-state-net\[data-representation="attached"\] \{[\s\S]*transform: translate\(4\.1667%, -5\.5556%\);/);
   assert.match(styles, /\.manual-state-net\[data-representation="dual-3d"\] \.manual-state-face \{[\s\S]*transition: transform 380ms/);
   assert.match(client, /manualStateRepresentation === "dual-3d"[\s\S]*--manual-state-dual-yaw/);
-  assert.match(client, /manualStateRepresentation === "dual-3d"[\s\S]*--manual-state-dual-flip/);
   assert.match(styles, /\.manual-state-tool\[data-manual-state-eraser\]\[aria-pressed="true"\]/);
   assert.match(styles, /\.manual-state-tool\[data-manual-state-eraser\]\.shift-active/);
   assert.match(client, /resetManualStateColour/);
@@ -423,7 +422,10 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(page, /data-manual-state-rotate="flip"/);
   assert.match(client, /rotateManualStateView/);
   assert.match(client, /flipManualStateView/);
-  assert.match(client, /manualStateRotationGroup\.hidden = false/);
+  assert.match(client, /const canRotateView = manualStateRepresentation === "dual-3d" \|\| manualStateRepresentation === "isometric"/);
+  assert.match(client, /manualStateRotationGroup\.hidden = !canRotateView/);
+  assert.match(client, /manualStateFlipButton\.hidden = manualStateRepresentation !== "isometric"/);
+  assert.match(page, /data-manual-state-shortcut-rotate[\s\S]*data-manual-state-shortcut-flip/);
   assert.match(client, /manualStateViewDestination\(manualSize, source, yQuarterTurns, manualStateFlipped\)/);
   assert.match(client, /manualStateOrientedArrowTarget\(manualSize, index, direction\)/);
   assert.match(client, /manualStateNet\.dataset\.animState = "unexploded"/);
@@ -432,7 +434,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /\.manual-state-net\[data-representation="isometric"\]\[data-orientation="3"\]/);
   assert.match(styles, /\.manual-state-net\[data-representation="isometric"\]\[data-flipped="true"\]/);
   assert.match(styles, /\.manual-state-net\[data-representation="isometric"\]\[data-anim-state="unexploded"\]/);
-  assert.match(client, /if \(event\.key === "\[" \|\| event\.key === "\]"\)/);
+  assert.match(client, /manualStateRepresentation === "dual-3d" \|\| manualStateRepresentation === "isometric"[\s\S]*event\.key === "\[" \|\| event\.key === "\]"/);
   assert.match(client, /dialog\.addEventListener\("keydown",\s*\(event\)\s*=>\s*\{[\s\S]*event\.key === "Escape"[\s\S]*dialog\.close\(\)/);
 });
 
