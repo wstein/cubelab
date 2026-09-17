@@ -951,7 +951,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 
 .manual-state-layout {
   display: flex;
-  align-items: stretch;
+  align-items: flex-start;
   justify-content: center;
   gap: clamp(1.1rem, 2.5vw, 1.5rem);
 }
@@ -1535,21 +1535,30 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-shortcuts {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  margin-top: 0.8rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 0.25rem 0.6rem;
+  margin-top: 0.6rem;
   padding: 0.55rem 0.65rem;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
 }
 
+.manual-state-shortcuts > .panel-label {
+  grid-column: 1;
+  grid-row: 1;
+}
+
 .manual-state-shortcuts-grid {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 0.3rem 0.6rem;
+  display: contents;
+}
+
+.manual-state-shortcuts-grid > div:first-child {
+  grid-column: 1;
+  grid-row: 2;
 }
 
 .manual-state-shortcuts-grid div {
@@ -1561,6 +1570,9 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-shortcuts-grid .manual-state-shortcut-actions {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
   display: grid;
   gap: 0.3rem;
 }
@@ -1760,6 +1772,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   flex: 0 1 18rem;
   min-width: 16rem;
   max-width: 20rem;
+  align-self: flex-start;
   display: flex;
   flex-direction: column;
 }

@@ -333,7 +333,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(page, /class="manual-state-main"[\s\S]*data-manual-state-net/);
   assert.doesNotMatch(page, /data-manual-state-status/);
   assert.doesNotMatch(page, /data-manual-state-close/);
-  assert.match(styles, /\.manual-state-shortcuts \{[\s\S]*margin-top: 0\.8rem;/);
+  assert.match(styles, /\.manual-state-shortcuts \{[\s\S]*grid-template-columns: auto minmax\(0, 1fr\);[\s\S]*margin-top: 0\.6rem;/);
   assert.match(page, /class="manual-state-key manual-state-face-key"[\s\S]*data-face="U">U[\s\S]*data-face="B">B[\s\S]*class="manual-state-shortcut-actions"[\s\S]*manual-state-key-emphasis">E<\/span>erase[\s\S]*manual-state-key-emphasis">← ↑ ↓ →<\/span>/);
   assert.doesNotMatch(page, /set colour|move cursor/);
   assert.doesNotMatch(page, /class="manual-state-key">(?:click|drag|right-click|double-click)</);
@@ -341,9 +341,8 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(page, /manual-state-shortcuts[\s\S]*data-manual-state-copy-toggle/);
   assert.match(page, /class="manual-state-tools"[\s\S]*manual-state-shortcuts[\s\S]*manual-state-notation[\s\S]*data-manual-state-copy-toggle/);
   assert.match(styles, /\.manual-state-dialog \{[\s\S]*height:\s*fit-content;[\s\S]*max-height:\s*calc\(100dvh - 2rem\)/);
-  assert.doesNotMatch(styles, /\.manual-state-shortcuts \{[\s\S]{0,120}grid-(?:column|row):/);
-  assert.match(styles, /\.manual-state-shortcuts-grid \{[\s\S]*grid-template-columns: auto minmax\(0, 1fr\);/);
-  assert.match(styles, /\.manual-state-shortcuts-grid \.manual-state-shortcut-actions \{[\s\S]*display: grid;/);
+  assert.match(styles, /\.manual-state-shortcuts-grid \{[\s\S]*display: contents;/);
+  assert.match(styles, /\.manual-state-shortcuts-grid \.manual-state-shortcut-actions \{[\s\S]*grid-row: 1 \/ span 2;[\s\S]*display: grid;/);
   assert.match(styles, /\.manual-state-face-key \{[\s\S]*grid-template-columns: repeat\(6, 0\.62rem\);/);
   assert.match(styles, /\.manual-state-key-emphasis \{[\s\S]*font-weight: 800;/);
   assert.match(styles, /\.manual-state-tools \{[\s\S]*flex: 0 1 18rem;/);
