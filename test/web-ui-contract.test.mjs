@@ -386,7 +386,10 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /\.manual-state-net\[data-representation="dual-3d"\] \{/);
   assert.match(styles, /data-representation="dual-3d"\][^}]*\.manual-state-net-faces\s*\{[^}]*pointer-events:\s*none/);
   assert.match(styles, /data-representation="dual-3d"\][^}]*\.manual-state-face\s*\{[^}]*pointer-events:\s*auto/);
-  assert.match(styles, /data-representation="dual-3d"[\s\S]*rotateX\(var\(--manual-state-dual-pitch\)\)[\s\S]*rotateY\(calc\(-35deg \+ var\(--manual-state-dual-yaw, 0deg\)\)\)/);
+  assert.match(styles, /data-dual-rig="upper"[\s\S]*--manual-state-dual-camera-yaw: -35deg/);
+  assert.match(styles, /data-dual-rig="lower"[\s\S]*--manual-state-dual-camera-yaw: 145deg/);
+  assert.match(styles, /data-face="B"[\s\S]*rotateY\(180deg\)[\s\S]*data-face="L"[\s\S]*rotateY\(-90deg\)/);
+  assert.match(client, /syncManualStateDualRig[\s\S]*cloneNode\(true\)[\s\S]*MutationObserver/);
   assert.match(styles, /data-face="U"[\s\S]*rotateX\(90deg\)[\s\S]*data-face="D"[\s\S]*rotateX\(-90deg\)/);
   assert.match(styles, /--manual-state-dual-pitch: -35\.264deg;[\s\S]*--manual-state-dual-pitch: 35\.264deg;/);
   assert.match(styles, /\.manual-state-net\[data-representation="isometric"\] \{/);

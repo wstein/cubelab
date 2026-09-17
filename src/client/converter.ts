@@ -575,6 +575,8 @@ if (root) {
   let manualStateArrangedFrame = "";
   const manualStateStickerElements: HTMLButtonElement[] = [];
   const manualStateFaceElements = new Map<ManualStateFace, HTMLElement>();
+  let manualStateDualCopies: HTMLElement[] = [];
+  let manualStateDualObservers: MutationObserver[] = [];
   let tutorialPhases: TutorialPhaseRange[] = [];
   let activeAcademy: AcademyElements | null = null;
   let commentedTutorialSolution = "";
@@ -1499,6 +1501,9 @@ if (root) {
   };
 
   const buildManualStateGrid = (manualSize: ManualStateSize) => {
+    manualStateDualObservers.forEach((observer) => observer.disconnect());
+    manualStateDualObservers = [];
+    manualStateDualCopies = [];
     manualStateGrid.replaceChildren();
     manualStateStickerElements.length = 0;
     manualStateFaceElements.clear();
@@ -1547,7 +1552,7 @@ if (root) {
     const destinations: HTMLButtonElement[] = [];
     const yQuarterTurns = (4 - manualStateOrientation) % 4;
     manualStateStickerElements.forEach((sticker, source) => {
-      let destination = manualStateRepresentation === "isometric"
+      let destination = manualStateRepresentation === "isometric" || manualStateRepresentation === "dual-3d"
         ? source
         : manualStateViewDestination(manualSize, source, yQuarterTurns, manualStateFlipped);
       // The complementary cube presents D as a floor beneath its B/L walls.
@@ -1556,17 +1561,6 @@ if (root) {
       // D by 180deg in its own plane so the shared inner corner is DBL on all
       // three planes; this is presentation-only and leaves canonical draft
       // indices untouched.
-      if (manualStateRepresentation === "dual-3d") {
-        const destinationFace = Math.floor(destination / perFace);
-        if (faceletOrder[destinationFace] === "D") {
-          const local = destination % perFace;
-          const row = Math.floor(local / manualSize);
-          const column = local % manualSize;
-          destination = destinationFace * perFace
-            + (manualSize - 1 - row) * manualSize
-            + (manualSize - 1 - column);
-        }
-      }
       destinations[destination] = sticker;
     });
     faceletOrder.forEach((face, faceIndex) => {
@@ -1575,6 +1569,41 @@ if (root) {
       );
     });
     manualStateArrangedFrame = frame;
+  };
+
+  const clearManualStateDualRig = () => {
+    manualStateDualObservers.forEach((observer) => observer.disconnect());
+    manualStateDualObservers = [];
+    manualStateDualCopies.forEach((face) => face.remove());
+    manualStateDualCopies = [];
+    manualStateFaceElements.forEach((face) => delete face.dataset.dualRig);
+  };
+
+  const syncManualStateDualRig = () => {
+    clearManualStateDualRig();
+    if (manualStateRepresentation !== "dual-3d") return;
+    manualStateFaceElements.forEach((sourceFace) => {
+      sourceFace.dataset.dualRig = "upper";
+      const copyFace = sourceFace.cloneNode(true) as HTMLElement;
+      copyFace.classList.add("manual-state-dual-copy");
+      copyFace.dataset.dualRig = "lower";
+      copyFace.style.removeProperty("view-transition-name");
+      const mirrorFace = () => {
+        copyFace.dataset.face = sourceFace.dataset.face;
+        copyFace.dataset.facing = sourceFace.dataset.facing;
+        copyFace.dataset.interactive = sourceFace.dataset.interactive;
+        copyFace.replaceChildren(...Array.from(sourceFace.children, (child) => child.cloneNode(true)));
+        copyFace.querySelectorAll<HTMLElement>("[data-manual-state-index]").forEach((sticker) => {
+          sticker.tabIndex = -1;
+        });
+      };
+      mirrorFace();
+      const observer = new MutationObserver(mirrorFace);
+      observer.observe(sourceFace, {attributes: true, childList: true, subtree: true, characterData: true});
+      manualStateDualObservers.push(observer);
+      manualStateDualCopies.push(copyFace);
+      manualStateGrid.append(copyFace);
+    });
   };
 
   const manualStateVisibleFaces = (): readonly ManualStateFace[] => {
@@ -1761,6 +1790,7 @@ if (root) {
       verifyManualStateDots(manualSize, pendingDots);
     }
     manualStateDirtyDots = new Set();
+    syncManualStateDualRig();
     if (manualStateCursorIndex !== null && isManualStateStickerInteractive(manualStateCursorIndex)) {
       const active = document.activeElement;
       if (!active || active === document.body || active.closest("[data-manual-state-index]")) {
@@ -1861,11 +1891,15 @@ if (root) {
   wireManualStateHover(manualStateGrid);
   let manualStateYaw = -35;
   let manualStateFlip = 0;
+  let manualStateDualYaw = 0;
+  let manualStateDualFlip = 0;
   let manualStateFlipped = false;
   const resetManualState3dOrientation = (immediate: boolean = true) => {
     manualStateOrientation = 0;
     manualStateYaw = -35;
     manualStateFlip = 0;
+    manualStateDualYaw = 0;
+    manualStateDualFlip = 0;
     manualStateFlipped = false;
     manualStateIsRotating = false;
     manualStateNet.dataset.orientation = "0";
@@ -1877,8 +1911,8 @@ if (root) {
     }
     manualStateNet.style.setProperty("--manual-state-yaw", `${manualStateYaw}deg`);
     manualStateNet.style.setProperty("--manual-state-flip", `${manualStateFlip}deg`);
-    manualStateNet.style.setProperty("--manual-state-dual-yaw", "0deg");
-    manualStateNet.style.setProperty("--manual-state-dual-flip", "0deg");
+    manualStateNet.style.setProperty("--manual-state-dual-yaw", `${manualStateDualYaw}deg`);
+    manualStateNet.style.setProperty("--manual-state-dual-flip", `${manualStateDualFlip}deg`);
     manualStateGrid.style.removeProperty("--manual-state-yaw");
     manualStateGrid.style.removeProperty("--manual-state-flip");
     if (immediate) {
@@ -1908,28 +1942,25 @@ if (root) {
     }
 
     if (manualStateRepresentation === "dual-3d") {
+      const delta = direction === "cw" ? -90 : 90;
+      manualStateDualYaw += delta;
       if (prefersReducedMotion) {
         manualStateOrientation = nextOrientation;
-        manualStateYaw += direction === "cw" ? -90 : 90;
+        manualStateYaw += delta;
         manualStateNet.dataset.orientation = String(nextOrientation);
-        arrangeManualStateView(size as ManualStateSize);
+        manualStateNet.style.setProperty("--manual-state-dual-yaw", `${manualStateDualYaw}deg`);
         syncManualStateInteraction();
         return;
       }
       manualStateIsRotating = true;
       try {
-        manualStateNet.style.setProperty("--manual-state-dual-yaw", direction === "cw" ? "-90deg" : "90deg");
+        manualStateNet.style.setProperty("--manual-state-dual-yaw", `${manualStateDualYaw}deg`);
         await new Promise((resolve) => setTimeout(resolve, 380));
-        manualStateNet.dataset.animState = "resetting";
         manualStateOrientation = nextOrientation;
-        manualStateYaw += direction === "cw" ? -90 : 90;
+        manualStateYaw += delta;
         manualStateNet.dataset.orientation = String(nextOrientation);
-        arrangeManualStateView(size as ManualStateSize);
         syncManualStateInteraction();
-        manualStateNet.style.setProperty("--manual-state-dual-yaw", "0deg");
-        void manualStateNet.offsetHeight;
       } finally {
-        delete manualStateNet.dataset.animState;
         manualStateIsRotating = false;
       }
       return;
@@ -1986,33 +2017,26 @@ if (root) {
     }
 
     if (manualStateRepresentation === "dual-3d") {
+      manualStateDualFlip += 180;
       if (prefersReducedMotion) {
         manualStateFlipped = nextFlipped;
         manualStateFlip = nextFlipped ? 180 : 0;
         if (nextFlipped) manualStateNet.dataset.flipped = "true";
         else delete manualStateNet.dataset.flipped;
-        arrangeManualStateView(size as ManualStateSize);
+        manualStateNet.style.setProperty("--manual-state-dual-flip", `${manualStateDualFlip}deg`);
         syncManualStateInteraction();
         return;
       }
       manualStateIsRotating = true;
       try {
-        manualStateNet.style.setProperty("--manual-state-dual-flip", "90deg");
-        await new Promise((resolve) => setTimeout(resolve, 360));
-        await new Promise((resolve) => setTimeout(resolve, 200));
-        manualStateNet.style.setProperty("--manual-state-dual-flip", "180deg");
-        await new Promise((resolve) => setTimeout(resolve, 360));
-        manualStateNet.dataset.animState = "resetting";
+        manualStateNet.style.setProperty("--manual-state-dual-flip", `${manualStateDualFlip}deg`);
+        await new Promise((resolve) => setTimeout(resolve, 520));
         manualStateFlipped = nextFlipped;
         manualStateFlip = nextFlipped ? 180 : 0;
         if (nextFlipped) manualStateNet.dataset.flipped = "true";
         else delete manualStateNet.dataset.flipped;
-        arrangeManualStateView(size as ManualStateSize);
         syncManualStateInteraction();
-        manualStateNet.style.setProperty("--manual-state-dual-flip", "0deg");
-        void manualStateNet.offsetHeight;
       } finally {
-        delete manualStateNet.dataset.animState;
         manualStateIsRotating = false;
       }
       return;
@@ -2088,6 +2112,11 @@ if (root) {
       } else {
         delete manualStateNet.dataset.flipped;
       }
+    } else if (representation === "dual-3d") {
+      manualStateDualYaw = manualStateOrientation === 3 ? -90 : manualStateOrientation * 90;
+      manualStateDualFlip = manualStateFlipped ? 180 : 0;
+      manualStateNet.style.setProperty("--manual-state-dual-yaw", `${manualStateDualYaw}deg`);
+      manualStateNet.style.setProperty("--manual-state-dual-flip", `${manualStateDualFlip}deg`);
     }
     const renderRepresentation = () => {
       manualStateRepresentation = representation;

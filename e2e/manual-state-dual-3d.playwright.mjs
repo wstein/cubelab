@@ -12,56 +12,58 @@ test("Dual 3D shows interactive upper and lower cube corners", async ({page}) =>
   await expect(page.locator("[data-manual-state-rotation-group]")).toBeVisible();
 
   const faces = await net.locator(".manual-state-face").evaluateAll((elements) =>
-    Object.fromEntries(elements.map((element) => [element.dataset.face, element.getBoundingClientRect().toJSON()])),
+    Object.fromEntries(elements.map((element) => [
+      `${element.dataset.dualRig}:${element.dataset.face}`,
+      element.getBoundingClientRect().toJSON(),
+    ])),
   );
-  expect(Object.keys(faces).sort()).toEqual(["B", "D", "F", "L", "R", "U"]);
-  expect(faces.F.right).toBeLessThan(faces.B.left);
-  expect(faces.U.right).toBeLessThan(faces.D.left);
-  expect((faces.U.top + faces.U.bottom) / 2).toBeLessThan((faces.F.top + faces.F.bottom) / 2);
-  expect((faces.D.top + faces.D.bottom) / 2).toBeGreaterThan((faces.B.top + faces.B.bottom) / 2);
+  expect(Object.keys(faces)).toHaveLength(12);
+  expect(Object.keys(faces).filter((key) => key.startsWith("upper:"))).toHaveLength(6);
+  expect(Object.keys(faces).filter((key) => key.startsWith("lower:"))).toHaveLength(6);
+  expect(faces["upper:F"].right).toBeLessThan(faces["lower:B"].left);
+  expect((faces["upper:U"].top + faces["upper:U"].bottom) / 2)
+    .toBeLessThan((faces["upper:F"].top + faces["upper:F"].bottom) / 2);
+  expect((faces["lower:D"].top + faces["lower:D"].bottom) / 2)
+    .toBeGreaterThan((faces["lower:B"].top + faces["lower:B"].bottom) / 2);
 
-  // The three stickers meeting at the lower view's inner corner must all be
-  // DBL. D is visually turned 180deg because it is presented as a floor.
-  const downInnerCorner = net.locator('.manual-state-face[data-face="D"] .manual-state-sticker').nth(2);
-  const backInnerCorner = net.locator('.manual-state-face[data-face="B"] .manual-state-sticker').last();
-  const leftInnerCorner = net.locator('.manual-state-face[data-face="L"] .manual-state-sticker').nth(6);
-  await expect(downInnerCorner).toHaveAttribute("data-manual-state-index", "33");
-  await expect(backInnerCorner).toHaveAttribute("data-manual-state-index", "53");
-  await expect(leftInnerCorner).toHaveAttribute("data-manual-state-index", "42");
-  await downInnerCorner.dispatchEvent("mouseover");
+  const lowerRig = net.locator('.manual-state-face[data-dual-rig="lower"]');
+  const upperRig = net.locator('.manual-state-face[data-dual-rig="upper"]');
+  const downInnerCorner = lowerRig.locator('[data-manual-state-index="33"]');
+  const backInnerCorner = lowerRig.locator('[data-manual-state-index="53"]');
+  const leftInnerCorner = lowerRig.locator('[data-manual-state-index="42"]');
+  await downInnerCorner.hover();
   await expect(downInnerCorner).toHaveAttribute("data-piece-hover", "self");
   await expect(backInnerCorner).toHaveAttribute("data-piece-hover", "mate");
   await expect(leftInnerCorner).toHaveAttribute("data-piece-hover", "mate");
-  await expect(net.locator('[data-piece-hover="mate"]')).toHaveCount(2);
+  await expect(net.locator('[data-piece-hover="mate"]')).toHaveCount(4);
   const selfInsetLayers = await downInnerCorner.evaluate((element) =>
     (getComputedStyle(element).boxShadow.match(/inset/g) ?? []).length,
   );
   expect(selfInsetLayers).toBe(2);
 
-  // These six outer stickers tilt behind the stage's Z=0 plane. Exercise
-  // Chromium's real hit test so the stage can never mask them again.
-  for (const index of [17, 38, 0, 29, 45, 24]) {
-    const outerSticker = net.locator(`[data-manual-state-index="${index}"]`);
-    await outerSticker.hover();
-    await expect(outerSticker).toHaveAttribute("data-piece-hover", "self");
+  // Every visible physical plane belongs to a complete six-face rig and is
+  // reached through Chromium's real 3D hit test.
+  for (const [rig, visibleFaces] of [["upper", ["U", "F", "R"]], ["lower", ["D", "B", "L"]]]) {
+    for (const face of visibleFaces) {
+      const outerSticker = net.locator(
+        `.manual-state-face[data-dual-rig="${rig}"][data-face="${face}"] .manual-state-sticker:first-child`,
+      );
+      await outerSticker.hover();
+      await expect(outerSticker).toHaveAttribute("data-piece-hover", "self");
+    }
   }
 
-  const front = net.locator('.manual-state-face[data-face="F"]');
+  const front = net.locator('.manual-state-face[data-dual-rig="upper"][data-face="F"]');
   const initialTransform = await front.evaluate((element) => getComputedStyle(element).transform);
   await page.locator('[data-manual-state-rotate="cw"]').click();
   await expect.poll(() => front.evaluate((element) => getComputedStyle(element).transform)).not.toBe(initialTransform);
   await expect(net).toHaveCSS("--manual-state-dual-yaw", "-90deg");
   await expect(net).toHaveAttribute("data-orientation", "3", {timeout: 1_000});
-  await expect(net).toHaveCSS("--manual-state-dual-yaw", "0deg");
-  await expect(net.locator('.manual-state-face[data-face="F"] .manual-state-sticker').nth(4)).toHaveAttribute("data-face", "R");
-  await expect(net.locator('.manual-state-face[data-face="R"] .manual-state-sticker').nth(4)).toHaveAttribute("data-face", "B");
-  await expect(net.locator('.manual-state-face[data-face="B"] .manual-state-sticker').nth(4)).toHaveAttribute("data-face", "L");
-  await expect(net.locator('.manual-state-face[data-face="L"] .manual-state-sticker').nth(4)).toHaveAttribute("data-face", "F");
-  await expect(net.locator('.manual-state-face[data-face="D"] .manual-state-sticker').nth(4)).toHaveAttribute("data-face", "D");
+  await expect(net).toHaveCSS("--manual-state-dual-yaw", "-90deg");
+  await expect(upperRig.locator('[data-manual-state-index="13"]')).toHaveAttribute("data-face", "R");
 
   await page.locator('[data-manual-state-rotate="flip"]').click();
-  await expect(net).toHaveCSS("--manual-state-dual-flip", "90deg");
-  await expect(net).toHaveCSS("--manual-state-dual-flip", "180deg", {timeout: 1_000});
+  await expect(net).toHaveCSS("--manual-state-dual-flip", "180deg");
   await expect(net).toHaveAttribute("data-flipped", "true", {timeout: 1_500});
-  await expect(net).toHaveCSS("--manual-state-dual-flip", "0deg");
+  await expect(net).toHaveCSS("--manual-state-dual-flip", "180deg");
 });

@@ -1145,9 +1145,9 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform: matrix(1, 0, -0.55, 0.4, 0, 0);
 }
 
-/* Dual 3D keeps all six editable faces visible as complementary cube
-   corners. U/F/R uses the main view's upper camera; D/B/L mirrors its pitch
-   so Down becomes the floor beneath two vertical walls. */
+/* Dual 3D renders two complete cubes from complementary cameras. Every rig
+   owns all six physical planes; backface culling chooses the visible three,
+   so rotations reveal an already-present face instead of a hollow shell. */
 .manual-state-net[data-representation="dual-3d"] {
   --manual-state-unit: min(2rem, 2.25cqw, 4cqh);
   --manual-state-cube-size: calc(14 * var(--manual-state-unit));
@@ -1192,29 +1192,57 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transition: none;
 }
 
-.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="F"],
-.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="B"] {
+.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-dual-rig="upper"] {
+  --manual-state-cube-offset: calc(-1 * var(--manual-state-dual-shift));
+  --manual-state-dual-pitch: -35.264deg;
+  --manual-state-dual-camera-yaw: -35deg;
+}
+
+.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-dual-rig="lower"] {
+  --manual-state-cube-offset: var(--manual-state-dual-shift);
+  --manual-state-dual-pitch: 35.264deg;
+  --manual-state-dual-camera-yaw: 145deg;
+}
+
+.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="F"] {
   transform: translateX(var(--manual-state-cube-offset))
     rotateX(var(--manual-state-dual-pitch))
-    rotateY(calc(-35deg + var(--manual-state-dual-yaw, 0deg)))
+    rotateY(calc(var(--manual-state-dual-camera-yaw) + var(--manual-state-dual-yaw, 0deg)))
     rotateX(var(--manual-state-dual-flip, 0deg))
     translateZ(var(--manual-state-half-size));
 }
 
-.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="R"],
+.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="B"] {
+  transform: translateX(var(--manual-state-cube-offset))
+    rotateX(var(--manual-state-dual-pitch))
+    rotateY(calc(var(--manual-state-dual-camera-yaw) + var(--manual-state-dual-yaw, 0deg)))
+    rotateX(var(--manual-state-dual-flip, 0deg))
+    rotateY(180deg)
+    translateZ(var(--manual-state-half-size));
+}
+
+.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="R"] {
+  transform: translateX(var(--manual-state-cube-offset))
+    rotateX(var(--manual-state-dual-pitch))
+    rotateY(calc(var(--manual-state-dual-camera-yaw) + var(--manual-state-dual-yaw, 0deg)))
+    rotateX(var(--manual-state-dual-flip, 0deg))
+    rotateY(90deg)
+    translateZ(var(--manual-state-half-size));
+}
+
 .manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="L"] {
   transform: translateX(var(--manual-state-cube-offset))
     rotateX(var(--manual-state-dual-pitch))
-    rotateY(calc(-35deg + var(--manual-state-dual-yaw, 0deg)))
+    rotateY(calc(var(--manual-state-dual-camera-yaw) + var(--manual-state-dual-yaw, 0deg)))
     rotateX(var(--manual-state-dual-flip, 0deg))
-    rotateY(90deg)
+    rotateY(-90deg)
     translateZ(var(--manual-state-half-size));
 }
 
 .manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="U"] {
   transform: translateX(var(--manual-state-cube-offset))
     rotateX(var(--manual-state-dual-pitch))
-    rotateY(calc(-35deg + var(--manual-state-dual-yaw, 0deg)))
+    rotateY(calc(var(--manual-state-dual-camera-yaw) + var(--manual-state-dual-yaw, 0deg)))
     rotateX(var(--manual-state-dual-flip, 0deg))
     rotateX(90deg)
     translateZ(var(--manual-state-half-size));
@@ -1223,24 +1251,10 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="D"] {
   transform: translateX(var(--manual-state-cube-offset))
     rotateX(var(--manual-state-dual-pitch))
-    rotateY(calc(-35deg + var(--manual-state-dual-yaw, 0deg)))
+    rotateY(calc(var(--manual-state-dual-camera-yaw) + var(--manual-state-dual-yaw, 0deg)))
     rotateX(var(--manual-state-dual-flip, 0deg))
     rotateX(-90deg)
     translateZ(var(--manual-state-half-size));
-}
-
-.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="U"],
-.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="F"],
-.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="R"] {
-  --manual-state-cube-offset: calc(-1 * var(--manual-state-dual-shift));
-  --manual-state-dual-pitch: -35.264deg;
-}
-
-.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="D"],
-.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="B"],
-.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="L"] {
-  --manual-state-cube-offset: var(--manual-state-dual-shift);
-  --manual-state-dual-pitch: 35.264deg;
 }
 
 /* Use the same full-size 3D envelope for every puzzle size. The stage
