@@ -7949,6 +7949,14 @@ if (root) {
   const manualStateArrowKeys: Record<string, "left" | "right" | "top" | "bottom"> = {
     ArrowLeft: "left", ArrowRight: "right", ArrowUp: "top", ArrowDown: "bottom",
   };
+  const manualStateColourKeys: Readonly<Record<string, ManualStateFace>> = {
+    U: "U", W: "U",
+    R: "R",
+    F: "F", G: "F",
+    D: "D", Y: "D",
+    L: "L", O: "L",
+    B: "B",
+  };
   const manualStateFocusableSticker = (index: number): HTMLElement | null => manualStateStickerElements[index] ?? null;
   const manualStateRenderedCentre = (element: HTMLElement): {x: number; y: number} => {
     // getBoundingClientRect() describes an axis-aligned envelope. At the
@@ -8016,10 +8024,11 @@ if (root) {
       if (index === null || !isManualStateStickerInteractive(index)) return;
       const manualSize = size as ManualStateSize;
       const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
-      if ((faceletOrder as readonly string[]).includes(key)) {
+      const colour = manualStateColourKeys[key];
+      if (colour) {
         event.preventDefault();
         event.stopPropagation();
-        paintManualStateSticker(index, key as ManualStateFace);
+        paintManualStateSticker(index, colour);
         return;
       }
       if (key === "E") {

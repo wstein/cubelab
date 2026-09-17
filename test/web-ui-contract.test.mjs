@@ -354,6 +354,8 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /const remaining = total - entered;[\s\S]*remainingLabel\.textContent = "Remaining"/);
   assert.doesNotMatch(client, /if \(remaining === 0\) return;/);
   assert.match(client, /if \(key === "E"\) \{[\s\S]*eraseManualStateSticker\(index\)/);
+  assert.match(client, /const manualStateColourKeys:[\s\S]*W: "U"[\s\S]*G: "F"[\s\S]*Y: "D"[\s\S]*O: "L"/);
+  assert.match(client, /const colour = manualStateColourKeys\[key\];[\s\S]*paintManualStateSticker\(index, colour\)/);
   assert.match(client, /if \(isManualStateCentre\(index\) \|\| manualStateAutoIndices\.has\(index\)\) return;/);
   assert.match(client, /sticker\.dataset\.centre = String\(centre\)/);
   assert.match(client, /const manualStateVisibleFaces = \(\): readonly ManualStateFace\[\]/);
