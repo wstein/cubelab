@@ -2149,9 +2149,10 @@ if (root) {
     resetManualState3dOrientation(true);
     const manualSize = size as ManualStateSize;
     const setup = input.value.trim() === "" ? null : parseState(input.value);
-    setManualStateDraft(setup?.TAG === "Ok" && setup._0.state.size === manualSize
+    const hasSetupState = setup?.TAG === "Ok" && setup._0.state.size === manualSize;
+    setManualStateDraft(hasSetupState
       ? (FaceletCodec.render(setup._0.state) as string).split("") as ManualStateDraft
-      : emptyManualState(manualSize));
+      : resetManualState(manualSize));
     manualStateExplicitIndices.clear();
     manualStateDraft.forEach((colour, index) => {
       if (colour !== null) manualStateExplicitIndices.add(index);
@@ -2159,6 +2160,8 @@ if (root) {
     manualStateAutoIndices.clear();
     manualStateUnverifiedDots.clear();
     manualStateDeadIndices.clear();
+    manualStateDirtyDots = null;
+    if (!hasSetupState) refreshManualStateAutoFill(manualSize, true);
     clearManualStateHistory();
     manualStateNotation.value = "";
     manualStateNotationStatus.textContent = "Paste a state to replace the draft, or moves to apply them.";
