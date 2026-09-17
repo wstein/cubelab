@@ -1136,6 +1136,77 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform: matrix(1, 0, -0.55, 0.4, 0, 0);
 }
 
+/* Dual 3D keeps all six editable faces visible as two compact cube corners.
+   Both corners use the same front/top/right camera as the main 3D view: the
+   first carries U/F/R, while the second maps the opposite D/B/L faces onto
+   the same three planes. */
+.manual-state-net[data-representation="dual-3d"] {
+  --manual-state-unit: min(1rem, 1.25cqw, 2.4cqh);
+  --manual-state-cube-size: calc(14 * var(--manual-state-unit));
+  --manual-state-half-size: calc(var(--manual-state-cube-size) / 2);
+  --manual-state-dual-shift: calc(10.5 * var(--manual-state-unit));
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(24 * var(--manual-state-unit));
+  overflow: visible;
+  padding: calc(1.5 * var(--manual-state-unit));
+  touch-action: none;
+}
+
+.manual-state-net[data-representation="dual-3d"] .manual-state-net-faces {
+  display: block;
+  position: relative;
+  width: calc(39 * var(--manual-state-unit));
+  height: calc(22 * var(--manual-state-unit));
+  transform-style: preserve-3d;
+}
+
+.manual-state-net[data-representation="dual-3d"] .manual-state-face {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--manual-state-cube-size);
+  height: var(--manual-state-cube-size);
+  margin: calc(-1 * var(--manual-state-half-size));
+  box-sizing: border-box;
+  padding: 0.16rem;
+  border-radius: 0.35rem;
+  background: #0f172a;
+  backface-visibility: hidden;
+  transform-origin: center;
+}
+
+.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="F"],
+.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="B"] {
+  transform: translateX(var(--manual-state-cube-offset))
+    rotateX(-35.264deg) rotateY(-35deg) translateZ(var(--manual-state-half-size));
+}
+
+.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="R"],
+.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="L"] {
+  transform: translateX(var(--manual-state-cube-offset))
+    rotateX(-35.264deg) rotateY(-35deg) rotateY(90deg) translateZ(var(--manual-state-half-size));
+}
+
+.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="U"],
+.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="D"] {
+  transform: translateX(var(--manual-state-cube-offset))
+    rotateX(-35.264deg) rotateY(-35deg) rotateX(90deg) translateZ(var(--manual-state-half-size));
+}
+
+.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="U"],
+.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="F"],
+.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="R"] {
+  --manual-state-cube-offset: calc(-1 * var(--manual-state-dual-shift));
+}
+
+.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="D"],
+.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="B"],
+.manual-state-net[data-representation="dual-3d"] .manual-state-face[data-face="L"] {
+  --manual-state-cube-offset: var(--manual-state-dual-shift);
+}
+
 /* Use the same full-size 3D envelope for every puzzle size. The stage
    scales the whole layout to fit, keeping smaller puzzles just as legible. */
 .manual-state-net[data-representation="isometric"] {

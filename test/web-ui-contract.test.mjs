@@ -290,6 +290,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(page, /data-manual-state-grid/);
   assert.match(page, /data-manual-state-representation="standard"/);
   assert.match(page, /data-manual-state-representation="attached"/);
+  assert.match(page, /data-manual-state-representation="dual-3d"[^>]*>Dual 3D</);
   assert.match(page, /data-manual-state-representation="isometric"/);
   assert.match(page, /data-manual-state-load/);
   assert.match(client, /store\.patch\(\{input: manualStateSpacedFacelets\(manualSize\)\}\)/);
@@ -375,6 +376,8 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /manual-state-face-\$\{face\.toLowerCase\(\)\}/);
   assert.match(styles, /\.manual-state-net\[data-representation="attached"\] \{/);
   assert.match(styles, /\.manual-state-net\[data-representation="attached"\] \.manual-state-face/);
+  assert.match(styles, /\.manual-state-net\[data-representation="dual-3d"\] \{/);
+  assert.match(styles, /data-representation="dual-3d"[\s\S]*rotateX\(-35\.264deg\) rotateY\(-35deg\)/);
   assert.match(styles, /\.manual-state-net\[data-representation="isometric"\] \{/);
   assert.match(styles, /\.manual-state-net\[data-representation="isometric"\] \.manual-state-face/);
   assert.match(styles, /\.manual-state-face\[data-interactive="false"\]\s*\{[\s\S]*pointer-events:\s*none/);

@@ -194,6 +194,7 @@ import type {
 type Result<T, E = StateError | string> = {TAG: "Ok"; _0: T} | {TAG: "Error"; _0: E};
 type StateError = {_0?: string; TAG: string; actual?: number; character?: string; expected?: number; index?: number};
 type CubeState = {size: number; facelets: string[][]};
+type ManualStateRepresentation = "standard" | "attached" | "open-cube" | "dual-3d" | "isometric";
 type Scheme = "Western" | "Japanese" | {TAG: "Custom"; _0: string};
 type CompatibilityAssessment = {compatible: boolean; reasons: string[]};
 type CompatibilityResult = Record<"wca" | "signLgn" | "cubingJs" | "speedsolving" | "ruwix" | "sse" | "acube", CompatibilityAssessment>;
@@ -537,7 +538,7 @@ if (root) {
   // button happened to retain browser focus after using the palette or view
   // controls. It makes keyboard painting predictable in every representation.
   let manualStateCursorIndex: number | null = null;
-  let manualStateRepresentation: "standard" | "attached" | "open-cube" | "isometric" = "attached";
+  let manualStateRepresentation: ManualStateRepresentation = "attached";
   let manualStateOrientation: 0 | 1 | 2 | 3 = 0;
   let manualStateIsRotating = false;
   let manualStateDotGeneration = 0;
@@ -1933,7 +1934,7 @@ if (root) {
     });
   });
 
-  const setManualStateRepresentation = (representation: "standard" | "attached" | "open-cube" | "isometric") => {
+  const setManualStateRepresentation = (representation: ManualStateRepresentation) => {
     if (representation === manualStateRepresentation) return;
     manualStateIsRotating = false;
     delete manualStateNet.dataset.animState;
@@ -1962,7 +1963,7 @@ if (root) {
   };
   manualStateRepresentationButtons.forEach((button) => {
     button.addEventListener("click", () => {
-      setManualStateRepresentation(button.dataset.manualStateRepresentation as "standard" | "attached" | "open-cube" | "isometric");
+      setManualStateRepresentation(button.dataset.manualStateRepresentation as ManualStateRepresentation);
     });
   });
 
