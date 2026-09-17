@@ -1049,6 +1049,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   --attached-face-gap: var(--manual-state-face-gap);
   --attached-fold-gap: 0.2rem;
   --attached-diagonal-shift: calc(var(--manual-state-face-gap) * 0.2929);
+  --attached-depth-ratio: 0.6667;
   overflow: visible;
 }
 
@@ -1057,17 +1058,17 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="U"] {
-  transform: translateX(var(--attached-diagonal-shift)) skewX(-45deg);
+  transform: translateX(var(--attached-diagonal-shift)) skewX(-45deg) scaleY(var(--attached-depth-ratio));
   transform-origin: bottom left;
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="R"] {
-  transform: translateY(calc(-1 * var(--attached-diagonal-shift))) skewY(-45deg);
+  transform: translateY(calc(-1 * var(--attached-diagonal-shift))) skewY(-45deg) scaleX(var(--attached-depth-ratio));
   transform-origin: top left;
 }
 
 .manual-state-net[data-representation="attached"] .manual-state-face[data-face="B"] {
-  transform: translateY(calc(-100% - var(--manual-state-face-gap)));
+  transform: translate(-33.33%, calc(-66.67% - var(--manual-state-face-gap)));
 }
 
 /* Open cube: front/left/up form a solid corner; back/right/down hinge
