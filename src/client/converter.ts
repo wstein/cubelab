@@ -1365,18 +1365,10 @@ if (root) {
       element.append(dot);
     });
   };
-  // The per-cubie check (locallyAllowedManualStateColours) paints every dot
-  // synchronously in the render loop below — it is cheap enough, and a
-  // spinner or staggered fill for something meant to look instant is worse
-  // than the two-tier check briefly disagreeing with itself. It never offers
-  // a colour that dead-ends its own corner or edge, but it can't see
-  // cross-cubie constraints — piece uniqueness, permutation parity — so it
-  // can still show a colour the click handler's full check (also unaffected,
-  // still run at actual click-acceptance time) would reject. This silently
-  // re-verifies each already-painted dot against that full check in the
-  // background, one per task so a blank 3×3's ~150 candidate calculations
-  // don't freeze the dialog, and corrects any dot the cheap check was too
-  // optimistic about before anyone clicks it.
+  // High-order cubes paint cheap per-cubie candidates immediately, then
+  // replace them with exact worker results. A 2×2/3×3 exact pass is small
+  // enough to stay synchronous, so those pads never briefly advertise a
+  // colour that violates piece uniqueness or permutation parity.
   let activeManualStateBatch: {cancel: () => void} | null = null;
 
   const verifyManualStateDots = (
@@ -1821,7 +1813,7 @@ if (root) {
             if (manualStateUnverifiedDots.has(index)) pendingDots.push({index, element: dots});
             continue;
           }
-          if (manualSize === 2) {
+          if (manualSize <= 3) {
             const exact = allowedManualStateColours(manualSize, manualStateDraft, index);
             renderManualStateDots(dots, exact);
             if (exact.length === 0) {
@@ -1838,10 +1830,10 @@ if (root) {
         }
       }
     });
-    if (manualSize === 2 && manualStateDeadIndices.size > 0) {
+    if (manualSize <= 3 && manualStateDeadIndices.size > 0) {
       renderManualStateSummary(manualSize, displayEntered, displayTotal, perColourPlaced);
     }
-    if (manualSize >= 3) {
+    if (manualSize >= 4) {
       dotTrace.log({
         type: "queue",
         queued: pendingDots.length,
