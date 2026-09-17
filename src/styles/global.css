@@ -1709,14 +1709,12 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .manual-state-net[data-representation="dual-3d"] .manual-state-sticker[data-piece-hover="self"] {
   box-shadow:
     inset 0 0 0 2px #67e8f9,
-    inset 0 0 0 4px #0f172a,
-    0 0 0 1px #67e8f9;
+    inset 0 0 0 4px #0f172a;
 }
 .manual-state-net[data-representation="dual-3d"] .manual-state-sticker[data-piece-hover="mate"] {
   box-shadow:
     inset 0 0 0 2px #ffc94a,
-    inset 0 0 0 4px #0f172a,
-    0 0 0 1px #ffc94a;
+    inset 0 0 0 4px #0f172a;
 }
 .manual-state-sticker[data-auto="true"] {
   transform: scale(0.85);

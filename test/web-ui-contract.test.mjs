@@ -392,8 +392,8 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /\.manual-state-face\[data-interactive="false"\]\s*\{[\s\S]*pointer-events:\s*none/);
   assert.match(styles, /\.manual-state-sticker\[data-piece-hover="self"\]\s*\{[\s\S]*inset 0 0 0 2px #0f172a,[\s\S]*0 0 0 2px #67e8f9;[\s\S]*z-index:\s*2/);
   assert.match(styles, /\.manual-state-sticker\[data-piece-hover="mate"\]\s*\{[\s\S]*inset 0 0 0 2px #0f172a,[\s\S]*0 0 0 2px #ffc94a;[\s\S]*z-index:\s*2/);
-  assert.match(styles, /data-representation="dual-3d"[\s\S]*data-piece-hover="self"[\s\S]*inset 0 0 0 2px #67e8f9,[\s\S]*inset 0 0 0 4px #0f172a/);
-  assert.match(styles, /data-representation="dual-3d"[\s\S]*data-piece-hover="mate"[\s\S]*inset 0 0 0 2px #ffc94a,[\s\S]*inset 0 0 0 4px #0f172a/);
+  assert.match(styles, /data-representation="dual-3d"[\s\S]*data-piece-hover="self"[\s\S]*inset 0 0 0 2px #67e8f9,[\s\S]*inset 0 0 0 4px #0f172a;\s*\}/);
+  assert.match(styles, /data-representation="dual-3d"[\s\S]*data-piece-hover="mate"[\s\S]*inset 0 0 0 2px #ffc94a,[\s\S]*inset 0 0 0 4px #0f172a;\s*\}/);
   assert.match(styles, /\.manual-state-sticker\[data-cursor="true"\]\s*\{[\s\S]*inset 0 0 0 2px #f8fafc,[\s\S]*inset 0 0 0 4px #0f172a,[\s\S]*0 0 0 2px #67e8f9;[\s\S]*z-index:\s*3/);
   assert.match(styles, /\.manual-state-sticker\[data-face="unknown"\]\s*\{[\s\S]*background:\s*#1e293b/);
   assert.doesNotMatch(styles, /data-representation="isometric"[^}]*\.manual-state-sticker\[data-face="unknown"\]/);
