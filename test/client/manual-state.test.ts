@@ -7,7 +7,6 @@ import {
   emptyManualState,
   explainManualStateColours,
   faceletOrder,
-  isManualStateFixedCentre,
   manualStateColourBudget,
   manualStateFaces,
   fillForcedManualStateColours,
@@ -85,12 +84,18 @@ describe("2×2 manual state constraints", () => {
 });
 
 describe("3×3 manual state constraints", () => {
-  test("keeps canonical centres and accepts a solved state", () => {
+  test("starts with empty centres and accepts a solved state", () => {
     expect(canCompleteManualState(3, solvedManualState(3))).toBe(true);
     const empty = emptyManualState(3);
-    expect(empty[4]).toBe("U");
-    expect(empty[13]).toBe("R");
-    expect(empty[22]).toBe("F");
+    expect(empty.every((colour) => colour === null)).toBe(true);
+    expect(allowedManualStateColours(3, empty, 4)).toEqual(["U", "D", "R", "L", "F", "B"]);
+
+    const rotated = emptyManualState(3);
+    faceletOrder.forEach((colour, face) => {
+      const source = face * 9 + 4;
+      rotated[manualStateViewDestination(3, source, 1, false)] = colour;
+    });
+    expect(canCompleteManualState(3, rotated)).toBe(true);
   });
 
   test("rejects an otherwise-complete state with a single edge swap", () => {
@@ -244,15 +249,15 @@ describe("4×4 and 5×5 manual state entry", () => {
     expect(allowedManualStateColours(5, draft5, 71)).toEqual(["F"]);
   });
 
-  test("pins the six 5×5 core centres while leaving its other centres editable", () => {
+  test("leaves 5×5 core centres empty while enforcing a valid orientation", () => {
     const empty = emptyManualState(5);
-    expect(empty.filter((colour) => colour !== null)).toHaveLength(6);
-    expect([12, 37, 62, 87, 112, 137].map((index) => empty[index])).toEqual(faceletOrder);
-    expect(allowedManualStateColours(5, empty, 12)).toEqual(["U"]);
+    expect(empty.filter((colour) => colour !== null)).toHaveLength(0);
+    expect([12, 37, 62, 87, 112, 137].map((index) => empty[index])).toEqual(Array(6).fill(null));
+    expect(allowedManualStateColours(5, empty, 12)).toEqual(["U", "D", "R", "L", "F", "B"]);
     expect(allowedManualStateColours(5, empty, 6)).toEqual(["U", "D", "R", "L", "F", "B"]);
-    const malformed = [...empty];
-    malformed[12] = "R";
-    expect(canCompleteManualState(5, malformed)).toBe(false);
+    const mirrored = solvedManualState(5);
+    [mirrored[37], mirrored[112]] = [mirrored[112], mirrored[37]];
+    expect(canCompleteManualState(5, mirrored)).toBe(false);
   });
 });
 
@@ -306,7 +311,7 @@ describe("manualStatePieceMates", () => {
     }
   });
 
-  test("is empty for a fixed centre and for a 2×2 (no edges)", () => {
+  test("is empty for a core centre and for a 2×2 (no edges)", () => {
     expect(manualStatePieceMates(3, 4)).toEqual([]);
     // Index 8 is a 2×2 corner sticker too, just a different piece grouping.
     expect(manualStatePieceMates(2, 8).length).toBeGreaterThan(0);
@@ -364,8 +369,7 @@ describe("dot diagnostics explain an unreachable draft", () => {
   test("an unreachable draft is rejected by canCompleteManualState and offers no colour at a dead tile", () => {
     const draft = deadDraft();
     const dead = draft.findIndex((colour, index) =>
-      colour === null && !isManualStateFixedCentre(SIZE, index)
-      && allowedManualStateColours(SIZE, draft, index).length === 0);
+      colour === null && allowedManualStateColours(SIZE, draft, index).length === 0);
     expect(dead).toBeGreaterThanOrEqual(0);
     expect(canCompleteManualState(SIZE, draft)).toBe(false);
     expect(manualStateFaces.some((colour) => {
@@ -378,8 +382,7 @@ describe("dot diagnostics explain an unreachable draft", () => {
   test("explainManualStateColours names the sub-check that rejected each colour", () => {
     const draft = deadDraft();
     const dead = draft.findIndex((colour, index) =>
-      colour === null && !isManualStateFixedCentre(SIZE, index)
-      && allowedManualStateColours(SIZE, draft, index).length === 0);
+      colour === null && allowedManualStateColours(SIZE, draft, index).length === 0);
     const verdicts = explainManualStateColours(SIZE, draft, dead);
     expect(verdicts).toHaveLength(6);
     expect(verdicts.every((verdict) => !verdict.allowed)).toBe(true);
@@ -426,9 +429,9 @@ describe("dot diagnostics explain an unreachable draft", () => {
 
   test("24 Whites placed on 5×5: only middle-edge slots allow remaining White", () => {
     // Exact fixture from user screenshot:
-    // U face has fixed White center at index 12.
+    // U face has an entered White core centre at index 12.
     // B face (indices 125..149) has:
-    //   - Blue fixed center at (2,2) = 137
+    //   - Blue core center at (2,2) = 137
     //   - Red on middle edge at (2,4) = 139
     //   - All other 23 stickers are White!
     // Total White count is 24 (quota 25, 1 remaining).
@@ -437,14 +440,16 @@ describe("dot diagnostics explain an unreachable draft", () => {
     //   - 8 wings (all 8 on B)
     //   - 4 X-centers (all 4 on B)
     //   - 4 +-centers (all 4 on B)
-    //   - 1 fixed center (on U)
+    //   - 1 core center (on U)
     //   - 3 middle edges (on B at (0,2)=127, (2,0)=135, (4,2)=147)
     // The sole remaining White piece MUST be the 4th middle edge.
     const draft = emptyManualState(5);
+    draft[12] = "U";
+    draft[137] = "B";
     for (let r = 0; r < 5; r += 1) {
       for (let c = 0; c < 5; c += 1) {
         const idx = 125 + r * 5 + c;
-        if (r === 2 && c === 2) continue; // Blue fixed centre
+        if (r === 2 && c === 2) continue; // Blue core centre
         if (r === 2 && c === 4) draft[idx] = "R"; // Red middle edge
         else draft[idx] = "U";
       }
@@ -497,7 +502,7 @@ describe("dot diagnostics explain an unreachable draft", () => {
     orbits.find((o) => o.name === "midges")!.slots.slice(0, 4).forEach((s) => (draft[s[0]] = "U"));
     orbits.find((o) => o.name === "plusCentres")!.slots.slice(0, 4).forEach((s) => (draft[s[0]] = "U"));
     orbits.find((o) => o.name === "xCentres")!.slots.slice(0, 3).forEach((s) => (draft[s[0]] = "U"));
-    draft[orbits.find((o) => o.name === "fixedCentres")!.slots[0][0]] = "U";
+    draft[orbits.find((o) => o.name === "coreCentres")!.slots[0][0]] = "U";
 
     expect(draft.filter((c) => c === "U")).toHaveLength(24);
 
@@ -531,7 +536,7 @@ describe("dot diagnostics explain an unreachable draft", () => {
     orbits.find((o) => o.name === "midges")!.slots.slice(0, 4).forEach((s) => (draft[s[0]] = "U"));
     orbits.find((o) => o.name === "xCentres")!.slots.slice(0, 4).forEach((s) => (draft[s[0]] = "U"));
     orbits.find((o) => o.name === "plusCentres")!.slots.slice(0, 3).forEach((s) => (draft[s[0]] = "U"));
-    draft[orbits.find((o) => o.name === "fixedCentres")!.slots[0][0]] = "U";
+    draft[orbits.find((o) => o.name === "coreCentres")!.slots[0][0]] = "U";
 
     expect(draft.filter((c) => c === "U")).toHaveLength(24);
 
@@ -588,6 +593,7 @@ describe("dot diagnostics explain an unreachable draft", () => {
     const wings = orbits.find((o) => o.name === "wings")!;
     const xCentres = orbits.find((o) => o.name === "xCentres")!;
     const plusCentres = orbits.find((o) => o.name === "plusCentres")!;
+    draft[62] = "F";
 
     // 4 corners, 4 midges, 4 X-centres, 4 +-centres placed with Green (F)
     corners.slots.slice(0, 4).forEach((s) => { draft[s[0]] = "F"; });
@@ -681,4 +687,3 @@ describe("dot diagnostics explain an unreachable draft", () => {
     expect(canCompleteManualState(4, impossibleDraft)).toBe(false);
   });
 });
-

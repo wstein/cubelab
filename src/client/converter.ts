@@ -51,12 +51,13 @@ import {
 } from "./singmaster-cycle-state";
 import {
   allowedManualStateColours,
+  canCompleteManualState,
   emptyManualState,
   faceletOrder,
   fillForcedManualStateColours,
   fillLocallyForcedManualStateColours,
   isManualStateColourAllowedByScarcity,
-  isManualStateFixedCentre,
+  isManualStateCoreCentre,
   locallyAllowedManualStateColours,
   manualStateCornerSlots,
   manualStateEdgeSlots,
@@ -1119,6 +1120,7 @@ if (root) {
   const manualStateCompleteDiagnostic = (): string | null => {
     const manualSize = size as ManualStateSize;
     if (manualStateDraft.some((face) => face === null)) return "Complete every sticker first.";
+    if (!canCompleteManualState(manualSize, manualStateDraft)) return "The entered stickers do not form a physically valid cube state.";
     const parsed = FaceletCodec.parse(manualSize, manualStateDraft.join("")) as Result<CubeState>;
     if (parsed.TAG === "Error") return describeError(parsed._0);
     return validatePhysicalState(parsed._0);
@@ -1192,16 +1194,10 @@ if (root) {
     });
   };
 
-  // A face-centre never has a chosen colour; it is fixed by emptyManualState.
-  // It remains selectable for inspection and keyboard navigation, while the
-  // mutation paths below all share this guard to keep its colour immutable.
-  const isManualStateCentre = (index: number): boolean =>
-    isManualStateFixedCentre(size as ManualStateSize, index);
-
   // Shared by the flat net, both preview cubes, and the keyboard shortcut:
   // one place decides whether a sticker can take a colour and applies it.
   const eraseManualStateSticker = (index: number) => {
-    if (isManualStateCentre(index) || manualStateAutoIndices.has(index)) return;
+    if (manualStateAutoIndices.has(index)) return;
     const manualSize = size as ManualStateSize;
     const before = [...manualStateDraft];
     manualStateDraft[index] = null;
@@ -1229,7 +1225,7 @@ if (root) {
     const manualSize = size as ManualStateSize;
     let changed = false;
     for (let index = 0; index < manualStateDraft.length; index += 1) {
-      if (manualStateDraft[index] === face && !isManualStateCentre(index)) {
+      if (manualStateDraft[index] === face) {
         manualStateDraft[index] = null;
         manualStateExplicitIndices.delete(index);
         manualStateAutoIndices.delete(index);
@@ -1248,7 +1244,6 @@ if (root) {
   };
 
   const paintManualStateSticker = (index: number, colour: ManualStateFace): boolean => {
-    if (isManualStateCentre(index)) return false;
     const manualSize = size as ManualStateSize;
     const source = manualStateSourceDraft(manualSize);
     source[index] = null;
@@ -1409,7 +1404,6 @@ if (root) {
     return row;
   };
 
-  // entered/total exclude the six fixed odd-order core centres — see the caller.
   const renderManualStateSummary = (
     manualSize: ManualStateSize,
     entered: number,
@@ -1424,15 +1418,6 @@ if (root) {
       const corners = cornerSlots.filter((slot) => slot.every((i) => manualStateDraft[i] !== null)).length;
       manualStateSummary.append(
         manualStateSummaryRow("Corners", `${corners}/${cornerSlots.length}`, (corners / cornerSlots.length) * 100, "#f0c419"),
-      );
-    }
-    if (manualSize === 3 || manualSize === 5) {
-      // The six fixed core centres are known from the beginning, unlike the
-      // paintable stickers counted by Entered. Make that distinction visible
-      // whenever an odd-order draft is being reconstructed by hand.
-      const rawTotal = manualStateStickerCount(manualSize);
-      manualStateSummary.append(
-        manualStateSummaryRow("Known", `${entered + 6}/${rawTotal}`, ((entered + 6) / rawTotal) * 100, "#63b3ff"),
       );
     }
     if (manualSize === 3) {
@@ -1531,7 +1516,7 @@ if (root) {
         sticker.type = "button";
         sticker.className = "manual-state-sticker";
         sticker.dataset.manualStateIndex = String(index);
-        const centre = isManualStateFixedCentre(manualSize, index);
+        const centre = isManualStateCoreCentre(manualSize, index);
         sticker.dataset.centre = String(centre);
         group.append(sticker);
         manualStateStickerElements[index] = sticker;
@@ -1649,14 +1634,8 @@ if (root) {
     const manualSize = size as ManualStateSize;
     const total = manualStateStickerCount(manualSize);
     const entered = manualStateEnteredCount(manualStateDraft);
-    // The 6 centres are fixed and pre-filled from the start, never blank and
-    // never chosen by the user — counting them as "entered" makes a truly
-    // blank 3×3 draft misleadingly claim 6/54 done. Every count shown to the
-    // user excludes them; completion itself still checks the raw total,
-    // since a correct centre placement genuinely is part of a valid cube.
-    const centreCount = manualSize === 3 || manualSize === 5 ? 6 : 0;
-    const displayTotal = total - centreCount;
-    const displayEntered = entered - centreCount;
+    const displayTotal = total;
+    const displayEntered = entered;
     const diagnostic = manualStateComplete.get() ? manualStateCompleteDiagnostic() : null;
     manualStateLoad.disabled = entered !== total || diagnostic !== null;
     manualStateCopyToggle.disabled = manualStateLoad.disabled;
@@ -1709,7 +1688,7 @@ if (root) {
         const index = faceIndex * manualSize * manualSize + localIndex;
         const sticker = manualStateStickerElements[index];
         const value = manualStateDraft[index];
-        const centre = isManualStateFixedCentre(manualSize, index);
+        const centre = isManualStateCoreCentre(manualSize, index);
         sticker.dataset.face = value ?? "unknown";
         sticker.dataset.centre = String(centre);
         sticker.dataset.auto = String(manualStateAutoIndices.has(index));
@@ -1721,11 +1700,7 @@ if (root) {
         }
         sticker.tabIndex = 0;
         sticker.removeAttribute("aria-disabled");
-        if (centre) {
-          sticker.title = "Fixed centre; double-click to select colour";
-        } else {
-          sticker.removeAttribute("title");
-        }
+        sticker.removeAttribute("title");
         if (index === manualStateHoverIndex) {
           sticker.dataset.pieceHover = "self";
         } else if (hoverMates.includes(index)) {
@@ -1733,9 +1708,7 @@ if (root) {
         } else {
           delete sticker.dataset.pieceHover;
         }
-        // Fixed centres are selectable reference tiles; isManualStateCentre
-        // guards every mutating path while cursor/focus remain available.
-        sticker.setAttribute("aria-label", `${manualStateFaceName[face]} sticker ${localIndex + 1}${centre ? ", fixed centre" : value === null ? ", blank" : `, ${manualStateFaceName[value]}${manualStateAutoIndices.has(index) ? ", filled automatically; click to fix" : ""}`}`);
+        sticker.setAttribute("aria-label", `${manualStateFaceName[face]} sticker ${localIndex + 1}${centre ? ", core centre" : ""}${value === null ? ", blank" : `, ${manualStateFaceName[value]}${manualStateAutoIndices.has(index) ? ", filled automatically; click to fix" : ""}`}`);
         if (value !== null) {
           manualStateUnverifiedDots.delete(index);
           sticker.textContent = "";
@@ -1813,9 +1786,8 @@ if (root) {
   updateManualStateMetrics = (manualSize: ManualStateSize) => {
     const total = manualStateStickerCount(manualSize);
     const entered = manualStateEnteredCount(manualStateDraft);
-    const centreCount = manualSize === 3 || manualSize === 5 ? 6 : 0;
-    const displayTotal = total - centreCount;
-    const displayEntered = entered - centreCount;
+    const displayTotal = total;
+    const displayEntered = entered;
     const diagnostic = manualStateComplete.get() ? manualStateCompleteDiagnostic() : null;
     manualStateLoad.disabled = entered !== total || diagnostic !== null;
     manualStateCopyToggle.disabled = manualStateLoad.disabled;
@@ -2096,7 +2068,7 @@ if (root) {
     manualStateIntro.textContent = manualSize <= 3
       ? "Pick a face colour, then fill the net. Nothing changes in Setup until the complete, physically valid state is loaded."
       : manualSize === 5
-      ? "Pick a face colour, then fill the net. Colour quotas, fixed core centres, and piece identities are enforced; nothing changes in Setup until the complete facelet state is loaded."
+      ? "Pick a face colour, then fill the net. Colour quotas, core-centre orientation, and piece identities are enforced; nothing changes in Setup until the complete facelet state is loaded."
       : "Pick a face colour, then fill the net. Colour quotas and piece identities are enforced, and Load checks full 4×4 physical reachability.";
     manualStateDialog.dataset.manualStateSize = String(manualSize);
     manualStateColour = "U";

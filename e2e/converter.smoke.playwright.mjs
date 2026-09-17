@@ -1581,7 +1581,7 @@ test("resolves a blank 3x3 hand-entry grid quickly, without a lingering spinner 
   const dialog = page.locator("[data-manual-state-dialog]");
   await expect(dialog).toBeVisible();
 
-  // A blank 3x3 has ~48 non-centre stickers each resolving one at a time;
+  // A blank 3x3 has 54 stickers resolving one at a time;
   // this used to take a very long time because dot resolution ran the full
   // corner+edge feasibility search for every candidate colour of every
   // sticker instead of the cheap per-cubie check. Give it a generous but
@@ -1609,13 +1609,13 @@ test("shows counted colour pads, a live summary card, and rings a hovered sticke
   const net = dialog.locator("[data-manual-state-grid]");
 
   const summaryRows = dialog.locator("[data-manual-state-summary] .manual-state-summary-row");
-  await expect(summaryRows).toHaveCount(5); // Entered, Corners, Known, Edges, Remaining
+  await expect(summaryRows).toHaveCount(4); // Entered, Corners, Edges, Remaining
   const paletteLeft = dialog.locator(".manual-state-colour-left");
-  await expect(paletteLeft.first()).toHaveText("8 left"); // 9 stickers/face minus the fixed centre
+  await expect(paletteLeft.first()).toHaveText("9 left");
 
   // Index 8 is UFR's U sticker; its corner slot is [8, 9, 20].
   await net.locator('[data-manual-state-index="8"]').click();
-  await expect(paletteLeft.first()).toHaveText("7 left");
+  await expect(paletteLeft.first()).toHaveText("8 left");
 
   await net.locator('[data-manual-state-index="9"]').hover();
   // The flat net rings the hovered piece and its piece-mates.
@@ -1688,20 +1688,23 @@ test("paints a specific dot's colour on click and loads a filled sticker's colou
   await sticker8.click();
   await expect(sticker8).toHaveAttribute("data-face", "R");
 
-  // A fixed centre participates in normal selection and hover, but painting
-  // it remains a no-op and double-click still picks up its canonical colour.
+  // A core centre starts blank and supports the same paint, selection, hover,
+  // erase, and colour-pickup interactions as every other sticker.
   const rCentre = net.locator('[data-manual-state-index="13"]');
-  await expect(rCentre).toHaveAttribute("data-face", "R");
-  await dialog.locator('[data-manual-state-colour="U"]').click();
+  await expect(rCentre).toHaveAttribute("data-face", "unknown");
+  await dialog.locator('[data-manual-state-colour="R"]').click();
   await rCentre.click();
   await expect(rCentre).toHaveAttribute("data-cursor", "true");
   await expect(rCentre).toBeFocused();
   await expect(rCentre).toHaveAttribute("data-face", "R");
   await rCentre.hover();
   await expect(rCentre).toHaveAttribute("data-piece-hover", "self");
+  await dialog.locator('[data-manual-state-colour="U"]').click();
   await rCentre.dblclick();
   await expect(dialog.locator('[data-manual-state-colour="R"]')).toHaveAttribute("aria-pressed", "true");
   await expect(rCentre).toHaveAttribute("data-face", "R");
+  await rCentre.click({modifiers: ["Shift"]});
+  await expect(rCentre).toHaveAttribute("data-face", "unknown");
 });
 
 test("holding shift highlights erase button and changes palette text to Reset, and shift-clicking a color resets all stickers of that color", async ({page}) => {
@@ -1718,8 +1721,11 @@ test("holding shift highlights erase button and changes palette text to Reset, a
   const sticker8 = net.locator('[data-manual-state-index="8"]');
   await sticker0.click();
   await sticker8.click();
+  const rCentre = net.locator('[data-manual-state-index="13"]');
+  await rCentre.click();
   await expect(sticker0).toHaveAttribute("data-face", "R");
   await expect(sticker8).toHaveAttribute("data-face", "R");
+  await expect(rCentre).toHaveAttribute("data-face", "R");
 
   // Also paint one sticker with Blue: sticker 1 (U-top-edge)
   await dialog.locator('[data-manual-state-colour="B"]').click();
@@ -1740,15 +1746,13 @@ test("holding shift highlights erase button and changes palette text to Reset, a
   await expect(eraser).not.toHaveClass(/shift-active/);
   await expect(rButton).not.toHaveText("Reset");
 
-  // Shift-clicking a color button in the colorpad resets all stickers of that color (except fixed centres)
+  // Shift-clicking a colour resets every sticker of that colour, including a core centre.
   await dialog.locator('[data-manual-state-colour="R"]').click({modifiers: ["Shift"]});
   await expect(sticker0).toHaveAttribute("data-face", "unknown");
   await expect(sticker8).toHaveAttribute("data-face", "unknown");
   // Non-red stickers remain untouched
   await expect(sticker1).toHaveAttribute("data-face", "B");
-  // Fixed Red centre (13) remains untouched
-  const rCentre = net.locator('[data-manual-state-index="13"]');
-  await expect(rCentre).toHaveAttribute("data-face", "R");
+  await expect(rCentre).toHaveAttribute("data-face", "unknown");
 });
 
 test("navigates and paints the net with the keyboard, wrapping across a face edge", async ({page}) => {
@@ -1863,6 +1867,7 @@ test("morphs one editable net between standard and attached layouts", async ({pa
 
   await expect(dialog.locator(".manual-state-preview")).toHaveCount(0);
   const net = dialog.locator("[data-manual-state-net]");
+  await dialog.locator('[data-manual-state-representation="standard"]').click();
   await expect(net).toHaveAttribute("data-representation", "standard");
   await expect(net.locator("[data-manual-state-index]")).toHaveCount(54);
   await dialog.locator('[data-manual-state-representation="attached"]').click();

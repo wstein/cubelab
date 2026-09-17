@@ -352,8 +352,10 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /\.manual-state-tool\[data-manual-state-eraser\]\[aria-pressed="true"\]/);
   assert.match(styles, /\.manual-state-tool\[data-manual-state-eraser\]\.shift-active/);
   assert.match(client, /resetManualStateColour/);
-  assert.match(client, /if \(manualSize === 3 \|\| manualSize === 5\)[\s\S]*manualStateSummaryRow\("Known", `\$\{entered \+ 6\}\/\$\{rawTotal\}`/);
-  assert.match(client, /isManualStateFixedCentre\(manualSize, index\)/);
+  assert.doesNotMatch(client, /manualStateSummaryRow\("Known"/);
+  assert.match(client, /isManualStateCoreCentre\(manualSize, index\)/);
+  assert.match(manualState, /const validCentreFrames:[\s\S]*faceletOrder\.flatMap/);
+  assert.match(manualState, /if \(!canCompleteCentreFrame\(size, draft\)\) return false/);
   assert.match(styles, /data-manual-state-size="4"[\s\S]*\.manual-state-main/);
   assert.match(styles, /data-manual-state-size="5"[\s\S]*\.manual-state-main/);
   assert.match(client, /const remaining = total - entered;[\s\S]*remainingLabel\.textContent = "Remaining"/);
@@ -361,7 +363,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /if \(key === "E"\) \{[\s\S]*eraseManualStateSticker\(index\)/);
   assert.match(client, /const manualStateColourKeys:[\s\S]*W: "U"[\s\S]*G: "F"[\s\S]*Y: "D"[\s\S]*O: "L"/);
   assert.match(client, /const colour = manualStateColourKeys\[key\];[\s\S]*paintManualStateSticker\(index, colour\)/);
-  assert.match(client, /if \(isManualStateCentre\(index\) \|\| manualStateAutoIndices\.has\(index\)\) return;/);
+  assert.match(client, /if \(manualStateAutoIndices\.has\(index\)\) return;/);
   assert.match(client, /const fixManualStateAutoSticker = \(index: number\): boolean => \{[\s\S]*paintManualStateSticker\(index, colour\)/);
   assert.match(client, /if \(fixManualStateAutoSticker\(index\)\) return;/);
   assert.match(client, /sticker\.dataset\.centre = String\(centre\)/);
@@ -411,9 +413,8 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /translate\(-33\.33%, calc\(-66\.67% - var\(--manual-state-face-gap\)\)\)/);
   assert.match(styles, /::view-transition-group\(manual-state-face-u\)/);
   assert.doesNotMatch(styles, /\.manual-state-sticker\[data-centre="true"\][^{]*\{/);
-  assert.match(client, /Fixed centres are selectable reference tiles/);
+  assert.match(client, /centre \? ", core centre" : ""/);
   assert.match(client, /paintRoot\.addEventListener\("dblclick",[\s\S]*manualStateRawStickerAt/);
-  assert.match(client, /sticker\.title = "Fixed centre; double-click to select colour"/);
   assert.match(styles, /\.manual-state-sticker\[data-auto="true"\]\s*\{[\s\S]*transform:\s*scale\(/);
   assert.match(styles, /data-face="L"[^}]*data-auto="true"[\s\S]*data-face="B"[^}]*data-auto="true"[\s\S]*scaleX\(-1\) scale\(0\.85\)/);
   assert.match(styles, /data-face="D"[^}]*data-auto="true"[\s\S]*scaleY\(-1\) scale\(0\.85\)/);

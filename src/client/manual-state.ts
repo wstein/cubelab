@@ -129,22 +129,58 @@ export const manualStateEdgeSlots = (): number[][] => edges.slots;
 const faceletIndex = (size: ManualStateSize, face: number, row: number, column: number): number =>
   face * size * size + row * size + column;
 
-/** The one immovable core sticker on every odd-order face. */
-export const isManualStateFixedCentre = (size: ManualStateSize, index: number): boolean => {
+/** The one core sticker on every odd-order face. It is positionally fixed on
+ * the physical puzzle, but its colour is entered by the user so rotated cube
+ * frames can be described without a preselected scheme. */
+export const isManualStateCoreCentre = (size: ManualStateSize, index: number): boolean => {
   if (size !== 3 && size !== 5) return false;
   const perFace = size * size;
   return index >= 0 && index < 6 * perFace && index % perFace === Math.floor(perFace / 2);
 };
 
-const fixedCentreFace = (size: ManualStateSize, index: number): ManualStateFace | null =>
-  isManualStateFixedCentre(size, index)
-    ? faceletOrder[Math.floor(index / (size * size))]
-    : null;
-
-const fixedCentreIndices = (size: ManualStateSize): number[] =>
+const coreCentreIndices = (size: ManualStateSize): number[] =>
   size === 3 || size === 5
     ? faceletOrder.map((_, face) => faceletIndex(size, face, Math.floor(size / 2), Math.floor(size / 2)))
     : [];
+
+type CentreVector = readonly [number, number, number];
+const centreNormals: Record<ManualStateFace, CentreVector> = {
+  U: [0, 1, 0], R: [1, 0, 0], F: [0, 0, 1],
+  D: [0, -1, 0], L: [-1, 0, 0], B: [0, 0, -1],
+};
+const vectorKey = (vector: CentreVector): string => vector.join(",");
+const cross = (left: CentreVector, right: CentreVector): CentreVector => [
+  left[1] * right[2] - left[2] * right[1],
+  left[2] * right[0] - left[0] * right[2],
+  left[0] * right[1] - left[1] * right[0],
+];
+const negate = (vector: CentreVector): CentreVector => [-vector[0], -vector[1], -vector[2]];
+const dot = (left: CentreVector, right: CentreVector): number =>
+  left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
+
+/** The 24 orientation-preserving assignments of centre colours to faces. */
+const validCentreFrames: ManualStateFace[][] = faceletOrder.flatMap((upPosition) =>
+  faceletOrder
+    .filter((rightPosition) => dot(centreNormals[upPosition], centreNormals[rightPosition]) === 0)
+    .map((rightPosition) => {
+      const up = centreNormals[upPosition];
+      const right = centreNormals[rightPosition];
+      const front = cross(right, up);
+      const colourAtNormal = new Map<string, ManualStateFace>([
+        [vectorKey(up), "U"], [vectorKey(right), "R"], [vectorKey(front), "F"],
+        [vectorKey(negate(up)), "D"], [vectorKey(negate(right)), "L"], [vectorKey(negate(front)), "B"],
+      ]);
+      return faceletOrder.map((position) => colourAtNormal.get(vectorKey(centreNormals[position]))!);
+    }),
+);
+
+const canCompleteCentreFrame = (size: ManualStateSize, draft: ManualStateDraft): boolean => {
+  const indices = coreCentreIndices(size);
+  if (indices.length === 0) return true;
+  return validCentreFrames.some((frame) => indices.every((index, position) =>
+    draft[index] === null || draft[index] === frame[position]
+  ));
+};
 
 /** Outer corner and wing stickers for an arbitrary order in URFDLB order. */
 const buildOuterPieceSlots = (size: 4 | 5): number[][] => {
@@ -266,7 +302,7 @@ const orbitsBySize: Record<ManualStateSize, ManualStateOrbit[]> = {
   3: [
     {name: "corners", slots: cornerSlots3, quotaPerColour: 4},
     {name: "edges", slots: edges.slots, quotaPerColour: 4},
-    {name: "fixedCentres", slots: fixedCentreIndices(3).map((i) => [i]), quotaPerColour: 1},
+    {name: "coreCentres", slots: coreCentreIndices(3).map((i) => [i]), quotaPerColour: 1},
   ],
   4: [
     {name: "corners", slots: outerPieceSlotsBySize[4].slice(0, 8), quotaPerColour: 4},
@@ -279,7 +315,7 @@ const orbitsBySize: Record<ManualStateSize, ManualStateOrbit[]> = {
     {name: "midges", slots: outerPieceSlotsBySize[5].slice(20, 32), quotaPerColour: 4},
     {name: "xCentres", slots: buildXCenterSlots5(), quotaPerColour: 4},
     {name: "plusCentres", slots: buildPlusCenterSlots5(), quotaPerColour: 4},
-    {name: "fixedCentres", slots: fixedCentreIndices(5).map((i) => [i]), quotaPerColour: 1},
+    {name: "coreCentres", slots: coreCentreIndices(5).map((i) => [i]), quotaPerColour: 1},
   ],
 };
 
@@ -618,9 +654,7 @@ export const solvedManualState = (size: ManualStateSize): ManualStateDraft =>
   faceletOrder.flatMap((face) => Array<ManualStateFace>(size * size).fill(face));
 
 export const emptyManualState = (size: ManualStateSize): ManualStateDraft => {
-  const draft: ManualStateDraft = Array(manualStateStickerCount(size)).fill(null);
-  fixedCentreIndices(size).forEach((index, face) => { draft[index] = faceletOrder[face]; });
-  return draft;
+  return Array(manualStateStickerCount(size)).fill(null);
 };
 
 export const manualStateEnteredCount = (draft: ManualStateDraft): number =>
@@ -637,7 +671,7 @@ const colourCounts = (draft: ManualStateDraft): Record<ManualStateFace, number> 
 /** True when a partial draft has at least one physically legal completion. */
 export const canCompleteManualState = (size: ManualStateSize, draft: ManualStateDraft): boolean => {
   if (draft.length !== manualStateStickerCount(size)) return false;
-  if (fixedCentreIndices(size).some((index, face) => draft[index] !== faceletOrder[face])) return false;
+  if (!canCompleteCentreFrame(size, draft)) return false;
   if (size >= 4) {
     const counts = colourCounts(draft);
     const quota = size * size;
@@ -658,8 +692,6 @@ export const allowedManualStateColours = (
   index: number,
 ): ManualStateFace[] => {
   if (index < 0 || index >= draft.length) return [];
-  const fixedCentre = fixedCentreFace(size, index);
-  if (fixedCentre !== null) return [fixedCentre];
   return manualStateFaces.filter((colour) => {
     const candidate = [...draft];
     candidate[index] = colour;
@@ -678,8 +710,6 @@ export const locallyAllowedManualStateColours = (
   index: number,
 ): ManualStateFace[] => {
   if (index < 0 || index >= draft.length) return [];
-  const fixedCentre = fixedCentreFace(size, index);
-  if (fixedCentre !== null) return [fixedCentre];
   const perColour = size * size;
   const counts: Record<ManualStateFace, number> = {U: 0, D: 0, R: 0, L: 0, F: 0, B: 0};
   draft.forEach((face) => {
@@ -763,7 +793,7 @@ export const fillForcedManualStateColours = (
   while (changed) {
     changed = false;
     for (let index = 0; index < filled.length; index += 1) {
-      if (filled[index] !== null || isManualStateFixedCentre(size, index)) continue;
+      if (filled[index] !== null) continue;
       const allowed = allowedManualStateColours(size, filled, index);
       if (allowed.length === 1) {
         filled[index] = allowed[0];
@@ -799,7 +829,7 @@ export const fillLocallyForcedManualStateColours = (
   while (changed) {
     changed = false;
     for (let index = 0; index < filled.length; index += 1) {
-      if (filled[index] !== null || isManualStateFixedCentre(size, index)) continue;
+      if (filled[index] !== null) continue;
       const allowed = locallyAllowedManualStateColours(size, filled, index);
       if (allowed.length !== 1) continue;
       filled[index] = allowed[0];
@@ -810,9 +840,7 @@ export const fillLocallyForcedManualStateColours = (
       }
     }
   }
-  const unplaced = filled.filter(
-    (colour, index) => colour === null && !isManualStateFixedCentre(size, index),
-  ).length;
+  const unplaced = filled.filter((colour) => colour === null).length;
   // A two-sticker big-cube endgame can still contain duplicate-wing choices
   // that local propagation cannot distinguish. The exact pass checks only
   // those final blanks, avoiding the broad sweep during normal entry.
@@ -848,7 +876,7 @@ export type ManualStateColourVerdict = {
   colour: ManualStateFace;
   allowed: boolean;
   /** The first sub-check of canCompleteManualState that rejected this colour. */
-  reason: "allowed" | "fixedCentre" | "colourQuota" | "pieceOrbit" | "wingReachability";
+  reason: "allowed" | "centreFrame" | "colourQuota" | "pieceOrbit" | "wingReachability";
   /** For pieceOrbit, which orbit's assignment failed. */
   orbit?: number;
 };
@@ -867,15 +895,12 @@ export const explainManualStateColours = (
   draft: ManualStateDraft,
   index: number,
 ): ManualStateColourVerdict[] => {
-  const fixedCentre = fixedCentreFace(size, index);
   return manualStateFaces.map((colour): ManualStateColourVerdict => {
-    if (fixedCentre !== null) {
-      return colour === fixedCentre
-        ? {colour, allowed: true, reason: "allowed"}
-        : {colour, allowed: false, reason: "fixedCentre"};
-    }
     const candidate = [...draft];
     candidate[index] = colour;
+    if (!canCompleteCentreFrame(size, candidate)) {
+      return {colour, allowed: false, reason: "centreFrame"};
+    }
     if (size >= 4) {
       const counts = colourCounts(candidate);
       const quota = size * size;
