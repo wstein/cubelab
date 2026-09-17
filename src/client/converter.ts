@@ -1265,6 +1265,17 @@ if (root) {
     return true;
   };
 
+  // An inferred sticker is already the only legal colour, so a plain click
+  // confirms that colour instead of treating the tile as an immutable fill.
+  // Going through the normal paint path records it in history and rebuilds
+  // the remaining inferred draft from this newly explicit choice.
+  const fixManualStateAutoSticker = (index: number): boolean => {
+    const colour = manualStateDraft[index];
+    return manualStateAutoIndices.has(index) && colour !== null
+      ? paintManualStateSticker(index, colour)
+      : false;
+  };
+
   const renderManualStateDots = (element: HTMLElement, choices: ManualStateFace[]) => {
     element.replaceChildren();
     manualStateFaces.forEach((choice) => {
@@ -1682,7 +1693,7 @@ if (root) {
         }
         // Fixed centres are non-editable, non-selectable reference tiles;
         // isManualStateCentre guards every mutating and interaction path.
-        sticker.setAttribute("aria-label", `${manualStateFaceName[face]} sticker ${localIndex + 1}${centre ? ", fixed centre" : value === null ? ", blank" : `, ${manualStateFaceName[value]}${manualStateAutoIndices.has(index) ? ", filled automatically" : ""}`}`);
+        sticker.setAttribute("aria-label", `${manualStateFaceName[face]} sticker ${localIndex + 1}${centre ? ", fixed centre" : value === null ? ", blank" : `, ${manualStateFaceName[value]}${manualStateAutoIndices.has(index) ? ", filled automatically; click to fix" : ""}`}`);
         if (value !== null) {
           manualStateUnverifiedDots.delete(index);
           sticker.textContent = "";
@@ -7874,6 +7885,7 @@ if (root) {
         eraseManualStateSticker(index);
         return;
       }
+      if (fixManualStateAutoSticker(index)) return;
       // A blank sticker's dots are individually clickable: whichever one was
       // actually clicked wins over the currently selected palette colour or eraser, so
       // a dot works as a direct shortcut rather than requiring the palette
@@ -7915,6 +7927,9 @@ if (root) {
       if (stroke.visited.has(index)) return;
       stroke.visited.add(index);
       setManualStateCursor(index, true);
+      if (!event.shiftKey && fixManualStateAutoSticker(index)) {
+        return;
+      }
       if (stroke.erase) {
         eraseManualStateSticker(index);
       } else {

@@ -1817,6 +1817,38 @@ test("recovers full colour availability after erasing every sticker, including a
   }
 });
 
+test("clicking an auto-set sticker fixes its inferred colour", async ({page}) => {
+  await page.goto("/");
+  await page.locator("[data-manual-state-open]").click();
+  const dialog = page.locator("[data-manual-state-dialog]");
+  const net = dialog.locator("[data-manual-state-grid]");
+
+  const rIndices = [9, 10, 11, 12, 14, 15, 16, 17];
+  const fIndices = [18, 19, 20, 21, 23, 24, 25, 26];
+  await dialog.locator('[data-manual-state-colour="R"]').click();
+  for (const index of rIndices) await net.locator(`[data-manual-state-index="${index}"]`).click();
+  await dialog.locator('[data-manual-state-colour="F"]').click();
+  for (const index of fIndices) await net.locator(`[data-manual-state-index="${index}"]`).click();
+
+  const inferred = net.locator('[data-manual-state-index="8"]');
+  await expect(inferred).toHaveAttribute("data-face", "U");
+  await expect(inferred).toHaveAttribute("data-auto", "true");
+  await expect(inferred).toHaveAttribute("aria-label", /click to fix/);
+
+  await inferred.click();
+  await expect(inferred).toHaveAttribute("data-face", "U");
+  await expect(inferred).toHaveAttribute("data-auto", "false");
+  await expect(inferred).not.toHaveAttribute("aria-label", /filled automatically/);
+
+  // Once fixed, removing every sticker that originally forced the colour
+  // leaves this explicit choice in place.
+  for (const index of [...rIndices, ...fIndices]) {
+    await net.locator(`[data-manual-state-index="${index}"]`).click({modifiers: ["Shift"]});
+  }
+  await expect(inferred).toHaveAttribute("data-face", "U");
+  await expect(inferred).toHaveAttribute("data-auto", "false");
+});
+
 test("morphs one editable net between standard and attached layouts", async ({page}) => {
   await page.goto("/");
   await page.locator("[data-manual-state-open]").click();
