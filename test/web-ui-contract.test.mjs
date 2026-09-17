@@ -288,6 +288,7 @@ test("the editor separates a synchronized setup from optional replay moves", () 
 test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate from Setup", () => {
   assert.match(page, /data-manual-state-open/);
   assert.match(page, /data-manual-state-grid/);
+  assert.match(page, /data-manual-state-frame/);
   assert.match(page, /data-manual-state-representation="standard"/);
   assert.match(page, /data-manual-state-representation="attached"/);
   assert.match(page, /data-manual-state-representation="dual-3d"[^>]*>Dual 3D</);
@@ -335,6 +336,8 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /createManualStateVerifierClient/);
   assert.match(client, /choices\.length === 1[\s\S]{0,2000}updateManualStateMetrics\(manualSize\)/);
   assert.match(client, /manualStateVerifier\.verifyBatch/);
+  assert.match(client, /manualStateFrameStatus\(manualSize, manualStateDraft\)/);
+  assert.match(styles, /\.manual-state-frame-status\[data-canonical="false"\]/);
   assert.match(manualStateWorker, /verifyManualStateBatch/);
   assert.match(manualStateWorker, /allowedManualStateColours\(request\.size, request\.draft, request\.index\)/);
   assert.match(client, /manualStateDialog\.showModal\(\);[\s\S]{0,800}renderManualStateEditor\(\);/);
@@ -451,7 +454,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /const canRotateView = manualStateRepresentation === "dual-3d" \|\| manualStateRepresentation === "isometric"/);
   assert.match(client, /manualStateRotationGroup\.hidden = !canRotateView/);
   assert.match(client, /manualStateFlipButton\.hidden = manualStateRepresentation !== "isometric"/);
-  assert.match(client, /renderManualStateSummary\(manualSize, displayEntered, displayTotal, perColourPlaced, diagnostic\);\s*renderManualStatePaletteLabels\(\);\s*if \(manualStateBuiltSize/);
+  assert.match(client, /renderManualStateSummary\(manualSize, displayEntered, displayTotal, perColourPlaced, diagnostic\);\s*renderManualStateFrame\(manualSize\);\s*renderManualStatePaletteLabels\(\);\s*if \(manualStateBuiltSize/);
   assert.match(page, /data-manual-state-shortcut-rotate[\s\S]*data-manual-state-shortcut-flip/);
   assert.match(client, /manualStateViewDestination\(manualSize, source, yQuarterTurns, manualStateFlipped\)/);
   assert.match(client, /manualStateOrientedArrowTarget\(manualSize, index, direction\)/);

@@ -9,6 +9,7 @@ import {
   faceletOrder,
   manualStateColourBudget,
   manualStateFaces,
+  manualStateFrameStatus,
   fillForcedManualStateColours,
   fillForcedManualStateCoreCentres,
   fillForcedManualStateColours2,
@@ -108,6 +109,20 @@ describe("3×3 manual state constraints", () => {
       expect(faceletOrder.map((_, face) => filled[face * perFace + centre])).toEqual([...faceletOrder]);
       expect(filled.filter((colour) => colour !== null)).toHaveLength(6);
     }
+  });
+
+  test("describes canonical and rotated odd-cube centre frames", () => {
+    const canonical = fillForcedManualStateCoreCentres(3, resetManualState(3));
+    expect(manualStateFrameStatus(3, canonical)).toEqual({canonical: true, up: "U", front: "F"});
+
+    const rotated = emptyManualState(3);
+    faceletOrder.forEach((colour, face) => {
+      const source = face * 9 + 4;
+      rotated[manualStateViewDestination(3, source, 1, false)] = colour;
+    });
+    expect(manualStateFrameStatus(3, rotated)).toEqual({canonical: false, up: "U", front: "R"});
+    expect(manualStateFrameStatus(3, resetManualState(3))).toBeNull();
+    expect(manualStateFrameStatus(4, emptyManualState(4))).toBeNull();
   });
 
   test("starts with empty centres and accepts a solved state", () => {

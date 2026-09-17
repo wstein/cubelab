@@ -1909,6 +1909,25 @@ textarea.manual-state-notation-input {
 
 .manual-state-summary-bar-fill { height: 100%; }
 
+.manual-state-frame-status {
+  display: block;
+  margin: -0.35rem 0 0.75rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid rgba(99, 179, 255, 0.28);
+  border-radius: 0.4rem;
+  background: rgba(99, 179, 255, 0.08);
+  color: #bfdbfe;
+  font: 600 0.7rem var(--font-mono);
+}
+
+.manual-state-frame-status[data-canonical="false"] {
+  border-color: rgba(250, 204, 21, 0.35);
+  background: rgba(250, 204, 21, 0.08);
+  color: #fde68a;
+}
+
+.manual-state-frame-status[hidden] { display: none; }
+
 .manual-state-summary-divider {
   height: 1px;
   margin: 0.05rem 0;

@@ -65,6 +65,7 @@ import {
   manualStateEdgeSlots,
   manualStateEnteredCount,
   manualStateFaces,
+  manualStateFrameStatus,
   manualStatePieceMates,
   manualStateViewDestination,
   manualStateLocalConstraintIndices,
@@ -297,6 +298,7 @@ if (root) {
   const manualStateSmartCubeSync = root.querySelector<HTMLButtonElement>("[data-manual-state-smart-cube-sync]")!;
   const manualStateSmartCubeStatus = root.querySelector<HTMLOutputElement>("[data-manual-state-smart-cube-status]")!;
   const manualStateSummary = root.querySelector<HTMLElement>("[data-manual-state-summary]")!;
+  const manualStateFrame = root.querySelector<HTMLOutputElement>("[data-manual-state-frame]")!;
   const manualStateNotation = root.querySelector<HTMLTextAreaElement>("[data-manual-state-notation]")!;
   const manualStateNotationApply = root.querySelector<HTMLButtonElement>("[data-manual-state-notation-apply]")!;
   const manualStateNotationStatus = root.querySelector<HTMLOutputElement>("[data-manual-state-notation-status]")!;
@@ -1111,6 +1113,22 @@ if (root) {
   const manualStateFaceName: Record<ManualStateFace, string> = {
     U: "Up", R: "Right", F: "Front", D: "Down", L: "Left", B: "Back",
   };
+  const manualStateColourName: Record<ManualStateFace, string> = {
+    U: "White", R: "Red", F: "Green", D: "Yellow", L: "Orange", B: "Blue",
+  };
+
+  const renderManualStateFrame = (manualSize: ManualStateSize) => {
+    const frame = manualStateFrameStatus(manualSize, manualStateDraft);
+    manualStateFrame.hidden = frame === null;
+    if (frame === null) {
+      delete manualStateFrame.dataset.canonical;
+      manualStateFrame.textContent = "";
+      return;
+    }
+    manualStateFrame.dataset.canonical = String(frame.canonical);
+    const label = frame.canonical ? "✓ Canonical frame" : "⟳ Rotated frame";
+    manualStateFrame.textContent = `${label} · U: ${manualStateColourName[frame.up]} · F: ${manualStateColourName[frame.front]}`;
+  };
 
   const manualStateCompactFacelets = (): string => manualStateDraft.join("");
 
@@ -1760,6 +1778,7 @@ if (root) {
       button.setAttribute("aria-pressed", String(selected));
     });
     renderManualStateSummary(manualSize, displayEntered, displayTotal, perColourPlaced, diagnostic);
+    renderManualStateFrame(manualSize);
     renderManualStatePaletteLabels();
     if (manualStateBuiltSize !== manualSize) {
       buildManualStateGrid(manualSize);
@@ -1899,6 +1918,7 @@ if (root) {
       if (value !== null) perColourPlaced[value] += 1;
     });
     renderManualStateSummary(manualSize, displayEntered, displayTotal, perColourPlaced, diagnostic);
+    renderManualStateFrame(manualSize);
     renderManualStatePaletteLabels();
   };
 

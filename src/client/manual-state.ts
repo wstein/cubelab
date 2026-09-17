@@ -138,6 +138,30 @@ export const isManualStateCoreCentre = (size: ManualStateSize, index: number): b
   return index >= 0 && index < 6 * perFace && index % perFace === Math.floor(perFace / 2);
 };
 
+export type ManualStateFrameStatus = {
+  canonical: boolean;
+  up: ManualStateFace;
+  front: ManualStateFace;
+};
+
+/** Describe an odd cube's entered physical frame once all six spindle
+ * centres are known. View-only rotations never affect this state metadata. */
+export const manualStateFrameStatus = (
+  size: ManualStateSize,
+  draft: ManualStateDraft,
+): ManualStateFrameStatus | null => {
+  const indices = coreCentreIndices(size);
+  if (indices.length === 0) return null;
+  const colours = indices.map((index) => draft[index]);
+  if (colours.some((colour) => colour === null)) return null;
+  const frame = colours as ManualStateFace[];
+  return {
+    canonical: frame.every((colour, position) => colour === faceletOrder[position]),
+    up: frame[0],
+    front: frame[2],
+  };
+};
+
 const coreCentreIndices = (size: ManualStateSize): number[] =>
   size === 3 || size === 5
     ? faceletOrder.map((_, face) => faceletIndex(size, face, Math.floor(size / 2), Math.floor(size / 2)))
