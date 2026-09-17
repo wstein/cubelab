@@ -713,6 +713,19 @@ export const emptyManualState = (size: ManualStateSize): ManualStateDraft => {
   return Array(manualStateStickerCount(size)).fill(null);
 };
 
+/** Reset baseline: odd cubes start with a canonical white Up / green Front
+ * orientation anchor, while every other sticker remains user-editable. */
+export const resetManualState = (size: ManualStateSize): ManualStateDraft => {
+  const draft = emptyManualState(size);
+  if (size === 3 || size === 5) {
+    const perFace = size * size;
+    const centre = Math.floor(perFace / 2);
+    draft[centre] = "U";
+    draft[2 * perFace + centre] = "F";
+  }
+  return draft;
+};
+
 export const manualStateEnteredCount = (draft: ManualStateDraft): number =>
   draft.filter((face) => face !== null).length;
 

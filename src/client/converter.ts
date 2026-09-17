@@ -68,6 +68,7 @@ import {
   manualStateViewDestination,
   manualStateLocalConstraintIndices,
   manualStateOrbits,
+  resetManualState,
   manualStateStickerCount,
   solvedManualState,
   type ManualStateDraft,
@@ -1816,7 +1817,7 @@ if (root) {
             if (manualStateUnverifiedDots.has(index)) pendingDots.push({index, element: dots});
             continue;
           }
-          if (manualSize <= 3) {
+          if (manualSize <= 3 || centre) {
             const exact = allowedManualStateColours(manualSize, manualStateDraft, index);
             renderManualStateDots(dots, exact);
             if (exact.length === 0) {
@@ -1833,7 +1834,7 @@ if (root) {
         }
       }
     });
-    if (manualSize <= 3 && manualStateDeadIndices.size > 0) {
+    if (manualStateDeadIndices.size > 0) {
       renderManualStateSummary(manualSize, displayEntered, displayTotal, perColourPlaced, diagnostic);
     }
     if (manualSize >= 4) {
@@ -8348,8 +8349,11 @@ if (root) {
   manualStateRedo.addEventListener("click", redoManualStateAction);
   manualStateReset.addEventListener("click", () => {
     const actionStart = captureManualStateSnapshot();
-    setManualStateDraft(emptyManualState(size as ManualStateSize));
+    setManualStateDraft(resetManualState(size as ManualStateSize));
     manualStateExplicitIndices.clear();
+    manualStateDraft.forEach((colour, index) => {
+      if (colour !== null) manualStateExplicitIndices.add(index);
+    });
     manualStateAutoIndices.clear();
     manualStateUnverifiedDots.clear();
     manualStateDeadIndices.clear();

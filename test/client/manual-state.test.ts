@@ -21,6 +21,7 @@ import {
   manualStateViewDestination,
   manualStateLocalConstraintIndices,
   manualStateOrbits,
+  resetManualState,
   solvedManualState2,
   solvedManualState,
   type ManualStateDraft,
@@ -85,6 +86,19 @@ describe("2×2 manual state constraints", () => {
 });
 
 describe("3×3 manual state constraints", () => {
+  test("reset anchors white Up and green Front while leaving every other sticker blank", () => {
+    for (const size of [3, 5] as const) {
+      const draft = resetManualState(size);
+      const perFace = size * size;
+      const centre = Math.floor(perFace / 2);
+      expect(draft.filter((colour) => colour !== null)).toHaveLength(2);
+      expect(draft[centre]).toBe("U");
+      expect(draft[2 * perFace + centre]).toBe("F");
+    }
+    expect(resetManualState(2).every((colour) => colour === null)).toBe(true);
+    expect(resetManualState(4).every((colour) => colour === null)).toBe(true);
+  });
+
   test("starts with empty centres and accepts a solved state", () => {
     expect(canCompleteManualState(3, solvedManualState(3))).toBe(true);
     const empty = emptyManualState(3);
