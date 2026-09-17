@@ -1783,6 +1783,69 @@ test("navigates and paints the net with the keyboard, wrapping across a face edg
   await expect(r0).toHaveAttribute("data-face", "unknown");
 });
 
+test("undoes and redoes complete paint strokes and board actions", async ({page}) => {
+  await page.goto("/");
+  await page.locator("[data-manual-state-open]").click();
+  const dialog = page.locator("[data-manual-state-dialog]");
+  const net = dialog.locator("[data-manual-state-grid]");
+  const undo = dialog.locator("[data-manual-state-undo]");
+  const redo = dialog.locator("[data-manual-state-redo]");
+  await dialog.locator('[data-manual-state-representation="standard"]').click();
+  await dialog.locator('[data-manual-state-colour="R"]').click();
+
+  await expect(undo).toBeDisabled();
+  await expect(redo).toBeDisabled();
+  const stroke = [0, 1, 2].map((index) => net.locator(`[data-manual-state-index="${index}"]`));
+  const centres = [];
+  for (const sticker of stroke) {
+    const box = await sticker.boundingBox();
+    expect(box).not.toBeNull();
+    centres.push({x: box.x + box.width / 2, y: box.y + box.height / 2});
+  }
+  await page.mouse.move(centres[0].x, centres[0].y);
+  await page.mouse.down();
+  await page.mouse.move(centres[1].x, centres[1].y, {steps: 4});
+  await page.mouse.move(centres[2].x, centres[2].y, {steps: 4});
+  await page.mouse.up();
+  for (const sticker of stroke) await expect(sticker).toHaveAttribute("data-face", "R");
+  await expect(undo).toBeEnabled();
+
+  // A whole pointer stroke is one action, including any inferred stickers.
+  await undo.click();
+  for (const sticker of stroke) await expect(sticker).toHaveAttribute("data-face", "unknown");
+  await expect(undo).toBeDisabled();
+  await expect(redo).toBeEnabled();
+  await redo.click();
+  for (const sticker of stroke) await expect(sticker).toHaveAttribute("data-face", "R");
+
+  // Board-wide operations participate in the same history and keyboard redo.
+  await dialog.locator("[data-manual-state-solved]").click();
+  await expect(net.locator('[data-manual-state-index="0"]')).toHaveAttribute("data-face", "U");
+  await page.keyboard.press("Control+Z");
+  for (const sticker of stroke) await expect(sticker).toHaveAttribute("data-face", "R");
+  await page.keyboard.press("Control+Shift+Z");
+  await expect(net.locator('[data-manual-state-index="0"]')).toHaveAttribute("data-face", "U");
+
+  await dialog.locator("[data-manual-state-reset]").click();
+  await expect(net.locator('[data-manual-state-index="0"]')).toHaveAttribute("data-face", "unknown");
+  await undo.click();
+  await expect(net.locator('[data-manual-state-index="0"]')).toHaveAttribute("data-face", "U");
+
+  const solvedFacelets = await net.locator("[data-manual-state-index]").evaluateAll((stickers) =>
+    stickers.map((sticker) => sticker.getAttribute("data-face"))
+  );
+  await dialog.locator("[data-manual-state-notation]").fill("R");
+  await dialog.locator("[data-manual-state-notation-apply]").click();
+  const movedFacelets = await net.locator("[data-manual-state-index]").evaluateAll((stickers) =>
+    stickers.map((sticker) => sticker.getAttribute("data-face"))
+  );
+  expect(movedFacelets).not.toEqual(solvedFacelets);
+  await undo.click();
+  await expect.poll(async () => net.locator("[data-manual-state-index]").evaluateAll((stickers) =>
+    stickers.map((sticker) => sticker.getAttribute("data-face"))
+  )).toEqual(solvedFacelets);
+});
+
 test("recovers full colour availability after erasing every sticker, including auto-set ones", async ({page}) => {
   await page.goto("/");
   await page.locator("[data-manual-state-open]").click();

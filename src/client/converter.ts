@@ -289,6 +289,8 @@ if (root) {
   const manualStateEraser = root.querySelector<HTMLButtonElement>("[data-manual-state-eraser]")!;
   const manualStateReset = root.querySelector<HTMLButtonElement>("[data-manual-state-reset]")!;
   const manualStateSolved = root.querySelector<HTMLButtonElement>("[data-manual-state-solved]")!;
+  const manualStateUndo = root.querySelector<HTMLButtonElement>("[data-manual-state-undo]")!;
+  const manualStateRedo = root.querySelector<HTMLButtonElement>("[data-manual-state-redo]")!;
   const manualStateSummary = root.querySelector<HTMLElement>("[data-manual-state-summary]")!;
   const manualStateNotation = root.querySelector<HTMLTextAreaElement>("[data-manual-state-notation]")!;
   const manualStateNotationApply = root.querySelector<HTMLButtonElement>("[data-manual-state-notation-apply]")!;
@@ -570,7 +572,18 @@ if (root) {
   let manualStateDirtyDots: Set<number> | null = null;
   const manualStateUnverifiedDots = new Set<number>();
   const manualStateDeadIndices = new Set<number>();
-  const manualStatePaintHistory: number[] = [];
+  type ManualStateSnapshot = {
+    draft: ManualStateDraft;
+    explicitIndices: number[];
+    autoIndices: number[];
+    deadIndices: number[];
+  };
+  type ManualStateAction = {
+    before: ManualStateSnapshot;
+    after: ManualStateSnapshot;
+  };
+  const manualStateUndoStack: ManualStateAction[] = [];
+  const manualStateRedoStack: ManualStateAction[] = [];
   let updateManualStateMetrics: (manualSize: ManualStateSize) => void = () => {};
   // Built once per manual-state size and reused across renders: recreating
   // every sticker button on every single paint or erase click would force a
@@ -1194,10 +1207,78 @@ if (root) {
     });
   };
 
+  const captureManualStateSnapshot = (): ManualStateSnapshot => ({
+    draft: [...manualStateDraft],
+    explicitIndices: [...manualStateExplicitIndices].sort((a, b) => a - b),
+    autoIndices: [...manualStateAutoIndices].sort((a, b) => a - b),
+    deadIndices: [...manualStateDeadIndices].sort((a, b) => a - b),
+  });
+
+  const manualStateSnapshotsEqual = (left: ManualStateSnapshot, right: ManualStateSnapshot): boolean =>
+    left.draft.length === right.draft.length
+    && left.draft.every((value, index) => value === right.draft[index])
+    && left.explicitIndices.length === right.explicitIndices.length
+    && left.explicitIndices.every((value, index) => value === right.explicitIndices[index])
+    && left.autoIndices.length === right.autoIndices.length
+    && left.autoIndices.every((value, index) => value === right.autoIndices[index])
+    && left.deadIndices.length === right.deadIndices.length
+    && left.deadIndices.every((value, index) => value === right.deadIndices[index]);
+
+  const syncManualStateHistoryControls = () => {
+    manualStateUndo.disabled = manualStateUndoStack.length === 0;
+    manualStateRedo.disabled = manualStateRedoStack.length === 0;
+  };
+
+  const clearManualStateHistory = () => {
+    manualStateUndoStack.length = 0;
+    manualStateRedoStack.length = 0;
+    syncManualStateHistoryControls();
+  };
+
+  const commitManualStateAction = (before: ManualStateSnapshot) => {
+    const after = captureManualStateSnapshot();
+    if (manualStateSnapshotsEqual(before, after)) return;
+    manualStateUndoStack.push({before, after});
+    if (manualStateUndoStack.length > 100) manualStateUndoStack.shift();
+    manualStateRedoStack.length = 0;
+    syncManualStateHistoryControls();
+  };
+
+  const restoreManualStateSnapshot = (snapshot: ManualStateSnapshot) => {
+    setManualStateDraft([...snapshot.draft]);
+    manualStateExplicitIndices.clear();
+    snapshot.explicitIndices.forEach((index) => manualStateExplicitIndices.add(index));
+    manualStateAutoIndices.clear();
+    snapshot.autoIndices.forEach((index) => manualStateAutoIndices.add(index));
+    manualStateDeadIndices.clear();
+    snapshot.deadIndices.forEach((index) => manualStateDeadIndices.add(index));
+    manualStateUnverifiedDots.clear();
+    manualStateDirtyDots = null;
+    renderManualStateEditor();
+  };
+
+  const undoManualStateAction = () => {
+    const action = manualStateUndoStack.pop();
+    if (!action) return;
+    manualStateRedoStack.push(action);
+    restoreManualStateSnapshot(action.before);
+    syncManualStateHistoryControls();
+  };
+
+  const redoManualStateAction = () => {
+    const action = manualStateRedoStack.pop();
+    if (!action) return;
+    manualStateUndoStack.push(action);
+    restoreManualStateSnapshot(action.after);
+    syncManualStateHistoryControls();
+  };
+
   // Shared by the flat net, both preview cubes, and the keyboard shortcut:
   // one place decides whether a sticker can take a colour and applies it.
-  const eraseManualStateSticker = (index: number) => {
+  const eraseManualStateSticker = (index: number, recordAction = true) => {
     if (manualStateAutoIndices.has(index)) return;
+    if (manualStateDraft[index] === null) return;
+    const actionStart = recordAction ? captureManualStateSnapshot() : null;
     const manualSize = size as ManualStateSize;
     const before = [...manualStateDraft];
     manualStateDraft[index] = null;
@@ -1209,19 +1290,11 @@ if (root) {
     if (sticker) delete sticker.dataset.dead;
     refreshManualStateAutoFill(manualSize, true, before);
     renderManualStateEditor();
-  };
-
-  const undoManualStateAction = () => {
-    while (manualStatePaintHistory.length > 0) {
-      const lastIndex = manualStatePaintHistory.pop()!;
-      if (manualStateDraft[lastIndex] !== null && manualStateExplicitIndices.has(lastIndex)) {
-        eraseManualStateSticker(lastIndex);
-        return;
-      }
-    }
+    if (actionStart) commitManualStateAction(actionStart);
   };
 
   const resetManualStateColour = (face: ManualStateFace) => {
+    const actionStart = captureManualStateSnapshot();
     const manualSize = size as ManualStateSize;
     let changed = false;
     for (let index = 0; index < manualStateDraft.length; index += 1) {
@@ -1240,27 +1313,29 @@ if (root) {
       manualStateDirtyDots = null;
       refreshManualStateAutoFill(manualSize, true);
       renderManualStateEditor();
+      commitManualStateAction(actionStart);
     }
   };
 
-  const paintManualStateSticker = (index: number, colour: ManualStateFace): boolean => {
+  const paintManualStateSticker = (index: number, colour: ManualStateFace, recordAction = true): boolean => {
     const manualSize = size as ManualStateSize;
     const source = manualStateSourceDraft(manualSize);
     source[index] = null;
     if (!allowedManualStateColours(manualSize, source, index).includes(colour)) {
       return false;
     }
+    const actionStart = recordAction ? captureManualStateSnapshot() : null;
     const before = [...manualStateDraft];
     manualStateDraft[index] = colour;
     touchManualStateDraft();
     manualStateExplicitIndices.add(index);
     manualStateAutoIndices.delete(index);
-    manualStatePaintHistory.push(index);
     manualStateDeadIndices.delete(index);
     const sticker = manualStateStickerElements[index];
     if (sticker) delete sticker.dataset.dead;
     refreshManualStateAutoFill(manualSize, true, before);
     renderManualStateEditor();
+    if (actionStart) commitManualStateAction(actionStart);
     return true;
   };
 
@@ -1268,10 +1343,10 @@ if (root) {
   // confirms that colour instead of treating the tile as an immutable fill.
   // Going through the normal paint path records it in history and rebuilds
   // the remaining inferred draft from this newly explicit choice.
-  const fixManualStateAutoSticker = (index: number): boolean => {
+  const fixManualStateAutoSticker = (index: number, recordAction = true): boolean => {
     const colour = manualStateDraft[index];
     return manualStateAutoIndices.has(index) && colour !== null
-      ? paintManualStateSticker(index, colour)
+      ? paintManualStateSticker(index, colour, recordAction)
       : false;
   };
 
@@ -1465,7 +1540,7 @@ if (root) {
       undoBtn.type = "button";
       undoBtn.className = "manual-state-undo-btn";
       undoBtn.textContent = "Undo";
-      undoBtn.title = "Undo last painted sticker (Ctrl+Z / Cmd+Z)";
+      undoBtn.title = "Undo last action (Ctrl+Z / Cmd+Z)";
       undoBtn.addEventListener("click", () => {
         undoManualStateAction();
       });
@@ -2060,7 +2135,7 @@ if (root) {
     manualStateAutoIndices.clear();
     manualStateUnverifiedDots.clear();
     manualStateDeadIndices.clear();
-    manualStatePaintHistory.length = 0;
+    clearManualStateHistory();
     manualStateNotation.value = "";
     manualStateNotationStatus.textContent = "Paste a state to replace the draft, or moves to apply them.";
     setManualStateHoverIndex(null);
@@ -7880,6 +7955,7 @@ if (root) {
     pointerId: number;
     erase: boolean;
     visited: Set<number>;
+    before: ManualStateSnapshot;
   };
   let manualStateStroke: ManualStateStroke | null = null;
   let suppressManualStateClick = false;
@@ -7944,18 +8020,18 @@ if (root) {
       if (stroke.visited.has(index)) return;
       stroke.visited.add(index);
       setManualStateCursor(index, true);
-      if (!event.shiftKey && fixManualStateAutoSticker(index)) {
+      if (!event.shiftKey && fixManualStateAutoSticker(index, false)) {
         return;
       }
       if (stroke.erase) {
-        eraseManualStateSticker(index);
+        eraseManualStateSticker(index, false);
       } else {
         const dot = (event.target as Element | null)?.closest<HTMLElement>(".manual-state-dots i")
           ?? (document.elementFromPoint(event.clientX, event.clientY) as Element | null)?.closest<HTMLElement>(".manual-state-dots i");
         if (dot?.dataset.face) {
-          paintManualStateSticker(index, dot.dataset.face as ManualStateFace);
+          paintManualStateSticker(index, dot.dataset.face as ManualStateFace, false);
         } else if (manualStateColour !== null && manualStateDraft[index] === null) {
-          paintManualStateSticker(index, manualStateColour);
+          paintManualStateSticker(index, manualStateColour, false);
         }
       }
     };
@@ -7970,6 +8046,7 @@ if (root) {
         pointerId: event.pointerId,
         erase: event.shiftKey || (manualStateColour === null && dotFace === null),
         visited: new Set<number>(),
+        before: captureManualStateSnapshot(),
       };
       manualStateStroke = stroke;
       suppressManualStateClick = true;
@@ -7984,14 +8061,18 @@ if (root) {
       if (index !== null) paintStrokeAt(index, event, stroke);
     });
     const finishManualStateStroke = (event: PointerEvent) => {
-      if (manualStateStroke?.pointerId !== event.pointerId) return;
-      if (paintRoot.hasPointerCapture(event.pointerId)) paintRoot.releasePointerCapture(event.pointerId);
+      const stroke = manualStateStroke;
+      if (stroke?.pointerId !== event.pointerId) return;
       manualStateStroke = null;
+      if (paintRoot.hasPointerCapture(event.pointerId)) paintRoot.releasePointerCapture(event.pointerId);
+      commitManualStateAction(stroke.before);
     };
     paintRoot.addEventListener("pointerup", finishManualStateStroke);
     paintRoot.addEventListener("pointercancel", finishManualStateStroke);
     paintRoot.addEventListener("lostpointercapture", () => {
+      const stroke = manualStateStroke;
       manualStateStroke = null;
+      if (stroke) commitManualStateAction(stroke.before);
     });
   };
   wireManualStatePainting(manualStateGrid);
@@ -8112,7 +8193,16 @@ if (root) {
       // typing, selection, undo, or other native textarea shortcuts.
       const target = event.target;
       if (target instanceof Element && target.closest("[data-manual-state-notation]")) return;
-      if ((event.key === "z" || event.key === "Z" || event.code === "KeyZ") && (event.ctrlKey || event.metaKey)) {
+      const historyModifier = event.ctrlKey || event.metaKey;
+      const isZ = event.key === "z" || event.key === "Z" || event.code === "KeyZ";
+      const isY = event.key === "y" || event.key === "Y" || event.code === "KeyY";
+      if (historyModifier && ((isZ && event.shiftKey) || isY)) {
+        event.preventDefault();
+        event.stopPropagation();
+        redoManualStateAction();
+        return;
+      }
+      if (historyModifier && isZ) {
         event.preventDefault();
         event.stopPropagation();
         undoManualStateAction();
@@ -8180,37 +8270,42 @@ if (root) {
     window.addEventListener("keydown", handleKeyDown);
   };
   wireManualStateKeyboard(manualStateDialog);
+  manualStateUndo.addEventListener("click", undoManualStateAction);
+  manualStateRedo.addEventListener("click", redoManualStateAction);
   manualStateReset.addEventListener("click", () => {
+    const actionStart = captureManualStateSnapshot();
     setManualStateDraft(emptyManualState(size as ManualStateSize));
     manualStateExplicitIndices.clear();
     manualStateAutoIndices.clear();
     manualStateUnverifiedDots.clear();
     manualStateDeadIndices.clear();
-    manualStatePaintHistory.length = 0;
     manualStateDirtyDots = null;
     renderManualStateEditor();
+    commitManualStateAction(actionStart);
   });
   manualStateSolved.addEventListener("click", () => {
+    const actionStart = captureManualStateSnapshot();
     setManualStateDraft(solvedManualState(size as ManualStateSize));
     manualStateExplicitIndices.clear();
     manualStateDraft.forEach((_, index) => manualStateExplicitIndices.add(index));
     manualStateAutoIndices.clear();
     manualStateUnverifiedDots.clear();
     manualStateDeadIndices.clear();
-    manualStatePaintHistory.length = 0;
     manualStateDirtyDots = null;
     renderManualStateEditor();
+    commitManualStateAction(actionStart);
   });
-  const replaceManualStateDraft = (state: CubeState) => {
+  const replaceManualStateDraft = (state: CubeState, recordAction = true) => {
+    const actionStart = recordAction ? captureManualStateSnapshot() : null;
     setManualStateDraft((FaceletCodec.render(state) as string).split("") as ManualStateDraft);
     manualStateExplicitIndices.clear();
     manualStateDraft.forEach((_, index) => manualStateExplicitIndices.add(index));
     manualStateAutoIndices.clear();
     manualStateUnverifiedDots.clear();
     manualStateDeadIndices.clear();
-    manualStatePaintHistory.length = 0;
     manualStateDirtyDots = null;
     renderManualStateEditor();
+    if (actionStart) commitManualStateAction(actionStart);
   };
   manualStateNotationApply.addEventListener("click", () => {
     const lines = manualStateNotation.value

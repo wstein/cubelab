@@ -311,10 +311,18 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /const manualStateDeadIndices = new Set<number>\(\)/);
   assert.match(client, /manual-state-dead-row/);
   assert.match(client, /undoManualStateAction/);
+  assert.match(client, /redoManualStateAction/);
+  assert.match(client, /const manualStateUndoStack: ManualStateAction\[\] = \[\]/);
+  assert.match(client, /const manualStateRedoStack: ManualStateAction\[\] = \[\]/);
+  assert.match(client, /commitManualStateAction\(stroke\.before\)/);
   assert.match(styles, /\.manual-state-dead-row/);
   assert.match(styles, /\.manual-state-undo-btn/);
+  assert.match(styles, /\.manual-state-history/);
   assert.match(styles, /\.manual-state-sticker\[data-dead="true"\]/);
-  assert.match(client, /\(event\.key === "z" \|\| event\.key === "Z"[\s\S]{0,40}\) && \(event\.ctrlKey \|\| event\.metaKey\)[\s\S]{0,100}undoManualStateAction\(\)/);
+  assert.match(page, /data-manual-state-undo[^>]*disabled/);
+  assert.match(page, /data-manual-state-redo[^>]*disabled/);
+  assert.match(client, /historyModifier && isZ[\s\S]{0,160}undoManualStateAction\(\)/);
+  assert.match(client, /historyModifier && \(\(isZ && event\.shiftKey\) \|\| isY\)[\s\S]{0,160}redoManualStateAction\(\)/);
   assert.match(manualState, /export const explainManualStateColours/);
   assert.match(manualState, /export const manualStateColourBudget/);
   assert.match(client, /createManualStateVerifierClient/);
@@ -364,7 +372,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /const manualStateColourKeys:[\s\S]*W: "U"[\s\S]*G: "F"[\s\S]*Y: "D"[\s\S]*O: "L"/);
   assert.match(client, /const colour = manualStateColourKeys\[key\];[\s\S]*paintManualStateSticker\(index, colour\)/);
   assert.match(client, /if \(manualStateAutoIndices\.has\(index\)\) return;/);
-  assert.match(client, /const fixManualStateAutoSticker = \(index: number\): boolean => \{[\s\S]*paintManualStateSticker\(index, colour\)/);
+  assert.match(client, /const fixManualStateAutoSticker = \(index: number, recordAction = true\): boolean => \{[\s\S]*paintManualStateSticker\(index, colour, recordAction\)/);
   assert.match(client, /if \(fixManualStateAutoSticker\(index\)\) return;/);
   assert.match(client, /sticker\.dataset\.centre = String\(centre\)/);
   assert.match(client, /const manualStateVisibleFaces = \(\): readonly ManualStateFace\[\]/);
