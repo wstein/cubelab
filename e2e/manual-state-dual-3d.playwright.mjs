@@ -8,7 +8,7 @@ test("Dual 3D shows two interactive cube corners at the same perspective", async
 
   const net = page.locator("[data-manual-state-net]");
   await expect(net).toHaveAttribute("data-representation", "dual-3d");
-  await expect(page.locator("[data-manual-state-rotation-group]")).toBeHidden();
+  await expect(page.locator("[data-manual-state-rotation-group]")).toBeVisible();
 
   const faces = await net.locator(".manual-state-face").evaluateAll((elements) =>
     Object.fromEntries(elements.map((element) => [element.dataset.face, element.getBoundingClientRect().toJSON()])),

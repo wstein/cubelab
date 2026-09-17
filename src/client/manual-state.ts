@@ -17,6 +17,74 @@ export const manualStateFaces = ["U", "D", "R", "L", "F", "B"] as const;
 export type ManualStateSize = 2 | 3 | 4 | 5;
 export type ManualStateDraft = Array<ManualStateFace | null>;
 
+/** Destination facelet for a view-only y rotation followed by an optional
+ * x2 flip. The canonical draft never moves; the editor reparents its existing
+ * sticker buttons into these visual slots instead. */
+export const manualStateViewDestination = (
+  size: ManualStateSize,
+  index: number,
+  yQuarterTurns: number,
+  flipped: boolean,
+): number => {
+  const perFace = size * size;
+  const face = faceletOrder[Math.floor(index / perFace)];
+  const local = index % perFace;
+  const row = Math.floor(local / size);
+  const column = local % size;
+  const span = size - 1;
+  const rowCoordinate = 2 * row - span;
+  const columnCoordinate = 2 * column - span;
+  let position: [number, number, number];
+  let normal: [number, number, number];
+  switch (face) {
+    case "U": position = [columnCoordinate, span, rowCoordinate]; normal = [0, 1, 0]; break;
+    case "D": position = [columnCoordinate, -span, -rowCoordinate]; normal = [0, -1, 0]; break;
+    case "F": position = [columnCoordinate, -rowCoordinate, span]; normal = [0, 0, 1]; break;
+    case "B": position = [-columnCoordinate, -rowCoordinate, -span]; normal = [0, 0, -1]; break;
+    case "R": position = [span, -rowCoordinate, -columnCoordinate]; normal = [1, 0, 0]; break;
+    case "L": position = [-span, -rowCoordinate, columnCoordinate]; normal = [-1, 0, 0]; break;
+  }
+  if (flipped) {
+    position = [position[0], -position[1], -position[2]];
+    normal = [normal[0], -normal[1], -normal[2]];
+  }
+  const turns = ((yQuarterTurns % 4) + 4) % 4;
+  for (let turn = 0; turn < turns; turn += 1) {
+    position = [-position[2], position[1], position[0]];
+    normal = [-normal[2], normal[1], normal[0]];
+  }
+  let destinationFace: ManualStateFace;
+  let destinationRow: number;
+  let destinationColumn: number;
+  const coordinateIndex = (coordinate: number): number => Math.round((coordinate + span) / 2);
+  if (normal[1] === 1) {
+    destinationFace = "U";
+    destinationRow = coordinateIndex(position[2]);
+    destinationColumn = coordinateIndex(position[0]);
+  } else if (normal[1] === -1) {
+    destinationFace = "D";
+    destinationRow = coordinateIndex(-position[2]);
+    destinationColumn = coordinateIndex(position[0]);
+  } else if (normal[2] === 1) {
+    destinationFace = "F";
+    destinationRow = coordinateIndex(-position[1]);
+    destinationColumn = coordinateIndex(position[0]);
+  } else if (normal[2] === -1) {
+    destinationFace = "B";
+    destinationRow = coordinateIndex(-position[1]);
+    destinationColumn = coordinateIndex(-position[0]);
+  } else if (normal[0] === 1) {
+    destinationFace = "R";
+    destinationRow = coordinateIndex(-position[1]);
+    destinationColumn = coordinateIndex(-position[2]);
+  } else {
+    destinationFace = "L";
+    destinationRow = coordinateIndex(-position[1]);
+    destinationColumn = coordinateIndex(position[2]);
+  }
+  return faceletOrder.indexOf(destinationFace) * perFace + destinationRow * size + destinationColumn;
+};
+
 type Candidate = {piece: number; orientation: number; stickers: ManualStateFace[]};
 type CubieKind = {slots: number[][]; pieces: ManualStateFace[][]; orientations: number};
 
@@ -934,4 +1002,3 @@ export const runManualStateVerificationLoop = async <T extends {index: number}>(
     verifyNext(0);
   });
 };
-

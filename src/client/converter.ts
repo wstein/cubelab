@@ -63,6 +63,7 @@ import {
   manualStateEnteredCount,
   manualStateFaces,
   manualStatePieceMates,
+  manualStateViewDestination,
   manualStateLocalConstraintIndices,
   manualStateOrbits,
   manualStateStickerCount,
@@ -571,7 +572,9 @@ if (root) {
   // every sticker button on every single paint or erase click would force a
   // full style/layout recompute and flicker.
   let manualStateBuiltSize: ManualStateSize | null = null;
+  let manualStateArrangedFrame = "";
   const manualStateStickerElements: HTMLButtonElement[] = [];
+  const manualStateFaceElements = new Map<ManualStateFace, HTMLElement>();
   let tutorialPhases: TutorialPhaseRange[] = [];
   let activeAcademy: AcademyElements | null = null;
   let commentedTutorialSolution = "";
@@ -1487,6 +1490,8 @@ if (root) {
   const buildManualStateGrid = (manualSize: ManualStateSize) => {
     manualStateGrid.replaceChildren();
     manualStateStickerElements.length = 0;
+    manualStateFaceElements.clear();
+    manualStateArrangedFrame = "";
     (["U", "L", "F", "R", "B", "D"] as ManualStateFace[]).forEach((face) => {
       const faceIndex = (["U", "R", "F", "D", "L", "B"] as ManualStateFace[]).indexOf(face);
       const group = document.createElement("section");
@@ -1497,6 +1502,7 @@ if (root) {
       // travel between unfolded and attached layouts in either direction.
       group.style.setProperty("view-transition-name", `manual-state-face-${face.toLowerCase()}`);
       group.setAttribute("aria-label", `${manualStateFaceName[face]} face`);
+      manualStateFaceElements.set(face, group);
       // No visual face-letter headline: the net's fixed U/L/F/R/B/D cross
       // arrangement already says which cluster is which, and repeating it as
       // a heading on every one of the six clusters was pure redundancy.
@@ -1518,6 +1524,29 @@ if (root) {
       }
       manualStateGrid.append(group);
     });
+  };
+
+  const arrangeManualStateView = (manualSize: ManualStateSize) => {
+    if (manualStateStickerElements.length === 0) return;
+    const frame = manualStateRepresentation === "isometric"
+      ? `${manualSize}:canonical`
+      : `${manualSize}:${manualStateOrientation}:${manualStateFlipped}`;
+    if (frame === manualStateArrangedFrame) return;
+    const perFace = manualSize * manualSize;
+    const destinations: HTMLButtonElement[] = [];
+    const yQuarterTurns = (4 - manualStateOrientation) % 4;
+    manualStateStickerElements.forEach((sticker, source) => {
+      const destination = manualStateRepresentation === "isometric"
+        ? source
+        : manualStateViewDestination(manualSize, source, yQuarterTurns, manualStateFlipped);
+      destinations[destination] = sticker;
+    });
+    faceletOrder.forEach((face, faceIndex) => {
+      manualStateFaceElements.get(face)?.replaceChildren(
+        ...destinations.slice(faceIndex * perFace, (faceIndex + 1) * perFace),
+      );
+    });
+    manualStateArrangedFrame = frame;
   };
 
   const manualStateVisibleFaces = (): readonly ManualStateFace[] => {
@@ -1598,9 +1627,7 @@ if (root) {
     manualStateEraser.classList.toggle("shift-active", manualStateShiftPressed);
     manualStateNet.dataset.representation = manualStateRepresentation;
     manualStateNet.dataset.orientation = String(manualStateOrientation);
-    if (manualStateRotationGroup) {
-      manualStateRotationGroup.hidden = manualStateRepresentation !== "isometric";
-    }
+    manualStateRotationGroup.hidden = false;
     manualStateRepresentationButtons.forEach((button) => {
       const selected = button.dataset.manualStateRepresentation === manualStateRepresentation;
       button.classList.toggle("active", selected);
@@ -1611,6 +1638,7 @@ if (root) {
       buildManualStateGrid(manualSize);
       manualStateBuiltSize = manualSize;
     }
+    arrangeManualStateView(manualSize);
     syncManualStateInteraction();
     const pendingDots: Array<{index: number; element: HTMLElement}> = [];
     const dirtyDots = manualStateDirtyDots;
@@ -1833,12 +1861,21 @@ if (root) {
       });
     }
   };
-  const rotateManualStateIsometric = async (direction: "cw" | "ccw") => {
-    if (manualStateRepresentation !== "isometric" || manualStateIsRotating) return;
+  const rotateManualStateView = async (direction: "cw" | "ccw") => {
+    if (manualStateIsRotating) return;
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const nextOrientation = (direction === "cw"
       ? (manualStateOrientation + 3) % 4
       : (manualStateOrientation + 1) % 4) as 0 | 1 | 2 | 3;
+
+    if (manualStateRepresentation !== "isometric") {
+      manualStateOrientation = nextOrientation;
+      manualStateYaw += direction === "cw" ? -90 : 90;
+      manualStateNet.dataset.orientation = String(nextOrientation);
+      arrangeManualStateView(size as ManualStateSize);
+      syncManualStateInteraction();
+      return;
+    }
 
     if (prefersReducedMotion) {
       manualStateOrientation = nextOrientation;
@@ -1872,10 +1909,23 @@ if (root) {
     }
   };
 
-  const flipManualStateIsometric = async () => {
-    if (manualStateRepresentation !== "isometric" || manualStateIsRotating) return;
+  const flipManualStateView = async () => {
+    if (manualStateIsRotating) return;
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const nextFlipped = !manualStateFlipped;
+
+    if (manualStateRepresentation !== "isometric") {
+      manualStateFlipped = nextFlipped;
+      manualStateFlip = nextFlipped ? 180 : 0;
+      if (nextFlipped) {
+        manualStateNet.dataset.flipped = "true";
+      } else {
+        delete manualStateNet.dataset.flipped;
+      }
+      arrangeManualStateView(size as ManualStateSize);
+      syncManualStateInteraction();
+      return;
+    }
 
     if (prefersReducedMotion) {
       manualStateFlipped = nextFlipped;
@@ -1927,9 +1977,9 @@ if (root) {
     button.addEventListener("click", () => {
       const dir = button.dataset.manualStateRotate as "cw" | "ccw" | "flip";
       if (dir === "cw" || dir === "ccw") {
-        rotateManualStateIsometric(dir);
+        rotateManualStateView(dir);
       } else if (dir === "flip") {
-        flipManualStateIsometric();
+        flipManualStateView();
       }
     });
   });
@@ -7950,6 +8000,25 @@ if (root) {
   const manualStateArrowKeys: Record<string, "left" | "right" | "top" | "bottom"> = {
     ArrowLeft: "left", ArrowRight: "right", ArrowUp: "top", ArrowDown: "bottom",
   };
+  const manualStateOrientedArrowTarget = (
+    manualSize: ManualStateSize,
+    index: number,
+    direction: "left" | "right" | "top" | "bottom",
+  ): number | null => {
+    const yQuarterTurns = (4 - manualStateOrientation) % 4;
+    const displayedIndex = manualStateViewDestination(
+      manualSize,
+      index,
+      yQuarterTurns,
+      manualStateFlipped,
+    );
+    const displayedTarget = manualStateArrowTarget(manualSize, displayedIndex, direction);
+    if (displayedTarget === null) return null;
+    const source = manualStateStickerElements.findIndex((_, candidate) =>
+      manualStateViewDestination(manualSize, candidate, yQuarterTurns, manualStateFlipped) === displayedTarget
+    );
+    return source >= 0 ? source : null;
+  };
   const manualStateColourKeys: Readonly<Record<string, ManualStateFace>> = {
     U: "U", W: "U",
     R: "R",
@@ -8049,13 +8118,13 @@ if (root) {
       if (event.key === "[" || event.key === "]") {
         event.preventDefault();
         event.stopPropagation();
-        rotateManualStateIsometric(event.key === "[" ? "ccw" : "cw");
+        rotateManualStateView(event.key === "[" ? "ccw" : "cw");
         return;
       }
       if (event.key === "x" || event.key === "X") {
         event.preventDefault();
         event.stopPropagation();
-        flipManualStateIsometric();
+        flipManualStateView();
         return;
       }
       const direction = manualStateArrowKeys[event.key];
@@ -8064,11 +8133,11 @@ if (root) {
       event.stopPropagation();
       let next = manualStateRepresentation === "isometric"
         ? manualStateScreenArrowTarget(index, direction)
-        : manualStateArrowTarget(manualSize, index, direction);
+        : manualStateOrientedArrowTarget(manualSize, index, direction);
       while (next !== null && !isManualStateStickerInteractive(next)) {
         next = manualStateRepresentation === "isometric"
           ? manualStateScreenArrowTarget(next, direction)
-          : manualStateArrowTarget(manualSize, next, direction);
+          : manualStateOrientedArrowTarget(manualSize, next, direction);
       }
       if (next !== null) setManualStateCursor(next, true);
     };
@@ -8522,16 +8591,16 @@ if (root) {
         if (manualStateDialog.open) manualStateDialog.close();
         if (settingsDialog.open) settingsDialog.close();
         if (shortcutsDialog.open) shortcutsDialog.close();
-      } else if (manualStateDialog.open && manualStateRepresentation === "isometric") {
+      } else if (manualStateDialog.open) {
         if (event.key === "[") {
           event.preventDefault();
-          rotateManualStateIsometric("ccw");
+          rotateManualStateView("ccw");
         } else if (event.key === "]") {
           event.preventDefault();
-          rotateManualStateIsometric("cw");
+          rotateManualStateView("cw");
         } else if (event.key === "x" || event.key === "X") {
           event.preventDefault();
-          flipManualStateIsometric();
+          flipManualStateView();
         }
       }
       return;

@@ -18,6 +18,7 @@ import {
   manualStateEdgeSlots,
   manualStateEnteredCount,
   manualStatePieceMates,
+  manualStateViewDestination,
   manualStateLocalConstraintIndices,
   manualStateOrbits,
   solvedManualState2,
@@ -26,6 +27,33 @@ import {
   type ManualStateFace,
 } from "../../src/client/manual-state";
 import * as PieceReducer from "../../src/State/PieceReducer.res.mjs";
+
+describe("manual state view orientation", () => {
+  test("maps y and x2 rotations without changing the canonical facelets", () => {
+    const centre = (face: ManualStateFace): number => faceletOrder.indexOf(face) * 9 + 4;
+    expect(manualStateViewDestination(3, centre("R"), 1, false)).toBe(centre("F"));
+    expect(manualStateViewDestination(3, centre("B"), 1, false)).toBe(centre("R"));
+    expect(manualStateViewDestination(3, centre("D"), 0, true)).toBe(centre("U"));
+    expect(manualStateViewDestination(3, centre("B"), 0, true)).toBe(centre("F"));
+  });
+
+  test("produces a complete facelet permutation for every supported view frame", () => {
+    for (const size of [2, 3, 4, 5] as const) {
+      const count = 6 * size * size;
+      for (const flipped of [false, true]) {
+        for (let turns = 0; turns < 4; turns += 1) {
+          const destinations = Array.from(
+            {length: count},
+            (_, index) => manualStateViewDestination(size, index, turns, flipped),
+          );
+          expect(new Set(destinations).size).toBe(count);
+          expect(Math.min(...destinations)).toBe(0);
+          expect(Math.max(...destinations)).toBe(count - 1);
+        }
+      }
+    }
+  });
+});
 
 describe("2×2 manual state constraints", () => {
   test("accepts solved and exposes every colour in an empty draft", () => {
@@ -653,5 +681,4 @@ describe("dot diagnostics explain an unreachable draft", () => {
     expect(canCompleteManualState(4, impossibleDraft)).toBe(false);
   });
 });
-
 

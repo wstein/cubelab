@@ -407,8 +407,11 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(page, /data-manual-state-rotate="ccw"/);
   assert.match(page, /data-manual-state-rotate="cw"/);
   assert.match(page, /data-manual-state-rotate="flip"/);
-  assert.match(client, /rotateManualStateIsometric/);
-  assert.match(client, /flipManualStateIsometric/);
+  assert.match(client, /rotateManualStateView/);
+  assert.match(client, /flipManualStateView/);
+  assert.match(client, /manualStateRotationGroup\.hidden = false/);
+  assert.match(client, /manualStateViewDestination\(manualSize, source, yQuarterTurns, manualStateFlipped\)/);
+  assert.match(client, /manualStateOrientedArrowTarget\(manualSize, index, direction\)/);
   assert.match(client, /manualStateNet\.dataset\.animState = "unexploded"/);
   assert.match(styles, /\.manual-state-net\[data-representation="isometric"\]\[data-orientation="1"\]/);
   assert.match(styles, /\.manual-state-net\[data-representation="isometric"\]\[data-orientation="2"\]/);
