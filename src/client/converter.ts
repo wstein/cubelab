@@ -306,6 +306,7 @@ if (root) {
   const manualStateLoadCanonical = root.querySelector<HTMLButtonElement>("[data-manual-state-load-canonical]")!;
   const manualStateCopyToggle = root.querySelector<HTMLButtonElement>("[data-manual-state-copy-toggle]")!;
   const manualStateCopyMenu = root.querySelector<HTMLElement>("[data-manual-state-copy-menu]")!;
+  const manualStateCanonicalCopyItems = root.querySelectorAll<HTMLElement>("[data-manual-state-copy-canonical]");
   const schemeSelect = root.querySelector<HTMLSelectElement>("[data-scheme]")!;
   const customScheme = root.querySelector<HTMLInputElement>("[data-custom-scheme]")!;
   const converterColourNet = root.querySelector<HTMLElement>("[data-converter-colour-net]")!;
@@ -1126,13 +1127,16 @@ if (root) {
       manualStateFrame.textContent = "";
       manualStateLoadCanonical.hidden = true;
       manualStateLoadCanonical.disabled = true;
+      manualStateCanonicalCopyItems.forEach((item) => { item.hidden = true; });
       return;
     }
     manualStateFrame.dataset.canonical = String(frame.canonical);
     const label = frame.canonical ? "✓ Canonical frame" : "⟳ Rotated frame";
     manualStateFrame.textContent = `${label} · U: ${manualStateColourName[frame.up]} · F: ${manualStateColourName[frame.front]}`;
-    manualStateLoadCanonical.hidden = frame.canonical || manualStateLoad.disabled;
+    const showCanonicalActions = !frame.canonical && !manualStateLoad.disabled;
+    manualStateLoadCanonical.hidden = !showCanonicalActions;
     manualStateLoadCanonical.disabled = manualStateLoad.disabled;
+    manualStateCanonicalCopyItems.forEach((item) => { item.hidden = !showCanonicalActions; });
   };
 
   const manualStateCompactFacelets = (): string => manualStateDraft.join("");
@@ -1142,6 +1146,13 @@ if (root) {
     return faceletOrder
       .map((_, faceIndex) => manualStateDraft.slice(faceIndex * perFace, (faceIndex + 1) * perFace).join(""))
       .join(" ");
+  };
+
+  const canonicalManualStateFacelets = (manualSize: ManualStateSize): string | null => {
+    const parsed = FaceletCodec.parse(manualSize, manualStateCompactFacelets()) as Result<CubeState>;
+    if (parsed.TAG === "Error") return null;
+    const normalized = canonicaliseSetupOrientation(parsed._0);
+    return normalized.TAG === "Ok" ? FaceletCodec.render(normalized._0) : null;
   };
 
   const toSpacedFacelets = (rawFacelets: string, cubeSize: number = size): string => {
@@ -8523,11 +8534,9 @@ if (root) {
     const manualSize = size as ManualStateSize;
     let facelets = manualStateSpacedFacelets(manualSize);
     if (canonical) {
-      const parsed = FaceletCodec.parse(manualSize, manualStateCompactFacelets()) as Result<CubeState>;
-      if (parsed.TAG === "Error") return;
-      const normalized = canonicaliseSetupOrientation(parsed._0);
-      if (normalized.TAG === "Error") return;
-      facelets = toSpacedFacelets(FaceletCodec.render(normalized._0), manualSize);
+      const normalized = canonicalManualStateFacelets(manualSize);
+      if (normalized === null) return;
+      facelets = toSpacedFacelets(normalized, manualSize);
     }
     store.patch({input: facelets});
     manualStateDialog.close();
@@ -8556,11 +8565,21 @@ if (root) {
     const button = (event.target as Element).closest<HTMLButtonElement>("[data-manual-state-copy-format]");
     if (!button) return;
     const manualSize = size as ManualStateSize;
-    const text = button.dataset.manualStateCopyFormat === "spaced"
-      ? manualStateSpacedFacelets(manualSize)
-      : button.dataset.manualStateCopyFormat === "singmaster"
-      ? manualStateSingmasterCycles(manualSize)
-      : manualStateCompactFacelets();
+    const format = button.dataset.manualStateCopyFormat;
+    let text: string;
+    if (format === "canonical-compact" || format === "canonical-spaced") {
+      const canonicalFacelets = canonicalManualStateFacelets(manualSize);
+      if (canonicalFacelets === null) return;
+      text = format === "canonical-spaced"
+        ? toSpacedFacelets(canonicalFacelets, manualSize)
+        : canonicalFacelets;
+    } else {
+      text = format === "spaced"
+        ? manualStateSpacedFacelets(manualSize)
+        : format === "singmaster"
+        ? manualStateSingmasterCycles(manualSize)
+        : manualStateCompactFacelets();
+    }
     manualStateCopyMenu.hidden = true;
     manualStateCopyToggle.setAttribute("aria-expanded", "false");
     void copyManualStateText(text, manualStateCopyToggle);

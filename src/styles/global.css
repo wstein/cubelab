@@ -2121,6 +2121,21 @@ textarea.manual-state-notation-input {
 
 .manual-state-copy-menu button:hover { background: rgba(255, 255, 255, 0.08); }
 
+.manual-state-copy-menu-label {
+  display: block;
+  padding: 0.35rem 0.5rem 0.2rem;
+  color: #7f8ca1;
+  font: 650 0.62rem var(--font-sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.manual-state-copy-menu-label:not(:first-child) {
+  margin-top: 0.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 0.55rem;
+}
+
 
 .manual-state-footer {
   display: flex;
