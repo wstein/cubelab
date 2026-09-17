@@ -21,6 +21,11 @@ test("Dual 3D shows two interactive cube corners at the same perspective", async
   const backSticker = net.locator('.manual-state-face[data-face="B"] .manual-state-sticker').first();
   await backSticker.hover();
   await expect(backSticker).toHaveAttribute("data-piece-hover", "self");
+  await expect(net.locator('[data-piece-hover="mate"]')).toHaveCount(2);
+  const selfInsetLayers = await backSticker.evaluate((element) =>
+    (getComputedStyle(element).boxShadow.match(/inset/g) ?? []).length,
+  );
+  expect(selfInsetLayers).toBe(2);
 
   const front = net.locator('.manual-state-face[data-face="F"]');
   const initialTransform = await front.evaluate((element) => getComputedStyle(element).transform);

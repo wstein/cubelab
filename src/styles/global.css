@@ -1692,6 +1692,23 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
     0 0 0 2px #ffc94a;
   z-index: 2;
 }
+
+/* On Dual 3D's adjoining transformed sticker planes, neighbouring grid
+   cells can cover the outer half of a box shadow. Keep both the coloured
+   frame and its dark separator inside the sticker so all four edges remain
+   visible at every perspective. */
+.manual-state-net[data-representation="dual-3d"] .manual-state-sticker[data-piece-hover="self"] {
+  box-shadow:
+    inset 0 0 0 2px #67e8f9,
+    inset 0 0 0 4px #0f172a,
+    0 0 0 1px #67e8f9;
+}
+.manual-state-net[data-representation="dual-3d"] .manual-state-sticker[data-piece-hover="mate"] {
+  box-shadow:
+    inset 0 0 0 2px #ffc94a,
+    inset 0 0 0 4px #0f172a,
+    0 0 0 1px #ffc94a;
+}
 .manual-state-sticker[data-auto="true"] {
   transform: scale(0.85);
   box-shadow: inset 0 0 0 2px rgba(103, 232, 249, 0.85);
