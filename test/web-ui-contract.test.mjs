@@ -321,6 +321,10 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /\.manual-state-sticker\[data-dead="true"\]/);
   assert.match(page, /data-manual-state-undo[^>]*disabled/);
   assert.match(page, /data-manual-state-redo[^>]*disabled/);
+  assert.match(page, /data-manual-state-smart-cube-sync[^>]*disabled/);
+  assert.match(client, /manualStateSmartCubeSync\.addEventListener\("click", async \(\) =>/);
+  assert.match(client, /smartCubeStateSyncPending = false;[\s\S]{0,240}smartCubeManager\.refresh\(\)/);
+  assert.match(client, /importManualStateSmartCube = \(state: CubeState\)[\s\S]{0,180}replaceManualStateDraft\(state\)/);
   assert.match(client, /historyModifier && isZ[\s\S]{0,160}undoManualStateAction\(\)/);
   assert.match(client, /historyModifier && \(\(isZ && event\.shiftKey\) \|\| isY\)[\s\S]{0,160}redoManualStateAction\(\)/);
   assert.match(manualState, /export const explainManualStateColours/);
@@ -330,7 +334,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /manualStateVerifier\.verifyBatch/);
   assert.match(manualStateWorker, /verifyManualStateBatch/);
   assert.match(manualStateWorker, /allowedManualStateColours\(request\.size, request\.draft, request\.index\)/);
-  assert.match(client, /manualStateDialog\.showModal\(\);[\s\S]{0,200}renderManualStateEditor\(\);/);
+  assert.match(client, /manualStateDialog\.showModal\(\);[\s\S]{0,800}renderManualStateEditor\(\);/);
   assert.match(manualState, /const highOrderPieceKindsBySize/);
   assert.match(manualState, /const candidateCache = new WeakMap<CubieKind, Candidate\[\]\[\]>\(\)/);
   assert.doesNotMatch(manualState, /candidatesFor\(kind\)\.at\(0\)!/);

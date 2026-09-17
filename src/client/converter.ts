@@ -291,6 +291,8 @@ if (root) {
   const manualStateSolved = root.querySelector<HTMLButtonElement>("[data-manual-state-solved]")!;
   const manualStateUndo = root.querySelector<HTMLButtonElement>("[data-manual-state-undo]")!;
   const manualStateRedo = root.querySelector<HTMLButtonElement>("[data-manual-state-redo]")!;
+  const manualStateSmartCubeSync = root.querySelector<HTMLButtonElement>("[data-manual-state-smart-cube-sync]")!;
+  const manualStateSmartCubeStatus = root.querySelector<HTMLOutputElement>("[data-manual-state-smart-cube-status]")!;
   const manualStateSummary = root.querySelector<HTMLElement>("[data-manual-state-summary]")!;
   const manualStateNotation = root.querySelector<HTMLTextAreaElement>("[data-manual-state-notation]")!;
   const manualStateNotationApply = root.querySelector<HTMLButtonElement>("[data-manual-state-notation-apply]")!;
@@ -584,6 +586,8 @@ if (root) {
   };
   const manualStateUndoStack: ManualStateAction[] = [];
   const manualStateRedoStack: ManualStateAction[] = [];
+  let updateManualStateSmartCubeControl = () => {};
+  let importManualStateSmartCube = (_state: CubeState) => {};
   let updateManualStateMetrics: (manualSize: ManualStateSize) => void = () => {};
   // Built once per manual-state size and reused across renders: recreating
   // every sticker button on every single paint or erase click would force a
@@ -2151,6 +2155,14 @@ if (root) {
     // Put the dialog in the top layer before building its reachability-aware
     // dots, which are intentionally more substantial on big cubes.
     manualStateDialog.showModal();
+    manualStateSmartCubeStatus.textContent = manualSize === 3
+      ? smartCubeConnected
+        ? smartCubeLiveState !== null || smartCubeSupportsFacelets
+          ? "Import the connected cube's live physical state."
+          : "The connected cube has not supplied a physical state."
+        : "Connect a 3×3 smart cube to import its live state."
+      : "Smart-cube state import is available for the 3×3 editor.";
+    updateManualStateSmartCubeControl();
     renderManualStateEditor();
     void manualStateNet.offsetHeight;
     void manualStateGrid.offsetHeight;
@@ -2652,9 +2664,11 @@ if (root) {
   let smartCubeConnected = false;
   let smartCubeDeviceName = "Smart cube";
   let smartCubeLedFeedback = false;
+  let smartCubeSupportsFacelets = false;
   let smartCubeLiveState: CubeState | null = null;
   let smartCubeRenderedState: CubeState | null = null;
   let smartCubeStateSyncPending = false;
+  let manualStateSmartCubeSyncPending = false;
   let smartCubeSyncMode: SyncMode = "PhysicalMirror";
   let smartCubeControllerState: CubeState | null = null;
   let smartCubeControllerInspection = false;
@@ -2663,6 +2677,24 @@ if (root) {
   let smartCubeRecording = false;
   let smartCubeRecordingTapeDirty = false;
   let smartCubeRecordingTapePresented = false;
+  updateManualStateSmartCubeControl = () => {
+    const isThreeByThree = size === 3;
+    const canReadState = smartCubeLiveState !== null || (smartCubeSupportsFacelets && smartCubeManager !== null);
+    manualStateSmartCubeSync.disabled = manualStateSmartCubeSyncPending
+      || !smartCubeConnected
+      || !isThreeByThree
+      || !canReadState;
+    manualStateSmartCubeSync.textContent = manualStateSmartCubeSyncPending
+      ? "ᛒ Syncing…"
+      : "ᛒ Sync from cube";
+    manualStateSmartCubeSync.title = !isThreeByThree
+      ? "Smart-cube state import is available for the 3×3 editor"
+      : !smartCubeConnected
+      ? "Connect a smart cube first"
+      : !canReadState
+      ? "The connected cube has not supplied a physical state"
+      : "Replace the editor draft with the connected cube's live physical state";
+  };
   let smartCubeGuidedTape = false;
   // Hardware faces stay fixed to the device. This is the accumulated tape
   // frame used to project later packets after visible x/y/z regrips.
@@ -4997,6 +5029,7 @@ if (root) {
     if (!state) return;
     smartCubeRenderedState = state;
     smartCubeLiveState = state;
+    updateManualStateSmartCubeControl();
     if (smartCubeCoachingFrameActive) return;
     renderState(state, `${smartCubeDeviceName} · Live physical state`);
     updatePatternDetection({state, label: `${smartCubeDeviceName} · Live physical state`});
@@ -5310,6 +5343,7 @@ if (root) {
       if (smartCubeMockMode) smartCubeQaSession.textContent = `${connectionState.device.name} · loaded`;
       const supportsOrientation = connectionState.device.capabilities.orientation;
       const supportsFacelets = connectionState.device.capabilities.facelets;
+      smartCubeSupportsFacelets = supportsFacelets;
       const supportsReset = connectionState.device.capabilities.reset;
       const supportsBattery = connectionState.device.capabilities.battery;
       smartCubeRecordCapability.hidden = false;
@@ -5351,6 +5385,7 @@ if (root) {
       }
       smartCubeGuidedTape = false;
       smartCubeLedFeedback = false;
+      smartCubeSupportsFacelets = false;
       smartCubeRecordCapability.hidden = true;
       smartCubeSync.hidden = true;
       smartCubeResetState.hidden = true;
@@ -5373,6 +5408,7 @@ if (root) {
         setSmartCubeOrientationTracking(false);
         latestSmartCubeOrientation = null;
         smartCubeStateSyncPending = false;
+        manualStateSmartCubeSyncPending = false;
         smartCubeCoachingFrameActive = false;
         smartCubeLiveState = null;
         smartCubeRenderedState = null;
@@ -5383,6 +5419,7 @@ if (root) {
     }
     renderSmartCubeReplay();
     updateSmartCubeRecordingUi();
+    updateManualStateSmartCubeControl();
   };
 
   const traceReceivedSmartCubeEvent = (event: SmartCubeEvent) => {
@@ -5486,8 +5523,19 @@ if (root) {
           const diagnostic = validatePhysicalState(parsed._0);
           if (diagnostic !== null) {
             smartCubeStateSyncPending = false;
+            if (manualStateSmartCubeSyncPending) {
+              manualStateSmartCubeSyncPending = false;
+              manualStateSmartCubeStatus.textContent = diagnostic;
+              updateManualStateSmartCubeControl();
+            }
             smartCubeStatus.textContent = diagnostic;
             break;
+          }
+          if (manualStateSmartCubeSyncPending && manualStateDialog.open && size === 3) {
+            manualStateSmartCubeSyncPending = false;
+            importManualStateSmartCube(parsed._0);
+            manualStateSmartCubeStatus.textContent = `${smartCubeDeviceName} state imported.`;
+            updateManualStateSmartCubeControl();
           }
           if (smartCubeStateSyncPending) {
             smartCubeStateSyncPending = false;
@@ -5507,12 +5555,17 @@ if (root) {
             if (!state) return;
             smartCubeLiveState = state;
             smartCubeRenderedState = state;
+            updateManualStateSmartCubeControl();
             if (smartCubeMovesInFlight === 0 && !smartCubeRecording) renderSmartCubeLiveState();
           });
           updateSmartCubeMistakeUi();
         } else if (smartCubeStateSyncPending) {
           smartCubeStateSyncPending = false;
           smartCubeStatus.textContent = "The physical cube returned an invalid facelet state";
+        } else if (manualStateSmartCubeSyncPending) {
+          manualStateSmartCubeSyncPending = false;
+          manualStateSmartCubeStatus.textContent = "The physical cube returned an invalid facelet state.";
+          updateManualStateSmartCubeControl();
         }
         break;
       }
@@ -5796,6 +5849,7 @@ if (root) {
             smartCubeStatus.textContent = `${smartCubeDeviceName} · Capturing full replay tape locally.`;
           });
           smartCubeManager = manager;
+          updateManualStateSmartCubeControl();
           clearSmartCubeChunkReload();
           return manager;
         })
@@ -7645,6 +7699,7 @@ if (root) {
       smartCubeStateSyncPending = false;
       smartCubeLiveState = solved._0;
       smartCubeRenderedState = solved._0;
+      updateManualStateSmartCubeControl();
       smartCubePendingMoves.length = 0;
       renderSmartCubeLiveState();
       smartCubeStatus.textContent = `${smartCubeDeviceName} · Internal state set to solved; local baseline updated without reading facelets.`;
@@ -7883,6 +7938,8 @@ if (root) {
   manualStateDialog.addEventListener("close", () => {
     resetManualState3dOrientation(true);
     setManualStateShiftPressed(false);
+    manualStateSmartCubeSyncPending = false;
+    updateManualStateSmartCubeControl();
   });
   window.addEventListener("keydown", (event) => {
     if (!manualStateDialog.open) return;
@@ -8307,6 +8364,43 @@ if (root) {
     renderManualStateEditor();
     if (actionStart) commitManualStateAction(actionStart);
   };
+  importManualStateSmartCube = (state: CubeState) => {
+    if (!manualStateDialog.open || state.size !== size || size !== 3) return;
+    replaceManualStateDraft(state);
+  };
+  manualStateSmartCubeSync.addEventListener("click", async () => {
+    if (!manualStateDialog.open || size !== 3 || !smartCubeConnected) return;
+    if (smartCubeSupportsFacelets && smartCubeManager) {
+      manualStateSmartCubeSyncPending = true;
+      // This refresh belongs to the editor and must not mutate Setup through
+      // the viewport's separate Sync state workflow.
+      smartCubeStateSyncPending = false;
+      manualStateSmartCubeStatus.textContent = `${smartCubeDeviceName} · Reading physical state…`;
+      updateManualStateSmartCubeControl();
+      try {
+        await smartCubeManager.refresh();
+        if (manualStateSmartCubeSyncPending) {
+          manualStateSmartCubeSyncPending = false;
+          if (smartCubeLiveState) {
+            importManualStateSmartCube(smartCubeLiveState);
+            manualStateSmartCubeStatus.textContent = `${smartCubeDeviceName} live state imported.`;
+          } else {
+            manualStateSmartCubeStatus.textContent = "The connected cube did not provide a physical state.";
+          }
+        }
+      } catch (reason) {
+        manualStateSmartCubeSyncPending = false;
+        manualStateSmartCubeStatus.textContent = reason instanceof Error ? reason.message : String(reason);
+      } finally {
+        updateManualStateSmartCubeControl();
+      }
+      return;
+    }
+    if (!smartCubeLiveState) return;
+    importManualStateSmartCube(smartCubeLiveState);
+    manualStateSmartCubeStatus.textContent = `${smartCubeDeviceName} live state imported.`;
+    updateManualStateSmartCubeControl();
+  });
   manualStateNotationApply.addEventListener("click", () => {
     const lines = manualStateNotation.value
       .split(/\r?\n/)

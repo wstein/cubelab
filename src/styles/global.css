@@ -1987,6 +1987,24 @@ textarea.manual-state-notation-input {
   opacity: 0.42;
 }
 
+.manual-state-smart-cube {
+  display: grid;
+  gap: 0.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.manual-state-smart-cube-btn {
+  justify-content: center;
+  width: 100%;
+}
+
+.manual-state-smart-cube-status {
+  color: #8f96a8;
+  font-size: 0.66rem;
+  line-height: 1.3;
+  min-height: 0.85rem;
+}
+
 .manual-state-colour {
   display: flex;
   align-items: center;

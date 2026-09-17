@@ -1846,6 +1846,81 @@ test("undoes and redoes complete paint strokes and board actions", async ({page}
   )).toEqual(solvedFacelets);
 });
 
+test("imports a connected smart cube into the editor without changing Setup", async ({browser}) => {
+  // Keep the app worker from owning the lazy module request so this test can
+  // substitute a deterministic connected cube transport.
+  const context = await browser.newContext({serviceWorkers: "block"});
+  const page = await context.newPage();
+  await page.route(/smart-cube[^/]*\.js(?:\?.*)?$|\/src\/client\/smart-cube\/index\.ts(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      contentType: "application/javascript",
+      body: `
+        const stateListeners = new Set();
+        const eventListeners = new Set();
+        const device = {
+          name: "Editor Cube", macAddress: null, brand: "gan", brandName: "GAN",
+          protocolId: "mock", protocolName: "Mock", capabilities: {
+            orientation: false, battery: false, facelets: true, hardware: false,
+            reset: false, led: false
+          }
+        };
+        const manager = {
+          getState: () => ({phase: "disconnected", message: "Disconnected", device: null, error: null}),
+          connect: async () => {
+            stateListeners.forEach((listener) => listener({phase: "connected", message: "Connected", device, error: null}));
+            return device;
+          },
+          reconnect: async () => device,
+          disconnect: async () => stateListeners.forEach((listener) => listener({phase: "disconnected", message: "Disconnected", device: null, error: null})),
+          refresh: async () => eventListeners.forEach((listener) => listener({
+            type: "facelets",
+            facelets: "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB",
+            timestamp: Date.now()
+          })),
+          resetCubeState: async () => {}, flashLed: async () => {},
+          subscribeState: (listener) => {
+            stateListeners.add(listener);
+            listener({phase: "disconnected", message: "Disconnected", device: null, error: null});
+            return () => stateListeners.delete(listener);
+          },
+          subscribeEvents: (listener) => { eventListeners.add(listener); return () => eventListeners.delete(listener); },
+          subscribeCommands: () => () => {}
+        };
+        export const createRegripCoreManager = () => manager;
+        export const replayTapeNameFromSearch = () => null;
+      `,
+    });
+  });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "bluetooth", {
+      configurable: true,
+      value: {getAvailability: async () => true, requestDevice: async () => ({})},
+    });
+  });
+
+  await page.goto("/");
+  const setup = page.locator("[data-input]");
+  await expect(setup).toHaveValue("");
+  await page.locator("[data-smart-cube-connect]").click();
+  await expect(page.locator("[data-smart-cube-status]")).toContainText("Live sync");
+
+  await page.locator("[data-manual-state-open]").click();
+  const dialog = page.locator("[data-manual-state-dialog]");
+  const sync = dialog.locator("[data-manual-state-smart-cube-sync]");
+  const undo = dialog.locator("[data-manual-state-undo]");
+  await expect(sync).toBeEnabled();
+  await sync.click();
+  await expect(dialog.locator("[data-manual-state-smart-cube-status]")).toContainText("state imported");
+  await expect(dialog.locator('[data-manual-state-index="0"]')).toHaveAttribute("data-face", "U");
+  await expect(dialog.locator('[data-manual-state-index="9"]')).toHaveAttribute("data-face", "R");
+  await expect(setup).toHaveValue("");
+
+  await undo.click();
+  await expect(dialog.locator('[data-manual-state-index="0"]')).toHaveAttribute("data-face", "unknown");
+  await expect(setup).toHaveValue("");
+  await context.close();
+});
+
 test("recovers full colour availability after erasing every sticker, including auto-set ones", async ({page}) => {
   await page.goto("/");
   await page.locator("[data-manual-state-open]").click();
