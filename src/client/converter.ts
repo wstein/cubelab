@@ -55,6 +55,7 @@ import {
   emptyManualState,
   faceletOrder,
   fillForcedManualStateColours,
+  fillForcedManualStateCoreCentres,
   fillLocallyForcedManualStateColours,
   isManualStateColourAllowedByScarcity,
   isManualStateCoreCentre,
@@ -1170,9 +1171,10 @@ if (root) {
     }
     // Big cubes use the same cheap local propagation as their dots; the full
     // reachability predicate still gates every candidate it writes.
-    setManualStateDraft(manualSize >= 4
+    const propagated = manualSize >= 4
       ? fillLocallyForcedManualStateColours(manualSize, source)
-      : fillForcedManualStateColours(manualSize, source));
+      : fillForcedManualStateColours(manualSize, source);
+    setManualStateDraft(fillForcedManualStateCoreCentres(manualSize, propagated));
     manualStateDraft.forEach((colour, index) => {
       if (source[index] === null && colour !== null) manualStateAutoIndices.add(index);
     });
@@ -8349,7 +8351,8 @@ if (root) {
   manualStateRedo.addEventListener("click", redoManualStateAction);
   manualStateReset.addEventListener("click", () => {
     const actionStart = captureManualStateSnapshot();
-    setManualStateDraft(resetManualState(size as ManualStateSize));
+    const manualSize = size as ManualStateSize;
+    setManualStateDraft(resetManualState(manualSize));
     manualStateExplicitIndices.clear();
     manualStateDraft.forEach((colour, index) => {
       if (colour !== null) manualStateExplicitIndices.add(index);
@@ -8358,6 +8361,7 @@ if (root) {
     manualStateUnverifiedDots.clear();
     manualStateDeadIndices.clear();
     manualStateDirtyDots = null;
+    refreshManualStateAutoFill(manualSize, true);
     renderManualStateEditor();
     commitManualStateAction(actionStart);
   });

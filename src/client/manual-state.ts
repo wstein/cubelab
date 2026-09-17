@@ -875,6 +875,28 @@ export const fillForcedManualStateColours = (
   return filled;
 };
 
+/** Fill only uniquely determined odd-cube core centres. This keeps a reset
+ * board otherwise blank while still presenting the four colours implied by
+ * its explicit Up/Front orientation anchors as confirmable auto-selections. */
+export const fillForcedManualStateCoreCentres = (
+  size: ManualStateSize,
+  draft: ManualStateDraft,
+): ManualStateDraft => {
+  const filled = [...draft];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const index of coreCentreIndices(size)) {
+      if (filled[index] !== null) continue;
+      const allowed = allowedManualStateColours(size, filled, index);
+      if (allowed.length !== 1) continue;
+      filled[index] = allowed[0];
+      changed = true;
+    }
+  }
+  return filled;
+};
+
 /**
  * Fast forced-fill pass for the interactive draft: locallyAllowedManualStateColours
  * finds candidate forced cells cheaply, but each one is now verified against

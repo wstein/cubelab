@@ -10,6 +10,7 @@ import {
   manualStateColourBudget,
   manualStateFaces,
   fillForcedManualStateColours,
+  fillForcedManualStateCoreCentres,
   fillForcedManualStateColours2,
   fillLocallyForcedManualStateColours,
   largeManualStateProgress,
@@ -97,6 +98,16 @@ describe("3×3 manual state constraints", () => {
     }
     expect(resetManualState(2).every((colour) => colour === null)).toBe(true);
     expect(resetManualState(4).every((colour) => colour === null)).toBe(true);
+  });
+
+  test("reset infers the remaining core centres without filling other stickers", () => {
+    for (const size of [3, 5] as const) {
+      const filled = fillForcedManualStateCoreCentres(size, resetManualState(size));
+      const perFace = size * size;
+      const centre = Math.floor(perFace / 2);
+      expect(faceletOrder.map((_, face) => filled[face * perFace + centre])).toEqual([...faceletOrder]);
+      expect(filled.filter((colour) => colour !== null)).toHaveLength(6);
+    }
   });
 
   test("starts with empty centres and accepts a solved state", () => {
