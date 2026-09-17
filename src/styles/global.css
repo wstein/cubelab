@@ -1753,7 +1753,6 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 
 .manual-state-sticker[data-centre="true"] {
   cursor: default;
-  filter: brightness(0.86);
   user-select: none;
 }
 
