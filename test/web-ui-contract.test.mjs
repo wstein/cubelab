@@ -294,7 +294,10 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(page, /data-manual-state-representation="dual-3d"[^>]*>Dual 3D</);
   assert.match(page, /data-manual-state-representation="isometric"/);
   assert.match(page, /data-manual-state-load/);
-  assert.match(client, /store\.patch\(\{input: manualStateSpacedFacelets\(manualSize\)\}\)/);
+  assert.match(page, /data-manual-state-load-canonical[^>]*hidden/);
+  assert.match(client, /let facelets = manualStateSpacedFacelets\(manualSize\);[\s\S]{0,500}if \(canonical\)[\s\S]{0,500}canonicaliseSetupOrientation[\s\S]{0,500}store\.patch\(\{input: facelets\}\)/);
+  assert.match(client, /manualStateLoad\.addEventListener\("click", \(\) => loadManualStateIntoSetup\(false\)\)/);
+  assert.match(client, /manualStateLoadCanonical\.addEventListener\("click", \(\) => loadManualStateIntoSetup\(true\)\)/);
   assert.match(client, /allowedManualStateColours\(manualSize, manualStateDraft, index\)/);
   assert.match(client, /fillForcedManualStateColours\(manualSize, source\)/);
   assert.match(client, /fillLocallyForcedManualStateColours\(manualSize, source\)/);

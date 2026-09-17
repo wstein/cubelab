@@ -303,6 +303,7 @@ if (root) {
   const manualStateNotationApply = root.querySelector<HTMLButtonElement>("[data-manual-state-notation-apply]")!;
   const manualStateNotationStatus = root.querySelector<HTMLOutputElement>("[data-manual-state-notation-status]")!;
   const manualStateLoad = root.querySelector<HTMLButtonElement>("[data-manual-state-load]")!;
+  const manualStateLoadCanonical = root.querySelector<HTMLButtonElement>("[data-manual-state-load-canonical]")!;
   const manualStateCopyToggle = root.querySelector<HTMLButtonElement>("[data-manual-state-copy-toggle]")!;
   const manualStateCopyMenu = root.querySelector<HTMLElement>("[data-manual-state-copy-menu]")!;
   const schemeSelect = root.querySelector<HTMLSelectElement>("[data-scheme]")!;
@@ -1123,11 +1124,15 @@ if (root) {
     if (frame === null) {
       delete manualStateFrame.dataset.canonical;
       manualStateFrame.textContent = "";
+      manualStateLoadCanonical.hidden = true;
+      manualStateLoadCanonical.disabled = true;
       return;
     }
     manualStateFrame.dataset.canonical = String(frame.canonical);
     const label = frame.canonical ? "✓ Canonical frame" : "⟳ Rotated frame";
     manualStateFrame.textContent = `${label} · U: ${manualStateColourName[frame.up]} · F: ${manualStateColourName[frame.front]}`;
+    manualStateLoadCanonical.hidden = frame.canonical || manualStateLoad.disabled;
+    manualStateLoadCanonical.disabled = manualStateLoad.disabled;
   };
 
   const manualStateCompactFacelets = (): string => manualStateDraft.join("");
@@ -8512,14 +8517,24 @@ if (root) {
       manualStateNotationStatus.textContent = `Applied ${stateSummary} and ${notationSummary}${commentSummary}.`;
     }
   });
-  manualStateLoad.addEventListener("click", () => {
+  const loadManualStateIntoSetup = (canonical: boolean) => {
     const diagnostic = manualStateCompleteDiagnostic();
     if (diagnostic !== null) return;
     const manualSize = size as ManualStateSize;
-    store.patch({input: manualStateSpacedFacelets(manualSize)});
+    let facelets = manualStateSpacedFacelets(manualSize);
+    if (canonical) {
+      const parsed = FaceletCodec.parse(manualSize, manualStateCompactFacelets()) as Result<CubeState>;
+      if (parsed.TAG === "Error") return;
+      const normalized = canonicaliseSetupOrientation(parsed._0);
+      if (normalized.TAG === "Error") return;
+      facelets = toSpacedFacelets(FaceletCodec.render(normalized._0), manualSize);
+    }
+    store.patch({input: facelets});
     manualStateDialog.close();
     input.focus();
-  });
+  };
+  manualStateLoad.addEventListener("click", () => loadManualStateIntoSetup(false));
+  manualStateLoadCanonical.addEventListener("click", () => loadManualStateIntoSetup(true));
   const copyManualStateText = async (text: string, button: HTMLButtonElement) => {
     const originalText = button.textContent;
     try {
