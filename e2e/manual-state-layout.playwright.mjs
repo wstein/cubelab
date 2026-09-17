@@ -26,6 +26,20 @@ test("state editor keeps every cube view centered in the compact layout", async 
   expect(sidebar.shortcutHeight).toBeLessThan(120);
   expect(sidebar.trailingSpace).toBeLessThanOrEqual(1);
 
+  await page.locator('[data-manual-state-representation="standard"]').click();
+  await page.waitForTimeout(350);
+  const flatLayout = await dialog.evaluate((element) => {
+    const dialogBox = element.getBoundingClientRect();
+    const tools = element.querySelector(".manual-state-tools").getBoundingClientRect();
+    const faces = [...element.querySelectorAll(".manual-state-face")].map((face) => face.getBoundingClientRect());
+    return {
+      dialogWidth: dialogBox.width,
+      netToToolsGap: tools.left - Math.max(...faces.map((face) => face.right)),
+    };
+  });
+  expect(flatLayout.dialogWidth).toBeLessThan(1220);
+  expect(flatLayout.netToToolsGap).toBeLessThan(80);
+
   for (const representation of ["standard", "attached", "open-cube", "dual-3d", "isometric"]) {
     await page.locator(`[data-manual-state-representation="${representation}"]`).click();
     await page.waitForTimeout(350);

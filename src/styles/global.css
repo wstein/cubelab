@@ -889,7 +889,10 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-dialog {
-  width: min(90rem, calc(100vw - 2rem));
+  /* The flat cross reaches its useful maximum at about 52rem beside the
+     18rem tool rail. Wider dialogs only add an empty band around the stage;
+     perspective views scale inside this same stable footprint. */
+  width: min(74rem, calc(100vw - 2rem));
   height: fit-content;
   max-width: calc(100vw - 2rem);
   max-height: calc(100dvh - 2rem);

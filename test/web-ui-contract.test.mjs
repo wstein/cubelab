@@ -340,7 +340,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(page, /data-manual-state-copy-toggle[\s\S]*manual-state-footer/);
   assert.match(page, /manual-state-shortcuts[\s\S]*data-manual-state-copy-toggle/);
   assert.match(page, /class="manual-state-tools"[\s\S]*manual-state-shortcuts[\s\S]*manual-state-notation[\s\S]*data-manual-state-copy-toggle/);
-  assert.match(styles, /\.manual-state-dialog \{[\s\S]*height:\s*fit-content;[\s\S]*max-height:\s*calc\(100dvh - 2rem\)/);
+  assert.match(styles, /\.manual-state-dialog \{[\s\S]*width:\s*min\(74rem, calc\(100vw - 2rem\)\);[\s\S]*height:\s*fit-content;[\s\S]*max-height:\s*calc\(100dvh - 2rem\)/);
   assert.match(styles, /\.manual-state-shortcuts-grid \{[\s\S]*display: contents;/);
   assert.match(styles, /\.manual-state-shortcuts-grid \.manual-state-shortcut-actions \{[\s\S]*grid-row: 1 \/ span 2;[\s\S]*display: grid;/);
   assert.match(styles, /\.manual-state-face-key \{[\s\S]*grid-template-columns: repeat\(6, 0\.62rem\);/);
