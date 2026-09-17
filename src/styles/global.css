@@ -890,7 +890,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 
 .manual-state-dialog {
   width: min(90rem, calc(100vw - 2rem));
-  height: min(60rem, calc(100dvh - 2rem));
+  height: fit-content;
   max-width: calc(100vw - 2rem);
   max-height: calc(100dvh - 2rem);
   margin: auto;
@@ -1141,7 +1141,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
    first carries U/F/R, while the second maps the opposite D/B/L faces onto
    the same three planes. */
 .manual-state-net[data-representation="dual-3d"] {
-  --manual-state-unit: min(1rem, 1.25cqw, 2.4cqh);
+  --manual-state-unit: min(2rem, 2.25cqw, 4cqh);
   --manual-state-cube-size: calc(14 * var(--manual-state-unit));
   --manual-state-half-size: calc(var(--manual-state-cube-size) / 2);
   --manual-state-dual-shift: calc(10.5 * var(--manual-state-unit));
