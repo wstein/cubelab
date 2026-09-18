@@ -621,6 +621,13 @@ test("the Setup parser recognizes explicit SSE cubie-state cycles apart from alg
   assert.match(page, /SSE cubie cycles/);
 });
 
+test("the Setup parser recognizes Jaap mixed-case 4x4 cubie cycles apart from algorithms", () => {
+  assert.match(client, /looksLikeJaapCycleState/);
+  assert.match(client, /parseJaapCycleState/);
+  assert.match(client, /Jaap 4×4 cubie cycles/);
+  assert.match(page, /Jaap 4×4 cycles/);
+});
+
 test("the Workbench materializes ACube constraint families as concrete Setup states", () => {
   assert.match(page, /data-acube-generator-panel/);
   assert.match(page, /data-acube-generator-input/);

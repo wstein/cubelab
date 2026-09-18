@@ -44,6 +44,7 @@ import {countAcubeCompletions, materializeAcubeConstraint, parseAcubeConstraint,
 import {looksLikeSseState, parseSseState, renderSseState} from "./sse-state";
 import {dialectForAlgorithmInput} from "./notation-dialect";
 import {looksLikeLargeCubeState, parseLargeCubeState, renderLargeCubeState} from "./large-cube-state";
+import {looksLikeJaapCycleState, parseJaapCycleState} from "./jaap-cycle-state";
 import {
   looksLikeSingmasterCycleState,
   parseSingmasterCycleState,
@@ -2400,6 +2401,12 @@ if (root) {
       return large.TAG === "Ok"
         ? {TAG: "Ok", _0: {state: large._0, label: "Cube Rosetta large-cube state"}}
         : large;
+    }
+    if (looksLikeJaapCycleState(compact)) {
+      const jaap = parseJaapCycleState(compact, size);
+      return jaap.TAG === "Ok"
+        ? recognize(jaap, "Jaap 4×4 cubie cycles")
+        : jaap;
     }
     if ((size === 2 || size === 3) && compact.startsWith("cp:")) {
       const pieces = PieceReducer.parseState(size, compact) as Result<CubeState, unknown>;
