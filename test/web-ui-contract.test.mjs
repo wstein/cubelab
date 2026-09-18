@@ -530,6 +530,7 @@ test("the web UI exposes Ruwix suffix layers only through an explicit dialect se
   assert.match(page, /data-notation-dialect="Ruwix"/);
   assert.match(page, /Twizzle \/ cubing\.js \(experimental NISS\)/);
   assert.match(page, /SSE 2×2–5×5 \(Superset ENG\)/);
+  assert.match(page, /Jaap Scherphuis \(a\/s\/m suffixes\)/);
   assert.match(page, /ambiguous plaintext/);
   assert.match(client, /notationDialect/);
   assert.doesNotMatch(client, /notationDialect\s*=.*input/);

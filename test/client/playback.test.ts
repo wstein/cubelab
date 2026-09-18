@@ -129,6 +129,17 @@ describe("algorithm playback timeline", () => {
     if (result.TAG === "Ok") expect(result._0.labels).toHaveLength(10);
   });
 
+  test("detects Jaap suffix moves in pasted Workbench algorithms", () => {
+    const input = "F2 R2 Ua' (R2 F2)2 Ua F2 R2";
+    const detected = dialectForAlgorithmInput(3, "Modern", input);
+    expect(detected).toBe("Jaap");
+    const result = evaluateAlgorithm(3, "Wide", detected, input);
+    const explicit = evaluateAlgorithm(3, "Wide", "Jaap", input);
+    expect(result.TAG).toBe("Ok");
+    expect(result).toEqual(explicit);
+    expect(dialectForAlgorithmInput(3, "Modern", "R U // try Ua next")).toBe("Modern");
+  });
+
   test("detects only SSE move families available on each cube size", () => {
     for (const [size, input] of [[2, "CR"], [3, "MR"], [4, "WR"], [5, "NR"]] as const) {
       const dialect = dialectForAlgorithmInput(size, "Modern", input);

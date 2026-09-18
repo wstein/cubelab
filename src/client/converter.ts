@@ -2372,6 +2372,8 @@ if (root) {
     if (evaluated.TAG === "Error") return evaluated;
     const label = effectiveDialect === "Sse"
       ? `Algorithm · SSE${notationDialect === "Sse" ? "" : " (detected)"}`
+      : effectiveDialect === "Jaap"
+      ? `Algorithm · Jaap${notationDialect === "Jaap" ? "" : " (detected)"}`
       : size >= 4 && effectiveDialect === "Ruwix"
       ? `Algorithm · Ruwix${lowercaseMode === "InnerSlice" ? " + legacy lowercase" : ""}`
       : `Algorithm · ${size >= 4 && lowercaseMode === "InnerSlice" ? "Legacy" : "SiGN"}`;
