@@ -85,6 +85,56 @@ test("optimizes paired opposite 3x3 face turns into slices and trailing regrips"
   assert.equal(compact(3, serialize(optimized)), compact(3, "L' R B' F D' U L' R"));
 });
 
+test("collapses opposite half turns into size-aware M/S/E interior blocks", () => {
+  const source = "L2 R2 B2 F2 D2 U2";
+  const expected = new Map([
+    [3, "M2 S2 E2"],
+    [4, "2-3Lw2 2-3Fw2 2-3Dw2"],
+    [5, "2-4Lw2 2-4Fw2 2-4Dw2"],
+  ]);
+
+  for (const size of [3, 4, 5]) {
+    const optimized = MoveTransform.optimizeRegrips(size, parse(size, source));
+    const rendered = serialize(optimized);
+    assert.equal(rendered, expected.get(size));
+    assert.equal(compact(size, rendered), compact(size, source), `${size}×${size} half-turn collapse`);
+  }
+});
+
+test("accepts portable and dialect-specific Workbench spelling for the half-turn collapse", () => {
+  // Modern is the shared WCA/SiGN-compatible outer-turn token subset. SSE
+  // additionally permits adjacent tokens without whitespace.
+  const expected = new Map([
+    [3, "M2 S2 E2"],
+    [4, "2-3Lw2 2-3Fw2 2-3Dw2"],
+    [5, "2-4Lw2 2-4Fw2 2-4Dw2"],
+  ]);
+  for (const [dialect, sourceForSize] of [
+    ["Modern", () => "L2 R2 B2 F2 D2 U2"],
+    [
+      "Ruwix",
+      (size) => size >= 4
+        ? "L' L' R' R' B' B' F' F' D' D' U' U'"
+        : "L2 R2 B2 F2 D2 U2",
+    ],
+    ["Fmc", () => "L2 R2 B2 F2 D2 U2"],
+    ["Twizzle", () => "L2 R2 B2 F2 D2 U2"],
+    ["Sse", () => "L2R2B2F2D2U2"],
+    ["Acube", () => "L2 R2 B2 F2 D2 U2"],
+  ]) {
+    for (const size of [3, 4, 5]) {
+      const source = sourceForSize(size);
+      const parsed = MoveParser.parseWithOptions(size, "Wide", dialect, source);
+      assert.equal(parsed.TAG, "Ok", `${size}×${size} ${dialect}: ${parsed._0?.message ?? "parse failed"}`);
+      assert.equal(
+        serialize(MoveTransform.optimizeRegrips(size, parsed._0)),
+        expected.get(size),
+        `${size}×${size} ${dialect}`,
+      );
+    }
+  }
+});
+
 test("optimizes every face plus its matching slice into a wide turn", () => {
   for (const [source, expected] of [
     ["R M'", "Rw"], ["L M", "Lw"], ["U E'", "Uw"],
@@ -196,4 +246,3 @@ test("5×5 practice scrambles never rotate the core centre frame", () => {
     assert.deepEqual(coreCentres, ["U", "L", "F", "R", "B", "D"], "Core centres must remain unrotated");
   }
 });
-

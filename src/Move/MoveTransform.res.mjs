@@ -649,6 +649,10 @@ function innerComplement(size, face) {
   }
 }
 
+function areOpposingTurns(leftTurns, rightTurns) {
+  return canonicalTurns(leftTurns + rightTurns | 0) === 0;
+}
+
 function sliceRegripPair(size, left, right) {
   let match = outerFace(left);
   let match$1 = outerFace(right);
@@ -732,7 +736,7 @@ function sliceRegripPair(size, left, right) {
   }
   switch (exit) {
     case 1 :
-      if (leftTurns !== (-rightTurns | 0)) {
+      if (!areOpposingTurns(leftTurns, rightTurns)) {
         return;
       }
       let tmp;
@@ -774,7 +778,7 @@ function sliceRegripPair(size, left, right) {
       }
       return tmp;
     case 2 :
-      if (downTurns !== (-upTurns | 0)) {
+      if (!areOpposingTurns(downTurns, upTurns)) {
         return;
       }
       let tmp$1;
@@ -816,7 +820,7 @@ function sliceRegripPair(size, left, right) {
       }
       return tmp$1;
     case 3 :
-      if (backTurns !== (-frontTurns | 0)) {
+      if (!areOpposingTurns(backTurns, frontTurns)) {
         return;
       }
       let tmp$2;
@@ -1655,10 +1659,98 @@ function pushRotationsRight(units) {
   return output.contents;
 }
 
+function canonicalizeInnerComplements(units, size) {
+  return units.map(unit => {
+    let desc = unit.desc;
+    let tmp;
+    if (typeof desc !== "object" || desc.TAG !== "Move") {
+      tmp = desc;
+    } else {
+      let match = desc._0;
+      switch (match.TAG) {
+        case "FaceTurn" :
+          switch (match._0) {
+            case "U" :
+              let match$1 = match._1;
+              if (match$1.from_ !== 2) {
+                tmp = desc;
+              } else {
+                let to_ = match$1.to_;
+                tmp = to_ === (size - 1 | 0) ? ({
+                    TAG: "Move",
+                    _0: {
+                      TAG: "FaceTurn",
+                      _0: "D",
+                      _1: {
+                        from_: 2,
+                        to_: to_
+                      }
+                    },
+                    _1: -desc._1 | 0
+                  }) : desc;
+              }
+              break;
+            case "R" :
+              let match$2 = match._1;
+              if (match$2.from_ !== 2) {
+                tmp = desc;
+              } else {
+                let to_$1 = match$2.to_;
+                tmp = to_$1 === (size - 1 | 0) ? ({
+                    TAG: "Move",
+                    _0: {
+                      TAG: "FaceTurn",
+                      _0: "L",
+                      _1: {
+                        from_: 2,
+                        to_: to_$1
+                      }
+                    },
+                    _1: -desc._1 | 0
+                  }) : desc;
+              }
+              break;
+            case "B" :
+              let match$3 = match._1;
+              if (match$3.from_ !== 2) {
+                tmp = desc;
+              } else {
+                let to_$2 = match$3.to_;
+                tmp = to_$2 === (size - 1 | 0) ? ({
+                    TAG: "Move",
+                    _0: {
+                      TAG: "FaceTurn",
+                      _0: "F",
+                      _1: {
+                        from_: 2,
+                        to_: to_$2
+                      }
+                    },
+                    _1: -desc._1 | 0
+                  }) : desc;
+              }
+              break;
+            default:
+              tmp = desc;
+          }
+          break;
+        case "SliceTurn" :
+        case "Rotation" :
+          tmp = desc;
+          break;
+      }
+    }
+    return {
+      desc: tmp,
+      loc: generatedLoc
+    };
+  });
+}
+
 function optimizeRegrips(size, alg) {
   let flat = simplify(alg);
   if (flat.TAG === "Ok") {
-    return pushRotationsRight(rewritePairs(flat._0, size, 0, []));
+    return canonicalizeInnerComplements(pushRotationsRight(rewritePairs(flat._0, size, 0, [])), size);
   } else {
     return alg;
   }
@@ -2148,6 +2240,7 @@ export {
   moveUnit,
   outerFace,
   innerComplement,
+  areOpposingTurns,
   sliceRegripPair,
   widePair,
   rewritePairs,
@@ -2167,6 +2260,7 @@ export {
   equivalentRotation,
   canonicalRotations,
   pushRotationsRight,
+  canonicalizeInnerComplements,
   optimizeRegrips,
   sliceFromUnit,
   expandSliceRegrip,

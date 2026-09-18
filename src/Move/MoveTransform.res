@@ -404,24 +404,28 @@ let innerComplement = (size, face) =>
     FaceTurn(face, {from_: 2, to_: size - 1})
   }
 
+/* Opposite faces use reversed local turn directions. Compare modulo four so
+ * half turns pair with half turns as well: 2 and -2 denote the same turn. */
+let areOpposingTurns = (leftTurns, rightTurns) => canonicalTurns(leftTurns + rightTurns) == 0
+
 let sliceRegripPair = (~size, left, right) =>
   switch (outerFace(left), outerFace(right)) {
   | (Some((L, leftTurns)), Some((R, rightTurns)))
-  | (Some((R, rightTurns)), Some((L, leftTurns))) if leftTurns == -rightTurns =>
+  | (Some((R, rightTurns)), Some((L, leftTurns))) if areOpposingTurns(leftTurns, rightTurns) =>
     Some(
       size == 2
         ? [moveUnit(Rotation(X), rightTurns)]
         : [moveUnit(innerComplement(size, L), rightTurns), moveUnit(Rotation(X), rightTurns)],
     )
   | (Some((D, downTurns)), Some((U, upTurns)))
-  | (Some((U, upTurns)), Some((D, downTurns))) if downTurns == -upTurns =>
+  | (Some((U, upTurns)), Some((D, downTurns))) if areOpposingTurns(downTurns, upTurns) =>
     Some(
       size == 2
         ? [moveUnit(Rotation(Y), upTurns)]
         : [moveUnit(innerComplement(size, D), upTurns), moveUnit(Rotation(Y), upTurns)],
     )
   | (Some((B, backTurns)), Some((F, frontTurns)))
-  | (Some((F, frontTurns)), Some((B, backTurns))) if backTurns == -frontTurns =>
+  | (Some((F, frontTurns)), Some((B, backTurns))) if areOpposingTurns(backTurns, frontTurns) =>
     Some(
       size == 2
         ? [moveUnit(Rotation(Z), frontTurns)]
@@ -684,13 +688,30 @@ let pushRotationsRight = units => {
   output.contents
 }
 
-/** A deterministic 3×3 notation compactor for M/E/S, wide turns, and regrips.
- * It only uses local exact identities; unlike AlgorithmOptimizer it makes no
- * claim to find a globally shortest algorithm. */
+/* A full interior block is the same set of layers from either side. Keep the
+ * L/D/F spelling used by M/E/S after regrips have been pushed to the right. */
+let canonicalizeInnerComplements = (units, ~size) =>
+  units->Array.map(unit => {
+    let desc = switch unit.desc {
+    | Move(FaceTurn(R, {from_: 2, to_}), turns) if to_ == size - 1 =>
+      Move(FaceTurn(L, {from_: 2, to_}), -turns)
+    | Move(FaceTurn(U, {from_: 2, to_}), turns) if to_ == size - 1 =>
+      Move(FaceTurn(D, {from_: 2, to_}), -turns)
+    | Move(FaceTurn(B, {from_: 2, to_}), turns) if to_ == size - 1 =>
+      Move(FaceTurn(F, {from_: 2, to_}), -turns)
+    | desc => desc
+    }
+    located(desc)
+  })
+
+/** A deterministic size-aware notation compactor for M/E/S-style interior
+ * blocks, wide turns, and regrips. It only uses local exact identities; unlike
+ * AlgorithmOptimizer it makes no claim to find a globally shortest algorithm. */
 let optimizeRegrips = (~size, alg: alg): alg =>
   switch simplify(alg) {
   | Error(_) => alg
-  | Ok(flat) => rewritePairs(flat, ~size, 0, [])->pushRotationsRight
+  | Ok(flat) =>
+    rewritePairs(flat, ~size, 0, [])->pushRotationsRight->canonicalizeInnerComplements(~size)
   }
 
 /* The canonical 3×3 inner-layer spelling produced by unfoldSlices uses the
@@ -806,14 +827,7 @@ let practiceFamilies = size => {
   } else if size == 4 {
     outer->Array.concat([("Uw", Y), ("Rw", X), ("Fw", Z)])
   } else {
-    outer->Array.concat([
-      ("Uw", Y),
-      ("Rw", X),
-      ("Fw", Z),
-      ("Dw", Y),
-      ("Lw", X),
-      ("Bw", Z),
-    ])
+    outer->Array.concat([("Uw", Y), ("Rw", X), ("Fw", Z), ("Dw", Y), ("Lw", X), ("Bw", Z)])
   }
 }
 
