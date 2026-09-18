@@ -12,6 +12,23 @@ const algorithmFacelets = (algorithm) => {
   return FaceletCodec.render(applied._0);
 };
 
+test("switches Converter cards from state formats to algorithm dialects", async ({page}) => {
+  await page.goto("/");
+  const input = page.locator("[data-input]");
+
+  await input.fill("((Rm U)4 Rc Uc')3");
+  await expect(page.locator('[data-output-card="algorithm-sign"]')).toBeVisible();
+  await expect(page.locator('[data-output-card="facelets"]')).toBeHidden();
+  await expect(page.locator('[data-output="algorithm-sign"]')).toHaveText("((M' U)4 x y')3");
+  await expect(page.locator('[data-output="algorithm-jaap"]')).toHaveText("((Rm U)4 Rc Uc')3");
+  await expect(page.locator('[data-output="algorithm-sse"]')).toHaveText("((MR U)4 CR CU')3");
+  await expect(page.locator('[data-output="algorithm-portable"]')).toHaveText("((2L' U)4 x y')3");
+
+  await input.fill("AAAAAAAAAAAA");
+  await expect(page.locator('[data-output-card="facelets"]')).toBeVisible();
+  await expect(page.locator('[data-output-card="algorithm-sign"]')).toBeHidden();
+});
+
 test("converts algorithms and Orbit64 while switching size-aware cards", async ({page}) => {
   const pageErrors = [];
   const bluetoothWarnings = [];
@@ -94,6 +111,12 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await expect(page.locator('[data-output="orbit64"]')).toHaveText("AAAAAAAAAAAA");
 
   await input.fill("x");
+  await expect(page.locator('[data-output-card="algorithm-sign"]')).toBeVisible();
+  await expect(page.locator('[data-output-card="facelets"]')).toBeHidden();
+  await expect(page.locator('[data-output="algorithm-sign"]')).toHaveText("x");
+  await expect(page.locator('[data-output="algorithm-jaap"]')).toHaveText("Rc");
+  await expect(page.locator('[data-output="algorithm-sse"]')).toHaveText("CR");
+  await expect(page.locator('[data-output="algorithm-portable"]')).toHaveText("x");
   const rotatedFacelets = algorithmFacelets("x");
   const rotatedOrbitOutput = page.locator('[data-output="orbit64"]');
   await expect(rotatedOrbitOutput).not.toHaveText("AAAAAAAAAAAA");
@@ -101,6 +124,8 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   expect(rotatedOrbit).toMatch(/^[A-Za-z0-9_-]{12}$/);
   expect(rotatedOrbit).not.toBe("AAAAAAAAAAAA");
   await input.fill(rotatedOrbit);
+  await expect(page.locator('[data-output-card="facelets"]')).toBeVisible();
+  await expect(page.locator('[data-output-card="algorithm-sign"]')).toBeHidden();
   await expect(page.locator('[data-output="facelets"]')).toHaveText(rotatedFacelets);
 
   await input.fill(

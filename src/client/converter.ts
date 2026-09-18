@@ -208,6 +208,7 @@ type CompatibilityResult = Record<"wca" | "signLgn" | "cubingJs" | "speedsolving
 type RecognizedInput = {
   state: CubeState;
   label: string;
+  algorithm?: unknown[];
   timeline?: AlgorithmTimeline;
   timelineKey?: string;
 };
@@ -2382,6 +2383,7 @@ if (root) {
       _0: {
         state: evaluated._0.finalState,
         label,
+        algorithm: evaluated._0.alg,
         timeline: evaluated._0,
         timelineKey: `${size}\u0000${lowercaseMode}\u0000${effectiveDialect}\u0000${value}`,
       },
@@ -2515,6 +2517,9 @@ if (root) {
       _0: {
         state: applied._0,
         label: `${setup._0.label} + moves`,
+        algorithm: setup._0.algorithm
+          ? [...setup._0.algorithm, ...moves._0]
+          : moves._0,
         timeline: timeline._0,
         timelineKey: `${size}\u0000${lowercaseMode}\u0000${notationDialect}\u0000${input.value}\u0000${movesInput.value}`,
       },
@@ -2581,10 +2586,13 @@ if (root) {
     converterColourNet.hidden = false;
   };
 
-  const updateCardVisibility = () => {
+  const updateCardVisibility = (showAlgorithms: boolean) => {
     root.querySelectorAll<HTMLElement>("[data-output-card]").forEach((card) => {
       const supportedSizes = card.dataset.sizes;
-      card.hidden = supportedSizes !== undefined && !supportedSizes.split(",").includes(String(size));
+      const correctKind = card.dataset.outputKind === (showAlgorithms ? "algorithm" : "state");
+      card.hidden = !correctKind || (
+        supportedSizes !== undefined && !supportedSizes.split(",").includes(String(size))
+      );
     });
     const pieceTitle = root.querySelector<HTMLElement>('[data-title="pieces"]');
     if (pieceTitle) {
@@ -2609,6 +2617,13 @@ if (root) {
       twoPhaseResult.textContent = "Two-phase solving is available for 3×3 states.";
       twoPhaseResult.classList.remove("success", "failure");
     }
+  };
+
+  const renderAlgorithmOutputs = (algorithm: unknown[]) => {
+    setOutput("algorithm-sign", MoveTransform.serialize(algorithm) as string);
+    setOutput("algorithm-jaap", MoveTransform.serializeJaap(algorithm) as string);
+    setOutput("algorithm-sse", MoveTransform.serializeSse(algorithm, size) as string);
+    setOutput("algorithm-portable", MoveTransform.serializePortable(size, algorithm) as string);
   };
 
   const resetNissResult = () => {
@@ -6017,6 +6032,7 @@ if (root) {
   };
 
   const synchronizePlayback = (recognized: RecognizedInput) => {
+    if (recognized.algorithm) renderAlgorithmOutputs(recognized.algorithm);
     updateNissSource(recognized);
     updateCompatibility(recognized);
     updatePatternDetection(recognized);
@@ -6068,13 +6084,13 @@ if (root) {
   };
 
   const update = () => {
-    updateCardVisibility();
     updateLowercaseUi();
     updateDialectUi();
     synchronizeAcademySetup();
     const setup = parseState(input.value);
     const parsed = parseWorkspaceState(setup);
     if (parsed.TAG === "Error") {
+      updateCardVisibility(false);
       updateSetupOrientationUi(setup.TAG === "Ok" ? setup._0 : null);
       updateNissSource(null);
       updateCompatibility(null);
@@ -6089,12 +6105,27 @@ if (root) {
       status.classList.add("error");
       error.textContent = describeError(parsed._0);
       error.hidden = false;
-      for (const key of ["facelets", "net", "colours", "colour-net", "pieces", "orbit64", "sse", "acube"]) {
+      for (const key of [
+        "facelets",
+        "net",
+        "colours",
+        "colour-net",
+        "pieces",
+        "orbit64",
+        "sse",
+        "singmaster",
+        "acube",
+        "algorithm-sign",
+        "algorithm-jaap",
+        "algorithm-sse",
+        "algorithm-portable",
+      ]) {
         setOutput(key, "—", false);
       }
       lastLabel = "Parse error";
       return;
     }
+    updateCardVisibility(parsed._0.algorithm !== undefined);
     updateSetupOrientationUi(setup.TAG === "Ok" ? setup._0 : null);
     synchronizePlayback(parsed._0);
     if (!smartCubeRecording && !smartCubeRecordingTapePresented && smartCubeSyncMode === "PhysicalMirror" && smartCubeConnected && smartCubeLiveState) {

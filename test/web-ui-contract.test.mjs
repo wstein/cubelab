@@ -60,6 +60,16 @@ test("the static shell declares the reversible state-interchange cards", () => {
   assert.match(client, /renderAcubeState/);
 });
 
+test("the Converter declares algorithm notation output cards", () => {
+  for (const key of ["algorithm-sign", "algorithm-jaap", "algorithm-sse", "algorithm-portable"]) {
+    assert.match(page, new RegExp(`key: "${key}"`));
+  }
+  assert.match(page, /data-output-kind=\{kind \?\? "state"\}/);
+  assert.match(client, /MoveTransform\.serializeJaap\(algorithm\)/);
+  assert.match(client, /MoveTransform\.serializeSse\(algorithm, size\)/);
+  assert.match(client, /MoveTransform\.serializePortable\(size, algorithm\)/);
+});
+
 test("the dedicated player route reuses the full interactive viewport", () => {
   assert.match(playerPage, /initialPlayer=\{true\}/);
   assert.match(viewportComponent, /data-player-page-link/);

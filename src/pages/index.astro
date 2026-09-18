@@ -18,7 +18,13 @@ const {
   metaDescription = "Convert Rubik's Cube states between facelets, ASCII nets, colour notation, cubie coordinates, Singmaster cycle notation, and Orbit64.",
 } = Astro.props;
 
-const cards = [
+const cards: Array<{
+  key: string;
+  title: string;
+  provenance: string;
+  sizes?: string;
+  kind?: "state" | "algorithm";
+}> = [
   {
     key: "facelets",
     title: "Compact Facelets",
@@ -68,6 +74,30 @@ const cards = [
     title: "ACube Positional State",
     provenance: "ACube 4 · 12 edges followed by 8 corners",
     sizes: "3",
+  },
+  {
+    key: "algorithm-sign",
+    title: "Modern SiGN / WCA",
+    provenance: "Canonical modern face, wide, inner-layer, slice, and x/y/z notation",
+    kind: "algorithm",
+  },
+  {
+    key: "algorithm-jaap",
+    title: "Jaap Scherphuis",
+    provenance: "Native a/s/m/c suffixes with direct group exponents",
+    kind: "algorithm",
+  },
+  {
+    key: "algorithm-sse",
+    title: "SSE / CubeTwister",
+    provenance: "Superset ENG M/T/C prefixes with size-aware layer spelling",
+    kind: "algorithm",
+  },
+  {
+    key: "algorithm-portable",
+    title: "Expanded Portable Moves",
+    provenance: "Canonical numbered inner layers with M/E/S shorthand unfolded",
+    kind: "algorithm",
   },
 ];
 ---
@@ -1485,13 +1515,14 @@ s100"></textarea>
           <section
             class="outputs-grid"
             data-workspace-panel="converter"
-            aria-label="Converted state formats"
+            aria-label="Converted state and algorithm formats"
           >
             {
-              cards.map(({ key, title, provenance, sizes }) => (
+              cards.map(({ key, title, provenance, sizes, kind }) => (
                 <article
                   class="output-card"
                   data-output-card={key}
+                  data-output-kind={kind ?? "state"}
                   data-sizes={sizes}
                 >
                   <header class="card-header">
