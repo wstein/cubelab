@@ -45,10 +45,10 @@ let skipTrivia = parser => {
         parser.cursor = parser.cursor + 1
       }
     | Some("·" | "↗") if parser.notationDialect == Sse => {
-      // SSE uses a middle dot as a visual sequence delimiter. Unlike CubeLab's
-      // whitespace-delimited `.` pause leaf, it has no playback timing meaning.
-      // `↗` is likewise accepted as a harmless visual turn marker in copied
-      // catalogue lines.
+        // SSE uses a middle dot as a visual sequence delimiter. Unlike CubeLab's
+        // whitespace-delimited `.` pause leaf, it has no playback timing meaning.
+        // `↗` is likewise accepted as a harmless visual turn marker in copied
+        // catalogue lines.
         consumed := true
         parser.cursor = parser.cursor + 1
       }
@@ -190,6 +190,81 @@ let faceFromCharacter = character =>
   | "D" | "d" => Some(StateTypes.D)
   | _ => None
   }
+
+let oppositeFace = face =>
+  switch face {
+  | StateTypes.U => StateTypes.D
+  | StateTypes.L => StateTypes.R
+  | StateTypes.F => StateTypes.B
+  | StateTypes.R => StateTypes.L
+  | StateTypes.B => StateTypes.F
+  | StateTypes.D => StateTypes.U
+  }
+
+let startsJaapMove = parser =>
+  parser.notationDialect == Jaap &&
+    switch (
+      parser.input->String.get(parser.cursor)->Option.map(String.make),
+      parser.input->String.get(parser.cursor + 1)->Option.map(String.make),
+    ) {
+    | (Some("U" | "L" | "F" | "R" | "B" | "D"), Some("a" | "s" | "m")) => true
+    | _ => false
+    }
+
+let jaapMiddleMove = (parser, face, ~start) => {
+  if parser.size != 3 && parser.size != 5 {
+    fail(
+      parser,
+      "Jaap middle-slice moves are supported on odd 3×3×3 and 5×5×5 cubes.",
+      ~start,
+      ~end_=parser.cursor,
+    )
+  }
+  switch face {
+  | StateTypes.R => (SliceTurn(M), -1)
+  | StateTypes.L => (SliceTurn(M), 1)
+  | StateTypes.U => (SliceTurn(E), -1)
+  | StateTypes.D => (SliceTurn(E), 1)
+  | StateTypes.F => (SliceTurn(S), 1)
+  | StateTypes.B => (SliceTurn(S), -1)
+  }
+}
+
+let parseJaapMove = parser => {
+  let start = parser.cursor
+  let family = consume(parser)->Option.getOrThrow
+  let modifier = consume(parser)->Option.getOrThrow
+  let face = faceFromCharacter(family)->Option.getOrThrow
+  let turns = parseSuffix(parser, ~allowZero=true)
+  let loc = {start, end_: parser.cursor}
+  switch modifier {
+  | "m" => {
+      let (move, direction) = jaapMiddleMove(parser, face, ~start)
+      {desc: Move(move, turns * direction), loc}
+    }
+  | "a" | "s" => {
+      let oppositeTurns = if modifier == "a" {
+        turns
+      } else {
+        -turns
+      }
+      {
+        desc: Group(
+          [
+            {desc: Move(FaceTurn(face, {from_: 1, to_: 1}), turns), loc},
+            {
+              desc: Move(FaceTurn(oppositeFace(face), {from_: 1, to_: 1}), oppositeTurns),
+              loc,
+            },
+          ],
+          1,
+        ),
+        loc,
+      }
+    }
+  | _ => fail(parser, "Unknown Jaap move suffix.", ~start, ~end_=parser.cursor)
+  }
+}
 
 let subscriptWidth = character =>
   switch character {
@@ -789,9 +864,12 @@ and parseUnit = parser => {
   let start = parser.cursor
   if startsBlockComment(parser) {
     parseBlockComment(parser)
+  } else if startsJaapMove(parser) {
+    parseJaapMove(parser)
   } else {
     switch peek(parser) {
-    | Some("T" | "N" | "V" | "M" | "W" | "S" | "C") if parser.notationDialect == Sse => parseSseUnit(parser)
+    | Some("T" | "N" | "V" | "M" | "W" | "S" | "C") if parser.notationDialect == Sse =>
+      parseSseUnit(parser)
     | Some(".") => {
         parser.cursor = parser.cursor + 1
         {desc: Pause, loc: {start, end_: parser.cursor}}

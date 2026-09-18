@@ -268,6 +268,182 @@ function faceFromCharacter(character) {
   }
 }
 
+function oppositeFace(face) {
+  switch (face) {
+    case "U" :
+      return "D";
+    case "L" :
+      return "R";
+    case "F" :
+      return "B";
+    case "R" :
+      return "L";
+    case "B" :
+      return "F";
+    case "D" :
+      return "U";
+  }
+}
+
+function startsJaapMove(parser) {
+  if (parser.notationDialect !== "Jaap") {
+    return false;
+  }
+  let match = Stdlib_Option.map(parser.input[parser.cursor], prim => String(prim));
+  let match$1 = Stdlib_Option.map(parser.input[parser.cursor + 1 | 0], prim => String(prim));
+  if (match === undefined) {
+    return false;
+  }
+  switch (match) {
+    case "B" :
+    case "D" :
+    case "F" :
+    case "L" :
+    case "R" :
+    case "U" :
+      break;
+    default:
+      return false;
+  }
+  if (match$1 === undefined) {
+    return false;
+  }
+  switch (match$1) {
+    case "a" :
+    case "m" :
+    case "s" :
+      return true;
+    default:
+      return false;
+  }
+}
+
+function jaapMiddleMove(parser, face, start) {
+  if (parser.size !== 3 && parser.size !== 5) {
+    fail(parser, "Jaap middle-slice moves are supported on odd 3×3×3 and 5×5×5 cubes.", start, parser.cursor);
+  }
+  switch (face) {
+    case "U" :
+      return [
+        {
+          TAG: "SliceTurn",
+          _0: "E"
+        },
+        -1
+      ];
+    case "L" :
+      return [
+        {
+          TAG: "SliceTurn",
+          _0: "M"
+        },
+        1
+      ];
+    case "F" :
+      return [
+        {
+          TAG: "SliceTurn",
+          _0: "S"
+        },
+        1
+      ];
+    case "R" :
+      return [
+        {
+          TAG: "SliceTurn",
+          _0: "M"
+        },
+        -1
+      ];
+    case "B" :
+      return [
+        {
+          TAG: "SliceTurn",
+          _0: "S"
+        },
+        -1
+      ];
+    case "D" :
+      return [
+        {
+          TAG: "SliceTurn",
+          _0: "E"
+        },
+        1
+      ];
+  }
+}
+
+function parseJaapMove(parser) {
+  let start = parser.cursor;
+  let family = Stdlib_Option.getOrThrow(consume(parser), undefined);
+  let modifier = Stdlib_Option.getOrThrow(consume(parser), undefined);
+  let face = Stdlib_Option.getOrThrow(faceFromCharacter(family), undefined);
+  let turns = parseSuffix(parser, true);
+  let loc_end_ = parser.cursor;
+  let loc = {
+    start: start,
+    end_: loc_end_
+  };
+  switch (modifier) {
+    case "m" :
+      let match = jaapMiddleMove(parser, face, start);
+      return {
+        desc: {
+          TAG: "Move",
+          _0: match[0],
+          _1: turns * match[1] | 0
+        },
+        loc: loc
+      };
+    case "a" :
+    case "s" :
+      break;
+    default:
+      return fail(parser, "Unknown Jaap move suffix.", start, parser.cursor);
+  }
+  let oppositeTurns = modifier === "a" ? turns : -turns | 0;
+  return {
+    desc: {
+      TAG: "Group",
+      _0: [
+        {
+          desc: {
+            TAG: "Move",
+            _0: {
+              TAG: "FaceTurn",
+              _0: face,
+              _1: {
+                from_: 1,
+                to_: 1
+              }
+            },
+            _1: turns
+          },
+          loc: loc
+        },
+        {
+          desc: {
+            TAG: "Move",
+            _0: {
+              TAG: "FaceTurn",
+              _0: oppositeFace(face),
+              _1: {
+                from_: 1,
+                to_: 1
+              }
+            },
+            _1: oppositeTurns
+          },
+          loc: loc
+        }
+      ],
+      _1: 1
+    },
+    loc: loc
+  };
+}
+
 function subscriptWidth(character) {
   switch (character) {
     case "₂" :
@@ -629,7 +805,7 @@ function sseMidMove(face) {
   }
 }
 
-function oppositeFace(face) {
+function oppositeFace$1(face) {
   switch (face) {
     case "U" :
       return "D";
@@ -821,7 +997,7 @@ function parseSseUnit(parser) {
           1
         ];
       }
-      let opposite = oppositeFace(face);
+      let opposite = oppositeFace$1(face);
       desc = {
         TAG: "Group",
         _0: [
@@ -1193,6 +1369,9 @@ function parseUnit(parser) {
   if (startsBlockComment(parser)) {
     return parseBlockComment(parser);
   }
+  if (startsJaapMove(parser)) {
+    return parseJaapMove(parser);
+  }
   let match = peek(parser);
   if (match === undefined) {
     return fail(parser, "Expected an algorithm unit.", start, undefined);
@@ -1444,6 +1623,9 @@ export {
   isPrefixedMoveAhead,
   parseCompositeSuffix,
   faceFromCharacter,
+  startsJaapMove,
+  jaapMiddleMove,
+  parseJaapMove,
   subscriptWidth,
   validateRange,
   parseBaseMove,
@@ -1454,7 +1636,7 @@ export {
   startsTwizzleNissGroup,
   faceForSse,
   sseMidMove,
-  oppositeFace,
+  oppositeFace$1 as oppositeFace,
   sseRotation,
   sseRange,
   sseNumberOrRange,

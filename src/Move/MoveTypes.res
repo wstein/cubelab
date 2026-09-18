@@ -24,6 +24,7 @@ type notationDialect =
   | Twizzle
   | Sse
   | Acube
+  | Jaap
 
 type layerRange = {
   from_: int,

@@ -79,6 +79,32 @@ test("parses nested groups, commutators, conjugates, and composite suffixes", ()
   assert.equal(units[2].desc._2, 2);
 });
 
+test("parses Jaap slice, anti-slice, middle-slice, and direct group exponents", () => {
+  const source = "F2 R2 Ua' (R2 F2)2 Ua F2 R2";
+  const expanded = "F2 R2 U' D' R2 F2 R2 F2 U D F2 R2";
+  const jaap = parseWithOptions(3, "Wide", "Jaap", source);
+  const modern = parse(3, expanded);
+  const jaapState = MoveExecutor.applyAlg(StateTypes.solved(3)._0, jaap);
+  const modernState = MoveExecutor.applyAlg(StateTypes.solved(3)._0, modern);
+  assert.equal(jaapState.TAG, "Ok");
+  assert.equal(modernState.TAG, "Ok");
+  assert.equal(FaceletCodec.render(jaapState._0), FaceletCodec.render(modernState._0));
+
+  const suffixes = parseWithOptions(3, "Wide", "Jaap", "Rs Ra Rm Lm Um Dm Fm Bm");
+  const suffixExpansion = parse(3, "R L' R L M' M E' E S S'");
+  const suffixState = MoveExecutor.applyAlg(StateTypes.solved(3)._0, suffixes);
+  const expansionState = MoveExecutor.applyAlg(StateTypes.solved(3)._0, suffixExpansion);
+  assert.equal(suffixState.TAG, "Ok");
+  assert.equal(expansionState.TAG, "Ok");
+  assert.equal(FaceletCodec.render(suffixState._0), FaceletCodec.render(expansionState._0));
+
+  assert.match(
+    MoveParser.parseWithOptions(4, "Wide", "Jaap", "Rm")._0.message,
+    /odd 3×3×3 and 5×5×5/,
+  );
+  assert.equal(MoveParser.parseWithOptions(5, "Wide", "Jaap", "Fm2").TAG, "Ok");
+});
+
 test("accepts self-delimiting units without artificial whitespace", () => {
   const adjacent = parse(3, "(M2 E2 S2)(R L) [R,U][D,L] (R U)R' R(U R')");
   assert.deepEqual(adjacent.map((unit) => unit.desc.TAG), [
