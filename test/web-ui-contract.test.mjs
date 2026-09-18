@@ -295,6 +295,9 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(page, /data-manual-state-representation="isometric"/);
   assert.match(page, /data-manual-state-load/);
   assert.match(page, /data-manual-state-load-canonical[^>]*hidden/);
+  assert.match(page, /data-manual-state-erase-preview[^>]*aria-live="polite"[^>]*hidden/);
+  assert.match(page, />⇧ E<[\s\S]{0,100}>erase cubie</);
+  assert.match(page, />⌥ E<[\s\S]{0,100}>erase orbit</);
   assert.match(page, /data-manual-state-copy-format="canonical-compact"[^>]*data-manual-state-copy-canonical[^>]*hidden/);
   assert.match(page, /data-manual-state-copy-format="canonical-spaced"[^>]*data-manual-state-copy-canonical[^>]*hidden/);
   assert.match(client, /const canonicalManualStateFacelets[\s\S]{0,500}canonicaliseSetupOrientation/);
@@ -307,6 +310,9 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /scope === "orbit"[\s\S]{0,200}manualStateStickerOrbitIndices/);
   assert.match(client, /event\.altKey[\s\S]{0,200}event\.shiftKey \? "orbit" : "cubie"/);
   assert.match(client, /const scope: ManualStateEraseScope = event\.altKey[\s\S]{0,200}"orbit"[\s\S]{0,200}event\.shiftKey[\s\S]{0,200}"cubie"/);
+  assert.match(client, /manualStateStickerOrbitIndices\(manualSize, targetIndex\)[\s\S]{0,300}pieceHover = "orbit-erase"/);
+  assert.match(client, /manualStatePieceMates\(manualSize, targetIndex\)[\s\S]{0,300}pieceHover = "cubie-erase"/);
+  assert.match(client, /Erase orbit: \$\{orbit\.slots\.length\}[\s\S]{0,200}\$\{stickerCount\} stickers/);
   assert.match(client, /allowedManualStateColours\(manualSize, manualStateDraft, index\)/);
   assert.match(client, /fillForcedManualStateColours\(manualSize, source\)/);
   assert.match(client, /fillLocallyForcedManualStateColours\(manualSize, source\)/);

@@ -300,6 +300,7 @@ if (root) {
   const manualStateSmartCubeStatus = root.querySelector<HTMLOutputElement>("[data-manual-state-smart-cube-status]")!;
   const manualStateSummary = root.querySelector<HTMLElement>("[data-manual-state-summary]")!;
   const manualStateFrame = root.querySelector<HTMLOutputElement>("[data-manual-state-frame]")!;
+  const manualStateErasePreview = root.querySelector<HTMLOutputElement>("[data-manual-state-erase-preview]")!;
   const manualStateNotation = root.querySelector<HTMLTextAreaElement>("[data-manual-state-notation]")!;
   const manualStateNotationApply = root.querySelector<HTMLButtonElement>("[data-manual-state-notation-apply]")!;
   const manualStateNotationStatus = root.querySelector<HTMLOutputElement>("[data-manual-state-notation-status]")!;
@@ -548,6 +549,7 @@ if (root) {
   let manualStateDraft: ManualStateDraft = emptyManualState(2);
   let manualStateColour: ManualStateFace | null = "U";
   let manualStateShiftPressed = false;
+  let manualStateAltPressed = false;
   const manualStateExplicitIndices = new Set<number>();
   const manualStateAutoIndices = new Set<number>();
   let manualStateHoverIndex: number | null = null;
@@ -1910,6 +1912,7 @@ if (root) {
     }
     manualStateDirtyDots = new Set();
     syncManualStateDualRig();
+    updateManualStatePieceHighlight();
     if (manualStateCursorIndex !== null && isManualStateStickerInteractive(manualStateCursorIndex)) {
       const active = document.activeElement;
       if (!active || active === document.body || active.closest("[data-manual-state-index]")) {
@@ -1969,6 +1972,48 @@ if (root) {
     manualStateEraser.dataset.shiftActive = String(pressed);
     manualStateEraser.classList.toggle("shift-active", pressed);
     renderManualStatePaletteLabels();
+    updateManualStatePieceHighlight();
+  };
+
+  const setManualStateAltPressed = (pressed: boolean) => {
+    if (manualStateAltPressed === pressed) return;
+    manualStateAltPressed = pressed;
+    updateManualStatePieceHighlight();
+  };
+
+  const manualStateOrbitLabel: Record<string, {singular: string; plural: string}> = {
+    corners: {singular: "corner", plural: "corners"},
+    edges: {singular: "edge", plural: "edges"},
+    wings: {singular: "wing", plural: "wings"},
+    midges: {singular: "midge", plural: "midges"},
+    centres: {singular: "centre", plural: "centres"},
+    xCentres: {singular: "oblique centre", plural: "oblique centres"},
+    plusCentres: {singular: "cross centre", plural: "cross centres"},
+    coreCentres: {singular: "core centre", plural: "core centres"},
+  };
+
+  const renderManualStateErasePreview = (manualSize: ManualStateSize, index: number | null) => {
+    if (!manualStateAltPressed || index === null) {
+      manualStateErasePreview.hidden = true;
+      manualStateErasePreview.textContent = "";
+      delete manualStateErasePreview.dataset.scope;
+      return;
+    }
+    const orbit = manualStateOrbits(manualSize).find((candidate) =>
+      candidate.slots.some((slot) => slot.includes(index))
+    );
+    if (!orbit) return;
+    const label = manualStateOrbitLabel[orbit.name] ?? {singular: orbit.name, plural: orbit.name};
+    manualStateErasePreview.hidden = false;
+    if (manualStateShiftPressed) {
+      const stickerCount = orbit.slots.reduce((total, slot) => total + slot.length, 0);
+      manualStateErasePreview.dataset.scope = "orbit";
+      manualStateErasePreview.textContent = `Erase orbit: ${orbit.slots.length} ${label.plural} · ${stickerCount} stickers${manualSize === 2 ? " · entire cube" : ""}`;
+      return;
+    }
+    const slot = orbit.slots.find((candidate) => candidate.includes(index)) ?? [index];
+    manualStateErasePreview.dataset.scope = "cubie";
+    manualStateErasePreview.textContent = `Erase cubie: ${label.singular} · ${slot.length} sticker${slot.length === 1 ? "" : "s"}`;
   };
 
   // Hover only re-rings the affected stickers rather than calling
@@ -1980,9 +2025,25 @@ if (root) {
     manualStateGrid.querySelectorAll<HTMLElement>("[data-piece-hover]").forEach((el) => {
       delete el.dataset.pieceHover;
     });
-    if (manualStateHoverIndex === null) return;
-    const mates = manualStatePieceMates(manualSize, manualStateHoverIndex);
-    const self = manualStateStickerElements[manualStateHoverIndex];
+    const targetIndex = manualStateHoverIndex ?? manualStateCursorIndex;
+    renderManualStateErasePreview(manualSize, targetIndex);
+    if (targetIndex === null) return;
+    if (manualStateAltPressed && manualStateShiftPressed) {
+      manualStateStickerOrbitIndices(manualSize, targetIndex).forEach((index) => {
+        const sticker = manualStateStickerElements[index];
+        if (sticker) sticker.dataset.pieceHover = "orbit-erase";
+      });
+      return;
+    }
+    if (manualStateAltPressed) {
+      [targetIndex, ...manualStatePieceMates(manualSize, targetIndex)].forEach((index) => {
+        const sticker = manualStateStickerElements[index];
+        if (sticker) sticker.dataset.pieceHover = "cubie-erase";
+      });
+      return;
+    }
+    const mates = manualStatePieceMates(manualSize, targetIndex);
+    const self = manualStateStickerElements[targetIndex];
     if (self) {
       self.dataset.pieceHover = "self";
     }
@@ -8022,27 +8083,33 @@ if (root) {
   manualStateDialog.addEventListener("close", () => {
     resetManualState3dOrientation(true);
     setManualStateShiftPressed(false);
+    setManualStateAltPressed(false);
     manualStateSmartCubeSyncPending = false;
     updateManualStateSmartCubeControl();
   });
   window.addEventListener("keydown", (event) => {
     if (!manualStateDialog.open) return;
     if (event.key === "Shift") setManualStateShiftPressed(true);
+    if (event.key === "Alt") setManualStateAltPressed(true);
   });
   window.addEventListener("keyup", (event) => {
     if (!manualStateDialog.open) return;
     if (event.key === "Shift" || !event.shiftKey) setManualStateShiftPressed(false);
+    if (event.key === "Alt" || !event.altKey) setManualStateAltPressed(false);
   });
   window.addEventListener("blur", () => {
     if (manualStateShiftPressed) setManualStateShiftPressed(false);
+    if (manualStateAltPressed) setManualStateAltPressed(false);
   });
   manualStateDialog.addEventListener("pointermove", (event) => {
     if (!manualStateDialog.open) return;
     if (manualStateShiftPressed !== event.shiftKey) setManualStateShiftPressed(event.shiftKey);
+    if (manualStateAltPressed !== event.altKey) setManualStateAltPressed(event.altKey);
   });
   manualStateDialog.addEventListener("pointerdown", (event) => {
     if (!manualStateDialog.open) return;
     if (manualStateShiftPressed !== event.shiftKey) setManualStateShiftPressed(event.shiftKey);
+    if (manualStateAltPressed !== event.altKey) setManualStateAltPressed(event.altKey);
   });
   manualStateOpen.addEventListener("click", openManualStateEditor);
   manualStateCancel.addEventListener("click", () => manualStateDialog.close());
