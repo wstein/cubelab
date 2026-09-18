@@ -238,10 +238,10 @@ const cards = [
             </div>
 
             <div class="toolbar-group" data-notation-controls hidden>
-              <span class="panel-label">Layer syntax</span>
+              <span class="panel-label">Move notation</span>
               <div
                 class="segmented-control"
-                aria-label="Numbered layer notation"
+                aria-label="Move notation dialect"
               >
                 <button
                   type="button"
@@ -258,6 +258,15 @@ const cards = [
                   aria-pressed="false"
                 >
                   Ruwix suffix (R₂)
+                </button>
+                <button
+                  type="button"
+                  class="segmented-btn"
+                  data-notation-dialect="Jaap"
+                  aria-pressed="false"
+                  title="Ra = R L, Rs = R L′, Rm = the middle layer viewed from R"
+                >
+                  Jaap suffix (Ra / Rs / Rm)
                 </button>
               </div>
             </div>
@@ -738,7 +747,10 @@ s100"></textarea>
                 >r = Rw</code
               >). Use <code>2R</code> for a portable single inner-layer turn. Unicode
               Ruwix subscripts such as <code>R₂'</code> are recognized directly; ambiguous
-              plaintext such as <code>R2'</code> requires Ruwix suffix mode. Practice
+              plaintext such as <code>R2'</code> requires Ruwix suffix mode.
+              Jaap suffix moves such as <code>Ua</code>, <code>Rs</code>, and
+              <code>Fm</code> are detected automatically or can be selected above.
+              Practice
               scramble is quick-load testing only, not official WCA scramble data.
               <strong>Simplify</strong> resolves nested repeat/invert notation algebraically
               (<code>(U3')2'</code> → <code>U2</code>) as well as merging
