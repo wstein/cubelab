@@ -449,6 +449,11 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /--manual-state-face-gap: 0\.3rem;[\s\S]*gap: var\(--manual-state-face-gap\);/);
   assert.match(styles, /data-representation="open-cube"[\s\S]*padding: calc\(var\(--manual-state-face-gap\) \* 0\.5\);/);
   assert.match(client, /manualStateRepresentation === "open-cube"[\s\S]{0,200}manualStateOpenBackProjectionDestination\(manualSize, destination\)/);
+  assert.match(styles, /data-representation="open-cube"[^}]*\.manual-state-net-faces\s*\{[^}]*aspect-ratio:\s*3\.1 \/ 1\.9/);
+  assert.match(styles, /data-representation="open-cube"[^}]*data-face="B"\]\s*\{[^}]*left:\s*3%;[^}]*top:\s*calc\(100% \* 0\.95 \/ 2\.4\);[^}]*width:\s*25\.5%;[^}]*height:\s*calc\(100% \/ 2\.4\);[^}]*transform:\s*translateY\(-50%\)/);
+  assert.doesNotMatch(styles, /data-representation="open-cube"[^}]*data-face="B"\][^}]*matrix\(-1/);
+  assert.match(styles, /content:\s*"Back · front view"/);
+  assert.match(client, /Back face, front view projection/);
   assert.match(styles, /--attached-face-gap: var\(--manual-state-face-gap\);/);
   assert.match(styles, /--attached-fold-gap: 0\.2rem;/);
   assert.match(styles, /--attached-depth-ratio: 0\.6667;/);

@@ -1707,6 +1707,16 @@ if (root) {
         ...destinations.slice(faceIndex * perFace, (faceIndex + 1) * perFace),
       );
     });
+    const backFace = manualStateFaceElements.get("B");
+    if (backFace) {
+      const frontProjection = manualStateRepresentation === "open-cube";
+      backFace.setAttribute("aria-label", frontProjection ? "Back face, front view projection" : "Back face");
+      if (frontProjection) {
+        backFace.title = "Back face · front view · exploded from Left";
+      } else {
+        backFace.removeAttribute("title");
+      }
+    }
     manualStateArrangedFrame = frame;
   };
 

@@ -1088,11 +1088,10 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform: translate(-33.33%, calc(-66.67% - var(--manual-state-face-gap)));
 }
 
-/* Open cube: front/left/up form a corner; back/right/down hinge outward.
-   Half of the shared face gap is inset on each face, so two faces meeting at
-   a hinge have the same separation as faces in the flat and folded views.
-   Coordinates use a two-face-wide, 2.4-face-high canvas. Affine transforms
-   preserve the actual sticker buttons and their hit targets. */
+/* Open cube: U/L/F/R/D retain their exact affine hinges while Back becomes a
+   flat, front-projected satellite. The empty band between B and L is real
+   canvas space: Back is exploded from the five-face assembly, never mistaken
+   for a directly connected net face. */
 .manual-state-net[data-representation="open-cube"] {
   display: flex;
   justify-content: center;
@@ -1102,13 +1101,13 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .manual-state-net[data-representation="open-cube"] .manual-state-net-faces {
   display: block;
   position: relative;
-  width: min(100%, 30rem, 80cqh);
-  aspect-ratio: 2 / 2.4;
+  width: min(100%, 50rem, 140cqh);
+  aspect-ratio: 3.1 / 1.9;
 }
 
 .manual-state-net[data-representation="open-cube"] .manual-state-face {
   position: absolute;
-  width: 50%;
+  width: 25.5%;
   height: calc(100% / 2.4);
   box-sizing: border-box;
   padding: calc(var(--manual-state-face-gap) * 0.5);
@@ -1118,37 +1117,59 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-net[data-representation="open-cube"] .manual-state-face[data-face="F"] {
-  left: 27.5%;
+  left: 45.025%;
   top: calc(100% * 0.85 / 2.4);
 }
 
 .manual-state-net[data-representation="open-cube"] .manual-state-face[data-face="L"] {
-  left: 0;
+  left: 31%;
   top: calc(100% * 0.45 / 2.4);
   transform: matrix(0.55, 0.4, 0, 1, 0, 0);
 }
 
 .manual-state-net[data-representation="open-cube"] .manual-state-face[data-face="U"] {
-  left: 0;
+  left: 31%;
   top: calc(100% * 0.45 / 2.4);
   transform: matrix(1, 0, 0.55, 0.4, 0, 0);
 }
 
-/* Back's top edge joins Up's top edge, with reversed column order. */
+/* Back is orthogonal, full-size, and separated from Left. Its columns are
+   reordered in arrangeManualStateView(), keeping text, dots, and pointer
+   hit-testing crisp rather than mirroring the DOM with CSS. */
 .manual-state-net[data-representation="open-cube"] .manual-state-face[data-face="B"] {
-  left: 50%;
-  top: calc(100% * 0.45 / 2.4);
-  transform: matrix(-1, 0, 0.55, -0.4, 0, 0);
+  left: 3%;
+  /* Match the unskewed left edge of L exactly: L begins at 0.45/2.4 and
+     spans one full face (1/2.4), so its edge centre is 0.95/2.4. */
+  top: calc(100% * 0.95 / 2.4);
+  width: 25.5%;
+  height: calc(100% / 2.4);
+  outline: 1px dashed rgba(148, 163, 184, 0.55);
+  outline-offset: 0.2rem;
+  border-radius: 0.45rem;
+  background: rgba(15, 23, 42, 0.38);
+  transform: translateY(-50%);
+  transform-origin: center;
+}
+
+.manual-state-net[data-representation="open-cube"] .manual-state-face[data-face="B"]::before {
+  content: "Back · front view";
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 0.4rem);
+  color: #94a3b8;
+  font: 650 0.66rem/1 var(--font-sans);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .manual-state-net[data-representation="open-cube"] .manual-state-face[data-face="R"] {
-  left: 77.5%;
+  left: 70.525%;
   top: calc(100% * 0.85 / 2.4);
   transform: matrix(0.4, -0.55, 0, 1, 0, 0);
 }
 
 .manual-state-net[data-representation="open-cube"] .manual-state-face[data-face="D"] {
-  left: 27.5%;
+  left: 45.025%;
   top: calc(100% * 1.85 / 2.4);
   transform: matrix(1, 0, -0.55, 0.4, 0, 0);
 }
