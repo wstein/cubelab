@@ -10,7 +10,7 @@ let faceOrder = [U, L, F, R, B, D]
 let mapping = scheme =>
   switch scheme {
   | Western => "WOGRBY"
-  | Japanese => "WOBRGY"
+  | Japanese => "WOGRYB"
   | Custom(value) => value
   }
 

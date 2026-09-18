@@ -19,7 +19,7 @@ function mapping(scheme) {
     if (scheme === "Western") {
       return "WOGRBY";
     } else {
-      return "WOBRGY";
+      return "WOGRYB";
     }
   } else {
     return scheme._0;

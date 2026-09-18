@@ -68,12 +68,24 @@ test("geometry preserves positions while recolouring a changed cube state", () =
   assert.ok(changedColours > 0);
 });
 
-test("Japanese palette swaps the front and back colour assignments", () => {
+test("Japanese palette uses white-blue and green-yellow opposite pairs", () => {
   const state = StateTypes.solved(3)._0;
   const western = generated(state, "Standard", "Western");
   const japanese = generated(state, "Standard", "Japanese");
   assert.notDeepEqual(western.data, japanese.data);
   assert.equal(western.vertexCount, japanese.vertexCount);
+  assert.deepEqual(
+    CubeGeometry.colourOf("Standard", "Japanese", "D"),
+    CubeGeometry.colourOf("Standard", "Western", "B"),
+  );
+  assert.deepEqual(
+    CubeGeometry.colourOf("Standard", "Japanese", "B"),
+    CubeGeometry.colourOf("Standard", "Western", "D"),
+  );
+  assert.deepEqual(
+    CubeGeometry.colourOf("Standard", "Japanese", "F"),
+    CubeGeometry.colourOf("Standard", "Western", "F"),
+  );
 });
 
 test("geometry rejects malformed cube states", () => {

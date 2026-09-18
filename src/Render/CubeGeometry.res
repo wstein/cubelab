@@ -106,8 +106,8 @@ let speedColour = face =>
 
 let colourOf = (~style, ~palette, face) => {
   let mapped = switch (palette, face) {
-  | (Japanese, StateTypes.F) => StateTypes.B
-  | (Japanese, B) => F
+  | (Japanese, StateTypes.D) => StateTypes.B
+  | (Japanese, B) => D
   | _ => face
   }
   switch style {

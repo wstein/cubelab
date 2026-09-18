@@ -1120,8 +1120,12 @@ if (root) {
   const manualStateFaceName: Record<ManualStateFace, string> = {
     U: "Up", R: "Right", F: "Front", D: "Down", L: "Left", B: "Back",
   };
-  const manualStateColourName: Record<ManualStateFace, string> = {
+  const westernManualStateColourName: Record<ManualStateFace, string> = {
     U: "White", R: "Red", F: "Green", D: "Yellow", L: "Orange", B: "Blue",
+  };
+  const manualStateColourName = (face: ManualStateFace): string => {
+    if (schemeSelect.value !== "Japanese") return westernManualStateColourName[face];
+    return face === "D" ? "Blue" : face === "B" ? "Yellow" : westernManualStateColourName[face];
   };
 
   const renderManualStateFrame = (manualSize: ManualStateSize) => {
@@ -1137,7 +1141,7 @@ if (root) {
     }
     manualStateFrame.dataset.canonical = String(frame.canonical);
     const label = frame.canonical ? "✓ Canonical frame" : "⟳ Rotated frame";
-    manualStateFrame.textContent = `${label} · U: ${manualStateColourName[frame.up]} · F: ${manualStateColourName[frame.front]}`;
+    manualStateFrame.textContent = `${label} · U: ${manualStateColourName(frame.up)} · F: ${manualStateColourName(frame.front)}`;
     const showCanonicalActions = !frame.canonical && !manualStateLoad.disabled;
     manualStateLoadCanonical.hidden = !showCanonicalActions;
     manualStateLoadCanonical.disabled = manualStateLoad.disabled;
@@ -6197,6 +6201,7 @@ if (root) {
     if (input.value !== state.input) input.value = state.input;
     if (movesInput.value !== state.moves) movesInput.value = state.moves;
     if (schemeSelect.value !== state.scheme) schemeSelect.value = state.scheme;
+    root.dataset.colourScheme = state.scheme;
     if (customScheme.value !== state.customScheme) customScheme.value = state.customScheme;
     if (noteInput.value !== state.note) noteInput.value = state.note;
     if (appStateApplied && setupChanged) {

@@ -548,6 +548,14 @@ test("the web UI exposes Ruwix suffix layers only through an explicit dialect se
   assert.doesNotMatch(client, /notationDialect\s*=.*input/);
 });
 
+test("the Japanese palette advertises and renders the historical opposite pairs", () => {
+  assert.match(page, /Japanese \(White–Blue\)/);
+  assert.match(client, /root\.dataset\.colourScheme = state\.scheme/);
+  assert.match(styles, /data-colour-scheme="Japanese"/);
+  assert.match(styles, /--manual-state-d-colour: #3b82f6/);
+  assert.match(styles, /--manual-state-b-colour: #facc15/);
+});
+
 test("the web UI explains source portability without claiming competition legality", () => {
   assert.match(page, /data-compatibility-profile="wca"/);
   assert.match(page, /data-compatibility-profile="signLgn"/);

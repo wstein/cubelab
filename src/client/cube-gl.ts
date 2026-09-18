@@ -1122,16 +1122,19 @@ export const createCubeViewport = (
     const centerY = 47 * dpr;
     const radius = 21 * dpr * scale;
     const origin = projectPoint([0, 0, 0], matrices.modelView, matrices.projection, width, height);
-    // These are the same U/R/F/D/L/B paints used by CubeGeometry. The F/B
-    // colors reverse with the Japanese palette, just like the rendered cube.
+    // These are the same U/R/F/D/L/B paints used by CubeGeometry. With White
+    // held Up and Green Front, Japanese colouring swaps the D/B paints so
+    // White opposes Blue and Green opposes Yellow.
     const faceColours = style === "Speed"
       ? {U: "#f5f5f2", R: "#eb4d4a", F: "#66cc57", D: "#facc2e", L: "#f58c26", B: "#479eF0"}
       : {U: "#f2f2f2", R: "#c4352e", F: "#218c4a", D: "#f5cc33", L: "#f07821", B: "#2959a8"};
-    const front = palette === "Japanese" ? faceColours.B : faceColours.F;
-    const back = palette === "Japanese" ? faceColours.F : faceColours.B;
-    const colourForFace = (face: string): string => (
-      face === "F" ? front : face === "B" ? back : faceColours[face as "U" | "R" | "D" | "L"]
-    );
+    const japaneseFaceColours = {
+      ...faceColours,
+      D: faceColours.B,
+      B: faceColours.D,
+    };
+    const colourForFace = (face: string): string =>
+      (palette === "Japanese" ? japaneseFaceColours : faceColours)[face as keyof typeof faceColours];
     // Find the physical centre at each current screen-facing R/U/F direction.
     // Its arrow gets the corresponding label, so the marker rotates with the
     // cube yet always presents x=Right, y=Up, z=Front to the user.

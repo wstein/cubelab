@@ -59,6 +59,7 @@ describe("projected motion overlay math", () => {
 
   test("names focused pieces using the active colour scheme", () => {
     expect(pieceColourLabel("DFR", "Western")).toBe("yellow–green–red");
-    expect(pieceColourLabel("DFR", "Japanese")).toBe("yellow–blue–red");
+    expect(pieceColourLabel("DFR", "Japanese")).toBe("blue–green–red");
+    expect(pieceColourLabel("UBR", "Japanese")).toBe("white–yellow–red");
   });
 });

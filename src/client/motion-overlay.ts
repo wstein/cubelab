@@ -250,7 +250,7 @@ export const pieceColourLabel = (piece: string, palette: "Western" | "Japanese")
     B: "blue",
     D: "yellow",
   };
-  const japanese = {...western, F: "blue", B: "green"};
+  const japanese = {...western, D: "blue", B: "yellow"};
   const colours = palette === "Japanese" ? japanese : western;
   return [...piece].map((face) => colours[face]).join("–");
 };

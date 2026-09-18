@@ -29,7 +29,7 @@ for (const size of [2, 3, 4, 5]) {
 
 const schemes = [
   ["Western", "WRGYOB"],
-  ["Japanese", "WRBYOG"],
+  ["Japanese", "WRGBOY"],
   [{TAG: "Custom", _0: "ABCDEF"}, "ADCFBE"],
 ];
 
@@ -115,4 +115,3 @@ test("facelet parser accepts user 3x3 spaced facelet state", () => {
   assert.equal(parsed._0.size, 3);
   assert.equal(FaceletCodec.render(parsed._0), input.replace(/\s+/g, ""));
 });
-

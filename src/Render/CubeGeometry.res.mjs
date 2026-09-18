@@ -260,11 +260,11 @@ function colourOf(style, palette, face) {
     mapped = face;
   } else {
     switch (face) {
-      case "F" :
-        mapped = "B";
-        break;
       case "B" :
-        mapped = "F";
+        mapped = "D";
+        break;
+      case "D" :
+        mapped = "B";
         break;
       default:
         mapped = face;
