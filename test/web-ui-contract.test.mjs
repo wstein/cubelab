@@ -303,6 +303,10 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /manualStateLoadCanonical\.addEventListener\("click", \(\) => loadManualStateIntoSetup\(true\)\)/);
   assert.match(client, /format === "canonical-compact" \|\| format === "canonical-spaced"/);
   assert.match(client, /canonicalManualStateFacelets\(manualSize\)[\s\S]{0,300}toSpacedFacelets\(canonicalFacelets, manualSize\)/);
+  assert.match(client, /type ManualStateEraseScope = "sticker" \| "cubie" \| "orbit"/);
+  assert.match(client, /scope === "orbit"[\s\S]{0,200}manualStateStickerOrbitIndices/);
+  assert.match(client, /event\.altKey[\s\S]{0,200}event\.shiftKey \? "orbit" : "cubie"/);
+  assert.match(client, /const scope: ManualStateEraseScope = event\.altKey[\s\S]{0,200}"orbit"[\s\S]{0,200}event\.shiftKey[\s\S]{0,200}"cubie"/);
   assert.match(client, /allowedManualStateColours\(manualSize, manualStateDraft, index\)/);
   assert.match(client, /fillForcedManualStateColours\(manualSize, source\)/);
   assert.match(client, /fillLocallyForcedManualStateColours\(manualSize, source\)/);
@@ -393,10 +397,10 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /data-manual-state-size="5"[\s\S]*\.manual-state-main/);
   assert.match(client, /const remaining = total - entered;[\s\S]*remainingLabel\.textContent = "Remaining"/);
   assert.doesNotMatch(client, /if \(remaining === 0\) return;/);
-  assert.match(client, /if \(key === "E"\) \{[\s\S]*eraseManualStateSticker\(index\)/);
+  assert.match(client, /if \(key === "E"\) \{[\s\S]{0,500}eraseManualStateAt\(index, scope\)/);
   assert.match(client, /const manualStateColourKeys:[\s\S]*W: "U"[\s\S]*G: "F"[\s\S]*Y: "D"[\s\S]*O: "L"/);
   assert.match(client, /const colour = manualStateColourKeys\[key\];[\s\S]*paintManualStateSticker\(index, colour\)/);
-  assert.match(client, /if \(manualStateAutoIndices\.has\(index\)\) return;/);
+  assert.match(client, /if \(!targets\.some\(\(target\) => manualStateExplicitIndices\.has\(target\)\)\) return false/);
   assert.match(client, /const fixManualStateAutoSticker = \(index: number, recordAction = true\): boolean => \{[\s\S]*paintManualStateSticker\(index, colour, recordAction\)/);
   assert.match(client, /if \(fixManualStateAutoSticker\(index\)\) return;/);
   assert.match(client, /sticker\.dataset\.centre = String\(centre\)/);

@@ -67,6 +67,7 @@ import {
   manualStateFaces,
   manualStateFrameStatus,
   manualStatePieceMates,
+  manualStateStickerOrbitIndices,
   manualStateViewDestination,
   manualStateLocalConstraintIndices,
   manualStateOrbits,
@@ -1316,25 +1317,49 @@ if (root) {
     syncManualStateHistoryControls();
   };
 
-  // Shared by the flat net, both preview cubes, and the keyboard shortcut:
-  // one place decides whether a sticker can take a colour and applies it.
-  const eraseManualStateSticker = (index: number, recordAction = true) => {
-    if (manualStateAutoIndices.has(index)) return;
-    if (manualStateDraft[index] === null) return;
-    const actionStart = recordAction ? captureManualStateSnapshot() : null;
+  type ManualStateEraseScope = "sticker" | "cubie" | "orbit";
+  const manualStateEraseTargets = (
+    manualSize: ManualStateSize,
+    index: number,
+    scope: ManualStateEraseScope,
+  ): number[] => {
+    if (scope === "orbit") return manualStateStickerOrbitIndices(manualSize, index);
+    if (scope === "cubie") return [index, ...manualStatePieceMates(manualSize, index)];
+    return [index];
+  };
+
+  // Shared by click, drag, and keyboard erasing. A multi-sticker erase clears
+  // every authored sticker first, then runs inference and rendering once, so
+  // the whole cubie/orbit is one undoable action rather than a sequence of
+  // intermediate states.
+  const eraseManualStateAt = (
+    index: number,
+    scope: ManualStateEraseScope = "sticker",
+    recordAction = true,
+  ): boolean => {
     const manualSize = size as ManualStateSize;
+    const targets = [...new Set(manualStateEraseTargets(manualSize, index, scope))]
+      .filter((target) => target >= 0 && target < manualStateDraft.length);
+    if (!targets.some((target) => manualStateExplicitIndices.has(target))) return false;
+    const actionStart = recordAction ? captureManualStateSnapshot() : null;
     const before = [...manualStateDraft];
-    manualStateDraft[index] = null;
+    targets.forEach((target) => {
+      manualStateDraft[target] = null;
+      manualStateExplicitIndices.delete(target);
+      manualStateAutoIndices.delete(target);
+      manualStateDeadIndices.delete(target);
+      const sticker = manualStateStickerElements[target];
+      if (sticker) delete sticker.dataset.dead;
+    });
     touchManualStateDraft();
-    manualStateExplicitIndices.delete(index);
-    manualStateAutoIndices.delete(index);
-    manualStateDeadIndices.delete(index);
-    const sticker = manualStateStickerElements[index];
-    if (sticker) delete sticker.dataset.dead;
     refreshManualStateAutoFill(manualSize, true, before);
     renderManualStateEditor();
     if (actionStart) commitManualStateAction(actionStart);
+    return true;
   };
+
+  const eraseManualStateSticker = (index: number, recordAction = true) =>
+    eraseManualStateAt(index, "sticker", recordAction);
 
   const resetManualStateColour = (face: ManualStateFace) => {
     const actionStart = captureManualStateSnapshot();
@@ -8090,6 +8115,10 @@ if (root) {
       // into the palette below, and a same-click repaint here would race it,
       // clobbering the original colour before the double-click could read
       // it. Shift-click still erases a filled sticker in one step either way.
+      if (event.altKey) {
+        eraseManualStateAt(index, event.shiftKey ? "orbit" : "cubie");
+        return;
+      }
       if (event.shiftKey) {
         eraseManualStateSticker(index);
         return;
@@ -8155,6 +8184,14 @@ if (root) {
       if (event.button !== 0) return;
       const index = manualStateStickerAt(event);
       if (index === null) return;
+      if (event.altKey) {
+        event.preventDefault();
+        setManualStateCursor(index, true);
+        suppressManualStateClick = true;
+        window.setTimeout(() => { suppressManualStateClick = false; }, 0);
+        eraseManualStateAt(index, event.shiftKey ? "orbit" : "cubie");
+        return;
+      }
       const dot = (event.target as Element | null)?.closest<HTMLElement>(".manual-state-dots i")
         ?? (document.elementFromPoint(event.clientX, event.clientY) as Element | null)?.closest<HTMLElement>(".manual-state-dots i");
       const dotFace = !event.shiftKey && dot?.dataset.face ? (dot.dataset.face as ManualStateFace) : null;
@@ -8342,7 +8379,12 @@ if (root) {
       if (key === "E") {
         event.preventDefault();
         event.stopPropagation();
-        eraseManualStateSticker(index);
+        const scope: ManualStateEraseScope = event.altKey
+          ? "orbit"
+          : event.shiftKey
+          ? "cubie"
+          : "sticker";
+        eraseManualStateAt(index, scope);
         return;
       }
       // C used to erase here. Keep it from reaching the page-level camera
