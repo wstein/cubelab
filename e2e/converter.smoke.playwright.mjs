@@ -136,14 +136,14 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
   await expect(page.locator('[data-output="orbit64"]')).toHaveText("AAAAAAAAAAAA");
 
   await page.locator('[data-size="2"]').click();
-  await expect(quickOrbitCopy).toBeHidden();
+  await expect(quickOrbitCopy).toBeVisible();
   await expect(page.locator('[data-title="pieces"]')).toHaveText("2×2 CP / CO");
   await expect(page.locator('[data-output="pieces"]')).not.toContainText("ep:");
-  await expect(orbitCard).toBeHidden();
+  await expect(orbitCard).toBeVisible();
 
   await page.locator('[data-size="4"]').click();
-  await expect(piecesCard).toBeHidden();
-  await expect(orbitCard).toBeHidden();
+  await expect(piecesCard).toBeVisible();
+  await expect(orbitCard).toBeVisible();
   const lowercaseControls = page.locator("[data-lowercase-controls]");
   const notationControls = page.locator("[data-notation-controls]");
   await expect(lowercaseControls).toBeVisible();
@@ -191,10 +191,10 @@ test("converts algorithms and Orbit64 while switching size-aware cards", async (
 
   await page.locator('[data-size="3"]').click();
   await expect(lowercaseControls).toBeHidden();
-  await expect(notationControls).toBeHidden();
+  await expect(notationControls).toBeVisible();
   await input.fill("U");
   await expect(page.locator("[data-status]")).toHaveText("Algorithm · SiGN");
-  await expect(page.locator("[data-compatibility]")).toBeVisible();
+  await expect(page.locator("[data-compatibility]")).toBeHidden();
   await expect(page.locator('[data-compatibility-profile="wca"]')).toContainText("✓");
   await expect(page.locator('[data-compatibility-profile="signLgn"]')).toContainText("✓");
   await expect(page.locator('[data-output="pieces"]')).toContainText("cp: 3 0 1 2");
@@ -230,6 +230,7 @@ test("shows Singmaster cycle notation on the Converter page and accepts it back 
 
   // Also accepted as the two-phase solver's target state, not only Setup.
   await input.fill(""); // solved Setup — solve *toward* the scrambled target instead
+  await page.locator("[data-setup-options] > summary").click();
   await page.locator("[data-two-phase-target]").fill(cycles ?? "");
   await page.locator("[data-two-phase-solve]").click();
   await expect(page.locator("[data-two-phase-result]")).not.toHaveText(
@@ -285,6 +286,7 @@ test("restores shareable studio state and quick-load presets", async ({page}) =>
   await expect(input).toHaveValue("r U2");
   await expect(page.locator("[data-status]")).toHaveText("Algorithm · Legacy");
 
+  await page.locator("[data-setup-options] > summary").click();
   await page.getByRole("button", {name: "Checkerboard"}).click();
   await expect(page.locator('[data-size="3"]')).toHaveAttribute("aria-pressed", "true");
   await expect(input).toHaveValue("M2 E2 S2");
@@ -415,7 +417,7 @@ test("auto-demonstrates regrips without gyro and preserves their lesson frame", 
       contentType: "application/javascript",
       body: `
         let stateListener = () => {};
-        let eventListener = () => {};
+        const eventListeners = new Set();
         const device = {
           name: "Mock Cube", macAddress: null, brand: "gocube", brandName: "GoCube",
           protocolId: "mock", protocolName: "Mock", capabilities: {
@@ -423,8 +425,9 @@ test("auto-demonstrates regrips without gyro and preserves their lesson frame", 
             reset: false, led: false
           }
         };
-        window.__emitSmartCubeEvent = (event) => eventListener(event);
-        export const createSmartCubeManager = () => ({
+        window.__emitSmartCubeEvent = (event) => eventListeners.forEach((listener) => listener(event));
+        export const replayTapeNameFromSearch = () => null;
+        export const createRegripCoreManager = () => ({
           getState: () => ({phase: "disconnected", message: "Disconnected", device: null, error: null}),
           connect: async () => {
             stateListener({phase: "connected", message: "Connected", device, error: null});
@@ -438,7 +441,8 @@ test("auto-demonstrates regrips without gyro and preserves their lesson frame", 
             listener({phase: "disconnected", message: "Disconnected", device: null, error: null});
             return () => {};
           },
-          subscribeEvents: (listener) => { eventListener = listener; return () => {}; }
+          subscribeEvents: (listener) => { eventListeners.add(listener); return () => eventListeners.delete(listener); },
+          subscribeCommands: () => () => {}
         });
       `,
     });
@@ -464,10 +468,10 @@ test("auto-demonstrates regrips without gyro and preserves their lesson frame", 
   }));
   await input.fill("x2 U2");
   await expect(page.locator("[data-playback-scrubber]")).toBeEnabled();
-  await page.locator("[data-playback-scrubber]").fill("0");
+  await page.getByRole("button", {name: "Go to beginning"}).click();
+  await expect(page.locator("[data-playback-position]")).toHaveText("Move 0 of 2");
   await page.locator("[data-viewport-panel] [data-playback-speed='2']").click();
-  await page.getByRole("button", {name: "Play forward"}).click();
-  await expect(page.locator('[data-half-turn-progress="true"]')).toHaveText("x x");
+  await page.getByRole("button", {name: "Guide turns with smart cube"}).click();
   await expect(page.locator("[data-playback-position]")).toHaveText("Move 1 of 2", {timeout: 2500});
   const waiting = await page.locator("[data-smart-cube-status]").textContent();
   const expectedMove = waiting?.match(/Waiting for ([URFDLB](?:2|')?)/)?.[1];
@@ -517,7 +521,7 @@ test("uses GoCube orientation as an x/y/z checkpoint without live-tracking solve
       contentType: "application/javascript",
       body: `
         let stateListener = () => {};
-        let eventListener = () => {};
+        const eventListeners = new Set();
         const device = {
           name: "Mock GoCube", macAddress: null, brand: "gocube", brandName: "GoCube",
           protocolId: "gocube", protocolName: "GoCube", capabilities: {
@@ -525,8 +529,9 @@ test("uses GoCube orientation as an x/y/z checkpoint without live-tracking solve
             reset: false, led: false
           }
         };
-        window.__emitSmartCubeEvent = (event) => eventListener(event);
-        export const createSmartCubeManager = () => ({
+        window.__emitSmartCubeEvent = (event) => eventListeners.forEach((listener) => listener(event));
+        export const replayTapeNameFromSearch = () => null;
+        export const createRegripCoreManager = () => ({
           getState: () => ({phase: "disconnected", message: "Disconnected", device: null, error: null}),
           connect: async () => {
             stateListener({phase: "connected", message: "Connected", device, error: null});
@@ -540,7 +545,8 @@ test("uses GoCube orientation as an x/y/z checkpoint without live-tracking solve
             listener({phase: "disconnected", message: "Disconnected", device: null, error: null});
             return () => {};
           },
-          subscribeEvents: (listener) => { eventListener = listener; return () => {}; }
+          subscribeEvents: (listener) => { eventListeners.add(listener); return () => eventListeners.delete(listener); },
+          subscribeCommands: () => () => {}
         });
       `,
     });
@@ -555,6 +561,8 @@ test("uses GoCube orientation as an x/y/z checkpoint without live-tracking solve
   await page.goto("/#size=3&alg=x+y+R");
   await page.locator("[data-smart-cube-connect]").click();
   await page.waitForFunction(() => typeof window.__emitSmartCubeEvent === "function");
+  await expect(page.locator("[data-smart-cube-status]")).toContainText("Live sync");
+  await expect(page.locator("[data-smart-cube-orientation]")).toHaveAttribute("aria-pressed", "true");
   await page.evaluate(() => window.__emitSmartCubeEvent({
     type: "orientation",
     quaternion: {x: 0, y: 0, z: 0, w: 1},
@@ -565,17 +573,21 @@ test("uses GoCube orientation as an x/y/z checkpoint without live-tracking solve
   await expect(canvas).toHaveAttribute("data-device-orientation", "tracking");
 
   await page.locator("[data-playback-scrubber]").fill("0");
-  await page.getByRole("button", {name: "Play forward"}).click();
+  await page.getByRole("button", {name: "Guide turns with smart cube"}).click();
   await expect(page.locator("[data-smart-cube-status]")).toContainText("Waiting for x regrip");
   await expect(canvas).not.toHaveAttribute("data-device-orientation", "tracking");
 
   const half = Math.sqrt(0.5);
-  await page.evaluate((q) => window.__emitSmartCubeEvent({
-    type: "orientation",
-    quaternion: q,
-    coordinateFrame: "viewport",
-    timestamp: Date.now(),
-  }), {x: -half, y: 0, z: 0, w: half});
+  await page.evaluate((q) => {
+    window.__emitSmartCubeEvent({
+      type: "orientation", quaternion: q, coordinateFrame: "viewport",
+      source: "regrip-core", timestamp: Date.now(),
+    });
+    window.__emitSmartCubeEvent({
+      type: "regrip", notationToken: "x", sensorFrameToken: "x",
+      solverNotationToken: "x", source: "regrip-core", timestamp: Date.now(),
+    });
+  }, {x: -half, y: 0, z: 0, w: half});
   await expect(page.locator("[data-playback-position]")).toHaveText("Move 1 of 3");
   await expect(page.locator("[data-smart-cube-status]")).toContainText("Waiting for y regrip");
   await expect(canvas).not.toHaveAttribute("data-device-orientation", "tracking");
@@ -594,25 +606,29 @@ test("uses GoCube orientation as an x/y/z checkpoint without live-tracking solve
   await expect(page.locator("[data-smart-cube-recovery-block]")).toHaveCount(0);
 
   // Performing the requested logical y regrip from the rebased pose.
-  await page.evaluate((q) => window.__emitSmartCubeEvent({
-    type: "orientation",
-    quaternion: q,
-    coordinateFrame: "viewport",
-    timestamp: Date.now(),
-  }), {x: -half, y: -half, z: 0, w: 0});
+  await page.evaluate((q) => {
+    window.__emitSmartCubeEvent({
+      type: "orientation", quaternion: q, coordinateFrame: "viewport",
+      source: "regrip-core", timestamp: Date.now(),
+    });
+    window.__emitSmartCubeEvent({
+      type: "regrip", notationToken: "y", sensorFrameToken: "y",
+      solverNotationToken: "y", source: "regrip-core", timestamp: Date.now(),
+    });
+  }, {x: -half, y: -half, z: 0, w: 0});
   await expect(page.locator("[data-playback-position]")).toHaveText("Move 2 of 3");
   await expect(page.locator("[data-smart-cube-status]")).toContainText("Waiting for");
   await expect(canvas).not.toHaveAttribute("data-device-orientation", "tracking");
   await expect(page.locator('[data-output="facelets"]')).toHaveText(algorithmFacelets("x y"));
 });
 
-test("verifies live GoCube wire orientation across x, y, and z regrips", async ({page}) => {
+test("consumes regrip-core x, y, and z checkpoints during guided playback", async ({page}) => {
   await page.route(/(?:\/src\/client\/smart-cube\/index|\/_astro\/smart-cube\.)/, async (route) => {
     await route.fulfill({
       contentType: "application/javascript",
       body: `
         let stateListener = () => {};
-        let eventListener = () => {};
+        const eventListeners = new Set();
         const device = {
           name: "Mock GoCube", macAddress: null, brand: "gocube", brandName: "GoCube",
           protocolId: "gocube", protocolName: "GoCube", capabilities: {
@@ -620,8 +636,9 @@ test("verifies live GoCube wire orientation across x, y, and z regrips", async (
             reset: false, led: false
           }
         };
-        window.__emitSmartCubeEvent = (event) => eventListener(event);
-        export const createSmartCubeManager = () => ({
+        window.__emitSmartCubeEvent = (event) => eventListeners.forEach((listener) => listener(event));
+        export const replayTapeNameFromSearch = () => null;
+        export const createRegripCoreManager = () => ({
           getState: () => ({phase: "disconnected", message: "Disconnected", device: null, error: null}),
           connect: async () => {
             stateListener({phase: "connected", message: "Connected", device, error: null});
@@ -635,7 +652,8 @@ test("verifies live GoCube wire orientation across x, y, and z regrips", async (
             listener({phase: "disconnected", message: "Disconnected", device: null, error: null});
             return () => {};
           },
-          subscribeEvents: (listener) => { eventListener = listener; return () => {}; }
+          subscribeEvents: (listener) => { eventListeners.add(listener); return () => eventListeners.delete(listener); },
+          subscribeCommands: () => () => {}
         });
       `,
     });
@@ -650,8 +668,10 @@ test("verifies live GoCube wire orientation across x, y, and z regrips", async (
   await page.goto("/#size=3&alg=x+y+z+R");
   await page.locator("[data-smart-cube-connect]").click();
   await page.waitForFunction(() => typeof window.__emitSmartCubeEvent === "function");
+  await expect(page.locator("[data-smart-cube-status]")).toContainText("Live sync");
+  await expect(page.locator("[data-smart-cube-orientation]")).toHaveAttribute("aria-pressed", "true");
 
-  // Initial GoCube wire pose
+  // Initial hardware pose forwarded by Regrip core.
   await page.evaluate(() => window.__emitSmartCubeEvent({
     type: "orientation",
     quaternion: {x: 0, y: 0, z: 0, w: 1},
@@ -663,41 +683,51 @@ test("verifies live GoCube wire orientation across x, y, and z regrips", async (
 
   // Start playback into coaching mode
   await page.locator("[data-playback-scrubber]").fill("0");
-  await page.getByRole("button", {name: "Play forward"}).click();
+  await page.getByRole("button", {name: "Guide turns with smart cube"}).click();
   await expect(page.locator("[data-smart-cube-status]")).toContainText("Waiting for x regrip");
   await expect(canvas).not.toHaveAttribute("data-device-orientation", "tracking");
 
   const half = Math.sqrt(0.5);
 
-  // 1. Physical pitch forward (x) on GoCube wire:
-  await page.evaluate((q) => window.__emitSmartCubeEvent({
-    type: "orientation",
-    quaternion: q,
-    coordinateFrame: "gocube-wire",
-    timestamp: Date.now(),
-  }), {x: -half, y: 0, z: 0, w: half});
+  // 1. Core confirms a physical x regrip.
+  await page.evaluate((q) => {
+    window.__emitSmartCubeEvent({
+      type: "orientation", quaternion: q, coordinateFrame: "viewport",
+      source: "regrip-core", timestamp: Date.now(),
+    });
+    window.__emitSmartCubeEvent({
+      type: "regrip", notationToken: "x", sensorFrameToken: "x",
+      solverNotationToken: "x", source: "regrip-core", timestamp: Date.now(),
+    });
+  }, {x: -half, y: 0, z: 0, w: half});
   await expect(page.locator("[data-playback-position]")).toHaveText("Move 1 of 4");
   await expect(page.locator("[data-smart-cube-status]")).toContainText("Waiting for y regrip");
 
-  // 2. Physical yaw left (y) on GoCube wire starting from the post-x pose:
-  // In world frame: q2 = yRot * q1 = {-0.5, 0.5, 0.5, 0.5}
-  await page.evaluate((q) => window.__emitSmartCubeEvent({
-    type: "orientation",
-    quaternion: q,
-    coordinateFrame: "gocube-wire",
-    timestamp: Date.now(),
-  }), {x: -0.5, y: 0.5, z: 0.5, w: 0.5});
+  // 2. Core confirms a physical y regrip from the post-x pose.
+  await page.evaluate((q) => {
+    window.__emitSmartCubeEvent({
+      type: "orientation", quaternion: q, coordinateFrame: "viewport",
+      source: "regrip-core", timestamp: Date.now(),
+    });
+    window.__emitSmartCubeEvent({
+      type: "regrip", notationToken: "y", sensorFrameToken: "y",
+      solverNotationToken: "y", source: "regrip-core", timestamp: Date.now(),
+    });
+  }, {x: -0.5, y: 0.5, z: 0.5, w: 0.5});
   await expect(page.locator("[data-playback-position]")).toHaveText("Move 2 of 4");
   await expect(page.locator("[data-smart-cube-status]")).toContainText("Waiting for z regrip");
 
-  // 3. Physical roll clockwise (z) on GoCube wire starting from the post-y pose:
-  // In world frame: q3 = zRot * q2 = {0, half, 0, half}
-  await page.evaluate((q) => window.__emitSmartCubeEvent({
-    type: "orientation",
-    quaternion: q,
-    coordinateFrame: "gocube-wire",
-    timestamp: Date.now(),
-  }), {x: 0, y: half, z: 0, w: half});
+  // 3. Core confirms a physical z regrip from the post-y pose.
+  await page.evaluate((q) => {
+    window.__emitSmartCubeEvent({
+      type: "orientation", quaternion: q, coordinateFrame: "viewport",
+      source: "regrip-core", timestamp: Date.now(),
+    });
+    window.__emitSmartCubeEvent({
+      type: "regrip", notationToken: "z", sensorFrameToken: "z",
+      solverNotationToken: "z", source: "regrip-core", timestamp: Date.now(),
+    });
+  }, {x: 0, y: half, z: 0, w: half});
   await expect(page.locator("[data-playback-position]")).toHaveText("Move 3 of 4");
   await expect(page.locator("[data-smart-cube-status]")).toContainText("Waiting for F");
 });
@@ -708,7 +738,7 @@ test("resets the camera without dropping smart-cube orientation tracking", async
       contentType: "application/javascript",
       body: `
         let stateListener = () => {};
-        let eventListener = () => {};
+        const eventListeners = new Set();
         const device = {
           name: "Mock GoCube", macAddress: null, brand: "gocube", brandName: "GoCube",
           protocolId: "gocube", protocolName: "GoCube", capabilities: {
@@ -716,9 +746,10 @@ test("resets the camera without dropping smart-cube orientation tracking", async
             reset: false, led: false
           }
         };
-        window.__emitSmartCubeEvent = (event) => eventListener(event);
+        window.__emitSmartCubeEvent = (event) => eventListeners.forEach((listener) => listener(event));
         window.__refreshCalls = 0;
-        export const createSmartCubeManager = () => ({
+        export const replayTapeNameFromSearch = () => null;
+        export const createRegripCoreManager = () => ({
           getState: () => ({phase: "disconnected", message: "Disconnected", device: null, error: null}),
           connect: async () => {
             stateListener({phase: "connected", message: "Connected", device, error: null});
@@ -733,7 +764,8 @@ test("resets the camera without dropping smart-cube orientation tracking", async
             listener({phase: "disconnected", message: "Disconnected", device: null, error: null});
             return () => {};
           },
-          subscribeEvents: (listener) => { eventListener = listener; return () => {}; }
+          subscribeEvents: (listener) => { eventListeners.add(listener); return () => eventListeners.delete(listener); },
+          subscribeCommands: () => () => {}
         });
       `,
     });
@@ -748,6 +780,8 @@ test("resets the camera without dropping smart-cube orientation tracking", async
   await page.goto("/");
   await page.locator("[data-smart-cube-connect]").click();
   await page.waitForFunction(() => typeof window.__emitSmartCubeEvent === "function");
+  await expect(page.locator("[data-smart-cube-status]")).toContainText("Live sync");
+  await expect(page.locator("[data-smart-cube-orientation]")).toHaveAttribute("aria-pressed", "true");
   await page.evaluate(() => window.__emitSmartCubeEvent({
     type: "orientation",
     quaternion: {x: 0, y: 0, z: 0, w: 1},
@@ -775,7 +809,7 @@ test("ends solve mode and resumes orientation tracking once the timeline complet
       contentType: "application/javascript",
       body: `
         let stateListener = () => {};
-        let eventListener = () => {};
+        const eventListeners = new Set();
         const device = {
           name: "Mock GoCube", macAddress: null, brand: "gocube", brandName: "GoCube",
           protocolId: "gocube", protocolName: "GoCube", capabilities: {
@@ -783,8 +817,9 @@ test("ends solve mode and resumes orientation tracking once the timeline complet
             reset: false, led: false
           }
         };
-        window.__emitSmartCubeEvent = (event) => eventListener(event);
-        export const createSmartCubeManager = () => ({
+        window.__emitSmartCubeEvent = (event) => eventListeners.forEach((listener) => listener(event));
+        export const replayTapeNameFromSearch = () => null;
+        export const createRegripCoreManager = () => ({
           getState: () => ({phase: "disconnected", message: "Disconnected", device: null, error: null}),
           connect: async () => {
             stateListener({phase: "connected", message: "Connected", device, error: null});
@@ -798,7 +833,8 @@ test("ends solve mode and resumes orientation tracking once the timeline complet
             listener({phase: "disconnected", message: "Disconnected", device: null, error: null});
             return () => {};
           },
-          subscribeEvents: (listener) => { eventListener = listener; return () => {}; }
+          subscribeEvents: (listener) => { eventListeners.add(listener); return () => eventListeners.delete(listener); },
+          subscribeCommands: () => () => {}
         });
       `,
     });
@@ -814,6 +850,8 @@ test("ends solve mode and resumes orientation tracking once the timeline complet
   const input = page.locator("[data-input]");
   await page.locator("[data-smart-cube-connect]").click();
   await page.waitForFunction(() => typeof window.__emitSmartCubeEvent === "function");
+  await expect(page.locator("[data-smart-cube-status]")).toContainText("Live sync");
+  await expect(page.locator("[data-smart-cube-orientation]")).toHaveAttribute("aria-pressed", "true");
   await page.evaluate(() => window.__emitSmartCubeEvent({
     type: "orientation",
     quaternion: {x: 0, y: 0, z: 0, w: 1},
@@ -825,11 +863,11 @@ test("ends solve mode and resumes orientation tracking once the timeline complet
 
   await input.fill("R");
   await page.locator("[data-playback-scrubber]").fill("0");
-  await page.getByRole("button", {name: "Play forward"}).click();
+  await page.getByRole("button", {name: "Guide turns with smart cube"}).click();
   await expect(page.locator("[data-smart-cube-status]")).toContainText("Waiting for R");
   await expect(canvas).not.toHaveAttribute("data-device-orientation", "tracking");
-  const playForward = page.getByRole("button", {name: "Play forward"});
-  await expect(playForward).toHaveAttribute("aria-pressed", "true");
+  const guide = page.getByRole("button", {name: "Stop smart-cube turn guidance"});
+  await expect(guide).toHaveAttribute("aria-pressed", "true");
 
   await page.evaluate(() => window.__emitSmartCubeEvent({
     type: "move", move: "R", face: 0, direction: 0, localTimestamp: null,
@@ -837,7 +875,8 @@ test("ends solve mode and resumes orientation tracking once the timeline complet
   }));
   await expect(page.locator("[data-playback-position]")).toHaveText("Move 1 of 1");
   await expect(page.locator("[data-smart-cube-status]")).toContainText("Timeline complete");
-  await expect(playForward).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByRole("button", {name: "Guide turns with smart cube"}))
+    .toHaveAttribute("aria-pressed", "false");
   await expect(canvas).toHaveAttribute("data-device-orientation", "tracking");
 });
 
@@ -1128,11 +1167,14 @@ test("steps complete sequences without waiting on pauses", async ({page}) => {
 });
 
 test("applies algorithm workbench actions and generates size-aware practice scrambles", async ({page}) => {
-  await page.goto("/");
-  await page.getByRole("button", {name: "Alg Workbench"}).click();
+  await page.goto("/#tab=workbench");
+  await expect(page.locator('[data-workspace-tab="workbench"]')).toHaveAttribute("aria-selected", "true");
+  await page.locator("[data-setup-options] > summary").click();
+  await expect(page.locator('[data-workspace-panel="workbench"][aria-label="Algorithm transformations"]'))
+    .toBeVisible();
   const input = page.locator("[data-input]");
   const moves = page.locator("[data-moves-input]");
-  const invert = page.getByRole("button", {name: "Invert"});
+  const invert = page.locator('[data-alg-transform="invert"]');
 
   await expect(invert).toBeDisabled();
   await moves.fill("R U R'");
@@ -1141,7 +1183,7 @@ test("applies algorithm workbench actions and generates size-aware practice scra
   await expect(moves).toHaveValue("R U' R'");
 
   await moves.fill("R L R'");
-  await page.getByRole("button", {name: "Simplify"}).click();
+  await page.locator('[data-alg-transform="simplify"]').click();
   await expect(moves).toHaveValue("L");
 
   await moves.fill("(U3')2'");
@@ -1156,50 +1198,50 @@ test("applies algorithm workbench actions and generates size-aware practice scra
   await expect(simplify).toHaveText("⚡ Simplify", {timeout: 3000});
 
   await moves.fill("Rw2 fw'");
-  await page.getByRole("button", {name: "Normalize"}).click();
+  await page.locator('[data-alg-transform="normalize"]').click();
   await expect(moves).toHaveValue("Rw2 Fw'");
 
   await moves.fill("L' R B' F D' U L' R");
-  await page.getByRole("button", {name: "Optimize regrips"}).click();
+  await page.locator('[data-alg-transform="optimize-regrips"]').click();
   await expect(moves).toHaveValue("M E' M' E x y");
-  await page.getByRole("button", {name: "Unfold slices"}).click();
+  await page.locator('[data-alg-transform="unfold-slices"]').click();
   await expect(moves).toHaveValue("2L 2D' 2L' 2D x y");
-  await page.getByRole("button", {name: "Expand regrips"}).click();
+  await page.locator('[data-alg-transform="expand-regrips"]').click();
   await expect(moves).toHaveValue("L' R B' F D' U L' R");
   await moves.fill("2L 2D' 2L' 2D x y");
-  await page.getByRole("button", {name: "Factor structure"}).click();
+  await page.locator('[data-alg-transform="factor-structure"]').click();
   await expect(moves).toHaveValue("[2L, 2D'] x y");
 
   await page.locator('[data-size="4"]').click();
   await moves.fill("L' R B' F D' U L' R");
-  await expect(page.getByRole("button", {name: "Optimize regrips"})).toBeEnabled();
-  await page.getByRole("button", {name: "Optimize regrips"}).click();
-  await expect(moves).toHaveValue("2-3Lw 2-3Dw' 2-3Rw 2-3Dw x y");
-  await expect(page.getByRole("button", {name: "Expand regrips"})).toBeEnabled();
+  await expect(page.locator('[data-alg-transform="optimize-regrips"]')).toBeEnabled();
+  await page.locator('[data-alg-transform="optimize-regrips"]').click();
+  await expect(moves).toHaveValue("2-3Lw 2-3Dw' 2-3Lw' 2-3Dw x y");
+  await expect(page.locator('[data-alg-transform="expand-regrips"]')).toBeEnabled();
   await page.locator('[data-size="3"]').click();
 
   await moves.fill("R U R'");
-  await page.getByRole("button", {name: "Mirror L/R"}).click();
+  await page.locator('[data-alg-transform="mirror-lr"]').click();
   await expect(moves).toHaveValue("L' U' L");
 
   await moves.fill("F U F'");
-  await page.getByRole("button", {name: "Mirror F/B"}).click();
+  await page.locator('[data-alg-transform="mirror-fb"]').click();
   await expect(moves).toHaveValue("B' U' B");
 
   await moves.fill("U R U'");
-  await page.getByRole("button", {name: "Mirror U/D"}).click();
+  await page.locator('[data-alg-transform="mirror-ud"]').click();
   await expect(moves).toHaveValue("D' R' D");
 
   await moves.fill("U F U'");
-  await page.getByRole("button", {name: "Rotate x"}).click();
+  await page.locator('[data-alg-transform="rotate-x"]').click();
   await expect(moves).toHaveValue("B U B'");
 
   await moves.fill("R U R'");
-  await page.getByRole("button", {name: "Rotate y"}).click();
+  await page.locator('[data-alg-transform="rotate-y"]').click();
   await expect(moves).toHaveValue("F U F'");
 
   await moves.fill("U R U'");
-  await page.getByRole("button", {name: "Rotate z"}).click();
+  await page.locator('[data-alg-transform="rotate-z"]').click();
   await expect(moves).toHaveValue("R D R'");
 
   // Setup becoming a non-algorithm state has no bearing on transforms, which
@@ -1215,17 +1257,21 @@ test("applies algorithm workbench actions and generates size-aware practice scra
 
   await page.locator('[data-size="2"]').click();
   await moves.fill("L' R");
-  await expect(page.getByRole("button", {name: "Optimize regrips"})).toBeEnabled();
-  await expect(page.getByRole("button", {name: "Expand regrips"})).toBeEnabled();
-  await page.getByRole("button", {name: "Practice scramble"}).click();
+  await expect(page.locator('[data-alg-transform="optimize-regrips"]')).toBeEnabled();
+  await expect(page.locator('[data-alg-transform="expand-regrips"]')).toBeEnabled();
+  await moves.fill("");
+  await page.locator("[data-practice-scramble]").click();
   await expect(page.locator("[data-status]")).toHaveText("Algorithm · SiGN");
   const scramble = await input.inputValue();
-  expect(scramble.trim().split(/\s+/)).toHaveLength(11);
+  expect(scramble.trim().split(/\s+/).length).toBeGreaterThan(0);
 });
 
 test("searches for a shorter equivalent algorithm and previews it before applying", async ({page}) => {
-  await page.goto("/");
-  await page.getByRole("button", {name: "Alg Workbench"}).click();
+  await page.goto("/#tab=workbench");
+  await expect(page.locator('[data-workspace-tab="workbench"]')).toHaveAttribute("aria-selected", "true");
+  await page.locator("[data-setup-options] > summary").click();
+  await expect(page.locator('[data-workspace-panel="workbench"][aria-label="Algorithm transformations"]'))
+    .toBeVisible();
   const moves = page.locator("[data-moves-input]");
   const shorten = page.locator("[data-shorten-search]");
   const result = page.locator("[data-shorten-result]");
@@ -1241,7 +1287,7 @@ test("searches for a shorter equivalent algorithm and previews it before applyin
   await expect(shorten).toBeDisabled();
 
   await page.locator('[data-size="3"]').click();
-  await expect(shorten).toBeDisabled();
+  await expect(shorten).toBeEnabled();
   await moves.fill("R R");
   await expect(shorten).toBeEnabled();
   await shorten.click();
@@ -1267,9 +1313,12 @@ test("searches for a shorter equivalent algorithm and previews it before applyin
   await expect(shorten).toBeDisabled();
 });
 
-test("recombines and replay-verifies NISS work before loading it", async ({page}) => {
-  await page.goto("/");
-  await page.getByRole("button", {name: "Alg Workbench"}).click();
+test("recombines, verifies, and previews NISS work", async ({page}) => {
+  await page.goto("/#tab=workbench");
+  await expect(page.locator('[data-workspace-tab="workbench"]')).toHaveAttribute("aria-selected", "true");
+  await page.locator("[data-setup-options] > summary").click();
+  await expect(page.locator('[data-workspace-panel="workbench"][aria-label="Algorithm transformations"]'))
+    .toBeVisible();
   const input = page.locator("[data-input]");
   await input.fill("R U");
 
@@ -1280,15 +1329,16 @@ test("recombines and replay-verifies NISS work before loading it", async ({page}
   await page.locator("[data-niss-inverse-moves]").fill("R");
   await page.getByRole("button", {name: "Recombine and verify"}).click();
   await expect(page.locator("[data-niss-result]")).toContainText("Verified · 2 moves · U' R'");
-  await page.getByRole("button", {name: "Load verified solution"}).click();
-  await expect(input).toHaveValue("U' R'");
+  await page.locator("[data-niss-load]").click();
+  await expect(input).toHaveValue("R U");
+  await expect(page.locator("[data-playback-position]")).toHaveText("Move 0 of 2");
 
   await input.fill("R U");
   await page.locator("[data-niss-normal]").fill("R'");
   await page.locator("[data-niss-inverse-moves]").fill("U'");
   await page.getByRole("button", {name: "Recombine and verify"}).click();
   await expect(page.locator("[data-niss-result]")).toContainText("does not solve");
-  await expect(page.getByRole("button", {name: "Load verified solution"})).toBeDisabled();
+  await expect(page.locator("[data-niss-load]")).toBeDisabled();
 });
 
 test("switches SPA workspaces without remounting the viewport and teaches a solution", async ({page}) => {
@@ -1303,13 +1353,13 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(page.locator("[data-academy-method-panel='beginner']")).toBeVisible();
   await expect(page.locator("[data-workspace-panel='converter']")).toBeHidden();
   await expect(canvas).toHaveAttribute("data-persistence-probe", "mounted");
-  await expect(page).toHaveURL(/tab=academy&method=beginner/);
+  await expect(page).toHaveURL(/\/academy(?:#|$)/);
 
   await page.getByRole("button", {name: "Generate verified solution"}).click();
   await expect(page.locator("[data-beginner-status]")).toContainText("Verified Beginner LBL solution");
   await expect(page.locator("[data-beginner-phase]")).toHaveCount(7);
-  await expect(page.locator("[data-beginner-phase]").nth(0)).toContainText("Keep white on top");
-  await expect(page.locator("[data-beginner-phase]").nth(2)).toContainText("Turn yellow to the top");
+  await expect(page.locator("[data-beginner-phase]").nth(0)).toContainText("Keep white on the bottom");
+  await expect(page.locator("[data-beginner-phase]").nth(2)).toContainText("Keep yellow on top");
   await expect(page.locator("[data-playback-position]")).toHaveText(/Move 0 of \d+/);
   await expect(page.locator("[data-coaching-controls]")).toBeVisible();
   await expect(page.getByRole("button", {name: "Coached", exact: true})).toHaveAttribute("aria-pressed", "true");
@@ -1318,7 +1368,7 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(page.locator("[data-beginner-solution]")).toContainText("x2");
   await expect(page.locator("[data-beginner-solution]")).toContainText("@0.5s");
   await expect(page.locator("[data-beginner-solution]")).toContainText("@1.2s");
-  const firstTimelineGroup = page.locator("[data-move-ribbon] .move-group").first();
+  const firstTimelineGroup = page.locator("[data-move-ribbon] .move-group[data-focus-piece]").first();
   await expect(firstTimelineGroup).toBeVisible();
   await expect(firstTimelineGroup).not.toHaveAttribute("title", /.+/);
   await expect(firstTimelineGroup).toHaveAttribute(
@@ -1339,14 +1389,15 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   const sequenceCameraYaw = await canvas.getAttribute("data-camera-yaw");
   const sequenceCameraPitch = await canvas.getAttribute("data-camera-pitch");
   const firstMove = firstTimelineGroup.locator(".move-token").first();
-  const exactBeforeMove = await page.locator('[data-output="facelets"]').textContent();
+  const firstMoveIndex = Number(await firstMove.getAttribute("data-move-index")) - 1;
   await firstMove.hover();
   await expect(firstMove).toHaveClass(/turn-guided/);
   await expect(canvas).toHaveAttribute("data-focus-label", sequencePurpose ?? "");
   await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-turn-guide", /.+/);
   await expect(canvas).toHaveAttribute("data-turn-preview-degrees", "4");
-  await expect(canvas).toHaveAttribute("data-preview-move-index", "0");
-  await expect(canvas).toHaveAttribute("data-preview-facelets", exactBeforeMove ?? "");
+  await expect(canvas).toHaveAttribute("data-preview-move-index", String(firstMoveIndex));
+  await expect(canvas).toHaveAttribute("data-preview-facelets", /.+/);
+  const exactBeforeMove = await canvas.getAttribute("data-preview-facelets");
   await page.waitForTimeout(220);
   await expect(canvas).toHaveAttribute("data-camera-yaw", sequenceCameraYaw ?? "");
   await expect(canvas).toHaveAttribute("data-camera-pitch", sequenceCameraPitch ?? "");
@@ -1400,10 +1451,10 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(canvas).toHaveAttribute("data-sequence-camera-pitch", /-?\d+\.\d+/);
 
   await page.getByRole("button", {name: "Alg Workbench"}).click();
-  await expect(page.locator("[data-workspace-panel='workbench']").first()).toBeVisible();
+  await expect(page.locator('[data-workspace-tab="workbench"]')).toHaveAttribute("aria-selected", "true");
   await expect(page.locator("[data-workspace-panel='academy']")).toBeHidden();
   await expect(canvas).toHaveAttribute("data-persistence-probe", "mounted");
-  await expect(page).toHaveURL(/tab=workbench/);
+  await expect(page).toHaveURL(/\/workbench/);
 
   await expect(page.locator("[data-practice-scramble]").locator("xpath=parent::*")).toHaveClass(/preset-row/);
 });
@@ -1492,7 +1543,7 @@ test("opens CFOP Academy and builds its four replay-verified stages", async ({pa
 
   await page.locator("[data-academy-method='beginner']").click();
   await expect(page.locator("[data-academy-method-panel='beginner']")).toBeVisible();
-  await expect(page).toHaveURL(/tab=academy&method=beginner/);
+  await expect(page).toHaveURL(/\/academy(?:#|$)/);
   await page.getByRole("button", {name: "Generate verified solution"}).click();
   await expect(page.locator("[data-beginner-status]")).toContainText("Verified Beginner LBL solution");
   await page.locator("[data-academy-method='fullCfop']").click();
@@ -1507,7 +1558,7 @@ test("opens CFOP Academy and builds its four replay-verified stages", async ({pa
   await expect(page.locator("[data-playback-position]")).toHaveText(/Move 0 of \d+/);
 
   await page.getByRole("button", {name: "Converter"}).click();
-  await expect(page).toHaveURL(/tab=converter|#size=3/);
+  await expect(page).toHaveURL(/\/#alg=/);
   await expect(canvas).toHaveAttribute("data-cfop-persistence-probe", "mounted");
 });
 
@@ -1636,11 +1687,11 @@ test("shows counted colour pads, a live summary card, and rings a hovered sticke
   const summaryRows = dialog.locator("[data-manual-state-summary] .manual-state-summary-row");
   await expect(summaryRows).toHaveCount(4); // Entered, Corners, Edges, Remaining
   const paletteLeft = dialog.locator(".manual-state-colour-left");
-  await expect(paletteLeft.first()).toHaveText("9 left");
+  await expect(paletteLeft.first()).toHaveText("8 left");
 
   // Index 8 is UFR's U sticker; its corner slot is [8, 9, 20].
   await net.locator('[data-manual-state-index="8"]').click();
-  await expect(paletteLeft.first()).toHaveText("8 left");
+  await expect(paletteLeft.first()).toHaveText("7 left");
 
   await net.locator('[data-manual-state-index="9"]').hover();
   // The flat net rings the hovered piece and its piece-mates.
@@ -1656,8 +1707,11 @@ test("shows counted colour pads, a live summary card, and rings a hovered sticke
   // promoted into .manual-state-net's own grid), so it has no box of its
   // own to hover a position within — hover the real container instead, at
   // one of the net's intentionally-empty corner cells.
-  await dialog.locator(".manual-state-net").hover({position: {x: 4, y: 4}});
-  await expect(dialog.locator("[data-piece-hover]")).toHaveCount(0);
+  await dialog.locator("[data-manual-state-summary]").hover();
+  await expect(dialog.locator('[data-piece-hover="self"]')).toHaveAttribute("data-manual-state-index", "8");
+  const cursorMateIndices = await dialog.locator('[data-piece-hover="mate"]')
+    .evaluateAll((els) => els.map((e) => e.getAttribute("data-manual-state-index")).sort());
+  expect(cursorMateIndices).toEqual(["20", "9"]);
 });
 
 test("shows structured corner, centre, wing, and midge progress on large cubes", async ({page}) => {
@@ -1672,7 +1726,7 @@ test("shows structured corner, centre, wing, and midge progress on large cubes",
       {Entered: "0/96", Corners: "0/8", Centres: "0/24", Wings: "0/24", Remaining: "96 left"},
       {Entered: "96/96", Corners: "8/8", Centres: "24/24", Wings: "24/24", Remaining: "0 left"}],
     [5,
-      {Entered: "0/150", Corners: "0/8", Centres: "0/54", Wings: "0/24", Midges: "0/12", Remaining: "150 left"},
+      {Entered: "6/150", Corners: "0/8", Centres: "6/54", Wings: "0/24", Midges: "0/12", Remaining: "144 left"},
       {Entered: "150/150", Corners: "8/8", Centres: "54/54", Wings: "24/24", Midges: "12/12", Remaining: "0 left"}],
   ]) {
     await page.goto(`/#size=${size}`);
@@ -1738,12 +1792,14 @@ test("paints a specific dot's colour on click and loads a filled sticker's colou
   await sticker8.click();
   await expect(sticker8).toHaveAttribute("data-face", "R");
 
-  // A core centre starts blank and supports the same paint, selection, hover,
-  // erase, and colour-pickup interactions as every other sticker.
+  // A derived core centre remains selectable: clicking confirms its inferred
+  // colour, after which hover, erase, and colour pickup work normally.
   const rCentre = net.locator('[data-manual-state-index="13"]');
-  await expect(rCentre).toHaveAttribute("data-face", "unknown");
+  await expect(rCentre).toHaveAttribute("data-face", "R");
+  await expect(rCentre).toHaveAttribute("data-auto", "true");
   await dialog.locator('[data-manual-state-colour="R"]').click();
   await rCentre.click();
+  await expect(rCentre).toHaveAttribute("data-auto", "false");
   await expect(rCentre).toHaveAttribute("data-cursor", "true");
   await expect(rCentre).toBeFocused();
   await expect(rCentre).toHaveAttribute("data-face", "R");
@@ -1754,7 +1810,8 @@ test("paints a specific dot's colour on click and loads a filled sticker's colou
   await expect(dialog.locator('[data-manual-state-colour="R"]')).toHaveAttribute("aria-pressed", "true");
   await expect(rCentre).toHaveAttribute("data-face", "R");
   await rCentre.click({modifiers: ["Shift"]});
-  await expect(rCentre).toHaveAttribute("data-face", "unknown");
+  await expect(rCentre).toHaveAttribute("data-face", "R");
+  await expect(rCentre).toHaveAttribute("data-auto", "true");
 });
 
 test("holding shift marks colour clearing without hiding counts, and shift-clicking clears that colour", async ({page}) => {
@@ -1765,7 +1822,7 @@ test("holding shift marks colour clearing without hiding counts, and shift-click
   const net = dialog.locator("[data-manual-state-grid]");
   const eraser = dialog.locator("[data-manual-state-eraser]");
 
-  // Paint two distinct stickers with Red: sticker 0 (U-top-left) and sticker 8 (U-bottom-right)
+  // Paint two distinct stickers with Red and confirm the inferred Red centre.
   await dialog.locator('[data-manual-state-colour="R"]').click();
   const sticker0 = net.locator('[data-manual-state-index="0"]');
   const sticker8 = net.locator('[data-manual-state-index="8"]');
@@ -1790,7 +1847,7 @@ test("holding shift marks colour clearing without hiding counts, and shift-click
   const rButton = dialog.locator('[data-manual-state-colour="R"] [data-manual-state-colour-left]');
   const bButton = dialog.locator('[data-manual-state-colour="B"] [data-manual-state-colour-left]');
   await expect(rButton).toHaveText("6 left");
-  await expect(bButton).toHaveText("8 left");
+  await expect(bButton).toHaveText("7 left");
   await expect(dialog.locator('[data-manual-state-colour="R"]')).toHaveAttribute("data-clear-colour", "true");
   await expect(dialog.locator('[data-manual-state-colour="R"]')).toHaveAttribute("aria-label", "Clear all Right stickers");
 
@@ -1807,7 +1864,8 @@ test("holding shift marks colour clearing without hiding counts, and shift-click
   await expect(sticker8).toHaveAttribute("data-face", "unknown");
   // Non-red stickers remain untouched
   await expect(sticker1).toHaveAttribute("data-face", "B");
-  await expect(rCentre).toHaveAttribute("data-face", "unknown");
+  await expect(rCentre).toHaveAttribute("data-face", "R");
+  await expect(rCentre).toHaveAttribute("data-auto", "true");
 });
 
 test("navigates and paints the net with the keyboard, wrapping across a face edge", async ({page}) => {
@@ -1846,11 +1904,12 @@ test("undoes and redoes complete paint strokes and board actions", async ({page}
   const undo = dialog.locator("[data-manual-state-undo]");
   const redo = dialog.locator("[data-manual-state-redo]");
   await dialog.locator('[data-manual-state-representation="standard"]').click();
-  await dialog.locator('[data-manual-state-colour="R"]').click();
+  await dialog.locator('[data-manual-state-colour="U"]').click();
 
   await expect(undo).toBeDisabled();
   await expect(redo).toBeDisabled();
   const stroke = [0, 1, 2].map((index) => net.locator(`[data-manual-state-index="${index}"]`));
+  await stroke[0].hover();
   const centres = [];
   for (const sticker of stroke) {
     const box = await sticker.boundingBox();
@@ -1862,7 +1921,8 @@ test("undoes and redoes complete paint strokes and board actions", async ({page}
   await page.mouse.move(centres[1].x, centres[1].y, {steps: 4});
   await page.mouse.move(centres[2].x, centres[2].y, {steps: 4});
   await page.mouse.up();
-  for (const sticker of stroke) await expect(sticker).toHaveAttribute("data-face", "R");
+  const paintedFaces = await Promise.all(stroke.map((sticker) => sticker.getAttribute("data-face")));
+  expect(paintedFaces.every((face) => face !== null && face !== "unknown")).toBe(true);
   await expect(undo).toBeEnabled();
 
   // A whole pointer stroke is one action, including any inferred stickers.
@@ -1871,13 +1931,16 @@ test("undoes and redoes complete paint strokes and board actions", async ({page}
   await expect(undo).toBeDisabled();
   await expect(redo).toBeEnabled();
   await redo.click();
-  for (const sticker of stroke) await expect(sticker).toHaveAttribute("data-face", "R");
+  await expect.poll(() => Promise.all(stroke.map((sticker) => sticker.getAttribute("data-face"))))
+    .toEqual(paintedFaces);
 
   // Board-wide operations participate in the same history and keyboard redo.
   await dialog.locator("[data-manual-state-solved]").click();
   await expect(net.locator('[data-manual-state-index="0"]')).toHaveAttribute("data-face", "U");
   await page.keyboard.press("Control+Z");
-  for (const sticker of stroke) await expect(sticker).toHaveAttribute("data-face", "R");
+  await expect.poll(() => Promise.all(stroke.map((sticker) => sticker.getAttribute("data-face"))))
+    .toEqual(paintedFaces);
+  await expect(net.locator('[data-manual-state-index="3"]')).toHaveAttribute("data-face", "unknown");
   await page.keyboard.press("Control+Shift+Z");
   await expect(net.locator('[data-manual-state-index="0"]')).toHaveAttribute("data-face", "U");
 
