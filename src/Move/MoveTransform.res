@@ -77,6 +77,174 @@ let serializeMove = (move, turns) => {
   family ++ suffix(canonicalTurns(turns))
 }
 
+let serializeJaapMove = (move, turns) => {
+  let (family, direction) = switch move {
+  | FaceTurn(face, range) => {
+      let name = faceName(face)
+      let family = if range.from_ == 1 && range.to_ == 1 {
+        name
+      } else if range.from_ == 1 && range.to_ == 2 {
+        name ++ "w"
+      } else if range.from_ == 1 {
+        range.to_->Int.toString ++ name ++ "w"
+      } else if range.from_ == range.to_ {
+        range.from_->Int.toString ++ name
+      } else {
+        range.from_->Int.toString ++ "-" ++ range.to_->Int.toString ++ name ++ "w"
+      }
+      (family, 1)
+    }
+  | SliceTurn(M) => ("Rm", -1)
+  | SliceTurn(E) => ("Um", -1)
+  | SliceTurn(S) => ("Fm", 1)
+  | Rotation(X) => ("Rc", 1)
+  | Rotation(Y) => ("Uc", 1)
+  | Rotation(Z) => ("Fc", 1)
+  }
+  family ++ suffix(canonicalTurns(turns * direction))
+}
+
+let serializeSseMove = (move, turns, size) => {
+  let (family, direction) = switch move {
+  | FaceTurn(face, range) => {
+      let name = faceName(face)
+      let family = if range.from_ == 1 && range.to_ == 1 {
+        name
+      } else if range.from_ == 1 && size >= 3 {
+        "T" ++
+        if range.to_ == 2 {
+          ""
+        } else {
+          range.to_->Int.toString
+        } ++
+        name
+      } else if range.from_ == 1 && range.to_ == 2 {
+        name ++ "w"
+      } else if range.from_ == 1 {
+        range.to_->Int.toString ++ name ++ "w"
+      } else if size >= 4 && range.from_ == 2 && range.to_ == size - 1 {
+        "W" ++ name
+      } else if size >= 3 && range.from_ == (size - (range.to_ - range.from_ + 1)) / 2 + 1 {
+        let depth = range.to_ - range.from_ + 1
+        "M" ++
+        if depth == 1 {
+          ""
+        } else {
+          depth->Int.toString
+        } ++
+        name
+      } else if size == 5 {
+        "N" ++
+        range.from_->Int.toString ++
+        if range.to_ == range.from_ {
+          ""
+        } else {
+          "-" ++ range.to_->Int.toString
+        } ++
+        name
+      } else {
+        range.from_->Int.toString ++
+        if range.to_ == range.from_ {
+          ""
+        } else {
+          "-" ++ range.to_->Int.toString
+        } ++
+        name
+      }
+      (family, 1)
+    }
+  | SliceTurn(M) => ("MR", -1)
+  | SliceTurn(E) => ("MU", -1)
+  | SliceTurn(S) => ("MF", 1)
+  | Rotation(X) => ("CR", 1)
+  | Rotation(Y) => ("CU", 1)
+  | Rotation(Z) => ("CF", 1)
+  }
+  family ++ suffix(canonicalTurns(turns * direction))
+}
+
+let oppositeFace = face =>
+  switch face {
+  | U => D
+  | L => R
+  | F => B
+  | R => L
+  | B => F
+  | D => U
+  }
+
+let jaapOuterPair = (left, right) =>
+  switch (left.desc, right.desc) {
+  | (
+      Move(FaceTurn(leftFace, {from_: 1, to_: 1}), leftTurns),
+      Move(FaceTurn(rightFace, {from_: 1, to_: 1}), rightTurns),
+    ) if rightFace == oppositeFace(leftFace) => {
+      let leftTurns = canonicalTurns(leftTurns)
+      let rightTurns = canonicalTurns(rightTurns)
+      if leftTurns != 0 && leftTurns == rightTurns {
+        Some(faceName(leftFace) ++ "a" ++ suffix(leftTurns))
+      } else if leftTurns != 0 && leftTurns == -rightTurns {
+        Some(faceName(leftFace) ++ "s" ++ suffix(leftTurns))
+      } else {
+        None
+      }
+    }
+  | _ => None
+  }
+
+let rec serializeJaapUnit = unit =>
+  switch unit.desc {
+  | Move(move, turns) => serializeJaapMove(move, turns)
+  | Pause => "."
+  | TimedPause(seconds) => "@" ++ seconds->Float.toString ++ "s"
+  | BlockComment(text) => "/*" ++ text ++ "*/"
+  | Group(units, 1) if units->Array.length == 2 =>
+    switch jaapOuterPair(Belt.Array.getUnsafe(units, 0), Belt.Array.getUnsafe(units, 1)) {
+    | Some(pair) => pair
+    | None => "(" ++ serializeJaap(units) ++ ")"
+    }
+  | Group(units, repeat) => "(" ++ serializeJaap(units) ++ ")" ++ suffix(repeat)
+  | Commutator(left, right, repeat) =>
+    "[" ++ serializeJaap(left) ++ ", " ++ serializeJaap(right) ++ "]" ++ suffix(repeat)
+  | Conjugate(left, right, repeat) =>
+    "[" ++ serializeJaap(left) ++ ": " ++ serializeJaap(right) ++ "]" ++ suffix(repeat)
+  }
+
+and serializeJaapFrom = (alg, index, output) =>
+  if index >= alg->Array.length {
+    output->Array.join(" ")
+  } else if index + 1 < alg->Array.length {
+    switch jaapOuterPair(Belt.Array.getUnsafe(alg, index), Belt.Array.getUnsafe(alg, index + 1)) {
+    | Some(pair) => serializeJaapFrom(alg, index + 2, output->Array.concat([pair]))
+    | None =>
+      serializeJaapFrom(
+        alg,
+        index + 1,
+        output->Array.concat([serializeJaapUnit(Belt.Array.getUnsafe(alg, index))]),
+      )
+    }
+  } else {
+    output->Array.concat([serializeJaapUnit(Belt.Array.getUnsafe(alg, index))])->Array.join(" ")
+  }
+
+and serializeJaap = (alg: alg) => serializeJaapFrom(alg, 0, [])
+
+let rec serializeSseUnit = (unit, size) =>
+  switch unit.desc {
+  | Move(move, turns) => serializeSseMove(move, turns, size)
+  | Pause => "."
+  | TimedPause(seconds) => "@" ++ seconds->Float.toString ++ "s"
+  | BlockComment(text) => "/*" ++ text ++ "*/"
+  | Group(units, repeat) => "(" ++ serializeSse(units, ~size) ++ ")" ++ suffix(repeat)
+  | Commutator(left, right, repeat) =>
+    "[" ++ serializeSse(left, ~size) ++ ", " ++ serializeSse(right, ~size) ++ "]" ++ suffix(repeat)
+  | Conjugate(left, right, repeat) =>
+    "[" ++ serializeSse(left, ~size) ++ ": " ++ serializeSse(right, ~size) ++ "]" ++ suffix(repeat)
+  }
+
+and serializeSse = (alg: alg, ~size) =>
+  alg->Array.map(unit => serializeSseUnit(unit, size))->Array.join(" ")
+
 let rec serializeUnit = unit =>
   switch unit.desc {
   | Move(move, turns) => serializeMove(move, turns)
@@ -148,6 +316,8 @@ let rec unfoldSlicesUnit = (unit, size) => {
 
 and unfoldSlices = (alg: alg, size: int): alg =>
   alg->Array.map(unit => unfoldSlicesUnit(unit, size))
+
+let serializePortable = (~size, alg: alg) => serialize(unfoldSlices(alg, size))
 
 let moveAxis = move =>
   switch move {

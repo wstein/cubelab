@@ -102,6 +102,313 @@ function serializeMove(move, turns) {
   return family + suffix(canonicalTurns(turns));
 }
 
+function serializeJaapMove(move, turns) {
+  let match;
+  switch (move.TAG) {
+    case "FaceTurn" :
+      let range = move._1;
+      let name = faceName(move._0);
+      let family = range.from_ === 1 && range.to_ === 1 ? name : (
+          range.from_ === 1 && range.to_ === 2 ? name + "w" : (
+              range.from_ === 1 ? range.to_.toString() + name + "w" : (
+                  range.from_ === range.to_ ? range.from_.toString() + name : range.from_.toString() + "-" + range.to_.toString() + name + "w"
+                )
+            )
+        );
+      match = [
+        family,
+        1
+      ];
+      break;
+    case "SliceTurn" :
+      switch (move._0) {
+        case "M" :
+          match = [
+            "Rm",
+            -1
+          ];
+          break;
+        case "E" :
+          match = [
+            "Um",
+            -1
+          ];
+          break;
+        case "S" :
+          match = [
+            "Fm",
+            1
+          ];
+          break;
+      }
+      break;
+    case "Rotation" :
+      switch (move._0) {
+        case "X" :
+          match = [
+            "Rc",
+            1
+          ];
+          break;
+        case "Y" :
+          match = [
+            "Uc",
+            1
+          ];
+          break;
+        case "Z" :
+          match = [
+            "Fc",
+            1
+          ];
+          break;
+      }
+      break;
+  }
+  return match[0] + suffix(canonicalTurns(turns * match[1] | 0));
+}
+
+function serializeSseMove(move, turns, size) {
+  let match;
+  switch (move.TAG) {
+    case "FaceTurn" :
+      let range = move._1;
+      let name = faceName(move._0);
+      let family;
+      if (range.from_ === 1 && range.to_ === 1) {
+        family = name;
+      } else if (range.from_ === 1 && size >= 3) {
+        family = "T" + (
+          range.to_ === 2 ? "" : range.to_.toString()
+        ) + name;
+      } else if (range.from_ === 1 && range.to_ === 2) {
+        family = name + "w";
+      } else if (range.from_ === 1) {
+        family = range.to_.toString() + name + "w";
+      } else if (size >= 4 && range.from_ === 2 && range.to_ === (size - 1 | 0)) {
+        family = "W" + name;
+      } else if (size >= 3 && range.from_ === (((size - ((range.to_ - range.from_ | 0) + 1 | 0) | 0) / 2 | 0) + 1 | 0)) {
+        let depth = (range.to_ - range.from_ | 0) + 1 | 0;
+        family = "M" + (
+          depth === 1 ? "" : depth.toString()
+        ) + name;
+      } else {
+        family = size === 5 ? "N" + range.from_.toString() + (
+            range.to_ === range.from_ ? "" : "-" + range.to_.toString()
+          ) + name : range.from_.toString() + (
+            range.to_ === range.from_ ? "" : "-" + range.to_.toString()
+          ) + name;
+      }
+      match = [
+        family,
+        1
+      ];
+      break;
+    case "SliceTurn" :
+      switch (move._0) {
+        case "M" :
+          match = [
+            "MR",
+            -1
+          ];
+          break;
+        case "E" :
+          match = [
+            "MU",
+            -1
+          ];
+          break;
+        case "S" :
+          match = [
+            "MF",
+            1
+          ];
+          break;
+      }
+      break;
+    case "Rotation" :
+      switch (move._0) {
+        case "X" :
+          match = [
+            "CR",
+            1
+          ];
+          break;
+        case "Y" :
+          match = [
+            "CU",
+            1
+          ];
+          break;
+        case "Z" :
+          match = [
+            "CF",
+            1
+          ];
+          break;
+      }
+      break;
+  }
+  return match[0] + suffix(canonicalTurns(turns * match[1] | 0));
+}
+
+function oppositeFace(face) {
+  switch (face) {
+    case "U" :
+      return "D";
+    case "L" :
+      return "R";
+    case "F" :
+      return "B";
+    case "R" :
+      return "L";
+    case "B" :
+      return "F";
+    case "D" :
+      return "U";
+  }
+}
+
+function jaapOuterPair(left, right) {
+  let match = left.desc;
+  let match$1 = right.desc;
+  if (typeof match !== "object") {
+    return;
+  }
+  if (match.TAG !== "Move") {
+    return;
+  }
+  let match$2 = match._0;
+  switch (match$2.TAG) {
+    case "FaceTurn" :
+      let match$3 = match$2._1;
+      if (match$3.from_ !== 1) {
+        return;
+      }
+      if (match$3.to_ !== 1) {
+        return;
+      }
+      if (typeof match$1 !== "object") {
+        return;
+      }
+      if (match$1.TAG !== "Move") {
+        return;
+      }
+      let match$4 = match$1._0;
+      let leftFace = match$2._0;
+      switch (match$4.TAG) {
+        case "FaceTurn" :
+          let match$5 = match$4._1;
+          if (match$5.from_ !== 1) {
+            return;
+          }
+          if (match$5.to_ !== 1) {
+            return;
+          }
+          if (match$4._0 !== oppositeFace(leftFace)) {
+            return;
+          }
+          let leftTurns = canonicalTurns(match._1);
+          let rightTurns = canonicalTurns(match$1._1);
+          if (leftTurns !== 0 && leftTurns === rightTurns) {
+            return faceName(leftFace) + "a" + suffix(leftTurns);
+          } else if (leftTurns !== 0 && leftTurns === (-rightTurns | 0)) {
+            return faceName(leftFace) + "s" + suffix(leftTurns);
+          } else {
+            return;
+          }
+        case "SliceTurn" :
+        case "Rotation" :
+          return;
+      }
+    case "SliceTurn" :
+    case "Rotation" :
+      return;
+  }
+}
+
+function serializeJaapUnit(unit) {
+  let seconds = unit.desc;
+  if (typeof seconds !== "object") {
+    return ".";
+  }
+  switch (seconds.TAG) {
+    case "Move" :
+      return serializeJaapMove(seconds._0, seconds._1);
+    case "TimedPause" :
+      return "@" + seconds._0.toString() + "s";
+    case "BlockComment" :
+      return "/*" + seconds._0 + "*/";
+    case "Group" :
+      let repeat = seconds._1;
+      let units = seconds._0;
+      if (repeat === 1 && units.length === 2) {
+        let pair = jaapOuterPair(units[0], units[1]);
+        if (pair !== undefined) {
+          return pair;
+        } else {
+          return "(" + serializeJaapFrom(units, 0, []) + ")";
+        }
+      }
+      return "(" + serializeJaapFrom(units, 0, []) + ")" + suffix(repeat);
+    case "Commutator" :
+      return "[" + serializeJaapFrom(seconds._0, 0, []) + ", " + serializeJaapFrom(seconds._1, 0, []) + "]" + suffix(seconds._2);
+    case "Conjugate" :
+      return "[" + serializeJaapFrom(seconds._0, 0, []) + ": " + serializeJaapFrom(seconds._1, 0, []) + "]" + suffix(seconds._2);
+  }
+}
+
+function serializeJaapFrom(alg, _index, _output) {
+  while (true) {
+    let output = _output;
+    let index = _index;
+    if (index >= alg.length) {
+      return output.join(" ");
+    }
+    if ((index + 1 | 0) >= alg.length) {
+      return output.concat([serializeJaapUnit(alg[index])]).join(" ");
+    }
+    let pair = jaapOuterPair(alg[index], alg[index + 1 | 0]);
+    if (pair !== undefined) {
+      _output = output.concat([pair]);
+      _index = index + 2 | 0;
+      continue;
+    }
+    _output = output.concat([serializeJaapUnit(alg[index])]);
+    _index = index + 1 | 0;
+    continue;
+  };
+}
+
+function serializeJaap(alg) {
+  return serializeJaapFrom(alg, 0, []);
+}
+
+function serializeSseUnit(unit, size) {
+  let seconds = unit.desc;
+  if (typeof seconds !== "object") {
+    return ".";
+  }
+  switch (seconds.TAG) {
+    case "Move" :
+      return serializeSseMove(seconds._0, seconds._1, size);
+    case "TimedPause" :
+      return "@" + seconds._0.toString() + "s";
+    case "BlockComment" :
+      return "/*" + seconds._0 + "*/";
+    case "Group" :
+      return "(" + serializeSse(seconds._0, size) + ")" + suffix(seconds._1);
+    case "Commutator" :
+      return "[" + serializeSse(seconds._0, size) + ", " + serializeSse(seconds._1, size) + "]" + suffix(seconds._2);
+    case "Conjugate" :
+      return "[" + serializeSse(seconds._0, size) + ": " + serializeSse(seconds._1, size) + "]" + suffix(seconds._2);
+  }
+}
+
+function serializeSse(alg, size) {
+  return alg.map(unit => serializeSseUnit(unit, size)).join(" ");
+}
+
 function serializeUnit(unit) {
   let seconds = unit.desc;
   if (typeof seconds !== "object") {
@@ -288,6 +595,10 @@ function unfoldSlicesUnit(unit, size) {
 
 function unfoldSlices(alg, size) {
   return alg.map(unit => unfoldSlicesUnit(unit, size));
+}
+
+function serializePortable(size, alg) {
+  return serialize(unfoldSlices(alg, size));
 }
 
 function moveAxis(move) {
@@ -2217,6 +2528,15 @@ export {
   suffix,
   canonicalTurns,
   serializeMove,
+  serializeJaapMove,
+  serializeSseMove,
+  oppositeFace,
+  jaapOuterPair,
+  serializeJaapUnit,
+  serializeJaapFrom,
+  serializeJaap,
+  serializeSseUnit,
+  serializeSse,
   serializeUnit,
   serialize,
   invertUnit,
@@ -2224,6 +2544,7 @@ export {
   sliceAsInnerFace,
   unfoldSlicesUnit,
   unfoldSlices,
+  serializePortable,
   moveAxis,
   flushRun,
   addToRun,

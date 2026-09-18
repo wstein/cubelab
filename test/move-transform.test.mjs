@@ -5,6 +5,7 @@ import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
 import * as MoveParser from "../src/Move/MoveParser.res.mjs";
 import * as MoveTransform from "../src/Move/MoveTransform.res.mjs";
+import * as StateTypes from "../src/State/StateTypes.res.mjs";
 
 const parse = (size, input) => {
   const result = MoveParser.parse(size, input);
@@ -13,6 +14,12 @@ const parse = (size, input) => {
 };
 
 const serialize = (alg) => MoveTransform.serialize(alg);
+
+const parseDialect = (size, dialect, input) => {
+  const result = MoveParser.parseWithOptions(size, "Wide", dialect, input);
+  assert.equal(result.TAG, "Ok", result._0?.message);
+  return result._0;
+};
 
 const compact = (size, input) => {
   const result = MoveExecutor.parseAndApply(size, input);
@@ -25,6 +32,66 @@ test("serializes every supported structured editor node canonically", () => {
   const rendered = serialize(parse(4, input));
   assert.equal(rendered, "(Rw U)3 [R, U]' 2R [F: U2] . @1.3s /* inspect */");
   assert.equal(compact(4, rendered), compact(4, input));
+});
+
+test("serializes native Jaap and SSE notation while preserving structure", () => {
+  const source = parse(3, "M E S x y z R L' U D F B' (R U)2");
+  assert.equal(
+    MoveTransform.serializeJaap(source),
+    "Rm' Um' Fm Rc Uc Fc Rs Ua Fs (R U)2",
+  );
+  assert.equal(
+    MoveTransform.serializeSse(source, 3),
+    "MR' MU' MF CR CU CF R L' U D F B' (R U)2",
+  );
+  assert.equal(
+    MoveTransform.serializePortable(3, source),
+    "2L 2D 2F x y z R L' U D F B' (R U)2",
+  );
+});
+
+test("uses native size-aware SSE prefixes for wide and inner ranges", () => {
+  assert.equal(
+    MoveTransform.serializeSse(parse(4, "Rw 2R 2-3Fw"), 4),
+    "TR MR WF",
+  );
+  assert.equal(
+    MoveTransform.serializeSse(parse(5, "3Rw 2R 2-4Fw"), 5),
+    "T3R N2R WF",
+  );
+});
+
+test("dialect serializers round-trip semantically across 2×2 through 5×5", () => {
+  const sources = new Map([
+    [2, "R U x y z (R U)2"],
+    [3, "M E S x y z R L' U D F B' (R U)2"],
+    [4, "Rw 2R 2-3Fw x y z (R U)2"],
+    [5, "3Rw 2R 2-4Fw M E S x y z (R U)2"],
+  ]);
+
+  for (const [size, notation] of sources) {
+    const source = parse(size, notation);
+    const expected = compact(size, notation);
+    const outputs = [
+      ["Modern", MoveTransform.serialize(source)],
+      ["Jaap", MoveTransform.serializeJaap(source)],
+      ["Sse", MoveTransform.serializeSse(source, size)],
+      ["Modern", MoveTransform.serializePortable(size, source)],
+    ];
+    for (const [dialect, output] of outputs) {
+      const reparsed = parseDialect(size, dialect, output);
+      const applied = MoveExecutor.applyAlg(
+        StateTypes.solved(size)._0,
+        reparsed,
+      );
+      assert.equal(applied.TAG, "Ok", `${size}×${size} ${dialect}: ${output}`);
+      assert.equal(
+        FaceletCodec.render(applied._0),
+        expected,
+        `${size}×${size} ${dialect}: ${output}`,
+      );
+    }
+  }
 });
 
 test("inverts structured algorithms without flattening them", () => {
