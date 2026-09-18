@@ -296,6 +296,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(page, /data-manual-state-load/);
   assert.match(page, /data-manual-state-load-canonical[^>]*hidden/);
   assert.match(page, /data-manual-state-erase-preview[^>]*aria-live="polite"[^>]*hidden/);
+  assert.match(styles, /\.manual-state-stage\s*\{[^}]*overflow:\s*clip;/);
   assert.ok(
     page.indexOf('class="manual-state-stage"') < page.indexOf("data-manual-state-erase-preview")
       && page.indexOf("data-manual-state-erase-preview") < page.indexOf('class="manual-state-tools"'),
