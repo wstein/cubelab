@@ -20,6 +20,7 @@ import {
   manualStateEdgeSlots,
   manualStateEnteredCount,
   manualStatePieceMates,
+  manualStateStickerOrbitIndices,
   manualStateViewDestination,
   manualStateLocalConstraintIndices,
   manualStateOrbits,
@@ -28,6 +29,7 @@ import {
   solvedManualState,
   type ManualStateDraft,
   type ManualStateFace,
+  type ManualStateSize,
 } from "../../src/client/manual-state";
 import * as PieceReducer from "../../src/State/PieceReducer.res.mjs";
 
@@ -405,6 +407,31 @@ describe("manualStatePieceMates", () => {
     expect(manualStatePieceMates(3, 4)).toEqual([]);
     // Index 8 is a 2×2 corner sticker too, just a different piece grouping.
     expect(manualStatePieceMates(2, 8).length).toBeGreaterThan(0);
+  });
+});
+
+describe("manualStateStickerOrbitIndices", () => {
+  const expectedStickerCounts: Record<ManualStateSize, Record<string, number>> = {
+    2: {corners: 24},
+    3: {corners: 24, edges: 24, coreCentres: 6},
+    4: {corners: 24, wings: 48, centres: 24},
+    5: {corners: 24, wings: 48, midges: 24, xCentres: 24, plusCentres: 24, coreCentres: 6},
+  };
+
+  for (const size of [2, 3, 4, 5] as ManualStateSize[]) {
+    test(`${size}×${size} resolves every sticker to its exact orbit`, () => {
+      for (const orbit of manualStateOrbits(size)) {
+        const expected = orbit.slots.flat().sort((a, b) => a - b);
+        expect(expected.length).toBe(expectedStickerCounts[size][orbit.name]);
+        for (const index of expected) {
+          expect(manualStateStickerOrbitIndices(size, index).sort((a, b) => a - b)).toEqual(expected);
+        }
+      }
+    });
+  }
+
+  test("falls back to the requested index outside the cube", () => {
+    expect(manualStateStickerOrbitIndices(3, -1)).toEqual([-1]);
   });
 });
 

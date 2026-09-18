@@ -365,6 +365,19 @@ const orbitsBySize: Record<ManualStateSize, ManualStateOrbit[]> = {
 
 export const manualStateOrbits = (size: ManualStateSize): ManualStateOrbit[] => orbitsBySize[size];
 
+/** Every sticker index belonging to the same physical piece orbit as
+ * `index`. An unknown index falls back to itself so callers can safely keep
+ * sticker-level behavior when no orbit geometry applies. */
+export const manualStateStickerOrbitIndices = (
+  size: ManualStateSize,
+  index: number,
+): number[] => {
+  const orbit = manualStateOrbits(size).find((candidate) =>
+    candidate.slots.some((slot) => slot.includes(index))
+  );
+  return orbit ? orbit.slots.flat() : [index];
+};
+
 export type LargeManualStateProgressMetric = {
   name: "corners" | "centres" | "wings" | "midges";
   completed: number;
