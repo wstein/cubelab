@@ -1731,6 +1731,14 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 
 .manual-state-sticker:hover { border-color: #67e8f9; }
 
+/* Auto-filled stickers keep their smaller footprint, while the interaction
+   rules below temporarily replace this base inset with semantic hover,
+   erase-preview, and cursor rings. */
+.manual-state-sticker[data-auto="true"] {
+  transform: scale(0.85);
+  box-shadow: inset 0 0 0 2px rgba(103, 232, 249, 0.85);
+}
+
 /* The keyboard cursor: arrow keys move real DOM focus between stickers (see
    the dialog's keydown handler), so letter keys always have an unambiguous
    target. Declared before the hover/mate rules below so a hovered cell's
@@ -1792,10 +1800,6 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   box-shadow:
     inset 0 0 0 3px #f87171,
     inset 0 0 0 5px #0f172a;
-}
-.manual-state-sticker[data-auto="true"] {
-  transform: scale(0.85);
-  box-shadow: inset 0 0 0 2px rgba(103, 232, 249, 0.85);
 }
 
 /* Keep the selected sticker legible on every face colour and projection:

@@ -464,6 +464,11 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(client, /centre \? ", core centre" : ""/);
   assert.match(client, /paintRoot\.addEventListener\("dblclick",[\s\S]*manualStateRawStickerAt/);
   assert.match(styles, /\.manual-state-sticker\[data-auto="true"\]\s*\{[\s\S]*transform:\s*scale\(/);
+  assert.ok(
+    styles.indexOf('.manual-state-sticker[data-auto="true"] {')
+      < styles.indexOf('.manual-state-sticker[data-piece-hover="self"] {'),
+    "auto-fill styling must yield to the semantic hover rings declared after it",
+  );
   assert.match(styles, /data-face="L"[^}]*data-auto="true"[\s\S]*data-face="B"[^}]*data-auto="true"[\s\S]*scaleX\(-1\) scale\(0\.85\)/);
   assert.match(styles, /data-face="D"[^}]*data-auto="true"[\s\S]*scaleY\(-1\) scale\(0\.85\)/);
   assert.doesNotMatch(styles, /\.manual-state-sticker\[data-auto="true"\]::after/);
