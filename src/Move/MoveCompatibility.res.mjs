@@ -67,6 +67,37 @@ function hasPostFaceDigit(source) {
   return found;
 }
 
+function hasJaapSuffix(input) {
+  let found = false;
+  for (let index = 0, index_finish = input.length - 2 | 0; index <= index_finish; ++index) {
+    let face = Stdlib_Option.map(input[index], prim => String(prim));
+    let suffix = Stdlib_Option.map(input[index + 1 | 0], prim => String(prim));
+    if (face !== undefined) {
+      let exit = 0;
+      switch (face) {
+        case "B" :
+        case "D" :
+        case "F" :
+        case "L" :
+        case "R" :
+        case "U" :
+          exit = 1;
+          break;
+      }
+      if (exit === 1 && suffix !== undefined) {
+        switch (suffix) {
+          case "a" :
+          case "m" :
+          case "s" :
+            found = true;
+            break;
+        }
+      }
+    }
+  }
+  return found;
+}
+
 function hasExplicitMultiplier(input, notationDialect) {
   let found = notationDialect !== "Sse" && input.includes("*");
   for (let index = 0, index_finish = input.length; index < index_finish; ++index) {
@@ -94,7 +125,7 @@ function hasExplicitMultiplier(input, notationDialect) {
   return found;
 }
 
-function inspectSequence(input, units, features, wcaReasons, ruwixReasons) {
+function inspectSequence(input, units, features, wcaReasons, ruwixReasons, jaapReasons) {
   for (let index = 0, index_finish = units.length; index < index_finish; ++index) {
     let unit = units[index];
     if (index > 0) {
@@ -103,11 +134,11 @@ function inspectSequence(input, units, features, wcaReasons, ruwixReasons) {
         features.adjacentUnits = true;
       }
     }
-    inspectUnit(input, unit, features, wcaReasons, ruwixReasons);
+    inspectUnit(input, unit, features, wcaReasons, ruwixReasons, jaapReasons);
   }
 }
 
-function inspectUnit(input, unit, features, wcaReasons, ruwixReasons) {
+function inspectUnit(input, unit, features, wcaReasons, ruwixReasons, jaapReasons) {
   let source = sourceFor(input, unit);
   let text = unit.desc;
   if (typeof text !== "object") {
@@ -163,17 +194,19 @@ function inspectUnit(input, unit, features, wcaReasons, ruwixReasons) {
       }
     case "Group" :
       addReason(wcaReasons, "Groups are outside the Article 12 token subset.");
-      return inspectSequence(input, text._0, features, wcaReasons, ruwixReasons);
+      return inspectSequence(input, text._0, features, wcaReasons, ruwixReasons, jaapReasons);
     case "Commutator" :
       addReason(wcaReasons, "Commutators are outside the Article 12 token subset.");
       addReason(ruwixReasons, "Ruwix Advanced does not define bracket commutator syntax.");
-      inspectSequence(input, text._0, features, wcaReasons, ruwixReasons);
-      return inspectSequence(input, text._1, features, wcaReasons, ruwixReasons);
+      addReason(jaapReasons, "Jaap's cube notation does not define bracket commutator syntax.");
+      inspectSequence(input, text._0, features, wcaReasons, ruwixReasons, jaapReasons);
+      return inspectSequence(input, text._1, features, wcaReasons, ruwixReasons, jaapReasons);
     case "Conjugate" :
       addReason(wcaReasons, "Conjugates are outside the Article 12 token subset.");
       addReason(ruwixReasons, "Ruwix Advanced does not define bracket conjugate syntax.");
-      inspectSequence(input, text._0, features, wcaReasons, ruwixReasons);
-      return inspectSequence(input, text._1, features, wcaReasons, ruwixReasons);
+      addReason(jaapReasons, "Jaap's cube notation does not define bracket conjugate syntax.");
+      inspectSequence(input, text._0, features, wcaReasons, ruwixReasons, jaapReasons);
+      return inspectSequence(input, text._1, features, wcaReasons, ruwixReasons, jaapReasons);
   }
 }
 
@@ -192,6 +225,7 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
   let ruwixReasons = [];
   let sseReasons = [];
   let acubeReasons = [];
+  let jaapReasons = [];
   let features = {
     adjacentUnits: false,
     blockComment: false,
@@ -201,13 +235,15 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
     ruwixSubscript: false,
     ruwixPlaintext: false
   };
-  inspectSequence(input, alg, features, wcaReasons, ruwixReasons);
+  inspectSequence(input, alg, features, wcaReasons, ruwixReasons, jaapReasons);
   let usesRuwixSource = features.ruwixSubscript || notationDialect === "Ruwix" && features.ruwixPlaintext;
+  let usesJaapSource = notationDialect === "Jaap" && hasJaapSuffix(input);
   let normalized = MoveNormalizer.normalize(input);
   if (normalized !== input) {
     addReason(wcaReasons, "The source uses Unicode or whitespace aliases outside exact Article 12 spelling.");
     addReason(signReasons, "The source relies on Cube Rosetta Unicode normalization.");
     addReason(cubingReasons, "The source relies on Cube Rosetta Unicode normalization.");
+    addReason(jaapReasons, "The source relies on Cube Rosetta Unicode normalization.");
   }
   if (features.lowercaseFace) {
     addReason(wcaReasons, "Lowercase face tokens are not Article 12 spelling.");
@@ -223,6 +259,13 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
     addReason(cubingReasons, "Ruwix post-face widths must be rewritten as nFw for cubing.js.");
     addReason(speedsolvingReasons, "Ruwix post-face widths are not a general SpeedSolving Wiki convention.");
   }
+  if (usesJaapSource) {
+    addReason(wcaReasons, "Jaap a/s/m suffix moves are outside Article 12 spelling.");
+    addReason(signReasons, "Jaap a/s/m suffix moves must be expanded for SiGN/LGN.");
+    addReason(cubingReasons, "Jaap a/s/m suffix moves must be expanded for cubing.js.");
+    addReason(speedsolvingReasons, "Jaap a/s/m suffix moves are outside the documented Wiki subset.");
+    addReason(ruwixReasons, "Jaap a/s/m suffix moves are not Ruwix Advanced notation.");
+  }
   if (lowercaseMode === "InnerSlice" && features.lowercaseFace) {
     addReason(signReasons, "Legacy lowercase inner-slice semantics conflict with modern SiGN.");
     addReason(cubingReasons, "cubing.js interprets lowercase cube moves as modern wide turns.");
@@ -237,6 +280,7 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
     addReason(signReasons, "Pause nodes are a cubing.js editor extension.");
     addReason(speedsolvingReasons, "Pause nodes are outside the documented Wiki subset.");
     addReason(ruwixReasons, "Ruwix Advanced does not document pause nodes.");
+    addReason(jaapReasons, "Jaap's cube notation does not define pause nodes.");
   }
   if (features.blockComment) {
     addReason(wcaReasons, "Block comments are outside Article 12 move tokens.");
@@ -244,6 +288,7 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
     addReason(cubingReasons, "The current cubing.js parser does not accept block comments.");
     addReason(speedsolvingReasons, "Block comments are outside the documented Wiki subset.");
     addReason(ruwixReasons, "Ruwix Advanced does not document block comments.");
+    addReason(jaapReasons, "Jaap's cube notation does not define block comments.");
   }
   if (hasExplicitMultiplier(input, notationDialect)) {
     addReason(wcaReasons, "Explicit multiplier symbols are outside Article 12 move tokens.");
@@ -251,6 +296,7 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
     addReason(cubingReasons, "cubing.js uses a direct numeric repetition suffix.");
     addReason(speedsolvingReasons, "Explicit multiplier symbols are not a documented Wiki grammar.");
     addReason(ruwixReasons, "Ruwix Advanced does not document explicit multiplier symbols.");
+    addReason(jaapReasons, "Jaap's cube notation uses a direct numeric repetition suffix.");
   }
   if (input.includes("#")) {
     addReason(wcaReasons, "Hash comments are outside Article 12 move tokens.");
@@ -258,12 +304,14 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
     addReason(cubingReasons, "cubing.js does not document hash comments.");
     addReason(speedsolvingReasons, "Hash comments are a log-file convenience, not Wiki notation.");
     addReason(ruwixReasons, "Ruwix Advanced does not document hash comments.");
+    addReason(jaapReasons, "Jaap's cube notation does not define hash comments.");
   }
   if (input.includes("//") || input.includes("@")) {
     addReason(wcaReasons, "Comments and timestamps are outside Article 12 move tokens.");
     addReason(signReasons, "Comments and timestamps are extensions, not the normative SiGN/LGN grammar.");
     addReason(speedsolvingReasons, "Parser annotations are outside the documented Wiki notation subset.");
     addReason(ruwixReasons, "Ruwix Advanced does not document parser annotations.");
+    addReason(jaapReasons, "Jaap's cube notation does not define parser annotations.");
   }
   let trimmed = input.trim();
   if (trimmed.endsWith(";")) {
@@ -272,6 +320,7 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
     addReason(cubingReasons, "Terminal semicolon stripping is not cubing.js notation.");
     addReason(speedsolvingReasons, "Terminal semicolon stripping is not documented Wiki notation.");
     addReason(ruwixReasons, "Terminal semicolon stripping is not Ruwix notation.");
+    addReason(jaapReasons, "Terminal semicolon stripping is not Jaap notation.");
   }
   if (trimmed.endsWith(".") && !features.pause) {
     addReason(wcaReasons, "A terminal period is outside Article 12 move tokens.");
@@ -279,6 +328,7 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
     addReason(cubingReasons, "cubing.js requires whitespace around a pause; this period is sentence punctuation.");
     addReason(speedsolvingReasons, "Pause punctuation is outside the documented Wiki subset.");
     addReason(ruwixReasons, "Ruwix Advanced does not document pause punctuation.");
+    addReason(jaapReasons, "Jaap's cube notation does not define pause punctuation.");
   }
   if (notationDialect === "Sse") {
     addReason(wcaReasons, "SSE layer prefixes must be rewritten as WCA move tokens.");
@@ -308,6 +358,9 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
   } else {
     addReason(acubeReasons, "This source was not parsed as ACube 4 turn notation.");
   }
+  if (notationDialect !== "Jaap") {
+    addReason(jaapReasons, "This source was not parsed as Jaap Scherphuis cube notation.");
+  }
   return {
     wca: assessment(wcaReasons),
     signLgn: assessment(signReasons),
@@ -315,7 +368,8 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
     speedsolving: assessment(speedsolvingReasons),
     ruwix: assessment(ruwixReasons),
     sse: assessment(sseReasons),
-    acube: assessment(acubeReasons)
+    acube: assessment(acubeReasons),
+    jaap: assessment(jaapReasons)
   };
 }
 
@@ -325,6 +379,7 @@ export {
   sourceFor,
   startsWithDelimiter,
   hasPostFaceDigit,
+  hasJaapSuffix,
   hasExplicitMultiplier,
   inspectSequence,
   inspectUnit,

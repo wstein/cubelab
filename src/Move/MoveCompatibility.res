@@ -13,6 +13,7 @@ type compatibility = {
   ruwix: assessment,
   sse: assessment,
   acube: assessment,
+  jaap: assessment,
 }
 
 type sourceFeatures = {
@@ -65,6 +66,19 @@ let hasPostFaceDigit = source => {
   found.contents
 }
 
+let hasJaapSuffix = input => {
+  let found = ref(false)
+  for index in 0 to input->String.length - 2 {
+    let face = input->String.get(index)->Option.map(String.make)
+    let suffix = input->String.get(index + 1)->Option.map(String.make)
+    switch (face, suffix) {
+    | (Some("U" | "L" | "F" | "R" | "B" | "D"), Some("a" | "s" | "m")) => found := true
+    | _ => ()
+    }
+  }
+  found.contents
+}
+
 let hasExplicitMultiplier = (input, notationDialect) => {
   // SSE catalogue metrics use stars as prose emphasis, e.g. `8* ftm`.
   // They are parsed into a state-neutral metric comment, not multiplication.
@@ -103,6 +117,7 @@ let rec inspectSequence = (
   features,
   wcaReasons,
   ruwixReasons,
+  jaapReasons,
 ) => {
   for index in 0 to units->Array.length - 1 {
     let unit = Belt.Array.getUnsafe(units, index)
@@ -112,11 +127,11 @@ let rec inspectSequence = (
         features.adjacentUnits = true
       }
     }
-    inspectUnit(input, unit, features, wcaReasons, ruwixReasons)
+    inspectUnit(input, unit, features, wcaReasons, ruwixReasons, jaapReasons)
   }
 }
 
-and inspectUnit = (input, unit: locatedUnit, features, wcaReasons, ruwixReasons) => {
+and inspectUnit = (input, unit: locatedUnit, features, wcaReasons, ruwixReasons, jaapReasons) => {
   let source = sourceFor(input, unit)
   switch unit.desc {
   | Move(move, turns) => {
@@ -162,19 +177,21 @@ and inspectUnit = (input, unit: locatedUnit, features, wcaReasons, ruwixReasons)
     }
   | Group(units, _) => {
       addReason(wcaReasons, "Groups are outside the Article 12 token subset.")
-      inspectSequence(input, units, features, wcaReasons, ruwixReasons)
+      inspectSequence(input, units, features, wcaReasons, ruwixReasons, jaapReasons)
     }
   | Commutator(left, right, _) => {
       addReason(wcaReasons, "Commutators are outside the Article 12 token subset.")
       addReason(ruwixReasons, "Ruwix Advanced does not define bracket commutator syntax.")
-      inspectSequence(input, left, features, wcaReasons, ruwixReasons)
-      inspectSequence(input, right, features, wcaReasons, ruwixReasons)
+      addReason(jaapReasons, "Jaap's cube notation does not define bracket commutator syntax.")
+      inspectSequence(input, left, features, wcaReasons, ruwixReasons, jaapReasons)
+      inspectSequence(input, right, features, wcaReasons, ruwixReasons, jaapReasons)
     }
   | Conjugate(left, right, _) => {
       addReason(wcaReasons, "Conjugates are outside the Article 12 token subset.")
       addReason(ruwixReasons, "Ruwix Advanced does not define bracket conjugate syntax.")
-      inspectSequence(input, left, features, wcaReasons, ruwixReasons)
-      inspectSequence(input, right, features, wcaReasons, ruwixReasons)
+      addReason(jaapReasons, "Jaap's cube notation does not define bracket conjugate syntax.")
+      inspectSequence(input, left, features, wcaReasons, ruwixReasons, jaapReasons)
+      inspectSequence(input, right, features, wcaReasons, ruwixReasons, jaapReasons)
     }
   }
 }
@@ -194,6 +211,7 @@ let evaluate = (
   let ruwixReasons = []
   let sseReasons = []
   let acubeReasons = []
+  let jaapReasons = []
   let features = {
     adjacentUnits: false,
     blockComment: false,
@@ -203,10 +221,11 @@ let evaluate = (
     ruwixSubscript: false,
     ruwixPlaintext: false,
   }
-  inspectSequence(input, alg, features, wcaReasons, ruwixReasons)
+  inspectSequence(input, alg, features, wcaReasons, ruwixReasons, jaapReasons)
 
   let usesRuwixSource =
     features.ruwixSubscript || (notationDialect == Ruwix && features.ruwixPlaintext)
+  let usesJaapSource = notationDialect == Jaap && hasJaapSuffix(input)
 
   let normalized = MoveNormalizer.normalize(input)
   if normalized != input {
@@ -216,6 +235,7 @@ let evaluate = (
     )
     addReason(signReasons, "The source relies on Cube Rosetta Unicode normalization.")
     addReason(cubingReasons, "The source relies on Cube Rosetta Unicode normalization.")
+    addReason(jaapReasons, "The source relies on Cube Rosetta Unicode normalization.")
   }
   if features.lowercaseFace {
     addReason(wcaReasons, "Lowercase face tokens are not Article 12 spelling.")
@@ -237,6 +257,16 @@ let evaluate = (
       "Ruwix post-face widths are not a general SpeedSolving Wiki convention.",
     )
   }
+  if usesJaapSource {
+    addReason(wcaReasons, "Jaap a/s/m suffix moves are outside Article 12 spelling.")
+    addReason(signReasons, "Jaap a/s/m suffix moves must be expanded for SiGN/LGN.")
+    addReason(cubingReasons, "Jaap a/s/m suffix moves must be expanded for cubing.js.")
+    addReason(
+      speedsolvingReasons,
+      "Jaap a/s/m suffix moves are outside the documented Wiki subset.",
+    )
+    addReason(ruwixReasons, "Jaap a/s/m suffix moves are not Ruwix Advanced notation.")
+  }
   if lowercaseMode == InnerSlice && features.lowercaseFace {
     addReason(signReasons, "Legacy lowercase inner-slice semantics conflict with modern SiGN.")
     addReason(cubingReasons, "cubing.js interprets lowercase cube moves as modern wide turns.")
@@ -251,6 +281,7 @@ let evaluate = (
     addReason(signReasons, "Pause nodes are a cubing.js editor extension.")
     addReason(speedsolvingReasons, "Pause nodes are outside the documented Wiki subset.")
     addReason(ruwixReasons, "Ruwix Advanced does not document pause nodes.")
+    addReason(jaapReasons, "Jaap's cube notation does not define pause nodes.")
   }
   if features.blockComment {
     addReason(wcaReasons, "Block comments are outside Article 12 move tokens.")
@@ -258,6 +289,7 @@ let evaluate = (
     addReason(cubingReasons, "The current cubing.js parser does not accept block comments.")
     addReason(speedsolvingReasons, "Block comments are outside the documented Wiki subset.")
     addReason(ruwixReasons, "Ruwix Advanced does not document block comments.")
+    addReason(jaapReasons, "Jaap's cube notation does not define block comments.")
   }
   if hasExplicitMultiplier(input, notationDialect) {
     addReason(wcaReasons, "Explicit multiplier symbols are outside Article 12 move tokens.")
@@ -265,6 +297,7 @@ let evaluate = (
     addReason(cubingReasons, "cubing.js uses a direct numeric repetition suffix.")
     addReason(speedsolvingReasons, "Explicit multiplier symbols are not a documented Wiki grammar.")
     addReason(ruwixReasons, "Ruwix Advanced does not document explicit multiplier symbols.")
+    addReason(jaapReasons, "Jaap's cube notation uses a direct numeric repetition suffix.")
   }
   if input->String.includes("#") {
     addReason(wcaReasons, "Hash comments are outside Article 12 move tokens.")
@@ -272,6 +305,7 @@ let evaluate = (
     addReason(cubingReasons, "cubing.js does not document hash comments.")
     addReason(speedsolvingReasons, "Hash comments are a log-file convenience, not Wiki notation.")
     addReason(ruwixReasons, "Ruwix Advanced does not document hash comments.")
+    addReason(jaapReasons, "Jaap's cube notation does not define hash comments.")
   }
   if input->String.includes("//") || input->String.includes("@") {
     addReason(wcaReasons, "Comments and timestamps are outside Article 12 move tokens.")
@@ -284,6 +318,7 @@ let evaluate = (
       "Parser annotations are outside the documented Wiki notation subset.",
     )
     addReason(ruwixReasons, "Ruwix Advanced does not document parser annotations.")
+    addReason(jaapReasons, "Jaap's cube notation does not define parser annotations.")
   }
   let trimmed = input->String.trim
   if trimmed->String.endsWith(";") {
@@ -292,6 +327,7 @@ let evaluate = (
     addReason(cubingReasons, "Terminal semicolon stripping is not cubing.js notation.")
     addReason(speedsolvingReasons, "Terminal semicolon stripping is not documented Wiki notation.")
     addReason(ruwixReasons, "Terminal semicolon stripping is not Ruwix notation.")
+    addReason(jaapReasons, "Terminal semicolon stripping is not Jaap notation.")
   }
   if trimmed->String.endsWith(".") && !features.pause {
     addReason(wcaReasons, "A terminal period is outside Article 12 move tokens.")
@@ -302,6 +338,7 @@ let evaluate = (
     )
     addReason(speedsolvingReasons, "Pause punctuation is outside the documented Wiki subset.")
     addReason(ruwixReasons, "Ruwix Advanced does not document pause punctuation.")
+    addReason(jaapReasons, "Jaap's cube notation does not define pause punctuation.")
   }
 
   if notationDialect == Sse {
@@ -337,6 +374,10 @@ let evaluate = (
     addReason(acubeReasons, "This source was not parsed as ACube 4 turn notation.")
   }
 
+  if notationDialect != Jaap {
+    addReason(jaapReasons, "This source was not parsed as Jaap Scherphuis cube notation.")
+  }
+
   {
     wca: assessment(wcaReasons),
     signLgn: assessment(signReasons),
@@ -345,5 +386,6 @@ let evaluate = (
     ruwix: assessment(ruwixReasons),
     sse: assessment(sseReasons),
     acube: assessment(acubeReasons),
+    jaap: assessment(jaapReasons),
   }
 }

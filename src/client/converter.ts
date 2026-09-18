@@ -204,7 +204,7 @@ type CubeState = {size: number; facelets: string[][]};
 type ManualStateRepresentation = "standard" | "attached" | "open-cube" | "dual-3d" | "isometric";
 type Scheme = "Western" | "Japanese" | {TAG: "Custom"; _0: string};
 type CompatibilityAssessment = {compatible: boolean; reasons: string[]};
-type CompatibilityResult = Record<"wca" | "signLgn" | "cubingJs" | "speedsolving" | "ruwix" | "sse" | "acube", CompatibilityAssessment>;
+type CompatibilityResult = Record<"wca" | "signLgn" | "cubingJs" | "speedsolving" | "ruwix" | "sse" | "acube" | "jaap", CompatibilityAssessment>;
 type RecognizedInput = {
   state: CubeState;
   label: string;
@@ -3901,6 +3901,7 @@ if (root) {
     ruwix: "Ruwix Advanced",
     sse: "SSE / CubeTwister",
     acube: "ACube 4",
+    jaap: "Jaap Scherphuis",
   };
   const compatibilitySuccess: Record<keyof CompatibilityResult, string> = {
     wca: "Uses only the WCA Article 12 move-token subset. This does not determine event-specific competition legality.",
@@ -3910,6 +3911,7 @@ if (root) {
     ruwix: "The original source uses move forms documented by Ruwix Advanced notation.",
     sse: "The original source fits Randelshofer's SSE 2×2–5×5 / CubeTwister notation.",
     acube: "The original source fits ACube 4's 3×3 turn notation.",
+    jaap: "The original source fits Jaap Scherphuis's face, a/s/m suffix, and group-repeat notation.",
   };
 
   const updateCompatibility = (recognized: RecognizedInput | null) => {
