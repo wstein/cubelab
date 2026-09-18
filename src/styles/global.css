@@ -962,6 +962,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 [data-manual-state-size="4"] .manual-state-main,
 [data-manual-state-size="5"] .manual-state-main,
 .manual-state-main {
+  position: relative;
   flex: 1 1 0;
   min-width: 0;
   display: flex;
@@ -1686,7 +1687,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .manual-state-erase-preview {
   position: absolute;
   z-index: 5;
-  bottom: 0;
+  bottom: -3rem;
   left: 50%;
   display: block;
   width: max-content;

@@ -300,7 +300,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.ok(
     page.indexOf('class="manual-state-stage"') < page.indexOf("data-manual-state-erase-preview")
       && page.indexOf("data-manual-state-erase-preview") < page.indexOf('class="manual-state-tools"'),
-    "the erase preview must overlay the editor stage rather than occupy the tools column",
+    "the erase preview must stay with the editor canvas rather than occupy the tools column",
   );
   assert.match(styles, /\.manual-state-erase-preview\s*\{[^}]*position:\s*absolute;[^}]*pointer-events:\s*none;/);
   assert.match(page, />⇧ E<[\s\S]{0,100}>erase cubie</);
