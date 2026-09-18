@@ -1135,7 +1135,10 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 /* Back's right edge connects to Left's unskewed outer edge. It remains flat
    so sticker content and hit-testing stay crisp. */
 .manual-state-net[data-representation="open-cube"] .manual-state-face[data-face="B"] {
-  left: calc(5.5% - var(--manual-state-face-gap));
+  /* The two half-gap paddings contribute 0.5 gap on flat B and 0.275 gap
+     after L's 0.55 horizontal scale. Leave the missing 0.225 gap between
+     their boxes so the visible sticker separation totals exactly one gap. */
+  left: calc(5.5% - var(--manual-state-face-gap) * 0.225);
   /* Match the unskewed left edge of L exactly: L begins at 0.45/2.4 and
      spans one full face (1/2.4), so its edge centre is 0.95/2.4. */
   top: calc(100% * 0.95 / 2.4);
