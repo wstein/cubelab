@@ -626,6 +626,10 @@ test("the Setup parser recognizes Jaap mixed-case 4x4 cubie cycles apart from al
   assert.match(client, /parseJaapCycleState/);
   assert.match(client, /Jaap 4×4 cubie cycles/);
   assert.match(page, /Jaap 4×4 cycles/);
+  assert.match(page, /Jaap 4×4 Cubie Cycles/);
+  assert.match(page, /mixed-case cubie coordinates/);
+  assert.match(client, /renderJaapCycleState/);
+  assert.match(client, /setOutput\(\s*"jaap-state"/);
 });
 
 test("the Workbench materializes ACube constraint families as concrete Setup states", () => {

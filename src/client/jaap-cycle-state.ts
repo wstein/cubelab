@@ -29,6 +29,28 @@ const faceletIndex = (face: string, [x, y, z]: [number, number, number]): number
   return row * 4 + col;
 };
 
+const coordinateLetter = (axis: Axis, value: number): string => {
+  const letters: Record<Axis, string[]> = {
+    x: ["L", "l", "r", "R"],
+    y: ["D", "d", "u", "U"],
+    z: ["B", "b", "f", "F"],
+  };
+  return letters[axis][value]!;
+};
+
+// Jaap writes the y, z, then x layer coordinate. This produces his published
+// names directly: UFl, UbR, dFR, UBr, UfL, uFL, ...
+const visiblePositions = (): JaapPosition[] => {
+  const positions: JaapPosition[] = [];
+  for (let y = 0; y < 4; y += 1) for (let z = 0; z < 4; z += 1) for (let x = 0; x < 4; x += 1) {
+    const label = `${coordinateLetter("y", y)}${coordinateLetter("z", z)}${coordinateLetter("x", x)}`;
+    if (!/[A-Z]/.test(label)) continue;
+    const position = parsePosition(label);
+    positions.push(position);
+  }
+  return positions;
+};
+
 const parsePosition = (source: string): JaapPosition => {
   const label = source.trim();
   if (!/^[UDLRFBudlrfb]{3}$/.test(label)) {
@@ -102,4 +124,52 @@ export const parseJaapCycleState = (input: string, size: number): Result<CubeSta
   } catch (reason) {
     return {TAG: "Error", _0: reason instanceof Error ? reason.message : String(reason)};
   }
+};
+
+/** Renders a 4×4 facelet state as Jaap cubie cycles. Same-colour centres and
+ * paired wings are assigned deterministically, because a sticker state cannot
+ * distinguish those otherwise identical physical identities. */
+export const renderJaapCycleState = (state: CubeState): Result<string, string> => {
+  if (state.size !== 4) return {TAG: "Error", _0: "Jaap mixed-case cubie cycles are available only for the 4×4×4."};
+  const positions = visiblePositions();
+  const sourceForDestination = Array.from({length: positions.length}, () => -1);
+  const usedSources = new Set<number>();
+
+  for (let destinationIndex = 0; destinationIndex < positions.length; destinationIndex += 1) {
+    const destination = positions[destinationIndex]!;
+    const colours = destination.stickerFaces.map((face) =>
+      state.facelets[storageIndex[face]!]![faceletIndex(face, destination.coordinate)]!);
+    const candidates = positions.map((source, sourceIndex) => ({source, sourceIndex})).filter(({source, sourceIndex}) =>
+      !usedSources.has(sourceIndex)
+      && source.stickerFaces.length === destination.stickerFaces.length
+      && source.stickerFaces.every((face, index) => face === colours[index]));
+    if (candidates.length === 0) {
+      return {
+        TAG: "Error",
+        _0: `The stickers at ${destination.source} require an orientation that plain Jaap cubie cycles cannot express.`,
+      };
+    }
+    const selected = candidates.find(({source}) => source.key === destination.key) ?? candidates[0]!;
+    sourceForDestination[destinationIndex] = selected.sourceIndex;
+    usedSources.add(selected.sourceIndex);
+  }
+
+  const destinationForSource = Array.from({length: positions.length}, () => -1);
+  sourceForDestination.forEach((source, destination) => { destinationForSource[source] = destination; });
+  const visited = new Set<number>();
+  const cycles: string[] = [];
+  destinationForSource.forEach((next, start) => {
+    if (visited.has(start) || next === start) return;
+    const members = [start];
+    visited.add(start);
+    let current = next;
+    while (current !== start) {
+      if (current < 0 || visited.has(current)) return;
+      members.push(current);
+      visited.add(current);
+      current = destinationForSource[current]!;
+    }
+    cycles.push(`(${members.map((index) => positions[index]!.source).join(",")})`);
+  });
+  return {TAG: "Ok", _0: cycles.join("")};
 };

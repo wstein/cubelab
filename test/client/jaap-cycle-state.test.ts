@@ -3,7 +3,7 @@ import {expect, test} from "vitest";
 import * as FaceletCodec from "../../src/State/FaceletCodec.res.mjs";
 import * as StateTypes from "../../src/State/StateTypes.res.mjs";
 import {validate4x4} from "../../src/State/StateValidation4x4.res.mjs";
-import {looksLikeJaapCycleState, parseJaapCycleState} from "../../src/client/jaap-cycle-state";
+import {looksLikeJaapCycleState, parseJaapCycleState, renderJaapCycleState} from "../../src/client/jaap-cycle-state";
 
 const example = "(UFl,DBl)(UbR,DbL)(dFR,dBL)(UBr,DFr)(UfL,DfR)(uFL,uBR)";
 
@@ -37,4 +37,19 @@ test("rejects malformed, repeated, mixed-kind, and wrong-size cycles", () => {
   expect(parseJaapCycleState("(UFl,Ufr)", 4).TAG).toBe("Error");
   expect(parseJaapCycleState("(UFl,DBl)", 5).TAG).toBe("Error");
   expect(parseJaapCycleState("(UFl,wat)", 4).TAG).toBe("Error");
+});
+
+test("renders the published Jaap wing pattern as directly pasteable cycles", () => {
+  const parsed = parseJaapCycleState(example, 4);
+  expect(parsed.TAG).toBe("Ok");
+  if (parsed.TAG === "Error") return;
+  const rendered = renderJaapCycleState(parsed._0);
+  expect(rendered.TAG).toBe("Ok");
+  if (rendered.TAG === "Error") return;
+  expect(looksLikeJaapCycleState(rendered._0)).toBe(true);
+  const reparsed = parseJaapCycleState(rendered._0, 4);
+  expect(reparsed.TAG).toBe("Ok");
+  if (reparsed.TAG === "Ok") {
+    expect(FaceletCodec.render(reparsed._0)).toBe(FaceletCodec.render(parsed._0));
+  }
 });

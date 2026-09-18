@@ -15,7 +15,7 @@ const {
   initialPlayer = false,
   initialMock = false,
   pageTitle = "CubeLab — Interactive Cube Studio & Algorithmic Suite",
-  metaDescription = "Convert Rubik's Cube states between facelets, ASCII nets, colour notation, cubie coordinates, Singmaster cycle notation, and Orbit64.",
+  metaDescription = "Convert Rubik's Cube states between facelets, ASCII nets, colour notation, cubie coordinates, Singmaster and Jaap cycle notation, and Orbit64.",
 } = Astro.props;
 
 const cards: Array<{
@@ -68,6 +68,12 @@ const cards: Array<{
     title: "Singmaster Cycle Notation",
     provenance: "Corner and edge cycles on 2×2/3×3 · lossless Cube Rosetta large-cycle extension on 4×4/5×5 · directly pasteable into Setup",
     sizes: "2,3,4,5",
+  },
+  {
+    key: "jaap-state",
+    title: "Jaap 4×4 Cubie Cycles",
+    provenance: "Jaap Scherphuis mixed-case cubie coordinates · uppercase outer faces and lowercase inner layers · directly pasteable into Setup",
+    sizes: "4",
   },
   {
     key: "acube",

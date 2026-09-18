@@ -44,7 +44,7 @@ import {countAcubeCompletions, materializeAcubeConstraint, parseAcubeConstraint,
 import {looksLikeSseState, parseSseState, renderSseState} from "./sse-state";
 import {dialectForAlgorithmInput} from "./notation-dialect";
 import {looksLikeLargeCubeState, parseLargeCubeState, renderLargeCubeState} from "./large-cube-state";
-import {looksLikeJaapCycleState, parseJaapCycleState} from "./jaap-cycle-state";
+import {looksLikeJaapCycleState, parseJaapCycleState, renderJaapCycleState} from "./jaap-cycle-state";
 import {
   looksLikeSingmasterCycleState,
   parseSingmasterCycleState,
@@ -2752,6 +2752,14 @@ if (root) {
       setOutput("sse", sse.TAG === "Ok" ? sse._0 : `Unavailable — ${sse._0}`, sse.TAG === "Ok");
       const singmaster = renderSingmasterCycleState(state);
       setOutput("singmaster", singmaster.TAG === "Ok" ? singmaster._0 : `Unavailable — ${singmaster._0}`, singmaster.TAG === "Ok");
+      if (size === 4) {
+        const jaapState = renderJaapCycleState(state);
+        setOutput(
+          "jaap-state",
+          jaapState.TAG === "Ok" ? jaapState._0 : `Unavailable — ${jaapState._0}`,
+          jaapState.TAG === "Ok",
+        );
+      }
       const orbit = Orbit64Codec.encodeState(state);
       setOutput(
         "orbit64",
