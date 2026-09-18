@@ -4839,6 +4839,12 @@ if (root) {
       && !smartCubeRecordingTapePresented
       && (!smartCubeCoachingWaiting || smartCubeSyncMode === "VirtualController")
     ) {
+      if (latestSmartCubeOrientation && canvas.dataset.deviceOrientation !== "tracking") {
+        viewport?.setDeviceOrientation(
+          latestSmartCubeOrientation.quaternion,
+          latestSmartCubeOrientation.coordinateFrame,
+        );
+      }
       return;
     }
     viewport?.setDeviceOrientation(null);
