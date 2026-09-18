@@ -450,6 +450,7 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(styles, /data-representation="open-cube"[\s\S]*padding: calc\(var\(--manual-state-face-gap\) \* 0\.5\);/);
   assert.match(styles, /data-representation="open-cube"[^}]*\.manual-state-net-faces\s*\{[^}]*aspect-ratio:\s*3\.1 \/ 1\.9/);
   assert.match(styles, /data-representation="open-cube"[^}]*data-face="B"\]\s*\{[^}]*left:\s*calc\(5\.5% - var\(--manual-state-face-gap\)\);[^}]*top:\s*calc\(100% \* 0\.95 \/ 2\.4\);[^}]*width:\s*25\.5%;[^}]*height:\s*calc\(100% \/ 2\.4\);[^}]*transform:\s*translateY\(-50%\)/);
+  assert.match(styles, /data-representation="open-cube"[^}]*data-face="B"\]\s*\{[^}]*border:\s*0;[^}]*outline:\s*0;[^}]*background:\s*transparent/);
   assert.doesNotMatch(styles, /data-representation="open-cube"[^}]*data-face="B"\][^}]*matrix\(-1/);
   assert.doesNotMatch(styles, /content:\s*"Back · front view"/);
   assert.match(styles, /--attached-face-gap: var\(--manual-state-face-gap\);/);

@@ -1141,6 +1141,9 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   top: calc(100% * 0.95 / 2.4);
   width: 25.5%;
   height: calc(100% / 2.4);
+  border: 0;
+  outline: 0;
+  background: transparent;
   transform: translateY(-50%);
   transform-origin: center;
 }
