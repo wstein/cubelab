@@ -972,6 +972,7 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 /* Keep the drawing area stable across views and puzzle sizes. Its query
    units let the perspective layouts fit both the width and height. */
 .manual-state-stage {
+  position: relative;
   container-type: size;
   height: clamp(18rem, calc(100dvh - 17rem), 40rem);
   display: flex;
@@ -1664,19 +1665,29 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 }
 
 .manual-state-erase-preview {
+  position: absolute;
+  z-index: 5;
+  bottom: 0;
+  left: 50%;
   display: block;
-  margin-top: 0.65rem;
-  padding: 0.55rem 0.65rem;
+  width: max-content;
+  max-width: calc(100% - 1.5rem);
+  transform: translateX(-50%);
+  padding: 0.65rem 0.85rem;
   border: 1px solid rgba(251, 146, 60, 0.5);
   border-radius: 0.45rem;
-  background: rgba(124, 45, 18, 0.18);
+  background: rgba(48, 22, 12, 0.86);
+  box-shadow: 0 0.45rem 1.2rem rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
   color: #fed7aa;
-  font: 650 0.72rem/1.35 var(--font-sans);
+  font: 700 0.86rem/1.4 var(--font-sans);
+  text-align: center;
+  pointer-events: none;
 }
 
 .manual-state-erase-preview[data-scope="orbit"] {
   border-color: rgba(248, 113, 113, 0.62);
-  background: rgba(127, 29, 29, 0.22);
+  background: rgba(69, 19, 24, 0.88);
   color: #fecaca;
 }
 

@@ -296,6 +296,12 @@ test("the 2x2 through 5x5 manual state editor keeps a constrained draft separate
   assert.match(page, /data-manual-state-load/);
   assert.match(page, /data-manual-state-load-canonical[^>]*hidden/);
   assert.match(page, /data-manual-state-erase-preview[^>]*aria-live="polite"[^>]*hidden/);
+  assert.ok(
+    page.indexOf('class="manual-state-stage"') < page.indexOf("data-manual-state-erase-preview")
+      && page.indexOf("data-manual-state-erase-preview") < page.indexOf('class="manual-state-tools"'),
+    "the erase preview must overlay the editor stage rather than occupy the tools column",
+  );
+  assert.match(styles, /\.manual-state-erase-preview\s*\{[^}]*position:\s*absolute;[^}]*pointer-events:\s*none;/);
   assert.match(page, />⇧ E<[\s\S]{0,100}>erase cubie</);
   assert.match(page, />⌥ E<[\s\S]{0,100}>erase orbit</);
   assert.match(page, /data-manual-state-copy-format="canonical-compact"[^>]*data-manual-state-copy-canonical[^>]*hidden/);
