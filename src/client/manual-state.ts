@@ -85,6 +85,22 @@ export const manualStateViewDestination = (
   return faceletOrder.indexOf(destinationFace) * perFace + destinationRow * size + destinationColumn;
 };
 
+/** Display destination for Back when Open view presents it as if seen
+ * through the cube from the front. Rows stay upright; only columns reverse.
+ * Other spatial faces are unchanged. */
+export const manualStateOpenBackProjectionDestination = (
+  size: ManualStateSize,
+  destination: number,
+): number => {
+  const perFace = size * size;
+  const backOffset = faceletOrder.indexOf("B") * perFace;
+  if (destination < backOffset || destination >= backOffset + perFace) return destination;
+  const local = destination - backOffset;
+  const row = Math.floor(local / size);
+  const column = local % size;
+  return backOffset + row * size + (size - 1 - column);
+};
+
 type Candidate = {piece: number; orientation: number; stickers: ManualStateFace[]};
 type CubieKind = {slots: number[][]; pieces: ManualStateFace[][]; orientations: number};
 
