@@ -980,8 +980,10 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   align-items: center;
   justify-content: center;
   /* Oversized transparent view scaffolds may fill the stage, but must never
-     escape upward and intercept the representation controls. */
-  overflow: clip;
+     escape upward and intercept the representation controls. Folded and Open
+     intentionally extend past the stage's horizontal bounds. */
+  overflow-x: visible;
+  overflow-y: clip;
 }
 
 /* The exploded 3D envelope is nearly square, so let it use the dialog's
