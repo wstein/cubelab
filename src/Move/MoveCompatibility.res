@@ -72,7 +72,7 @@ let hasJaapSuffix = input => {
     let face = input->String.get(index)->Option.map(String.make)
     let suffix = input->String.get(index + 1)->Option.map(String.make)
     switch (face, suffix) {
-    | (Some("U" | "L" | "F" | "R" | "B" | "D"), Some("a" | "s" | "m")) => found := true
+    | (Some("U" | "L" | "F" | "R" | "B" | "D"), Some("a" | "s" | "m" | "c")) => found := true
     | _ => ()
     }
   }
@@ -258,14 +258,14 @@ let evaluate = (
     )
   }
   if usesJaapSource {
-    addReason(wcaReasons, "Jaap a/s/m suffix moves are outside Article 12 spelling.")
-    addReason(signReasons, "Jaap a/s/m suffix moves must be expanded for SiGN/LGN.")
-    addReason(cubingReasons, "Jaap a/s/m suffix moves must be expanded for cubing.js.")
+    addReason(wcaReasons, "Jaap a/s/m/c suffix moves are outside Article 12 spelling.")
+    addReason(signReasons, "Jaap a/s/m/c suffix moves must be expanded for SiGN/LGN.")
+    addReason(cubingReasons, "Jaap a/s/m/c suffix moves must be expanded for cubing.js.")
     addReason(
       speedsolvingReasons,
-      "Jaap a/s/m suffix moves are outside the documented Wiki subset.",
+      "Jaap a/s/m/c suffix moves are outside the documented Wiki subset.",
     )
-    addReason(ruwixReasons, "Jaap a/s/m suffix moves are not Ruwix Advanced notation.")
+    addReason(ruwixReasons, "Jaap a/s/m/c suffix moves are not Ruwix Advanced notation.")
   }
   if lowercaseMode == InnerSlice && features.lowercaseFace {
     addReason(signReasons, "Legacy lowercase inner-slice semantics conflict with modern SiGN.")

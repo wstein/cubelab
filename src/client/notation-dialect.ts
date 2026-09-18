@@ -3,7 +3,7 @@ import type {NotationDialect} from "./store";
 // SSE's prefixed moves are unambiguous in CubeLab's other dialects. A token
 // boundary is required so ordinary comments and words do not switch parsers.
 const ssePrefixedMove = /(?:^|[\s·.([{<])(?:[TNVMWSC](?:\d+(?:-\d+)?)?[ULFRBD])/;
-const jaapSuffixedMove = /(?:^|[\s.([{<])[ULFRBD][asm](?:\d+'?|')?(?=$|[\s·.()[\]{}<>;])/;
+const jaapSuffixedMove = /(?:^|[\s.([{<])[ULFRBD][asmc](?:\d+'?|')?(?=$|[\s·.()[\]{}<>;])/;
 
 /** Selects unambiguous Jaap or SSE spellings without changing the saved dialect. */
 export const dialectForAlgorithmInput = (

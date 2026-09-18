@@ -138,6 +138,8 @@ describe("algorithm playback timeline", () => {
     expect(result.TAG).toBe("Ok");
     expect(result).toEqual(explicit);
     expect(dialectForAlgorithmInput(3, "Modern", "R U // try Ua next")).toBe("Modern");
+    expect(dialectForAlgorithmInput(3, "Modern", "((Rm U)4 Rc Uc')3")).toBe("Jaap");
+    expect(dialectForAlgorithmInput(3, "Modern", "R U // try Rc next")).toBe("Modern");
   });
 
   test("detects only SSE move families available on each cube size", () => {

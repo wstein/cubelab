@@ -87,6 +87,7 @@ function hasJaapSuffix(input) {
       if (exit === 1 && suffix !== undefined) {
         switch (suffix) {
           case "a" :
+          case "c" :
           case "m" :
           case "s" :
             found = true;
@@ -260,11 +261,11 @@ function evaluate(input, lowercaseMode, notationDialect, alg) {
     addReason(speedsolvingReasons, "Ruwix post-face widths are not a general SpeedSolving Wiki convention.");
   }
   if (usesJaapSource) {
-    addReason(wcaReasons, "Jaap a/s/m suffix moves are outside Article 12 spelling.");
-    addReason(signReasons, "Jaap a/s/m suffix moves must be expanded for SiGN/LGN.");
-    addReason(cubingReasons, "Jaap a/s/m suffix moves must be expanded for cubing.js.");
-    addReason(speedsolvingReasons, "Jaap a/s/m suffix moves are outside the documented Wiki subset.");
-    addReason(ruwixReasons, "Jaap a/s/m suffix moves are not Ruwix Advanced notation.");
+    addReason(wcaReasons, "Jaap a/s/m/c suffix moves are outside Article 12 spelling.");
+    addReason(signReasons, "Jaap a/s/m/c suffix moves must be expanded for SiGN/LGN.");
+    addReason(cubingReasons, "Jaap a/s/m/c suffix moves must be expanded for cubing.js.");
+    addReason(speedsolvingReasons, "Jaap a/s/m/c suffix moves are outside the documented Wiki subset.");
+    addReason(ruwixReasons, "Jaap a/s/m/c suffix moves are not Ruwix Advanced notation.");
   }
   if (lowercaseMode === "InnerSlice" && features.lowercaseFace) {
     addReason(signReasons, "Legacy lowercase inner-slice semantics conflict with modern SiGN.");

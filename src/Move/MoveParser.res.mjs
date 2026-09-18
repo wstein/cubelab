@@ -310,6 +310,7 @@ function startsJaapMove(parser) {
   }
   switch (match$1) {
     case "a" :
+    case "c" :
     case "m" :
     case "s" :
       return true;
@@ -374,6 +375,41 @@ function jaapMiddleMove(parser, face, start) {
   }
 }
 
+function jaapCubeRotation(face) {
+  switch (face) {
+    case "U" :
+      return [
+        "Y",
+        1
+      ];
+    case "L" :
+      return [
+        "X",
+        -1
+      ];
+    case "F" :
+      return [
+        "Z",
+        1
+      ];
+    case "R" :
+      return [
+        "X",
+        1
+      ];
+    case "B" :
+      return [
+        "Z",
+        -1
+      ];
+    case "D" :
+      return [
+        "Y",
+        -1
+      ];
+  }
+}
+
 function parseJaapMove(parser) {
   let start = parser.cursor;
   let family = Stdlib_Option.getOrThrow(consume(parser), undefined);
@@ -386,13 +422,26 @@ function parseJaapMove(parser) {
     end_: loc_end_
   };
   switch (modifier) {
-    case "m" :
-      let match = jaapMiddleMove(parser, face, start);
+    case "c" :
+      let match = jaapCubeRotation(face);
       return {
         desc: {
           TAG: "Move",
-          _0: match[0],
+          _0: {
+            TAG: "Rotation",
+            _0: match[0]
+          },
           _1: turns * match[1] | 0
+        },
+        loc: loc
+      };
+    case "m" :
+      let match$1 = jaapMiddleMove(parser, face, start);
+      return {
+        desc: {
+          TAG: "Move",
+          _0: match$1[0],
+          _1: turns * match$1[1] | 0
         },
         loc: loc
       };
@@ -1625,6 +1674,7 @@ export {
   faceFromCharacter,
   startsJaapMove,
   jaapMiddleMove,
+  jaapCubeRotation,
   parseJaapMove,
   subscriptWidth,
   validateRange,

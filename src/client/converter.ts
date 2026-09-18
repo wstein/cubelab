@@ -3911,7 +3911,7 @@ if (root) {
     ruwix: "The original source uses move forms documented by Ruwix Advanced notation.",
     sse: "The original source fits Randelshofer's SSE 2×2–5×5 / CubeTwister notation.",
     acube: "The original source fits ACube 4's 3×3 turn notation.",
-    jaap: "The original source fits Jaap Scherphuis's face, a/s/m suffix, and group-repeat notation.",
+    jaap: "The original source fits Jaap Scherphuis's face, a/s/m/c suffix, and group-repeat notation.",
   };
 
   const updateCompatibility = (recognized: RecognizedInput | null) => {

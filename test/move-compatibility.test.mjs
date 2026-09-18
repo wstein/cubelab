@@ -69,14 +69,14 @@ test("ACube's e, s, and m rotation spelling receives its own profile", () => {
   assert.match(evaluate("x", {notationDialect: "Acube"}).acube.reasons.join(" "), /e, s, and m/);
 });
 
-test("Jaap a/s/m suffix moves and direct group repetitions receive their own profile", () => {
-  const result = evaluate("F2 R2 Ua' (R2 F2)2 Ua F2 R2", {notationDialect: "Jaap"});
+test("Jaap a/s/m/c suffix moves and direct group repetitions receive their own profile", () => {
+  const result = evaluate("F2 R2 Ua' (R2 F2)2 Ua F2 R2 Rc", {notationDialect: "Jaap"});
   assert.equal(result.jaap.compatible, true, result.jaap.reasons.join(" "));
   assert.equal(result.wca.compatible, false);
   assert.equal(result.signLgn.compatible, false);
   assert.equal(result.cubingJs.compatible, false);
   assert.equal(result.sse.compatible, false);
-  assert.match(result.wca.reasons.join(" "), /a\/s\/m suffix/);
+  assert.match(result.wca.reasons.join(" "), /a\/s\/m\/c suffix/);
 });
 
 test("Ruwix outer-block subscripts identify their site-specific source profile", () => {

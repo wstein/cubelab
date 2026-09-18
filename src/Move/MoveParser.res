@@ -207,7 +207,7 @@ let startsJaapMove = parser =>
       parser.input->String.get(parser.cursor)->Option.map(String.make),
       parser.input->String.get(parser.cursor + 1)->Option.map(String.make),
     ) {
-    | (Some("U" | "L" | "F" | "R" | "B" | "D"), Some("a" | "s" | "m")) => true
+    | (Some("U" | "L" | "F" | "R" | "B" | "D"), Some("a" | "s" | "m" | "c")) => true
     | _ => false
     }
 
@@ -230,6 +230,16 @@ let jaapMiddleMove = (parser, face, ~start) => {
   }
 }
 
+let jaapCubeRotation = face =>
+  switch face {
+  | StateTypes.R => (X, 1)
+  | StateTypes.L => (X, -1)
+  | StateTypes.U => (Y, 1)
+  | StateTypes.D => (Y, -1)
+  | StateTypes.F => (Z, 1)
+  | StateTypes.B => (Z, -1)
+  }
+
 let parseJaapMove = parser => {
   let start = parser.cursor
   let family = consume(parser)->Option.getOrThrow
@@ -238,6 +248,10 @@ let parseJaapMove = parser => {
   let turns = parseSuffix(parser, ~allowZero=true)
   let loc = {start, end_: parser.cursor}
   switch modifier {
+  | "c" => {
+      let (axis, direction) = jaapCubeRotation(face)
+      {desc: Move(Rotation(axis), turns * direction), loc}
+    }
   | "m" => {
       let (move, direction) = jaapMiddleMove(parser, face, ~start)
       {desc: Move(move, turns * direction), loc}

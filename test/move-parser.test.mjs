@@ -79,7 +79,7 @@ test("parses nested groups, commutators, conjugates, and composite suffixes", ()
   assert.equal(units[2].desc._2, 2);
 });
 
-test("parses Jaap slice, anti-slice, middle-slice, and direct group exponents", () => {
+test("parses Jaap slice, anti-slice, middle-slice, cube-rotation, and direct group exponents", () => {
   const source = "F2 R2 Ua' (R2 F2)2 Ua F2 R2";
   const expanded = "F2 R2 U' D' R2 F2 R2 F2 U D F2 R2";
   const jaap = parseWithOptions(3, "Wide", "Jaap", source);
@@ -97,6 +97,24 @@ test("parses Jaap slice, anti-slice, middle-slice, and direct group exponents", 
   assert.equal(suffixState.TAG, "Ok");
   assert.equal(expansionState.TAG, "Ok");
   assert.equal(FaceletCodec.render(suffixState._0), FaceletCodec.render(expansionState._0));
+
+  const rotations = parseWithOptions(3, "Wide", "Jaap", "Rc Lc Uc Dc Fc Bc Rc' Rc2");
+  const rotationExpansion = parse(3, "x x' y y' z z' x' x2");
+  assert.deepEqual(
+    rotations.map((unit) => unit.desc),
+    rotationExpansion.map((unit) => unit.desc),
+  );
+
+  const formula = parseWithOptions(3, "Wide", "Jaap", "((Rm U)4 Rc Uc')3");
+  const formulaExpansion = parse(3, "((M' U)4 x y')3");
+  const formulaState = MoveExecutor.applyAlg(StateTypes.solved(3)._0, formula);
+  const formulaExpansionState = MoveExecutor.applyAlg(StateTypes.solved(3)._0, formulaExpansion);
+  assert.equal(formulaState.TAG, "Ok");
+  assert.equal(formulaExpansionState.TAG, "Ok");
+  assert.equal(
+    FaceletCodec.render(formulaState._0),
+    FaceletCodec.render(formulaExpansionState._0),
+  );
 
   assert.match(
     MoveParser.parseWithOptions(4, "Wide", "Jaap", "Rm")._0.message,
