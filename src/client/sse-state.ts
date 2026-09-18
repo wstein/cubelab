@@ -59,7 +59,8 @@ const prefixOrientation = (part: Part): number => {
 
 /** Whether the text is intended as SSE cubie-state input rather than an algorithm. */
 export const looksLikeSseState = (input: string): boolean =>
-  looksLikeLargeCubeState(input) || /\(\s*(?:\+\+|\+|-)?[ulfrbd]/.test(input);
+  looksLikeLargeCubeState(input)
+  || /\(\s*(?:\+\+|\+|-)?[ulfrbd]{1,3}(?:\d+)?\s*(?=,|\))/.test(input);
 
 const largeEdgeLabels = ["ur", "uf", "ul", "ub", "dr", "df", "dl", "db", "fr", "fl", "bl", "br"];
 // CubeTwister's Professor Cube part-to-sticker table. Its numbered centres

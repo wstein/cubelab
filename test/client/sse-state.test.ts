@@ -51,6 +51,9 @@ test("accepts marked-centre rotations as explicitly inert metadata", () => {
 test("recognizes SSE state candidates and rejects malformed cycles", () => {
   expect(looksLikeSseState("(ulb,urf) (ur,ul)")).toBe(true);
   expect(looksLikeSseState("R U R' U'")).toBe(false);
+  expect(looksLikeSseState(
+    "D2 (F2 R2)3 D2 L2 (u2 F2)2 f2 u2 f2 L2 r2 u2 (f2 u2 r2)3 u2 r2",
+  )).toBe(false);
   const malformed = parseSseState("(ulb,urf) trailing");
   expect(malformed.TAG).toBe("Error");
   expect(malformed._0).toMatch(/Unexpected SSE state input/);

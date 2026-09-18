@@ -632,6 +632,11 @@ test("the Setup parser recognizes Jaap mixed-case 4x4 cubie cycles apart from al
   assert.match(client, /setOutput\(\s*"jaap-state"/);
 });
 
+test("the State Editor applies move notation from solved when its draft is incomplete", () => {
+  assert.match(client, /if \(workingState === null\) \{\s*workingState = StateTypes\.solved\(size\)\._0 as CubeState;/);
+  assert.match(client, /manualStateNotationStatus\.textContent = "Moves applied\."/);
+});
+
 test("the Workbench materializes ACube constraint families as concrete Setup states", () => {
   assert.match(page, /data-acube-generator-panel/);
   assert.match(page, /data-acube-generator-input/);

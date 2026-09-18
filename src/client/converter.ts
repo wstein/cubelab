@@ -8664,8 +8664,7 @@ if (root) {
         continue;
       }
       if (workingState === null) {
-        manualStateNotationStatus.textContent = "Put a valid state before moves, or complete the draft first.";
-        return;
+        workingState = StateTypes.solved(size)._0 as CubeState;
       }
       const applied = MoveExecutor.applyAlg(workingState, recognized.timeline.alg) as Result<CubeState, unknown>;
       if (applied.TAG === "Error") {
