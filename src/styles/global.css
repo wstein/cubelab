@@ -993,6 +993,19 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   max-width: min(100%, 128cqh);
 }
 
+/* Folded and Open have substantial transparent space inside their layout
+   scaffolds. Size them by their visible face envelopes so they use the stage
+   as fully as the compact Flat and 3D representations without clipping. */
+.manual-state-stage .manual-state-net[data-representation="attached"] {
+  width: min(108%, 138cqh);
+  max-width: none;
+}
+
+.manual-state-stage .manual-state-net[data-representation="open-cube"] {
+  width: min(120%, 175cqh);
+  max-width: none;
+}
+
 .manual-state-net {
   --manual-state-face-gap: 0.3rem;
   display: grid;
@@ -1101,8 +1114,11 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
 .manual-state-net[data-representation="open-cube"] .manual-state-net-faces {
   display: block;
   position: relative;
-  width: min(100%, 50rem, 140cqh);
+  width: 100%;
   aspect-ratio: 3.1 / 1.9;
+  /* Back extends the original five-face rig farther to the left. Centre the
+     complete rendered envelope rather than the old Front-centred scaffold. */
+  transform: translateX(7%);
 }
 
 .manual-state-net[data-representation="open-cube"] .manual-state-face {
