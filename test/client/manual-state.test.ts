@@ -24,7 +24,6 @@ import {
   manualStateViewDestination,
   manualStateLocalConstraintIndices,
   manualStateOrbits,
-  manualStateOpenBackProjectionDestination,
   resetManualState,
   solvedManualState2,
   solvedManualState,
@@ -60,24 +59,6 @@ describe("manual state view orientation", () => {
     }
   });
 
-  test("projects Back from the front by reversing columns without flipping rows", () => {
-    for (const size of [2, 3, 4, 5] as ManualStateSize[]) {
-      const perFace = size * size;
-      const backOffset = faceletOrder.indexOf("B") * perFace;
-      const destinations = Array.from(
-        {length: 6 * perFace},
-        (_, index) => manualStateOpenBackProjectionDestination(size, index),
-      );
-      expect(new Set(destinations).size).toBe(destinations.length);
-      expect(destinations[0]).toBe(0);
-      for (let row = 0; row < size; row += 1) {
-        for (let column = 0; column < size; column += 1) {
-          const source = backOffset + row * size + column;
-          expect(destinations[source]).toBe(backOffset + row * size + (size - 1 - column));
-        }
-      }
-    }
-  });
 });
 
 describe("2×2 manual state constraints", () => {

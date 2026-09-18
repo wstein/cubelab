@@ -1088,10 +1088,9 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform: translate(-33.33%, calc(-66.67% - var(--manual-state-face-gap)));
 }
 
-/* Open cube: U/L/F/R/D retain their exact affine hinges while Back becomes a
-   flat, front-projected satellite. The empty band between B and L is real
-   canvas space: Back is exploded from the five-face assembly, never mistaken
-   for a directly connected net face. */
+/* Open cube: U/L/F/R/D retain their exact affine hinges. Back is shown in its
+   conventional outside-facing orientation immediately beside Left, with the
+   same small separation used between faces in the flat net. */
 .manual-state-net[data-representation="open-cube"] {
   display: flex;
   justify-content: center;
@@ -1133,33 +1132,17 @@ body.player-page[data-theater-mode="timer"] .viewport-hint {
   transform: matrix(1, 0, 0.55, 0.4, 0, 0);
 }
 
-/* Back is orthogonal, full-size, and separated from Left. Its columns are
-   reordered in arrangeManualStateView(), keeping text, dots, and pointer
-   hit-testing crisp rather than mirroring the DOM with CSS. */
+/* Back's right edge connects to Left's unskewed outer edge. It remains flat
+   so sticker content and hit-testing stay crisp. */
 .manual-state-net[data-representation="open-cube"] .manual-state-face[data-face="B"] {
-  left: 3%;
+  left: calc(5.5% - var(--manual-state-face-gap));
   /* Match the unskewed left edge of L exactly: L begins at 0.45/2.4 and
      spans one full face (1/2.4), so its edge centre is 0.95/2.4. */
   top: calc(100% * 0.95 / 2.4);
   width: 25.5%;
   height: calc(100% / 2.4);
-  outline: 1px dashed rgba(148, 163, 184, 0.55);
-  outline-offset: 0.2rem;
-  border-radius: 0.45rem;
-  background: rgba(15, 23, 42, 0.38);
   transform: translateY(-50%);
   transform-origin: center;
-}
-
-.manual-state-net[data-representation="open-cube"] .manual-state-face[data-face="B"]::before {
-  content: "Back · front view";
-  position: absolute;
-  left: 0;
-  bottom: calc(100% + 0.4rem);
-  color: #94a3b8;
-  font: 650 0.66rem/1 var(--font-sans);
-  letter-spacing: 0.04em;
-  white-space: nowrap;
 }
 
 .manual-state-net[data-representation="open-cube"] .manual-state-face[data-face="R"] {
