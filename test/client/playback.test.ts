@@ -140,6 +140,22 @@ describe("algorithm playback timeline", () => {
     expect(dialectForAlgorithmInput(3, "Modern", "R U // try Ua next")).toBe("Modern");
     expect(dialectForAlgorithmInput(3, "Modern", "((Rm U)4 Rc Uc')3")).toBe("Jaap");
     expect(dialectForAlgorithmInput(3, "Modern", "R U // try Rc next")).toBe("Modern");
+    const published4x4 =
+      "D2 (F2 R2)3 D2 L2 (u2 F2)2 f2 u2 f2 L2 r2 u2 (f2 u2 r2)3 u2 r2";
+    const publishedDialect = dialectForAlgorithmInput(
+      4,
+      "Modern",
+      published4x4,
+    );
+    expect(publishedDialect).toBe("Jaap");
+    const published = evaluateAlgorithm(4, "Wide", publishedDialect, published4x4);
+    expect(published.TAG).toBe("Ok");
+    if (published.TAG === "Ok") {
+      expect(FaceletCodec.render(published._0.finalState)).toBe(
+        "UUDUUUUDDUUUUDUURRLRRRRLLRRRRLRRFBFFBFFFFFFBFFBFDDUDDDDUUDDDDUDDLLRLLLLRRLLLLRLLBFBBFBBBBBBFBBFB",
+      );
+    }
+    expect(dialectForAlgorithmInput(4, "Modern", "u2 F2 r2")).toBe("Modern");
   });
 
   test("detects only SSE move families available on each cube size", () => {

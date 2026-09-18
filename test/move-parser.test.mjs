@@ -121,6 +121,17 @@ test("parses Jaap slice, anti-slice, middle-slice, cube-rotation, and direct gro
     /odd 3×3×3 and 5×5×5/,
   );
   assert.equal(MoveParser.parseWithOptions(5, "Wide", "Jaap", "Fm2").TAG, "Ok");
+
+  const jaapLowercase = parseWithOptions(4, "Wide", "Jaap", "u2 f2 r2");
+  const explicitInner = parseWithOptions(4, "Wide", "Modern", "2U2 2F2 2R2");
+  const jaapLowercaseState = MoveExecutor.applyAlg(StateTypes.solved(4)._0, jaapLowercase);
+  const explicitInnerState = MoveExecutor.applyAlg(StateTypes.solved(4)._0, explicitInner);
+  assert.equal(jaapLowercaseState.TAG, "Ok");
+  assert.equal(explicitInnerState.TAG, "Ok");
+  assert.equal(
+    FaceletCodec.render(jaapLowercaseState._0),
+    FaceletCodec.render(explicitInnerState._0),
+  );
 });
 
 test("accepts self-delimiting units without artificial whitespace", () => {

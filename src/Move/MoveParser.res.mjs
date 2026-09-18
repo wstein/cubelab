@@ -578,7 +578,7 @@ function parseBaseMove(parser) {
       } else {
         ruwixWidth = undefined;
       }
-      let lowercaseIsInner = lowercase && parser.size >= 4 && parser.lowercaseMode === "InnerSlice";
+      let lowercaseIsInner = lowercase && parser.size >= 4 && (parser.lowercaseMode === "InnerSlice" || parser.notationDialect === "Jaap");
       if (lowercaseIsInner && (first !== undefined || rangeEnd !== undefined || explicitWide)) {
         fail(parser, "Legacy lowercase inner-slice moves cannot have a layer prefix or 'w'; use explicit uppercase notation.", start, parser.cursor);
       }

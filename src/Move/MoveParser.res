@@ -397,7 +397,10 @@ let parseBaseMove = parser => {
         } else {
           None
         }
-        let lowercaseIsInner = lowercase && parser.size >= 4 && parser.lowercaseMode == InnerSlice
+        let lowercaseIsInner =
+          lowercase &&
+          parser.size >= 4 &&
+          (parser.lowercaseMode == InnerSlice || parser.notationDialect == Jaap)
         if lowercaseIsInner && (first != None || rangeEnd != None || explicitWide) {
           fail(
             parser,
