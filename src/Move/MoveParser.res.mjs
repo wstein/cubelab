@@ -127,7 +127,7 @@ function parseSuffix(parser, allowZero) {
   let suffixStart = parser.cursor;
   let value = parsePositiveInt(parser);
   if (value === undefined) {
-    if (Primitive_object.equal(peek(parser), "'") || parser.notationDialect === "Sse" && Primitive_object.equal(peek(parser), "-")) {
+    if (Primitive_object.equal(peek(parser), "'") || Primitive_object.equal(peek(parser), "-")) {
       parser.cursor = parser.cursor + 1 | 0;
       return -1;
     } else {
@@ -137,7 +137,7 @@ function parseSuffix(parser, allowZero) {
   if (value === 0 && !allowZero) {
     return fail(parser, "Composite units cannot use a zero repetition.", suffixStart, undefined);
   }
-  let primed = Primitive_object.equal(peek(parser), "'");
+  let primed = Primitive_object.equal(peek(parser), "'") || Primitive_object.equal(peek(parser), "-");
   if (primed) {
     parser.cursor = parser.cursor + 1 | 0;
   }

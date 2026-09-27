@@ -99,7 +99,7 @@ let parseSuffix = (parser, ~allowZero: bool) => {
   | Some(0) if !allowZero =>
     fail(parser, "Composite units cannot use a zero repetition.", ~start=suffixStart)
   | Some(value) => {
-      let primed = peek(parser) == Some("'")
+      let primed = peek(parser) == Some("'") || peek(parser) == Some("-")
       if primed {
         parser.cursor = parser.cursor + 1
       }
@@ -110,7 +110,7 @@ let parseSuffix = (parser, ~allowZero: bool) => {
       }
     }
   | None =>
-    if peek(parser) == Some("'") || (parser.notationDialect == Sse && peek(parser) == Some("-")) {
+    if peek(parser) == Some("'") || peek(parser) == Some("-") {
       parser.cursor = parser.cursor + 1
       -1
     } else {
