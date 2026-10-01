@@ -34,7 +34,7 @@
   "license": "AGPL-3.0-or-later",
   "dependencies": {
     "@wstein/regrip-core": "https://github.com/wstein/regrip/releases/download/core-v0.3.1/wstein-regrip-core-0.3.1.tgz",
-    "astro": "^7.3.3",
+    "astro": "^7.3.5",
     "cubing": "^0.63.6",
     "rescript": "12.3.1",
     "rxjs": "^7.8.2",
