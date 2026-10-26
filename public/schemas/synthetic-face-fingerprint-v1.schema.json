@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wstein.github.io/cubelab/schemas/synthetic-face-fingerprint-v1.schema.json",
+  "title": "Synthetic face image fingerprint, version 1",
+  "description": "The JSON object a synthetic cube face photo carries in its metadata (PNG tEXt chunk 'cube-assembler', or JPEG COM segment 'cube-assembler:' + JSON). Specified in docs/synthetic-face-fingerprint.md. The schema checks syntax only; field order is fixed by the specification but cannot be expressed here. Unknown fields are allowed (forward compatibility).",
+  "type": "object",
+  "required": [
+    "v",
+    "renderer",
+    "preset",
+    "seed",
+    "face",
+    "size",
+    "options",
+    "app"
+  ],
+  "properties": {
+    "v": {
+      "description": "Version of this fingerprint contract.",
+      "const": 1
+    },
+    "renderer": {
+      "description": "Producer and its renderer version. 'rust/v1' is written by cubacle, 'parametric/v1' by CubeAssembler. Future producers use the same shape without a schema change.",
+      "anyOf": [
+        {
+          "enum": [
+            "rust/v1",
+            "parametric/v1"
+          ]
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+/v[0-9]+$"
+        }
+      ]
+    },
+    "preset": {
+      "description": "Lighting preset name. Known names are listed; a name of the shape ^[a-z0-9-]+$ is accepted for future presets.",
+      "anyOf": [
+        {
+          "enum": [
+            "clean",
+            "scatter",
+            "real",
+            "gradient",
+            "shadow",
+            "dim-warm",
+            "glare",
+            "noise",
+            "bad-camera"
+          ]
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$"
+        }
+      ]
+    },
+    "seed": {
+      "description": "Seed of this face's photo (the base seed plus the face number).",
+      "type": "integer"
+    },
+    "face": {
+      "description": "The face this photo shows, lowercase.",
+      "enum": [
+        "u",
+        "r",
+        "f",
+        "d",
+        "l",
+        "b"
+      ]
+    },
+    "size": {
+      "description": "Side of the photo in pixels.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "options": {
+      "description": "The generator options that were given; options not given are left out, so none gives {}. Unknown keys are allowed.",
+      "type": "object",
+      "properties": {
+        "scatter": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "tone": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "shading": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "faceShift": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "lightness": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "palette": {
+          "description": "Letter to [r, g, b].",
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "minItems": 3,
+            "maxItems": 3
+          }
+        },
+        "logo": {
+          "type": "object",
+          "properties": {
+            "row": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "col": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "color": {
+              "type": "string"
+            },
+            "size": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        },
+        "noise": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "blur": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "brightness": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "shadow": {
+          "type": "object",
+          "properties": {
+            "strength": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "shape": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "band",
+                    "half",
+                    "spot",
+                    "corner"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[a-z0-9-]+$"
+                }
+              ]
+            },
+            "softness": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        },
+        "geometry": {
+          "type": "object",
+          "properties": {
+            "margin": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "gap": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "radius": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "app": {
+      "type": "object",
+      "required": [
+        "version"
+      ],
+      "properties": {
+        "version": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
