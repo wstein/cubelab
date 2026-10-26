@@ -132,6 +132,9 @@ Converter, Beginner Academy, CFOP Academy, and Alg Workbench are views in a
 [single-page workspace](docs/workspace.md). The WebGL viewport and tape player stay
 mounted across tab switches, and the selected view is preserved in the URL hash.
 
+Pages that show a cube can publish its size and move history as data; see the
+[CubeAssembler fingerprint specification](docs/cubeassembler-fingerprint.md).
+
 The input panel exposes the complete mirror and coordinate-rotation suite alongside
 Invert, Simplify, all-size structural factoring and regrip optimization/expansion, and Practice scramble actions. State-format input disables algebraic
 actions, and every generated algorithm is serialized into explicit modern notation
