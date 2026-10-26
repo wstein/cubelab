@@ -132,7 +132,7 @@ the schema is to be corrected.
 
 A producer MUST serialize the JSON so that the element text cannot end the
 `<script>` element or open a comment: every `<` in the serialized JSON MUST be
-written as the six characters `<`. This is valid JSON; `JSON.parse`
+written as the six characters `\u003c`. This is valid JSON; `JSON.parse`
 returns the original `<`. The grammar of `moves` contains no `<`, so for valid
 moves the escape never occurs; it is a defense in depth, not an encoding the
 consumer needs to undo by hand.
@@ -422,11 +422,10 @@ Consumer:
 These were found while checking this document against the reference
 implementations and are recorded so they can be corrected at the source.
 
-- The producer's prose says the text inside the element escapes `<` as
-  `<` and that `JSON.parse` returns the original characters. As written the
-  escape and its original are the same character; the producer's code
-  (`escapeForScript` in `CubeLabFingerprint.res`) writes `<`, which is
-  what this document specifies. The producer's prose should be corrected.
+- The producer's prose says the text inside the element escapes `<` as `<`,
+  the same character on both sides. The producer's code (`escapeForScript` in
+  `CubeLabFingerprint.res`) writes `\u003c`, which is what this document
+  specifies. The producer's prose should be corrected.
 - The consumer's `FINGERPRINT.md` states that the schema pattern allows only
   `[xyz]'?` and so rejects `x2`. The schema in the producer repository at the
   time of writing allows `[xyz]['2]?`; this document follows the schema and the
