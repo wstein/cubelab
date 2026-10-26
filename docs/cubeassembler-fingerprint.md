@@ -111,13 +111,17 @@ know them.
 
 ### JSON Schema
 
-The block is described by the JSON Schema (draft 2020-12) published by the
-reference producer:
+CubeLab is the normative home of this specification and of its JSON Schema
+(draft 2020-12). The CubeLab-published URL of the schema is not yet assigned.
+
+Until it is, the reference producer's copy is the working schema:
 
 <https://wstein.github.io/cube-assembler/schemas/cubelab-fingerprint-v1.schema.json>
 
 Its source is `public/schemas/cubelab-fingerprint-v1.schema.json` in the
-CubeAssembler repository. The schema does not set `additionalProperties`
+CubeAssembler repository. Follow-up (not part of this change): that schema's
+`$id` currently points to the URL above and has to point to the
+CubeLab-published URL (`TBD: not yet assigned`) once it exists. The schema does not set `additionalProperties`
 to false, in keeping with the forward-compatibility rule above. The schema
 checks syntax only: it does not know whether a layer exists for the given
 `size` (see [Layer validity](#layer-validity)). Where this document and the
@@ -286,8 +290,9 @@ in an HTTP request.
 
 ## CubeLab mapping
 
-CubeLab does not read the fingerprint itself. It is a destination: a consumer
-(today, CubeLab Linker) reads the fingerprint and opens CubeLab with a link.
+Decision: CubeLab never reads the fingerprint itself. It is only ever a
+destination; the Chrome extension CubeLab Linker and other consumers read the
+fingerprint and open CubeLab with a link.
 This section describes the link, as implemented by CubeLab's own fragment
 parser (`readHash` in `src/client/store.ts`) and by the reference consumer's
 default destination (`detector.js`).
@@ -313,11 +318,13 @@ https://wstein.github.io/cubelab/workbench#moves={moves}[&size={size}]
   `layer-prefix/v1` above. The link carries no `dialect` or `lowercase`
   parameter, so the default applies. Layer prefixes are interpreted by
   CubeLab's parser, which rejects layers that do not exist for the size.
-- **CubeLab supports sizes 2 to 5 only.** `readHash` accepts `size` only in
-  2 to 5 and silently falls back to 3 for any other value. A fingerprint of
-  size 6 or 7 MUST NOT be linked to CubeLab: the link would open a 3×3×3 with
-  moves for a different cube. This is the reason the reference consumer
-  skips those sizes.
+- **Known limitation: sizes 6 and 7.** CubeLab currently supports sizes 2 to
+  5. `readHash` accepts `size` only in 2 to 5 and silently falls back to 3
+  for any other value, so a link for a size 6 or 7 fingerprint would open a
+  3×3×3 with moves for a different cube. Until CubeLab supports those sizes,
+  a consumer SHOULD NOT create such a link; the reference consumer skips
+  them. CubeLab plans to support sizes 6 and 7, and this limitation is
+  expected to go away; then consumers can link every size in 2 to 7.
 - CubeLab validates nothing about the fingerprint and does not need the marker.
   Any link of this form works regardless of where the moves came from.
 
@@ -406,7 +413,7 @@ Consumer:
 - [ ] Validates the moves for `size` with its own parser, or ignores the
       fingerprint.
 - [ ] Bounds its input.
-- [ ] Never links a size its destination does not support (CubeLab: 2 to 5).
+- [ ] Never links a size its destination does not support (CubeLab currently: 2 to 5; planned 2 to 7).
 - [ ] Falls back to normal behavior silently when the fingerprint is ignored.
 - [ ] Follows changes of the block and the marker, including removal.
 
@@ -427,22 +434,12 @@ implementations and are recorded so they can be corrected at the source.
 
 ## Open questions
 
-1. **Sizes 6 and 7.** The producer emits sizes 2 to 7, CubeLab and the
-   reference consumer support 2 to 5. Whether CubeLab will add 6 and 7 is
-   undecided. Until it does, consumers must skip them.
-2. **Layer validity rules.** The layer rules above were checked against
+1. **Layer validity rules.** The layer rules above were checked against
    CubeLab's parser only for a sample (`2R` on 2×2×2 accepted, `3R` on 2×2×2
    and `7R` on 5×5×5 rejected, `3Rw` on 3×3×3 and `2-2Rw` on 2×2×2 rejected,
    `2-2Rw` on 3×3×3 and `2-3Uw'` on 5×5×5 accepted), not exhaustively. A
    single-layer range such as `2-2Rw` is accepted by CubeLab but is not
    produced by the reference producer; whether the notation should allow it
    is undecided. Treat the consumer's own parser as the final check.
-3. **Resolution of `format` aliases.** There is no registry of `format` values
+2. **Resolution of `format` aliases.** There is no registry of `format` values
    beyond `layer-prefix/v1`. Whether CubeLab should host one is undecided.
-4. **Stable URL of this specification.** The schema is published by the
-   producer, not by CubeLab. Whether CubeLab should also publish or mirror a
-   schema, and whether the marker should link to this document, is
-   undecided.
-5. **Native CubeLab consumption.** CubeLab does not read the fingerprint
-   itself (for example to import moves from a page opening it). Whether it
-   should is undecided.
