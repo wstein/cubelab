@@ -30,30 +30,30 @@ The [Three.js migration plan](docs/three-renderer-migration.md) is not completed
 
 ## Cross-project ownership
 
-[PuzWerk exists](https://github.com/wstein/puzwerk). It will own shared ReScript cube
+[PuzlWerk exists](https://github.com/wstein/puzlwerk). It will own shared ReScript cube
 mechanics, state models, coordinates, orientation/symmetry and reusable solver
 integration through versioned APIs. Do not describe it as an uncreated repository
 or claim a proposed package/API is already released or consumed by CubeLab.
 CubeLab keeps its studio, Academy, timer, device workflows and application UI.
 Cubacle remains a separate optional Rust search provider behind a checked adapter;
-do not introduce a Rust project in PuzWerk or silently rename repository ownership.
+do not introduce a Rust project in PuzlWerk or silently rename repository ownership.
 CubeAssembler remains the scanning/assembly application; it is not the CubeLab UI.
 Consult [Cubistry #21](https://github.com/wstein/cubistry/issues/21), then the current
-[PuzWerk #5](https://github.com/wstein/puzwerk/issues/5) and
-[PuzWerk #6](https://github.com/wstein/puzwerk/issues/6) for the gated handoff.
+[PuzlWerk #5](https://github.com/wstein/puzlwerk/issues/5) and
+[PuzlWerk #6](https://github.com/wstein/puzlwerk/issues/6) for the gated handoff.
 
 Current migration order, superseding older CubeAssembler-first/CubeLab-M3 notes:
 
 1. Complete and obtain human acceptance of Cubistry's 2×2 pilot.
-2. Migrate the reusable 2×2 solver into PuzWerk, reusing existing code and table.
-3. Migrate Cubistry to the approved PuzWerk API and verify compatibility.
-4. Extend PuzWerk with 3×3 Supercube center orientation, after the solver gate.
+2. Migrate the reusable 2×2 solver into PuzlWerk, reusing existing code and table.
+3. Migrate Cubistry to the approved PuzlWerk API and verify compatibility.
+4. Extend PuzlWerk with 3×3 Supercube center orientation, after the solver gate.
 
 Keep other migrations separate. Do not remove, relocate or replace working CubeLab
 mechanics, codecs, rendering or solver features without an approved replacement,
 migration plan, license review, compatibility tests and rollback path.
 Necessary fixes remain allowed within their authorized scope. Before expanding a
-shared subsystem, check PuzWerk ownership and track the migration rather than
+shared subsystem, check PuzlWerk ownership and track the migration rather than
 creating a second permanent engine. Coordinate changes through the relevant issues;
 a documentation PR does not authorize cross-repository edits or new dependencies.
 
@@ -133,8 +133,16 @@ Use README.md, architecture.md and linked `docs/` contracts as CubeLab's knowled
 there is no implied new knowledge-vault or ADR directory to scaffold here.
 Update the relevant contract when behavior changes; link instead of duplicating it.
 Keep examples reproducible and distinguish facts, proposals, limitations and approvals.
-Shared decisions belong in [PuzWerk's knowledge base](https://github.com/wstein/puzwerk/tree/main/docs/knowledge-base)
+Shared decisions belong in [PuzlWerk's knowledge base](https://github.com/wstein/puzlwerk/tree/main/docs/knowledge-base)
 and ADR process; proposed decisions are not accepted merely because an agent cites them.
 Preserve upstream revisions, licenses, table versions and checksums when reusing code.
 Retain [LICENSE](LICENSE) and [NOTICE](NOTICE), including third-party solver notices.
 Do not rewrite established contracts silently or turn future plans into current guarantees.
+
+## PuzlWerk naming conventions
+
+- Display/branding: **PuzlWerk**. Technical identifiers, paths, directory names and imports always use lowercase `puzlwerk`.
+- GitHub repository: `wstein/puzlwerk`. npm scope: `@puzlwerk/*`; a scope name does not imply a published package or authorize a new dependency.
+- Apply exact-case, context-aware edits to active references; never use global case-insensitive replacements.
+- Preserve historical ADR wording, immutable snapshots, source URLs/revisions/hashes, quotations and license/copyright notices. Classify old-name occurrences as historical, active or uncertain; report uncertain cases for review instead of silently changing them.
+- Naming-only work does not authorize a solver/application change, package publication or migration. Preserve existing `@cubistry/*` packages.
