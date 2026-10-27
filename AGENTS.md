@@ -1,4 +1,93 @@
-# Agent guidelines
+# CubeLab agent guidance
+
+## Purpose and sources of truth
+
+CubeLab is an independently developed, static, browser-local cube studio:
+state conversion, algorithm editing/playback, Academy solvers, timer and smart cubes.
+Start with [README.md](README.md) and [architecture.md](architecture.md).
+Keep implemented behavior, planned migrations and proven solver guarantees distinct.
+This file guides work; it does not approve a feature, migration or release.
+
+## Repository map and stack
+
+- `src/State/`: Cube Rosetta canonical facelets, codecs, piece reduction and validation.
+- `src/Move/`: notation AST/parser, execution, transformations and compatibility.
+- `src/Solver/`: existing solver methods, coordinates and table interfaces.
+- `src/Render/`: cube geometry; `src/client/cube-gl.ts`: native WebGL viewport.
+- `src/client/`: TypeScript/Vanilla DOM state, playback, Academy, timer and workers.
+- `src/client/smart-cube/`: UI adapters, not Bluetooth packet/protocol ownership.
+- `src/Components/`, `src/pages/`, `src/styles/`: Astro shell, pages and styling.
+- `public/`: static resources, including versioned solver tables in `public/solver/`.
+- `test/`: Vitest unit/integration tests; `e2e/`: Playwright browser regressions.
+- `docs/`: feature contracts and plans; `scripts/`: maintenance/generation utilities.
+
+ReScript 12.3.1 implements domain/solver code; TypeScript and Astro handle the UI.
+Size support is feature-specific; rendering support does not prove solver completeness.
+ReScript emits adjacent `.res.mjs` ES modules; regenerate rather than hand-edit them.
+The current renderer is native WebGL, not Three.js or React. Preserve render-on-demand
+behavior and the persistent viewport contract in [3d-viewport.md](docs/3d-viewport.md).
+The [Three.js migration plan](docs/three-renderer-migration.md) is not completed work.
+
+## Cross-project ownership
+
+[PuzWerk exists](https://github.com/wstein/puzwerk). It will own shared ReScript cube
+mechanics, state models, coordinates, orientation/symmetry and reusable solver
+integration through versioned APIs. Do not describe it as an uncreated repository
+or claim a proposed package/API is already released or consumed by CubeLab.
+CubeLab keeps its studio, Academy, timer, device workflows and application UI.
+Cubacle remains a separate optional Rust search provider behind a checked adapter;
+do not introduce a Rust project in PuzWerk or silently rename repository ownership.
+CubeAssembler remains the scanning/assembly application; it is not the CubeLab UI.
+Consult [Cubistry #21](https://github.com/wstein/cubistry/issues/21), then the current
+[PuzWerk #5](https://github.com/wstein/puzwerk/issues/5) and
+[PuzWerk #6](https://github.com/wstein/puzwerk/issues/6) for the gated handoff.
+
+Current migration order, superseding older CubeAssembler-first/CubeLab-M3 notes:
+
+1. Complete and obtain human acceptance of Cubistry's 2×2 pilot.
+2. Migrate the reusable 2×2 solver into PuzWerk, reusing existing code and table.
+3. Migrate Cubistry to the approved PuzWerk API and verify compatibility.
+4. Extend PuzWerk with 3×3 Supercube center orientation, after the solver gate.
+
+Keep other migrations separate. Do not remove, relocate or replace working CubeLab
+mechanics, codecs, rendering or solver features without an approved replacement,
+migration plan, license review, compatibility tests and rollback path.
+Necessary fixes remain allowed within their authorized scope. Before expanding a
+shared subsystem, check PuzWerk ownership and track the migration rather than
+creating a second permanent engine. Coordinate changes through the relevant issues;
+a documentation PR does not authorize cross-repository edits or new dependencies.
+
+## State, solver and rendering contracts
+
+Keep notation parsing, canonical state execution, solving and rendering separate.
+Rendering consumes validated state; it must not reparse notation or mutate physics.
+Color-only facelets cannot preserve every printed sticker identity or up direction.
+Separate physical pose, optical symmetry, camera frame and whole-cube rotation.
+Replay solver answers from the actual input and verify the intended complete goal.
+Do not infer exact-front or partial-display optimality from ordinary color solving.
+The [2×2 table](docs/optimal-2x2-solver.md) is rotation-canonical: its classical HTM
+bound does not automatically apply to fixed-frame printed displays. Count a quarter
+or half face turn as one HTM move; state the metric and goal of any length claim.
+Do not regenerate tables, add search algorithms or expand supported sizes without scope.
+Keep expensive solving in the existing worker boundary; do not block the UI thread.
+Preserve [state validation](docs/state-validation.md), codec round trips and source spans.
+For device changes follow [smart-cube ownership](src/client/smart-cube/README.md):
+transport owns GATT/packets; Regrip core owns orientation; CubeLab adapts normalized
+session events. Do not apply a displayed regrip twice to logical state.
+Keep input, replay and device data browser-local; do not add telemetry/server storage.
+
+## Development and human approval
+
+Read the issue, relevant feature contracts and existing tests before editing.
+State acceptance criteria; keep implementation within the approved scope.
+Ask for explicit approval before each new implementation/migration phase or expansion.
+Use a dedicated feature branch/worktree; coordinate shared branches before rebasing.
+Preserve working behavior and add a focused regression for an actual bug or feature.
+Open/update the requested Draft PR with scope, commands/results, risks and dependencies.
+Obtain an independent review; the author fixes findings and the reviewer rechecks.
+Human approval is required to mark Ready, merge, deploy or publish; never auto-merge.
+Use Rebase and Merge for approved PRs; no squash merely to reduce commit count.
+Do not create another PR when asked to update an existing one.
 
 ## Git history and atomic commits
 
@@ -8,27 +97,44 @@
 - Do not rewrite shared or protected branch history, force-push a shared branch, change branch protection, mark PRs ready, or merge without the required human approval. Coordinate any necessary feature-branch history rewrite with collaborators.
 - For stacked PRs, preserve their dependencies and avoid duplicated commits; verify the resulting diffs and relevant checks after rebasing.
 
-## PuzWerk cross-project architecture
+## Commands and validation
 
-PuzWerk [already exists](https://github.com/wstein/puzwerk). Its shared ReScript
-core will own cube mechanics, state models, coordinates, physical orientation
-and symmetry semantics, and reusable solver integration. CubeLab remains an
-independently developed application; existing functionality is not migrated by
-this guidance. Consult [Cubistry #21](https://github.com/wstein/cubistry/issues/21),
-[PuzWerk #5](https://github.com/wstein/puzwerk/issues/5) and
-[PuzWerk #6](https://github.com/wstein/puzwerk/issues/6) before shared-core changes.
+Use the committed `package-lock.json` with `npm ci`; do not refresh dependencies casually.
+Pages CI selects Node.js 24. Bun is also needed by generation scripts and the current
+Playwright preview command (`bunx astro preview`); do not imply browser tests need no Bun.
+Use `npm run dev` for Astro, `npm run res:dev` for a separate ReScript watch process,
+and `npm run preview` for the production build. Do not invent a combined watcher.
+Run the applicable existing commands and report any failures or unavailable checks:
 
-The current approved order is: complete Cubistry's 2×2 pilot; migrate the
-reusable 2×2 solver into PuzWerk; migrate Cubistry to that API; then extend
-PuzWerk with 3×3 Supercube center orientation. Each implementation or migration
-phase requires explicit human approval. Older CubeAssembler-first/CubeLab-M3
-notes are historical, not authorization for unrelated migrations.
+```sh
+npm run format:check
+npm run lint
+npm test
+npm run build
+npx playwright install chromium
+PLAYWRIGHT_PORT=4322 npm run test:browser
+```
 
-Keep working Cube Rosetta codecs, native WebGL, solvers and application logic
-until an approved replacement and regression-tested migration plan exist.
-Necessary fixes remain allowed within their authorized scope; do not create a
-second permanent shared engine or silently remove features/tests. Cubacle is
-a separate optional Rust solver provider, not a new Rust package in PuzWerk.
-CubeAssembler retains its own scanning and assembly workflows. Verify API,
-license and state/codec fidelity before cross-project reuse; ordinary color
-facelets do not preserve unique printed sticker identities or orientation.
+`format:check` checks ReScript formatting; `lint` also compiles it. `npm test` compiles
+ReScript and runs the suites selected by `vitest.config.ts`, not Playwright.
+`test:browser` builds first and uses `playwright.config.mjs`; use a free port because
+that config can reuse an existing server. Never test another checkout accidentally.
+For domain changes cover move/inverse replay, parity/twist rules, codecs and frames;
+for UI changes cover playback, timer, accessibility, small screens and viewport behavior.
+For smart cubes run replay/contract tests; do not claim hardware/firmware validation
+without a real-device smoke test. See the matrix and release gates in architecture.md.
+Pages CI runs install, tests and build on main; do not assume a PR has CI coverage.
+For documentation-only changes verify links, commands and `git diff --check`; disclose
+which repository checks actually ran. Do not invent a Markdown-lint script.
+
+## Documentation, knowledge and provenance
+
+Use README.md, architecture.md and linked `docs/` contracts as CubeLab's knowledge base;
+there is no implied new knowledge-vault or ADR directory to scaffold here.
+Update the relevant contract when behavior changes; link instead of duplicating it.
+Keep examples reproducible and distinguish facts, proposals, limitations and approvals.
+Shared decisions belong in [PuzWerk's knowledge base](https://github.com/wstein/puzwerk/tree/main/docs/knowledge-base)
+and ADR process; proposed decisions are not accepted merely because an agent cites them.
+Preserve upstream revisions, licenses, table versions and checksums when reusing code.
+Retain [LICENSE](LICENSE) and [NOTICE](NOTICE), including third-party solver notices.
+Do not rewrite established contracts silently or turn future plans into current guarantees.
