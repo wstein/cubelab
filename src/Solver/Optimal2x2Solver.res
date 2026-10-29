@@ -70,9 +70,17 @@ let reconstruct = (pieces: Canonical2x2.cubies): StateTypes.cubeState => {
   }
 }
 
-let solutionMoves = (tables: Optimal2x2Table.optimal2x2Tables, initial: Canonical2x2.cubies): solutionMovesResult => {
+let solutionMoves = (
+  tables: Optimal2x2Table.optimal2x2Tables,
+  initial: Canonical2x2.cubies,
+): solutionMovesResult => {
   let current = ref(initial)
-  let distance = ref(Optimal2x2Table.packedDistance(tables.distance, Canonical2x2.coordinateForCubies(current.contents)))
+  let distance = ref(
+    Optimal2x2Table.packedDistance(
+      tables.distance,
+      Canonical2x2.coordinateForCubies(current.contents),
+    ),
+  )
   let moves = []
   let transforms = Canonical2x2.transformations()
   while distance.contents > 0 {

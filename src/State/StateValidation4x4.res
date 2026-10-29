@@ -24,8 +24,7 @@ let faceIndex = face =>
 let centreIndices = [5, 6, 9, 10]
 let cornerLocalIndices = [0, 3, 12, 15]
 
-let serialIndex = (face, row, column) =>
-  faceIndex(face) * 16 + row * size + column
+let serialIndex = (face, row, column) => faceIndex(face) * 16 + row * size + column
 
 let stickerFor = (face, row, column) =>
   switch face {
@@ -60,8 +59,7 @@ let indexFor = sticker => {
   serialIndex(face, row, column)
 }
 
-let positionKey = ({x, y, z}: vector) =>
-  `${x->Int.toString}/${y->Int.toString}/${z->Int.toString}`
+let positionKey = ({x, y, z}: vector) => `${x->Int.toString}/${y->Int.toString}/${z->Int.toString}`
 
 let rotate = (vector: vector, axis: axis, direction: int, coordinate: bool): vector => {
   let invert = value => coordinate ? last - value : -value
@@ -195,12 +193,16 @@ let staticWingSourceColours = allWingSlots->Array.map(({indices: (first, second)
   )
 })
 
-let staticWingDestinations: array<array<staticWingDest>> = allWingDestinations->Array.map(destinations => {
+let staticWingDestinations: array<
+  array<staticWingDest>,
+> = allWingDestinations->Array.map(destinations => {
   let result = []
   destinations->Array.forEach(((first, second)) => {
-    let slot = allWingSlots->Array.findIndex(({indices: (idx0, idx1)}) =>
-      (idx0 == first || idx1 == first) && (idx0 == second || idx1 == second)
-    )
+    let slot =
+      allWingSlots->Array.findIndex(
+        ({indices: (idx0, idx1)}) =>
+          (idx0 == first || idx1 == first) && (idx0 == second || idx1 == second),
+      )
     if slot >= 0 {
       result->Array.push({first, second, slot})
     }
@@ -313,8 +315,7 @@ let validate4x4 = (state: cubeState): Nullable.t<string> => {
       Nullable.make("A 4×4 state must contain 96 facelets.")
     } else {
       switch cornerState(compact) {
-      | Error(err) =>
-        Nullable.make(`Invalid 4×4 corners: ${err}.`)
+      | Error(err) => Nullable.make(`Invalid 4×4 corners: ${err}.`)
       | Ok() => {
           let centreCounts = Dict.make()
           faces->Array.forEach(face => {
@@ -341,7 +342,9 @@ let validate4x4 = (state: cubeState): Nullable.t<string> => {
           } else {
             let stickers = compact->String.split("")->Array.map(Nullable.make)
             if !canComplete4x4Wings(stickers) {
-              Nullable.make("Invalid 4×4 wings: the stickers cannot form a legal permutation and orientation of the 24 wing pieces.")
+              Nullable.make(
+                "Invalid 4×4 wings: the stickers cannot form a legal permutation and orientation of the 24 wing pieces.",
+              )
             } else {
               Nullable.null
             }

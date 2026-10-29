@@ -7,20 +7,7 @@
 
 open Util555
 
-let validMoves = [
-  0, 1, 2,  // Ux1, Ux2, Ux3
-  4,        // Rx2
-  7,        // Fx2
-  9, 10, 11,// Dx1, Dx2, Dx3
-  13,       // Lx2
-  16,       // Bx2
-  19,       // sliceUx2
-  22,       // sliceRx2
-  25,       // sliceFx2
-  28,       // sliceDx2
-  31,       // sliceLx2
-  34,       // sliceBx2
-]
+let validMoves = [0, 1, 2, 4, 7, 9, 10, 11, 13, 16, 19, 22, 25, 28, 31, 34] // Ux1, Ux2, Ux3 // Rx2 // Fx2 // Dx1, Dx2, Dx3 // Lx2 // Bx2 // sliceUx2 // sliceRx2 // sliceFx2 // sliceDx2 // sliceLx2 // sliceBx2
 
 type t = {
   udtCenter: array<int>,
@@ -72,27 +59,32 @@ let doMove = (c: t, moveIdx: int): unit => {
   let move = getU(validMoves, moveIdx)
   let pow = mod(move, 3)
   switch move {
-  | 19 => { // sliceUx2
+  | 19 => {
+      // sliceUx2
       swap2(c.rltCenter, 3, 7)
       swap2(c.rlxCenter, 3, 7)
       swap2(c.rlxCenter, 0, 4)
       swap4NoFlip(c.udtCenter, 0, 1, 2, 3, pow)
       swap4NoFlip(c.udxCenter, 0, 1, 2, 3, pow)
     }
-  | 0 | 1 | 2 => { // Ux
+  | 0 | 1 | 2 => {
+      // Ux
       swap4NoFlip(c.udtCenter, 0, 1, 2, 3, pow)
       swap4NoFlip(c.udxCenter, 0, 1, 2, 3, pow)
     }
-  | 22 => { // sliceRx2
+  | 22 => {
+      // sliceRx2
       swap2(c.udtCenter, 1, 5)
       swap2(c.udxCenter, 1, 5)
       swap2(c.udxCenter, 2, 6)
     }
-  | 4 => { // Rx2
+  | 4 => {
+      // Rx2
       swap4NoFlip(c.rltCenter, 0, 1, 2, 3, pow)
       swap4NoFlip(c.rlxCenter, 0, 1, 2, 3, pow)
     }
-  | 25 => { // sliceFx2
+  | 25 => {
+      // sliceFx2
       swap2(c.udtCenter, 2, 4)
       swap2(c.udxCenter, 2, 4)
       swap2(c.udxCenter, 3, 5)
@@ -101,27 +93,32 @@ let doMove = (c: t, moveIdx: int): unit => {
       swap2(c.rlxCenter, 3, 5)
     }
   | 7 => () // Fx2
-  | 28 => { // sliceDx2
+  | 28 => {
+      // sliceDx2
       swap2(c.rltCenter, 1, 5)
       swap2(c.rlxCenter, 1, 5)
       swap2(c.rlxCenter, 2, 6)
       swap4NoFlip(c.udtCenter, 4, 5, 6, 7, pow)
       swap4NoFlip(c.udxCenter, 4, 5, 6, 7, pow)
     }
-  | 9 | 10 | 11 => { // Dx
+  | 9 | 10 | 11 => {
+      // Dx
       swap4NoFlip(c.udtCenter, 4, 5, 6, 7, pow)
       swap4NoFlip(c.udxCenter, 4, 5, 6, 7, pow)
     }
-  | 31 => { // sliceLx2
+  | 31 => {
+      // sliceLx2
       swap2(c.udtCenter, 3, 7)
       swap2(c.udxCenter, 3, 7)
       swap2(c.udxCenter, 0, 4)
     }
-  | 13 => { // Lx2
+  | 13 => {
+      // Lx2
       swap4NoFlip(c.rltCenter, 4, 5, 6, 7, pow)
       swap4NoFlip(c.rlxCenter, 4, 5, 6, 7, pow)
     }
-  | 34 => { // sliceBx2
+  | 34 => {
+      // sliceBx2
       swap2(c.udtCenter, 0, 6)
       swap2(c.udxCenter, 0, 6)
       swap2(c.udxCenter, 1, 7)

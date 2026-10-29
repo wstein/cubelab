@@ -7,18 +7,7 @@
 
 open Util555
 
-let validMoves = [
-  0, 1, 2,  // Ux1, Ux2, Ux3
-  4,        // Rx2
-  7,        // Fx2
-  9, 10, 11,// Dx1, Dx2, Dx3
-  13,       // Lx2
-  16,       // Bx2
-  22,       // sliceRx2
-  25,       // sliceFx2
-  31,       // sliceLx2
-  34,       // sliceBx2
-]
+let validMoves = [0, 1, 2, 4, 7, 9, 10, 11, 13, 16, 22, 25, 31, 34] // Ux1, Ux2, Ux3 // Rx2 // Fx2 // Dx1, Dx2, Dx3 // Lx2 // Bx2 // sliceRx2 // sliceFx2 // sliceLx2 // sliceBx2
 
 type t = {
   tCenter: array<int>,
@@ -84,50 +73,56 @@ let doMove = (c: t, moveIdx: int): unit => {
   let move = getU(validMoves, moveIdx)
   let pow = mod(move, 3)
   switch move {
-  | 0 | 1 | 2 => { // Ux
+  | 0 | 1 | 2 => {
+      // Ux
       swap4NoFlip(c.tCenter, 0, 1, 2, 3, pow)
       swap4NoFlip(c.xCenter, 0, 1, 2, 3, pow)
     }
-  | 22 => { // sliceRx2
+  | 22 => {
+      // sliceRx2
       swap2(c.tCenter, 1, 5)
       swap2(c.xCenter, 1, 5)
       swap2(c.xCenter, 2, 6)
       swap2(c.rflbCenter, 0, 3)
     }
-  | 4 => { // Rx2
-      swap2(c.rflbCenter, 4, 5)
-    }
-  | 25 => { // sliceFx2
+  | 4 =>
+    // Rx2
+    swap2(c.rflbCenter, 4, 5)
+  | 25 => {
+      // sliceFx2
       swap2(c.tCenter, 2, 4)
       swap2(c.xCenter, 2, 4)
       swap2(c.xCenter, 3, 5)
       swap2(c.rflbCenter, 5, 6)
     }
-  | 7 => { // Fx2
-      swap2(c.rflbCenter, 0, 1)
-    }
-  | 9 | 10 | 11 => { // Dx
+  | 7 =>
+    // Fx2
+    swap2(c.rflbCenter, 0, 1)
+  | 9 | 10 | 11 => {
+      // Dx
       swap4NoFlip(c.tCenter, 4, 5, 6, 7, pow)
       swap4NoFlip(c.xCenter, 4, 5, 6, 7, pow)
     }
-  | 31 => { // sliceLx2
+  | 31 => {
+      // sliceLx2
       swap2(c.tCenter, 3, 7)
       swap2(c.xCenter, 3, 7)
       swap2(c.xCenter, 0, 4)
       swap2(c.rflbCenter, 1, 2)
     }
-  | 13 => { // Lx2
-      swap2(c.rflbCenter, 6, 7)
-    }
-  | 34 => { // sliceBx2
+  | 13 =>
+    // Lx2
+    swap2(c.rflbCenter, 6, 7)
+  | 34 => {
+      // sliceBx2
       swap2(c.tCenter, 0, 6)
       swap2(c.xCenter, 0, 6)
       swap2(c.xCenter, 1, 7)
       swap2(c.rflbCenter, 4, 7)
     }
-  | 16 => { // Bx2
-      swap2(c.rflbCenter, 2, 3)
-    }
+  | 16 =>
+    // Bx2
+    swap2(c.rflbCenter, 2, 3)
   | _ => ()
   }
 }

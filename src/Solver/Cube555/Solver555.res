@@ -28,20 +28,14 @@ type solverInspection555 = {
  * Inspects a 5×5 cubie cube and returns which phase of reduction it currently satisfies.
  */
 let inspectCube = (cube: CubieCube555.t): solverInspection555 => {
-  let centerTargetColors = [
-    0, 0, 0, 0, // U
-    3, 3, 3, 3, // D
-    2, 2, 2, 2, // F
-    5, 5, 5, 5, // B
-    1, 1, 1, 1, // R
-    4, 4, 4, 4, // L
-  ]
+  let centerTargetColors = [0, 0, 0, 0, 3, 3, 3, 3, 2, 2, 2, 2, 5, 5, 5, 5, 1, 1, 1, 1, 4, 4, 4, 4] // U // D // F // B // R // L
 
   // Check Phase 1: are U and D centers in U and D faces?
   let udCentersSolved = ref(true)
   for i in 0 to 7 {
     let t = getU(cube.tCenter, i)
     let x = getU(cube.xCenter, i)
+
     // U is color 0, D is color 3
     if t != 0 && t != 3 {
       udCentersSolved := false
@@ -57,6 +51,7 @@ let inspectCube = (cube: CubieCube555.t): solverInspection555 => {
     for i in 8 to 15 {
       let t = getU(cube.tCenter, i)
       let x = getU(cube.xCenter, i)
+
       // F is color 2, B is color 5
       if t != 2 && t != 5 {
         fbCentersSolved := false
@@ -133,21 +128,21 @@ let fromFaceletString = (facelets: string): option<CubieCube555.t> => {
     // Offsets within 5x5 face: 7, 11, 13, 17 (0-indexed: row 1 col 2, row 2 col 1, row 2 col 3, row 3 col 2)
     // In cs0x7f 1-based indexing: U8, U14, U18, U12 -> 7, 13, 17, 11
     let tCenterFaceOffsets = [
-      (0, [7, 13, 17, 11]),    // U
-      (75, [7, 13, 17, 11]),   // D
-      (50, [7, 13, 17, 11]),   // F
-      (125, [7, 13, 17, 11]),  // B
-      (25, [7, 13, 17, 11]),   // R
-      (100, [7, 13, 17, 11]),  // L
+      (0, [7, 13, 17, 11]), // U
+      (75, [7, 13, 17, 11]), // D
+      (50, [7, 13, 17, 11]), // F
+      (125, [7, 13, 17, 11]), // B
+      (25, [7, 13, 17, 11]), // R
+      (100, [7, 13, 17, 11]), // L
     ]
 
     let xCenterFaceOffsets = [
-      (0, [6, 8, 18, 16]),    // U
-      (75, [6, 8, 18, 16]),   // D
-      (50, [6, 8, 18, 16]),   // F
-      (125, [6, 8, 18, 16]),  // B
-      (25, [6, 8, 18, 16]),   // R
-      (100, [6, 8, 18, 16]),  // L
+      (0, [6, 8, 18, 16]), // U
+      (75, [6, 8, 18, 16]), // D
+      (50, [6, 8, 18, 16]), // F
+      (125, [6, 8, 18, 16]), // B
+      (25, [6, 8, 18, 16]), // R
+      (100, [6, 8, 18, 16]), // L
     ]
 
     let mutSlot = ref(0)

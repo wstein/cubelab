@@ -24,7 +24,9 @@ function(n) {
 let getU: (array<'a>, int) => 'a = %raw("(arr, idx) => arr[idx]")
 let setU: (array<'a>, int, 'a) => unit = %raw("(arr, idx, val) => { arr[idx] = val; }")
 let getU2: (array<array<'a>>, int, int) => 'a = %raw("(arr, i, j) => arr[i][j]")
-let setU2: (array<array<'a>>, int, int, 'a) => unit = %raw("(arr, i, j, val) => { arr[i][j] = val; }")
+let setU2: (array<array<'a>>, int, int, 'a) => unit = %raw(
+  "(arr, i, j, val) => { arr[i][j] = val; }"
+)
 
 let ux1 = 0
 let ux2 = 1
@@ -65,10 +67,42 @@ let sliceBx2 = 34
 let sliceBx3 = 35
 
 let move2str = [
-  "U", "U2", "U'", "R", "R2", "R'", "F", "F2", "F'",
-  "D", "D2", "D'", "L", "L2", "L'", "B", "B2", "B'",
-  "2U", "2U2", "2U'", "2R", "2R2", "2R'", "2F", "2F2", "2F'",
-  "2D", "2D2", "2D'", "2L", "2L2", "2L'", "2B", "2B2", "2B'",
+  "U",
+  "U2",
+  "U'",
+  "R",
+  "R2",
+  "R'",
+  "F",
+  "F2",
+  "F'",
+  "D",
+  "D2",
+  "D'",
+  "L",
+  "L2",
+  "L'",
+  "B",
+  "B2",
+  "B'",
+  "2U",
+  "2U2",
+  "2U'",
+  "2R",
+  "2R2",
+  "2R'",
+  "2F",
+  "2F2",
+  "2F'",
+  "2D",
+  "2D2",
+  "2D'",
+  "2L",
+  "2L2",
+  "2L'",
+  "2B",
+  "2B2",
+  "2B'",
 ]
 
 let cnk = {
@@ -100,7 +134,11 @@ let swap2 = (arr: array<int>, a: int, b: int) => {
 }
 
 let swap4 = (arr: array<int>, a: int, b: int, c: int, d: int, pow: int, flip: bool) => {
-  let xorVal = if flip { 1 } else { 0 }
+  let xorVal = if flip {
+    1
+  } else {
+    0
+  }
   switch pow {
   | 0 => {
       let temp = bitXor(getU(arr, d), xorVal)

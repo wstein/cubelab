@@ -5,7 +5,6 @@
  * Horner mixed-radix order. The facelet tables below are the published
  * `orbit64-<n>x<n>-draft@1` convention (U R F D L B, row-major).
  */
-
 open StateTypes
 
 type orbitError = {
@@ -383,8 +382,7 @@ let frameForState = (state: cubeState): int => {
       let step = get(rotationSteps, index)
       let inv = inverseRotation(step)
       switch transform(state, inv) {
-      | Some(canonical) if hasCanonicalFixedCentres(size, canonical) =>
-        found := index
+      | Some(canonical) if hasCanonicalFixedCentres(size, canonical) => found := index
       | _ => ()
       }
     }
@@ -403,7 +401,16 @@ let coordinateCount = (size: int): t => {
 }
 
 let stateCount = (size: int): t =>
-  mul(coordinateCount(size), fromInt(if carriesFrame(size) { 24 } else { 1 }))
+  mul(
+    coordinateCount(size),
+    fromInt(
+      if carriesFrame(size) {
+        24
+      } else {
+        1
+      },
+    ),
+  )
 
 let rankCoordinates = (size: int, coordinates: array<coordinate>): t => {
   if !carriesFrame(size) {
@@ -428,10 +435,7 @@ let rankCoordinates = (size: int, coordinates: array<coordinate>): t => {
     let value = ref(
       add(
         mul(rankCoordinate(Corner({p: cornerP, o: cornerO})), halfMidge),
-        add(
-          mul(permRankWithParity(midgeP), fromInt(2048)),
-          baseRank(midgeO, 2, 11),
-        ),
+        add(mul(permRankWithParity(midgeP), fromInt(2048)), baseRank(midgeO, 2, 11)),
       ),
     )
     let kinds = layout(size)
@@ -457,7 +461,7 @@ let unrankCoordinates = (size: int, value: t): array<coordinate> => {
     }
     output
   } else {
-  let tailKinds = kinds->Array.slice(~start=2, ~end=kinds->Array.length)
+    let tailKinds = kinds->Array.slice(~start=2, ~end=kinds->Array.length)
     let tailRadix = tailKinds->Array.reduce(one, (v, kind) => mul(v, radixForKind(kind)))
     let header = div(value, tailRadix)
     let tailValue = ref(rem(value, tailRadix))
@@ -468,11 +472,7 @@ let unrankCoordinates = (size: int, value: t): array<coordinate> => {
     | Corner({p, o}) => (p, o)
     | _ => panic("expected corner")
     }
-    let midgeP = permUnrankWithParity(
-      div(midgeValue, fromInt(2048)),
-      12,
-      parity(cornerP),
-    )
+    let midgeP = permUnrankWithParity(div(midgeValue, fromInt(2048)), 12, parity(cornerP))
     let midgeO = baseUnrank(rem(midgeValue, fromInt(2048)), 2, 11)
     let decodedTail = Array.make(~length=Array.length(tailKinds), Corner({p: [], o: []}))
     for i in Array.length(tailKinds) - 1 downto 0 {
@@ -485,71 +485,233 @@ let unrankCoordinates = (size: int, value: t): array<coordinate> => {
 }
 
 let c3 = [
-  [8, 9, 20], [6, 18, 38], [0, 36, 47], [2, 45, 11],
-  [29, 26, 15], [27, 44, 24], [33, 53, 42], [35, 17, 51]
+  [8, 9, 20],
+  [6, 18, 38],
+  [0, 36, 47],
+  [2, 45, 11],
+  [29, 26, 15],
+  [27, 44, 24],
+  [33, 53, 42],
+  [35, 17, 51],
 ]
 let e3 = [
-  [5, 10], [7, 19], [3, 37], [1, 46],
-  [32, 16], [28, 25], [30, 43], [34, 52],
-  [23, 12], [21, 41], [50, 39], [48, 14]
+  [5, 10],
+  [7, 19],
+  [3, 37],
+  [1, 46],
+  [32, 16],
+  [28, 25],
+  [30, 43],
+  [34, 52],
+  [23, 12],
+  [21, 41],
+  [50, 39],
+  [48, 14],
 ]
-let cc = [
-  [0, 1, 2], [0, 2, 4], [0, 4, 5], [0, 5, 1],
-  [3, 2, 1], [3, 4, 2], [3, 5, 4], [3, 1, 5]
-]
+let cc = [[0, 1, 2], [0, 2, 4], [0, 4, 5], [0, 5, 1], [3, 2, 1], [3, 4, 2], [3, 5, 4], [3, 1, 5]]
 let ec = [
-  [0, 1], [0, 2], [0, 4], [0, 5],
-  [3, 1], [3, 2], [3, 4], [3, 5],
-  [2, 1], [2, 4], [5, 4], [5, 1]
+  [0, 1],
+  [0, 2],
+  [0, 4],
+  [0, 5],
+  [3, 1],
+  [3, 2],
+  [3, 4],
+  [3, 5],
+  [2, 1],
+  [2, 4],
+  [5, 4],
+  [5, 1],
 ]
 let c4 = [
-  [15, 16, 35], [12, 32, 67], [0, 64, 83], [3, 80, 19],
-  [51, 47, 28], [48, 79, 44], [60, 95, 76], [63, 31, 92]
+  [15, 16, 35],
+  [12, 32, 67],
+  [0, 64, 83],
+  [3, 80, 19],
+  [51, 47, 28],
+  [48, 79, 44],
+  [60, 95, 76],
+  [63, 31, 92],
 ]
 let w4 = [
-  [1, 82], [7, 18], [8, 66], [14, 34],
-  [17, 11], [23, 84], [24, 43], [30, 59],
-  [33, 13], [39, 20], [40, 75], [46, 50],
-  [49, 45], [55, 29], [56, 77], [62, 93],
-  [65, 4], [71, 36], [72, 91], [78, 52],
-  [81, 2], [87, 68], [88, 27], [94, 61]
+  [1, 82],
+  [7, 18],
+  [8, 66],
+  [14, 34],
+  [17, 11],
+  [23, 84],
+  [24, 43],
+  [30, 59],
+  [33, 13],
+  [39, 20],
+  [40, 75],
+  [46, 50],
+  [49, 45],
+  [55, 29],
+  [56, 77],
+  [62, 93],
+  [65, 4],
+  [71, 36],
+  [72, 91],
+  [78, 52],
+  [81, 2],
+  [87, 68],
+  [88, 27],
+  [94, 61],
 ]
 let z4 = [
-  5, 6, 9, 10, 21, 22, 25, 26, 37, 38, 41, 42,
-  53, 54, 57, 58, 69, 70, 73, 74, 85, 86, 89, 90
+  5,
+  6,
+  9,
+  10,
+  21,
+  22,
+  25,
+  26,
+  37,
+  38,
+  41,
+  42,
+  53,
+  54,
+  57,
+  58,
+  69,
+  70,
+  73,
+  74,
+  85,
+  86,
+  89,
+  90,
 ]
 let wc = [
-  [0, 5], [0, 1], [0, 4], [0, 2],
-  [1, 0], [1, 5], [1, 2], [1, 3],
-  [2, 0], [2, 1], [2, 4], [2, 3],
-  [3, 2], [3, 1], [3, 4], [3, 5],
-  [4, 0], [4, 2], [4, 5], [4, 3],
-  [5, 0], [5, 4], [5, 1], [5, 3]
+  [0, 5],
+  [0, 1],
+  [0, 4],
+  [0, 2],
+  [1, 0],
+  [1, 5],
+  [1, 2],
+  [1, 3],
+  [2, 0],
+  [2, 1],
+  [2, 4],
+  [2, 3],
+  [3, 2],
+  [3, 1],
+  [3, 4],
+  [3, 5],
+  [4, 0],
+  [4, 2],
+  [4, 5],
+  [4, 3],
+  [5, 0],
+  [5, 4],
+  [5, 1],
+  [5, 3],
 ]
 let c5 = [
-  [24, 25, 54], [20, 50, 104], [0, 100, 129], [4, 125, 29],
-  [79, 74, 45], [75, 124, 70], [95, 149, 120], [99, 49, 145]
+  [24, 25, 54],
+  [20, 50, 104],
+  [0, 100, 129],
+  [4, 125, 29],
+  [79, 74, 45],
+  [75, 124, 70],
+  [95, 149, 120],
+  [99, 49, 145],
 ]
 let e5 = [
-  [14, 27], [22, 52], [10, 102], [2, 127],
-  [89, 47], [77, 72], [85, 122], [97, 147],
-  [64, 35], [60, 114], [139, 110], [135, 39]
+  [14, 27],
+  [22, 52],
+  [10, 102],
+  [2, 127],
+  [89, 47],
+  [77, 72],
+  [85, 122],
+  [97, 147],
+  [64, 35],
+  [60, 114],
+  [139, 110],
+  [135, 39],
 ]
 let w5 = [
-  [1, 128], [9, 28], [15, 103], [23, 53],
-  [26, 19], [34, 130], [40, 69], [48, 94],
-  [51, 21], [59, 30], [65, 119], [73, 78],
-  [76, 71], [84, 46], [90, 121], [98, 146],
-  [101, 5], [109, 55], [115, 144], [123, 80],
-  [126, 3], [134, 105], [140, 44], [148, 96]
+  [1, 128],
+  [9, 28],
+  [15, 103],
+  [23, 53],
+  [26, 19],
+  [34, 130],
+  [40, 69],
+  [48, 94],
+  [51, 21],
+  [59, 30],
+  [65, 119],
+  [73, 78],
+  [76, 71],
+  [84, 46],
+  [90, 121],
+  [98, 146],
+  [101, 5],
+  [109, 55],
+  [115, 144],
+  [123, 80],
+  [126, 3],
+  [134, 105],
+  [140, 44],
+  [148, 96],
 ]
 let x5 = [
-  6, 8, 16, 18, 31, 33, 41, 43, 56, 58, 66, 68,
-  81, 83, 91, 93, 106, 108, 116, 118, 131, 133, 141, 143
+  6,
+  8,
+  16,
+  18,
+  31,
+  33,
+  41,
+  43,
+  56,
+  58,
+  66,
+  68,
+  81,
+  83,
+  91,
+  93,
+  106,
+  108,
+  116,
+  118,
+  131,
+  133,
+  141,
+  143,
 ]
 let p5 = [
-  7, 11, 13, 17, 32, 36, 38, 42, 57, 61, 63, 67,
-  82, 86, 88, 92, 107, 111, 113, 117, 132, 136, 138, 142
+  7,
+  11,
+  13,
+  17,
+  32,
+  36,
+  38,
+  42,
+  57,
+  61,
+  63,
+  67,
+  82,
+  86,
+  88,
+  92,
+  107,
+  111,
+  113,
+  117,
+  132,
+  136,
+  138,
+  142,
 ]
 
 let readOriented = (
@@ -632,8 +794,9 @@ let readPlain = (fs: array<int>, slots: array<array<int>>): option<coordinate> =
   }
 }
 
-let readCenters = (fs: array<int>, slots: array<int>): coordinate =>
-  Center({p: slots->Array.map(index => get(fs, index))})
+let readCenters = (fs: array<int>, slots: array<int>): coordinate => Center({
+  p: slots->Array.map(index => get(fs, index)),
+})
 
 let inputCoordinates = (size: int, facelets: string): option<array<coordinate>> => {
   let len = String.length(facelets)
@@ -657,7 +820,7 @@ let inputCoordinates = (size: int, facelets: string): option<array<coordinate>> 
       let row = mod(index / 3, 3)
       let col = mod(index, 3)
       let value = if mod(row, 2) == 0 && mod(col, 2) == 0 {
-        get(fs, face * 4 + (row / 2) * 2 + col / 2)
+        get(fs, face * 4 + row / 2 * 2 + col / 2)
       } else {
         face
       }
@@ -686,8 +849,7 @@ let inputCoordinates = (size: int, facelets: string): option<array<coordinate>> 
     let midge = readOriented(fs, e5, ec, false)
     let wing = readPlain(fs, w5)
     switch (corner, midge, wing) {
-    | (Some(c), Some(m), Some(w)) =>
-      Some([c, m, w, readCenters(fs, x5), readCenters(fs, p5)])
+    | (Some(c), Some(m), Some(w)) => Some([c, m, w, readCenters(fs, x5), readCenters(fs, p5)])
     | _ => None
     }
   }
@@ -695,7 +857,12 @@ let inputCoordinates = (size: int, facelets: string): option<array<coordinate>> 
 
 let renderCoordinates = (size: int, coordinates: array<coordinate>): string => {
   let fs = Array.make(~length=6 * size * size, 0)
-  let writeOriented = (p: array<int>, o: array<int>, slots: array<array<int>>, colours: array<array<int>>) =>
+  let writeOriented = (
+    p: array<int>,
+    o: array<int>,
+    slots: array<array<int>>,
+    colours: array<array<int>>,
+  ) =>
     slots->Array.forEachWithIndex((slot, s) =>
       slot->Array.forEachWithIndex((at, k) => {
         let piece = get(colours, get(p, s))
@@ -820,7 +987,10 @@ let decodeState = (input: string): result<cubeState, orbitError> => {
     }
   }
   if foundSize.contents == 0 {
-    fail("InvalidTokenLength", "Orbit64 state tokens use 5, 12, 27, or 43 characters for 2×2×2 through 5×5×5.")
+    fail(
+      "InvalidTokenLength",
+      "Orbit64 state tokens use 5, 12, 27, or 43 characters for 2×2×2 through 5×5×5.",
+    )
   } else {
     let hasInvalidChar = ref(false)
     for i in 0 to tokLen - 1 {
@@ -834,7 +1004,10 @@ let decodeState = (input: string): result<cubeState, orbitError> => {
     } else {
       let firstChar = token->String.slice(~start=0, ~end=1)
       if String.indexOf(alphabet, firstChar) > 15 {
-        fail("InvalidHeader", "This Orbit64 token is not a state token (its leading class bits are not 00).")
+        fail(
+          "InvalidHeader",
+          "This Orbit64 token is not a state token (its leading class bits are not 00).",
+        )
       } else {
         let n = foundSize.contents
         let value = ref(zero)
@@ -845,9 +1018,20 @@ let decodeState = (input: string): result<cubeState, orbitError> => {
           value := add(mul(value.contents, b64), fromInt(alphaIdx))
         }
         if gte(value.contents, stateCount(n)) {
-          fail("InvalidState", `The token is out of range for ${Int.toString(n)}×${Int.toString(n)}×${Int.toString(n)}.`)
+          fail(
+            "InvalidState",
+            `The token is out of range for ${Int.toString(n)}×${Int.toString(n)}×${Int.toString(
+                n,
+              )}.`,
+          )
         } else {
-          let frameCount = fromInt(if carriesFrame(n) { 24 } else { 1 })
+          let frameCount = fromInt(
+            if carriesFrame(n) {
+              24
+            } else {
+              1
+            },
+          )
           let frame = toInt(rem(value.contents, frameCount))
           let rendered = renderCoordinates(n, unrankCoordinates(n, div(value.contents, frameCount)))
           switch FaceletCodec.parse(~size=n, rendered) {
@@ -858,7 +1042,8 @@ let decodeState = (input: string): result<cubeState, orbitError> => {
             } else {
               switch transform(parsed, get(rotationSteps, frame)) {
               | Some(framed) => ok(framed)
-              | None => fail("InvalidFrame", "Orbit64's stored whole-cube frame could not be applied.")
+              | None =>
+                fail("InvalidFrame", "Orbit64's stored whole-cube frame could not be applied.")
               }
             }
           }
@@ -879,7 +1064,12 @@ let encodeState = (state: cubeState): result<string, orbitError> => {
       let facelets = state.facelets
       let hasBadFace = facelets->Array.some(face => Array.length(face) != n * n)
       if hasBadFace {
-        fail("InvalidState", `A ${Int.toString(n)}×${Int.toString(n)}×${Int.toString(n)} Orbit64 state needs ${Int.toString(n * n)} facelets per face.`)
+        fail(
+          "InvalidState",
+          `A ${Int.toString(n)}×${Int.toString(n)}×${Int.toString(
+              n,
+            )} Orbit64 state needs ${Int.toString(n * n)} facelets per face.`,
+        )
       } else {
         let canonical = ref(state)
         let frame = ref(0)
@@ -897,11 +1087,18 @@ let encodeState = (state: cubeState): result<string, orbitError> => {
           }
         }
         if frameError.contents {
-          fail("InvalidCoordinates", "The odd-cube fixed centres do not form a right-handed whole-cube frame.")
+          fail(
+            "InvalidCoordinates",
+            "The odd-cube fixed centres do not form a right-handed whole-cube frame.",
+          )
         } else {
           let canonicalFacelets: string = FaceletCodec.render(canonical.contents)
           switch inputCoordinates(n, canonicalFacelets) {
-          | None => fail("InvalidCoordinates", "The facelets do not describe Orbit64's published piece convention.")
+          | None =>
+            fail(
+              "InvalidCoordinates",
+              "The facelets do not describe Orbit64's published piece convention.",
+            )
           | Some(coordinates) =>
             let parityMismatch = if carriesFrame(n) {
               let cP = switch get(coordinates, 0) {
@@ -919,8 +1116,16 @@ let encodeState = (state: cubeState): result<string, orbitError> => {
             if parityMismatch {
               fail("InvalidCoordinates", "Corner and midge permutation parity must match.")
             } else {
-              let frameMul = fromInt(if carriesFrame(n) { 24 } else { 1 })
-              let value = ref(add(mul(rankCoordinates(n, coordinates), frameMul), fromInt(frame.contents)))
+              let frameMul = fromInt(
+                if carriesFrame(n) {
+                  24
+                } else {
+                  1
+                },
+              )
+              let value = ref(
+                add(mul(rankCoordinates(n, coordinates), frameMul), fromInt(frame.contents)),
+              )
               let output = ref("")
               let b64 = fromInt(64)
               for _ in 0 to expectedWidth - 1 {
@@ -945,17 +1150,28 @@ let canonicaliseState = (state: cubeState): result<cubeState, orbitError> => {
   } else {
     let size = state.size
     if !carriesFrame(size) {
-      fail("UnsupportedSize", "Orientation canonicalisation is available for 3×3×3 and 5×5×5 states.")
+      fail(
+        "UnsupportedSize",
+        "Orientation canonicalisation is available for 3×3×3 and 5×5×5 states.",
+      )
     } else {
       let facelets = state.facelets
       let s2 = size * size
       let hasBadFace = facelets->Array.some(face => Array.length(face) != s2)
       if hasBadFace {
-        fail("InvalidState", `A ${Int.toString(size)}×${Int.toString(size)}×${Int.toString(size)} state needs ${Int.toString(s2)} facelets per face.`)
+        fail(
+          "InvalidState",
+          `A ${Int.toString(size)}×${Int.toString(size)}×${Int.toString(
+              size,
+            )} state needs ${Int.toString(s2)} facelets per face.`,
+        )
       } else {
         let f = frameForState(state)
         if f < 0 {
-          fail("InvalidCoordinates", "The fixed centres do not form a right-handed whole-cube frame.")
+          fail(
+            "InvalidCoordinates",
+            "The fixed centres do not form a right-handed whole-cube frame.",
+          )
         } else {
           switch transform(state, inverseRotation(get(rotationSteps, f))) {
           | Some(canonical) => ok(canonical)

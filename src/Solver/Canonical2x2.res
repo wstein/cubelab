@@ -5,9 +5,24 @@ type cubies = {
 type transform = cubies
 
 let moveTokens = [
-  "U", "U2", "U'", "D", "D2", "D'",
-  "R", "R2", "R'", "L", "L2", "L'",
-  "F", "F2", "F'", "B", "B2", "B'",
+  "U",
+  "U2",
+  "U'",
+  "D",
+  "D2",
+  "D'",
+  "R",
+  "R2",
+  "R'",
+  "L",
+  "L2",
+  "L'",
+  "F",
+  "F2",
+  "F'",
+  "B",
+  "B2",
+  "B'",
 ]
 
 let identity = (): cubies => {
@@ -117,11 +132,19 @@ let unrank = (coordinate: int): array<int> => {
       factorial := factorial.contents * i
     }
     let fact = factorial.contents
-    let selected = if fact == 0 { 0 } else { remaining.contents / fact }
+    let selected = if fact == 0 {
+      0
+    } else {
+      remaining.contents / fact
+    }
     let spliceHelper: (array<int>, int) => int = %raw("(arr, idx) => arr.splice(idx, 1)[0]")
     let removed = spliceHelper(available, selected)
     let _ = Array.push(output, removed)
-    remaining := if fact == 0 { 0 } else { mod(remaining.contents, fact) }
+    remaining := if fact == 0 {
+        0
+      } else {
+        mod(remaining.contents, fact)
+      }
   }
   output
 }

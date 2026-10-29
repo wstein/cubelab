@@ -51,12 +51,7 @@ type centreGuide4x4 = {
 
 let faces = ["U", "R", "F", "D", "L", "B"]
 let centreIndices = [5, 6, 9, 10]
-let edgePairs = [
-  (1, 2),   // top
-  (7, 11),  // right
-  (13, 14), // bottom
-  (4, 8),   // left
-]
+let edgePairs = [(1, 2), (7, 11), (13, 14), (4, 8)] // top // right // bottom // left
 let edgeNames = ["top", "right", "bottom", "left"]
 let reducedFacelets = [0, 1, 3, 4, 5, 7, 12, 13, 15]
 
@@ -90,7 +85,12 @@ let compactFacelets = (state: 'a): option<string> =>
   }
 
 let parseGuide = (notation: string): option<alg> =>
-  switch MoveParser.parseWithOptions(~size=4, ~lowercaseMode=Wide, ~notationDialect=Modern, notation) {
+  switch MoveParser.parseWithOptions(
+    ~size=4,
+    ~lowercaseMode=Wide,
+    ~notationDialect=Modern,
+    notation,
+  ) {
   | Ok(alg) => Some(alg)
   | Error(_) => None
   }
@@ -180,25 +180,23 @@ let inspectReduction4x4 = (state: 'a): result<reduction4x4Inspection, reduction4
     let wingRowsPaired = wingRows->Array.filter(m => m.complete)->Array.length
     let centreFrameValid = isCentreFrameValid(state)
 
-    let stage =
-      if centreBlocksComplete < Array.length(faces) || !centreFrameValid {
-        "centres"
-      } else if wingRowsPaired < Array.length(wingRows) {
-        "wings"
-      } else {
-        "reduced"
-      }
+    let stage = if centreBlocksComplete < Array.length(faces) || !centreFrameValid {
+      "centres"
+    } else if wingRowsPaired < Array.length(wingRows) {
+      "wings"
+    } else {
+      "reduced"
+    }
 
-    let nextGoal =
-      if !centreFrameValid && centreBlocksComplete == Array.length(faces) {
-        "Reposition the completed centre blocks into a valid U/R/F colour frame before wing pairing."
-      } else if stage == "centres" {
-        `Build centre blocks (${Int.toString(centreBlocksComplete)}/6 complete).`
-      } else if stage == "wings" {
-        `Pair wing rows (${Int.toString(wingRowsPaired)}/24 matched).`
-      } else {
-        "Reduction complete — ready for the 3×3 finish."
-      }
+    let nextGoal = if !centreFrameValid && centreBlocksComplete == Array.length(faces) {
+      "Reposition the completed centre blocks into a valid U/R/F colour frame before wing pairing."
+    } else if stage == "centres" {
+      `Build centre blocks (${Int.toString(centreBlocksComplete)}/6 complete).`
+    } else if stage == "wings" {
+      `Pair wing rows (${Int.toString(wingRowsPaired)}/24 matched).`
+    } else {
+      "Reduction complete — ready for the 3×3 finish."
+    }
 
     Ok({
       centres,
@@ -273,9 +271,16 @@ let centreMoveNotations: array<string> = {
 let centreMoves: array<centreMove> = {
   let locations = []
   faces->Array.forEach(face => {
-    let faceIdx = StateTypes.storageIndex(switch face {
-    | "U" => U | "R" => R | "F" => F | "D" => D | "L" => L | _ => B
-    })
+    let faceIdx = StateTypes.storageIndex(
+      switch face {
+      | "U" => U
+      | "R" => R
+      | "F" => F
+      | "D" => D
+      | "L" => L
+      | _ => B
+      },
+    )
     centreIndices->Array.forEach(idx => {
       locations->Array.push(faceIdx * 16 + idx)
     })
@@ -331,8 +336,7 @@ let applyCentreMove = (values: string, move: centreMove): string => {
   chars->Array.join("")
 }
 
-let centreSearchScore = (progress: centreProgress): int =>
-  progress.blocks * 100 + progress.score
+let centreSearchScore = (progress: centreProgress): int => progress.blocks * 100 + progress.score
 
 type centreCandidate = {
   values: string,
@@ -352,14 +356,16 @@ let planNextCentreBlock4x4 = (state: 'a): result<centreGuide4x4, reduction4x4Err
     if initial.blocks == 6 && !repairFrame {
       Error({message: "All six centre blocks are complete."})
     } else {
-      let frontier: ref<array<centreCandidate>> = ref([{
-        values: start,
-        alg: [],
-        lastFace: "",
-        score: initial.score,
-        blocks: initial.blocks,
-        fixed: initial.fixed,
-      }])
+      let frontier: ref<array<centreCandidate>> = ref([
+        {
+          values: start,
+          alg: [],
+          lastFace: "",
+          score: initial.score,
+          blocks: initial.blocks,
+          fixed: initial.fixed,
+        },
+      ])
       let best: ref<option<centreCandidate>> = ref(None)
 
       for _depth in 0 to 9 {
@@ -389,7 +395,8 @@ let planNextCentreBlock4x4 = (state: 'a): result<centreGuide4x4, reduction4x4Err
                 let improves = if repairFrame {
                   progress.fixed > initial.fixed
                 } else {
-                  progress.blocks > initial.blocks || (progress.blocks == initial.blocks && progress.score > initial.score)
+                  progress.blocks > initial.blocks ||
+                    (progress.blocks == initial.blocks && progress.score > initial.score)
                 }
                 if improves {
                   switch best.contents {
@@ -452,23 +459,31 @@ let planNextCentreBlock4x4 = (state: 'a): result<centreGuide4x4, reduction4x4Err
     }
   }
 
-let pairingSeedNotations = [
-  "2R U R' U' 2R'",
-  "2R U R U' 2R'",
-  "u' R U R' F R' F' R u",
-]
+let pairingSeedNotations = ["2R U R' U' 2R'", "2R U R U' 2R'", "u' R U R' F R' F' R u"]
 
 let ollParityNotation = "r U2 x r U2 r U2 r' U2 l U2 r' U2 r U2 r' U2 r'"
 let pllParityNotation = "2R2 U2 2R2 u2 2R2 u2"
 
 let outerSetupNotations = [
   "",
-  "U", "U'", "U2",
-  "R", "R'", "R2",
-  "F", "F'", "F2",
-  "D", "D'", "D2",
-  "L", "L'", "L2",
-  "B", "B'", "B2",
+  "U",
+  "U'",
+  "U2",
+  "R",
+  "R'",
+  "R2",
+  "F",
+  "F'",
+  "F2",
+  "D",
+  "D'",
+  "D2",
+  "L",
+  "L'",
+  "L2",
+  "B",
+  "B'",
+  "B2",
 ]
 
 let secondSetupNotations = ["", "U", "U'", "U2", "R", "R'", "R2", "F", "F'", "F2"]
@@ -501,160 +516,174 @@ let planNextWingPair4x4 = (state: 'a): result<wingPairGuide4x4, reduction4x4Erro
   | Ok(initial) if initial.wingRowsPaired == 24 =>
     Error({message: "All visible wing rows are already paired."})
   | Ok(initial) => {
-    let setups = []
-    outerSetupNotations->Array.forEach(notation => {
-      switch parseGuide(notation) {
-      | Some(s) => setups->Array.push(s)
-      | None => ()
-      }
-    })
+      let setups = []
+      outerSetupNotations->Array.forEach(notation => {
+        switch parseGuide(notation) {
+        | Some(s) => setups->Array.push(s)
+        | None => ()
+        }
+      })
 
-    let rotatedSeeds = Map.make()
-    pairingSeedNotations->Array.forEach(notation => {
-      switch parseGuide(notation) {
-      | None => ()
-      | Some(seed) =>
-        for x in 0 to 3 {
-          for y in 0 to 3 {
-            for z in 0 to 3 {
-              let rotated = MoveTransform.rotate(
-                MoveTransform.rotate(
-                  MoveTransform.rotate(seed, ~axis=X, ~turns=x),
-                  ~axis=Y,
-                  ~turns=y,
-                ),
-                ~axis=Z,
-                ~turns=z,
-              )
-              let serialized = MoveTransform.serialize(rotated)
-              Map.set(rotatedSeeds, serialized, rotated)
+      let rotatedSeeds = Map.make()
+      pairingSeedNotations->Array.forEach(notation => {
+        switch parseGuide(notation) {
+        | None => ()
+        | Some(seed) =>
+          for x in 0 to 3 {
+            for y in 0 to 3 {
+              for z in 0 to 3 {
+                let rotated = MoveTransform.rotate(
+                  MoveTransform.rotate(
+                    MoveTransform.rotate(seed, ~axis=X, ~turns=x),
+                    ~axis=Y,
+                    ~turns=y,
+                  ),
+                  ~axis=Z,
+                  ~turns=z,
+                )
+                let serialized = MoveTransform.serialize(rotated)
+                Map.set(rotatedSeeds, serialized, rotated)
+              }
             }
           }
         }
+      })
+
+      let best: ref<option<wingPairGuide4x4>> = ref(None)
+
+      let evaluate = (candidateSetups: array<alg>): unit => {
+        candidateSetups->Array.forEach(setup => {
+          mapValues(rotatedSeeds)->Array.forEach(seed => {
+            let alg = Array.concat(Array.concat(setup, seed), MoveTransform.invert(setup))
+            switch MoveExecutor.applyAlg(state, alg) {
+            | Error(_) => ()
+            | Ok(replay) =>
+              switch inspectReduction4x4(replay) {
+              | Error(_) => ()
+              | Ok(after)
+                if after.centreBlocksComplete == 6 &&
+                  after.wingRowsPaired > initial.wingRowsPaired =>
+                let guide = {
+                  alg,
+                  algorithm: MoveTransform.serialize(alg),
+                  before: initial.wingRowsPaired,
+                  after: after.wingRowsPaired,
+                }
+                switch best.contents {
+                | None => best := Some(guide)
+                | Some(current) =>
+                  if (
+                    guide.after > current.after ||
+                      (guide.after == current.after &&
+                        String.length(guide.algorithm) < String.length(current.algorithm))
+                  ) {
+                    best := Some(guide)
+                  }
+                }
+              | _ => ()
+              }
+            }
+          })
+        })
       }
-    })
 
-    let best: ref<option<wingPairGuide4x4>> = ref(None)
+      evaluate(setups)
 
-    let evaluate = (candidateSetups: array<alg>): unit => {
-      candidateSetups->Array.forEach(setup => {
-        mapValues(rotatedSeeds)->Array.forEach(seed => {
-          let alg = Array.concat(Array.concat(setup, seed), MoveTransform.invert(setup))
-          switch MoveExecutor.applyAlg(state, alg) {
+      if best.contents == None {
+        let secondTurns = []
+        secondSetupNotations->Array.forEach(notation => {
+          switch parseGuide(notation) {
+          | Some(s) => secondTurns->Array.push(s)
+          | None => ()
+          }
+        })
+        let twoPlySetups = []
+        secondTurns->Array.forEach(first => {
+          secondTurns->Array.forEach(second => {
+            twoPlySetups->Array.push(Array.concat(first, second))
+          })
+        })
+        evaluate(twoPlySetups)
+      }
+
+      if best.contents == None {
+        let firstSteps: array<wingStep> = []
+        mapValues(rotatedSeeds)->Array.forEach(first => {
+          switch MoveExecutor.applyAlg(state, first) {
           | Error(_) => ()
           | Ok(replay) =>
             switch inspectReduction4x4(replay) {
-            | Error(_) => ()
-            | Ok(after) if after.centreBlocksComplete == 6 && after.wingRowsPaired > initial.wingRowsPaired =>
-              let guide = {
-                alg,
-                algorithm: MoveTransform.serialize(alg),
-                before: initial.wingRowsPaired,
-                after: after.wingRowsPaired,
-              }
-              switch best.contents {
-              | None => best := Some(guide)
-              | Some(current) =>
-                if guide.after > current.after || (guide.after == current.after && String.length(guide.algorithm) < String.length(current.algorithm)) {
-                  best := Some(guide)
-                }
-              }
+            | Ok(after)
+              if after.centreBlocksComplete == 6 &&
+                after.wingRowsPaired >= initial.wingRowsPaired - 4 =>
+              firstSteps->Array.push({alg: first, state: replay})
             | _ => ()
             }
           }
         })
-      })
-    }
 
-    evaluate(setups)
-
-    if best.contents == None {
-      let secondTurns = []
-      secondSetupNotations->Array.forEach(notation => {
-        switch parseGuide(notation) {
-        | Some(s) => secondTurns->Array.push(s)
-        | None => ()
-        }
-      })
-      let twoPlySetups = []
-      secondTurns->Array.forEach(first => {
-        secondTurns->Array.forEach(second => {
-          twoPlySetups->Array.push(Array.concat(first, second))
+        let secondSteps = Map.make()
+        setups->Array.forEach(setup => {
+          mapValues(rotatedSeeds)->Array.forEach(seed => {
+            let alg = Array.concat(Array.concat(setup, seed), MoveTransform.invert(setup))
+            Map.set(secondSteps, MoveTransform.serialize(alg), alg)
+          })
         })
-      })
-      evaluate(twoPlySetups)
-    }
 
-    if best.contents == None {
-      let firstSteps: array<wingStep> = []
-      mapValues(rotatedSeeds)->Array.forEach(first => {
-        switch MoveExecutor.applyAlg(state, first) {
-        | Error(_) => ()
-        | Ok(replay) =>
-          switch inspectReduction4x4(replay) {
-          | Ok(after) if after.centreBlocksComplete == 6 && after.wingRowsPaired >= initial.wingRowsPaired - 4 =>
-            firstSteps->Array.push({alg: first, state: replay})
-          | _ => ()
-          }
-        }
-      })
-
-      let secondSteps = Map.make()
-      setups->Array.forEach(setup => {
-        mapValues(rotatedSeeds)->Array.forEach(seed => {
-          let alg = Array.concat(Array.concat(setup, seed), MoveTransform.invert(setup))
-          Map.set(secondSteps, MoveTransform.serialize(alg), alg)
-        })
-      })
-
-      let finished = ref(false)
-      for i in 0 to Array.length(firstSteps) - 1 {
-        if !finished.contents {
-          let first = get(firstSteps, i)
-          let secVals = mapValues(secondSteps)
-          for j in 0 to Array.length(secVals) - 1 {
-            if !finished.contents {
-              let second = get(secVals, j)
-              switch MoveExecutor.applyAlg(first.state, second) {
-              | Error(_) => ()
-              | Ok(replay) =>
-                switch inspectReduction4x4(replay) {
-                | Ok(after) if after.centreBlocksComplete == 6 && after.wingRowsPaired > initial.wingRowsPaired =>
-                  let alg = Array.concat(first.alg, second)
-                  let guide = {
-                    alg,
-                    algorithm: MoveTransform.serialize(alg),
-                    before: initial.wingRowsPaired,
-                    after: after.wingRowsPaired,
-                  }
-                  switch best.contents {
-                  | None => best := Some(guide)
-                  | Some(current) =>
-                    if guide.after > current.after || (guide.after == current.after && String.length(guide.algorithm) < String.length(current.algorithm)) {
-                      best := Some(guide)
+        let finished = ref(false)
+        for i in 0 to Array.length(firstSteps) - 1 {
+          if !finished.contents {
+            let first = get(firstSteps, i)
+            let secVals = mapValues(secondSteps)
+            for j in 0 to Array.length(secVals) - 1 {
+              if !finished.contents {
+                let second = get(secVals, j)
+                switch MoveExecutor.applyAlg(first.state, second) {
+                | Error(_) => ()
+                | Ok(replay) =>
+                  switch inspectReduction4x4(replay) {
+                  | Ok(after)
+                    if after.centreBlocksComplete == 6 &&
+                      after.wingRowsPaired > initial.wingRowsPaired =>
+                    let alg = Array.concat(first.alg, second)
+                    let guide = {
+                      alg,
+                      algorithm: MoveTransform.serialize(alg),
+                      before: initial.wingRowsPaired,
+                      after: after.wingRowsPaired,
                     }
+                    switch best.contents {
+                    | None => best := Some(guide)
+                    | Some(current) =>
+                      if (
+                        guide.after > current.after ||
+                          (guide.after == current.after &&
+                            String.length(guide.algorithm) < String.length(current.algorithm))
+                      ) {
+                        best := Some(guide)
+                      }
+                    }
+                    if guide.after == 24 {
+                      finished := true
+                    }
+                  | _ => ()
                   }
-                  if guide.after == 24 {
-                    finished := true
-                  }
-                | _ => ()
                 }
               }
             }
           }
         }
       }
-    }
 
-    switch best.contents {
-    | None =>
-      Error({
-        message: "No single improving wing-pair move was found; this position needs a setup or parity step before requesting the next guide.",
-      })
-    | Some(g) => Ok(g)
+      switch best.contents {
+      | None =>
+        Error({
+          message: "No single improving wing-pair move was found; this position needs a setup or parity step before requesting the next guide.",
+        })
+      | Some(g) => Ok(g)
+      }
     }
   }
-}
 
 let reduce4x4 = (state: 'a): result<reduced4x4, reduction4x4Error> =>
   switch compactFacelets(state) {
@@ -662,72 +691,85 @@ let reduce4x4 = (state: 'a): result<reduced4x4, reduction4x4Error> =>
   | Some(compact) =>
     switch inspectReduction4x4(state) {
     | Error(e) => Error(e)
-    | Ok(inspection) if inspection.stage != "reduced" =>
-      Error({message: inspection.nextGoal})
+    | Ok(inspection) if inspection.stage != "reduced" => Error({message: inspection.nextGoal})
     | Ok(_) => {
-      let reducedChars = []
-      let earlyError: ref<option<string>> = ref(None)
-      for faceIndex in 0 to Array.length(faces) - 1 {
-        if earlyError.contents == None {
-          let faceName = get(faces, faceIndex)
-          let face = compact->String.slice(~start=faceIndex * 16, ~end=(faceIndex + 1) * 16)
-          let c0 = face->String.slice(~start=get(centreIndices, 0), ~end=get(centreIndices, 0) + 1)
-          let c1 = face->String.slice(~start=get(centreIndices, 1), ~end=get(centreIndices, 1) + 1)
-          let c2 = face->String.slice(~start=get(centreIndices, 2), ~end=get(centreIndices, 2) + 1)
-          let c3 = face->String.slice(~start=get(centreIndices, 3), ~end=get(centreIndices, 3) + 1)
-          if c0 != c1 || c1 != c2 || c2 != c3 {
-            earlyError := Some(`${faceName} centres are not reduced yet.`)
-          } else {
-            for edgeIndex in 0 to Array.length(edgePairs) - 1 {
-              let (p0, p1) = get(edgePairs, edgeIndex)
-              let e0 = face->String.slice(~start=p0, ~end=p0 + 1)
-              let e1 = face->String.slice(~start=p1, ~end=p1 + 1)
-              if e0 != e1 {
-                earlyError := Some(`${faceName} ${get(edgeNames, edgeIndex)} wings are not paired yet.`)
+        let reducedChars = []
+        let earlyError: ref<option<string>> = ref(None)
+        for faceIndex in 0 to Array.length(faces) - 1 {
+          if earlyError.contents == None {
+            let faceName = get(faces, faceIndex)
+            let face = compact->String.slice(~start=faceIndex * 16, ~end=(faceIndex + 1) * 16)
+            let c0 =
+              face->String.slice(~start=get(centreIndices, 0), ~end=get(centreIndices, 0) + 1)
+            let c1 =
+              face->String.slice(~start=get(centreIndices, 1), ~end=get(centreIndices, 1) + 1)
+            let c2 =
+              face->String.slice(~start=get(centreIndices, 2), ~end=get(centreIndices, 2) + 1)
+            let c3 =
+              face->String.slice(~start=get(centreIndices, 3), ~end=get(centreIndices, 3) + 1)
+            if c0 != c1 || c1 != c2 || c2 != c3 {
+              earlyError := Some(`${faceName} centres are not reduced yet.`)
+            } else {
+              for edgeIndex in 0 to Array.length(edgePairs) - 1 {
+                let (p0, p1) = get(edgePairs, edgeIndex)
+                let e0 = face->String.slice(~start=p0, ~end=p0 + 1)
+                let e1 = face->String.slice(~start=p1, ~end=p1 + 1)
+                if e0 != e1 {
+                  earlyError :=
+                    Some(`${faceName} ${get(edgeNames, edgeIndex)} wings are not paired yet.`)
+                }
               }
-            }
-            for i in 0 to Array.length(reducedFacelets) - 1 {
-              let idx = get(reducedFacelets, i)
-              reducedChars->Array.push(face->String.slice(~start=idx, ~end=idx + 1))
+              for i in 0 to Array.length(reducedFacelets) - 1 {
+                let idx = get(reducedFacelets, i)
+                reducedChars->Array.push(face->String.slice(~start=idx, ~end=idx + 1))
+              }
             }
           }
         }
-      }
 
-      switch earlyError.contents {
-      | Some(msg) => Error({message: msg})
-      | None =>
-        let reducedCompact = reducedChars->Array.join("")
-        switch FaceletCodec.parse(~size=3, reducedCompact) {
-        | Error(_) => Error({message: "The reduced 3×3 facelets do not have one of each colour."})
-        | Ok(parsed) =>
-          switch PieceReducer.reduce(parsed) {
-          | Error(piecesErr) =>
-            switch edgeFlipSlots(piecesErr) {
-            | Some(flipped) =>
-              let count = Array.length(flipped)
-              let verb = if count == 1 { " is" } else { "s are" }
-              Error({
-                message: `4×4 OLL parity detected: ${Int.toString(count)} reduced dedge orientation${verb} flipped. Apply the OLL-parity repair before the 3×3 finish.`,
-              })
-            | None =>
-              if hasPermutationParityMismatch(piecesErr) {
+        switch earlyError.contents {
+        | Some(msg) => Error({message: msg})
+        | None =>
+          let reducedCompact = reducedChars->Array.join("")
+          switch FaceletCodec.parse(~size=3, reducedCompact) {
+          | Error(_) =>
+            Error({message: "The reduced 3×3 facelets do not have one of each colour."})
+          | Ok(parsed) =>
+            switch PieceReducer.reduce(parsed) {
+            | Error(piecesErr) =>
+              switch edgeFlipSlots(piecesErr) {
+              | Some(flipped) =>
+                let count = Array.length(flipped)
+                let verb = if count == 1 {
+                  " is"
+                } else {
+                  "s are"
+                }
                 Error({
-                  message: "4×4 PLL parity detected: one dedge pair is swapped in the reduced state. Apply the PLL-parity repair before the 3×3 finish.",
+                  message: `4×4 OLL parity detected: ${Int.toString(
+                      count,
+                    )} reduced dedge orientation${verb} flipped. Apply the OLL-parity repair before the 3×3 finish.`,
                 })
-              } else {
-                Error({
-                  message: `The reduced 3×3 state is not physically reachable: ${PieceReducer.describeError(piecesErr)}.`,
-                })
+              | None =>
+                if hasPermutationParityMismatch(piecesErr) {
+                  Error({
+                    message: "4×4 PLL parity detected: one dedge pair is swapped in the reduced state. Apply the PLL-parity repair before the 3×3 finish.",
+                  })
+                } else {
+                  Error({
+                    message: `The reduced 3×3 state is not physically reachable: ${PieceReducer.describeError(
+                        piecesErr,
+                      )}.`,
+                  })
+                }
               }
+            | Ok(_) => Ok({state: parsed, compact: reducedCompact})
             }
-          | Ok(_) => Ok({state: parsed, compact: reducedCompact})
           }
         }
       }
     }
   }
-}
 
 let planOLLParityRepair4x4 = (state: 'a): result<ollParityRepair4x4, reduction4x4Error> =>
   switch reduce4x4(state) {
@@ -740,10 +782,12 @@ let planOLLParityRepair4x4 = (state: 'a): result<ollParityRepair4x4, reduction4x
       | None => Error({message: "The OLL-parity repair could not be parsed."})
       | Some(alg) =>
         switch MoveExecutor.applyAlg(state, alg) {
-        | Error(_) => Error({message: "The OLL-parity repair did not produce a legal reduced 3×3 state."})
+        | Error(_) =>
+          Error({message: "The OLL-parity repair did not produce a legal reduced 3×3 state."})
         | Ok(replay) =>
           switch reduce4x4(replay) {
-          | Error(_) => Error({message: "The OLL-parity repair did not produce a legal reduced 3×3 state."})
+          | Error(_) =>
+            Error({message: "The OLL-parity repair did not produce a legal reduced 3×3 state."})
           | Ok(_) => Ok({alg, algorithm: MoveTransform.serialize(alg)})
           }
         }
@@ -762,10 +806,12 @@ let planPLLParityRepair4x4 = (state: 'a): result<ollParityRepair4x4, reduction4x
       | None => Error({message: "The PLL-parity repair could not be parsed."})
       | Some(alg) =>
         switch MoveExecutor.applyAlg(state, alg) {
-        | Error(_) => Error({message: "The PLL-parity repair did not produce a legal reduced 3×3 state."})
+        | Error(_) =>
+          Error({message: "The PLL-parity repair did not produce a legal reduced 3×3 state."})
         | Ok(replay) =>
           switch reduce4x4(replay) {
-          | Error(_) => Error({message: "The PLL-parity repair did not produce a legal reduced 3×3 state."})
+          | Error(_) =>
+            Error({message: "The PLL-parity repair did not produce a legal reduced 3×3 state."})
           | Ok(_) => Ok({alg, algorithm: MoveTransform.serialize(alg)})
           }
         }
@@ -777,16 +823,16 @@ let isMonochromeSolved4x4 = (state: 'a): bool =>
   switch compactFacelets(state) {
   | None => false
   | Some(compact) => {
-    let allMono = ref(true)
-    for faceIndex in 0 to Array.length(faces) - 1 {
-      let face = compact->String.slice(~start=faceIndex * 16, ~end=(faceIndex + 1) * 16)
-      let firstChar = face->String.slice(~start=0, ~end=1)
-      for i in 1 to 15 {
-        if face->String.slice(~start=i, ~end=i + 1) != firstChar {
-          allMono := false
+      let allMono = ref(true)
+      for faceIndex in 0 to Array.length(faces) - 1 {
+        let face = compact->String.slice(~start=faceIndex * 16, ~end=(faceIndex + 1) * 16)
+        let firstChar = face->String.slice(~start=0, ~end=1)
+        for i in 1 to 15 {
+          if face->String.slice(~start=i, ~end=i + 1) != firstChar {
+            allMono := false
+          }
         }
       }
+      allMono.contents
     }
-    allMono.contents
-  }
   }
