@@ -5,13 +5,19 @@ open MoveTypes
 
 @scope("Number") external isInteger: int => bool = "isInteger"
 
-let validOrientations = values =>
+// Visit every index explicitly: Array.every and reduce skip holes, so a sparse
+// array such as [1, , 1, 0, 0, 0] or Array(6) must not validate as zeros.
+let storageIndices = [0, 1, 2, 3, 4, 5]
+let everyStored = (values, valid) =>
+  Array.isArray(values) &&
   values->Array.length == 6 &&
-    values->Array.every(value => isInteger(value) && value >= 0 && value < 4)
+  storageIndices->Array.every(index => valid(values->Array.getUnsafe(index)))
+
+let validOrientations = values =>
+  values->everyStored(value => isInteger(value) && value >= 0 && value < 4)
 
 // Period 1 ignores orientation, 2 identifies a half turn, and 4 requires exact up.
-let validSymmetry = values =>
-  values->Array.length == 6 && values->Array.every(value => value == 1 || value == 2 || value == 4)
+let validSymmetry = values => values->everyStored(value => value == 1 || value == 2 || value == 4)
 
 let factors = [1, 4, 16, 64, 256, 1024]
 let encode = values =>

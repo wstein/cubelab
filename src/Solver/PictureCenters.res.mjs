@@ -6,32 +6,41 @@ import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as Primitive_int from "@rescript/runtime/lib/es6/Primitive_int.js";
 
-function validOrientations(values) {
-  if (values.length === 6) {
-    return values.every(value => {
-      if (Number.isInteger(value) && value >= 0) {
-        return value < 4;
-      } else {
-        return false;
-      }
-    });
+let storageIndices = [
+  0,
+  1,
+  2,
+  3,
+  4,
+  5
+];
+
+function everyStored(values, valid) {
+  if (Array.isArray(values) && values.length === 6) {
+    return storageIndices.every(index => valid(values[index]));
   } else {
     return false;
   }
 }
 
+function validOrientations(values) {
+  return everyStored(values, value => {
+    if (Number.isInteger(value) && value >= 0) {
+      return value < 4;
+    } else {
+      return false;
+    }
+  });
+}
+
 function validSymmetry(values) {
-  if (values.length === 6) {
-    return values.every(value => {
-      if (value === 1 || value === 2) {
-        return true;
-      } else {
-        return value === 4;
-      }
-    });
-  } else {
-    return false;
-  }
+  return everyStored(values, value => {
+    if (value === 1 || value === 2) {
+      return true;
+    } else {
+      return value === 4;
+    }
+  });
 }
 
 let factors = [
@@ -158,6 +167,8 @@ function reachable(values, corners) {
 }
 
 export {
+  storageIndices,
+  everyStored,
   validOrientations,
   validSymmetry,
   factors,

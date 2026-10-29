@@ -93,3 +93,23 @@ test("center-aware search distinguishes two physical pictures with identical col
   assert.deepEqual(Executor.applyAlg(colorState, picture._0.alg)._0, State.solved(3)._0);
   assert.deepEqual(Centers.apply(actualCenters, picture._0.alg)._0, zeros());
 });
+
+test("sparse or non-array center inputs are rejected instead of read as zeros", () => {
+  const solved = State.solved(3)._0;
+  // Array holes are skipped by every/reduce; they must not validate as unrotated centers.
+  const sparse = [[1, , 1, 0, 0, 0], [2, , 0, 0, 0, 0], Array(6), [0, 0, 0, 0, 0, , ]];
+  for (const orientations of sparse) {
+    assert.equal(Centers.validOrientations(orientations), false);
+    assert.equal(Centers.apply(orientations, []).TAG, "Error");
+    assert.equal(Centers.reachable(orientations, [0, 1, 2, 3, 4, 5, 6, 7]), false);
+    const result = Solver.solvePictureAtDepth(solved, orientations, exact(), 2, 1000);
+    assert.equal(result.TAG, "Error");
+    assert.equal(result._0.TAG, "InvalidCoordinate");
+  }
+  assert.equal(Centers.validSymmetry([4, , 4, 4, 4, 4]), false);
+  assert.equal(Solver.solvePictureAtDepth(solved, zeros(), [4, , 4, 4, 4, 4], 2, 1000).TAG, "Error");
+  for (const value of [null, "000000", {length: 6}]) {
+    assert.equal(Centers.validOrientations(value), false);
+    assert.equal(Solver.solvePictureAtDepth(solved, value, exact(), 2, 1000).TAG, "Error");
+  }
+});
