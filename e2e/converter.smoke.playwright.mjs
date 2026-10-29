@@ -1675,14 +1675,37 @@ test("mirrors auto-orbit and playback speed between Settings and the viewport, a
 });
 
 test("exports a solve card compositing the cube image with Setup, Moves, and Note", async ({page}) => {
+  // The card is copied when the clipboard accepts images and downloaded
+  // otherwise. Whether a headless browser grants clipboard writes differs by
+  // version, so each path is pinned explicitly instead of left to the host.
+  await page.addInitScript(() => {
+    window.__clipboardWrites = [];
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {write: async (items) => {
+        window.__clipboardWrites.push(items.flatMap((item) => item.types));
+      }},
+    });
+  });
   await page.goto("/#alg=R+U+R%27+U%27&note=PB+attempt");
   const solveCard = page.locator("[data-solve-card]");
+  let downloads = 0;
+  page.on("download", () => downloads += 1);
+  await solveCard.click();
+  await expect(solveCard).toHaveText("Copied!");
+  expect(await page.evaluate(() => window.__clipboardWrites)).toEqual([["image/png"]]);
+  await expect(solveCard).toHaveText("Solve card", {timeout: 3000});
+  expect(downloads).toBe(0);
+
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {configurable: true, value: undefined});
+  });
   const [download] = await Promise.all([
     page.waitForEvent("download"),
     solveCard.click(),
   ]);
   expect(download.suggestedFilename()).toMatch(/^cubelab-solve-card-3x3-\d+\.png$/);
-  await expect(solveCard).toHaveText(/Copied!|Downloaded!/);
+  await expect(solveCard).toHaveText("Downloaded!");
   await expect(solveCard).toHaveText("Solve card", {timeout: 3000});
 });
 
