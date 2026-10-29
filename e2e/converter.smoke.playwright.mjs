@@ -374,6 +374,35 @@ test("reports blocked Bluetooth without opening the device chooser", async ({pag
   expect(await page.evaluate(() => window.__bluetoothRequestCount)).toBe(0);
 });
 
+test("separates a Bluetooth policy block from a browser without Web Bluetooth", async ({page}) => {
+  // A browser that does not implement the bluetooth feature answers
+  // allowsFeature("bluetooth") with false; that is not a permission block.
+  await page.addInitScript(() => {
+    Object.defineProperty(document, "featurePolicy", {
+      configurable: true,
+      value: {features: () => ["usb", "serial"], allowsFeature: () => false},
+    });
+    Object.defineProperty(navigator, "bluetooth", {configurable: true, value: undefined});
+  });
+  await page.goto("/");
+  await page.locator("[data-smart-cube-connect]").click();
+  await expect(page.locator("[data-smart-cube-status]"))
+    .toHaveText("Web Bluetooth requires Chrome or Edge in a secure context");
+
+  const blockedPage = await page.context().newPage();
+  await blockedPage.addInitScript(() => {
+    Object.defineProperty(document, "featurePolicy", {
+      configurable: true,
+      value: {features: () => ["bluetooth", "usb"], allowsFeature: () => false},
+    });
+  });
+  await blockedPage.goto("/");
+  await blockedPage.locator("[data-smart-cube-connect]").click();
+  await expect(blockedPage.locator("[data-smart-cube-status]"))
+    .toHaveText("Bluetooth permission is blocked for this page");
+  await blockedPage.close();
+});
+
 test("recovers once from a stale lazy smart-cube chunk", async ({page}) => {
   let chunkRequests = 0;
   await page.route(/(?:\/_astro\/smart-cube\..*\.js|\/src\/client\/smart-cube\/index\.ts)/, async (route) => {

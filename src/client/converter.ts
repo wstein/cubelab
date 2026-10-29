@@ -7705,11 +7705,16 @@ if (root) {
   });
   const bluetoothPolicyAllows = () => {
     const policyDocument = document as Document & {
-      permissionsPolicy?: {allowsFeature: (feature: string) => boolean};
-      featurePolicy?: {allowsFeature: (feature: string) => boolean};
+      permissionsPolicy?: {allowsFeature: (feature: string) => boolean; features?: () => string[]};
+      featurePolicy?: {allowsFeature: (feature: string) => boolean; features?: () => string[]};
     };
     const policy = policyDocument.permissionsPolicy ?? policyDocument.featurePolicy;
-    return policy?.allowsFeature("bluetooth") ?? true;
+    if (!policy) return true;
+    // allowsFeature() also answers false for a feature this browser does not
+    // implement (for example Chromium on Linux without Web Bluetooth). That is
+    // not a policy block; the navigator.bluetooth check below reports it.
+    if (typeof policy.features === "function" && !policy.features().includes("bluetooth")) return true;
+    return policy.allowsFeature("bluetooth");
   };
   const showBluetoothUnavailable = (message: string) => {
     smartCubeDock.hidden = false;
