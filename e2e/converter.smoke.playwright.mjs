@@ -1051,17 +1051,22 @@ test("supports keyboard playback, sequence navigation, and camera reset", async 
 });
 
 test("enters direct notation moves from the studio keyboard and exposes shortcut help", async ({page}) => {
-  await page.goto("/");
+  await openWithControlledClock(page);
   const input = page.locator("[data-input]");
   const canvas = page.locator("[data-cube-canvas]");
   await input.fill("");
   await canvas.focus();
+  // A lone letter waits 250 ms for a possible doubling key before it is appended.
+  const flushPendingKey = () => page.clock.runFor(250);
 
   await page.keyboard.press("r");
+  await flushPendingKey();
   await expect(input).toHaveValue("R");
   await page.keyboard.press("Shift+u");
+  await flushPendingKey();
   await expect(input).toHaveValue("R U'");
   await page.keyboard.press("Alt+f");
+  await flushPendingKey();
   await expect(input).toHaveValue("R U' Fw");
   await page.locator("[data-viewport-panel] [data-playback-speed='1']").click();
   await page.keyboard.down("Alt");
@@ -1069,6 +1074,7 @@ test("enters direct notation moves from the studio keyboard and exposes shortcut
   await page.keyboard.press("r");
   await page.keyboard.up("Shift");
   await page.keyboard.up("Alt");
+  await flushPendingKey();
   await expect(input).toHaveValue("R U' Fw Rw'");
   await canvas.focus();
   await page.keyboard.press("l");
@@ -1079,10 +1085,13 @@ test("enters direct notation moves from the studio keyboard and exposes shortcut
   await expect(input).toHaveValue("R U' Fw Rw' L2 D2");
   await page.keyboard.press("w");
   await page.keyboard.press("b");
+  await flushPendingKey();
   await expect(input).toHaveValue("R U' Fw Rw' L2 D2 Bw");
   await page.keyboard.press("m");
+  await flushPendingKey();
   await expect(input).toHaveValue("R U' Fw Rw' L2 D2 Bw M");
   await page.keyboard.press("Shift+x");
+  await flushPendingKey();
   await expect(input).toHaveValue("R U' Fw Rw' L2 D2 Bw M x'");
 
   await page.keyboard.press("Shift+/");
@@ -1094,6 +1103,57 @@ test("enters direct notation moves from the studio keyboard and exposes shortcut
   await page.keyboard.press("End");
   await page.keyboard.press("r");
   await expect(input).toHaveValue("R U' Fw Rw' L2 D2 Bw M x'r");
+});
+
+test.describe("studio keyboard timing windows", () => {
+  // converter.ts combines two identical direct-move keys within 250 ms into a half turn
+  // (setTimeout) and lets a W prefix widen the next face key for 600 ms (performance.now,
+  // inclusive). The fake clock makes both boundaries exact.
+  const openStudio = async (page) => {
+    await openWithControlledClock(page);
+    const input = page.locator("[data-input]");
+    await input.fill("");
+    await page.locator("[data-cube-canvas]").focus();
+    return input;
+  };
+
+  test("combines a repeated key into a half turn only inside the 250 ms window", async ({page}) => {
+    const input = await openStudio(page);
+
+    await page.keyboard.press("l");
+    await page.clock.runFor(249);
+    await page.keyboard.press("l");
+    await expect(input).toHaveValue("L2");
+
+    await input.fill("");
+    await page.locator("[data-cube-canvas]").focus();
+    await page.keyboard.press("l");
+    await page.clock.runFor(249);
+    await expect(input).toHaveValue("");
+    await page.clock.runFor(1);
+    await expect(input).toHaveValue("L");
+    await page.keyboard.press("l");
+    await page.clock.runFor(250);
+    await expect(input).toHaveValue("L L");
+  });
+
+  test("widens a face key with a W prefix only inside the 600 ms window", async ({page}) => {
+    const input = await openStudio(page);
+
+    await page.keyboard.press("w");
+    await page.clock.runFor(600);
+    await page.keyboard.press("b");
+    await page.clock.runFor(250);
+    await expect(input).toHaveValue("Bw");
+
+    await input.fill("");
+    await page.locator("[data-cube-canvas]").focus();
+    await page.keyboard.press("w");
+    await page.clock.runFor(601);
+    await page.keyboard.press("b");
+    await page.clock.runFor(250);
+    await expect(input).toHaveValue("B");
+  });
 });
 
 test("animates timeline token clicks and time-travels only across distant groups", async ({page}) => {
