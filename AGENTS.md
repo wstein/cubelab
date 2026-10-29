@@ -132,7 +132,9 @@ For domain changes cover move/inverse replay, parity/twist rules, codecs and fra
 for UI changes cover playback, timer, accessibility, small screens and viewport behavior.
 For smart cubes run replay/contract tests; do not claim hardware/firmware validation
 without a real-device smoke test. See the matrix and release gates in architecture.md.
-Pages CI runs install, tests and build on main; do not assume a PR has CI coverage.
+Pages CI runs install, tests and build on main. The CI workflow runs tests, build and
+the Playwright browser tests on pull requests; it does not run `format:check` or `lint`,
+which currently fail on existing files. Check the actual check runs of a PR rather than assuming.
 For documentation-only changes verify links, commands and `git diff --check`; disclose
 which repository checks actually ran. Do not invent a Markdown-lint script.
 
