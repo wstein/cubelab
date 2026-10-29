@@ -4,6 +4,12 @@ import * as MoveParser from "../src/Move/MoveParser.res.mjs";
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
 
+// The production build registers an offline service worker that claims the
+// page and then answers the lazy smart-cube chunk request itself, which
+// page.route() cannot intercept. The mocked-transport and stale-chunk tests
+// below depend on that interception, so the app worker stays out of this file.
+test.use({serviceWorkers: "block"});
+
 const algorithmFacelets = (algorithm) => {
   const parsed = MoveParser.parse(3, algorithm);
   if (parsed.TAG !== "Ok") throw new Error(`Test algorithm did not parse: ${algorithm}`);
