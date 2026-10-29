@@ -27,7 +27,9 @@ Each goal has a period:
 - `4`: all four orientations are distinct and the original up direction is required.
 
 The physical input always contains the full six orientations, including centers
-whose goal ignores rotation. Reachability requires
+whose goal ignores rotation. Orientations and periods must be dense arrays;
+sparse arrays such as `[1, , 1, 0, 0, 0]` or `Array(6)` are rejected rather than
+read as zeros. Reachability requires
 `sum(center quarter turns) mod 2 == corner permutation parity`, in addition to
 the existing ordinary-cube invariants. For solved ordinary cubies, precisely
 2,048 of the 4,096 center tuples satisfy this rule. One center rotated 180° is
@@ -66,7 +68,10 @@ is impossible. `SearchFailed` means no path was found within the configured
 bounded two-phase search, not global impossibility. The inherited phase-one cap
 is 12 HTM; this implementation makes no completeness or optimality claim for
 picture cubes. A legal pure-center case can exhaust its budget even though a
-short solution exists. Do not replace either failure with a color-only answer.
+short solution exists: for example, a lone half-turned U center on otherwise
+solved cubies (`[2, 0, 0, 0, 0, 0]`, exact goals) returns `SearchBudgetExceeded`
+even at depth 24 with 10,000,000 nodes. Do not replace either failure with a
+color-only answer.
 
 Use `createPictureSolverClient` from
 `src/client/workers/picture-solver-client.ts` with a **dedicated** existing solver
@@ -96,7 +101,7 @@ no shared-package publication or cross-repository migration is claimed here.
 
 Regressions cover all 18 center move deltas against separate cubing transformation
 data, all 4,096 parity tuples, move/inverse replay, exact and symmetric goals,
-misoriented color-solved inputs, malformed/fractional inputs, budgets, existing
+misoriented color-solved inputs, malformed/fractional/sparse inputs, budgets, existing
 ordinary two-phase behavior, and worker deadlines/cancellation. A positive
 regression uses two physically different center pictures with identical color
 facelets: the ordinary solution misses one picture goal, while the integrated
