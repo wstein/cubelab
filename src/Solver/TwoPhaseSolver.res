@@ -133,18 +133,18 @@ let normalizedSearchInput = (state: cubeState): option<normalizedInput> =>
   switch StateTypes.solved(3) {
   | Error(_) => None
   | Ok(solved) => {
-    let found = ref(None)
-    PatternState.orientationAlgorithms(3)->Array.forEach(orientation => {
-      if found.contents == None {
-        switch MoveExecutor.applyAlg(state, orientation.alg) {
-        | Ok(candidate) if sameCentres(candidate, solved) =>
-          found := Some({state: candidate, prefix: orientation.alg})
-        | _ => ()
+      let found = ref(None)
+      PatternState.orientationAlgorithms(3)->Array.forEach(orientation => {
+        if found.contents == None {
+          switch MoveExecutor.applyAlg(state, orientation.alg) {
+          | Ok(candidate) if sameCentres(candidate, solved) =>
+            found := Some({state: candidate, prefix: orientation.alg})
+          | _ => ()
+          }
         }
-      }
-    })
-    found.contents
-  }
+      })
+      found.contents
+    }
   }
 
 let verifiedSolution = (input: cubeState, alg: alg) =>
