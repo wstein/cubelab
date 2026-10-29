@@ -19,7 +19,7 @@ type sliceNode = {
   kind: string,
   name: string,
   start: int,
-  \"end"?: int,
+  end?: int,
   repeat: unknown,
 }
 

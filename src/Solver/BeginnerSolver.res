@@ -870,7 +870,9 @@ let solve = (input: cubeState): result<solution, solverError> => {
     }
     phases[0] = {
       ...Belt.Array.getUnsafe(phases, 0),
-      alg: groupedSequence(frameAlg)->Array.concat(groupedSequence(whiteDown))->Array.concat(Belt.Array.getUnsafe(phases, 0).alg),
+      alg: groupedSequence(frameAlg)
+      ->Array.concat(groupedSequence(whiteDown))
+      ->Array.concat(Belt.Array.getUnsafe(phases, 0).alg),
     }
     phases[6] = {
       ...Belt.Array.getUnsafe(phases, 6),

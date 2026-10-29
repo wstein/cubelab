@@ -39,12 +39,30 @@ let decodeFacelets = (facelets: string): result<cubeState, inputError> =>
  * constants to canonical U/R/F/D/L/B facelet offsets. The slot order is
  * U, D, F, B, R, L and is consumed by the three centre phases. */
 let centreFaceletIndices = [
-  5, 6, 10, 9,
-  53, 54, 58, 57,
-  37, 38, 42, 41,
-  85, 86, 90, 89,
-  21, 22, 26, 25,
-  69, 70, 74, 73,
+  5,
+  6,
+  10,
+  9,
+  53,
+  54,
+  58,
+  57,
+  37,
+  38,
+  42,
+  41,
+  85,
+  86,
+  90,
+  89,
+  21,
+  22,
+  26,
+  25,
+  69,
+  70,
+  74,
+  73,
 ]
 
 let extractCentres = (state: cubeState): string =>
@@ -59,38 +77,60 @@ let extractCentres = (state: cubeState): string =>
 /* Direct port of FullCube.edgeFacelet. Each pair identifies the two stickers
  * belonging to one wing slot; ordering is significant to the edge phases. */
 let wingFaceletIndices = [
-  (13, 33), (4, 65), (2, 81), (11, 17),
-  (61, 94), (52, 78), (50, 46), (59, 30),
-  (75, 40), (68, 87), (27, 88), (20, 39),
-  (34, 14), (66, 8), (82, 1), (18, 7),
-  (93, 62), (77, 56), (45, 49), (29, 55),
-  (36, 71), (91, 72), (84, 23), (43, 24),
+  (13, 33),
+  (4, 65),
+  (2, 81),
+  (11, 17),
+  (61, 94),
+  (52, 78),
+  (50, 46),
+  (59, 30),
+  (75, 40),
+  (68, 87),
+  (27, 88),
+  (20, 39),
+  (34, 14),
+  (66, 8),
+  (82, 1),
+  (18, 7),
+  (93, 62),
+  (77, 56),
+  (45, 49),
+  (29, 55),
+  (36, 71),
+  (91, 72),
+  (84, 23),
+  (43, 24),
 ]
 
 let extractWings = (state: cubeState): array<string> =>
   switch encodeFacelets(state) {
   | Error(_) => []
   | Ok(facelets) =>
-    wingFaceletIndices
-    ->Array.map(((first, second)) =>
+    wingFaceletIndices->Array.map(((first, second)) =>
       facelets->String.get(first)->Belt.Option.getUnsafe->String.make ++
-      facelets->String.get(second)->Belt.Option.getUnsafe->String.make
+        facelets->String.get(second)->Belt.Option.getUnsafe->String.make
     )
   }
 
 /* Direct port of FullCube.cornerFacelet. These fixed 3-sticker slots retain
  * the U/D-first orientation convention used by the phase-three handoff. */
 let cornerFaceletIndices = [
-  [15, 16, 35], [12, 32, 67], [0, 64, 83], [3, 80, 19],
-  [51, 47, 28], [48, 79, 44], [60, 95, 76], [63, 31, 92],
+  [15, 16, 35],
+  [12, 32, 67],
+  [0, 64, 83],
+  [3, 80, 19],
+  [51, 47, 28],
+  [48, 79, 44],
+  [60, 95, 76],
+  [63, 31, 92],
 ]
 
 let extractCorners = (state: cubeState): array<string> =>
   switch encodeFacelets(state) {
   | Error(_) => []
   | Ok(facelets) =>
-    cornerFaceletIndices
-    ->Array.map(indices =>
+    cornerFaceletIndices->Array.map(indices =>
       indices
       ->Array.map(index => facelets->String.get(index)->Belt.Option.getUnsafe->String.make)
       ->Array.join("")
@@ -100,14 +140,16 @@ let extractCorners = (state: cubeState): array<string> =>
 /* Transition oracle for ported coordinates. The later centre/edge tables are
  * generated against this exact 4×4 move semantics, so a table transition can
  * always be checked against the canonical state executor. */
-let applyTransition = (
-  state: cubeState,
-  notation: string,
-): result<cubeState, inputError> =>
+let applyTransition = (state: cubeState, notation: string): result<cubeState, inputError> =>
   if state.size != 4 {
     Error(UnsupportedState("Three-phase transitions require a 4×4 state."))
   } else {
-    switch MoveParser.parseWithOptions(~size=4, ~lowercaseMode=Wide, ~notationDialect=Modern, notation) {
+    switch MoveParser.parseWithOptions(
+      ~size=4,
+      ~lowercaseMode=Wide,
+      ~notationDialect=Modern,
+      notation,
+    ) {
     | Error(_) => Error(InvalidTransition("Invalid 4×4 transition notation."))
     | Ok(alg) =>
       switch MoveExecutor.applyAlg(state, alg) {
@@ -169,13 +211,16 @@ let centreTransition = (notation: string): result<array<int>, inputError> => {
     switch applyTransition(marker, notation) {
     | Error(error) => failure := Some(error)
     | Ok(moved) => {
-      let targetSlot = rawMarkerIndex(moved)->centreSlotForFacelet
-      if targetSlot == -1 {
-        failure := Some(InvalidTransition("Transition moves a centre marker outside the centre coordinate."))
-      } else {
-        permutation[targetSlot] = sourceSlot
+        let targetSlot = rawMarkerIndex(moved)->centreSlotForFacelet
+        if targetSlot == -1 {
+          failure :=
+            Some(
+              InvalidTransition("Transition moves a centre marker outside the centre coordinate."),
+            )
+        } else {
+          permutation[targetSlot] = sourceSlot
+        }
       }
-    }
     }
   }
   switch failure.contents {
@@ -196,7 +241,11 @@ let choose = (n: int, k: int): int => {
   if k < 0 || k > n {
     0
   } else {
-    let reduced = if k > n - k {n - k} else {k}
+    let reduced = if k > n - k {
+      n - k
+    } else {
+      k
+    }
     let value = ref(1)
     for offset in 1 to reduced {
       value := value.contents * (n - reduced + offset) / offset
@@ -279,12 +328,15 @@ let centreCoordinateSize = choose(24, 8)
 
 /* Packed 4-bit distance table: 0xF means unseen. This is the storage used by
  * the forthcoming BFS, keeping the raw phase-one table below 400 KiB. */
-let createCentrePruning = (): array<int> =>
-  Array.make(~length=(centreCoordinateSize + 1) / 2, 255)
+let createCentrePruning = (): array<int> => Array.make(~length=(centreCoordinateSize + 1) / 2, 255)
 
 let pruningDepth = (table: array<int>, index: int): int => {
   let packed = Belt.Array.getUnsafe(table, index / 2)
-  if index % 2 == 0 {packed % 16} else {packed / 16}
+  if index % 2 == 0 {
+    packed % 16
+  } else {
+    packed / 16
+  }
 }
 
 let setPruningDepth = (table: array<int>, index: int, depth: int): unit => {
@@ -292,9 +344,9 @@ let setPruningDepth = (table: array<int>, index: int, depth: int): unit => {
   let packed = Belt.Array.getUnsafe(table, tableIndex)
   let normalized = depth % 16
   if index % 2 == 0 {
-    table[tableIndex] = (packed / 16) * 16 + normalized
+    table[tableIndex] = packed / 16 * 16 + normalized
   } else {
-    table[tableIndex] = (packed % 16) + normalized * 16
+    table[tableIndex] = packed % 16 + normalized * 16
   }
 }
 
@@ -307,10 +359,42 @@ let setPruningDepth = (table: array<int>, index: int, depth: int): unit => {
  * matches upstream. Confirmed by comparing centreTransition("2U") against
  * centreTransition("Uw"): only the latter also permutes slots 0–3. */
 let centreMoveNotations = [
-  "U", "U'", "U2", "R", "R'", "R2", "F", "F'", "F2",
-  "D", "D'", "D2", "L", "L'", "L2", "B", "B'", "B2",
-  "Uw", "Uw'", "Uw2", "Rw", "Rw'", "Rw2", "Fw", "Fw'", "Fw2",
-  "Dw", "Dw'", "Dw2", "Lw", "Lw'", "Lw2", "Bw", "Bw'", "Bw2",
+  "U",
+  "U'",
+  "U2",
+  "R",
+  "R'",
+  "R2",
+  "F",
+  "F'",
+  "F2",
+  "D",
+  "D'",
+  "D2",
+  "L",
+  "L'",
+  "L2",
+  "B",
+  "B'",
+  "B2",
+  "Uw",
+  "Uw'",
+  "Uw2",
+  "Rw",
+  "Rw'",
+  "Rw2",
+  "Fw",
+  "Fw'",
+  "Fw2",
+  "Dw",
+  "Dw'",
+  "Dw2",
+  "Lw",
+  "Lw'",
+  "Lw2",
+  "Bw",
+  "Bw'",
+  "Bw2",
 ]
 
 let transitionUdRank = (rank: int, permutation: array<int>): int => {
@@ -347,14 +431,16 @@ let centreSymmetryGenerators = (): result<array<array<int>>, inputError> => {
     | Error(reason) => failure := Some(reason)
     }
   )
-  let z2 = [
-    1, 0, 3, 2, 5, 4, 7, 6,
-    9, 8, 11, 10, 13, 12, 15, 14,
-    21, 20, 23, 22, 17, 16, 19, 18,
-  ]
+  let z2 = [1, 0, 3, 2, 5, 4, 7, 6, 9, 8, 11, 10, 13, 12, 15, 14, 21, 20, 23, 22, 17, 16, 19, 18]
   switch failure.contents {
   | Some(reason) => Error(reason)
-  | None => Ok([Belt.Array.getUnsafe(generators.contents, 0), Belt.Array.getUnsafe(generators.contents, 1), z2, Belt.Array.getUnsafe(generators.contents, 2)])
+  | None =>
+    Ok([
+      Belt.Array.getUnsafe(generators.contents, 0),
+      Belt.Array.getUnsafe(generators.contents, 1),
+      z2,
+      Belt.Array.getUnsafe(generators.contents, 2),
+    ])
   }
 }
 
@@ -362,25 +448,30 @@ let centreSymmetryPermutations = (): result<array<array<int>>, inputError> =>
   switch centreSymmetryGenerators() {
   | Error(reason) => Error(reason)
   | Ok(generators) => {
-    let identity = Array.make(~length=24, 0)
-    for slot in 0 to 23 { identity[slot] = slot }
-    let permutations = ref([])
-    let current = ref(identity)
-    for index in 0 to 47 {
-      permutations := permutations.contents->Array.concat([current.contents])
-      current := composeCentrePermutations(current.contents, Belt.Array.getUnsafe(generators, 0))
-      if index % 2 == 1 {
-        current := composeCentrePermutations(current.contents, Belt.Array.getUnsafe(generators, 1))
+      let identity = Array.make(~length=24, 0)
+      for slot in 0 to 23 {
+        identity[slot] = slot
       }
-      if index % 8 == 7 {
-        current := composeCentrePermutations(current.contents, Belt.Array.getUnsafe(generators, 2))
+      let permutations = ref([])
+      let current = ref(identity)
+      for index in 0 to 47 {
+        permutations := permutations.contents->Array.concat([current.contents])
+        current := composeCentrePermutations(current.contents, Belt.Array.getUnsafe(generators, 0))
+        if index % 2 == 1 {
+          current :=
+            composeCentrePermutations(current.contents, Belt.Array.getUnsafe(generators, 1))
+        }
+        if index % 8 == 7 {
+          current :=
+            composeCentrePermutations(current.contents, Belt.Array.getUnsafe(generators, 2))
+        }
+        if index % 16 == 15 {
+          current :=
+            composeCentrePermutations(current.contents, Belt.Array.getUnsafe(generators, 3))
+        }
       }
-      if index % 16 == 15 {
-        current := composeCentrePermutations(current.contents, Belt.Array.getUnsafe(generators, 3))
-      }
+      Ok(permutations.contents)
     }
-    Ok(permutations.contents)
-  }
   }
 
 type canonicalCentreRank = {rawRank: int, symmetry: int}
@@ -395,18 +486,18 @@ let canonicalUdRank = (rawRank: int): result<canonicalCentreRank, inputError> =>
     switch centreSymmetryPermutations() {
     | Error(reason) => Error(reason)
     | Ok(symmetries) => {
-      let bestRank = ref(rawRank)
-      let bestSymmetry = ref(0)
-      symmetries->Array.forEachWithIndex((permutation, symmetry) => {
-        let candidate = transitionUdRank(rawRank, permutation)
-        if candidate < bestRank.contents {
-          bestRank := candidate
-          bestSymmetry := symmetry
-        }
-      })
-      Ok({rawRank: bestRank.contents, symmetry: bestSymmetry.contents})
+        let bestRank = ref(rawRank)
+        let bestSymmetry = ref(0)
+        symmetries->Array.forEachWithIndex((permutation, symmetry) => {
+          let candidate = transitionUdRank(rawRank, permutation)
+          if candidate < bestRank.contents {
+            bestRank := candidate
+            bestSymmetry := symmetry
+          }
+        })
+        Ok({rawRank: bestRank.contents, symmetry: bestSymmetry.contents})
+      }
     }
-  }
   }
 
 type centreSymmetryMap = {
@@ -426,9 +517,13 @@ let inverseCentreSymmetryIndices = (symmetries: array<array<int>>): array<int> =
       )
       let identity = ref(true)
       for slot in 0 to 23 {
-        if Belt.Array.getUnsafe(combined, slot) != slot { identity := false }
+        if Belt.Array.getUnsafe(combined, slot) != slot {
+          identity := false
+        }
       }
-      if identity.contents { inverses[firstIndex] = secondIndex }
+      if identity.contents {
+        inverses[firstIndex] = secondIndex
+      }
     }
   }
   inverses
@@ -442,28 +537,27 @@ let buildCentreSymmetryMap = (): result<centreSymmetryMap, inputError> =>
   switch centreSymmetryPermutations() {
   | Error(reason) => Error(reason)
   | Ok(symmetries) => {
-    let rawToSymmetry = Array.make(~length=centreCoordinateSize, -1)
-    let inverses = inverseCentreSymmetryIndices(symmetries)
-    let representatives = ref([])
-    for rawRank in 0 to centreCoordinateSize - 1 {
-      if Belt.Array.getUnsafe(rawToSymmetry, rawRank) == -1 {
-        let compactRank = representatives.contents->Array.length
-        representatives := representatives.contents->Array.concat([rawRank])
-        symmetries->Array.forEachWithIndex((permutation, symmetry) => {
-          let orbitRank = transitionUdRank(rawRank, permutation)
-          if Belt.Array.getUnsafe(rawToSymmetry, orbitRank) == -1 {
-            let inverse = Belt.Array.getUnsafe(inverses, symmetry)
-            rawToSymmetry[orbitRank] = compactRank * 64 + inverse
-          }
-        })
+      let rawToSymmetry = Array.make(~length=centreCoordinateSize, -1)
+      let inverses = inverseCentreSymmetryIndices(symmetries)
+      let representatives = ref([])
+      for rawRank in 0 to centreCoordinateSize - 1 {
+        if Belt.Array.getUnsafe(rawToSymmetry, rawRank) == -1 {
+          let compactRank = representatives.contents->Array.length
+          representatives := representatives.contents->Array.concat([rawRank])
+          symmetries->Array.forEachWithIndex((permutation, symmetry) => {
+            let orbitRank = transitionUdRank(rawRank, permutation)
+            if Belt.Array.getUnsafe(rawToSymmetry, orbitRank) == -1 {
+              let inverse = Belt.Array.getUnsafe(inverses, symmetry)
+              rawToSymmetry[orbitRank] = compactRank * 64 + inverse
+            }
+          })
+        }
       }
+      Ok({rawToSymmetry, representatives: representatives.contents})
     }
-    Ok({rawToSymmetry, representatives: representatives.contents})
-  }
   }
 
-let createPackedPruning = (size: int): array<int> =>
-  Array.make(~length=(size + 1) / 2, 255)
+let createPackedPruning = (size: int): array<int> => Array.make(~length=(size + 1) / 2, 255)
 
 /* Symmetry-reduced packed BFS. Every successor is converted through raw2sym
  * before enqueueing, so the stored coordinate is one of 15,582 orbit
@@ -472,44 +566,45 @@ let buildSymmetryCentrePruning = (maximumDepth: int): result<array<int>, inputEr
   switch buildCentreSymmetryMap() {
   | Error(reason) => Error(reason)
   | Ok(symmetryMap) => {
-    let transitions = ref([])
-    let failure = ref(None)
-    centreMoveNotations->Array.forEach(notation =>
-      switch centreTransition(notation) {
-      | Ok(permutation) => transitions := transitions.contents->Array.concat([permutation])
-      | Error(reason) => failure := Some(reason)
-      }
-    )
-    switch failure.contents {
-    | Some(reason) => Error(reason)
-    | None => {
-      let table = createPackedPruning(symmetryMap.representatives->Array.length)
-      let queue = Array.make(~length=symmetryMap.representatives->Array.length, 0)
-      let head = ref(0)
-      let tail = ref(1)
-      setPruningDepth(table, 0, 0)
-      queue[0] = 0
-      while head.contents < tail.contents {
-        let compactRank = Belt.Array.getUnsafe(queue, head.contents)
-        head := head.contents + 1
-        let depth = pruningDepth(table, compactRank)
-        if depth < maximumDepth {
-          let rawRank = Belt.Array.getUnsafe(symmetryMap.representatives, compactRank)
-          transitions.contents->Array.forEach(permutation => {
-            let successorRaw = transitionUdRank(rawRank, permutation)
-            let successorCompact = Belt.Array.getUnsafe(symmetryMap.rawToSymmetry, successorRaw) / 64
-            if pruningDepth(table, successorCompact) == 15 {
-              setPruningDepth(table, successorCompact, depth + 1)
-              queue[tail.contents] = successorCompact
-              tail := tail.contents + 1
+      let transitions = ref([])
+      let failure = ref(None)
+      centreMoveNotations->Array.forEach(notation =>
+        switch centreTransition(notation) {
+        | Ok(permutation) => transitions := transitions.contents->Array.concat([permutation])
+        | Error(reason) => failure := Some(reason)
+        }
+      )
+      switch failure.contents {
+      | Some(reason) => Error(reason)
+      | None => {
+          let table = createPackedPruning(symmetryMap.representatives->Array.length)
+          let queue = Array.make(~length=symmetryMap.representatives->Array.length, 0)
+          let head = ref(0)
+          let tail = ref(1)
+          setPruningDepth(table, 0, 0)
+          queue[0] = 0
+          while head.contents < tail.contents {
+            let compactRank = Belt.Array.getUnsafe(queue, head.contents)
+            head := head.contents + 1
+            let depth = pruningDepth(table, compactRank)
+            if depth < maximumDepth {
+              let rawRank = Belt.Array.getUnsafe(symmetryMap.representatives, compactRank)
+              transitions.contents->Array.forEach(permutation => {
+                let successorRaw = transitionUdRank(rawRank, permutation)
+                let successorCompact =
+                  Belt.Array.getUnsafe(symmetryMap.rawToSymmetry, successorRaw) / 64
+                if pruningDepth(table, successorCompact) == 15 {
+                  setPruningDepth(table, successorCompact, depth + 1)
+                  queue[tail.contents] = successorCompact
+                  tail := tail.contents + 1
+                }
+              })
             }
-          })
+          }
+          Ok(table)
         }
       }
-      Ok(table)
     }
-    }
-  }
   }
 
 /* Port of Moves.move2std / move3std: the restricted move sets searched by
@@ -521,27 +616,51 @@ let buildSymmetryCentrePruning = (maximumDepth: int): result<array<int>, inputEr
 type restrictedMove = {notation: string, faceId: int}
 
 let phase2Moves: array<restrictedMove> = [
-  {notation: "U", faceId: 0}, {notation: "U2", faceId: 0}, {notation: "U'", faceId: 0},
-  {notation: "R", faceId: 1}, {notation: "R2", faceId: 1}, {notation: "R'", faceId: 1},
-  {notation: "F", faceId: 2}, {notation: "F2", faceId: 2}, {notation: "F'", faceId: 2},
-  {notation: "D", faceId: 3}, {notation: "D2", faceId: 3}, {notation: "D'", faceId: 3},
-  {notation: "L", faceId: 4}, {notation: "L2", faceId: 4}, {notation: "L'", faceId: 4},
-  {notation: "B", faceId: 5}, {notation: "B2", faceId: 5}, {notation: "B'", faceId: 5},
+  {notation: "U", faceId: 0},
+  {notation: "U2", faceId: 0},
+  {notation: "U'", faceId: 0},
+  {notation: "R", faceId: 1},
+  {notation: "R2", faceId: 1},
+  {notation: "R'", faceId: 1},
+  {notation: "F", faceId: 2},
+  {notation: "F2", faceId: 2},
+  {notation: "F'", faceId: 2},
+  {notation: "D", faceId: 3},
+  {notation: "D2", faceId: 3},
+  {notation: "D'", faceId: 3},
+  {notation: "L", faceId: 4},
+  {notation: "L2", faceId: 4},
+  {notation: "L'", faceId: 4},
+  {notation: "B", faceId: 5},
+  {notation: "B2", faceId: 5},
+  {notation: "B'", faceId: 5},
   {notation: "Uw2", faceId: 6},
-  {notation: "Rw", faceId: 7}, {notation: "Rw2", faceId: 7}, {notation: "Rw'", faceId: 7},
+  {notation: "Rw", faceId: 7},
+  {notation: "Rw2", faceId: 7},
+  {notation: "Rw'", faceId: 7},
   {notation: "Fw2", faceId: 8},
   {notation: "Dw2", faceId: 9},
-  {notation: "Lw", faceId: 10}, {notation: "Lw2", faceId: 10}, {notation: "Lw'", faceId: 10},
+  {notation: "Lw", faceId: 10},
+  {notation: "Lw2", faceId: 10},
+  {notation: "Lw'", faceId: 10},
   {notation: "Bw2", faceId: 11},
 ]
 
 let phase3Moves: array<restrictedMove> = [
-  {notation: "U", faceId: 0}, {notation: "U2", faceId: 0}, {notation: "U'", faceId: 0},
+  {notation: "U", faceId: 0},
+  {notation: "U2", faceId: 0},
+  {notation: "U'", faceId: 0},
   {notation: "R2", faceId: 1},
-  {notation: "F", faceId: 2}, {notation: "F2", faceId: 2}, {notation: "F'", faceId: 2},
-  {notation: "D", faceId: 3}, {notation: "D2", faceId: 3}, {notation: "D'", faceId: 3},
+  {notation: "F", faceId: 2},
+  {notation: "F2", faceId: 2},
+  {notation: "F'", faceId: 2},
+  {notation: "D", faceId: 3},
+  {notation: "D2", faceId: 3},
+  {notation: "D'", faceId: 3},
   {notation: "L2", faceId: 4},
-  {notation: "B", faceId: 5}, {notation: "B2", faceId: 5}, {notation: "B'", faceId: 5},
+  {notation: "B", faceId: 5},
+  {notation: "B2", faceId: 5},
+  {notation: "B'", faceId: 5},
   {notation: "Uw2", faceId: 6},
   {notation: "Rw2", faceId: 7},
   {notation: "Fw2", faceId: 8},
@@ -576,30 +695,30 @@ let buildCentrePruning = (maximumDepth: int): result<array<int>, inputError> => 
   switch error.contents {
   | Some(reason) => Error(reason)
   | None => {
-    let table = createCentrePruning()
-    let queue = Array.make(~length=centreCoordinateSize, 0)
-    let head = ref(0)
-    let tail = ref(1)
-    setPruningDepth(table, 0, 0)
-    queue[0] = 0
-    while head.contents < tail.contents {
-      let current = Belt.Array.getUnsafe(queue, head.contents)
-      head := head.contents + 1
-      let depth = pruningDepth(table, current)
-      if depth < maximumDepth {
-        transitions.contents->Array.forEach(permutation => {
-          let next = transitionUdRank(current, permutation)
-          if pruningDepth(table, next) == 15 {
-            setPruningDepth(table, next, depth + 1)
-            queue[tail.contents] = next
-            tail := tail.contents + 1
-          }
-        })
+      let table = createCentrePruning()
+      let queue = Array.make(~length=centreCoordinateSize, 0)
+      let head = ref(0)
+      let tail = ref(1)
+      setPruningDepth(table, 0, 0)
+      queue[0] = 0
+      while head.contents < tail.contents {
+        let current = Belt.Array.getUnsafe(queue, head.contents)
+        head := head.contents + 1
+        let depth = pruningDepth(table, current)
+        if depth < maximumDepth {
+          transitions.contents->Array.forEach(permutation => {
+            let next = transitionUdRank(current, permutation)
+            if pruningDepth(table, next) == 15 {
+              setPruningDepth(table, next, depth + 1)
+              queue[tail.contents] = next
+              tail := tail.contents + 1
+            }
+          })
+        }
       }
+      Ok(table)
     }
-    Ok(table)
   }
-}
 }
 
 /* Phase-two centre coordinate: an independent redesign of upstream's Center2,
@@ -697,7 +816,8 @@ let phase2FbDistance = (
 ): result<int, inputError> =>
   switch phase2FbRotationInverse {
   | Error(reason) => Error(reason)
-  | Ok(permutation) => udRankDistance(transitionUdRank(fbRank, permutation), symmetryMap, symmetryTable)
+  | Ok(permutation) =>
+    udRankDistance(transitionUdRank(fbRank, permutation), symmetryMap, symmetryTable)
   }
 
 let phase2CombinedDistance = (
@@ -725,8 +845,42 @@ let phase2CombinedDistance = (
  * physical face get distinct ids (U=0, its wide counterpart u=6), since a
  * wide turn does not merely repeat the outer one. */
 let centreMoveFaceIds = [
-  0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5,
-  6, 6, 6, 7, 7, 7, 8, 8, 8, 9, 9, 9, 10, 10, 10, 11, 11, 11,
+  0,
+  0,
+  0,
+  1,
+  1,
+  1,
+  2,
+  2,
+  2,
+  3,
+  3,
+  3,
+  4,
+  4,
+  4,
+  5,
+  5,
+  5,
+  6,
+  6,
+  6,
+  7,
+  7,
+  7,
+  8,
+  8,
+  8,
+  9,
+  9,
+  9,
+  10,
+  10,
+  10,
+  11,
+  11,
+  11,
 ]
 
 let centreMovePermutationsCache: ref<option<array<array<int>>>> = ref(None)
@@ -808,7 +962,14 @@ let rec searchPhase1Rank = (
             let faceId = Belt.Array.getUnsafe(centreMoveFaceIds, moveIndex)
             if axisTransitionAllowed(lastFaceId, faceId) {
               let next = transitionUdRank(rank, Belt.Array.getUnsafe(permutations, moveIndex))
-              switch searchPhase1Rank(next, depth - 1, faceId, permutations, symmetryMap, symmetryTable) {
+              switch searchPhase1Rank(
+                next,
+                depth - 1,
+                faceId,
+                permutations,
+                symmetryMap,
+                symmetryTable,
+              ) {
               | Some(tail) => found := Some([moveIndex]->Array.concat(tail))
               | None => ()
               }
@@ -830,7 +991,9 @@ type moveSolution = {moveIndices: array<int>, notations: array<string>}
 let solvePhase1Centres = (centres: string, maximumDepth: int): result<moveSolution, inputError> => {
   let rank = rankUdCentres(centres)
   if rank < 0 {
-    Error(InvalidFacelets("Phase-one search requires a centre string with exactly eight U/D stickers."))
+    Error(
+      InvalidFacelets("Phase-one search requires a centre string with exactly eight U/D stickers."),
+    )
   } else {
     switch (centreMovePermutations(), cachedCentreSymmetryMap(), cachedCentreSymmetryTable()) {
     | (Error(reason), _, _) => Error(reason)
@@ -843,7 +1006,8 @@ let solvePhase1Centres = (centres: string, maximumDepth: int): result<moveSoluti
           let found = ref(None)
           let depth = ref(minimumDepth)
           while found.contents == None && depth.contents <= maximumDepth {
-            found := searchPhase1Rank(rank, depth.contents, -1, permutations, symmetryMap, symmetryTable)
+            found :=
+              searchPhase1Rank(rank, depth.contents, -1, permutations, symmetryMap, symmetryTable)
             if found.contents == None {
               depth := depth.contents + 1
             }
@@ -905,7 +1069,10 @@ let searchPhase1Candidates = (
             if collected.contents->Array.length < limit && visitedNodes.contents < nodeBudget {
               let faceId = Belt.Array.getUnsafe(centreMoveFaceIds, moveIndex)
               if axisTransitionAllowed(lastFaceId, faceId) {
-                let next = transitionUdRank(currentRank, Belt.Array.getUnsafe(permutations, moveIndex))
+                let next = transitionUdRank(
+                  currentRank,
+                  Belt.Array.getUnsafe(permutations, moveIndex),
+                )
                 go(next, remaining - 1, faceId, moves->Array.concat([moveIndex]))
               }
             }
@@ -1011,18 +1178,23 @@ let solvePhase2Ranks = (
       let depth = ref(minimumDepth)
       let visitedNodes = ref(0)
       let nodeBudget = 30000
-      while found.contents == None && depth.contents <= maximumDepth && visitedNodes.contents < nodeBudget {
-        found := searchPhase2Ranks(
-          udRank,
-          fbRank,
-          depth.contents,
-          -1,
-          permutations,
-          symmetryMap,
-          symmetryTable,
-          visitedNodes,
-          nodeBudget,
-        )
+      while (
+        found.contents == None &&
+        depth.contents <= maximumDepth &&
+        visitedNodes.contents < nodeBudget
+      ) {
+        found :=
+          searchPhase2Ranks(
+            udRank,
+            fbRank,
+            depth.contents,
+            -1,
+            permutations,
+            symmetryMap,
+            symmetryTable,
+            visitedNodes,
+            nodeBudget,
+          )
         if found.contents == None {
           depth := depth.contents + 1
         }
@@ -1087,9 +1259,10 @@ let solveCentreReduction = (
             )
             candidates->Array.forEach(phase1Moves =>
               if found.contents == None {
-                let endFbRank = phase1Moves->Array.reduce(fbRank, (rank, moveIndex) =>
-                  transitionUdRank(rank, Belt.Array.getUnsafe(phase1Permutations, moveIndex))
-                )
+                let endFbRank =
+                  phase1Moves->Array.reduce(fbRank, (rank, moveIndex) =>
+                    transitionUdRank(rank, Belt.Array.getUnsafe(phase1Permutations, moveIndex))
+                  )
                 switch solvePhase2Ranks(
                   0,
                   endFbRank,
@@ -1099,14 +1272,15 @@ let solveCentreReduction = (
                   symmetryTable,
                 ) {
                 | Some(phase2Moves_) =>
-                  found := Some({
-                    phase1Notations: phase1Moves->Array.map(index =>
-                      Belt.Array.getUnsafe(centreMoveNotations, index)
-                    ),
-                    phase2Notations: phase2Moves_->Array.map(index =>
-                      Belt.Array.getUnsafe(phase2Moves, index).notation
-                    ),
-                  })
+                  found :=
+                    Some({
+                      phase1Notations: phase1Moves->Array.map(index =>
+                        Belt.Array.getUnsafe(centreMoveNotations, index)
+                      ),
+                      phase2Notations: phase2Moves_->Array.map(index =>
+                        Belt.Array.getUnsafe(phase2Moves, index).notation
+                      ),
+                    })
                 | None => ()
                 }
               }
@@ -1288,7 +1462,11 @@ let phase3MovePermutations = (): result<phase3MovePermutations, inputError> =>
       switch failure.contents {
       | Some(reason) => Error(reason)
       | None => {
-          let permutations = {udHalf: udHalf.contents, fbHalf: fbHalf.contents, rlHalf: rlHalf.contents}
+          let permutations = {
+            udHalf: udHalf.contents,
+            fbHalf: fbHalf.contents,
+            rlHalf: rlHalf.contents,
+          }
           phase3MovePermutationsCache := Some(permutations)
           Ok(permutations)
         }
@@ -1351,7 +1529,12 @@ let cachedPhase3CentreTables = (): result<phase3CentreTables, inputError> =>
     }
   }
 
-let phase3CentreDistance = (udHalfRank: int, fbHalfRank: int, rlHalfRank: int, tables: phase3CentreTables): int => {
+let phase3CentreDistance = (
+  udHalfRank: int,
+  fbHalfRank: int,
+  rlHalfRank: int,
+  tables: phase3CentreTables,
+): int => {
   let udDistance = Belt.Array.getUnsafe(tables.udHalfPruning, udHalfRank)
   let fbDistance = Belt.Array.getUnsafe(tables.fbHalfPruning, fbHalfRank)
   let rlDistance = Belt.Array.getUnsafe(tables.rlHalfPruning, rlHalfRank)
@@ -1367,7 +1550,11 @@ let rec searchPhase3Centres = (
   lastFaceId: int,
   tables: phase3CentreTables,
 ): option<array<int>> =>
-  if udHalfRank == halfBlockTargetRank && fbHalfRank == halfBlockTargetRank && rlHalfRank == halfBlockTargetRank {
+  if (
+    udHalfRank == halfBlockTargetRank &&
+    fbHalfRank == halfBlockTargetRank &&
+    rlHalfRank == halfBlockTargetRank
+  ) {
     Some([])
   } else if depth == 0 {
     None
@@ -1432,14 +1619,17 @@ let solvePhase3Centres = (centres: string, maximumDepth: int): result<moveSoluti
         let found = ref(None)
         let depth = ref(minimumDepth)
         while found.contents == None && depth.contents <= maximumDepth {
-          found := searchPhase3Centres(udHalfRank, fbHalfRank, rlHalfRank, depth.contents, -1, tables)
+          found :=
+            searchPhase3Centres(udHalfRank, fbHalfRank, rlHalfRank, depth.contents, -1, tables)
           if found.contents == None {
             depth := depth.contents + 1
           }
         }
         switch found.contents {
         | None =>
-          Error(InvalidTransition("No phase-three centre solution was found within the given depth."))
+          Error(
+            InvalidTransition("No phase-three centre solution was found within the given depth."),
+          )
         | Some(moveIndices) =>
           Ok({
             moveIndices,
