@@ -42,12 +42,16 @@ Consult [Cubistry #21](https://github.com/wstein/cubistry/issues/21), then the c
 [PuzlWerk #5](https://github.com/wstein/puzlwerk/issues/5) and
 [PuzlWerk #6](https://github.com/wstein/puzlwerk/issues/6) for the gated handoff.
 
-Current migration order, superseding older CubeAssembler-first/CubeLab-M3 notes:
+Current gates and their boundaries (see Cubistry #21):
 
-1. Complete and obtain human acceptance of Cubistry's 2×2 pilot.
-2. Migrate the reusable 2×2 solver into PuzlWerk, reusing existing code and table.
-3. Migrate Cubistry to the approved PuzlWerk API and verify compatibility.
-4. Extend PuzlWerk with 3×3 Supercube center orientation, after the solver gate.
+1. The shared 2×2 solver transfer (PuzlWerk #5) and Cubistry's consuming integration
+   (#23) closed on 2026-10-28; full 2×2 MVP acceptance is still tracked by #18/#21.
+2. A separately user-approved, bounded 3×3 picture/calendar pilot is under Draft
+   review (CubeLab #26/#27, PuzlWerk #6/#21, Cubistry #67/#70). It is not general
+   permission to replace CubeLab's working systems or expand the solver scope.
+3. Cubistry #21 retains CubeAssembler migration as M2 and CubeLab migration as M3.
+   The comparative priority of the 3×3 pilot and those full migrations has not
+   been explicitly settled; do not call the older sequence superseded.
 
 Keep other migrations separate. Do not remove, relocate or replace working CubeLab
 mechanics, codecs, rendering or solver features without an approved replacement,
