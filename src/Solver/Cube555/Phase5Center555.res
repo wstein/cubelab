@@ -7,7 +7,9 @@
 
 open Util555
 
-let validMoves = [0, 1, 2, 4, 7, 9, 10, 11, 13, 16, 22, 25, 31, 34] // Ux1, Ux2, Ux3 // Rx2 // Fx2 // Dx1, Dx2, Dx3 // Lx2 // Bx2 // sliceRx2 // sliceFx2 // sliceLx2 // sliceBx2
+// Ux1-3 (0-2), Rx2 (4), Fx2 (7), Dx1-3 (9-11), Lx2 (13), Bx2 (16),
+// sliceRx2 (22), sliceFx2 (25), sliceLx2 (31), sliceBx2 (34)
+let validMoves = [0, 1, 2, 4, 7, 9, 10, 11, 13, 16, 22, 25, 31, 34]
 
 type t = {
   tCenter: array<int>,

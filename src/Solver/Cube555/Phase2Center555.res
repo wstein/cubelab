@@ -7,7 +7,9 @@
 
 open Util555
 
-let validMoves = [0, 1, 2, 6, 7, 8, 9, 10, 11, 15, 16, 17, 19, 21, 22, 23, 25, 28, 30, 31, 32, 34] // Ux1, Ux2, Ux3 // Fx1, Fx2, Fx3 // Dx1, Dx2, Dx3 // Bx1, Bx2, Bx3 // sliceUx2 // sliceRx1, sliceRx2, sliceRx3 // sliceFx2 // sliceDx2 // sliceLx1, sliceLx2, sliceLx3 // sliceBx2
+// Ux1-3 (0-2), Fx1-3 (6-8), Dx1-3 (9-11), Bx1-3 (15-17), sliceUx2 (19),
+// sliceRx1-3 (21-23), sliceFx2 (25), sliceDx2 (28), sliceLx1-3 (30-32), sliceBx2 (34)
+let validMoves = [0, 1, 2, 6, 7, 8, 9, 10, 11, 15, 16, 17, 19, 21, 22, 23, 25, 28, 30, 31, 32, 34]
 
 let eParityDiff = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0]
 

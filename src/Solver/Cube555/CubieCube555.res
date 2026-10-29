@@ -24,7 +24,8 @@ let makeSolved = (): t => {
 
   // Faces: U=0, R=1, F=2, D=3, L=4, B=5
   // Slot order: U (0..3), D (4..7), F (8..11), B (12..15), R (16..19), L (20..23)
-  let centerColors = [0, 0, 0, 0, 3, 3, 3, 3, 2, 2, 2, 2, 5, 5, 5, 5, 1, 1, 1, 1, 4, 4, 4, 4] // U // D // F // B // R // L
+  // Four slots per face, in slot order: U, D, F, B, R, L
+  let centerColors = [0, 0, 0, 0, 3, 3, 3, 3, 2, 2, 2, 2, 5, 5, 5, 5, 1, 1, 1, 1, 4, 4, 4, 4]
   for i in 0 to 23 {
     setU(tCenter, i, getU(centerColors, i))
     setU(xCenter, i, getU(centerColors, i))

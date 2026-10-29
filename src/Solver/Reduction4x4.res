@@ -51,7 +51,16 @@ type centreGuide4x4 = {
 
 let faces = ["U", "R", "F", "D", "L", "B"]
 let centreIndices = [5, 6, 9, 10]
-let edgePairs = [(1, 2), (7, 11), (13, 14), (4, 8)] // top // right // bottom // left
+let edgePairs = [
+  // top
+  (1, 2),
+  // right
+  (7, 11),
+  // bottom
+  (13, 14),
+  // left
+  (4, 8),
+]
 let edgeNames = ["top", "right", "bottom", "left"]
 let reducedFacelets = [0, 1, 3, 4, 5, 7, 12, 13, 15]
 

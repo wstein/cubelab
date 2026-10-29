@@ -28,7 +28,8 @@ type solverInspection555 = {
  * Inspects a 5×5 cubie cube and returns which phase of reduction it currently satisfies.
  */
 let inspectCube = (cube: CubieCube555.t): solverInspection555 => {
-  let centerTargetColors = [0, 0, 0, 0, 3, 3, 3, 3, 2, 2, 2, 2, 5, 5, 5, 5, 1, 1, 1, 1, 4, 4, 4, 4] // U // D // F // B // R // L
+  // Four slots per face, in slot order: U, D, F, B, R, L
+  let centerTargetColors = [0, 0, 0, 0, 3, 3, 3, 3, 2, 2, 2, 2, 5, 5, 5, 5, 1, 1, 1, 1, 4, 4, 4, 4]
 
   // Check Phase 1: are U and D centers in U and D faces?
   let udCentersSolved = ref(true)
