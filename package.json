@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "packageManager": "npm@11.19.0",
   "scripts": {
-    "format": "rescript format src/*.res src/State/*.res src/Move/*.res src/Render/*.res src/Solver/*.res src/SmartCube/*.res",
+    "format": "rescript format",
     "format:check": "rescript format -c",
     "lint": "rescript format -c && rescript",
     "test": "rescript && vitest run",
