@@ -205,6 +205,13 @@ Set `PLAYWRIGHT_PORT` when port 4321 is already in use, for example:
 ```sh
 PLAYWRIGHT_PORT=4322 npm run test:browser
 ```
+
+The preview server is started with `bunx astro preview`, so Bun must be installed.
+CI runs `npm test` and the build on every pull request (`ci.yml`) and the browser
+tests only on pull requests labelled `e2e` (`browser.yml`); it does not run
+`format:check` or `lint` yet. In an environment that sets `GITHUB_ACTIONS`, run the
+browser tests with `env -u GITHUB_ACTIONS npm run test:browser`, because Astro serves
+below `/cubelab` only when that variable is set.
 # License
 
 Cube Rosetta is licensed under **AGPL-3.0-or-later**. See [LICENSE](LICENSE)
