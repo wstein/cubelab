@@ -142,6 +142,11 @@ locally in an environment that sets `GITHUB_ACTIONS` (as CI does), use
 only when `GITHUB_ACTIONS` is `true`, while the tests expect the root, and
 `playwright.config.mjs` starts the preview server with `bunx astro preview`, so Bun is
 required. Check the actual check runs of a PR rather than assuming.
+On a loaded or slow machine, scale every Vitest timeout with
+`CUBELAB_TEST_TIMEOUT_FACTOR=3 npm test` (default 1, the CI-calibrated values). The
+factor is applied centrally in `vitest.config.ts` and, for per-test timeouts, through
+`scaledTimeout()` from `test/support/timeout-factor.mjs`; use that helper for any new
+explicit timeout. Never raise the defaults to hide a hang or weaken an assertion.
 For documentation-only changes verify links, commands and `git diff --check`; disclose
 which repository checks actually ran. Do not invent a Markdown-lint script.
 
