@@ -19,12 +19,34 @@ test("state editor keeps every cube view centered in the compact layout", async 
     const tools = element.querySelector(".manual-state-tools").getBoundingClientRect();
     const shortcuts = element.querySelector(".manual-state-shortcuts").getBoundingClientRect();
     const footer = element.querySelector(".manual-state-footer").getBoundingClientRect();
+    const box = getComputedStyle(element.querySelector(".manual-state-shortcuts"));
+    const actions = element.querySelector(".manual-state-shortcut-actions");
     return {
       shortcutHeight: shortcuts.height,
+      actionStackHeight: actions.getBoundingClientRect().height,
+      boxChrome: ["paddingTop", "paddingBottom", "borderTopWidth", "borderBottomWidth"]
+        .reduce((sum, property) => sum + parseFloat(box[property]), 0),
+      rows: [...actions.children]
+        .filter((row) => row.getBoundingClientRect().height > 0)
+        .map((row) => ({
+          text: row.textContent.trim(),
+          height: row.getBoundingClientRect().height,
+          keyHeight: row.querySelector(".manual-state-key").getBoundingClientRect().height,
+        })),
       trailingSpace: tools.bottom - footer.bottom,
     };
   });
-  expect(sidebar.shortcutHeight).toBeLessThan(120);
+  // The compact sidebar lists one single-line shortcut per row beside the
+  // face keys, so the action stack alone sets the card height. Row height
+  // follows the platform's fallback monospace font (line-height: normal), so
+  // an absolute pixel budget would only hold on one operating system.
+  expect(sidebar.rows.map((row) => row.text)).toEqual([
+    "Eerase sticker", "⇧ Eerase cubie", "⌥ Eerase orbit", "⇧ / ⌥ / ⇧⌥ click", "← ↑ ↓ →",
+  ]);
+  for (const row of sidebar.rows) {
+    expect(row.height, `${row.text} stays on one line`).toBeLessThanOrEqual(row.keyHeight + 1);
+  }
+  expect(sidebar.shortcutHeight).toBeLessThanOrEqual(sidebar.actionStackHeight + sidebar.boxChrome + 1);
   expect(sidebar.trailingSpace).toBeLessThanOrEqual(1);
 
   await page.locator('[data-manual-state-representation="standard"]').click();
