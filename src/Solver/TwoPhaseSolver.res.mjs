@@ -8,6 +8,7 @@ import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as Primitive_int from "@rescript/runtime/lib/es6/Primitive_int.js";
 import * as Stdlib_Result from "@rescript/runtime/lib/es6/Stdlib_Result.js";
+import * as PictureCenters from "./PictureCenters.res.mjs";
 import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
 import * as Primitive_option from "@rescript/runtime/lib/es6/Primitive_option.js";
 
@@ -125,20 +126,24 @@ let compactSliceMoveTableCache = {
 
 function describeError(error) {
   if (typeof error !== "object") {
-    if (error === "SearchFailed") {
-      return "No two-phase solution was found within the selected depth.";
-    } else {
-      return "The generated two-phase solution failed exact facelet replay verification.";
+    switch (error) {
+      case "SearchFailed" :
+        return "No two-phase solution was found within the selected depth.";
+      case "VerificationFailed" :
+        return "The generated two-phase solution failed exact facelet replay verification.";
+      case "SearchBudgetExceeded" :
+        return "The center-aware search reached its node budget; no conclusion about solvability was made.";
     }
-  }
-  switch (error.TAG) {
-    case "UnsupportedSize" :
-      let label = error._0.toString();
-      return `The two-phase solver supports only 3×3 cubes, not ` + label + `×` + label + `×` + label + `.`;
-    case "InvalidState" :
-      return PieceReducer.describeError(error._0);
-    case "InvalidCoordinate" :
-      return error._0;
+  } else {
+    switch (error.TAG) {
+      case "UnsupportedSize" :
+        let label = error._0.toString();
+        return `The two-phase solver supports only 3×3 cubes, not ` + label + `×` + label + `×` + label + `.`;
+      case "InvalidState" :
+        return PieceReducer.describeError(error._0);
+      case "InvalidCoordinate" :
+        return error._0;
+    }
   }
 }
 
@@ -1065,11 +1070,47 @@ function algorithmForMoves(moves) {
   return algorithm.contents;
 }
 
-function searchPhase2(coordinates, depth, lastFace, cornerMoves, edgeMoves, sliceMoves, cornerSlice, edgeSlice) {
-  if (coordinates.corners === 0 && coordinates.edges === 0 && coordinates.slice === 0) {
+function consumePictureNode(picture) {
+  if (picture !== undefined) {
+    picture.visited.contents = picture.visited.contents + 1 | 0;
+    return picture.visited.contents <= picture.maxNodes;
+  } else {
+    return true;
+  }
+}
+
+function centerDistance(picture, centers) {
+  if (picture !== undefined) {
+    return PictureCenters.distance(centers, picture.symmetry);
+  } else {
+    return 0;
+  }
+}
+
+function phase2CentersReachable(picture, centers) {
+  if (picture !== undefined) {
+    return PictureCenters.phase2Reachable(centers, picture.symmetry);
+  } else {
+    return true;
+  }
+}
+
+function nextCenters(picture, centers, moveIndex) {
+  if (picture !== undefined) {
+    return PictureCenters.move(centers, moveIndex);
+  } else {
+    return centers;
+  }
+}
+
+function searchPhase2(coordinates, depth, lastFace, cornerMoves, edgeMoves, sliceMoves, cornerSlice, edgeSlice, picture, centers) {
+  if (!consumePictureNode(picture)) {
+    return;
+  }
+  if (coordinates.corners === 0 && coordinates.edges === 0 && coordinates.slice === 0 && centerDistance(picture, centers) === 0) {
     return [];
   }
-  if (depth === 0 || phase2Distance(coordinates, cornerSlice, edgeSlice) > depth) {
+  if (depth === 0 || maximum(phase2Distance(coordinates, cornerSlice, edgeSlice), centerDistance(picture, centers)) > depth || !phase2CentersReachable(picture, centers)) {
     return;
   }
   let found = {
@@ -1088,7 +1129,7 @@ function searchPhase2(coordinates, depth, lastFace, cornerMoves, edgeMoves, slic
       edges: next_edges,
       slice: next_slice
     };
-    let tail = searchPhase2(next, depth - 1 | 0, face, cornerMoves, edgeMoves, sliceMoves, cornerSlice, edgeSlice);
+    let tail = searchPhase2(next, depth - 1 | 0, face, cornerMoves, edgeMoves, sliceMoves, cornerSlice, edgeSlice, picture, nextCenters(picture, centers, moveIndex));
     if (tail !== undefined) {
       found.contents = [moveIndex].concat(tail);
       return;
@@ -1097,9 +1138,12 @@ function searchPhase2(coordinates, depth, lastFace, cornerMoves, edgeMoves, slic
   return found.contents;
 }
 
-function searchPhase1WithinTotal(state, coordinates, phase1Depth, totalDepth, lastFace, moves, twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip, twistFlip, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice) {
+function searchPhase1WithinTotal(state, coordinates, phase1Depth, totalDepth, lastFace, moves, twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip, twistFlip, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice, picture, centers) {
+  if (!consumePictureNode(picture) || centerDistance(picture, centers) > (totalDepth - moves.length | 0)) {
+    return;
+  }
   if (phase1Depth === 0) {
-    if (coordinates.twist !== 0 || coordinates.flip !== 0 || coordinates.slice !== 0) {
+    if (coordinates.twist !== 0 || coordinates.flip !== 0 || coordinates.slice !== 0 || !phase2CentersReachable(picture, centers)) {
       return;
     }
     let phase1State = MoveExecutor.applyAlg(state, algorithmForMoves(moves));
@@ -1110,7 +1154,7 @@ function searchPhase1WithinTotal(state, coordinates, phase1Depth, totalDepth, la
     if (phase2Coordinates$1.TAG !== "Ok") {
       return;
     }
-    let phase2Moves = searchPhase2(phase2Coordinates$1._0, totalDepth - moves.length | 0, -1, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice);
+    let phase2Moves = searchPhase2(phase2Coordinates$1._0, totalDepth - moves.length | 0, -1, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice, picture, centers);
     if (phase2Moves !== undefined) {
       return moves.concat(phase2Moves);
     } else {
@@ -1132,13 +1176,13 @@ function searchPhase1WithinTotal(state, coordinates, phase1Depth, totalDepth, la
         flip: next_flip,
         slice: next_slice
       };
-      found = searchPhase1WithinTotal(state, next, phase1Depth - 1 | 0, totalDepth, face, moves.concat([moveIndex]), twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip, twistFlip, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice);
+      found = searchPhase1WithinTotal(state, next, phase1Depth - 1 | 0, totalDepth, face, moves.concat([moveIndex]), twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip, twistFlip, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice, picture, nextCenters(picture, centers, moveIndex));
     }
   }
   return found;
 }
 
-function totalDepthSearch(state, coordinates, totalDepth) {
+function totalDepthSearchWithCenters(state, coordinates, totalDepth, picture, centers) {
   let twistMoves = buildCompactTwistMoveTable();
   let flipMoves = buildCompactFlipMoveTable();
   let sliceMoves = buildCompactSliceMoveTable();
@@ -1155,10 +1199,14 @@ function totalDepthSearch(state, coordinates, totalDepth) {
   let maximumPhase1Depth = totalDepth < 12 ? totalDepth : 12;
   for (let phase1Depth = minimumPhase1Depth; phase1Depth <= maximumPhase1Depth; ++phase1Depth) {
     if (found === undefined) {
-      found = searchPhase1WithinTotal(state, coordinates, phase1Depth, totalDepth, -1, [], twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip, twistFlip, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice);
+      found = searchPhase1WithinTotal(state, coordinates, phase1Depth, totalDepth, -1, [], twistMoves, flipMoves, sliceMoves, sliceTwist, sliceFlip, twistFlip, cornerMoves, edgeMoves, slicePermutationMoves, cornerSlice, edgeSlice, picture, centers);
     }
   }
   return found;
+}
+
+function totalDepthSearch(state, coordinates, totalDepth) {
+  return totalDepthSearchWithCenters(state, coordinates, totalDepth, undefined, 0);
 }
 
 function solveAtDepth(state, totalDepth) {
@@ -1285,6 +1333,120 @@ function solve(state) {
   }
 }
 
+function solvePictureAtDepth(state, orientations, symmetry, totalDepth, maxNodes) {
+  if (state.size !== 3) {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "UnsupportedSize",
+        _0: state.size
+      }
+    };
+  }
+  if (!PictureCenters.validOrientations(orientations) || !PictureCenters.validSymmetry(symmetry)) {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidCoordinate",
+        _0: "Expected six center orientations 0..3 and six symmetry periods 1, 2, or 4 in U/L/F/R/B/D order."
+      }
+    };
+  }
+  if (!Number.isInteger(totalDepth) || !Number.isInteger(maxNodes) || totalDepth < 0 || totalDepth > 24 || maxNodes < 1 || maxNodes > 10000000) {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidCoordinate",
+        _0: "Picture depth must be 0..24 and node budget 1..10000000."
+      }
+    };
+  }
+  let match = StateTypes.solved(3);
+  let match$1 = PieceReducer.reduce(state);
+  let match$2 = phase1Coordinates(state);
+  let exit = 0;
+  if (match.TAG === "Ok" && match$1.TAG === "Ok") {
+    if (match$2.TAG === "Ok") {
+      if (!sameCentres(state, match._0)) {
+        return {
+          TAG: "Error",
+          _0: {
+            TAG: "InvalidCoordinate",
+            _0: "Picture search requires the fixed U/L/F/R/B/D center frame; whole-cube normalization must also transform printed orientations."
+          }
+        };
+      }
+      if (!PictureCenters.reachable(orientations, match$1._0.cp)) {
+        return {
+          TAG: "Error",
+          _0: {
+            TAG: "InvalidCoordinate",
+            _0: "Center quarter-turn parity must equal corner permutation parity."
+          }
+        };
+      }
+      let context_visited = {
+        contents: 0
+      };
+      let context = {
+        symmetry: symmetry,
+        visited: context_visited,
+        maxNodes: maxNodes
+      };
+      let moves = totalDepthSearchWithCenters(state, match$2._0, totalDepth, context, PictureCenters.encode(orientations));
+      if (moves === undefined) {
+        if (context_visited.contents > maxNodes) {
+          return {
+            TAG: "Error",
+            _0: "SearchBudgetExceeded"
+          };
+        } else {
+          return {
+            TAG: "Error",
+            _0: "SearchFailed"
+          };
+        }
+      }
+      let alg = algorithmForMoves(moves);
+      let match$3 = verifiedSolution(state, alg);
+      let match$4 = PictureCenters.apply(orientations, alg);
+      if (match$3.TAG === "Ok" && match$4.TAG === "Ok" && PictureCenters.distance(PictureCenters.encode(match$4._0), symmetry) === 0) {
+        return {
+          TAG: "Ok",
+          _0: match$3._0
+        };
+      } else {
+        return {
+          TAG: "Error",
+          _0: "VerificationFailed"
+        };
+      }
+    }
+  } else {
+    exit = 2;
+  }
+  if (exit === 2 && match$1.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: {
+        TAG: "InvalidState",
+        _0: match$1._0
+      }
+    };
+  }
+  if (match$2.TAG === "Ok") {
+    return {
+      TAG: "Error",
+      _0: "VerificationFailed"
+    };
+  } else {
+    return {
+      TAG: "Error",
+      _0: match$2._0
+    };
+  }
+}
+
 let phase2MoveCount = 10;
 
 export {
@@ -1368,11 +1530,17 @@ export {
   phase2Distance,
   moveAlgorithm,
   algorithmForMoves,
+  consumePictureNode,
+  centerDistance,
+  phase2CentersReachable,
+  nextCenters,
   searchPhase2,
   searchPhase1WithinTotal,
+  totalDepthSearchWithCenters,
   totalDepthSearch,
   solveAtDepth,
   isPhase1Solved,
   solve,
+  solvePictureAtDepth,
 }
 /* No side effect */

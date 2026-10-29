@@ -94,6 +94,7 @@ type solverError =
   | InvalidCoordinate(string)
   | SearchFailed
   | VerificationFailed
+  | SearchBudgetExceeded
 
 let describeError = error =>
   switch error {
@@ -105,6 +106,7 @@ let describeError = error =>
   | InvalidCoordinate(message) => message
   | SearchFailed => "No two-phase solution was found within the selected depth."
   | VerificationFailed => "The generated two-phase solution failed exact facelet replay verification."
+  | SearchBudgetExceeded => "The center-aware search reached its node budget; no conclusion about solvability was made."
   }
 
 let statesEqual = (left: cubeState, right: cubeState) =>
@@ -839,6 +841,32 @@ let algorithmForMoves = moves => {
   algorithm.contents
 }
 
+type pictureSearch = {symmetry: array<int>, visited: ref<int>, maxNodes: int}
+
+let consumePictureNode = picture =>
+  switch picture {
+  | None => true
+  | Some(context) => {
+      context.visited := context.visited.contents + 1
+      context.visited.contents <= context.maxNodes
+    }
+  }
+let centerDistance = (picture, centers) =>
+  switch picture {
+  | None => 0
+  | Some(context) => PictureCenters.distance(centers, context.symmetry)
+  }
+let phase2CentersReachable = (picture, centers) =>
+  switch picture {
+  | None => true
+  | Some(context) => PictureCenters.phase2Reachable(centers, context.symmetry)
+  }
+let nextCenters = (picture, centers, moveIndex) =>
+  switch picture {
+  | None => centers
+  | Some(_) => PictureCenters.move(centers, moveIndex)
+  }
+
 let rec searchPhase2 = (
   coordinates: phase2Coordinates,
   depth,
@@ -848,10 +876,24 @@ let rec searchPhase2 = (
   sliceMoves,
   cornerSlice,
   edgeSlice,
+  picture,
+  centers,
 ) =>
-  if coordinates.corners == 0 && coordinates.edges == 0 && coordinates.slice == 0 {
+  if !consumePictureNode(picture) {
+    None
+  } else if (
+    coordinates.corners == 0 &&
+    coordinates.edges == 0 &&
+    coordinates.slice == 0 &&
+    centerDistance(picture, centers) == 0
+  ) {
     Some([])
-  } else if depth == 0 || phase2Distance(coordinates, cornerSlice, edgeSlice) > depth {
+  } else if (
+    depth == 0 ||
+    maximum(phase2Distance(coordinates, cornerSlice, edgeSlice), centerDistance(picture, centers)) >
+    depth ||
+    !phase2CentersReachable(picture, centers)
+  ) {
     None
   } else {
     let found = ref(None)
@@ -872,6 +914,8 @@ let rec searchPhase2 = (
           sliceMoves,
           cornerSlice,
           edgeSlice,
+          picture,
+          nextCenters(picture, centers, moveIndex),
         ) {
         | Some(tail) => found := Some([moveIndex]->Array.concat(tail))
         | None => ()
@@ -899,9 +943,21 @@ let rec searchPhase1WithinTotal = (
   slicePermutationMoves,
   cornerSlice,
   edgeSlice,
+  picture,
+  centers,
 ) =>
-  if phase1Depth == 0 {
-    if coordinates.twist != 0 || coordinates.flip != 0 || coordinates.slice != 0 {
+  if (
+    !consumePictureNode(picture) ||
+    centerDistance(picture, centers) > totalDepth - moves->Array.length
+  ) {
+    None
+  } else if phase1Depth == 0 {
+    if (
+      coordinates.twist != 0 ||
+      coordinates.flip != 0 ||
+      coordinates.slice != 0 ||
+      !phase2CentersReachable(picture, centers)
+    ) {
       None
     } else {
       switch MoveExecutor.applyAlg(state, algorithmForMoves(moves)) {
@@ -919,6 +975,8 @@ let rec searchPhase1WithinTotal = (
             slicePermutationMoves,
             cornerSlice,
             edgeSlice,
+            picture,
+            centers,
           ) {
           | None => None
           | Some(phase2Moves) => Some(moves->Array.concat(phase2Moves))
@@ -957,13 +1015,15 @@ let rec searchPhase1WithinTotal = (
             slicePermutationMoves,
             cornerSlice,
             edgeSlice,
+            picture,
+            nextCenters(picture, centers, moveIndex),
           )
       }
     }
     found.contents
   }
 
-let totalDepthSearch = (state, coordinates, totalDepth) => {
+let totalDepthSearchWithCenters = (state, coordinates, totalDepth, picture, centers) => {
   let twistMoves = buildCompactTwistMoveTable()
   let flipMoves = buildCompactFlipMoveTable()
   let sliceMoves = buildCompactSliceMoveTable()
@@ -1003,11 +1063,16 @@ let totalDepthSearch = (state, coordinates, totalDepth) => {
           slicePermutationMoves,
           cornerSlice,
           edgeSlice,
+          picture,
+          centers,
         )
     }
   }
   found.contents
 }
+
+let totalDepthSearch = (state, coordinates, totalDepth) =>
+  totalDepthSearchWithCenters(state, coordinates, totalDepth, None, 0)
 
 let solveAtDepth = (state: cubeState, totalDepth): result<solution, solverError> =>
   if totalDepth < 0 || totalDepth > 24 {
@@ -1064,5 +1129,74 @@ let solve = (state: cubeState): result<solution, solverError> =>
           }
         }
       }
+    }
+  }
+
+/** Bounded integrated search. The six orientations are physical data, not colors.
+ * Fixed U/L/F/R/B/D frame only; caller must preserve that frame explicitly.
+ * No optimality, completeness, or 21-HTM guarantee is made. */
+let solvePictureAtDepth = (state: cubeState, orientations, symmetry, totalDepth, maxNodes): result<
+  solution,
+  solverError,
+> =>
+  if state.size != 3 {
+    Error(UnsupportedSize(state.size))
+  } else if (
+    !PictureCenters.validOrientations(orientations) || !PictureCenters.validSymmetry(symmetry)
+  ) {
+    Error(
+      InvalidCoordinate(
+        "Expected six center orientations 0..3 and six symmetry periods 1, 2, or 4 in U/L/F/R/B/D order.",
+      ),
+    )
+  } else if (
+    !PictureCenters.isInteger(totalDepth) ||
+    !PictureCenters.isInteger(maxNodes) ||
+    totalDepth < 0 ||
+    totalDepth > 24 ||
+    maxNodes < 1 ||
+    maxNodes > 10000000
+  ) {
+    Error(InvalidCoordinate("Picture depth must be 0..24 and node budget 1..10000000."))
+  } else {
+    switch (StateTypes.solved(3), PieceReducer.reduce(state), phase1Coordinates(state)) {
+    | (Ok(solved), Ok(pieces), Ok(coordinates)) =>
+      if !sameCentres(state, solved) {
+        Error(
+          InvalidCoordinate(
+            "Picture search requires the fixed U/L/F/R/B/D center frame; whole-cube normalization must also transform printed orientations.",
+          ),
+        )
+      } else if !PictureCenters.reachable(orientations, pieces.cp) {
+        Error(InvalidCoordinate("Center quarter-turn parity must equal corner permutation parity."))
+      } else {
+        let context = {symmetry, visited: ref(0), maxNodes}
+        switch totalDepthSearchWithCenters(
+          state,
+          coordinates,
+          totalDepth,
+          Some(context),
+          PictureCenters.encode(orientations),
+        ) {
+        | None =>
+          if context.visited.contents > maxNodes {
+            Error(SearchBudgetExceeded)
+          } else {
+            Error(SearchFailed)
+          }
+        | Some(moves) => {
+            let alg = algorithmForMoves(moves)
+            switch (verifiedSolution(state, alg), PictureCenters.apply(orientations, alg)) {
+            | (Ok(solution), Ok(finalCenters))
+              if PictureCenters.distance(PictureCenters.encode(finalCenters), symmetry) == 0 =>
+              Ok(solution)
+            | _ => Error(VerificationFailed)
+            }
+          }
+        }
+      }
+    | (_, Error(error), _) => Error(InvalidState(error))
+    | (_, _, Error(error)) => Error(error)
+    | _ => Error(VerificationFailed)
     }
   }
