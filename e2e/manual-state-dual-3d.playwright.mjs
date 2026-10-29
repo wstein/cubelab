@@ -1,11 +1,12 @@
 import {expect, test} from "@playwright/test";
+import {waitForManualStateRepresentation} from "./manual-state-motion.mjs";
 
 test("Dual 3D shows interactive upper and lower cube corners", async ({page}) => {
   await page.goto("/#size=3");
   await page.locator("[data-manual-state-open]").click();
   await page.locator("[data-manual-state-solved]").click();
   await page.locator('[data-manual-state-representation="dual-3d"]').click();
-  await page.waitForTimeout(450);
+  await waitForManualStateRepresentation(page, "dual-3d");
 
   const net = page.locator("[data-manual-state-net]");
   await expect(net).toHaveAttribute("data-representation", "dual-3d");
