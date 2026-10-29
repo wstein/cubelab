@@ -29,6 +29,7 @@ type WorkerRequest =
   | {id: number; type: "solve5x5CentreBar"; state: unknown}
   | {id: number; type: "solve5x5L2E"; state: unknown}
   | {id: number; type: "solveTwoPhase"; state: unknown; refine?: boolean; maximumDepth?: number}
+  | {id: number; type: "solvePicture"; state: {cube: unknown; orientations: number[]; symmetry: number[]; maximumDepth: number; maximumNodes: number}}
   | {id: number; type: "cancelTwoPhase"};
 type ReScriptResult = {TAG: "Ok"; _0: unknown} | {TAG: "Error"; _0: unknown};
 
@@ -66,6 +67,14 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
     }
     if (request.type === "cancelTwoPhase") {
       cancelledTwoPhaseRequests.add(request.id);
+      return;
+    }
+    if (request.type === "solvePicture") {
+      const {cube, orientations, symmetry, maximumDepth, maximumNodes} = request.state;
+      // Integrated center goal: never return an ordinary color-only fallback.
+      const result = TwoPhaseSolver.solvePictureAtDepth(cube, orientations, symmetry, maximumDepth, maximumNodes);
+      if (result.TAG === "Ok") self.postMessage({id: request.id, ok: true, solution: result._0});
+      else self.postMessage({id: request.id, ok: false, error: TwoPhaseSolver.describeError(result._0)});
       return;
     }
     if (request.type === "solveTwoPhase") {
