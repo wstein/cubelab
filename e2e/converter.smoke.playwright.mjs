@@ -10,6 +10,29 @@ import * as StateTypes from "../src/State/StateTypes.res.mjs";
 // below depend on that interception, so the app worker stays out of this file.
 test.use({serviceWorkers: "block"});
 
+// The app's timing-dependent behavior (keyboard combine windows, playback animation frames,
+// pauses) runs on setTimeout, requestAnimationFrame and performance.now. Tests that depend on
+// it drive Playwright's fake clock instead of racing real time under CPU load. The clock is
+// installed at a fixed instant well before the pause point: pauseAt() throws "Cannot
+// fast-forward to the past" if real time moved the fake clock beyond the target while the
+// page was loading, so the margin must exceed any plausible page-load time.
+const CLOCK_START = Date.UTC(2026, 0, 1);
+const CLOCK_LOAD_MARGIN_MS = 120_000;
+
+const openWithControlledClock = async (page, url = "/") => {
+  await page.clock.install({time: CLOCK_START});
+  await page.goto(url);
+  await page.clock.pauseAt(CLOCK_START + CLOCK_LOAD_MARGIN_MS);
+};
+
+// Advance virtual time in small steps until the assertion holds. The outcome depends on
+// virtual time only, so a slow machine takes more wall-clock time but the same ticks.
+const advanceUntil = (page, assertion, stepMs = 250) =>
+  expect(async () => {
+    await page.clock.runFor(stepMs);
+    await assertion();
+  }).toPass({timeout: 30_000, intervals: [0]});
+
 const algorithmFacelets = (algorithm) => {
   const parsed = MoveParser.parse(3, algorithm);
   if (parsed.TAG !== "Ok") throw new Error(`Test algorithm did not parse: ${algorithm}`);
@@ -916,7 +939,9 @@ test("ends solve mode and resumes orientation tracking once the timeline complet
 });
 
 test("plays, steps, and seeks an expanded algorithm timeline", async ({page}) => {
-  await page.goto("/");
+  // Fake-clock ticks render every animation frame, so a slow runner spends real time on them.
+  test.setTimeout(120_000);
+  await openWithControlledClock(page);
   const input = page.locator("[data-input]");
   const position = page.locator("[data-playback-position]");
   const facelets = page.locator('[data-output="facelets"]');
@@ -924,57 +949,64 @@ test("plays, steps, and seeks an expanded algorithm timeline", async ({page}) =>
 
   await input.fill("R U");
   await expect(page.locator("[data-playback]")).toBeVisible();
-  await expect(position).toHaveText("Move 2 of 2");
+  await advanceUntil(page, () => expect(position).toHaveText("Move 2 of 2", {timeout: 50}));
   const finalState = await facelets.textContent();
 
   await page.locator("[data-playback-scrubber]").fill("0");
-  await expect(position).toHaveText("Move 0 of 2");
+  await advanceUntil(page, () => expect(position).toHaveText("Move 0 of 2", {timeout: 50}));
   await expect(facelets).toHaveText(solved);
 
   await page.getByRole("button", {name: "Step forward"}).click();
+  // The clock is paused, so the turn animation cannot finish before this assertion.
   await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-animating", "true");
-  await expect(position).toHaveText("Move 1 of 2");
-  await expect(page.locator("[data-cube-canvas]")).not.toHaveAttribute("data-animating", "true");
+  await advanceUntil(page, () => expect(position).toHaveText("Move 1 of 2", {timeout: 50}));
+  await advanceUntil(page, () =>
+    expect(page.locator("[data-cube-canvas]")).not.toHaveAttribute("data-animating", "true", {timeout: 50}));
 
   await page.getByRole("button", {name: "Step backward"}).click();
-  await expect(position).toHaveText("Move 0 of 2");
+  await advanceUntil(page, () => expect(position).toHaveText("Move 0 of 2", {timeout: 50}));
   await expect(facelets).toHaveText(solved);
 
   await page.getByRole("button", {name: "Play forward"}).click();
-  await expect(position).toHaveText("Move 2 of 2");
+  await advanceUntil(page, () => expect(position).toHaveText("Move 2 of 2", {timeout: 50}));
   await expect(facelets).toHaveText(finalState ?? "");
 
   await page.getByRole("button", {name: "Play backward"}).click();
-  await expect(position).toHaveText("Move 0 of 2");
+  await advanceUntil(page, () => expect(position).toHaveText("Move 0 of 2", {timeout: 50}));
   await expect(facelets).toHaveText(solved);
 
   await page.getByRole("button", {name: "Go to end"}).click();
-  await expect(position).toHaveText("Move 2 of 2");
+  await advanceUntil(page, () => expect(position).toHaveText("Move 2 of 2", {timeout: 50}));
   await page.getByRole("button", {name: "Go to beginning"}).click();
-  await expect(position).toHaveText("Move 0 of 2");
+  await advanceUntil(page, () => expect(position).toHaveText("Move 0 of 2", {timeout: 50}));
 
   const pause = page.getByRole("button", {name: "Pause playback"});
   await page.locator("[data-viewport-panel] [data-playback-speed='0.5']").click();
   await page.getByRole("button", {name: "Play forward"}).click();
+  // Playback is mid-flight here by construction: no virtual time has elapsed since the click.
   await expect(pause).toBeEnabled();
   await pause.click();
   await expect(pause).toBeDisabled();
   const pausedPosition = await position.textContent();
-  await page.waitForTimeout(450);
+  // Ten virtual seconds is far longer than the whole half-speed timeline; a pause that did
+  // not stop playback would have reached the end by now.
+  await page.clock.runFor(10_000);
   await expect(position).toHaveText(pausedPosition ?? "");
 
   await page.locator("[data-playback-scrubber]").fill("0");
   await page.locator("[data-playback-scrubber]").fill("2");
-  await expect(position).toHaveText("Move 2 of 2");
+  await advanceUntil(page, () => expect(position).toHaveText("Move 2 of 2", {timeout: 50}));
   await expect(facelets).toHaveText(finalState ?? "");
 
   await input.fill("");
   await expect(page.locator("[data-playback]")).toBeVisible();
-  await expect(position).toHaveText("Move 0 of 0");
+  await advanceUntil(page, () => expect(position).toHaveText("Move 0 of 0", {timeout: 50}));
   await expect(page.locator("[data-playback-play]")).toBeDisabled();
   await input.fill("R");
-  await expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-animating", "true");
-  await expect(position).toHaveText("Move 1 of 1");
+  // The animation starts once the input debounce fires; it outlasts one 20 ms virtual step.
+  await advanceUntil(page, () =>
+    expect(page.locator("[data-cube-canvas]")).toHaveAttribute("data-animating", "true", {timeout: 50}), 20);
+  await advanceUntil(page, () => expect(position).toHaveText("Move 1 of 1", {timeout: 50}));
 });
 
 test("shows only a 2× repeat marker on half-turn guides", async ({page}) => {
@@ -1186,18 +1218,24 @@ test("plays internal pauses without changing the canonical cube state", async ({
 });
 
 test("steps complete sequences without waiting on pauses", async ({page}) => {
-  await page.goto("/");
+  test.setTimeout(120_000);
+  await openWithControlledClock(page);
   await page.locator("[data-input]").fill("(R @1.3s U) (F D)");
   const position = page.locator("[data-playback-position]");
+  await advanceUntil(page, () => expect(position).toHaveText("Move 4 of 4", {timeout: 50}));
   await page.locator("[data-playback-scrubber]").fill("0");
+  await expect(position).toHaveText("Move 0 of 4");
 
   await page.locator("[data-playback-scrubber]").evaluate((element) => element.blur());
   await page.keyboard.press("Shift+ArrowRight");
-  await expect(position).toHaveText("Move 2 of 4", {timeout: 2200});
+  // Same bound as the former real-time 2200 ms assertion, now in exact virtual time.
+  await page.clock.runFor(2200);
+  await expect(position).toHaveText("Move 2 of 4");
   await expect(page.locator("[data-move-ribbon] .move-group").nth(1)).toHaveClass(/focused/);
 
   await page.keyboard.press("Shift+ArrowLeft");
-  await expect(position).toHaveText("Move 0 of 4", {timeout: 2200});
+  await page.clock.runFor(2200);
+  await expect(position).toHaveText("Move 0 of 4");
   await expect(page.locator("[data-move-ribbon] .move-group").first()).toHaveClass(/focused/);
 });
 
