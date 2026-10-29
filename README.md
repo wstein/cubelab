@@ -212,6 +212,7 @@ tests only on pull requests labelled `e2e` (`browser.yml`); it does not run
 `format:check` or `lint` yet. In an environment that sets `GITHUB_ACTIONS`, run the
 browser tests with `env -u GITHUB_ACTIONS npm run test:browser`, because Astro serves
 below `/cubelab` only when that variable is set.
+
 # License
 
 Cube Rosetta is licensed under **AGPL-3.0-or-later**. See [LICENSE](LICENSE)
