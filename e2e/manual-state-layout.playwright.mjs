@@ -1,4 +1,5 @@
 import {expect, test} from "@playwright/test";
+import {waitForManualStateRepresentation} from "./manual-state-motion.mjs";
 
 test("state editor keeps every cube view centered in the compact layout", async ({page}) => {
   await page.setViewportSize({width: 1400, height: 1000});
@@ -27,7 +28,7 @@ test("state editor keeps every cube view centered in the compact layout", async 
   expect(sidebar.trailingSpace).toBeLessThanOrEqual(1);
 
   await page.locator('[data-manual-state-representation="standard"]').click();
-  await page.waitForTimeout(350);
+  await waitForManualStateRepresentation(page, "standard");
   const flatLayout = await dialog.evaluate((element) => {
     const dialogBox = element.getBoundingClientRect();
     const tools = element.querySelector(".manual-state-tools").getBoundingClientRect();
@@ -42,7 +43,7 @@ test("state editor keeps every cube view centered in the compact layout", async 
 
   for (const representation of ["standard", "attached", "open-cube", "dual-3d", "isometric"]) {
     await page.locator(`[data-manual-state-representation="${representation}"]`).click();
-    await page.waitForTimeout(350);
+    await waitForManualStateRepresentation(page, representation);
     const offset = await dialog.evaluate((element) => {
       const stage = element.querySelector(".manual-state-stage").getBoundingClientRect();
       const faces = [...element.querySelectorAll(".manual-state-face")].map((face) => face.getBoundingClientRect());
