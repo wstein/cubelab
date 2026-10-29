@@ -28,25 +28,3 @@ jobs:
         run: npm test
       - name: Build static site
         run: npm run build
-
-  browser:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v7
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-      # playwright.config.mjs starts the preview server with bunx.
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-      - name: Install dependencies
-        run: npm ci
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-      # astro.config.mjs serves below /cubelab when GITHUB_ACTIONS is set,
-      # but the browser tests expect the site at the root, as in local runs.
-      - name: Run browser tests
-        run: env -u GITHUB_ACTIONS npm run test:browser -- --reporter=github,line

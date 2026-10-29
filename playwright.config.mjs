@@ -22,6 +22,6 @@ export default defineConfig({
     command: `bunx astro preview --host 127.0.0.1 --port ${port}`,
     url: baseURL,
     reuseExistingServer: true,
-    timeout: 120_000,
+    timeout: 30_000,
   },
 });
