@@ -10,6 +10,7 @@ import * as MoveTransform from "../src/Move/MoveTransform.res.mjs";
 import * as Orbit64Codec from "../src/State/Orbit64Codec.res.mjs";
 import * as PieceReducer from "../src/State/PieceReducer.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
+import {scaledTimeout} from "./support/timeout-factor.mjs";
 
 const solved = StateTypes.solved(3)._0;
 const solvedCompact = FaceletCodec.render(solved);
@@ -150,7 +151,7 @@ test("exposes distinct replay-verified Beginner, Full, and Advanced CFOP strateg
   assert.ok(advanced.moveCount < beginner.moveCount);
   assert.doesNotMatch(full.phases[0].sequences.join(" "), /candidate plans/);
   assert.match(advanced.phases[0].sequences.join(" "), /candidate plans/);
-}, 30_000);
+}, scaledTimeout(30_000));
 
 test("keeps Advanced LBL bounded on a middle-layer insertion state", () => {
   const decoded = Orbit64Codec.decodeState("AqhDBUgvge_w");

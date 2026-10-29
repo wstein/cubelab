@@ -3,6 +3,7 @@ import {expect, test} from "vitest";
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
 import {applyCentreTransition, applyTransition, axisTransitionAllowed, buildCentrePruning, buildCentreSymmetryMap, buildSymmetryCentrePruning, canonicalUdRank, centreSymmetryPermutations, centreTransition, createCentrePruning, decodeFacelets, encodeFacelets, extractCentres, extractCorners, extractWings, halfBlockTargetRank, phase2CombinedDistance, phase2FbDistance, phase2Moves, phase2TargetFbRank, udRankDistance, phase3Moves, pruningDepth, rankFbCentres, rankFbHalf, rankRlHalf, rankUdCentres, rankUdHalf, setPruningDepth, solveCentreReduction, solvePhase1Centres, solvePhase3Centres, transitionUdRank, unrankUdCentres} from "../src/Solver/ThreePhase4x4.res.mjs";
+import {scaledTimeout} from "./support/timeout-factor.mjs";
 
 function buildPhase2DistanceInputs() {
   const symmetryMap = buildCentreSymmetryMap();
@@ -388,7 +389,7 @@ test("centre reduction chains phase-one and phase-two into a replay-verified F/B
   const finalCentres = extractCentres(replayed);
   expect(rankUdCentres(finalCentres)).toBe(0);
   expect(rankFbCentres(finalCentres)).toBe(phase2TargetFbRank);
-}, 30000);
+}, scaledTimeout(30000));
 
 test("centre reduction's phase-two segment never repeats a face or reverses same-axis order", () => {
   const scrambled = MoveExecutor.parseAndApply(4, "Rw U Fw2 Dw2 Lw' B2");
@@ -413,7 +414,7 @@ test("centre reduction's phase-two segment never repeats a face or reverses same
     }
     lastFaceId = faceId;
   });
-}, 30000);
+}, scaledTimeout(30000));
 
 test("phase-three half-block ranks all read their shared target at solved", () => {
   const solved = "UUUUDDDDFFFFBBBBRRRRLLLL";
@@ -471,7 +472,7 @@ test("phase-three centre search finds a replay-verified solution for a phase-two
   expect(rankUdHalf(finalCentres)).toBe(halfBlockTargetRank);
   expect(rankFbHalf(finalCentres)).toBe(halfBlockTargetRank);
   expect(rankRlHalf(finalCentres)).toBe(halfBlockTargetRank);
-}, 30000);
+}, scaledTimeout(30000));
 
 test("phase-three centre search never repeats a face or reverses same-axis order", () => {
   const scrambled = MoveExecutor.parseAndApply(4, "U R2 F' Uw2 Bw2");
@@ -496,4 +497,4 @@ test("phase-three centre search never repeats a face or reverses same-axis order
     }
     lastFaceId = faceId;
   });
-}, 30000);
+}, scaledTimeout(30000));

@@ -9,6 +9,7 @@ import * as PetrusSolver from "../src/Solver/PetrusSolver.res.mjs";
 import * as PetrusCases from "../src/Solver/PetrusCases.res.mjs";
 import * as PieceReducer from "../src/State/PieceReducer.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
+import {scaledTimeout} from "./support/timeout-factor.mjs";
 
 const solved = StateTypes.solved(3)._0;
 const solvedCompact = FaceletCodec.render(solved);
@@ -133,7 +134,7 @@ test("handles solved and unsupported inputs without weakening replay guarantees"
   assert.match(PetrusSolver.describeError(unsupported._0), /supports 3×3×3/);
 });
 
-test("solves a seeded sample of unrelated block-building states", {timeout: 45_000}, () => {
+test("solves a seeded sample of unrelated block-building states", {timeout: scaledTimeout(45_000)}, () => {
   const scrambles = [
     "R U F L D B R2 U2 F2 L2 D2 B2",
     "U R2 F D2 L B2 U2 R F2 D L2 B",

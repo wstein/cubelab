@@ -6,6 +6,7 @@ import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as Orbit64Codec from "../src/State/Orbit64Codec.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
 import {findL2CRelation5x5, findL2ERelation5x5, findOneByThreeBar5x5, inspectReduction5x5, planOLLParityRepair5x5, planPLLParityRepair5x5, planNextCentre5x5, planNextWingPair5x5, reduce5x5, solveXCentreCycle5x5} from "../src/Solver/Reduction5x5.res.mjs";
+import {scaledTimeout} from "./support/timeout-factor.mjs";
 
 test("inspects fixed-core 5×5 centre and wing milestones", () => {
   const solved = StateTypes.solved(5);
@@ -104,7 +105,7 @@ test("searches an explicit replay-verified 1×3 bar commutator", () => {
   const replay = MoveExecutor.applyAlg(state._0, guide._0.alg);
   expect(replay.TAG).toBe("Ok");
   expect(guide._0.barsAfter).toBeGreaterThan(guide._0.barsBefore);
-}, 45_000);
+}, scaledTimeout(45_000));
 
 test("uses a buffered centre 3-cycle when only a whole centre face can advance", () => {
   const state = FaceletCodec.parse(5, "LFUFLBUUULFUUUFBUUUBBBRLRDDLDFRRRRFFRRRUURDRLUFBDDDRDUFUFFFUBFFFRBFFFLDLBUFLDUFRRDDDLUDDLDRDDDRBBBFLBUDURLLRLRLLLLLDBLLDUDLBFURFUUDLBBBRBBBDFBBBFBRRLR");
