@@ -128,6 +128,11 @@ The [two-phase solver coordinate foundation](docs/two-phase-solver.md) provides 
 first-phase pruning tables and direct cubie-permutation transition tables for the G1
 second phase.
 
+The opt-in [center-aware 3×3 API](docs/center-aware-3x3.md) adds explicit physical
+center orientations and symmetry goals to the existing bounded two-phase search.
+It preserves the ordinary solver and returns no color-only fallback for picture
+goals; the converter UI remains color-only.
+
 Converter, Beginner Academy, CFOP Academy, and Alg Workbench are views in a
 [single-page workspace](docs/workspace.md). The WebGL viewport and tape player stay
 mounted across tab switches, and the selected view is preserved in the URL hash.
