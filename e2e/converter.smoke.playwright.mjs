@@ -1396,6 +1396,9 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await expect(page.locator("[data-beginner-phase]").nth(0)).toContainText("Keep white on the bottom");
   await expect(page.locator("[data-beginner-phase]").nth(2)).toContainText("Keep yellow on top");
   await expect(page.locator("[data-playback-position]")).toHaveText(/Move 0 of \d+/);
+  // While stopped, the turn guide previews the next move of the timeline.
+  await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-turn-guide", /.+/);
+  const idleTurnGuide = await page.locator("[data-motion-overlay]").getAttribute("data-turn-guide");
   await expect(page.locator("[data-coaching-controls]")).toBeVisible();
   await expect(page.getByRole("button", {name: "Coached", exact: true})).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("[data-beginner-solution]")).toContainText("// STEP 1: White Cross");
@@ -1454,7 +1457,9 @@ test("switches SPA workspaces without remounting the viewport and teaches a solu
   await page.locator("[data-playback-position]").hover();
   await expect(canvas).not.toHaveAttribute("data-turn-preview-degrees", /.+/);
   await expect(canvas).not.toHaveAttribute("data-focus-piece", /.+/);
-  await expect(page.locator("[data-motion-overlay]")).not.toHaveAttribute("data-turn-guide", /.+/);
+  // Leaving the token restores the stopped player's own next-move guide; it is
+  // absent only during the short restore animation.
+  await expect(page.locator("[data-motion-overlay]")).toHaveAttribute("data-turn-guide", idleTurnGuide ?? "");
   const secondPhase = page.locator("[data-beginner-phase]").nth(1);
   await secondPhase.hover();
   await expect(secondPhase).toHaveClass(/focused/);
