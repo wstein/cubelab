@@ -51,8 +51,8 @@ jobs:
         env:
           GITHUB_ACTIONS: "false"
         run: |
-          npm run build > /tmp/build.log 2>&1; echo "::warning::build exit $? $(tail -n 3 /tmp/build.log | tr '\n' '|')"
-          (bunx astro preview --host 127.0.0.1 --port 4390 > /tmp/preview.log 2>&1 &) ; sleep 20
+          env -u GITHUB_ACTIONS npm run build > /tmp/build.log 2>&1; echo "::warning::build exit $? $(tail -n 3 /tmp/build.log | tr '\n' '|')"
+          (env -u GITHUB_ACTIONS bunx astro preview --host 127.0.0.1 --port 4390 > /tmp/preview.log 2>&1 &) ; sleep 20
           echo "::warning::preview log $(head -c 700 /tmp/preview.log | tr '\n' '|')"
           echo "::warning::curl $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4390/ 2>&1) bun $(bun --version 2>&1)"
       # astro.config.mjs serves below /cubelab when GITHUB_ACTIONS is true,
@@ -60,4 +60,4 @@ jobs:
       - name: Run browser tests
         env:
           GITHUB_ACTIONS: "false"
-        run: npm run test:browser -- --reporter=github,line
+        run: env -u GITHUB_ACTIONS npm run test:browser -- --reporter=github,line
