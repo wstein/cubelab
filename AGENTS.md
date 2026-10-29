@@ -132,10 +132,16 @@ For domain changes cover move/inverse replay, parity/twist rules, codecs and fra
 for UI changes cover playback, timer, accessibility, small screens and viewport behavior.
 For smart cubes run replay/contract tests; do not claim hardware/firmware validation
 without a real-device smoke test. See the matrix and release gates in architecture.md.
-Pages CI runs install, tests and build on main. The CI workflow runs the same install,
-tests and build on pull requests; it does not run `format:check`, `lint` or the Playwright
-browser tests, so run those locally when a change needs them. Check the actual check runs
-of a PR rather than assuming.
+Pages CI runs install, tests and build on main. On every pull request the `ci.yml`
+`test-and-build` job runs `npm ci`, `npm test` and `npm run build`. The Playwright browser
+job lives in its own workflow, `browser.yml`, and runs on a pull request only while it
+carries the `e2e` label (adding another label starts that workflow but skips the job).
+CI does not run `format:check` or `lint` yet; run them locally. To run the e2e suite
+locally in an environment that sets `GITHUB_ACTIONS` (as CI does), use
+`env -u GITHUB_ACTIONS npm run test:browser`: `astro.config.mjs` serves below `/cubelab`
+only when `GITHUB_ACTIONS` is `true`, while the tests expect the root, and
+`playwright.config.mjs` starts the preview server with `bunx astro preview`, so Bun is
+required. Check the actual check runs of a PR rather than assuming.
 For documentation-only changes verify links, commands and `git diff --check`; disclose
 which repository checks actually ran. Do not invent a Markdown-lint script.
 
