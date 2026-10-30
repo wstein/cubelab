@@ -47,11 +47,10 @@ Current gates and their boundaries (see Cubistry #21):
 1. The shared 2×2 solver transfer (PuzlWerk #5) and Cubistry's consuming integration
    (#23) closed on 2026-10-28; full 2×2 MVP acceptance remains tracked by
    Cubistry #18/#21.
-2. A separately user-approved, bounded 3×3 picture/calendar pilot: PuzlWerk #21,
-   merged on 2026-10-29, adds a center-aware 3×3 picture provider toward PuzlWerk
-   #6 (3×3 Supercube center orientation), which remains open. CubeLab #27 (for
-   #26) is still a Draft under review; Cubistry #67/#70 are tracked separately.
-   The pilot is not general permission to replace CubeLab's working systems,
+2. The separately user-approved, bounded 3×3 picture/calendar pilot was
+   merged on 2026-10-29: CubeLab #27 (for #26), PuzlWerk #21 (toward the
+   still-open PuzlWerk #6), and Cubistry #70 (for #67). These are completed
+   feature PRs, not general permission to replace CubeLab's working systems,
    migrate the CubeLab application or expand the solver scope.
 3. Cubistry #21 retains CubeAssembler migration as M2 and CubeLab migration as M3.
    The comparative priority of the 3×3 pilot and those full migrations has not
