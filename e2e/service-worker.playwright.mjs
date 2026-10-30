@@ -74,8 +74,9 @@ test("keeps the static workspace routes working offline after one online visit",
 
 // Known defect, tracked here so it cannot regress silently once fixed: public/sw.js calls
 // response.clone() inside the asynchronous caches.open().then() callback, after the response
-// body has already been handed to the page, so cache.put() rejects and hashed /_astro/ scripts
-// (and later fetched assets such as the 2x2 solver table) are never cached at runtime. The
+// body has already been handed to the page, so clone() throws "Response body is already used",
+// cache.put() is never reached and hashed /_astro/ scripts (and later fetched assets such as
+// the 2x2 solver table) are never cached at runtime. The
 // offline shell then renders HTML without a working app. test.fail() makes this test pass
 // while that is true and fail as soon as the worker is fixed, at which point remove the
 // annotation.
