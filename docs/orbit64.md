@@ -37,6 +37,18 @@ For odd cubes, CubeLab derives the stored 24-way frame from the six fixed
 centres and reapplies it on decode, so a whole-cube-rotated labelled state
 round-trips exactly. Even-cube centres encode their orientation directly.
 
+## Orbit64 V2 (coordinates only)
+
+`src/State/Orbit64V2.res` implements the draft Orbit64 V2 state token format
+(flix-orbit64 `FORMAT-V2.md`) as a coordinates-only codec: a 54-entry registry,
+`encode(entryId, cube)` and `decode(token)`. It has no facelet bridge, and no
+UI or V1 path uses it. A V1 state token for n = 2, 3, 4, 6 or 7 decodes as the
+V2 color framed entry with the same corner state; a V1 5×5×5 token is rejected.
+The reverse direction is unsafe: a V2 token has no class bits, so a V1 decoder
+can take it for a move sequence or an algorithm. Wherever a V1 decoder could see
+V2 tokens, they MUST be labeled, for example by a field name or an
+`orbit64v2:` prefix.
+
 ## cubing.js and smart-cube boundary
 
 `src/State/CubingAdapter.ts` bridges Orbit64's 3×3×3 facelet state to and from
