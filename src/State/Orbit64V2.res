@@ -164,9 +164,20 @@ let allocate = (types: array<(int, model, pose)>): array<entry> => {
 }
 
 /** Every entry of the registry with its length and offset, in ID order. */
-let registry: array<entry> = allocate(initialTypes)
+@val @scope("Object") external freeze: 'a => 'a = "freeze"
+let registry: array<entry> = allocate(initialTypes)->Array.map(freeze)->freeze
 
 let maxLength: int = registry->Array.reduce(0, (acc, e) => Math.Int.max(acc, e.length))
+
+let copyEntry = (e: entry): entry => {
+  id: e.id,
+  n: e.n,
+  model: e.model,
+  pose: e.pose,
+  length: e.length,
+  offset: e.offset,
+  count: e.count,
+}
 
 let entryById = (id: int): option<entry> => registry->Array.find(e => e.id == id)
 
@@ -193,15 +204,26 @@ let solved = (n: int, model: model): cube => {
 // ---------------------------------------------------------------- validation
 
 /** True for an array of `size` integers; an absent (undefined) value counts as empty. */
+let denseInts: ('a, int) => bool = %raw(`function(value, size) {
+  if (!Array.isArray(value) || value.length !== size) return false;
+  for (let i = 0; i < size; i++) {
+    if (!(i in value) || !Number.isInteger(value[i])) return false;
+  }
+  return true;
+}`)
+
 let intArray: ('a, int) => bool = %raw(`function(value, size) {
   if (value === undefined || value === null) return size === 0;
-  return Array.isArray(value) && value.length === size && value.every(Number.isInteger);
+  return denseInts(value, size);
 }`)
 
 let intMatrix: ('a, int, int) => bool = %raw(`function(value, rows, size) {
   if (value === undefined || value === null) return rows === 0;
-  return Array.isArray(value) && value.length === rows
-    && value.every(row => Array.isArray(row) && row.length === size && row.every(Number.isInteger));
+  if (!Array.isArray(value) || value.length !== rows) return false;
+  for (let i = 0; i < rows; i++) {
+    if (!(i in value) || !denseInts(value[i], size)) return false;
+  }
+  return true;
 }`)
 
 /** A shallow copy with absent array components made empty; anything but an object stays `undefined`. */
@@ -374,34 +396,38 @@ let toBase64 = (value: B.t, length: int): string => {
   out->Array.join("")
 }
 
-let describe = Orbit64Codec.describeError
+/** The message of a caught exception; ReScript wraps JavaScript exceptions, so unwrap first. */
+let describe = (exn: exn): string =>
+  switch exn {
+  | JsExn(e) => JsExn.message(e)->Option.getOr("Unexpected error.")
+  | _ => "Unexpected error."
+  }
 
 /** Encode a state of registry entry `id`; an invalid state is an error, never a token. */
 let encode = (id: int, cube: cube): result<string, Orbit64Codec.orbitError> =>
   switch isInt(id) ? entryById(id) : None {
   | None => fail("UnknownEntry", "The V2 registry has no such entry.")
-  | Some(_) if withDefaults(cube) == None => fail("InvalidState", "The state must be an object.")
   | Some(e) =>
     try {
-      let cube = switch withDefaults(cube) {
-      | Some(filled) => filled
-      | None => cube
-      }
-      let fault = switch layoutFault(e.n, e.model, e.pose, cube) {
-      | Some(why) => Some(why)
-      | None => lawFault(e.n, e.model, e.pose, cube)
-      }
-      switch fault {
-      | Some(why) => fail("InvalidState", why)
-      | None =>
-        let rank =
-          parts(e.n, e.model, e.pose)->Array.reduce(B.zero, (acc, p) =>
-            B.add(
-              B.mul(acc, radix(e.n, e.model, e.pose, p)),
-              digitOf(e.n, e.model, e.pose, cube, p),
+      switch withDefaults(cube) {
+      | None => fail("InvalidState", "The state must be an object.")
+      | Some(cube) =>
+        let fault = switch layoutFault(e.n, e.model, e.pose, cube) {
+        | Some(why) => Some(why)
+        | None => lawFault(e.n, e.model, e.pose, cube)
+        }
+        switch fault {
+        | Some(why) => fail("InvalidState", why)
+        | None =>
+          let rank =
+            parts(e.n, e.model, e.pose)->Array.reduce(B.zero, (acc, p) =>
+              B.add(
+                B.mul(acc, radix(e.n, e.model, e.pose, p)),
+                digitOf(e.n, e.model, e.pose, cube, p),
+              )
             )
-          )
-        Ok(toBase64(B.add(e.offset, rank), e.length))
+          Ok(toBase64(B.add(e.offset, rank), e.length))
+        }
       }
     } catch {
     | exn => fail("InvalidState", describe(exn))
@@ -504,7 +530,7 @@ let decode = (token: string): result<decoded, Orbit64Codec.orbitError> =>
       ) {
       | None => fail("UnknownToken", "Not a known V2 state token.")
       | Some(e) =>
-        try Ok({entry: e, cube: unrank(e, B.sub(value, e.offset))}) catch {
+        try Ok({entry: copyEntry(e), cube: unrank(e, B.sub(value, e.offset))}) catch {
         | exn => fail("InvalidToken", describe(exn))
         }
       }
