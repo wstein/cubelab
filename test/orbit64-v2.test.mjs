@@ -113,6 +113,16 @@ describe("Orbit64 V2 reference vectors", () => {
       const token = ok(Orbit64V2.encode(e.id, Orbit64V2.solved(e.n, e.model)));
       assert.equal(token.length, e.length);
       if (e.offset === 0n) assert.equal(token, "A".repeat(e.length));
+      const decoded = ok(Orbit64V2.decode(token));
+      assert.equal(decoded.entry.id, e.id);
+      assert.deepEqual(decoded.cube, Orbit64V2.solved(e.n, e.model));
+      assert.equal(Orbit64V2.registry[e.id].offset, e.offset);
+    }
+    for (const id of Object.keys(sharedLengthPairs).map(Number)) {
+      const e = Orbit64V2.registry[id];
+      assert.equal(ok(Orbit64V2.encode(id, Orbit64V2.solved(e.n, e.model)))
+        , Orbit64V2.toBase64(e.offset, e.length));
+      assert.equal(ok(Orbit64V2.decode(Orbit64V2.toBase64(e.offset, e.length))).entry.id, id);
     }
   });
 });
@@ -215,5 +225,81 @@ describe("Orbit64 V2 rejects malformed input without throwing", () => {
     const color4 = Orbit64V2.solved(4, "color");
     const unbalanced = [5, ...color4.centers[0].slice(1)];
     assert.equal(Orbit64V2.encode(6, {...color4, centers: [unbalanced]}).TAG, "Error");
+  });
+
+  test("an odd picture state breaking only a wing-dependent '+' center relation", () => {
+    // n = 5 has one wing orbit (W1) and centers Z[1,1], Z[1,2]; Z[1,2] = C + W1.
+    const solved = Orbit64V2.solved(5, "picture");
+    const swap = (v) => [v[1], v[0], ...v.slice(2)];
+    assert.equal(Orbit64V2.encode(13, solved).TAG, "Ok");
+    const bad = {...solved, centers: [solved.centers[0], swap(solved.centers[1])]};
+    assert.equal(Orbit64V2.encode(13, bad).TAG, "Error");
+    // Swapping the same pair in W1 as well satisfies the relation again.
+    const fixed = {...bad, wings: [swap(solved.wings[0])]};
+    assert.equal(Orbit64V2.encode(13, fixed).TAG, "Ok");
+  });
+
+  test("an even canonical state with the DBL piece moved", () => {
+    const solved = Orbit64V2.solved(2, "color");
+    const pieces = [0, 1, 2, 3, 4, 5, 7, 6];
+    const moved = {...solved, cornerPieces: pieces, cornerTwists: [0, 0, 0, 0, 0, 0, 0, 0]};
+    assert.equal(Orbit64V2.encode(0, moved).TAG, "Error");
+    assert.equal(Orbit64V2.encode(1, moved).TAG, "Ok");
+    const picture = Orbit64V2.solved(4, "picture");
+    const odd = {...picture, cornerPieces: [0, 1, 2, 3, 4, 5, 7, 6]};
+    assert.equal(Orbit64V2.encode(8, odd).TAG, "Error");
+  });
+});
+
+describe("Orbit64 V2 hardening", () => {
+  test("sparse arrays are rejected", () => {
+    const solved = Orbit64V2.solved(3, "color");
+    const twists = [1, 1, 1, 0, 0, 0, 0];
+    twists.length = 8;
+    assert.equal(Orbit64V2.encode(2, {...solved, cornerTwists: twists}).TAG, "Error");
+    const flips = new Array(12).fill(0);
+    delete flips[4];
+    assert.equal(Orbit64V2.encode(2, {...solved, midgeFlips: flips}).TAG, "Error");
+    const wings = new Array(24);
+    const picture4 = Orbit64V2.solved(4, "picture");
+    assert.equal(Orbit64V2.encode(8, {...picture4, wings: [wings]}).TAG, "Error");
+    const rows = new Array(1);
+    assert.equal(Orbit64V2.encode(8, {...picture4, centers: rows}).TAG, "Error");
+    const rotations = [0, 0, 0, 0, 0];
+    rotations.length = 6;
+    assert.equal(Orbit64V2.encode(4, {...Orbit64V2.solved(3, "picture"), rotations}).TAG, "Error");
+  });
+
+  test("error messages describe the failure", () => {
+    const hostile = new Proxy({}, {get() { throw new Error("boom"); }});
+    const result = Orbit64V2.encode(0, hostile);
+    assert.equal(result.TAG, "Error");
+    assert.match(result._0.message, /boom/);
+    assert.ok(!result._0.message.includes("[object Object]"));
+  });
+
+  test("hostile getters and proxies yield an error value", () => {
+    const getter = {...Orbit64V2.solved(2, "color")};
+    Object.defineProperty(getter, "midgePieces", {get() { throw new Error("getter"); }});
+    assert.equal(Orbit64V2.encode(0, getter).TAG, "Error");
+    const nested = {...Orbit64V2.solved(2, "color"), cornerPieces: new Proxy([], {get() { throw new Error("nested"); }})};
+    assert.equal(Orbit64V2.encode(0, nested).TAG, "Error");
+  });
+
+  test("a decoded entry is a copy: mutating it does not affect later decodes", () => {
+    const first = ok(Orbit64V2.decode("AAAA"));
+    try {
+      first.entry.length = 99;
+      first.entry.offset = 5n;
+      first.entry.id = 42;
+    } catch {
+      // A frozen entry may throw in strict mode; either way the registry must be intact.
+    }
+    const second = ok(Orbit64V2.decode("AAAA"));
+    assert.equal(second.entry.id, 0);
+    assert.equal(second.entry.length, 4);
+    assert.equal(second.entry.offset, 0n);
+    assert.equal(Orbit64V2.registry[0].length, 4);
+    assert.ok(Object.isFrozen(Orbit64V2.registry[0]));
   });
 });

@@ -2,6 +2,7 @@
 
 import * as Orbit64Codec from "./Orbit64Codec.res.mjs";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
+import * as Stdlib_JsExn from "@rescript/runtime/lib/es6/Stdlib_JsExn.js";
 import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
 import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
 import * as Primitive_exceptions from "@rescript/runtime/lib/es6/Primitive_exceptions.js";
@@ -175,9 +176,21 @@ function allocate(types) {
   return entries;
 }
 
-let registry = allocate(out);
+let registry = Object.freeze(allocate(out).map(prim => Object.freeze(prim)));
 
 let maxLength = Stdlib_Array.reduce(registry, 0, (acc, e) => Math.max(acc, e.length));
+
+function copyEntry(e) {
+  return {
+    id: e.id,
+    n: e.n,
+    model: e.model,
+    pose: e.pose,
+    length: e.length,
+    offset: e.offset,
+    count: e.count
+  };
+}
 
 function entryById(id) {
   return registry.find(e => e.id === id);
@@ -205,15 +218,26 @@ function solved(n, model) {
   };
 }
 
+let denseInts = (function(value, size) {
+  if (!Array.isArray(value) || value.length !== size) return false;
+  for (let i = 0; i < size; i++) {
+    if (!(i in value) || !Number.isInteger(value[i])) return false;
+  }
+  return true;
+});
+
 let intArray = (function(value, size) {
   if (value === undefined || value === null) return size === 0;
-  return Array.isArray(value) && value.length === size && value.every(Number.isInteger);
+  return denseInts(value, size);
 });
 
 let intMatrix = (function(value, rows, size) {
   if (value === undefined || value === null) return rows === 0;
-  return Array.isArray(value) && value.length === rows
-    && value.every(row => Array.isArray(row) && row.length === size && row.every(Number.isInteger));
+  if (!Array.isArray(value) || value.length !== rows) return false;
+  for (let i = 0; i < rows; i++) {
+    if (!(i in value) || !denseInts(value[i], size)) return false;
+  }
+  return true;
 });
 
 let withDefaults = (function(value) {
@@ -463,17 +487,24 @@ function toBase64(value, length) {
   return out.join("");
 }
 
+function describe(exn) {
+  if (exn.RE_EXN_ID === "JsExn") {
+    return Stdlib_Option.getOr(Stdlib_JsExn.message(exn._1), "Unexpected error.");
+  } else {
+    return "Unexpected error.";
+  }
+}
+
 function encode(id, cube) {
   let e = isInt(id) ? entryById(id) : undefined;
   if (e === undefined) {
     return Orbit64Codec.fail("UnknownEntry", "The V2 registry has no such entry.");
   }
-  if (withDefaults(cube) === undefined) {
-    return Orbit64Codec.fail("InvalidState", "The state must be an object.");
-  }
   try {
-    let filled = withDefaults(cube);
-    let cube$1 = filled !== undefined ? filled : cube;
+    let cube$1 = withDefaults(cube);
+    if (cube$1 === undefined) {
+      return Orbit64Codec.fail("InvalidState", "The state must be an object.");
+    }
     let why = layoutFault(e.n, e.model, e.pose, cube$1);
     let fault = why !== undefined ? why : lawFault(e.n, e.model, e.pose, cube$1);
     if (fault !== undefined) {
@@ -486,7 +517,7 @@ function encode(id, cube) {
     };
   } catch (raw_exn) {
     let exn = Primitive_exceptions.internalToException(raw_exn);
-    return Orbit64Codec.fail("InvalidState", Orbit64Codec.describeError(exn));
+    return Orbit64Codec.fail("InvalidState", describe(exn));
   }
 }
 
@@ -608,13 +639,13 @@ function decode(token) {
     return {
       TAG: "Ok",
       _0: {
-        entry: e,
+        entry: copyEntry(e),
         cube: unrank(e, Orbit64Codec.$$BigInt.sub(value, e.offset))
       }
     };
   } catch (raw_exn) {
     let exn = Primitive_exceptions.internalToException(raw_exn);
-    return Orbit64Codec.fail("InvalidToken", Orbit64Codec.describeError(exn));
+    return Orbit64Codec.fail("InvalidToken", describe(exn));
   }
 }
 
@@ -627,8 +658,6 @@ let get = Orbit64Codec.get;
 let initialTypes = out;
 
 let parityOf = Orbit64Codec.parity;
-
-let describe = Orbit64Codec.describeError;
 
 export {
   B,
@@ -650,9 +679,11 @@ export {
   allocate,
   registry,
   maxLength,
+  copyEntry,
   entryById,
   isInt,
   solved,
+  denseInts,
   intArray,
   intMatrix,
   withDefaults,
