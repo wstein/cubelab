@@ -401,11 +401,25 @@ describe("Orbit64 V2 facelets reject invalid input with exact reasons", () => {
       TAG: "InvalidState",
       message: "Corner twists must sum to 0 mod 3.",
     });
-    // Wings and centers are snapshotted too.
-    const wingy = solved(4);
-    wingy.wings = [mutating(wingy.wings[0], 5, 3)];
-    const wingResult = Facelets.toFacelets(4, "color", "canonical", wingy);
-    assert.equal(wingResult.TAG === "Ok" ? Facelets.fromFacelets(4, "color", "canonical", wingResult._0).TAG : "Error", wingResult.TAG);
+    // Wings and centers, row by row: the sweep reaches past validation, which reads a row many times.
+    const rowCases = [];
+    for (const n of [4, 5, 6]) {
+      const orbits = Orbit64V2.solved(n, "color");
+      orbits.wings.forEach((_, i) => rowCases.push([n, "wings", i, 5]));
+      orbits.centers.forEach((_, i) => rowCases.push([n, "centers", i, 5]));
+    }
+    for (const [n, field, row, bad] of rowCases) {
+      for (let after = 0; after < 1500; after += 1) {
+        const hostile = solved(n);
+        hostile[field] = hostile[field].map((v, i) => (i === row ? mutating(v, bad, after) : v));
+        const result = Facelets.toFacelets(n, "color", "canonical", hostile);
+        if (result.TAG === "Ok") {
+          ok(Facelets.fromFacelets(n, "color", "canonical", result._0));
+        } else {
+          assert.equal(result._0.TAG, "InvalidState", `${field}[${row}] n=${n} after=${after}`);
+        }
+      }
+    }
     // Hostile shapes still give the fixed shape error and never walk a huge array.
     const shape = {TAG: "InvalidState", message: "The cube coordinates do not have the shape of this puzzle type."};
     const huge = solved(3);
@@ -418,6 +432,39 @@ describe("Orbit64 V2 facelets reject invalid input with exact reasons", () => {
     let turns = 0;
     valued.cornerPieces[0] = {valueOf: () => (++turns > 0 ? 1 : 0)};
     assert.deepEqual(err(Facelets.toFacelets(3, "color", "canonical", valued)), shape);
+  });
+
+  test("a hostile array length gives the shape error and is never called back", () => {
+    const shape = {TAG: "InvalidState", message: "The cube coordinates do not have the shape of this puzzle type."};
+    const withLength = (length) =>
+      new Proxy([], {get: (target, key) => (key === "length" ? length : 0)});
+    let calls = 0;
+    const flipping = {
+      valueOf() {
+        // Bounded, so a regression fails instead of hanging.
+        if (++calls > 100000) throw new Error("too many calls");
+        return calls === 1 ? 0 : Infinity;
+      },
+    };
+    for (const [name, length] of Object.entries({
+      "an object with valueOf": flipping,
+      "a string": "8",
+      "a bigint": 8n,
+      "minus one": -1,
+      "a fraction": 2.5,
+      "NaN": NaN,
+      "Infinity": Infinity,
+    })) {
+      for (const field of ["cornerTwists", "wings", "centers"]) {
+        const cube = Orbit64V2.solved(4, "color");
+        cube[field] = withLength(length);
+        assert.deepEqual(err(Facelets.toFacelets(4, "color", "canonical", cube)), shape, `${name} in ${field}`);
+      }
+      const inner = Orbit64V2.solved(4, "color");
+      inner.wings = [withLength(length)];
+      assert.deepEqual(err(Facelets.toFacelets(4, "color", "canonical", inner)), shape, `${name} in a wing row`);
+    }
+    assert.equal(calls, 0);
   });
 
   test("a deeply frozen valid cube still gives its facelets", () => {

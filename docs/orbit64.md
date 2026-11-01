@@ -64,9 +64,9 @@ for all sizes are derived as in FORMAT-V2.md and tested equal to
 never throws, whatever it is given. An invalid facelet string, an unreachable
 cube (twisted corner, flipped midge, repeated or mirrored piece, wrong-handed
 centers) or a picture entry is an error value. A cube is copied once, each
-element read a single time, before it is validated and drawn. The picture model
-is out of scope here: its entries are an error until it is defined. This path
-is separate from V1's `FaceletCodec`, which strips all whitespace and handles
+element read a single time (and a length only as a plain number), before it is
+validated and drawn. The picture model is not ported to CubeLab yet, so its
+entries are an error value. This path is separate from V1's `FaceletCodec`, which strips all whitespace and handles
 n ≤ 5, and V1 behavior is unchanged.
 
 The reference rows in `test/fixtures/orbit64-v2-facelet-vectors.mjs` are

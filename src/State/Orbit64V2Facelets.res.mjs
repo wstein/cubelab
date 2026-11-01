@@ -500,18 +500,25 @@ let snapshot = (function(value) {
   if (typeof value !== "object" || value === null) return undefined;
   const LIMIT = 1024;
   const element = x => (Number.isInteger(x) ? x : undefined);
+  // The length of an array, read once; false unless it is an integer in 0..LIMIT.
+  const lengthOf = v => {
+    const length = v.length;
+    return typeof length === "number" && Number.isInteger(length) && length >= 0 && length <= LIMIT
+      ? length
+      : false;
+  };
   const vector = v => {
     if (!Array.isArray(v)) return false;
-    const length = v.length;
-    if (!(length <= LIMIT)) return new Array(Number.isInteger(length) ? length : 0);
+    const length = lengthOf(v);
+    if (length === false) return false;
     const copy = new Array(length);
     for (let i = 0; i < length; i++) copy[i] = element(v[i]);
     return copy;
   };
   const matrix = v => {
     if (!Array.isArray(v)) return false;
-    const length = v.length;
-    if (!(length <= LIMIT)) return new Array(Number.isInteger(length) ? length : 0);
+    const length = lengthOf(v);
+    if (length === false) return false;
     const copy = new Array(length);
     for (let i = 0; i < length; i++) copy[i] = vector(v[i]);
     return copy;
