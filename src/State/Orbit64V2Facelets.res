@@ -290,19 +290,23 @@ let guard: (unit => result<'a, Orbit64Codec.orbitError>) => result<
 
 // ------------------------------------------------------------ cube to stickers
 
+/** What each sticker of each piece shows: the face color of its home facelet. */
+let colorLabels = (n: int, table: array<array<int>>): array<array<int>> =>
+  table->Array.map(slot => slot->Array.map(i => faceOf(n, i)))
+
 let writeOriented = (
-  n: int,
   sticker: array<int>,
   table: array<array<int>>,
+  labels: array<array<int>>,
   pieces: array<int>,
   twists: array<int>,
 ): unit =>
   table->Array.forEachWithIndex((slotFacelets, slot) => {
     let m = Array.length(slotFacelets)
-    let home = get(table, get(pieces, slot))
+    let shown = get(labels, get(pieces, slot))
     let twist = get(twists, slot)
     for k in 0 to m - 1 {
-      sticker->Array.setUnsafe(get(slotFacelets, k), faceOf(n, get(home, mod(k - twist + m, m))))
+      sticker->Array.setUnsafe(get(slotFacelets, k), get(shown, mod(k - twist + m, m)))
     }
   })
 
@@ -369,12 +373,13 @@ let snapshot: 'a => option<V2.cube> = %raw(`function(value) {
 let paint = (n: int, t: tables, cube: V2.cube): array<int> => {
   let sticker = Array.make(~length=6 * n * n, 0)
   t.fixed->Array.forEachWithIndex((facelet, f) => sticker->Array.setUnsafe(facelet, f))
-  writeOriented(n, sticker, t.corners, cube.cornerPieces, cube.cornerTwists)
+  let labels = table => colorLabels(n, table)
+  writeOriented(sticker, t.corners, labels(t.corners), cube.cornerPieces, cube.cornerTwists)
   if V2.isOdd(n) {
-    writeOriented(n, sticker, t.midges, cube.midgePieces, cube.midgeFlips)
+    writeOriented(sticker, t.midges, labels(t.midges), cube.midgePieces, cube.midgeFlips)
   }
   t.wings->Array.forEachWithIndex((table, i) =>
-    writeOriented(n, sticker, table, get(cube.wings, i), Array.make(~length=24, 0))
+    writeOriented(sticker, table, labels(table), get(cube.wings, i), Array.make(~length=24, 0))
   )
   t.centers->Array.forEachWithIndex((table, i) =>
     writeCenters(sticker, table, get(cube.centers, i))
@@ -443,6 +448,13 @@ let letterIndex = (c: string): option<int> => {
   String.length(c) == 1 && i >= 0 ? Some(i) : None
 }
 
+let wrongLength = (n: int, length: int): Orbit64Codec.orbitError => {
+  tag: "InvalidFaceletLength",
+  message: `Expected ${Int.toString(6 * n * n)} facelets for the ${Int.toString(n)}x${Int.toString(
+      n,
+    )}x${Int.toString(n)}, got ${Int.toString(length)}.`,
+}
+
 /** The stickers of a facelet string as face indices, or why it is no string of `n^2` per face. */
 let parse = (n: int, text: string): result<array<int>, Orbit64Codec.orbitError> => {
   let chars = codePoints(text)->Array.filter(c => c != " ")
@@ -451,12 +463,7 @@ let parse = (n: int, text: string): result<array<int>, Orbit64Codec.orbitError> 
   | None =>
     let length = Array.length(chars)
     if length != 6 * n * n {
-      fail(
-        "InvalidFaceletLength",
-        `Expected ${Int.toString(6 * n * n)} facelets for the ${Int.toString(n)}x${Int.toString(
-            n,
-          )}x${Int.toString(n)}, got ${Int.toString(length)}.`,
-      )
+      Error(wrongLength(n, length))
     } else {
       Ok(chars->Array.map(c => String.indexOf("URFDLB", c)))
     }
@@ -593,28 +600,30 @@ let readCube = (n: int, t: tables, frame: int, fs: array<int>): result<
     }
   }
 
+/** The frame whose faces, in slot order, are `shown`, or why the fixed centers are no frame. */
+let frameShown = (shown: array<int>): result<int, Orbit64Codec.orbitError> =>
+  switch range(0, frameCount)->Array.find(r => facesOfFrame(r) == shown) {
+  | Some(r) => Ok(r)
+  | None =>
+    fail("InvalidFaceletFrame", "The six fixed centers are not a right-handed whole-cube frame.")
+  }
+
 /** Rotate an odd cube so that its fixed centers are home; the frame is the one they show. */
 let normalizeOdd = (n: int, t: tables, fs: array<int>): result<
   (int, array<int>),
   Orbit64Codec.orbitError,
-> => {
-  let shown = t.fixed->Array.map(at => get(fs, at))
-  switch range(0, frameCount)->Array.find(r => facesOfFrame(r) == shown) {
-  | Some(r) => Ok((r, unrotate(n, turnOf(r), fs)))
-  | None =>
-    fail("InvalidFaceletFrame", "The six fixed centers are not a right-handed whole-cube frame.")
-  }
-}
+> =>
+  frameShown(t.fixed->Array.map(at => get(fs, at)))->Result.map(r => (
+    r,
+    unrotate(n, turnOf(r), fs),
+  ))
 
-/** Rotate an even cube so that its DBL corner is in slot DBL with twist 0. */
-let normalizeEven = (n: int, t: tables, fs: array<int>): result<
+/** Rotate an even cube so that its DBL corner is in slot DBL with twist 0; `atHome` tells when it is. */
+let normalizeEven = (n: int, fs: array<int>, atHome: array<int> => bool): result<
   array<int>,
   Orbit64Codec.orbitError,
 > => {
-  let homes =
-    range(0, frameCount)
-    ->Array.map(r => unrotate(n, turnOf(r), fs))
-    ->Array.find(rotated => readPiece(n, t.corners, seenAt(t.corners, 6, rotated)) == Some((6, 0)))
+  let homes = range(0, frameCount)->Array.map(r => unrotate(n, turnOf(r), fs))->Array.find(atHome)
   switch homes {
   | Some(rotated) => Ok(rotated)
   | None => fail("InvalidFaceletFrame", "No whole-cube rotation puts the DBL corner home.")
@@ -629,7 +638,9 @@ let posedStickers = (n: int, pose: V2.pose, t: tables, fs: array<int>): result<
   if V2.isOdd(n) {
     normalizeOdd(n, t, fs)->Result.map(((r, c)) => (pose == Framed ? r : 0, c))
   } else if pose == Canonical {
-    normalizeEven(n, t, fs)->Result.map(c => (0, c))
+    normalizeEven(n, fs, rotated =>
+      readPiece(n, t.corners, seenAt(t.corners, 6, rotated)) == Some((6, 0))
+    )->Result.map(c => (0, c))
   } else {
     Ok((0, fs))
   }
