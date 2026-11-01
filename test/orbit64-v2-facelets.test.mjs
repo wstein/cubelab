@@ -268,10 +268,11 @@ describe("Orbit64 V2 facelets reject invalid input with exact reasons", () => {
     assert.deepEqual(cube, Orbit64V2.solved(2, "color"));
   });
 
-  test("a type with no letters", () => {
-    assert.deepEqual(err(Facelets.fromFacelets(3, "picture", "framed", solved3)), {
+  test("a type with no facelet string", () => {
+    // The 2x2x2 has no picture entry; the picture model of every other size is in its own test file.
+    assert.deepEqual(err(Facelets.fromFacelets(2, "picture", "framed", solvedText(2))), {
       TAG: "UnsupportedModel",
-      message: "The picture model has no letters.",
+      message: "The 2x2x2 has no picture entry: its picture model is the color model.",
     });
     for (const n of [1, 16, 2.5, NaN, undefined]) {
       assert.equal(err(Facelets.fromFacelets(n, "color", "framed", solved3)).TAG, "UnsupportedType");
@@ -478,16 +479,7 @@ describe("Orbit64 V2 facelets reject invalid input with exact reasons", () => {
     }
   });
 
-  test("picture entries and unknown entries are errors for encode, decode and toFacelets", () => {
-    for (const e of Orbit64V2.registry.filter((entry) => entry.model === "picture")) {
-      assert.deepEqual(err(Facelets.encode(e.id, solvedText(e.n))), {
-        TAG: "UnsupportedModel",
-        message: "The picture model has no letters.",
-      });
-      const token = ok(Orbit64V2.encode(e.id, Orbit64V2.solved(e.n, "picture")));
-      assert.equal(err(Facelets.decode(token)).TAG, "UnsupportedModel");
-      assert.equal(err(Facelets.toFacelets(e.n, "picture", e.pose, Orbit64V2.solved(e.n, "picture"))).TAG, "UnsupportedModel");
-    }
+  test("unknown entries are errors for encode and decode", () => {
     for (const id of [-1, 54, 1.5, NaN, undefined, "0"]) {
       assert.equal(err(Facelets.encode(id, solved3)).TAG, "UnknownEntry");
     }

@@ -16,10 +16,14 @@
  * A piece is numbered by its home slot and the solved cube shows face colors, so a
  * piece's colors are the faces of its home slot's facelets.
  *
- * Only the color model has letters; the picture model is a separate task and its
- * entries are an error here. The entry points `tables`, `toFacelets`, `fromFacelets`,
- * `encode` and `decode` return a result and never throw, whatever they are given; the
- * helpers above them are internal building blocks that expect a valid size.
+ * The picture model writes one base64url symbol per facelet instead of a letter: the
+ * index of the sticker within its class (corner `3 p + j`, midge and wing `2 p + j`, a
+ * center orbit sticker its home slot, a fixed center `4 p + r` with its rotation `r`),
+ * in the same six fields. A symbol only means something on the class of its facelet, so
+ * reading checks every class before it reads any piece. The 2x2x2 has no picture entry.
+ * The entry points `tables`, `toFacelets`, `fromFacelets`, `encode` and `decode` return
+ * a result and never throw, whatever they are given; the helpers above them are
+ * internal building blocks that expect a valid size.
  */
 module V2 = Orbit64V2
 
@@ -249,14 +253,17 @@ let isOneOf: ('a, array<string>) => bool = %raw(`function(value, names) {
   return typeof value === "string" && names.includes(value);
 }`)
 
-/** Why a type has no facelet letters, if it has none: an unknown size, model or pose, or the picture model. */
+/** Why a type has no facelet string, if it has none: an unknown size, model or pose, or the 2x2x2 picture. */
 let typeFault = (n: int, model: V2.model, pose: V2.pose): option<(string, string)> =>
   if !isInt(n) || n < 2 || n > 15 {
     Some(("UnsupportedType", "No V2 type for that size."))
   } else if !isOneOf(model, ["color", "picture"]) {
     Some(("UnsupportedModel", "The V2 models are color and picture."))
-  } else if model == Picture {
-    Some(("UnsupportedModel", "The picture model has no letters."))
+  } else if model == Picture && n == 2 {
+    Some((
+      "UnsupportedModel",
+      "The 2x2x2 has no picture entry: its picture model is the color model.",
+    ))
   } else if !isOneOf(pose, ["canonical", "framed"]) {
     Some(("UnsupportedPose", "The V2 poses are canonical and framed."))
   } else {
@@ -293,6 +300,16 @@ let guard: (unit => result<'a, Orbit64Codec.orbitError>) => result<
 /** What each sticker of each piece shows: the face color of its home facelet. */
 let colorLabels = (n: int, table: array<array<int>>): array<array<int>> =>
   table->Array.map(slot => slot->Array.map(i => faceOf(n, i)))
+
+/** What each sticker of each piece shows in the picture model: `m p + j`. */
+let pictureLabels = (table: array<array<int>>): array<array<int>> =>
+  table->Array.mapWithIndex((slot, p) => {
+    let m = Array.length(slot)
+    range(0, m)->Array.map(j => m * p + j)
+  })
+
+let labelsOf = (n: int, model: V2.model, table: array<array<int>>): array<array<int>> =>
+  model == Picture ? pictureLabels(table) : colorLabels(n, table)
 
 let writeOriented = (
   sticker: array<int>,
@@ -369,11 +386,17 @@ let snapshot: 'a => option<V2.cube> = %raw(`function(value) {
   };
 }`)
 
+/** A fixed center shows its face color, or in the picture model its piece and rotation. */
+let fixedValue = (model: V2.model, cube: V2.cube, face: int): int =>
+  model == Picture ? 4 * face + get(cube.rotations, face) : face
+
 /** The stickers of a canonical-pose cube; fixed centers are home. */
-let paint = (n: int, t: tables, cube: V2.cube): array<int> => {
+let paint = (n: int, t: tables, model: V2.model, cube: V2.cube): array<int> => {
   let sticker = Array.make(~length=6 * n * n, 0)
-  t.fixed->Array.forEachWithIndex((facelet, f) => sticker->Array.setUnsafe(facelet, f))
-  let labels = table => colorLabels(n, table)
+  let labels = table => labelsOf(n, model, table)
+  t.fixed->Array.forEachWithIndex((facelet, f) =>
+    sticker->Array.setUnsafe(facelet, fixedValue(model, cube, f))
+  )
   writeOriented(sticker, t.corners, labels(t.corners), cube.cornerPieces, cube.cornerTwists)
   if V2.isOdd(n) {
     writeOriented(sticker, t.midges, labels(t.midges), cube.midgePieces, cube.midgeFlips)
@@ -387,12 +410,71 @@ let paint = (n: int, t: tables, cube: V2.cube): array<int> => {
   sticker
 }
 
-let spell = (n: int, fs: array<int>): string =>
+/** The symbol of a sticker value: a letter in the color model, base64url in the picture model. */
+let symbolOf = (model: V2.model, value: int): string =>
+  model == Picture ? String.charAt(V2.digits, value) : get(letters, value)
+
+let spell = (n: int, model: V2.model, fs: array<int>): string =>
   range(0, 6)
   ->Array.map(face =>
-    range(0, n * n)->Array.map(i => get(letters, get(fs, face * n * n + i)))->Array.join("")
+    range(0, n * n)->Array.map(i => symbolOf(model, get(fs, face * n * n + i)))->Array.join("")
   )
   ->Array.join(" ")
+
+// ------------------------------------------------------ fixed center rotations
+
+let cross = ((ax, ay, az): vec, (bx, by, bz): vec): vec => (
+  ay * bz - az * by,
+  az * bx - ax * bz,
+  ax * by - ay * bx,
+)
+
+/** The reference direction of a face: toward row 0, so toward `B` on `U` and `F` on `D`. */
+let reference = (face: int): vec =>
+  switch face {
+  | 0 => (0, 0, -1)
+  | 3 => (0, 0, 1)
+  | _ => (0, 1, 0)
+  }
+
+/** A direction on a face turned `k` clockwise quarter turns, seen from outside. */
+let rec spin = (normal: vec, direction: vec, k: int): vec =>
+  k <= 0 ? direction : spin(normal, cross(direction, normal), k - 1)
+
+/** The clockwise quarter turns from the reference direction of `face` to `direction`. */
+let quarterTurns = (face: int, direction: vec): int =>
+  range(0, 4)
+  ->Array.find(k => spin(normalOf(face), reference(face), k) == direction)
+  ->Option.getOr(0)
+
+/** Where the fixed center of `face` with rotation `r` lands under `move`, and its new rotation. */
+let carryFixed = (move: vec => vec, face: int, r: int): (int, int) => {
+  let own = spin(normalOf(face), reference(face), r)
+  let landed = faceOfNormal(move(normalOf(face)))
+  (landed, quarterTurns(landed, move(own)))
+}
+
+/** `permuted` is `before` with its facelets moved; carry the fixed centers along. */
+let turnFixed = (n: int, move: vec => vec, before: array<int>, permuted: array<int>): array<
+  int,
+> => {
+  let out = Array.copy(permuted)
+  let fixed = fixedFacelets(n)
+  range(0, 6)->Array.forEach(face => {
+    let value = get(before, get(fixed, face))
+    let (landed, r) = carryFixed(move, face, mod(value, 4))
+    out->Array.setUnsafe(get(fixed, landed), 4 * (value / 4) + r)
+  })
+  out
+}
+
+/** The picture of a cube turned by `turn`: stickers and fixed center rotations. */
+let rotatePicture = (n: int, turn: turn, fs: array<int>): array<int> =>
+  turnFixed(n, v => forward(turn, v), fs, rotate(n, turn, fs))
+
+/** The picture of a cube turned back by `turn`. */
+let unrotatePicture = (n: int, turn: turn, fs: array<int>): array<int> =>
+  turnFixed(n, v => backward(turn, v), fs, unrotate(n, turn, fs))
 
 /** Shape, range and law checks of the V2 codec: the reason a state is no cube of the type. */
 let stateFault = (n: int, model: V2.model, pose: V2.pose, cube: V2.cube): option<string> =>
@@ -406,7 +488,8 @@ let stateFault = (n: int, model: V2.model, pose: V2.pose, cube: V2.cube): option
  *
  * A canonical cube is written in its reference pose. A framed cube of an odd
  * size is that picture rotated by `cube.frame`; a framed cube of an even size
- * shows its pose in its corners already. Only the color model has letters.
+ * shows its pose in its corners already. The color model writes letters, the picture
+ * model base64url symbols.
  */
 let toFacelets = (n: int, model: V2.model, pose: V2.pose, cube: V2.cube): result<
   string,
@@ -422,8 +505,15 @@ let toFacelets = (n: int, model: V2.model, pose: V2.pose, cube: V2.cube): result
         switch stateFault(n, model, pose, cube) {
         | Some(why) => fail("InvalidState", why)
         | None =>
-          let fs = paint(n, buildTables(n), cube)
-          Ok(spell(n, V2.isOdd(n) ? rotate(n, turnOf(cube.frame), fs) : fs))
+          let fs = paint(n, buildTables(n), model, cube)
+          let turned = if !V2.isOdd(n) {
+            fs
+          } else if model == Picture {
+            rotatePicture(n, turnOf(cube.frame), fs)
+          } else {
+            rotate(n, turnOf(cube.frame), fs)
+          }
+          Ok(spell(n, model, turned))
         }
       }
     )
@@ -470,6 +560,40 @@ let parse = (n: int, text: string): result<array<int>, Orbit64Codec.orbitError> 
   }
 }
 
+/** What a scan of a picture string found: its symbol values, its first bad character or its count. */
+type scanned =
+  | Symbols(array<int>)
+  | BadSymbol(string)
+  | Count(int)
+
+/**
+ * Scan a picture string once, by code point and without building a copy of it: spaces are
+ * skipped, the first character outside the base64url alphabet ends the scan, and values are
+ * kept only up to `6 n^2`, so the memory is bounded however long the string is.
+ */
+let scanSymbols: (int, string, string) => scanned = %raw(`function(n, text, alphabet) {
+  const expected = 6 * n * n;
+  const values = [];
+  let count = 0;
+  for (const c of text) {
+    if (c === " ") continue;
+    const value = c.length === 1 ? alphabet.indexOf(c) : -1;
+    if (value < 0) return {TAG: "BadSymbol", _0: c};
+    if (count < expected) values.push(value);
+    count += 1;
+  }
+  return count === expected ? {TAG: "Symbols", _0: values} : {TAG: "Count", _0: count};
+}`)
+
+/** The stickers of a picture string as symbol values, or why it is no string of `n^2` per face. */
+let parsePicture = (n: int, text: string): result<array<int>, Orbit64Codec.orbitError> =>
+  switch scanSymbols(n, text, V2.digits) {
+  | BadSymbol(c) =>
+    fail("InvalidFacelet", `Facelet '${describeChar(c)}' is not a base64url symbol.`)
+  | Count(length) => Error(wrongLength(n, length))
+  | Symbols(values) => Ok(values)
+  }
+
 let checkCounts = (n: int, fs: array<int>): option<Orbit64Codec.orbitError> =>
   range(0, 6)
   ->Array.find(f => V2.copies(fs, f) != n * n)
@@ -503,8 +627,13 @@ let readPiece = (n: int, table: array<array<int>>, seen: array<int>): option<(in
   found.contents
 }
 
-let noPiece = (what: string, slot: int, seen: array<int>): Orbit64Codec.orbitError => {
-  let shown = seen->Array.map(f => get(letters, f))->Array.join("")
+let noPiece = (
+  model: V2.model,
+  what: string,
+  slot: int,
+  seen: array<int>,
+): Orbit64Codec.orbitError => {
+  let shown = seen->Array.map(v => symbolOf(model, v))->Array.join("")
   {
     tag: "InvalidFaceletPiece",
     message: `The ${what} slot ${Int.toString(
@@ -527,7 +656,7 @@ let readOriented = (n: int, what: string, table: array<array<int>>, fs: array<in
       | Some((p, o)) =>
         pieces->Array.push(p)
         twists->Array.push(o)
-      | None => fault := Some(noPiece(what, slot, seen))
+      | None => fault := Some(noPiece(Color, what, slot, seen))
       }
     }
   )
@@ -551,7 +680,7 @@ let readWings = (n: int, table: array<array<int>>, fs: array<int>): result<
       let seen = seenAt(table, slot, fs)
       switch homes->Array.findIndexOpt(home => home == seen) {
       | Some(p) => pieces->Array.push(p)
-      | None => fault := Some(noPiece("wing", slot, seen))
+      | None => fault := Some(noPiece(Color, "wing", slot, seen))
       }
     }
   )
@@ -645,6 +774,182 @@ let posedStickers = (n: int, pose: V2.pose, t: tables, fs: array<int>): result<
     Ok((0, fs))
   }
 
+// ------------------------------------------------------------- picture to cube
+
+/** The stickers of one piece type: where they sit, how many values they can show, and how many name one piece. */
+type group = {
+  what: string,
+  facelets: array<int>,
+  limit: int,
+  per: int,
+}
+
+/** Every sticker class of a cube, in the order the checks run. A sticker never leaves its class. */
+let groups = (t: tables): array<group> =>
+  Array.flat([
+    [{what: "corner", facelets: Array.flat(t.corners), limit: 24, per: 1}],
+    Array.length(t.midges) == 0
+      ? []
+      : [{what: "midge", facelets: Array.flat(t.midges), limit: 24, per: 1}],
+    t.wings->Array.map(w => {what: "wing", facelets: Array.flat(w), limit: 48, per: 1}),
+    t.centers->Array.map(c => {what: "center", facelets: c, limit: 24, per: 1}),
+    Array.length(t.fixed) == 0
+      ? []
+      : [{what: "fixed center", facelets: t.fixed, limit: 24, per: 4}],
+  ])
+
+/** A sticker on a facelet of the wrong class, then a piece shown twice. */
+let checkGroup = (vs: array<int>, g: group): option<Orbit64Codec.orbitError> => {
+  let values = g.facelets->Array.map(at => get(vs, at))
+  let shows = v => symbolOf(Picture, v)
+  switch g.facelets->Array.find(at => get(vs, at) >= g.limit) {
+  | Some(at) =>
+    Some({
+      tag: "InvalidFaceletPiece",
+      message: `Facelet ${Int.toString(at)} shows '${shows(
+          get(vs, at),
+        )}', which is no ${g.what} sticker.`,
+    })
+  | None =>
+    values
+    ->Array.find(v => values->Array.filter(w => w / g.per == v / g.per)->Array.length > 1)
+    ->Option.map(v => {
+      Orbit64Codec.tag: "InvalidFaceletPiece",
+      message: `The ${g.what} sticker '${shows(v)}' occurs more than once.`,
+    })
+  }
+}
+
+/** The piece and twist spelled by the `m` symbols of a slot: `m p + (k - o) mod m`. */
+let readPictureSlot = (seen: array<int>): option<(int, int)> => {
+  let m = Array.length(seen)
+  let first = get(seen, 0)
+  let p = first / m
+  let o = mod(m - mod(first, m), m)
+  range(0, m)->Array.every(k => get(seen, k) == m * p + mod(k - o + m, m)) ? Some((p, o)) : None
+}
+
+/** The pieces and twists of a table of slots; a `strict` slot admits no twist. */
+let readPictureOriented = (
+  what: string,
+  table: array<array<int>>,
+  strict: bool,
+  vs: array<int>,
+): result<(array<int>, array<int>), Orbit64Codec.orbitError> => {
+  let pieces = []
+  let twists = []
+  let fault = ref(None)
+  table->Array.forEachWithIndex((_, slot) =>
+    if fault.contents == None {
+      let seen = seenAt(table, slot, vs)
+      switch readPictureSlot(seen) {
+      | Some((p, o)) if !strict || o == 0 =>
+        pieces->Array.push(p)
+        twists->Array.push(o)
+      | _ => fault := Some(noPiece(Picture, what, slot, seen))
+      }
+    }
+  )
+  switch fault.contents {
+  | Some(error) => Error(error)
+  | None => Ok((pieces, twists))
+  }
+}
+
+/** The coordinates of a canonical-pose picture; the frame is `frame`. */
+let readPictureCube = (n: int, t: tables, frame: int, vs: array<int>): result<
+  V2.cube,
+  Orbit64Codec.orbitError,
+> =>
+  switch readPictureOriented("corner", t.corners, false, vs) {
+  | Error(e) => Error(e)
+  | Ok((cp, co)) =>
+    let midges = V2.isOdd(n) ? readPictureOriented("midge", t.midges, false, vs) : Ok(([], []))
+    switch midges {
+    | Error(e) => Error(e)
+    | Ok((mp, mo)) =>
+      let wings = []
+      let fault = ref(None)
+      t.wings->Array.forEach(table =>
+        if fault.contents == None {
+          switch readPictureOriented("wing", table, true, vs) {
+          | Ok((w, _)) => wings->Array.push(w)
+          | Error(e) => fault := Some(e)
+          }
+        }
+      )
+      switch fault.contents {
+      | Some(e) => Error(e)
+      | None =>
+        Ok({
+          V2.cornerPieces: cp,
+          cornerTwists: co,
+          midgePieces: mp,
+          midgeFlips: mo,
+          wings,
+          centers: t.centers->Array.map(table => table->Array.map(at => get(vs, at))),
+          rotations: t.fixed->Array.map(at => mod(get(vs, at), 4)),
+          frame,
+        })
+      }
+    }
+  }
+
+/** The frame to record and the symbols in the pose the type reads them in. */
+let posedPicture = (n: int, pose: V2.pose, t: tables, vs: array<int>): result<
+  (int, array<int>),
+  Orbit64Codec.orbitError,
+> =>
+  if V2.isOdd(n) {
+    frameShown(t.fixed->Array.map(at => get(vs, at) / 4))->Result.map(r => (
+      pose == Framed ? r : 0,
+      unrotatePicture(n, turnOf(r), vs),
+    ))
+  } else if pose == Canonical {
+    normalizeEven(n, vs, rotated =>
+      readPictureSlot(seenAt(t.corners, 6, rotated)) == Some((6, 0))
+    )->Result.map(c => (0, c))
+  } else {
+    Ok((0, vs))
+  }
+
+/** Every sticker is of its class and every slot spells one piece, in any pose. */
+let checkPieces = (n: int, t: tables, vs: array<int>): option<Orbit64Codec.orbitError> =>
+  switch groups(t)->Array.findMap(g => checkGroup(vs, g)) {
+  | Some(e) => Some(e)
+  | None =>
+    switch readPictureCube(n, t, 0, vs) {
+    | Error(e) => Some(e)
+    | Ok(_) => None
+    }
+  }
+
+let readPictureStickers = (n: int, pose: V2.pose, text: string): result<
+  V2.cube,
+  Orbit64Codec.orbitError,
+> =>
+  switch parsePicture(n, text) {
+  | Error(e) => Error(e)
+  | Ok(vs) =>
+    let t = buildTables(n)
+    switch checkPieces(n, t, vs) {
+    | Some(e) => Error(e)
+    | None =>
+      switch posedPicture(n, pose, t, vs) {
+      | Error(e) => Error(e)
+      | Ok((frame, posed)) =>
+        switch readPictureCube(n, t, frame, posed) {
+        | Error(e) => Error(e)
+        | Ok(cube) =>
+          switch stateFault(n, Picture, pose, cube) {
+          | Some(why) => fail("InvalidState", why)
+          | None => Ok(cube)
+          }
+        }
+      }
+    }
+  }
+
 let readStickers = (n: int, model: V2.model, pose: V2.pose, text: string): result<
   V2.cube,
   Orbit64Codec.orbitError,
@@ -691,7 +996,11 @@ let fromFacelets = (n: int, model: V2.model, pose: V2.pose, facelets: string): r
     if !isString(facelets) {
       fail("InvalidFacelet", "A facelet string is a string.")
     } else {
-      guard(() => readStickers(n, model, pose, facelets))
+      guard(() =>
+        model == Picture
+          ? readPictureStickers(n, pose, facelets)
+          : readStickers(n, model, pose, facelets)
+      )
     }
   }
 
