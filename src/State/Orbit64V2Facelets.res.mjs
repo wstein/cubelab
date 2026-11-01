@@ -496,6 +496,43 @@ function writeCenters(sticker, table, colors) {
   });
 }
 
+let snapshot = (function(value) {
+  if (typeof value !== "object" || value === null) return undefined;
+  const LIMIT = 1024;
+  const element = x => (Number.isInteger(x) ? x : undefined);
+  const vector = v => {
+    if (!Array.isArray(v)) return false;
+    const length = v.length;
+    if (!(length <= LIMIT)) return new Array(Number.isInteger(length) ? length : 0);
+    const copy = new Array(length);
+    for (let i = 0; i < length; i++) copy[i] = element(v[i]);
+    return copy;
+  };
+  const matrix = v => {
+    if (!Array.isArray(v)) return false;
+    const length = v.length;
+    if (!(length <= LIMIT)) return new Array(Number.isInteger(length) ? length : 0);
+    const copy = new Array(length);
+    for (let i = 0; i < length; i++) copy[i] = vector(v[i]);
+    return copy;
+  };
+  const component = (key, copy) => {
+    const v = value[key];
+    return v === undefined || v === null ? [] : copy(v);
+  };
+  const frame = value.frame;
+  return {
+    cornerPieces: component("cornerPieces", vector),
+    cornerTwists: component("cornerTwists", vector),
+    midgePieces: component("midgePieces", vector),
+    midgeFlips: component("midgeFlips", vector),
+    wings: component("wings", matrix),
+    centers: component("centers", matrix),
+    rotations: component("rotations", vector),
+    frame: frame === undefined ? 0 : Number.isInteger(frame) ? frame : NaN,
+  };
+});
+
 function paint(n, t, cube) {
   let sticker = Stdlib_Array.make((6 * n | 0) * n | 0, 0);
   t.fixed.forEach((facelet, f) => {
@@ -529,7 +566,7 @@ function toFacelets(n, model, pose, cube) {
     return error;
   } else {
     return guard(() => {
-      let cube$1 = Orbit64V2.withDefaults(cube);
+      let cube$1 = snapshot(cube);
       if (cube$1 === undefined) {
         return Orbit64Codec.fail("InvalidState", "The state must be an object.");
       }
@@ -938,6 +975,7 @@ export {
   guard,
   writeOriented,
   writeCenters,
+  snapshot,
   paint,
   spell,
   stateFault,
