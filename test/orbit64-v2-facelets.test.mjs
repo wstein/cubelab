@@ -65,7 +65,7 @@ describe("Orbit64 V2 slot tables", () => {
 });
 
 describe("Orbit64 V2 independent facelet rows", () => {
-  test("the fixture has rows, and covers every color entry", () => {
+  test("the fixture has exactly 448 rows, in canonical and framed pairs, covering every color entry", () => {
     // 28 color entries, two rows (canonical and framed) for each state: a deleted source row shows here.
     assert.equal(faceletRows.length, 448);
     const pairs = new Map();
@@ -345,6 +345,90 @@ describe("Orbit64 V2 facelets reject invalid input with exact reasons", () => {
     const hostile = trap();
     assert.deepEqual(err(Facelets.toFacelets(3, "color", "framed", hostile)), reason);
     assert.equal(Facelets.toFacelets(3, "color", "framed", new Proxy({}, {has() { throw "text"; }})).TAG, "Error");
+  });
+
+  test("a cube whose elements change between reads is validated and painted from one snapshot", () => {
+    const solved = (n) => Orbit64V2.solved(n, "color");
+    const twisted = {TAG: "InvalidState", message: "Corner twists must sum to 0 mod 3."};
+    // An index getter that is right once and wrong afterward: the snapshot reads it once.
+    const cube = solved(3);
+    let reads = 0;
+    Object.defineProperty(cube.cornerTwists, 0, {get: () => (++reads > 3 ? 1 : 0)});
+    const shown = ok(Facelets.toFacelets(3, "color", "canonical", cube));
+    assert.equal(shown, solved3);
+    assert.equal(reads, 1);
+    ok(Facelets.fromFacelets(3, "color", "canonical", shown));
+    // An index getter that is wrong on its first read is an unreachable cube, with the exact reason.
+    const wrongFirst = solved(3);
+    let calls = 0;
+    Object.defineProperty(wrongFirst.cornerTwists, 0, {get: () => (++calls === 1 ? 1 : 0)});
+    assert.deepEqual(err(Facelets.toFacelets(3, "color", "canonical", wrongFirst)), twisted);
+    // A mutating Proxy array: the value of every index depends on how often it was read.
+    const mutating = (array, bad, after) => {
+      let count = 0;
+      return new Proxy(array, {
+        get(target, key, receiver) {
+          const value = Reflect.get(target, key, receiver);
+          return typeof key === "string" && /^\d+$/.test(key) && ++count > after ? bad : value;
+        },
+      });
+    };
+    const fields = {cornerPieces: 7, cornerTwists: 1, midgePieces: 11, midgeFlips: 1};
+    for (const n of [3, 4, 5]) {
+      for (const [field, bad] of Object.entries(fields)) {
+        if (n === 4 && field.startsWith("midge")) continue;
+        for (const after of [0, 1, 2, 3, 5, 8, 20]) {
+          const hostile = solved(n);
+          hostile[field] = mutating(hostile[field], bad, after);
+          const result = Facelets.toFacelets(n, "color", "canonical", hostile);
+          if (result.TAG === "Ok") {
+            // Whatever was read, a shown cube is one that reads back.
+            ok(Facelets.fromFacelets(n, "color", "canonical", result._0));
+          } else {
+            assert.equal(result._0.TAG, "InvalidState", `${field} n=${n} after=${after}`);
+          }
+        }
+        const always = solved(n);
+        always[field] = mutating(always[field], bad, 0);
+        // Twelve flipped midges sum to 0 mod 2: that one is a reachable cube.
+        const expected = field === "midgeFlips" ? "Ok" : "Error";
+        assert.equal(Facelets.toFacelets(n, "color", "canonical", always).TAG, expected, `${field} n=${n}`);
+      }
+    }
+    const alwaysTwisted = solved(3);
+    alwaysTwisted.cornerTwists = mutating(alwaysTwisted.cornerTwists, 1, 0);
+    assert.deepEqual(err(Facelets.toFacelets(3, "color", "canonical", alwaysTwisted)), {
+      TAG: "InvalidState",
+      message: "Corner twists must sum to 0 mod 3.",
+    });
+    // Wings and centers are snapshotted too.
+    const wingy = solved(4);
+    wingy.wings = [mutating(wingy.wings[0], 5, 3)];
+    const wingResult = Facelets.toFacelets(4, "color", "canonical", wingy);
+    assert.equal(wingResult.TAG === "Ok" ? Facelets.fromFacelets(4, "color", "canonical", wingResult._0).TAG : "Error", wingResult.TAG);
+    // Hostile shapes still give the fixed shape error and never walk a huge array.
+    const shape = {TAG: "InvalidState", message: "The cube coordinates do not have the shape of this puzzle type."};
+    const huge = solved(3);
+    huge.cornerPieces = new Array(1e6).fill(0);
+    assert.deepEqual(err(Facelets.toFacelets(3, "color", "canonical", huge)), shape);
+    const nested = solved(3);
+    nested.cornerTwists = nested.cornerTwists.map(() => [[[[0]]]]);
+    assert.deepEqual(err(Facelets.toFacelets(3, "color", "canonical", nested)), shape);
+    const valued = solved(3);
+    let turns = 0;
+    valued.cornerPieces[0] = {valueOf: () => (++turns > 0 ? 1 : 0)};
+    assert.deepEqual(err(Facelets.toFacelets(3, "color", "canonical", valued)), shape);
+  });
+
+  test("a deeply frozen valid cube still gives its facelets", () => {
+    const deepFreeze = (value) => {
+      for (const inner of Object.values(value)) if (typeof inner === "object" && inner !== null) deepFreeze(inner);
+      return Object.freeze(value);
+    };
+    for (const [n, pose] of [[2, "canonical"], [3, "canonical"], [3, "framed"], [4, "canonical"], [5, "framed"]]) {
+      const frozen = deepFreeze(Orbit64V2.solved(n, "color"));
+      assert.equal(ok(Facelets.toFacelets(n, "color", pose, frozen)), solvedText(n));
+    }
   });
 
   test("picture entries and unknown entries are errors for encode, decode and toFacelets", () => {

@@ -311,6 +311,53 @@ let writeCenters = (sticker: array<int>, table: array<int>, colors: array<int>):
     sticker->Array.setUnsafe(facelet, get(colors, slot))
   )
 
+/**
+ * A private, dense snapshot of a cube, taken once before anything is validated or painted.
+ *
+ * Every index and every property is read exactly once, so a getter or a mutating Proxy cannot
+ * show the validation one cube and the painting another. Elements that are not integers become
+ * `undefined`, which the shape check rejects as it rejected them before; an array longer than
+ * any coordinate vector is replaced by an empty array of that length (never walked), and a
+ * non-array component by `false`, both of which fail the same shape check. Absent components
+ * become empty, as in `Orbit64V2.withDefaults`; anything but an object is `undefined`.
+ */
+let snapshot: 'a => option<V2.cube> = %raw(`function(value) {
+  if (typeof value !== "object" || value === null) return undefined;
+  const LIMIT = 1024;
+  const element = x => (Number.isInteger(x) ? x : undefined);
+  const vector = v => {
+    if (!Array.isArray(v)) return false;
+    const length = v.length;
+    if (!(length <= LIMIT)) return new Array(Number.isInteger(length) ? length : 0);
+    const copy = new Array(length);
+    for (let i = 0; i < length; i++) copy[i] = element(v[i]);
+    return copy;
+  };
+  const matrix = v => {
+    if (!Array.isArray(v)) return false;
+    const length = v.length;
+    if (!(length <= LIMIT)) return new Array(Number.isInteger(length) ? length : 0);
+    const copy = new Array(length);
+    for (let i = 0; i < length; i++) copy[i] = vector(v[i]);
+    return copy;
+  };
+  const component = (key, copy) => {
+    const v = value[key];
+    return v === undefined || v === null ? [] : copy(v);
+  };
+  const frame = value.frame;
+  return {
+    cornerPieces: component("cornerPieces", vector),
+    cornerTwists: component("cornerTwists", vector),
+    midgePieces: component("midgePieces", vector),
+    midgeFlips: component("midgeFlips", vector),
+    wings: component("wings", matrix),
+    centers: component("centers", matrix),
+    rotations: component("rotations", vector),
+    frame: frame === undefined ? 0 : Number.isInteger(frame) ? frame : NaN,
+  };
+}`)
+
 /** The stickers of a canonical-pose cube; fixed centers are home. */
 let paint = (n: int, t: tables, cube: V2.cube): array<int> => {
   let sticker = Array.make(~length=6 * n * n, 0)
@@ -357,7 +404,7 @@ let toFacelets = (n: int, model: V2.model, pose: V2.pose, cube: V2.cube): result
   | Some(error) => error
   | None =>
     guard(() =>
-      switch V2.withDefaults(cube) {
+      switch snapshot(cube) {
       | None => fail("InvalidState", "The state must be an object.")
       | Some(cube) =>
         switch stateFault(n, model, pose, cube) {
