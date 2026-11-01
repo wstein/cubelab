@@ -2,9 +2,9 @@
  * Orbit64 V2 state tokens (flix-orbit64 FORMAT-V2.md), coordinates only.
  *
  * A registry of 54 `n x n x n` puzzle types allocates one token range each; a
- * state's rank is the mixed-radix combination of one digit per component. There
- * is no facelet bridge here: states are the orbit coordinates of Orbit64Codec's
- * V1 slot convention, and V1 behavior is untouched.
+ * state's rank is the mixed-radix combination of one digit per component. States
+ * are the orbit coordinates of Orbit64Codec's V1 slot convention, and V1 behavior
+ * is untouched. The facelet bridge is the sibling module Orbit64V2Facelets.
  *
  * Every function that takes outside data returns a result and never throws.
  */
