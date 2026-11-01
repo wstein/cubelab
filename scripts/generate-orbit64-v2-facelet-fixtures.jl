@@ -38,6 +38,15 @@ tuple_lines = count(l -> occursin(r"^\s*\(\d+,", l), split(read_text("test/TestV
 length(rows) == tuple_lines ||
     error("parsed $(length(rows)) rows, but the file has $tuple_lines tuple lines")
 
+# Each state is written once for the canonical entry and once for the framed entry of its
+# size (ids 2k and 2k + 1): a deleted source row leaves a state with one row only.
+pair_count = Dict{Tuple{Int,String,String},Int}()
+for (id, moves, facelets, _, _) in rows
+    key = (id ÷ 2, moves, facelets)
+    pair_count[key] = get(pair_count, key, 0) + 1
+end
+all(==(2), values(pair_count)) || error("a facelet row has no canonical/framed partner")
+
 commit = strip(read(`git -C $FLIX rev-parse HEAD`, String))
 occursin(r"^[0-9a-f]{40}$", commit) || error("cannot read the flix-orbit64 commit")
 
