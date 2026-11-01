@@ -428,10 +428,10 @@ function typeFault(n, model, pose) {
       "color",
       "picture"
     ])) {
-    if (model === "picture") {
+    if (model === "picture" && n === 2) {
       return [
         "UnsupportedModel",
-        "The picture model has no letters."
+        "The 2x2x2 has no picture entry: its picture model is the color model."
       ];
     } else if (!isOneOf(pose, [
         "canonical",
@@ -481,6 +481,21 @@ let guard = (function(attempt) {
 
 function colorLabels(n, table) {
   return table.map(slot => slot.map(i => faceOf(n, i)));
+}
+
+function pictureLabels(table) {
+  return table.map((slot, p) => {
+    let m = slot.length;
+    return range(0, m).map(j => (m * p | 0) + j | 0);
+  });
+}
+
+function labelsOf(n, model, table) {
+  if (model === "picture") {
+    return pictureLabels(table);
+  } else {
+    return colorLabels(n, table);
+  }
 }
 
 function writeOriented(sticker, table, labels, pieces, twists) {
@@ -544,22 +559,121 @@ let snapshot = (function(value) {
   };
 });
 
-function paint(n, t, cube) {
+function fixedValue(model, cube, face) {
+  if (model === "picture") {
+    return (face << 2) + Orbit64Codec.get(cube.rotations, face) | 0;
+  } else {
+    return face;
+  }
+}
+
+function paint(n, t, model, cube) {
   let sticker = Stdlib_Array.make((6 * n | 0) * n | 0, 0);
   t.fixed.forEach((facelet, f) => {
-    sticker[facelet] = f;
+    sticker[facelet] = fixedValue(model, cube, f);
   });
-  writeOriented(sticker, t.corners, colorLabels(n, t.corners), cube.cornerPieces, cube.cornerTwists);
+  writeOriented(sticker, t.corners, labelsOf(n, model, t.corners), cube.cornerPieces, cube.cornerTwists);
   if (Orbit64V2.isOdd(n)) {
-    writeOriented(sticker, t.midges, colorLabels(n, t.midges), cube.midgePieces, cube.midgeFlips);
+    writeOriented(sticker, t.midges, labelsOf(n, model, t.midges), cube.midgePieces, cube.midgeFlips);
   }
-  t.wings.forEach((table, i) => writeOriented(sticker, table, colorLabels(n, table), Orbit64Codec.get(cube.wings, i), Stdlib_Array.make(24, 0)));
+  t.wings.forEach((table, i) => writeOriented(sticker, table, labelsOf(n, model, table), Orbit64Codec.get(cube.wings, i), Stdlib_Array.make(24, 0)));
   t.centers.forEach((table, i) => writeCenters(sticker, table, Orbit64Codec.get(cube.centers, i)));
   return sticker;
 }
 
-function spell(n, fs) {
-  return range(0, 6).map(face => range(0, n * n | 0).map(i => Orbit64Codec.get(letters, Orbit64Codec.get(fs, ((face * n | 0) * n | 0) + i | 0))).join("")).join(" ");
+function symbolOf(model, value) {
+  if (model === "picture") {
+    return Orbit64V2.digits.charAt(value);
+  } else {
+    return Orbit64Codec.get(letters, value);
+  }
+}
+
+function spell(n, model, fs) {
+  return range(0, 6).map(face => range(0, n * n | 0).map(i => symbolOf(model, Orbit64Codec.get(fs, ((face * n | 0) * n | 0) + i | 0))).join("")).join(" ");
+}
+
+function cross(param, param$1) {
+  let bz = param$1[2];
+  let by = param$1[1];
+  let bx = param$1[0];
+  let az = param[2];
+  let ay = param[1];
+  let ax = param[0];
+  return [
+    (ay * bz | 0) - (az * by | 0) | 0,
+    (az * bx | 0) - (ax * bz | 0) | 0,
+    (ax * by | 0) - (ay * bx | 0) | 0
+  ];
+}
+
+function reference(face) {
+  if (face !== 0) {
+    if (face !== 3) {
+      return [
+        0,
+        1,
+        0
+      ];
+    } else {
+      return [
+        0,
+        0,
+        1
+      ];
+    }
+  } else {
+    return [
+      0,
+      0,
+      -1
+    ];
+  }
+}
+
+function spin(normal, _direction, _k) {
+  while (true) {
+    let k = _k;
+    let direction = _direction;
+    if (k <= 0) {
+      return direction;
+    }
+    _k = k - 1 | 0;
+    _direction = cross(direction, normal);
+    continue;
+  };
+}
+
+function quarterTurns(face, direction) {
+  return Stdlib_Option.getOr(range(0, 4).find(k => Primitive_object.equal(spin(normalOf(face), reference(face), k), direction)), 0);
+}
+
+function carryFixed(move, face, r) {
+  let own = spin(normalOf(face), reference(face), r);
+  let landed = faceOfNormal(move(normalOf(face)));
+  return [
+    landed,
+    quarterTurns(landed, move(own))
+  ];
+}
+
+function turnFixed(n, move, before, permuted) {
+  let out = permuted.slice();
+  let fixed = fixedFacelets(n);
+  range(0, 6).forEach(face => {
+    let value = Orbit64Codec.get(before, Orbit64Codec.get(fixed, face));
+    let match = carryFixed(move, face, value % 4);
+    out[Orbit64Codec.get(fixed, match[0])] = ((value / 4 | 0) << 2) + match[1] | 0;
+  });
+  return out;
+}
+
+function rotatePicture(n, turn, fs) {
+  return turnFixed(n, v => forward(turn, v), fs, rotate(n, turn, fs));
+}
+
+function unrotatePicture(n, turn, fs) {
+  return turnFixed(n, v => backward(turn, v), fs, unrotate(n, turn, fs));
 }
 
 function stateFault(n, model, pose, cube) {
@@ -585,10 +699,13 @@ function toFacelets(n, model, pose, cube) {
       if (why !== undefined) {
         return Orbit64Codec.fail("InvalidState", why);
       }
-      let fs = paint(n, buildTables(n), cube$1);
+      let fs = paint(n, buildTables(n), model, cube$1);
+      let turned = Orbit64V2.isOdd(n) ? (
+          model === "picture" ? rotatePicture(n, turnOf(cube$1.frame), fs) : rotate(n, turnOf(cube$1.frame), fs)
+        ) : fs;
       return {
         TAG: "Ok",
-        _0: spell(n, Orbit64V2.isOdd(n) ? rotate(n, turnOf(cube$1.frame), fs) : fs)
+        _0: spell(n, model, turned)
       };
     });
   }
@@ -636,6 +753,38 @@ function parse(n, text) {
   }
 }
 
+let scanSymbols = (function(n, text, alphabet) {
+  const expected = 6 * n * n;
+  const values = [];
+  let count = 0;
+  for (const c of text) {
+    if (c === " ") continue;
+    const value = c.length === 1 ? alphabet.indexOf(c) : -1;
+    if (value < 0) return {TAG: "BadSymbol", _0: c};
+    if (count < expected) values.push(value);
+    count += 1;
+  }
+  return count === expected ? {TAG: "Symbols", _0: values} : {TAG: "Count", _0: count};
+});
+
+function parsePicture(n, text) {
+  let c = scanSymbols(n, text, Orbit64V2.digits);
+  switch (c.TAG) {
+    case "Symbols" :
+      return {
+        TAG: "Ok",
+        _0: c._0
+      };
+    case "BadSymbol" :
+      return Orbit64Codec.fail("InvalidFacelet", `Facelet '` + describeChar(c._0) + `' is not a base64url symbol.`);
+    case "Count" :
+      return {
+        TAG: "Error",
+        _0: wrongLength(n, c._0)
+      };
+  }
+}
+
 function checkCounts(n, fs) {
   return Stdlib_Option.map(range(0, 6).find(f => Orbit64V2.copies(fs, f) !== (n * n | 0)), f => ({
     TAG: "InvalidFaceletCounts",
@@ -669,8 +818,8 @@ function readPiece(n, table, seen) {
   return found.contents;
 }
 
-function noPiece(what, slot, seen) {
-  let shown = seen.map(f => Orbit64Codec.get(letters, f)).join("");
+function noPiece(model, what, slot, seen) {
+  let shown = seen.map(v => symbolOf(model, v)).join("");
   return {
     TAG: "InvalidFaceletPiece",
     message: `The ` + what + ` slot ` + slot.toString() + ` shows ` + shown + `, which is no ` + what + ` of this cube.`
@@ -693,7 +842,7 @@ function readOriented(n, what, table, fs) {
       pieces.push(match[0]);
       twists.push(match[1]);
     } else {
-      fault.contents = noPiece(what, slot, seen);
+      fault.contents = noPiece("color", what, slot, seen);
     }
   });
   let error = fault.contents;
@@ -729,7 +878,7 @@ function readWings(n, table, fs) {
     if (p !== undefined) {
       pieces.push(p);
     } else {
-      fault.contents = noPiece("wing", slot, seen);
+      fault.contents = noPiece("color", "wing", slot, seen);
     }
   });
   let error = fault.contents;
@@ -863,6 +1012,252 @@ function posedStickers(n, pose, t, fs) {
   }
 }
 
+function groups(t) {
+  return [
+    [{
+        what: "corner",
+        facelets: t.corners.flat(),
+        limit: 24,
+        per: 1
+      }],
+    t.midges.length === 0 ? [] : [{
+          what: "midge",
+          facelets: t.midges.flat(),
+          limit: 24,
+          per: 1
+        }],
+    t.wings.map(w => ({
+      what: "wing",
+      facelets: w.flat(),
+      limit: 48,
+      per: 1
+    })),
+    t.centers.map(c => ({
+      what: "center",
+      facelets: c,
+      limit: 24,
+      per: 1
+    })),
+    t.fixed.length === 0 ? [] : [{
+          what: "fixed center",
+          facelets: t.fixed,
+          limit: 24,
+          per: 4
+        }]
+  ].flat();
+}
+
+function checkGroup(vs, g) {
+  let values = g.facelets.map(at => Orbit64Codec.get(vs, at));
+  let at = g.facelets.find(at => Orbit64Codec.get(vs, at) >= g.limit);
+  if (at !== undefined) {
+    return {
+      TAG: "InvalidFaceletPiece",
+      message: `Facelet ` + at.toString() + ` shows '` + symbolOf("picture", Orbit64Codec.get(vs, at)) + `', which is no ` + g.what + ` sticker.`
+    };
+  } else {
+    return Stdlib_Option.map(values.find(v => values.filter(w => Primitive_int.div(w, g.per) === Primitive_int.div(v, g.per)).length > 1), v => ({
+      TAG: "InvalidFaceletPiece",
+      message: `The ` + g.what + ` sticker '` + symbolOf("picture", v) + `' occurs more than once.`
+    }));
+  }
+}
+
+function readPictureSlot(seen) {
+  let m = seen.length;
+  let first = Orbit64Codec.get(seen, 0);
+  let p = Primitive_int.div(first, m);
+  let o = Primitive_int.mod_(m - Primitive_int.mod_(first, m) | 0, m);
+  if (range(0, m).every(k => Orbit64Codec.get(seen, k) === ((m * p | 0) + Primitive_int.mod_((k - o | 0) + m | 0, m) | 0))) {
+    return [
+      p,
+      o
+    ];
+  }
+}
+
+function readPictureOriented(what, table, strict, vs) {
+  let pieces = [];
+  let twists = [];
+  let fault = {
+    contents: undefined
+  };
+  table.forEach((param, slot) => {
+    if (fault.contents !== undefined) {
+      return;
+    }
+    let seen = seenAt(table, slot, vs);
+    let match = readPictureSlot(seen);
+    if (match !== undefined) {
+      let o = match[1];
+      if (!strict || o === 0) {
+        pieces.push(match[0]);
+        twists.push(o);
+        return;
+      }
+    }
+    fault.contents = noPiece("picture", what, slot, seen);
+  });
+  let error = fault.contents;
+  if (error !== undefined) {
+    return {
+      TAG: "Error",
+      _0: error
+    };
+  } else {
+    return {
+      TAG: "Ok",
+      _0: [
+        pieces,
+        twists
+      ]
+    };
+  }
+}
+
+function readPictureCube(n, t, frame, vs) {
+  let e = readPictureOriented("corner", t.corners, false, vs);
+  if (e.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: e._0
+    };
+  }
+  let match = e._0;
+  let midges = Orbit64V2.isOdd(n) ? readPictureOriented("midge", t.midges, false, vs) : ({
+      TAG: "Ok",
+      _0: [
+        [],
+        []
+      ]
+    });
+  if (midges.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: midges._0
+    };
+  }
+  let match$1 = midges._0;
+  let wings = [];
+  let fault = {
+    contents: undefined
+  };
+  t.wings.forEach(table => {
+    if (fault.contents !== undefined) {
+      return;
+    }
+    let e = readPictureOriented("wing", table, true, vs);
+    if (e.TAG !== "Ok") {
+      fault.contents = e._0;
+      return;
+    }
+    wings.push(e._0[0]);
+  });
+  let e$1 = fault.contents;
+  if (e$1 !== undefined) {
+    return {
+      TAG: "Error",
+      _0: e$1
+    };
+  } else {
+    return {
+      TAG: "Ok",
+      _0: {
+        cornerPieces: match[0],
+        cornerTwists: match[1],
+        midgePieces: match$1[0],
+        midgeFlips: match$1[1],
+        wings: wings,
+        centers: t.centers.map(table => table.map(at => Orbit64Codec.get(vs, at))),
+        rotations: t.fixed.map(at => Orbit64Codec.get(vs, at) % 4),
+        frame: frame
+      }
+    };
+  }
+}
+
+function posedPicture(n, pose, t, vs) {
+  if (Orbit64V2.isOdd(n)) {
+    return Stdlib_Result.map(frameShown(t.fixed.map(at => Orbit64Codec.get(vs, at) / 4 | 0)), r => [
+      pose === "framed" ? r : 0,
+      unrotatePicture(n, turnOf(r), vs)
+    ]);
+  } else if (pose === "canonical") {
+    return Stdlib_Result.map(normalizeEven(n, vs, rotated => Primitive_object.equal(readPictureSlot(seenAt(t.corners, 6, rotated)), [
+      6,
+      0
+    ])), c => [
+      0,
+      c
+    ]);
+  } else {
+    return {
+      TAG: "Ok",
+      _0: [
+        0,
+        vs
+      ]
+    };
+  }
+}
+
+function checkPieces(n, t, vs) {
+  let e = Stdlib_Array.findMap(groups(t), g => checkGroup(vs, g));
+  if (e !== undefined) {
+    return e;
+  }
+  let e$1 = readPictureCube(n, t, 0, vs);
+  if (e$1.TAG === "Ok") {
+    return;
+  } else {
+    return e$1._0;
+  }
+}
+
+function readPictureStickers(n, pose, text) {
+  let e = parsePicture(n, text);
+  if (e.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: e._0
+    };
+  }
+  let vs = e._0;
+  let t = buildTables(n);
+  let e$1 = checkPieces(n, t, vs);
+  if (e$1 !== undefined) {
+    return {
+      TAG: "Error",
+      _0: e$1
+    };
+  }
+  let e$2 = posedPicture(n, pose, t, vs);
+  if (e$2.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: e$2._0
+    };
+  }
+  let match = e$2._0;
+  let e$3 = readPictureCube(n, t, match[0], match[1]);
+  if (e$3.TAG !== "Ok") {
+    return {
+      TAG: "Error",
+      _0: e$3._0
+    };
+  }
+  let cube = e$3._0;
+  let why = stateFault(n, "picture", pose, cube);
+  if (why !== undefined) {
+    return Orbit64Codec.fail("InvalidState", why);
+  } else {
+    return {
+      TAG: "Ok",
+      _0: cube
+    };
+  }
+}
+
 function readStickers(n, model, pose, text) {
   let e = parse(n, text);
   if (e.TAG !== "Ok") {
@@ -912,7 +1307,13 @@ function fromFacelets(n, model, pose, facelets) {
   if (error !== undefined) {
     return error;
   } else if (Orbit64V2.isString(facelets)) {
-    return guard(() => readStickers(n, model, pose, facelets));
+    return guard(() => {
+      if (model === "picture") {
+        return readPictureStickers(n, pose, facelets);
+      } else {
+        return readStickers(n, model, pose, facelets);
+      }
+    });
   } else {
     return Orbit64Codec.fail("InvalidFacelet", "A facelet string is a string.");
   }
@@ -998,11 +1399,23 @@ export {
   tables,
   guard,
   colorLabels,
+  pictureLabels,
+  labelsOf,
   writeOriented,
   writeCenters,
   snapshot,
+  fixedValue,
   paint,
+  symbolOf,
   spell,
+  cross,
+  reference,
+  spin,
+  quarterTurns,
+  carryFixed,
+  turnFixed,
+  rotatePicture,
+  unrotatePicture,
   stateFault,
   toFacelets,
   isString,
@@ -1011,6 +1424,8 @@ export {
   letterIndex,
   wrongLength,
   parse,
+  scanSymbols,
+  parsePicture,
   checkCounts,
   seenAt,
   readPiece,
@@ -1022,6 +1437,14 @@ export {
   normalizeOdd,
   normalizeEven,
   posedStickers,
+  groups,
+  checkGroup,
+  readPictureSlot,
+  readPictureOriented,
+  readPictureCube,
+  posedPicture,
+  checkPieces,
+  readPictureStickers,
   readStickers,
   fromFacelets,
   encode,
