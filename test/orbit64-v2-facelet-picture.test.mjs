@@ -463,7 +463,8 @@ describe("Orbit64 V2 picture facelets reject invalid input with exact reasons", 
     const twice = exchange(3, exchange(3, solved3, t.corners[5][0], t.corners[5][1]), t.corners[2][0], t.corners[2][1]);
     both("InvalidFaceletPiece", piece("corner", 2, "HGI"), twice);
     // A corner before a midge, a midge before a wing, an outer wing orbit before an inner one.
-    const midge = exchange(3, solved3, t.midges[0][0], t.midges[0][1]);
+    const midge = exchange(3, solved3, t.midges[0][0], t.midges[1][0]);
+    both("InvalidFaceletPiece", piece("midge", 0, "CB"), midge);
     both("InvalidFaceletPiece", piece("corner", 5, "QPR"), exchange(3, midge, t.corners[5][0], t.corners[5][1]));
     const t5 = slotTables[5];
     const wing = exchange(5, solved5, t5.wings[0][0][0], t5.wings[0][0][1]);
