@@ -37,7 +37,7 @@ For odd cubes, CubeLab derives the stored 24-way frame from the six fixed
 centres and reapplies it on decode, so a whole-cube-rotated labelled state
 round-trips exactly. Even-cube centres encode their orientation directly.
 
-## Orbit64 V2 (state tokens and color facelets)
+## Orbit64 V2 (state tokens and facelets)
 
 `src/State/Orbit64V2.res` implements the draft Orbit64 V2 state token format
 (flix-orbit64 `FORMAT-V2.md`) as a coordinates codec: a 54-entry registry,
@@ -49,28 +49,55 @@ can take it for a move sequence or an algorithm. Wherever a V1 decoder could see
 V2 tokens, they MUST be labeled, for example by a field name or an
 `orbit64v2:` prefix. CubeLab does not yet parse such a label.
 
-`src/State/Orbit64V2Facelets.res` is the facelet bridge of the **color model**
+`src/State/Orbit64V2Facelets.res` is the facelet bridge of both models
 for every n = 2..15, the port of flix-orbit64's `Orbit64.V2.Facelets`:
 `toFacelets(n, model, pose, cube)`, `fromFacelets(n, model, pose, facelets)`,
 and the registry-level helpers `encode(entryId, facelets)` and
 `decode(token)`. A facelet string is the six faces `U R F D L B` of `n²`
-letters each, one space between fields on output; reading ignores spaces only, so
-a tab or newline is a bad letter. Odd cubes are read through the six fixed
-centers (a canonical read accepts any whole-cube orientation; a framed read keeps
-it as the frame rank), even canonical cubes through the DBL corner. Slot tables
-for all sizes are derived as in FORMAT-V2.md and tested equal to
+symbols each, one space between fields on output; reading ignores spaces only,
+so a tab or newline is a bad symbol. Odd cubes are read through the six fixed
+centers (a canonical read accepts any whole-cube orientation; a framed read
+keeps it as the frame rank), even canonical cubes through the DBL corner. Slot
+tables for all sizes are derived as in FORMAT-V2.md and tested equal to
 `FORMAT-V2-SLOTS.md`; the corners and midges of the 5×5×5 and the wings of the
-4×4×4 are V1's own tables in `Orbit64Codec`. Every entry point returns a result,
-never throws, whatever it is given. An invalid facelet string, an unreachable
-cube (twisted corner, flipped midge, repeated or mirrored piece, wrong-handed
-centers) or a picture entry is an error value. A cube is copied once, each
-element read a single time (and a length only as a plain number), before it is
-validated and drawn. The picture model is not ported to CubeLab yet, so its
-entries are an error value. This path is separate from V1's `FaceletCodec`, which strips all whitespace and handles
-n ≤ 5, and V1 behavior is unchanged.
+4×4×4 are V1's own tables in `Orbit64Codec`. Every entry point returns a
+result, never throws, whatever it is given. An invalid facelet string or an
+unreachable cube (twisted corner, flipped midge, repeated or mirrored piece,
+wrong-handed centers) is an error value. A cube is copied once, each element
+read a single time (and a length only as a plain number), before it is
+validated and drawn. This path is separate from V1's `FaceletCodec`, which
+strips all whitespace and handles n ≤ 5, and V1 behavior is unchanged.
 
-The reference rows in `test/fixtures/orbit64-v2-facelet-vectors.mjs` are
-generated from a flix-orbit64 checkout and are not edited by hand:
+The **color model** writes the letters `U R F D L B`: a sticker shows the face
+of its home facelet.
+
+The **picture model** ("Picture facelets" in FORMAT-V2.md) writes one
+base64url symbol per facelet, the sticker's index within its class: a corner
+sticker `3p + j`, a midge or wing sticker `2p + j`, a center orbit sticker its
+home slot, a fixed center `4p + r` with its rotation `r`. The string is as long
+as a color string, in the same six fields. A symbol only means something on the
+class of its facelet, so a string is read in the order of the specification:
+a symbol outside the alphabet and then the count; per class (corner, midge,
+wings from the outermost orbit, centers in orbit order, fixed centers) a value
+at or above the class range and then a repeated sticker; each corner, midge and
+wing slot spelling one piece (a wing with a twist is none); the fixed centers
+as a frame, or the DBL corner of an even canonical cube; and last the
+orientation and parity laws. The first failure is the one reported. The
+picture entries are the registry entries with n = 3..15; the 2×2×2 has no
+picture entry (its picture model is the color model), so a picture 2×2×2 is an
+`UnsupportedModel` error. The string is scanned once by code point and not
+copied, so the memory used does not grow with its length.
+
+Error messages follow the color bridge: a sentence with a period that never
+repeats the caller's text beyond one named character. They differ from the Flix
+reference in wording only; the decision to accept or reject a string, and every
+token, are the same.
+
+The reference rows in `test/fixtures/orbit64-v2-facelet-vectors.mjs` (color,
+slot tables, frames) and `test/fixtures/orbit64-v2-facelet-picture-vectors.mjs`
+(174 picture rows) are generated from a flix-orbit64 checkout and are not edited
+by hand. The generator fails if a source row is dropped, duplicated or
+unparsed, or if the pinned count of rows per size changes:
 
 ```sh
 julia scripts/generate-orbit64-v2-facelet-fixtures.jl [path-to-flix-orbit64]
