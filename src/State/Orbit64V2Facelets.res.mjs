@@ -415,28 +415,53 @@ function unrotate(n, turn, fs) {
   });
 }
 
-let show = (function(value) { return String(value); });
+let sizeText = (function(value) {
+  return typeof value === "number" ? String(value) : undefined;
+});
 
-function typeFault(n, model) {
+let isOneOf = (function(value, names) {
+  return typeof value === "string" && names.includes(value);
+});
+
+function typeFault(n, model, pose) {
   if (!(!Orbit64V2.isInt(n) || n < 2 || n > 15)) {
-    if (model === "picture") {
+    if (isOneOf(model, [
+        "color",
+        "picture"
+      ])) {
+      if (model === "picture") {
+        return [
+          "UnsupportedModel",
+          "The picture model has no letters."
+        ];
+      } else if (!isOneOf(pose, [
+          "canonical",
+          "framed"
+        ])) {
+        return [
+          "UnsupportedPose",
+          "The V2 poses are canonical and framed."
+        ];
+      } else {
+        return;
+      }
+    } else {
       return [
         "UnsupportedModel",
-        "The picture model has no letters."
+        "The V2 models are color and picture."
       ];
-    } else {
-      return;
     }
   }
-  let shown = show(n);
+  let shown = sizeText(n);
+  let message = shown !== undefined ? `No V2 type for the ` + shown + `x` + shown + `x` + shown + `.` : "No V2 type for that size.";
   return [
     "UnsupportedType",
-    `No V2 type for the ` + shown + `x` + shown + `x` + shown + `.`
+    message
   ];
 }
 
-function describeFault(n, model) {
-  let match = typeFault(n, model);
+function describeFault(n, model, pose) {
+  let match = typeFault(n, model, pose);
   if (match !== undefined) {
     return Orbit64Codec.fail(match[0], match[1]);
   }
@@ -487,7 +512,7 @@ function stateFault(n, model, pose, cube) {
 }
 
 function toFacelets(n, model, pose, cube) {
-  let error = describeFault(n, model);
+  let error = describeFault(n, model, pose);
   if (error !== undefined) {
     return error;
   }
@@ -511,6 +536,14 @@ function toFacelets(n, model, pose, cube) {
   }
 }
 
+let codePoints = (function(text) { return Array.from(text); });
+
+let describeChar = (function(c) {
+  const code = c.codePointAt(0);
+  const surrogate = code >= 0xd800 && code <= 0xdfff;
+  return code > 0xffff || surrogate ? "U+" + code.toString(16).toUpperCase().padStart(4, "0") : c;
+});
+
 function letterIndex(c) {
   let i = "URFDLB".indexOf(c);
   if (c.length === 1 && i >= 0) {
@@ -519,10 +552,10 @@ function letterIndex(c) {
 }
 
 function parse(n, text) {
-  let chars = text.split("").filter(c => c !== " ");
+  let chars = codePoints(text).filter(c => c !== " ");
   let c = chars.find(c => letterIndex(c) === undefined);
   if (c !== undefined) {
-    return Orbit64Codec.fail("InvalidFacelet", `Facelet '` + c + `' is not one of U R F D L B.`);
+    return Orbit64Codec.fail("InvalidFacelet", `Facelet '` + describeChar(c) + `' is not one of U R F D L B.`);
   }
   let length = chars.length;
   if (length !== ((6 * n | 0) * n | 0)) {
@@ -804,7 +837,7 @@ function readStickers(n, model, pose, text) {
 }
 
 function fromFacelets(n, model, pose, facelets) {
-  let error = describeFault(n, model);
+  let error = describeFault(n, model, pose);
   if (error !== undefined) {
     return error;
   }
@@ -895,7 +928,8 @@ export {
   rotate,
   unrotate,
   isInt,
-  show,
+  sizeText,
+  isOneOf,
   typeFault,
   describeFault,
   writeOriented,
@@ -906,6 +940,8 @@ export {
   stateFault,
   toFacelets,
   isString,
+  codePoints,
+  describeChar,
   letterIndex,
   parse,
   checkCounts,

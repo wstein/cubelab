@@ -33,6 +33,7 @@ describe("Orbit64 V2 slot tables", () => {
       assert.deepEqual(t.midges, expected.midges, `${n}x${n}x${n} midges`);
       assert.deepEqual(t.wings, expected.wings, `${n}x${n}x${n} wings`);
       assert.deepEqual(t.centers, expected.centers, `${n}x${n}x${n} centers`);
+      assert.deepEqual(t.fixed, expected.fixed, `${n}x${n}x${n} fixed centers`);
     }
   });
 
@@ -43,7 +44,6 @@ describe("Orbit64 V2 slot tables", () => {
       assert.equal(t.midges.length, n % 2 === 1 ? 12 : 0);
       assert.equal(t.wings.length, Orbit64V2.wingOrbits(n));
       assert.equal(t.centers.length, Orbit64V2.centerOrbits(n).length);
-      assert.deepEqual(t.fixed, n % 2 === 1 ? [0, 1, 2, 3, 4, 5].map((f) => f * n * n + (n * n - 1) / 2) : []);
       const all = [...t.corners.flat(), ...t.midges.flat(), ...t.wings.flat(2), ...t.centers.flat(), ...t.fixed];
       assert.equal(new Set(all).size, all.length, `${n}x${n}x${n} slots overlap`);
       assert.equal(all.length, 6 * n * n, `${n}x${n}x${n} slots do not cover every facelet`);
@@ -155,6 +155,13 @@ describe("Orbit64 V2 facelets reject invalid input with exact reasons", () => {
     reject("InvalidFacelet", "Facelet '1' is not one of U R F D L B.", "1");
   });
 
+  test("a character past the basic multilingual plane or a lone surrogate is named by code point", () => {
+    const rest = "RRRRRRRRR FFFFFFFFF DDDDDDDDD LLLLLLLLL BBBBBBBBB";
+    reject("InvalidFacelet", "Facelet 'U+1F600' is not one of U R F D L B.", `UUUUUUUU\u{1F600} ${rest}`);
+    reject("InvalidFacelet", "Facelet 'U+D800' is not one of U R F D L B.", `UUUUUUUU\ud800 ${rest}`);
+    reject("InvalidFacelet", "Facelet 'é' is not one of U R F D L B.", `UUUUUUUUé ${rest}`);
+  });
+
   test("a string that is not a string", () => {
     for (const value of [undefined, null, 5, {}, ["U"]]) {
       assert.deepEqual(err(Facelets.fromFacelets(3, "color", "framed", value)), {
@@ -211,13 +218,31 @@ describe("Orbit64 V2 facelets reject invalid input with exact reasons", () => {
     reject("InvalidState", "Corner pieces are not a permutation of 8.", "UUUU RFLB RFLB DDDD RFLB RFLB", 2);
   });
 
-  test("a mirrored cube", () => {
+  test("a mirrored corner", () => {
     // The U and R stickers of the URF corner exchanged: a corner of the mirror image, counts intact.
     reject(
       "InvalidFaceletPiece",
       "The corner slot 0 shows RUF, which is no corner of this cube.",
       "UUUUUUUUR URRRRRRRR FFFFFFFFF DDDDDDDDD LLLLLLLLL BBBBBBBBB",
     );
+  });
+
+  test("a mirrored cube", () => {
+    // The mirror image keeps the colors where they are: the left and right faces trade places, so the
+    // fixed centers of an odd cube show L and R exchanged.
+    const mirror = (text, n) => {
+      const [u, r, f, d, l, b] = text.split(" ").map((face) => {
+        let out = "";
+        for (let row = 0; row < n; row += 1) for (let col = n - 1; col >= 0; col -= 1) out += face[row * n + col];
+        return out;
+      });
+      return [u, l, f, d, r, b].join(" ");
+    };
+    const [, , scrambled] = faceletRows.find(([id, moves]) => id === 3 && moves === "1R");
+    assert.notEqual(mirror(scrambled, 3), scrambled);
+    const handed = "The six fixed centers are not a right-handed whole-cube frame.";
+    reject("InvalidFaceletFrame", handed, mirror(scrambled, 3));
+    reject("InvalidFaceletFrame", handed, mirror(solved3, 3), 3, "canonical");
   });
 
   test("an even canonical cube with no DBL corner home", () => {
@@ -245,6 +270,43 @@ describe("Orbit64 V2 facelets reject invalid input with exact reasons", () => {
       assert.equal(err(Facelets.fromFacelets(n, "color", "framed", solved3)).TAG, "UnsupportedType");
     }
     assert.equal(err(Facelets.fromFacelets(16, "color", "framed", solved3)).message, "No V2 type for the 16x16x16.");
+  });
+
+  test("a size, model or pose that is no V2 type is an error value, never an exception", () => {
+    const solved = Orbit64V2.solved(3, "color");
+    const throwing = {
+      toString() {
+        throw new Error("boom");
+      },
+    };
+    const sizes = [Object.create(null), throwing, 3n, "3", null, undefined, {}, [3], Symbol("n")];
+    for (const n of sizes) {
+      for (const result of [
+        Facelets.fromFacelets(n, "color", "framed", solved3),
+        Facelets.toFacelets(n, "color", "framed", solved),
+      ]) {
+        assert.deepEqual(err(result), {TAG: "UnsupportedType", message: "No V2 type for that size."});
+      }
+    }
+    const models = ["colour", "", "Color", undefined, null, 3, {}, ["color"]];
+    for (const model of models) {
+      for (const result of [
+        Facelets.fromFacelets(3, model, "framed", solved3),
+        Facelets.toFacelets(3, model, "framed", solved),
+      ]) {
+        assert.deepEqual(err(result), {TAG: "UnsupportedModel", message: "The V2 models are color and picture."});
+      }
+    }
+    const poses = ["bogus", "", "Framed", undefined, null, 1, {}, ["framed"]];
+    for (const pose of poses) {
+      for (const result of [
+        Facelets.fromFacelets(3, "color", pose, solved3),
+        Facelets.toFacelets(3, "color", pose, solved),
+        Facelets.fromFacelets(2, "color", pose, solvedText(2)),
+      ]) {
+        assert.deepEqual(err(result), {TAG: "UnsupportedPose", message: "The V2 poses are canonical and framed."});
+      }
+    }
   });
 
   test("picture entries and unknown entries are errors for encode, decode and toFacelets", () => {

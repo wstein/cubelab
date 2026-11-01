@@ -243,21 +243,35 @@ let unrotate = (n: int, turn: turn, fs: array<int>): array<int> =>
 
 let isInt = V2.isInt
 
-let show: 'a => string = %raw(`function(value) { return String(value); }`)
+/** The size as text, only when it is a number; anything else is not shown, never converted. */
+let sizeText: 'a => option<string> = %raw(`function(value) {
+  return typeof value === "number" ? String(value) : undefined;
+}`)
 
-/** Why a type has no facelet letters, if it has none. */
-let typeFault = (n: int, model: V2.model): option<(string, string)> =>
+let isOneOf: ('a, array<string>) => bool = %raw(`function(value, names) {
+  return typeof value === "string" && names.includes(value);
+}`)
+
+/** Why a type has no facelet letters, if it has none: an unknown size, model or pose, or the picture model. */
+let typeFault = (n: int, model: V2.model, pose: V2.pose): option<(string, string)> =>
   if !isInt(n) || n < 2 || n > 15 {
-    let shown = show(n)
-    Some(("UnsupportedType", `No V2 type for the ${shown}x${shown}x${shown}.`))
+    let message = switch sizeText(n) {
+    | Some(shown) => `No V2 type for the ${shown}x${shown}x${shown}.`
+    | None => "No V2 type for that size."
+    }
+    Some(("UnsupportedType", message))
+  } else if !isOneOf(model, ["color", "picture"]) {
+    Some(("UnsupportedModel", "The V2 models are color and picture."))
   } else if model == Picture {
     Some(("UnsupportedModel", "The picture model has no letters."))
+  } else if !isOneOf(pose, ["canonical", "framed"]) {
+    Some(("UnsupportedPose", "The V2 poses are canonical and framed."))
   } else {
     None
   }
 
-let describeFault = (n: int, model: V2.model) =>
-  switch typeFault(n, model) {
+let describeFault = (n: int, model: V2.model, pose: V2.pose) =>
+  switch typeFault(n, model, pose) {
   | Some((tag, message)) => Some(Orbit64Codec.fail(tag, message))
   | None => None
   }
@@ -330,7 +344,7 @@ let toFacelets = (n: int, model: V2.model, pose: V2.pose, cube: V2.cube): result
   string,
   Orbit64Codec.orbitError,
 > =>
-  switch describeFault(n, model) {
+  switch describeFault(n, model, pose) {
   | Some(error) => error
   | None =>
     try {
@@ -353,6 +367,16 @@ let toFacelets = (n: int, model: V2.model, pose: V2.pose, cube: V2.cube): result
 
 let isString = V2.isString
 
+/** The code points of a string; a surrogate pair is one character. */
+let codePoints: string => array<string> = %raw(`function(text) { return Array.from(text); }`)
+
+/** A character as written in a message; a code point past U+FFFF or a lone surrogate as `U+XXXX`. */
+let describeChar: string => string = %raw(`function(c) {
+  const code = c.codePointAt(0);
+  const surrogate = code >= 0xd800 && code <= 0xdfff;
+  return code > 0xffff || surrogate ? "U+" + code.toString(16).toUpperCase().padStart(4, "0") : c;
+}`)
+
 let letterIndex = (c: string): option<int> => {
   let i = String.indexOf("URFDLB", c)
   String.length(c) == 1 && i >= 0 ? Some(i) : None
@@ -360,9 +384,9 @@ let letterIndex = (c: string): option<int> => {
 
 /** The stickers of a facelet string as face indices, or why it is no string of `n^2` per face. */
 let parse = (n: int, text: string): result<array<int>, Orbit64Codec.orbitError> => {
-  let chars = String.split(text, "")->Array.filter(c => c != " ")
+  let chars = codePoints(text)->Array.filter(c => c != " ")
   switch chars->Array.find(c => letterIndex(c) == None) {
-  | Some(c) => fail("InvalidFacelet", `Facelet '${c}' is not one of U R F D L B.`)
+  | Some(c) => fail("InvalidFacelet", `Facelet '${describeChar(c)}' is not one of U R F D L B.`)
   | None =>
     let length = Array.length(chars)
     if length != 6 * n * n {
@@ -589,7 +613,7 @@ let fromFacelets = (n: int, model: V2.model, pose: V2.pose, facelets: string): r
   V2.cube,
   Orbit64Codec.orbitError,
 > =>
-  switch describeFault(n, model) {
+  switch describeFault(n, model, pose) {
   | Some(error) => error
   | None =>
     if !isString(facelets) {
