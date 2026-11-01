@@ -316,27 +316,34 @@ let writeCenters = (sticker: array<int>, table: array<int>, colors: array<int>):
  *
  * Every index and every property is read exactly once, so a getter or a mutating Proxy cannot
  * show the validation one cube and the painting another. Elements that are not integers become
- * `undefined`, which the shape check rejects as it rejected them before; an array longer than
- * any coordinate vector is replaced by an empty array of that length (never walked), and a
- * non-array component by `false`, both of which fail the same shape check. Absent components
+ * `undefined`, which the shape check rejects as it rejected them before; an array whose length is
+ * not an integer from 0 to 1024 (read once, never called back) and a non-array component become
+ * `false`, which fail the same shape check. Absent components
  * become empty, as in `Orbit64V2.withDefaults`; anything but an object is `undefined`.
  */
 let snapshot: 'a => option<V2.cube> = %raw(`function(value) {
   if (typeof value !== "object" || value === null) return undefined;
   const LIMIT = 1024;
   const element = x => (Number.isInteger(x) ? x : undefined);
+  // The length of an array, read once; false unless it is an integer in 0..LIMIT.
+  const lengthOf = v => {
+    const length = v.length;
+    return typeof length === "number" && Number.isInteger(length) && length >= 0 && length <= LIMIT
+      ? length
+      : false;
+  };
   const vector = v => {
     if (!Array.isArray(v)) return false;
-    const length = v.length;
-    if (!(length <= LIMIT)) return new Array(Number.isInteger(length) ? length : 0);
+    const length = lengthOf(v);
+    if (length === false) return false;
     const copy = new Array(length);
     for (let i = 0; i < length; i++) copy[i] = element(v[i]);
     return copy;
   };
   const matrix = v => {
     if (!Array.isArray(v)) return false;
-    const length = v.length;
-    if (!(length <= LIMIT)) return new Array(Number.isInteger(length) ? length : 0);
+    const length = lengthOf(v);
+    if (length === false) return false;
     const copy = new Array(length);
     for (let i = 0; i < length; i++) copy[i] = vector(v[i]);
     return copy;
