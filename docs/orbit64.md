@@ -37,17 +37,43 @@ For odd cubes, CubeLab derives the stored 24-way frame from the six fixed
 centres and reapplies it on decode, so a whole-cube-rotated labelled state
 round-trips exactly. Even-cube centres encode their orientation directly.
 
-## Orbit64 V2 (coordinates only)
+## Orbit64 V2 (state tokens and color facelets)
 
 `src/State/Orbit64V2.res` implements the draft Orbit64 V2 state token format
-(flix-orbit64 `FORMAT-V2.md`) as a coordinates-only codec: a 54-entry registry,
-`encode(entryId, cube)` and `decode(token)`. It has no facelet bridge, and no
-UI or V1 path uses it. A V1 state token for n = 2, 3, 4, 6 or 7 decodes as the
-V2 color framed entry with the same corner state; a V1 5×5×5 token is rejected.
+(flix-orbit64 `FORMAT-V2.md`) as a coordinates codec: a 54-entry registry,
+`encode(entryId, cube)` and `decode(token)`. No UI or V1 path uses it. A V1
+state token for n = 2, 3, 4, 6 or 7 decodes as the V2 color framed entry with the
+same corner state; a V1 5×5×5 token is rejected.
 The reverse direction is unsafe: a V2 token has no class bits, so a V1 decoder
 can take it for a move sequence or an algorithm. Wherever a V1 decoder could see
 V2 tokens, they MUST be labeled, for example by a field name or an
-`orbit64v2:` prefix.
+`orbit64v2:` prefix. CubeLab does not yet parse such a label.
+
+`src/State/Orbit64V2Facelets.res` is the facelet bridge of the **color model**
+for every n = 2..15, the port of flix-orbit64's `Orbit64.V2.Facelets`:
+`toFacelets(n, model, pose, cube)`, `fromFacelets(n, model, pose, facelets)`,
+and the registry-level helpers `encode(entryId, facelets)` and
+`decode(token)`. A facelet string is the six faces `U R F D L B` of `n²`
+letters each, one space between fields on output; reading ignores spaces only, so
+a tab or newline is a bad letter. Odd cubes are read through the six fixed
+centers (a canonical read accepts any whole-cube orientation; a framed read keeps
+it as the frame rank), even canonical cubes through the DBL corner. Slot tables
+for all sizes are derived as in FORMAT-V2.md and tested equal to
+`FORMAT-V2-SLOTS.md`; the corners and midges of the 5×5×5 and the wings of the
+4×4×4 are V1's own tables in `Orbit64Codec`. Every function returns a result,
+never throws, and an invalid facelet string, an unreachable cube (twisted
+corner, flipped midge, repeated or mirrored piece, wrong-handed centers) or a
+picture entry is an error value. The picture model is out of scope here: its
+entries are an error until it is defined. This path is separate from V1's
+`FaceletCodec`, which strips all whitespace and handles n ≤ 5, and V1 behavior
+is unchanged.
+
+The reference rows in `test/fixtures/orbit64-v2-facelet-vectors.mjs` are
+generated from a flix-orbit64 checkout and are not edited by hand:
+
+```sh
+julia scripts/generate-orbit64-v2-facelet-fixtures.jl [path-to-flix-orbit64]
+```
 
 ## cubing.js and smart-cube boundary
 
