@@ -479,13 +479,17 @@ let guard = (function(attempt) {
   }
 });
 
-function writeOriented(n, sticker, table, pieces, twists) {
+function colorLabels(n, table) {
+  return table.map(slot => slot.map(i => faceOf(n, i)));
+}
+
+function writeOriented(sticker, table, labels, pieces, twists) {
   table.forEach((slotFacelets, slot) => {
     let m = slotFacelets.length;
-    let home = Orbit64Codec.get(table, Orbit64Codec.get(pieces, slot));
+    let shown = Orbit64Codec.get(labels, Orbit64Codec.get(pieces, slot));
     let twist = Orbit64Codec.get(twists, slot);
     for (let k = 0; k < m; ++k) {
-      sticker[Orbit64Codec.get(slotFacelets, k)] = faceOf(n, Orbit64Codec.get(home, Primitive_int.mod_((k - twist | 0) + m | 0, m)));
+      sticker[Orbit64Codec.get(slotFacelets, k)] = Orbit64Codec.get(shown, Primitive_int.mod_((k - twist | 0) + m | 0, m));
     }
   });
 }
@@ -545,11 +549,11 @@ function paint(n, t, cube) {
   t.fixed.forEach((facelet, f) => {
     sticker[facelet] = f;
   });
-  writeOriented(n, sticker, t.corners, cube.cornerPieces, cube.cornerTwists);
+  writeOriented(sticker, t.corners, colorLabels(n, t.corners), cube.cornerPieces, cube.cornerTwists);
   if (Orbit64V2.isOdd(n)) {
-    writeOriented(n, sticker, t.midges, cube.midgePieces, cube.midgeFlips);
+    writeOriented(sticker, t.midges, colorLabels(n, t.midges), cube.midgePieces, cube.midgeFlips);
   }
-  t.wings.forEach((table, i) => writeOriented(n, sticker, table, Orbit64Codec.get(cube.wings, i), Stdlib_Array.make(24, 0)));
+  t.wings.forEach((table, i) => writeOriented(sticker, table, colorLabels(n, table), Orbit64Codec.get(cube.wings, i), Stdlib_Array.make(24, 0)));
   t.centers.forEach((table, i) => writeCenters(sticker, table, Orbit64Codec.get(cube.centers, i)));
   return sticker;
 }
@@ -605,6 +609,13 @@ function letterIndex(c) {
   }
 }
 
+function wrongLength(n, length) {
+  return {
+    TAG: "InvalidFaceletLength",
+    message: `Expected ` + ((6 * n | 0) * n | 0).toString() + ` facelets for the ` + n.toString() + `x` + n.toString() + `x` + n.toString() + `, got ` + length.toString() + `.`
+  };
+}
+
 function parse(n, text) {
   let chars = codePoints(text).filter(c => c !== " ");
   let c = chars.find(c => letterIndex(c) === undefined);
@@ -613,7 +624,10 @@ function parse(n, text) {
   }
   let length = chars.length;
   if (length !== ((6 * n | 0) * n | 0)) {
-    return Orbit64Codec.fail("InvalidFaceletLength", `Expected ` + ((6 * n | 0) * n | 0).toString() + ` facelets for the ` + n.toString() + `x` + n.toString() + `x` + n.toString() + `, got ` + length.toString() + `.`);
+    return {
+      TAG: "Error",
+      _0: wrongLength(n, length)
+    };
   } else {
     return {
       TAG: "Ok",
@@ -793,27 +807,27 @@ function readCube(n, t, frame, fs) {
   }
 }
 
-function normalizeOdd(n, t, fs) {
-  let shown = t.fixed.map(at => Orbit64Codec.get(fs, at));
+function frameShown(shown) {
   let r = range(0, frameCount).find(r => Primitive_object.equal(facesOfFrame(r), shown));
   if (r !== undefined) {
     return {
       TAG: "Ok",
-      _0: [
-        r,
-        unrotate(n, turnOf(r), fs)
-      ]
+      _0: r
     };
   } else {
     return Orbit64Codec.fail("InvalidFaceletFrame", "The six fixed centers are not a right-handed whole-cube frame.");
   }
 }
 
-function normalizeEven(n, t, fs) {
-  let homes = range(0, frameCount).map(r => unrotate(n, turnOf(r), fs)).find(rotated => Primitive_object.equal(readPiece(n, t.corners, seenAt(t.corners, 6, rotated)), [
-    6,
-    0
-  ]));
+function normalizeOdd(n, t, fs) {
+  return Stdlib_Result.map(frameShown(t.fixed.map(at => Orbit64Codec.get(fs, at))), r => [
+    r,
+    unrotate(n, turnOf(r), fs)
+  ]);
+}
+
+function normalizeEven(n, fs, atHome) {
+  let homes = range(0, frameCount).map(r => unrotate(n, turnOf(r), fs)).find(atHome);
   if (homes !== undefined) {
     return {
       TAG: "Ok",
@@ -831,7 +845,10 @@ function posedStickers(n, pose, t, fs) {
       param[1]
     ]);
   } else if (pose === "canonical") {
-    return Stdlib_Result.map(normalizeEven(n, t, fs), c => [
+    return Stdlib_Result.map(normalizeEven(n, fs, rotated => Primitive_object.equal(readPiece(n, t.corners, seenAt(t.corners, 6, rotated)), [
+      6,
+      0
+    ])), c => [
       0,
       c
     ]);
@@ -980,6 +997,7 @@ export {
   describeFault,
   tables,
   guard,
+  colorLabels,
   writeOriented,
   writeCenters,
   snapshot,
@@ -991,6 +1009,7 @@ export {
   codePoints,
   describeChar,
   letterIndex,
+  wrongLength,
   parse,
   checkCounts,
   seenAt,
@@ -999,6 +1018,7 @@ export {
   readOriented,
   readWings,
   readCube,
+  frameShown,
   normalizeOdd,
   normalizeEven,
   posedStickers,
