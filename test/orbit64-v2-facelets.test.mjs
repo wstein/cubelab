@@ -28,7 +28,7 @@ describe("Orbit64 V2 slot tables", () => {
     assert.deepEqual(Object.keys(slotTables).map(Number), [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
     for (const [key, expected] of Object.entries(slotTables)) {
       const n = Number(key);
-      const t = Facelets.tables(n);
+      const t = ok(Facelets.tables(n));
       assert.deepEqual(t.corners, expected.corners, `${n}x${n}x${n} corners`);
       assert.deepEqual(t.midges, expected.midges, `${n}x${n}x${n} midges`);
       assert.deepEqual(t.wings, expected.wings, `${n}x${n}x${n} wings`);
@@ -39,7 +39,7 @@ describe("Orbit64 V2 slot tables", () => {
 
   test("orbit counts follow the cube size, and every slot is a distinct facelet", () => {
     for (let n = 2; n <= 15; n += 1) {
-      const t = Facelets.tables(n);
+      const t = ok(Facelets.tables(n));
       assert.equal(t.corners.length, 8);
       assert.equal(t.midges.length, n % 2 === 1 ? 12 : 0);
       assert.equal(t.wings.length, Orbit64V2.wingOrbits(n));
@@ -51,11 +51,11 @@ describe("Orbit64 V2 slot tables", () => {
   });
 
   test("the reference tables are the V1 slot tables of the 4x4x4 and 5x5x5", () => {
-    assert.deepEqual(Facelets.tables(4).corners, Orbit64Codec.c4);
-    assert.deepEqual(Facelets.tables(4).wings[0], Orbit64Codec.w4);
-    assert.deepEqual(Facelets.tables(5).corners, Orbit64Codec.c5);
-    assert.deepEqual(Facelets.tables(5).midges, Orbit64Codec.e5);
-    assert.deepEqual(Facelets.tables(5).wings, [Orbit64Codec.w5]);
+    assert.deepEqual(ok(Facelets.tables(4)).corners, Orbit64Codec.c4);
+    assert.deepEqual(ok(Facelets.tables(4)).wings[0], Orbit64Codec.w4);
+    assert.deepEqual(ok(Facelets.tables(5)).corners, Orbit64Codec.c5);
+    assert.deepEqual(ok(Facelets.tables(5)).midges, Orbit64Codec.e5);
+    assert.deepEqual(ok(Facelets.tables(5)).wings, [Orbit64Codec.w5]);
   });
 
   test("the 24 whole-cube frames are Orbit64.Frame's list", () => {
@@ -66,7 +66,14 @@ describe("Orbit64 V2 slot tables", () => {
 
 describe("Orbit64 V2 independent facelet rows", () => {
   test("the fixture has rows, and covers every color entry", () => {
-    assert.ok(faceletRows.length > 0);
+    // 28 color entries, two rows (canonical and framed) for each state: a deleted source row shows here.
+    assert.equal(faceletRows.length, 448);
+    const pairs = new Map();
+    for (const [id, moves, facelets] of faceletRows) {
+      const key = `${id >> 1}|${moves}|${facelets}`;
+      pairs.set(key, (pairs.get(key) ?? 0) + 1);
+    }
+    assert.ok([...pairs.values()].every((count) => count === 2));
     const colorEntries = Orbit64V2.registry.filter((e) => e.model === "color").map((e) => e.id);
     assert.deepEqual([...new Set(faceletRows.map(([id]) => id))].sort((a, b) => a - b), colorEntries);
   });
@@ -269,7 +276,14 @@ describe("Orbit64 V2 facelets reject invalid input with exact reasons", () => {
     for (const n of [1, 16, 2.5, NaN, undefined]) {
       assert.equal(err(Facelets.fromFacelets(n, "color", "framed", solved3)).TAG, "UnsupportedType");
     }
-    assert.equal(err(Facelets.fromFacelets(16, "color", "framed", solved3)).message, "No V2 type for the 16x16x16.");
+    const fixed = {TAG: "UnsupportedType", message: "No V2 type for that size."};
+    for (const n of [16, 1, 0, -0, -3, NaN, Infinity, -Infinity, 2.5]) {
+      assert.deepEqual(err(Facelets.fromFacelets(n, "color", "framed", solved3)), fixed);
+      assert.deepEqual(err(Facelets.tables(n)), fixed);
+    }
+    for (const n of [Symbol("n"), 3n, "3", null, undefined, Object.create(null)]) {
+      assert.deepEqual(err(Facelets.tables(n)), fixed);
+    }
   });
 
   test("a size, model or pose that is no V2 type is an error value, never an exception", () => {
@@ -307,6 +321,30 @@ describe("Orbit64 V2 facelets reject invalid input with exact reasons", () => {
         assert.deepEqual(err(result), {TAG: "UnsupportedPose", message: "The V2 poses are canonical and framed."});
       }
     }
+  });
+
+  test("a hostile cube yields a fixed error value and its exception is never read or echoed", () => {
+    const reason = {TAG: "InvalidState", message: "The state could not be read."};
+    const trap = () => new Proxy({}, {get() { throw new Error("trap"); }});
+    const throwers = {
+      "an error with caller text": () => new Error("caller text"),
+      "a proxy that traps": trap,
+      "an object with a throwing message getter": () => ({get message() { throw new Error("inner"); }}),
+      "a primitive": () => "primitive text",
+      "undefined": () => undefined,
+    };
+    for (const [name, make] of Object.entries(throwers)) {
+      for (const key of ["frame", "cornerPieces", "midgeFlips", "wings"]) {
+        const cube = {...Orbit64V2.solved(3, "color")};
+        Object.defineProperty(cube, key, {enumerable: true, get() { throw make(); }});
+        for (const pose of ["canonical", "framed"]) {
+          assert.deepEqual(err(Facelets.toFacelets(3, "color", pose, cube)), reason, `${name} in ${key}`);
+        }
+      }
+    }
+    const hostile = trap();
+    assert.deepEqual(err(Facelets.toFacelets(3, "color", "framed", hostile)), reason);
+    assert.equal(Facelets.toFacelets(3, "color", "framed", new Proxy({}, {has() { throw "text"; }})).TAG, "Error");
   });
 
   test("picture entries and unknown entries are errors for encode, decode and toFacelets", () => {

@@ -7,7 +7,6 @@ import * as Primitive_int from "@rescript/runtime/lib/es6/Primitive_int.js";
 import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
 import * as Stdlib_Result from "@rescript/runtime/lib/es6/Stdlib_Result.js";
 import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
-import * as Primitive_exceptions from "@rescript/runtime/lib/es6/Primitive_exceptions.js";
 
 let letters = [
   "U",
@@ -95,7 +94,7 @@ function fixedFacelets(n) {
   }
 }
 
-function tables(n) {
+function buildTables(n) {
   return {
     corners: expandTable(n, 5, 1, Orbit64Codec.c5),
     midges: Orbit64V2.isOdd(n) ? expandTable(n, 5, 1, Orbit64Codec.e5) : [],
@@ -415,49 +414,42 @@ function unrotate(n, turn, fs) {
   });
 }
 
-let sizeText = (function(value) {
-  return typeof value === "number" ? String(value) : undefined;
-});
-
 let isOneOf = (function(value, names) {
   return typeof value === "string" && names.includes(value);
 });
 
 function typeFault(n, model, pose) {
-  if (!(!Orbit64V2.isInt(n) || n < 2 || n > 15)) {
-    if (isOneOf(model, [
-        "color",
-        "picture"
-      ])) {
-      if (model === "picture") {
-        return [
-          "UnsupportedModel",
-          "The picture model has no letters."
-        ];
-      } else if (!isOneOf(pose, [
-          "canonical",
-          "framed"
-        ])) {
-        return [
-          "UnsupportedPose",
-          "The V2 poses are canonical and framed."
-        ];
-      } else {
-        return;
-      }
-    } else {
+  if (!Orbit64V2.isInt(n) || n < 2 || n > 15) {
+    return [
+      "UnsupportedType",
+      "No V2 type for that size."
+    ];
+  } else if (isOneOf(model, [
+      "color",
+      "picture"
+    ])) {
+    if (model === "picture") {
       return [
         "UnsupportedModel",
-        "The V2 models are color and picture."
+        "The picture model has no letters."
       ];
+    } else if (!isOneOf(pose, [
+        "canonical",
+        "framed"
+      ])) {
+      return [
+        "UnsupportedPose",
+        "The V2 poses are canonical and framed."
+      ];
+    } else {
+      return;
     }
+  } else {
+    return [
+      "UnsupportedModel",
+      "The V2 models are color and picture."
+    ];
   }
-  let shown = sizeText(n);
-  let message = shown !== undefined ? `No V2 type for the ` + shown + `x` + shown + `x` + shown + `.` : "No V2 type for that size.";
-  return [
-    "UnsupportedType",
-    message
-  ];
 }
 
 function describeFault(n, model, pose) {
@@ -466,6 +458,26 @@ function describeFault(n, model, pose) {
     return Orbit64Codec.fail(match[0], match[1]);
   }
 }
+
+function tables(n) {
+  let match = typeFault(n, "color", "canonical");
+  if (match !== undefined) {
+    return Orbit64Codec.fail(match[0], match[1]);
+  } else {
+    return {
+      TAG: "Ok",
+      _0: buildTables(n)
+    };
+  }
+}
+
+let guard = (function(attempt) {
+  try {
+    return attempt();
+  } catch (_) {
+    return {TAG: "Error", _0: {TAG: "InvalidState", message: "The state could not be read."}};
+  }
+});
 
 function writeOriented(n, sticker, table, pieces, twists) {
   table.forEach((slotFacelets, slot) => {
@@ -515,24 +527,22 @@ function toFacelets(n, model, pose, cube) {
   let error = describeFault(n, model, pose);
   if (error !== undefined) {
     return error;
-  }
-  try {
-    let cube$1 = Orbit64V2.withDefaults(cube);
-    if (cube$1 === undefined) {
-      return Orbit64Codec.fail("InvalidState", "The state must be an object.");
-    }
-    let why = stateFault(n, model, pose, cube$1);
-    if (why !== undefined) {
-      return Orbit64Codec.fail("InvalidState", why);
-    }
-    let fs = paint(n, tables(n), cube$1);
-    return {
-      TAG: "Ok",
-      _0: spell(n, Orbit64V2.isOdd(n) ? rotate(n, turnOf(cube$1.frame), fs) : fs)
-    };
-  } catch (raw_exn) {
-    let exn = Primitive_exceptions.internalToException(raw_exn);
-    return Orbit64Codec.fail("InvalidState", Orbit64V2.describe(exn));
+  } else {
+    return guard(() => {
+      let cube$1 = Orbit64V2.withDefaults(cube);
+      if (cube$1 === undefined) {
+        return Orbit64Codec.fail("InvalidState", "The state must be an object.");
+      }
+      let why = stateFault(n, model, pose, cube$1);
+      if (why !== undefined) {
+        return Orbit64Codec.fail("InvalidState", why);
+      }
+      let fs = paint(n, buildTables(n), cube$1);
+      return {
+        TAG: "Ok",
+        _0: spell(n, Orbit64V2.isOdd(n) ? rotate(n, turnOf(cube$1.frame), fs) : fs)
+      };
+    });
   }
 }
 
@@ -808,7 +818,7 @@ function readStickers(n, model, pose, text) {
       _0: e$1
     };
   }
-  let t = tables(n);
+  let t = buildTables(n);
   let e$2 = posedStickers(n, pose, t, fs);
   if (e$2.TAG !== "Ok") {
     return {
@@ -840,15 +850,10 @@ function fromFacelets(n, model, pose, facelets) {
   let error = describeFault(n, model, pose);
   if (error !== undefined) {
     return error;
-  }
-  if (!Orbit64V2.isString(facelets)) {
+  } else if (Orbit64V2.isString(facelets)) {
+    return guard(() => readStickers(n, model, pose, facelets));
+  } else {
     return Orbit64Codec.fail("InvalidFacelet", "A facelet string is a string.");
-  }
-  try {
-    return readStickers(n, model, pose, facelets);
-  } catch (raw_exn) {
-    let exn = Primitive_exceptions.internalToException(raw_exn);
-    return Orbit64Codec.fail("InvalidState", Orbit64V2.describe(exn));
   }
 }
 
@@ -892,8 +897,6 @@ let fail = Orbit64Codec.fail;
 
 let isInt = Orbit64V2.isInt;
 
-let describe = Orbit64V2.describe;
-
 let isString = Orbit64V2.isString;
 
 export {
@@ -909,7 +912,7 @@ export {
   centerTable,
   centerTables,
   fixedFacelets,
-  tables,
+  buildTables,
   faceOf,
   geometry,
   faceOfNormal,
@@ -928,15 +931,15 @@ export {
   rotate,
   unrotate,
   isInt,
-  sizeText,
   isOneOf,
   typeFault,
   describeFault,
+  tables,
+  guard,
   writeOriented,
   writeCenters,
   paint,
   spell,
-  describe,
   stateFault,
   toFacelets,
   isString,

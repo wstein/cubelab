@@ -17,7 +17,9 @@
  * piece's colors are the faces of its home slot's facelets.
  *
  * Only the color model has letters; the picture model is a separate task and its
- * entries are an error here. Every function returns a result and never throws.
+ * entries are an error here. The entry points `tables`, `toFacelets`, `fromFacelets`,
+ * `encode` and `decode` return a result and never throw, whatever they are given; the
+ * helpers above them are internal building blocks that expect a valid size.
  */
 module V2 = Orbit64V2
 
@@ -102,7 +104,7 @@ let fixedFacelets = (n: int): array<int> => {
 }
 
 /** The facelets of every slot of an `n x n x n`, in slot order, for `n = 2..15`. */
-let tables = (n: int): tables => {
+let buildTables = (n: int): tables => {
   corners: expandTable(n, 5, 1, Orbit64Codec.c5),
   midges: V2.isOdd(n) ? expandTable(n, 5, 1, Orbit64Codec.e5) : [],
   wings: range(1, V2.wingOrbits(n) + 1)->Array.map(d => expandTable(n, 4, d, Orbit64Codec.w4)),
@@ -243,11 +245,6 @@ let unrotate = (n: int, turn: turn, fs: array<int>): array<int> =>
 
 let isInt = V2.isInt
 
-/** The size as text, only when it is a number; anything else is not shown, never converted. */
-let sizeText: 'a => option<string> = %raw(`function(value) {
-  return typeof value === "number" ? String(value) : undefined;
-}`)
-
 let isOneOf: ('a, array<string>) => bool = %raw(`function(value, names) {
   return typeof value === "string" && names.includes(value);
 }`)
@@ -255,11 +252,7 @@ let isOneOf: ('a, array<string>) => bool = %raw(`function(value, names) {
 /** Why a type has no facelet letters, if it has none: an unknown size, model or pose, or the picture model. */
 let typeFault = (n: int, model: V2.model, pose: V2.pose): option<(string, string)> =>
   if !isInt(n) || n < 2 || n > 15 {
-    let message = switch sizeText(n) {
-    | Some(shown) => `No V2 type for the ${shown}x${shown}x${shown}.`
-    | None => "No V2 type for that size."
-    }
-    Some(("UnsupportedType", message))
+    Some(("UnsupportedType", "No V2 type for that size."))
   } else if !isOneOf(model, ["color", "picture"]) {
     Some(("UnsupportedModel", "The V2 models are color and picture."))
   } else if model == Picture {
@@ -275,6 +268,25 @@ let describeFault = (n: int, model: V2.model, pose: V2.pose) =>
   | Some((tag, message)) => Some(Orbit64Codec.fail(tag, message))
   | None => None
   }
+
+/** The slot tables of an `n x n x n`, `n = 2..15`; any other size is an error. */
+let tables = (n: int): result<tables, Orbit64Codec.orbitError> =>
+  switch typeFault(n, Color, Canonical) {
+  | Some((tag, message)) => fail(tag, message)
+  | None => Ok(buildTables(n))
+  }
+
+/** Run `attempt`; any exception, however hostile, is a fixed error and is never read or echoed. */
+let guard: (unit => result<'a, Orbit64Codec.orbitError>) => result<
+  'a,
+  Orbit64Codec.orbitError,
+> = %raw(`function(attempt) {
+  try {
+    return attempt();
+  } catch (_) {
+    return {TAG: "Error", _0: {TAG: "InvalidState", message: "The state could not be read."}};
+  }
+}`)
 
 // ------------------------------------------------------------ cube to stickers
 
@@ -323,9 +335,6 @@ let spell = (n: int, fs: array<int>): string =>
   )
   ->Array.join(" ")
 
-/** The message of a caught exception; ReScript wraps JavaScript exceptions, so unwrap first. */
-let describe = V2.describe
-
 /** Shape, range and law checks of the V2 codec: the reason a state is no cube of the type. */
 let stateFault = (n: int, model: V2.model, pose: V2.pose, cube: V2.cube): option<string> =>
   switch V2.layoutFault(n, model, pose, cube) {
@@ -347,20 +356,18 @@ let toFacelets = (n: int, model: V2.model, pose: V2.pose, cube: V2.cube): result
   switch describeFault(n, model, pose) {
   | Some(error) => error
   | None =>
-    try {
+    guard(() =>
       switch V2.withDefaults(cube) {
       | None => fail("InvalidState", "The state must be an object.")
       | Some(cube) =>
         switch stateFault(n, model, pose, cube) {
         | Some(why) => fail("InvalidState", why)
         | None =>
-          let fs = paint(n, tables(n), cube)
+          let fs = paint(n, buildTables(n), cube)
           Ok(spell(n, V2.isOdd(n) ? rotate(n, turnOf(cube.frame), fs) : fs))
         }
       }
-    } catch {
-    | exn => fail("InvalidState", describe(exn))
-    }
+    )
   }
 
 // ------------------------------------------------------------ stickers to cube
@@ -583,7 +590,7 @@ let readStickers = (n: int, model: V2.model, pose: V2.pose, text: string): resul
     switch checkCounts(n, fs) {
     | Some(e) => Error(e)
     | None =>
-      let t = tables(n)
+      let t = buildTables(n)
       switch posedStickers(n, pose, t, fs) {
       | Error(e) => Error(e)
       | Ok((frame, posed)) =>
@@ -619,9 +626,7 @@ let fromFacelets = (n: int, model: V2.model, pose: V2.pose, facelets: string): r
     if !isString(facelets) {
       fail("InvalidFacelet", "A facelet string is a string.")
     } else {
-      try readStickers(n, model, pose, facelets) catch {
-      | exn => fail("InvalidState", describe(exn))
-      }
+      guard(() => readStickers(n, model, pose, facelets))
     }
   }
 

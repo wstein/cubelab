@@ -60,8 +60,8 @@ centers (a canonical read accepts any whole-cube orientation; a framed read keep
 it as the frame rank), even canonical cubes through the DBL corner. Slot tables
 for all sizes are derived as in FORMAT-V2.md and tested equal to
 `FORMAT-V2-SLOTS.md`; the corners and midges of the 5×5×5 and the wings of the
-4×4×4 are V1's own tables in `Orbit64Codec`. Every function returns a result,
-never throws, and an invalid facelet string, an unreachable cube (twisted
+4×4×4 are V1's own tables in `Orbit64Codec`. Every entry point returns a result,
+never throws, whatever it is given, and an invalid facelet string, an unreachable cube (twisted
 corner, flipped midge, repeated or mirrored piece, wrong-handed centers) or a
 picture entry is an error value. The picture model is out of scope here: its
 entries are an error until it is defined. This path is separate from V1's
