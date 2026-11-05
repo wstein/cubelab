@@ -38,10 +38,11 @@ CubeLab keeps its studio, Academy, timer, device workflows and application UI.
 Cubacle remains a separate optional Rust search provider behind a checked adapter;
 do not introduce a Rust project in PuzlWerk or silently rename repository ownership.
 CubeAssembler remains the scanning/assembly application; it is not the CubeLab UI.
-Shared scene (camera, lighting, cube rotation) and rendering belong to the planned
-`@puzlwerk/viewer`, a separate package in the PuzlWerk monorepo. Its contract is the
-CubeScene model ([Cubistry #111](https://github.com/wstein/cubistry/issues/111));
-dependencies run Core <- Viewer <- applications. CubeLab keeps its native WebGL
+Shared scene and rendering, without application knowledge, belong to the planned
+`@puzlwerk/viewer` (owner decision, 2026-11-05), a separate package in the PuzlWerk
+monorepo. Its contract is the proposed CubeScene model
+([Cubistry #111](https://github.com/wstein/cubistry/issues/111), still open). Applications
+depend on the viewer and the viewer depends on Core. CubeLab keeps its native WebGL
 viewport until the M3 migration is approved separately. This is the target
 architecture, not a migration approval.
 Consult [Cubistry #21](https://github.com/wstein/cubistry/issues/21), then the current
