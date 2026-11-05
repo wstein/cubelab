@@ -96,21 +96,10 @@ Keep input, replay and device data browser-local; do not add telemetry/server st
 Read the issue, relevant feature contracts and existing tests before editing.
 State acceptance criteria; keep implementation within the approved scope.
 Ask for explicit approval before each new implementation/migration phase or expansion.
-Use a dedicated feature branch/worktree; coordinate shared branches before rebasing.
 Preserve working behavior and add a focused regression for an actual bug or feature.
-Open/update the requested Draft PR with scope, commands/results, risks and dependencies.
-Obtain an independent review; the author fixes findings and the reviewer rechecks.
-Human approval is required to mark Ready, merge, deploy or publish; never auto-merge.
-Use Rebase and Merge for approved PRs; no squash merely to reduce commit count.
+Merge: Rebase and merge only.
 Do not create another PR when asked to update an existing one.
-
-## Git history and atomic commits
-
-- Keep the history of protected branches strictly linear. Prefer **Rebase and Merge** over Squash and Merge; do not introduce merge commits.
-- Use small, focused, **atomic Conventional Commits**. Each commit should represent one coherent, independently understandable change, with its relevant tests or documentation when applicable.
-- Preserve meaningful individual commits; do not squash merely to reduce the commit count. Clean up only redundant fixups or incomplete intermediate commits when needed.
-- Do not rewrite shared or protected branch history, force-push a shared branch, change branch protection, mark PRs ready, or merge without the required human approval. Coordinate any necessary feature-branch history rewrite with collaborators.
-- For stacked PRs, preserve their dependencies and avoid duplicated commits; verify the resulting diffs and relevant checks after rebasing.
+Agent collaboration (roles, review, Ready, merge, rewrite, stacks, labels, identity, reports) follows the global agent rules, not this file.
 
 ## Commands and validation
 
