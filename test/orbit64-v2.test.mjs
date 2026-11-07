@@ -358,6 +358,48 @@ describe("Orbit64 V2 hardening", () => {
     }
   });
 
+  test("every property and element of every component is read exactly once", () => {
+    // Each accessor shows the right value on its first read and a wrong one afterward, so a component read
+    // twice (or kept live) ranks a different cube than the one validated, and its read count is above 1.
+    for (const e of Orbit64V2.registry.filter((x) => x.n <= 5)) {
+      const clean = Orbit64V2.solved(e.n, e.model);
+      const expected = ok(Orbit64V2.encode(e.id, clean));
+      const cube = Orbit64V2.solved(e.n, e.model);
+      const counts = [];
+      const watch = (label, target, key, wrong) => {
+        const original = target[key];
+        const index = counts.push(0) - 1;
+        Object.defineProperty(target, key, {
+          enumerable: true,
+          configurable: true,
+          get: () => (++counts[index] === 1 ? original : wrong(original)),
+        });
+        return () => [label, counts[index]];
+      };
+      const reads = [];
+      for (const key of ["cornerPieces", "cornerTwists", "midgePieces", "midgeFlips", "rotations"]) {
+        for (let i = 0; i < cube[key].length; i++) {
+          reads.push(watch(`${key}[${i}]`, cube[key], i, (v) => (v + 1) % 2));
+        }
+      }
+      for (const key of ["wings", "centers"]) {
+        cube[key].forEach((row, r) => {
+          for (let i = 0; i < row.length; i++) reads.push(watch(`${key}[${r}][${i}]`, row, i, (v) => (v + 1) % 4));
+        });
+      }
+      for (const key of ["cornerPieces", "cornerTwists", "midgePieces", "midgeFlips", "wings", "centers", "rotations"]) {
+        reads.push(watch(key, cube, key, () => []));
+      }
+      reads.push(watch("frame", cube, "frame", () => 1));
+      const result = Orbit64V2.encode(e.id, cube);
+      assert.equal(ok(result), expected, `entry ${e.id}`);
+      for (const read of reads) {
+        const [label, count] = read();
+        assert.equal(count, 1, `entry ${e.id}: ${label} is read once`);
+      }
+    }
+  });
+
   test("a hostile array length gives the shape error and is never called back or walked", () => {
     const shape = {TAG: "InvalidState", message: "The cube coordinates do not have the shape of this puzzle type."};
     let calls = 0;
