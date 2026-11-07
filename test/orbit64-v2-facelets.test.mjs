@@ -348,6 +348,19 @@ describe("Orbit64 V2 facelets reject invalid input with exact reasons", () => {
     assert.equal(Facelets.toFacelets(3, "color", "framed", new Proxy({}, {has() { throw "text"; }})).TAG, "Error");
   });
 
+  test("the frame of a cube is read exactly once", () => {
+    const solved = (n) => Orbit64V2.solved(n, "color");
+    for (const n of [3, 5]) {
+      const expected = ok(Facelets.toFacelets(n, "color", "framed", {...solved(n), frame: 4}));
+      // A getter that answers 4 on its first read and 0 afterward: a live read of `frame` shows it.
+      const cube = solved(n);
+      let reads = 0;
+      Object.defineProperty(cube, "frame", {enumerable: true, get: () => (++reads === 1 ? 4 : 0)});
+      assert.equal(ok(Facelets.toFacelets(n, "color", "framed", cube)), expected, `n = ${n}`);
+      assert.equal(reads, 1, `reads of frame, n = ${n}`);
+    }
+  });
+
   test("a cube whose elements change between reads is validated and painted from one snapshot", () => {
     const solved = (n) => Orbit64V2.solved(n, "color");
     const twisted = {TAG: "InvalidState", message: "Corner twists must sum to 0 mod 3."};
