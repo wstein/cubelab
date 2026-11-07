@@ -1,6 +1,7 @@
 /**
- * The Orbit64 V2 facelet bridge for the color model (flix-orbit64 FORMAT-V2.md,
- * `Orbit64.V2.Facelets`): a cube state to its stickers and back, for `n = 2..15`.
+ * The Orbit64 V2 facelet bridge for the color and picture models (flix-orbit64
+ * FORMAT-V2.md, `Orbit64.V2.Facelets`): a cube state to its stickers and back, for
+ * `n = 2..15` (the picture model for `n = 3..15`).
  *
  * A facelet string writes the `6 n^2` stickers as the letters `U R F D L B`,
  * one per facelet, in six face fields of that order separated by one space.
