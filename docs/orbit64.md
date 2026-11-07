@@ -88,10 +88,12 @@ picture entry (its picture model is the color model), so a picture 2×2×2 is an
 `UnsupportedModel` error. The string is scanned once by code point and not
 copied, so the memory used does not grow with its length.
 
-Error messages follow the color bridge: a sentence with a period that never
-repeats the caller's text beyond one named character. They differ from the Flix
-reference in wording only; the decision to accept or reject a string, and every
-token, are the same.
+Error messages follow the color bridge: a sentence with a period that quotes
+only a few symbols of the caller's text. A message about one slot quotes the
+symbols on that slot (up to three, for a corner); a range or repeat message
+quotes one symbol; the others quote one character or none. The text is never
+repeated beyond that. They differ from the Flix reference in wording only; the
+decision to accept or reject a string, and every token, are the same.
 
 The reference rows in `test/fixtures/orbit64-v2-facelet-vectors.mjs` (color,
 slot tables, frames) and `test/fixtures/orbit64-v2-facelet-picture-vectors.mjs`
