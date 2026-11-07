@@ -471,14 +471,6 @@ function tables(n) {
   }
 }
 
-let guard = (function(attempt) {
-  try {
-    return attempt();
-  } catch (_) {
-    return {TAG: "Error", _0: {TAG: "InvalidState", message: "The state could not be read."}};
-  }
-});
-
 function colorLabels(n, table) {
   return table.map(slot => slot.map(i => faceOf(n, i)));
 }
@@ -514,50 +506,6 @@ function writeCenters(sticker, table, colors) {
     sticker[facelet] = Orbit64Codec.get(colors, slot);
   });
 }
-
-let snapshot = (function(value) {
-  if (typeof value !== "object" || value === null) return undefined;
-  const LIMIT = 1024;
-  const element = x => (Number.isInteger(x) ? x : undefined);
-  // The length of an array, read once; false unless it is an integer in 0..LIMIT.
-  const lengthOf = v => {
-    const length = v.length;
-    return typeof length === "number" && Number.isInteger(length) && length >= 0 && length <= LIMIT
-      ? length
-      : false;
-  };
-  const vector = v => {
-    if (!Array.isArray(v)) return false;
-    const length = lengthOf(v);
-    if (length === false) return false;
-    const copy = new Array(length);
-    for (let i = 0; i < length; i++) copy[i] = element(v[i]);
-    return copy;
-  };
-  const matrix = v => {
-    if (!Array.isArray(v)) return false;
-    const length = lengthOf(v);
-    if (length === false) return false;
-    const copy = new Array(length);
-    for (let i = 0; i < length; i++) copy[i] = vector(v[i]);
-    return copy;
-  };
-  const component = (key, copy) => {
-    const v = value[key];
-    return v === undefined || v === null ? [] : copy(v);
-  };
-  const frame = value.frame;
-  return {
-    cornerPieces: component("cornerPieces", vector),
-    cornerTwists: component("cornerTwists", vector),
-    midgePieces: component("midgePieces", vector),
-    midgeFlips: component("midgeFlips", vector),
-    wings: component("wings", matrix),
-    centers: component("centers", matrix),
-    rotations: component("rotations", vector),
-    frame: frame === undefined ? 0 : Number.isInteger(frame) ? frame : NaN,
-  };
-});
 
 function fixedValue(model, cube, face) {
   if (model === "picture") {
@@ -690,8 +638,8 @@ function toFacelets(n, model, pose, cube) {
   if (error !== undefined) {
     return error;
   } else {
-    return guard(() => {
-      let cube$1 = snapshot(cube);
+    return Orbit64V2.guard(() => {
+      let cube$1 = Orbit64V2.snapshot(cube);
       if (cube$1 === undefined) {
         return Orbit64Codec.fail("InvalidState", "The state must be an object.");
       }
@@ -1307,7 +1255,7 @@ function fromFacelets(n, model, pose, facelets) {
   if (error !== undefined) {
     return error;
   } else if (Orbit64V2.isString(facelets)) {
-    return guard(() => {
+    return Orbit64V2.guard(() => {
       if (model === "picture") {
         return readPictureStickers(n, pose, facelets);
       } else {
@@ -1397,13 +1345,11 @@ export {
   typeFault,
   describeFault,
   tables,
-  guard,
   colorLabels,
   pictureLabels,
   labelsOf,
   writeOriented,
   writeCenters,
-  snapshot,
   fixedValue,
   paint,
   symbolOf,

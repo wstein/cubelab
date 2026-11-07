@@ -270,12 +270,138 @@ describe("Orbit64 V2 hardening", () => {
     assert.equal(Orbit64V2.encode(4, {...Orbit64V2.solved(3, "picture"), rotations}).TAG, "Error");
   });
 
-  test("error messages describe the failure", () => {
-    const hostile = new Proxy({}, {get() { throw new Error("boom"); }});
-    const result = Orbit64V2.encode(0, hostile);
-    assert.equal(result.TAG, "Error");
-    assert.match(result._0.message, /boom/);
-    assert.ok(!result._0.message.includes("[object Object]"));
+  test("a hostile cube yields a fixed error value and its exception is never echoed", () => {
+    const reason = {TAG: "InvalidState", message: "The state could not be read."};
+    const trap = () => new Proxy({}, {get() { throw new Error("caller text"); }});
+    const throwers = {
+      "an error with caller text": () => new Error("caller text"),
+      "a proxy that traps": trap,
+      "an object with a throwing message getter": () => ({get message() { throw new Error("caller text"); }}),
+      "a primitive": () => "caller text",
+      "undefined": () => undefined,
+    };
+    for (const [name, make] of Object.entries(throwers)) {
+      for (const key of ["frame", "cornerPieces", "midgeFlips", "wings"]) {
+        const cube = {...Orbit64V2.solved(3, "color")};
+        Object.defineProperty(cube, key, {enumerable: true, get() { throw make(); }});
+        assert.deepEqual(Orbit64V2.encode(2, cube), {TAG: "Error", _0: reason}, `${name} in ${key}`);
+      }
+    }
+    assert.deepEqual(Orbit64V2.encode(0, trap()), {TAG: "Error", _0: reason});
+    const nested = {...Orbit64V2.solved(2, "color"), cornerPieces: new Proxy([], {get() { throw new Error("caller text"); }})};
+    assert.deepEqual(Orbit64V2.encode(0, nested), {TAG: "Error", _0: reason});
+    const throwingElement = Orbit64V2.solved(3, "color");
+    Object.defineProperty(throwingElement.cornerTwists, 2, {get() { throw new Error("caller text"); }});
+    assert.deepEqual(Orbit64V2.encode(2, throwingElement), {TAG: "Error", _0: reason});
+  });
+
+  test("a cube whose elements change between reads is validated and ranked from one snapshot", () => {
+    const solved = () => Orbit64V2.solved(3, "color");
+    const solvedToken = ok(Orbit64V2.encode(2, solved()));
+    // An index getter that is right for the first reads and wrong afterward: one read, so right throughout.
+    const cube = solved();
+    let reads = 0;
+    Object.defineProperty(cube.cornerTwists, 0, {get: () => (++reads > 3 ? 1 : 0)});
+    assert.equal(ok(Orbit64V2.encode(2, cube)), solvedToken);
+    assert.equal(reads, 1);
+    // An index getter that is wrong on its first read is that cube, with the exact reason.
+    const wrongFirst = solved();
+    let calls = 0;
+    Object.defineProperty(wrongFirst.cornerTwists, 0, {get: () => (++calls === 1 ? 1 : 0)});
+    assert.deepEqual(Orbit64V2.encode(2, wrongFirst), {
+      TAG: "Error",
+      _0: {TAG: "InvalidState", message: "Corner twists must sum to 0 mod 3."},
+    });
+    assert.equal(calls, 1);
+    // A property getter is read once, too.
+    const property = solved();
+    let propertyReads = 0;
+    const twists = property.cornerTwists;
+    Object.defineProperty(property, "cornerTwists", {enumerable: true, get: () => (++propertyReads > 1 ? [1, 0, 0, 0, 0, 0, 0, 0] : twists)});
+    assert.equal(ok(Orbit64V2.encode(2, property)), solvedToken);
+    assert.equal(propertyReads, 1);
+    // A mutating Proxy array: the value of every index depends on how often it was read.
+    const mutating = (array, bad, after) => {
+      let count = 0;
+      return new Proxy(array, {
+        get(target, key, receiver) {
+          const value = Reflect.get(target, key, receiver);
+          return typeof key === "string" && /^\d+$/.test(key) && ++count > after ? bad : value;
+        },
+      });
+    };
+    const fields = {cornerPieces: 7, cornerTwists: 1, midgePieces: 11, midgeFlips: 1};
+    for (const [field, bad] of Object.entries(fields)) {
+      for (const after of [0, 1, 2, 3, 5, 8, 20]) {
+        const hostile = solved();
+        hostile[field] = mutating(hostile[field], bad, after);
+        const result = Orbit64V2.encode(2, hostile);
+        if (result.TAG === "Ok") {
+          // Whatever was read, a token is one that decodes to a cube that encodes to the same token.
+          assert.equal(ok(Orbit64V2.encode(2, ok(Orbit64V2.decode(result._0)).cube)), result._0, `${field} after=${after}`);
+        } else {
+          assert.equal(result._0.TAG, "InvalidState", `${field} after=${after}`);
+        }
+      }
+    }
+    for (const field of ["wings", "centers"]) {
+      for (let after = 0; after < 200; after += 1) {
+        const hostile = Orbit64V2.solved(4, "color");
+        hostile[field] = hostile[field].map((v, i) => (i === 0 ? mutating(v, 5, after) : v));
+        const result = Orbit64V2.encode(6, hostile);
+        if (result.TAG === "Ok") {
+          assert.equal(ok(Orbit64V2.encode(6, ok(Orbit64V2.decode(result._0)).cube)), result._0, `${field} after=${after}`);
+        } else {
+          assert.equal(result._0.TAG, "InvalidState", `${field} after=${after}`);
+        }
+      }
+    }
+  });
+
+  test("a hostile array length gives the shape error and is never called back or walked", () => {
+    const shape = {TAG: "InvalidState", message: "The cube coordinates do not have the shape of this puzzle type."};
+    let calls = 0;
+    const flipping = {
+      valueOf() {
+        // Bounded, so a regression fails instead of hanging.
+        if (++calls > 100000) throw new Error("too many calls");
+        return calls === 1 ? 0 : Infinity;
+      },
+    };
+    const lengths = {
+      "an object with valueOf": flipping,
+      "a string": "8",
+      "a bigint": 8n,
+      "minus one": -1,
+      "a fraction": 2.5,
+      "NaN": NaN,
+      "Infinity": Infinity,
+      "just above the limit": 1025,
+      "a million": 1e6,
+      "two to the 31st": 2 ** 31,
+    };
+    for (const [name, length] of Object.entries(lengths)) {
+      for (const field of ["cornerTwists", "wings", "centers"]) {
+        const cube = Orbit64V2.solved(4, "color");
+        let indexReads = 0;
+        cube[field] = new Proxy([], {
+          get(target, key) {
+            if (key === "length") return length;
+            if (typeof key === "string" && /^\d+$/.test(key)) indexReads += 1;
+            return 0;
+          },
+        });
+        assert.deepEqual(Orbit64V2.encode(6, cube), {TAG: "Error", _0: shape}, `${name} in ${field}`);
+        assert.equal(indexReads, 0, `${name} in ${field}: no index is read`);
+      }
+    }
+    assert.equal(calls, 0, "valueOf is never called");
+    // A row of a matrix is guarded the same way.
+    const row = Orbit64V2.solved(4, "color");
+    let rowReads = 0;
+    row.wings = [new Proxy([], {get: (t, key) => (key === "length" ? 1e6 : (rowReads += 1, 0))})];
+    assert.deepEqual(Orbit64V2.encode(6, row), {TAG: "Error", _0: shape});
+    assert.equal(rowReads, 0);
   });
 
   test("hostile getters and proxies yield an error value", () => {
