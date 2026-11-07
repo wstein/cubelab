@@ -226,19 +226,70 @@ let intMatrix: ('a, int, int) => bool = %raw(`function(value, rows, size) {
   return true;
 }`)
 
-/** A shallow copy with absent array components made empty; anything but an object stays `undefined`. */
-let withDefaults: 'a => option<cube> = %raw(`function(value) {
+/**
+ * A private, dense snapshot of a cube, taken once before anything is validated or painted.
+ *
+ * Every index and every property is read exactly once, so a getter or a mutating Proxy cannot
+ * show the validation one cube and the painting another. Elements that are not integers become
+ * `undefined`, which the shape check rejects as it rejected them before; an array whose length is
+ * not an integer from 0 to 1024 (read once, never called back) and a non-array component become
+ * `false`, which fail the same shape check. An absent component becomes empty; anything but an
+ * object is `undefined`. Orbit64V2Facelets uses the same snapshot.
+ */
+let snapshot: 'a => option<cube> = %raw(`function(value) {
   if (typeof value !== "object" || value === null) return undefined;
-  const empty = key => (value[key] === undefined || value[key] === null ? [] : value[key]);
-  return {
-    ...value,
-    midgePieces: empty("midgePieces"),
-    midgeFlips: empty("midgeFlips"),
-    wings: empty("wings"),
-    centers: empty("centers"),
-    rotations: empty("rotations"),
-    frame: value.frame === undefined ? 0 : value.frame,
+  const LIMIT = 1024;
+  const element = x => (Number.isInteger(x) ? x : undefined);
+  // The length of an array, read once; false unless it is an integer in 0..LIMIT.
+  const lengthOf = v => {
+    const length = v.length;
+    return typeof length === "number" && Number.isInteger(length) && length >= 0 && length <= LIMIT
+      ? length
+      : false;
   };
+  const vector = v => {
+    if (!Array.isArray(v)) return false;
+    const length = lengthOf(v);
+    if (length === false) return false;
+    const copy = new Array(length);
+    for (let i = 0; i < length; i++) copy[i] = element(v[i]);
+    return copy;
+  };
+  const matrix = v => {
+    if (!Array.isArray(v)) return false;
+    const length = lengthOf(v);
+    if (length === false) return false;
+    const copy = new Array(length);
+    for (let i = 0; i < length; i++) copy[i] = vector(v[i]);
+    return copy;
+  };
+  const component = (key, copy) => {
+    const v = value[key];
+    return v === undefined || v === null ? [] : copy(v);
+  };
+  const frame = value.frame;
+  return {
+    cornerPieces: component("cornerPieces", vector),
+    cornerTwists: component("cornerTwists", vector),
+    midgePieces: component("midgePieces", vector),
+    midgeFlips: component("midgeFlips", vector),
+    wings: component("wings", matrix),
+    centers: component("centers", matrix),
+    rotations: component("rotations", vector),
+    frame: frame === undefined ? 0 : Number.isInteger(frame) ? frame : NaN,
+  };
+}`)
+
+/** Run `attempt`; any exception, however hostile, is a fixed error and is never read or echoed. */
+let guard: (unit => result<'a, Orbit64Codec.orbitError>) => result<
+  'a,
+  Orbit64Codec.orbitError,
+> = %raw(`function(attempt) {
+  try {
+    return attempt();
+  } catch (_) {
+    return {TAG: "Error", _0: {TAG: "InvalidState", message: "The state could not be read."}};
+  }
 }`)
 
 let isPermutation = (v: array<int>, k: int): bool =>
@@ -408,8 +459,8 @@ let encode = (id: int, cube: cube): result<string, Orbit64Codec.orbitError> =>
   switch isInt(id) ? entryById(id) : None {
   | None => fail("UnknownEntry", "The V2 registry has no such entry.")
   | Some(e) =>
-    try {
-      switch withDefaults(cube) {
+    guard(() =>
+      switch snapshot(cube) {
       | None => fail("InvalidState", "The state must be an object.")
       | Some(cube) =>
         let fault = switch layoutFault(e.n, e.model, e.pose, cube) {
@@ -429,9 +480,7 @@ let encode = (id: int, cube: cube): result<string, Orbit64Codec.orbitError> =>
           Ok(toBase64(B.add(e.offset, rank), e.length))
         }
       }
-    } catch {
-    | exn => fail("InvalidState", describe(exn))
-    }
+    )
   }
 
 // ----------------------------------------------------------------- unranking

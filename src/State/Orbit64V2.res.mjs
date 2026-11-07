@@ -240,18 +240,56 @@ let intMatrix = (function(value, rows, size) {
   return true;
 });
 
-let withDefaults = (function(value) {
+let snapshot = (function(value) {
   if (typeof value !== "object" || value === null) return undefined;
-  const empty = key => (value[key] === undefined || value[key] === null ? [] : value[key]);
-  return {
-    ...value,
-    midgePieces: empty("midgePieces"),
-    midgeFlips: empty("midgeFlips"),
-    wings: empty("wings"),
-    centers: empty("centers"),
-    rotations: empty("rotations"),
-    frame: value.frame === undefined ? 0 : value.frame,
+  const LIMIT = 1024;
+  const element = x => (Number.isInteger(x) ? x : undefined);
+  // The length of an array, read once; false unless it is an integer in 0..LIMIT.
+  const lengthOf = v => {
+    const length = v.length;
+    return typeof length === "number" && Number.isInteger(length) && length >= 0 && length <= LIMIT
+      ? length
+      : false;
   };
+  const vector = v => {
+    if (!Array.isArray(v)) return false;
+    const length = lengthOf(v);
+    if (length === false) return false;
+    const copy = new Array(length);
+    for (let i = 0; i < length; i++) copy[i] = element(v[i]);
+    return copy;
+  };
+  const matrix = v => {
+    if (!Array.isArray(v)) return false;
+    const length = lengthOf(v);
+    if (length === false) return false;
+    const copy = new Array(length);
+    for (let i = 0; i < length; i++) copy[i] = vector(v[i]);
+    return copy;
+  };
+  const component = (key, copy) => {
+    const v = value[key];
+    return v === undefined || v === null ? [] : copy(v);
+  };
+  const frame = value.frame;
+  return {
+    cornerPieces: component("cornerPieces", vector),
+    cornerTwists: component("cornerTwists", vector),
+    midgePieces: component("midgePieces", vector),
+    midgeFlips: component("midgeFlips", vector),
+    wings: component("wings", matrix),
+    centers: component("centers", matrix),
+    rotations: component("rotations", vector),
+    frame: frame === undefined ? 0 : Number.isInteger(frame) ? frame : NaN,
+  };
+});
+
+let guard = (function(attempt) {
+  try {
+    return attempt();
+  } catch (_) {
+    return {TAG: "Error", _0: {TAG: "InvalidState", message: "The state could not be read."}};
+  }
 });
 
 function isPermutation(v, k) {
@@ -497,27 +535,25 @@ function describe(exn) {
 
 function encode(id, cube) {
   let e = isInt(id) ? entryById(id) : undefined;
-  if (e === undefined) {
+  if (e !== undefined) {
+    return guard(() => {
+      let cube$1 = snapshot(cube);
+      if (cube$1 === undefined) {
+        return Orbit64Codec.fail("InvalidState", "The state must be an object.");
+      }
+      let why = layoutFault(e.n, e.model, e.pose, cube$1);
+      let fault = why !== undefined ? why : lawFault(e.n, e.model, e.pose, cube$1);
+      if (fault !== undefined) {
+        return Orbit64Codec.fail("InvalidState", fault);
+      }
+      let rank = Stdlib_Array.reduce(parts(e.n, e.model, e.pose), Orbit64Codec.$$BigInt.zero, (acc, p) => Orbit64Codec.$$BigInt.add(Orbit64Codec.$$BigInt.mul(acc, radix(e.n, e.model, e.pose, p)), digitOf(e.n, e.model, e.pose, cube$1, p)));
+      return {
+        TAG: "Ok",
+        _0: toBase64(Orbit64Codec.$$BigInt.add(e.offset, rank), e.length)
+      };
+    });
+  } else {
     return Orbit64Codec.fail("UnknownEntry", "The V2 registry has no such entry.");
-  }
-  try {
-    let cube$1 = withDefaults(cube);
-    if (cube$1 === undefined) {
-      return Orbit64Codec.fail("InvalidState", "The state must be an object.");
-    }
-    let why = layoutFault(e.n, e.model, e.pose, cube$1);
-    let fault = why !== undefined ? why : lawFault(e.n, e.model, e.pose, cube$1);
-    if (fault !== undefined) {
-      return Orbit64Codec.fail("InvalidState", fault);
-    }
-    let rank = Stdlib_Array.reduce(parts(e.n, e.model, e.pose), Orbit64Codec.$$BigInt.zero, (acc, p) => Orbit64Codec.$$BigInt.add(Orbit64Codec.$$BigInt.mul(acc, radix(e.n, e.model, e.pose, p)), digitOf(e.n, e.model, e.pose, cube$1, p)));
-    return {
-      TAG: "Ok",
-      _0: toBase64(Orbit64Codec.$$BigInt.add(e.offset, rank), e.length)
-    };
-  } catch (raw_exn) {
-    let exn = Primitive_exceptions.internalToException(raw_exn);
-    return Orbit64Codec.fail("InvalidState", describe(exn));
   }
 }
 
@@ -686,7 +722,8 @@ export {
   denseInts,
   intArray,
   intMatrix,
-  withDefaults,
+  snapshot,
+  guard,
   isPermutation,
   inRange,
   sum,
