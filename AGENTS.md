@@ -59,10 +59,11 @@ Current gates and their boundaries (see Cubistry #21):
    still-open PuzlWerk #6), and Cubistry #70 (for #67). These are completed
    feature PRs, not general permission to replace CubeLab's working systems,
    migrate the CubeLab application or expand the solver scope.
-3. Cubistry #21 retains CubeAssembler migration as M2 and CubeLab migration as M3.
-   The comparative priority of the 3×3 pilot and those full migrations has not
-   been explicitly settled; do not call the older sequence superseded. Each
-   implementation/migration phase still needs explicit human approval.
+3. [Cubistry #21](https://github.com/wstein/cubistry/issues/21) requires complete
+   2×2 Counter M1 acceptance first, then separately approved CubeAssembler M2,
+   then separately approved CubeLab M3. The already merged bounded 3×3 pilot
+   does not authorize further 3×3 work or new solver development during M1,
+   or change these gates. Every migration phase requires its own human approval.
 
 Keep other migrations separate. Do not remove, relocate or replace working CubeLab
 mechanics, codecs, rendering or solver features without an approved replacement,
