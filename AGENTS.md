@@ -40,8 +40,10 @@ do not introduce a Rust project in PuzlWerk or silently rename repository owners
 CubeAssembler remains the scanning/assembly application; it is not the CubeLab UI.
 Shared scene and rendering, without application knowledge, belong to the planned
 `@puzlwerk/viewer` (owner decision, 2026-11-05), a separate package in the PuzlWerk
-monorepo. Its contract is the proposed CubeScene model
-([Cubistry #111](https://github.com/wstein/cubistry/issues/111), still open). Applications
+monorepo. The CubeScene model in
+[Cubistry #111](https://github.com/wstein/cubistry/issues/111) is a proposal,
+**not an accepted viewer API contract**, under
+[Cubistry #21](https://github.com/wstein/cubistry/issues/21). Applications
 depend on the viewer and the viewer depends on Core. CubeLab keeps its native WebGL
 viewport until the M3 migration is approved separately. This is the target
 architecture, not a migration approval.
