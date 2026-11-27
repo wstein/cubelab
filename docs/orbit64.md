@@ -1,53 +1,38 @@
 # Orbit64 state interchange
 
-CubeLab implements the state-token part of
-[Flix Orbit64](https://github.com/wstein/flix-orbit64/blob/main/FORMAT.md) for
-2×2×2 through 5×5×5. That document is normative; this page is the CubeLab
-integration reference.
+CubeLab reads and writes Orbit64 V2 color state tokens
+([FORMAT-V2.md](https://github.com/wstein/flix-orbit64/blob/main/FORMAT-V2.md))
+for 2×2×2 through 5×5×5. Writing always uses the color framed entry.
+`src/State/Orbit64State.res` is that path. The converter and the cubing.js
+adapter call it.
 
-Orbit64 is URL-safe Base64URL with alphabet
-`ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_`. Its first
-two bits select the token class. CubeLab accepts and emits only class `00`
-state tokens (`A`–`P` as the first character); move, algorithm, and extension
-tokens are deliberately not treated as cube states.
+| Cube | Framed color token length |
+| --- | ---: |
+| 2×2×2 | 5 |
+| 3×3×3 | 12 |
+| 4×4×4 | 27 |
+| 5×5×5 | 42 |
 
-| Cube | State-token width | Coordinates, in packing order |
-| --- | ---: | --- |
-| 2×2×2 | 5 | corners |
-| 3×3×3 | 12 | corners, midges, frame |
-| 4×4×4 | 27 | corners, wings, centres |
-| 5×5×5 | 43 | corners, midges, wings, X-centres, plus-centres, frame |
+A 43-character class-00 token, the retired V1 5×5, is refused with
+"Orbit64 V1 is no longer supported". Sizes 2, 3 and 4 keep the same framed
+strings as that old format, so those published tokens still round-trip. The
+solved 5×5 framed token is 42 characters and is not a run of `A`.
 
-Coordinates are combined by mixed-radix Horner ranking. Corner twists and
-midge flips omit their forced final orientation. For every size, those stored
-orientation digits are little-endian: the first digit is the units digit.
-On odd cubes the midge
-permutation is ranked in the parity class selected by the corners; the final
-factor is one of the 24 right-handed whole-cube frames in Flix's `x`, then
-`z`, then `y` wire order. On even cubes the
-movable centre orbits already determine the pose, so no frame factor is
-present.
+`src/State/Orbit64Codec.res` still holds the coordinate tables, the ranking,
+and the whole-cube frame normalization (`canonicaliseState`). It no longer
+reads or writes a token.
 
 CubeLab uses Flix's published facelet convention: six row-major fields in
-`U R F D L B` order, with standard corner and midge orders, wings ordered by
-their reference facelet, and centres ordered by facelet index. It is tested
-against Flix's published 2×2, 3×3, 4×4, and 5×5 reference vectors.
-
-For odd cubes, CubeLab derives the stored 24-way frame from the six fixed
-centres and reapplies it on decode, so a whole-cube-rotated labelled state
-round-trips exactly. Even-cube centres encode their orientation directly.
+`U R F D L B` order. It is tested against the published 2×2, 3×3 and 4×4
+reference tokens, and against the same 5×5 cubes written as framed V2 tokens.
 
 ## Orbit64 V2 (state tokens and facelets)
 
-`src/State/Orbit64V2.res` implements the draft Orbit64 V2 state token format
-(flix-orbit64 `FORMAT-V2.md`) as a coordinates codec: a 54-entry registry,
-`encode(entryId, cube)` and `decode(token)`. No UI or V1 path uses it. A V1
-state token for n = 2, 3, 4, 6 or 7 decodes as the V2 color framed entry with the
-same corner state; a V1 5×5×5 token is rejected.
-The reverse direction is unsafe: a V2 token has no class bits, so a V1 decoder
-can take it for a move sequence or an algorithm. Wherever a V1 decoder could see
-V2 tokens, they MUST be labeled, for example by a field name or an
-`orbit64v2:` prefix. CubeLab does not yet parse such a label.
+`src/State/Orbit64V2.res` is the coordinates codec: a 54-entry registry,
+`encode(entryId, cube)` and `decode(token)`. The studio token path uses the
+facelet bridge on top of it, color entries only, n = 2 through 5. A framed
+color token for n = 2, 3, 4, 6 or 7 is the same string as the old class-00
+token; a 43-character 5×5 token is rejected.
 
 `src/State/Orbit64V2Facelets.res` is the facelet bridge of both models
 for every n = 2..15, the port of flix-orbit64's `Orbit64.V2.Facelets`:
@@ -66,7 +51,8 @@ unreachable cube (twisted corner, flipped midge, repeated or mirrored piece,
 wrong-handed centers) is an error value. A cube is copied once, each element
 read a single time (and a length only as a plain number), before it is
 validated and drawn. This path is separate from V1's `FaceletCodec`, which
-strips all whitespace and handles n ≤ 5, and V1 behavior is unchanged.
+strips all whitespace and handles n ≤ 5. State tokens go through
+`Orbit64State`, not through the old class-00 ranking.
 
 The **color model** writes the letters `U R F D L B`: a sticker shows the face
 of its home facelet.
@@ -114,10 +100,10 @@ framed state, crosses the published `U R F D L B` facelet boundary, and then
 maps the standard corner and midge positions to cubing.js's `CORNERS` and
 `EDGES` orbits. The six `CENTERS` pieces carry the same whole-cube pose.
 
-The reverse path derives the frame from `KPattern` centres, removes it, maps
+The reverse path derives the frame from `KPattern` centers, removes it, maps
 the canonical cubies through facelets, then reapplies the frame before encoding
 the Orbit64 token. It currently rejects non-3×3×3 patterns: 4×4×4 and 5×5×5
-need a separately published cubing.js wing/centre-orbit mapping rather than a
+need a separately published cubing.js wing/center-orbit mapping rather than a
 guessed slot order.
 
 `test/cubing-adapter.test.mjs` checks named scrambles and every one of the 24
