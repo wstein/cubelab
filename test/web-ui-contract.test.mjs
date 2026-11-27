@@ -517,12 +517,12 @@ test("the Vanilla DOM client wires reachability-aware outputs", () => {
   assert.match(client, /PieceReducer\.reduce\(state\)/);
   assert.match(client, /PieceReducer\.parseState\(size, compact\)/);
   assert.match(client, /PieceReducer\.render\(pieces\._0\)/);
-  assert.match(client, /Orbit64Codec\.encodeState\(state\)/);
-  assert.match(client, /Orbit64Codec\.decodeState\(compact\)/);
+  assert.match(client, /Orbit64State\.encodeState\(state\)/);
+  assert.match(client, /Orbit64State\.decodeState\(compact\)/);
   assert.match(client, /const net = inputValue\.trimEnd\(\)/);
   assert.match(client, /card\.hidden =/);
   assert.match(client, /querySelectorAll<HTMLButtonElement>\(`\[data-copy=/);
-  assert.match(client, /orbitQuickCopy\.hidden = !\(size in Orbit64Codec\.widths\)/);
+  assert.match(client, /orbitQuickCopy\.hidden = !\(size in Orbit64State\.widths\)/);
 });
 
 test("the web UI exposes an explicit lowercase mode without heuristic switching", () => {

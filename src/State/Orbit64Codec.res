@@ -1,9 +1,9 @@
 /**
- * Orbit64 state adapter, compatible with flix-orbit64 FORMAT.md.
+ * Orbit64 coordinate tables and ranking.
  *
- * State tokens use the base64url alphabet and pack the orbit coordinates in
- * Horner mixed-radix order. The facelet tables below are the published
- * `orbit64-<n>x<n>-draft@1` convention (U R F D L B, row-major).
+ * State tokens are read and written by Orbit64State as Orbit64 V2. The
+ * facelet tables below are the published `orbit64-<n>x<n>-draft@1`
+ * convention (U R F D L B, row-major).
  */
 open StateTypes
 
@@ -21,8 +21,6 @@ type coordinate =
 type coordKind = KCorner | KMidge | KWing | KCenter
 
 let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
-
-let widths: Dict.t<int> = %raw(`{2: 5, 3: 12, 4: 27, 5: 43}`)
 
 let faces = "URFDLB"
 
@@ -971,175 +969,6 @@ let renderCoordinates = (size: int, coordinates: array<coordinate>): string => {
       })
     }
     fs->Array.map(x => faces->String.slice(~start=x, ~end=x + 1))->Array.join("")
-  }
-}
-
-let decodeState = (input: string): result<cubeState, orbitError> => {
-  let token = String.trim(input)
-  let tokLen = String.length(token)
-  let foundSize = ref(0)
-  let supportedSizes = [2, 3, 4, 5]
-  for i in 0 to Array.length(supportedSizes) - 1 {
-    let s = get(supportedSizes, i)
-    switch Dict.get(widths, Int.toString(s)) {
-    | Some(w) if w == tokLen => foundSize := s
-    | _ => ()
-    }
-  }
-  if foundSize.contents == 0 {
-    fail(
-      "InvalidTokenLength",
-      "Orbit64 state tokens use 5, 12, 27, or 43 characters for 2×2×2 through 5×5×5.",
-    )
-  } else {
-    let hasInvalidChar = ref(false)
-    for i in 0 to tokLen - 1 {
-      let ch = token->String.slice(~start=i, ~end=i + 1)
-      if String.indexOf(alphabet, ch) < 0 {
-        hasInvalidChar := true
-      }
-    }
-    if hasInvalidChar.contents {
-      fail("InvalidTokenCharacter", "Orbit64 uses only the Base64URL alphabet.")
-    } else {
-      let firstChar = token->String.slice(~start=0, ~end=1)
-      if String.indexOf(alphabet, firstChar) > 15 {
-        fail(
-          "InvalidHeader",
-          "This Orbit64 token is not a state token (its leading class bits are not 00).",
-        )
-      } else {
-        let n = foundSize.contents
-        let value = ref(zero)
-        let b64 = fromInt(64)
-        for i in 0 to tokLen - 1 {
-          let ch = token->String.slice(~start=i, ~end=i + 1)
-          let alphaIdx = String.indexOf(alphabet, ch)
-          value := add(mul(value.contents, b64), fromInt(alphaIdx))
-        }
-        if gte(value.contents, stateCount(n)) {
-          fail(
-            "InvalidState",
-            `The token is out of range for ${Int.toString(n)}×${Int.toString(n)}×${Int.toString(
-                n,
-              )}.`,
-          )
-        } else {
-          let frameCount = fromInt(
-            if carriesFrame(n) {
-              24
-            } else {
-              1
-            },
-          )
-          let frame = toInt(rem(value.contents, frameCount))
-          let rendered = renderCoordinates(n, unrankCoordinates(n, div(value.contents, frameCount)))
-          switch FaceletCodec.parse(~size=n, rendered) {
-          | Error(_) => fail("InvalidState", "Decoded Orbit64 facelets are invalid.")
-          | Ok(parsed) =>
-            if !carriesFrame(n) || frame == 0 {
-              ok(parsed)
-            } else {
-              switch transform(parsed, get(rotationSteps, frame)) {
-              | Some(framed) => ok(framed)
-              | None =>
-                fail("InvalidFrame", "Orbit64's stored whole-cube frame could not be applied.")
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-let encodeState = (state: cubeState): result<string, orbitError> => {
-  if !isCubeState(state) {
-    fail("InvalidState", "Orbit64 state input must contain six facelet arrays.")
-  } else {
-    let n = state.size
-    switch Dict.get(widths, Int.toString(n)) {
-    | None => fail("UnsupportedSize", "Orbit64 supports 2×2×2 through 5×5×5.")
-    | Some(expectedWidth) =>
-      let facelets = state.facelets
-      let hasBadFace = facelets->Array.some(face => Array.length(face) != n * n)
-      if hasBadFace {
-        fail(
-          "InvalidState",
-          `A ${Int.toString(n)}×${Int.toString(n)}×${Int.toString(
-              n,
-            )} Orbit64 state needs ${Int.toString(n * n)} facelets per face.`,
-        )
-      } else {
-        let canonical = ref(state)
-        let frame = ref(0)
-        let frameError = ref(false)
-        if carriesFrame(n) {
-          let f = frameForState(state)
-          if f < 0 {
-            frameError := true
-          } else {
-            frame := f
-            switch transform(state, inverseRotation(get(rotationSteps, f))) {
-            | Some(t) => canonical := t
-            | None => frameError := true
-            }
-          }
-        }
-        if frameError.contents {
-          fail(
-            "InvalidCoordinates",
-            "The odd-cube fixed centres do not form a right-handed whole-cube frame.",
-          )
-        } else {
-          let canonicalFacelets: string = FaceletCodec.render(canonical.contents)
-          switch inputCoordinates(n, canonicalFacelets) {
-          | None =>
-            fail(
-              "InvalidCoordinates",
-              "The facelets do not describe Orbit64's published piece convention.",
-            )
-          | Some(coordinates) =>
-            let parityMismatch = if carriesFrame(n) {
-              let cP = switch get(coordinates, 0) {
-              | Corner({p}) => p
-              | _ => []
-              }
-              let mP = switch get(coordinates, 1) {
-              | Midge({p}) => p
-              | _ => []
-              }
-              parity(cP) != parity(mP)
-            } else {
-              false
-            }
-            if parityMismatch {
-              fail("InvalidCoordinates", "Corner and midge permutation parity must match.")
-            } else {
-              let frameMul = fromInt(
-                if carriesFrame(n) {
-                  24
-                } else {
-                  1
-                },
-              )
-              let value = ref(
-                add(mul(rankCoordinates(n, coordinates), frameMul), fromInt(frame.contents)),
-              )
-              let output = ref("")
-              let b64 = fromInt(64)
-              for _ in 0 to expectedWidth - 1 {
-                let digit = toInt(rem(value.contents, b64))
-                let ch = alphabet->String.slice(~start=digit, ~end=digit + 1)
-                output := ch ++ output.contents
-                value := div(value.contents, b64)
-              }
-              ok(output.contents)
-            }
-          }
-        }
-      }
-    }
   }
 }
 

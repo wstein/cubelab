@@ -3,7 +3,7 @@ import {expect, test} from "vitest";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
 import * as MoveParser from "../src/Move/MoveParser.res.mjs";
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
-import * as Orbit64Codec from "../src/State/Orbit64Codec.res.mjs";
+import * as Orbit64State from "../src/State/Orbit64State.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
 import {findL2CRelation5x5, findL2ERelation5x5, findOneByThreeBar5x5, inspectReduction5x5, planOLLParityRepair5x5, planPLLParityRepair5x5, planNextCentre5x5, planNextWingPair5x5, reduce5x5, solveXCentreCycle5x5} from "../src/Solver/Reduction5x5.res.mjs";
 import {scaledTimeout} from "./support/timeout-factor.mjs";
@@ -63,7 +63,7 @@ test("finds a centre improvement for the reported deep mixed-centre setup", () =
 });
 
 test("finds a centre guide after the reported Orbit64 state and move history", () => {
-  const initial = Orbit64Codec.decodeState("AQTY8UOpmHNJlT9FBk_ZM-dNfFIU3Q19NyWh05yV51Y");
+  const initial = Orbit64State.decodeState("SzfS9yWupF4981hAvw1Q5gUaIPDqkcRN6Wh05yV51Y");
   expect(initial.TAG).toBe("Ok");
   if (initial.TAG !== "Ok") return;
   const history = MoveParser.parseWithOptions(5, "Wide", "Modern", "B' 2D' 2R 2R D2 2R' 2U' L 2U 2U2 L' 2U2 2R 2B' 2R' 2R2 D' 2R2");
@@ -82,7 +82,7 @@ test("finds a centre guide after the reported Orbit64 state and move history", (
 });
 
 test("offers a labelled bar setup when exact centre placement cannot improve", () => {
-  const initial = Orbit64Codec.decodeState("AQTY8UOpmHNJlT9FBk_ZM-dNfFIU3Q19NyWh05yV51Y");
+  const initial = Orbit64State.decodeState("SzfS9yWupF4981hAvw1Q5gUaIPDqkcRN6Wh05yV51Y");
   expect(initial.TAG).toBe("Ok");
   if (initial.TAG !== "Ok") return;
   const history = MoveParser.parseWithOptions(5, "Wide", "Modern", "B' 2D' 2R 2R D2 2R' 2U' L 2U 2U2 L' 2U2 2R 2B' 2R' 2R2 D' 2R2 2L' F' 2L 2R2 B 2R2 2R' B' 2R");
@@ -173,7 +173,7 @@ test("solves the reported last-two-edges relation with a restored setup", () => 
 });
 
 test("finds an 8-move X-centre commutator for the reported endgame state", () => {
-  const state = Orbit64Codec.decodeState("Aeqx8Vluxg8M8JeJaRG-X2TAv76y6Xw7skl252dK-s4");
+  const state = Orbit64State.decodeState("hK4S_Jb6C08UyWlZb4abxWHq_BhtrXPssl252dK-s4");
   expect(state.TAG).toBe("Ok");
   if (state.TAG !== "Ok") return;
   const cycle = solveXCentreCycle5x5(state._0);

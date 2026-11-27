@@ -5,6 +5,7 @@ import * as FaceletCodec from "./FaceletCodec.res.mjs";
 import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 import * as MoveParser from "../Move/MoveParser.res.mjs";
 import * as Orbit64Codec from "./Orbit64Codec.res.mjs";
+import * as Orbit64State from "./Orbit64State.res.mjs";
 import * as PieceReducer from "./PieceReducer.res.mjs";
 import * as StateTypes from "./StateTypes.res.mjs";
 
@@ -130,7 +131,7 @@ export const fromKPattern = async (pattern: KPattern): Promise<Result<CubeState>
 
 /** Decode an Orbit64 token directly into cubing.js's 3x3x3 KPattern. */
 export const tokenToKPattern = async (token: string): Promise<Result<KPattern>> => {
-  const state = Orbit64Codec.decodeState(token);
+  const state = Orbit64State.decodeState(token);
   return state.TAG === "Ok" ? toKPattern(state._0) : fail(state._0.message);
 };
 
@@ -138,6 +139,6 @@ export const tokenToKPattern = async (token: string): Promise<Result<KPattern>> 
 export const kPatternToToken = async (pattern: KPattern): Promise<Result<string>> => {
   const state = await fromKPattern(pattern);
   if (state.TAG === "Error") return state;
-  const token = Orbit64Codec.encodeState(state._0);
+  const token = Orbit64State.encodeState(state._0);
   return token.TAG === "Ok" ? ok(token._0) : fail(token._0.message);
 };

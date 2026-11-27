@@ -4,6 +4,7 @@ import {describe, test} from "vitest";
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as Orbit64Codec from "../src/State/Orbit64Codec.res.mjs";
 import * as Orbit64V2 from "../src/State/Orbit64V2.res.mjs";
+import * as Facelets from "../src/State/Orbit64V2Facelets.res.mjs";
 import {publishedStateVectors} from "./fixtures/orbit64-rosetta-vectors.mjs";
 import {referenceVectors, v1StateVectors} from "./fixtures/orbit64-v2-vectors.mjs";
 
@@ -141,9 +142,10 @@ describe("Orbit64 V2 reads V1 state tokens", () => {
   });
 
   test("agrees with the V1 codec on corners for the sizes it decodes", () => {
-    for (const [, token] of publishedStateVectors.filter(([size]) => size < 5)) {
-      const v1 = ok(Orbit64Codec.decodeState(token));
-      const corner = Orbit64Codec.inputCoordinates(v1.size, FaceletCodec.render(v1))[0];
+    for (const [size, token] of publishedStateVectors.filter(([size]) => size < 5)) {
+      const [, text] = ok(Facelets.decode(token));
+      const state = ok(FaceletCodec.parse(size, text));
+      const corner = Orbit64Codec.inputCoordinates(state.size, FaceletCodec.render(state))[0];
       const decoded = ok(Orbit64V2.decode(token));
       assert.deepEqual(decoded.cube.cornerPieces, corner.p);
       assert.deepEqual(decoded.cube.cornerTwists, corner.o);

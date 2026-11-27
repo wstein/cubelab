@@ -7,10 +7,6 @@ import * as MoveExecutor from "../Move/MoveExecutor.res.mjs";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as Primitive_int from "@rescript/runtime/lib/es6/Primitive_int.js";
 
-let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-
-let widths = {2: 5, 3: 12, 4: 27, 5: 43};
-
 let faces = "URFDLB";
 
 function ok(value) {
@@ -1572,220 +1568,6 @@ function renderCoordinates(size, coordinates) {
   return fs.map(x => faces.slice(x, x + 1 | 0)).join("");
 }
 
-function decodeState(input) {
-  let token = input.trim();
-  let tokLen = token.length;
-  let foundSize = 0;
-  let supportedSizes = [
-    2,
-    3,
-    4,
-    5
-  ];
-  for (let i = 0, i_finish = supportedSizes.length; i < i_finish; ++i) {
-    let s = supportedSizes[i];
-    let w = widths[s.toString()];
-    if (w !== undefined && w === tokLen) {
-      foundSize = s;
-    }
-  }
-  if (foundSize === 0) {
-    return {
-      TAG: "Error",
-      _0: {
-        TAG: "InvalidTokenLength",
-        message: "Orbit64 state tokens use 5, 12, 27, or 43 characters for 2×2×2 through 5×5×5."
-      }
-    };
-  }
-  let hasInvalidChar = false;
-  for (let i$1 = 0; i$1 < tokLen; ++i$1) {
-    let ch = token.slice(i$1, i$1 + 1 | 0);
-    if (alphabet.indexOf(ch) < 0) {
-      hasInvalidChar = true;
-    }
-  }
-  if (hasInvalidChar) {
-    return {
-      TAG: "Error",
-      _0: {
-        TAG: "InvalidTokenCharacter",
-        message: "Orbit64 uses only the Base64URL alphabet."
-      }
-    };
-  }
-  let firstChar = token.slice(0, 1);
-  if (alphabet.indexOf(firstChar) > 15) {
-    return {
-      TAG: "Error",
-      _0: {
-        TAG: "InvalidHeader",
-        message: "This Orbit64 token is not a state token (its leading class bits are not 00)."
-      }
-    };
-  }
-  let n = foundSize;
-  let value = zero;
-  let b64 = BigInt(64);
-  for (let i$2 = 0; i$2 < tokLen; ++i$2) {
-    let ch$1 = token.slice(i$2, i$2 + 1 | 0);
-    let alphaIdx = alphabet.indexOf(ch$1);
-    value = add(mul(value, b64), BigInt(alphaIdx));
-  }
-  if (gte(value, stateCount(n))) {
-    let message = `The token is out of range for ` + n.toString() + `×` + n.toString() + `×` + n.toString() + `.`;
-    return {
-      TAG: "Error",
-      _0: {
-        TAG: "InvalidState",
-        message: message
-      }
-    };
-  }
-  let frameCount = BigInt(carriesFrame(n) ? 24 : 1);
-  let frame = Number(rem(value, frameCount));
-  let rendered = renderCoordinates(n, unrankCoordinates(n, div(value, frameCount)));
-  let parsed = FaceletCodec.parse(n, rendered);
-  if (parsed.TAG !== "Ok") {
-    return {
-      TAG: "Error",
-      _0: {
-        TAG: "InvalidState",
-        message: "Decoded Orbit64 facelets are invalid."
-      }
-    };
-  }
-  let parsed$1 = parsed._0;
-  if (!carriesFrame(n) || frame === 0) {
-    return {
-      TAG: "Ok",
-      _0: parsed$1
-    };
-  }
-  let framed = transform(parsed$1, steps[frame]);
-  if (framed !== undefined) {
-    return {
-      TAG: "Ok",
-      _0: framed
-    };
-  } else {
-    return {
-      TAG: "Error",
-      _0: {
-        TAG: "InvalidFrame",
-        message: "Orbit64's stored whole-cube frame could not be applied."
-      }
-    };
-  }
-}
-
-function encodeState(state) {
-  if (!isCubeState(state)) {
-    return {
-      TAG: "Error",
-      _0: {
-        TAG: "InvalidState",
-        message: "Orbit64 state input must contain six facelet arrays."
-      }
-    };
-  }
-  let n = state.size;
-  let expectedWidth = widths[n.toString()];
-  if (expectedWidth === undefined) {
-    return {
-      TAG: "Error",
-      _0: {
-        TAG: "UnsupportedSize",
-        message: "Orbit64 supports 2×2×2 through 5×5×5."
-      }
-    };
-  }
-  let facelets = state.facelets;
-  let hasBadFace = facelets.some(face => face.length !== (n * n | 0));
-  if (hasBadFace) {
-    let message = `A ` + n.toString() + `×` + n.toString() + `×` + n.toString() + ` Orbit64 state needs ` + (n * n | 0).toString() + ` facelets per face.`;
-    return {
-      TAG: "Error",
-      _0: {
-        TAG: "InvalidState",
-        message: message
-      }
-    };
-  }
-  let canonical = state;
-  let frame = 0;
-  let frameError = false;
-  if (carriesFrame(n)) {
-    let f = frameForState(state);
-    if (f < 0) {
-      frameError = true;
-    } else {
-      frame = f;
-      let t = transform(state, inverseRotation(steps[f]));
-      if (t !== undefined) {
-        canonical = t;
-      } else {
-        frameError = true;
-      }
-    }
-  }
-  if (frameError) {
-    return {
-      TAG: "Error",
-      _0: {
-        TAG: "InvalidCoordinates",
-        message: "The odd-cube fixed centres do not form a right-handed whole-cube frame."
-      }
-    };
-  }
-  let canonicalFacelets = FaceletCodec.render(canonical);
-  let coordinates = inputCoordinates(n, canonicalFacelets);
-  if (coordinates === undefined) {
-    return {
-      TAG: "Error",
-      _0: {
-        TAG: "InvalidCoordinates",
-        message: "The facelets do not describe Orbit64's published piece convention."
-      }
-    };
-  }
-  let parityMismatch;
-  if (carriesFrame(n)) {
-    let match = coordinates[0];
-    let cP;
-    cP = match.TAG === "Corner" ? match.p : [];
-    let match$1 = coordinates[1];
-    let mP;
-    mP = match$1.TAG === "Midge" ? match$1.p : [];
-    parityMismatch = parity(cP) !== parity(mP);
-  } else {
-    parityMismatch = false;
-  }
-  if (parityMismatch) {
-    return {
-      TAG: "Error",
-      _0: {
-        TAG: "InvalidCoordinates",
-        message: "Corner and midge permutation parity must match."
-      }
-    };
-  }
-  let frameMul = BigInt(carriesFrame(n) ? 24 : 1);
-  let value = add(mul(rankCoordinates(n, coordinates), frameMul), BigInt(frame));
-  let output = "";
-  let b64 = BigInt(64);
-  for (let _for = 0; _for < expectedWidth; ++_for) {
-    let digit = Number(rem(value, b64));
-    let ch = alphabet.slice(digit, digit + 1 | 0);
-    output = ch + output;
-    value = div(value, b64);
-  }
-  return {
-    TAG: "Ok",
-    _0: output
-  };
-}
-
 function canonicaliseState(state) {
   if (!isCubeState(state)) {
     return {
@@ -1846,11 +1628,12 @@ function canonicaliseState(state) {
   }
 }
 
+let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
 let rotationSteps = steps;
 
 export {
   alphabet,
-  widths,
   faces,
   ok,
   fail,
@@ -1908,8 +1691,6 @@ export {
   readCenters,
   inputCoordinates,
   renderCoordinates,
-  decodeState,
-  encodeState,
   canonicaliseState,
 }
 /* zero Not a pure module */

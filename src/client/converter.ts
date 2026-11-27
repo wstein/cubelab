@@ -2,6 +2,7 @@ import * as ColorCodec from "../State/ColorCodec.res.mjs";
 import * as FaceletCodec from "../State/FaceletCodec.res.mjs";
 import * as NetCodec from "../State/NetCodec.res.mjs";
 import * as Orbit64Codec from "../State/Orbit64Codec.res.mjs";
+import * as Orbit64State from "../State/Orbit64State.res.mjs";
 import * as PieceReducer from "../State/PieceReducer.res.mjs";
 import * as StateTypes from "../State/StateTypes.res.mjs";
 import {validate4x4} from "../State/StateValidation4x4.res.mjs";
@@ -2439,11 +2440,13 @@ if (root) {
         : " · marked-centre orientation omitted";
       return {TAG: "Ok", _0: {state: sse._0.state, label: `SSE cubie state${suffix}`}};
     }
-    if (Orbit64Codec.widths[size] === compact.length && /^[A-Za-z0-9_-]+$/.test(compact)) {
-      const orbit = Orbit64Codec.decodeState(compact) as Result<CubeState, unknown>;
+    const tokenText = /^[A-Za-z0-9_-]+$/.test(compact);
+    const retiredV1 = compact.length === 43 && tokenText;
+    if (tokenText && (Orbit64State.widths[size] === compact.length || retiredV1)) {
+      const orbit = Orbit64State.decodeState(compact) as Result<CubeState, unknown>;
       return orbit.TAG === "Ok"
         ? {TAG: "Ok", _0: {state: orbit._0, label: "Orbit64"}}
-        : {TAG: "Error", _0: Orbit64Codec.describeError(orbit._0)};
+        : {TAG: "Error", _0: Orbit64State.describeError(orbit._0)};
     }
     if (inputValue.includes("\n")) {
       const net = inputValue.trimEnd();
@@ -2610,7 +2613,7 @@ if (root) {
       pieceTitle.textContent = size === 2 ? "2×2 CP / CO" : "3×3 CP / CO / EP / EO";
     }
     const orbitQuickCopy = root.querySelector<HTMLButtonElement>("[data-copy-orbit64]");
-    if (orbitQuickCopy) orbitQuickCopy.hidden = !(size in Orbit64Codec.widths);
+    if (orbitQuickCopy) orbitQuickCopy.hidden = !(size in Orbit64State.widths);
     manualStateOpen.disabled = size < 2 || size > 5;
     manualStateOpen.textContent = `Enter ${size}×${size} state`;
     manualStateOpen.title = size === 2 || size === 3
@@ -2728,10 +2731,10 @@ if (root) {
           renderedPieces.TAG === "Ok",
         );
         if (size === 2 || size === 3) {
-          const orbit = Orbit64Codec.encodeState(state) as Result<string, unknown>;
+          const orbit = Orbit64State.encodeState(state) as Result<string, unknown>;
           setOutput(
             "orbit64",
-            orbit.TAG === "Ok" ? orbit._0 : `Unavailable — ${Orbit64Codec.describeError(orbit._0)}`,
+            orbit.TAG === "Ok" ? orbit._0 : `Unavailable — ${Orbit64State.describeError(orbit._0)}`,
             orbit.TAG === "Ok",
           );
         }
@@ -2764,10 +2767,10 @@ if (root) {
           jaapState.TAG === "Ok",
         );
       }
-      const orbit = Orbit64Codec.encodeState(state);
+      const orbit = Orbit64State.encodeState(state);
       setOutput(
         "orbit64",
-        orbit.TAG === "Ok" ? orbit._0 : `Unavailable — ${Orbit64Codec.describeError(orbit._0)}`,
+        orbit.TAG === "Ok" ? orbit._0 : `Unavailable — ${Orbit64State.describeError(orbit._0)}`,
         orbit.TAG === "Ok",
       );
     }
