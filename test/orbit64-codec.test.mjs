@@ -76,6 +76,11 @@ test("rejects a retired V1 token and unknown widths", () => {
   assert.equal(Orbit64State.decodeState("AAAAAA").TAG, "Error");
   assert.match(Orbit64State.decodeState("AAAAAAAAAAA=")._0.message, /Base64URL/);
   assert.equal(Orbit64State.decodeState("A".repeat(43))._0.message, "Orbit64 V1 is no longer supported");
+  assert.equal(Orbit64State.decodeState("P" + "A".repeat(42))._0.message, "Orbit64 V1 is no longer supported");
+  const padded = "R" + "0".repeat(41) + "2";
+  assert.equal(padded.length, 43);
+  assert.notEqual(Orbit64State.decodeState(padded)._0.message, "Orbit64 V1 is no longer supported");
+  assert.notEqual(Orbit64State.decodeState("Q" + "A".repeat(42))._0.message, "Orbit64 V1 is no longer supported");
 });
 
 test("returns defined errors for malformed state callers", () => {

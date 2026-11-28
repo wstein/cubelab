@@ -14,9 +14,11 @@ adapter call it.
 | 5×5×5 | 42 |
 
 A 43-character class-00 token, the retired V1 5×5, is refused with
-"Orbit64 V1 is no longer supported". Sizes 2, 3 and 4 keep the same framed
-strings as that old format, so those published tokens still round-trip. The
-solved 5×5 framed token is 42 characters and is not a run of `A`.
+"Orbit64 V1 is no longer supported". Class 00 starts with `A` through `P`.
+`R` followed by 41 zeros and `2` is the move `R2`, not that token. Sizes 2,
+3 and 4 keep the same framed strings as that old format, so those published
+tokens still round-trip. The solved 5×5 framed token is 42 characters and is
+not a run of `A`.
 
 `src/State/Orbit64Codec.res` still holds the coordinate tables, the ranking,
 and the whole-cube frame normalization (`canonicaliseState`). It no longer

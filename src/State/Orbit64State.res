@@ -4,6 +4,8 @@
  * A token is an Orbit64 V2 color entry for a cube this studio can show
  * (2×2 through 5×5). Writing always uses the color framed entry. A
  * 43-character class-00 token is refused: that width is the retired V1 5×5.
+ * Class 00 is a first symbol from A through P. A move of that length, such
+ * as R with a zero-padded amount, is not that token.
  */
 open StateTypes
 
@@ -47,9 +49,14 @@ let encodeState = (state: cubeState): result<string, Orbit64Codec.orbitError> =>
     }
   }
 
+let class00 = token => {
+  let first = token->String.slice(~start=0, ~end=1)
+  first >= "A" && first <= "P"
+}
+
 let decodeState = (input: string): result<cubeState, Orbit64Codec.orbitError> => {
   let token = String.trim(input)
-  if String.length(token) == 43 && inAlphabet(token) {
+  if String.length(token) == 43 && class00(token) && inAlphabet(token) {
     Orbit64Codec.fail("RetiredV1", "Orbit64 V1 is no longer supported")
   } else {
     switch Orbit64V2Facelets.decode(token) {

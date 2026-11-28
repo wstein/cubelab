@@ -33,6 +33,16 @@ const rejects = (size, input, message) => {
   return result._0;
 };
 
+test("a zero-padded turn amount is the turn, not a token", () => {
+  const padded = "R" + "0".repeat(41) + "2";
+  assert.equal(padded.length, 43);
+  const applied = MoveExecutor.parseAndApply(3, padded);
+  const plain = MoveExecutor.parseAndApply(3, "R2");
+  assert.equal(applied.TAG, "Ok", applied._0?.message);
+  assert.equal(plain.TAG, "Ok");
+  assert.equal(FaceletCodec.render(applied._0), FaceletCodec.render(plain._0));
+});
+
 test("normalization preserves source length while replacing common Unicode aliases", () => {
   const input = "Ｒ".replace("Ｒ", "R") + "’\u00a0（U‑D）";
   const normalized = MoveNormalizer.normalize(input);

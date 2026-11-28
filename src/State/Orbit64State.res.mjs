@@ -49,9 +49,18 @@ function encodeState(state) {
   }
 }
 
+function class00(token) {
+  let first = token.slice(0, 1);
+  if (first >= "A") {
+    return first <= "P";
+  } else {
+    return false;
+  }
+}
+
 function decodeState(input) {
   let token = input.trim();
-  if (token.length === 43 && inAlphabet(token)) {
+  if (token.length === 43 && class00(token) && inAlphabet(token)) {
     return Orbit64Codec.fail("RetiredV1", "Orbit64 V1 is no longer supported");
   }
   let error = Orbit64V2Facelets.decode(token);
@@ -85,6 +94,7 @@ export {
   framedColor,
   inAlphabet,
   encodeState,
+  class00,
   decodeState,
 }
 /* Orbit64V2 Not a pure module */

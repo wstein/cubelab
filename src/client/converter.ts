@@ -2441,7 +2441,7 @@ if (root) {
       return {TAG: "Ok", _0: {state: sse._0.state, label: `SSE cubie state${suffix}`}};
     }
     const tokenText = /^[A-Za-z0-9_-]+$/.test(compact);
-    const retiredV1 = compact.length === 43 && tokenText;
+    const retiredV1 = /^[A-P][A-Za-z0-9_-]{42}$/.test(compact);
     if (tokenText && (Orbit64State.widths[size] === compact.length || retiredV1)) {
       const orbit = Orbit64State.decodeState(compact) as Result<CubeState, unknown>;
       return orbit.TAG === "Ok"
