@@ -111,15 +111,15 @@ describe("Orbit64 V2 independent facelet rows", () => {
   });
 });
 
-describe("Orbit64 V2 facelets agree with the V1 codec", () => {
-  test("V1 tokens of the 2x2x2 to 4x4x4 write the same stickers as V2", () => {
+describe("Orbit64 V2 facelets of the shared V1 strings", () => {
+  test("V1 tokens of the 2x2x2 to 4x4x4 are facelets of that size", () => {
     const rows = v1StateVectors.filter(([n]) => n <= 4);
     assert.ok(rows.length > 0);
     for (const [n, id, token] of rows) {
-      const v1 = FaceletCodec.render(ok(Orbit64Codec.decodeState(token)));
       const [entry, text] = ok(Facelets.decode(token));
       assert.equal(entry.id, id);
-      assert.equal(text.replaceAll(" ", ""), v1, `${n}x${n}x${n} ${token}`);
+      const state = ok(FaceletCodec.parse(n, text));
+      assert.equal(FaceletCodec.render(state), text.replaceAll(" ", ""), `${n}x${n}x${n} ${token}`);
     }
   });
 

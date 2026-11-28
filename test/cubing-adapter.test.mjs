@@ -6,10 +6,10 @@ import {puzzles} from "cubing/puzzles";
 import * as CubingAdapter from "../src/State/CubingAdapter.ts";
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
-import * as Orbit64Codec from "../src/State/Orbit64Codec.res.mjs";
+import * as Orbit64State from "../src/State/Orbit64State.res.mjs";
 
 const encoded = state => {
-  const token = Orbit64Codec.encodeState(state);
+  const token = Orbit64State.encodeState(state);
   assert.equal(token.TAG, "Ok");
   return token._0;
 };

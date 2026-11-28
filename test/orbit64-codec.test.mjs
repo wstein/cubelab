@@ -4,38 +4,53 @@ import {test} from "vitest";
 import * as FaceletCodec from "../src/State/FaceletCodec.res.mjs";
 import * as MoveExecutor from "../src/Move/MoveExecutor.res.mjs";
 import * as Orbit64Codec from "../src/State/Orbit64Codec.res.mjs";
+import * as Orbit64State from "../src/State/Orbit64State.res.mjs";
 import * as StateTypes from "../src/State/StateTypes.res.mjs";
 import {normative3x3Tokens, publishedStateVectors, solved3x3FrameTokens} from "./fixtures/orbit64-rosetta-vectors.mjs";
 
-test("decodes Flix Orbit64's published vectors for every supported size", () => {
+test("decodes the published vectors that are also V2 framed tokens", () => {
   for (const [size, token, spaced] of publishedStateVectors) {
-    const decoded = Orbit64Codec.decodeState(token);
+    if (token.length === 43) {
+      const retired = Orbit64State.decodeState(token);
+      assert.equal(retired.TAG, "Error");
+      assert.equal(retired._0.message, "Orbit64 V1 is no longer supported");
+      const parsed = FaceletCodec.parse(size, spaced);
+      assert.equal(parsed.TAG, "Ok");
+      const encoded = Orbit64State.encodeState(parsed._0);
+      assert.equal(encoded.TAG, "Ok");
+      assert.equal(encoded._0.length, 42);
+      assert.notEqual(encoded._0, token);
+      continue;
+    }
+    const decoded = Orbit64State.decodeState(token);
     assert.equal(decoded.TAG, "Ok", decoded.TAG === "Error" ? decoded._0.message : "");
     assert.equal(decoded._0.size, size);
     assert.equal(FaceletCodec.render(decoded._0), spaced.replaceAll(" ", ""));
-    assert.deepEqual(Orbit64Codec.encodeState(decoded._0), {TAG: "Ok", _0: token});
+    assert.deepEqual(Orbit64State.encodeState(decoded._0), {TAG: "Ok", _0: token});
   }
 });
 
 test("solved states use the published size-specific fixed widths", () => {
-  for (const [size, width] of Object.entries(Orbit64Codec.widths)) {
+  for (const [size, width] of Object.entries(Orbit64State.widths)) {
     const solved = StateTypes.solved(Number(size));
     assert.equal(solved.TAG, "Ok");
-    const encoded = Orbit64Codec.encodeState(solved._0);
+    const encoded = Orbit64State.encodeState(solved._0);
     assert.equal(encoded.TAG, "Ok");
-    assert.equal(encoded._0, "A".repeat(width));
+    assert.equal(encoded._0.length, width);
+    if (Number(size) === 5) assert.notEqual(encoded._0, "A".repeat(width));
+    else assert.equal(encoded._0, "A".repeat(width));
   }
 });
 
 test("keeps Flix's normative 3x3 compatibility vectors", () => {
   for (const token of normative3x3Tokens) {
-    const decoded = Orbit64Codec.decodeState(token);
+    const decoded = Orbit64State.decodeState(token);
     assert.equal(decoded.TAG, "Ok");
-    assert.deepEqual(Orbit64Codec.encodeState(decoded._0), {TAG: "Ok", _0: token});
+    assert.deepEqual(Orbit64State.encodeState(decoded._0), {TAG: "Ok", _0: token});
   }
   const x = MoveExecutor.parseAndApply(3, "x");
   assert.equal(x.TAG, "Ok");
-  assert.deepEqual(Orbit64Codec.encodeState(x._0), {TAG: "Ok", _0: "AAAAAAAAAAAE"});
+  assert.deepEqual(Orbit64State.encodeState(x._0), {TAG: "Ok", _0: "AAAAAAAAAAAE"});
 });
 
 test("encodes every published odd-cube frame rank independently", () => {
@@ -51,21 +66,27 @@ test("encodes every published odd-cube frame rank independently", () => {
       ? solved
       : MoveExecutor.parseAndApply(3, rotations[rank]);
     assert.equal(state.TAG, "Ok");
-    assert.deepEqual(Orbit64Codec.encodeState(state._0), {TAG: "Ok", _0: token});
+    assert.deepEqual(Orbit64State.encodeState(state._0), {TAG: "Ok", _0: token});
   }
 });
 
-test("rejects non-state classes and unknown widths", () => {
-  assert.equal(Orbit64Codec.decodeState("Q".repeat(12))._0.TAG, "InvalidHeader");
-  assert.equal(Orbit64Codec.decodeState("AAAAAA")._0.TAG, "InvalidTokenLength");
-  assert.equal(Orbit64Codec.decodeState("AAAAAAAAAAA=")._0.TAG, "InvalidTokenCharacter");
-
+test("rejects a retired V1 token and unknown widths", () => {
+  assert.equal(Orbit64State.decodeState("Q".repeat(12)).TAG, "Error");
+  assert.match(Orbit64State.decodeState("Q".repeat(12))._0.message, /known V2/);
+  assert.equal(Orbit64State.decodeState("AAAAAA").TAG, "Error");
+  assert.match(Orbit64State.decodeState("AAAAAAAAAAA=")._0.message, /Base64URL/);
+  assert.equal(Orbit64State.decodeState("A".repeat(43))._0.message, "Orbit64 V1 is no longer supported");
+  assert.equal(Orbit64State.decodeState("P" + "A".repeat(42))._0.message, "Orbit64 V1 is no longer supported");
+  const padded = "R" + "0".repeat(41) + "2";
+  assert.equal(padded.length, 43);
+  assert.notEqual(Orbit64State.decodeState(padded)._0.message, "Orbit64 V1 is no longer supported");
+  assert.notEqual(Orbit64State.decodeState("Q" + "A".repeat(42))._0.message, "Orbit64 V1 is no longer supported");
 });
 
 test("returns defined errors for malformed state callers", () => {
-  assert.equal(Orbit64Codec.encodeState(null)._0.TAG, "InvalidState");
-  assert.equal(Orbit64Codec.encodeState({size: 3, facelets: []})._0.TAG, "InvalidState");
-  assert.equal(Orbit64Codec.encodeState({
+  assert.equal(Orbit64State.encodeState(null)._0.TAG, "InvalidState");
+  assert.equal(Orbit64State.encodeState({size: 3, facelets: []})._0.TAG, "InvalidState");
+  assert.equal(Orbit64State.encodeState({
     size: 3,
     facelets: Array.from({length: 6}, () => Array(8).fill("U")),
   })._0.TAG, "InvalidState");
@@ -81,9 +102,9 @@ test("preserves all odd-cube whole-cube centre frames", () => {
     for (const rotation of rotations) {
       const state = MoveExecutor.parseAndApply(size, `${rotation} R U`);
       assert.equal(state.TAG, "Ok");
-      const token = Orbit64Codec.encodeState(state._0);
+      const token = Orbit64State.encodeState(state._0);
       assert.equal(token.TAG, "Ok");
-      const decoded = Orbit64Codec.decodeState(token._0);
+      const decoded = Orbit64State.decodeState(token._0);
       assert.equal(decoded.TAG, "Ok");
       assert.equal(FaceletCodec.render(decoded._0), FaceletCodec.render(state._0));
     }
@@ -97,5 +118,5 @@ test("canonicalises a rotated 5x5 fixed-centre frame without changing its cubies
   assert.equal(canonical.TAG, "Ok");
   const facelets = FaceletCodec.render(canonical._0);
   assert.equal([12, 37, 62, 87, 112, 137].map(index => facelets[index]).join(""), "URFDLB");
-  assert.equal(Orbit64Codec.decodeState(Orbit64Codec.encodeState(canonical._0)._0).TAG, "Ok");
+  assert.equal(Orbit64State.decodeState(Orbit64State.encodeState(canonical._0)._0).TAG, "Ok");
 });
